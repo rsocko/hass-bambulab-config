@@ -122,6 +122,323 @@
                                  "recommended_role":  "non_import_media_or_logs"
                              }
                          ],
+    "secondary_artifact_analysis":  {
+                                        "generated_at":  "2026-04-13T18:01:11.3581377Z",
+                                        "archive_upload_contract":  {
+                                                                        "manual_archive_upload_accepts":  ".3mf only",
+                                                                        "raw_gcode_supported_as_archive_input":  false,
+                                                                        "notes":  [
+                                                                                      "Current Bambuddy archive upload route rejects non-.3mf inputs.",
+                                                                                      "Raw cache .gcode files may still carry useful header metadata for manual recovery analysis.",
+                                                                                      "The current manifest state machine does not represent raw .gcode or .bbl files as import candidates."
+                                                                                  ]
+                                                                    },
+                                        "cache_secondary_artifacts":  {
+                                                                        "total_non_3mf":  400,
+                                                                        "gcode_count":  380,
+                                                                        "bbl_count":  20,
+                                                                        "gcode_exact_3mf_match_count":  221,
+                                                                        "gcode_near_time_only_count":  61,
+                                                                        "gcode_ambiguous_count":  98,
+                                                                        "interpretation":  "Most raw cache gcode files look like secondary plate artifacts for already represented 3mf jobs. The ambiguous remainder is concentrated in a few generic multi-plate groups plus a long tail of one-off names.",
+                                                                        "ambiguous_top_groups":  [
+                                                                                                     {
+                                                                                                         "prefix":  "0",
+                                                                                                         "count":  16,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "0_plate_11.gcode",
+                                                                                                                               "0_plate_12.gcode",
+                                                                                                                               "0_plate_13.gcode",
+                                                                                                                               "0_plate_14.gcode",
+                                                                                                                               "0_plate_15.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-08-30T02:10:02.0000000+00:00",
+                                                                                                         "last_write_max":  "2026-03-11T17:32:32.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.05.00.66",
+                                                                                                                               "print_time":  "35m 28s",
+                                                                                                                               "total_layers":  "65",
+                                                                                                                               "filament_weight_g":  "14.83",
+                                                                                                                               "max_z_height":  "13.00",
+                                                                                                                               "filament_slots":  "2"
+                                                                                                                           }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "prefix":  "Split over more plates part count_plate below 64",
+                                                                                                         "count":  8,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "Split over more plates part count_plate below 64_plate_1.gcode",
+                                                                                                                               "Split over more plates part count_plate below 64_plate_2.gcode",
+                                                                                                                               "Split over more plates part count_plate below 64_plate_3.gcode",
+                                                                                                                               "Split over more plates part count_plate below 64_plate_4.gcode",
+                                                                                                                               "Split over more plates part count_plate below 64_plate_5.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-12-22T01:06:18.0000000+00:00",
+                                                                                                         "last_write_max":  "2025-12-22T20:47:22.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.04.00.70",
+                                                                                                                               "print_time":  "25m 17s",
+                                                                                                                               "total_layers":  "78",
+                                                                                                                               "filament_weight_g":  "6.87",
+                                                                                                                               "max_z_height":  "9.48",
+                                                                                                                               "filament_slots":  "3"
+                                                                                                                           }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "prefix":  "Big printer - 0",
+                                                                                                         "count":  6,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "Big printer - 0_plate_1.gcode",
+                                                                                                                               "Big printer - 0_plate_2.gcode",
+                                                                                                                               "Big printer - 0_plate_3.gcode",
+                                                                                                                               "Big printer - 0_plate_6.gcode",
+                                                                                                                               "Big printer - 0_plate_7.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-12-29T02:07:04.0000000+00:00",
+                                                                                                         "last_write_max":  "2025-12-30T03:03:36.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.04.00.70",
+                                                                                                                               "print_time":  "1h 26m 48s",
+                                                                                                                               "total_layers":  "125",
+                                                                                                                               "filament_weight_g":  "51.98",
+                                                                                                                               "max_z_height":  "20.04",
+                                                                                                                               "filament_slots":  "1"
+                                                                                                                           }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "prefix":  "Oversized Gang Plates_ 0",
+                                                                                                         "count":  3,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "Oversized Gang Plates_ 0_plate_17.gcode",
+                                                                                                                               "Oversized Gang Plates_ 0_plate_18.gcode",
+                                                                                                                               "Oversized Gang Plates_ 0_plate_20.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-08-01T12:18:34.0000000+00:00",
+                                                                                                         "last_write_max":  "2025-08-01T14:57:30.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.01.01.52",
+                                                                                                                               "print_time":  "1h 1m 32s",
+                                                                                                                               "total_layers":  "32",
+                                                                                                                               "filament_weight_g":  "48.23",
+                                                                                                                               "max_z_height":  "6.40",
+                                                                                                                               "filament_slots":  "1"
+                                                                                                                           }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "prefix":  "Wide Rounded - 0",
+                                                                                                         "count":  2,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "Wide Rounded - 0_plate_11.gcode",
+                                                                                                                               "Wide Rounded - 0_plate_7.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-07-31T22:15:34.0000000+00:00",
+                                                                                                         "last_write_max":  "2025-07-31T22:36:32.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.01.01.52",
+                                                                                                                               "print_time":  "13m 45s",
+                                                                                                                               "total_layers":  "15",
+                                                                                                                               "filament_weight_g":  "5.18",
+                                                                                                                               "max_z_height":  "3.00",
+                                                                                                                               "filament_slots":  "1"
+                                                                                                                           }
+                                                                                                     },
+                                                                                                     {
+                                                                                                         "prefix":  "AMS Rack",
+                                                                                                         "count":  2,
+                                                                                                         "sample_gcodes":  [
+                                                                                                                               "AMS Rack_plate_7.gcode",
+                                                                                                                               "AMS Rack_plate_9.gcode"
+                                                                                                                           ],
+                                                                                                         "last_write_min":  "2025-09-05T03:36:44.0000000+00:00",
+                                                                                                         "last_write_max":  "2025-09-05T22:39:56.0000000+00:00",
+                                                                                                         "sample_header":  {
+                                                                                                                               "slicer":  "02.02.01.60",
+                                                                                                                               "print_time":  "4h 50m 36s",
+                                                                                                                               "total_layers":  "347",
+                                                                                                                               "filament_weight_g":  "245.82",
+                                                                                                                               "max_z_height":  "69.40",
+                                                                                                                               "filament_slots":  "1"
+                                                                                                                           }
+                                                                                                     }
+                                                                                                 ],
+                                                                        "ambiguous_single_examples":  [
+                                                                                                          {
+                                                                                                              "gcode":  "-ASA-0_plate_1.gcode",
+                                                                                                              "prefix":  "-ASA-0",
+                                                                                                              "last_write":  "2025-09-06T00:56:24.0000000Z",
+                                                                                                              "size":  3194165,
+                                                                                                              "header":  {
+                                                                                                                             "slicer":  "02.02.01.60",
+                                                                                                                             "print_time":  "35m 24s",
+                                                                                                                             "total_layers":  "81",
+                                                                                                                             "filament_weight_g":  "9.77",
+                                                                                                                             "max_z_height":  "9.92",
+                                                                                                                             "filament_slots":  "2"
+                                                                                                                         }
+                                                                                                          },
+                                                                                                          {
+                                                                                                              "gcode":  "10x Filament clip + 1x Remover_plate_1.gcode",
+                                                                                                              "prefix":  "10x Filament clip + 1x Remover",
+                                                                                                              "last_write":  "2025-08-24T23:32:14.0000000Z",
+                                                                                                              "size":  3011589
+                                                                                                          },
+                                                                                                          {
+                                                                                                              "gcode":  "Adaptive Layer Height - 0_plate_1.gcode",
+                                                                                                              "prefix":  "Adaptive Layer Height - 0",
+                                                                                                              "last_write":  "2026-04-01T18:45:00.0000000Z",
+                                                                                                              "size":  58528386
+                                                                                                          },
+                                                                                                          {
+                                                                                                              "gcode":  "AMS 2 Pro Trays (Bottom & Top) Only_plate_3.gcode",
+                                                                                                              "prefix":  "AMS 2 Pro Trays (Bottom & Top) Only",
+                                                                                                              "last_write":  "2025-09-03T14:26:10.0000000Z",
+                                                                                                              "size":  9378321
+                                                                                                          },
+                                                                                                          {
+                                                                                                              "gcode":  "AMS 2 PRO _plate_1.gcode",
+                                                                                                              "prefix":  "AMS 2 PRO ",
+                                                                                                              "last_write":  "2025-09-03T04:28:04.0000000Z",
+                                                                                                              "size":  58015591
+                                                                                                          },
+                                                                                                          {
+                                                                                                              "gcode":  "Bag Holder with Cart Token - P1S, X1C, X1E, P1P, A1_plate_1.gcode",
+                                                                                                              "prefix":  "Bag Holder with Cart Token - P1S, X1C, X1E, P1P, A1",
+                                                                                                              "last_write":  "2025-08-08T18:21:08.0000000Z",
+                                                                                                              "size":  3892644
+                                                                                                          }
+                                                                                                      ],
+                                                                        "recovery_buckets":  [
+                                                                                                 {
+                                                                                                     "bucket":  "likely_secondary_to_represented_3mf",
+                                                                                                     "count":  282,
+                                                                                                     "criteria":  "Raw cache gcode has either an exact stem match to a cache 3mf or a near-time-only cache 3mf match.",
+                                                                                                     "recommended_action":  "Do not treat as missing archive input by default. Use the related 3mf candidate or existing archive row as the canonical representation.",
+                                                                                                     "notes":  [
+                                                                                                                   "221 files have an exact stem match to a cache 3mf.",
+                                                                                                                   "61 files have a near-time-only cache 3mf match.",
+                                                                                                                   "These are the highest-confidence secondary artifacts rather than new historical imports."
+                                                                                                               ]
+                                                                                                 },
+                                                                                                 {
+                                                                                                     "bucket":  "ambiguous_generic_multi_plate_groups",
+                                                                                                     "count":  37,
+                                                                                                     "criteria":  "Ambiguous gcode falls into one of the repeated generic prefixes: 0, Split over more plates part count_plate below 64, Big printer - 0, Oversized Gang Plates_ 0, Wide Rounded - 0, or AMS Rack.",
+                                                                                                     "recommended_action":  "Review as grouped plate sets first. These are more likely to be unnamed or partially preserved plate artifacts than standalone missing projects.",
+                                                                                                     "notes":  [
+                                                                                                                   "This bucket captures the six highest-volume ambiguous groups.",
+                                                                                                                   "Group review is likely more efficient than one-file-at-a-time triage."
+                                                                                                               ]
+                                                                                                 },
+                                                                                                 {
+                                                                                                     "bucket":  "ambiguous_named_singletons_or_small_groups",
+                                                                                                     "count":  61,
+                                                                                                     "criteria":  "Ambiguous gcode has no 3mf match and is not part of the large generic multi-plate groups.",
+                                                                                                     "recommended_action":  "Treat as the highest-value manual-review bucket for possible missed historical prints. Use gcode header metadata, filenames, and any nearby image timestamps to decide whether to preserve or ignore.",
+                                                                                                     "notes":  [
+                                                                                                                   "This long tail contains the strongest candidates for a future manual forensic viewer.",
+                                                                                                                   "Some entries may still be plate fragments or unsaved temporary jobs, but they carry more distinct naming than the generic grouped bucket."
+                                                                                                               ]
+                                                                                                 }
+                                                                                             ]
+                                                                    },
+                                        "image_analysis":  {
+                                                               "image_png_count":  440,
+                                                               "image_md5_count":  440,
+                                                               "md5_sidecar_shape":  "Each image/png has a same-basename image/md5/*.md5 sidecar containing a single 32-character hash.",
+                                                               "images_with_cache_candidate_within_2m":  150,
+                                                               "images_with_ambiguous_gcode_within_2m":  14,
+                                                               "candidate_match_examples":  [
+                                                                                                {
+                                                                                                    "image":  "10212848801.png",
+                                                                                                    "image_last_write":  "2026-02-05T19:16:36.0000000Z",
+                                                                                                    "sample_candidates":  [
+                                                                                                                              "cache/1mm 0.16mm layer, 2 walls, 15% infill.3mf"
+                                                                                                                          ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "10225340661.png",
+                                                                                                    "image_last_write":  "2025-12-27T20:41:52.0000000Z",
+                                                                                                    "sample_candidates":  [
+                                                                                                                              "cache/Book Page Holder - 22 mm - 0.2mm layer, 2 walls, 15% infill.3mf"
+                                                                                                                          ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "10481380791.png",
+                                                                                                    "image_last_write":  "2025-11-16T22:49:30.0000000Z",
+                                                                                                    "sample_candidates":  [
+                                                                                                                              "cache/20x Filament clip.3mf"
+                                                                                                                          ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "12738706601.png",
+                                                                                                    "image_last_write":  "2025-11-10T02:59:02.0000000Z",
+                                                                                                    "sample_candidates":  [
+                                                                                                                              "cache/AMS Hygrometer LED Channel.3mf"
+                                                                                                                          ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "14825934545.png",
+                                                                                                    "image_last_write":  "2025-12-12T17:20:16.0000000Z",
+                                                                                                    "sample_candidates":  [
+                                                                                                                              "cache/Laser Printer Drawer - Gridfinity Base (470x285)_plate_5.3mf"
+                                                                                                                          ]
+                                                                                                }
+                                                                                            ],
+                                                               "ambiguous_match_examples":  [
+                                                                                                {
+                                                                                                    "image":  "20554932075.png",
+                                                                                                    "image_last_write":  "2025-07-31T22:17:12.0000000Z",
+                                                                                                    "sample_gcodes":  [
+                                                                                                                          "Wide Rounded - 0_plate_11.gcode"
+                                                                                                                      ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "32696564591.png",
+                                                                                                    "image_last_write":  "2025-11-21T15:37:28.0000000Z",
+                                                                                                    "sample_gcodes":  [
+                                                                                                                          "2 colors _ 2 plates, 0_plate_1.gcode"
+                                                                                                                      ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "34772138881.png",
+                                                                                                    "image_last_write":  "2025-12-29T13:48:04.0000000Z",
+                                                                                                    "sample_gcodes":  [
+                                                                                                                          "Big printer - 0_plate_1.gcode"
+                                                                                                                      ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "41561534611.png",
+                                                                                                    "image_last_write":  "2025-12-22T18:20:06.0000000Z",
+                                                                                                    "sample_gcodes":  [
+                                                                                                                          "Split over more plates part count_plate below 64_plate_1.gcode"
+                                                                                                                      ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "image":  "8972901961.png",
+                                                                                                    "image_last_write":  "2025-09-02T20:02:30.0000000Z",
+                                                                                                    "sample_gcodes":  [
+                                                                                                                          "Smoothy V2 Mount 10x3mm Magnets_plate_1.gcode"
+                                                                                                                      ]
+                                                                                                }
+                                                                                            ]
+                                                            },
+                                        "corelogger_analysis":  {
+                                                                    "file_count":  2,
+                                                                    "files":  [
+                                                                                   {
+                                                                                       "name":  "corelogger-vr01.11.35.47_01P00C460102350_20260403140026_e.bin",
+                                                                                       "size":  37968,
+                                                                                       "first16":  "A2 65 11 CD 84 A9 6D 4B ED 64 B9 7E 30 24 D9 AA"
+                                                                                   },
+                                                                                   {
+                                                                                       "name":  "corelogger-vr01.11.35.47_01P00C460102350_20260403140125_e.bin",
+                                                                                       "size":  33264,
+                                                                                       "first16":  "A2 65 11 CD 84 A9 6D 4B ED 64 B9 7E 30 24 D9 AA"
+                                                                                   }
+                                                                               ],
+                                                                    "interpretation":  "Binary blobs with no readable filename or print-name strings in the header probe; likely opaque printer diagnostic dumps rather than directly usable archive provenance."
+                                                                }
+                                    },
     "candidates":  [
                        {
                            "entry_id":  "BCFCDBD1E2091838A858D596BE4D2F33FCFE74DB766A569238F1C07472AA3A8E",

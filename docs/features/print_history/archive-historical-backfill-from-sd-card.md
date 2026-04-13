@@ -502,6 +502,40 @@ Current live checkpoint:
    - manifest summary is now `completed: 168`, `already_in_archive: 62`
    - there are no remaining `batch_ready`, `deferred`, or `manual_review` historical backfill candidates
 
+   Secondary-artifact checkpoint:
+
+   - the current backup inventory has no unrepresented on-disk `.3mf` files; all current cache `.3mf` inputs are accounted for in the manifest
+   - raw cache sidecars total `400` non-`.3mf` artifacts: `380` `.gcode` plus `20` `.bbl`
+   - `282` raw `.gcode` files are likely secondary artifacts for already represented jobs: `221` exact stem matches to a cache `.3mf` plus `61` near-time-only matches
+   - the remaining `98` ambiguous `.gcode` files should be treated as forensic follow-up only, not as automatic backfill candidates
+   - practical manual-review buckets for those `98` ambiguous `.gcode` files are:
+      - `37` generic multi-plate grouped artifacts (`0`, `Split over more plates part count_plate below 64`, `Big printer - 0`, `Oversized Gang Plates_ 0`, `Wide Rounded - 0`, `AMS Rack`)
+      - `61` named singletons or small groups that are more plausible missed historical prints than the generic grouped bucket
+   - `image/` currently contains `440` `.png` files with `440` matching `image/md5/*.md5` sidecars; these are useful as timestamp-adjacent evidence, not as canonical archive inputs
+   - `corelogger/` currently contains `2` opaque `.bin` files with no immediately readable print-name provenance and should be treated as diagnostic blobs, not importable archive artifacts
+   - the manifest now preserves this secondary-artifact analysis under `secondary_artifact_analysis`, including recovery-bucket guidance for future manual cleanup
+
+   Local forensic viewer:
+
+   - a lightweight local viewer is now available at [tools/bambuddy/gcode_forensics_viewer.py](../../../tools/bambuddy/gcode_forensics_viewer.py)
+   - it serves a browser UI with a static XY toolpath preview from raw `.gcode`, matched nearby `image/*.png` files, header metadata, related cache `.3mf` manifest/import status, and operator triage fields for `Keep`, `Ignore`, or `Investigate`
+   - it now includes an optional on-demand interactive G-code viewer that uses the same upstream `gcode-preview` library as Bambuddy and does not load until requested from the page
+   - decisions always export to a sidecar JSON file; optional manifest writeback can also store them under `secondary_artifact_analysis.cache_secondary_artifacts.manual_triage_decisions`
+   - recommended launch command:
+
+   ```powershell
+   C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe `
+      .\tools\bambuddy\gcode_forensics_viewer.py
+   ```
+
+   - recommended launch command with direct manifest writeback enabled:
+
+   ```powershell
+   C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe `
+      .\tools\bambuddy\gcode_forensics_viewer.py `
+      --manifest-writeback
+   ```
+
 ### Optional runtime-repair flow
 
 The same runner now supports an optional post-import runtime-repair stage:
