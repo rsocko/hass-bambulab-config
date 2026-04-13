@@ -249,3 +249,4 @@ At the end of Phase 0, the migration should produce a short design packet contai
 Related design doc:
 
 - [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+- [Backend Consumer Change Map](backend-consumer-change-map.md)

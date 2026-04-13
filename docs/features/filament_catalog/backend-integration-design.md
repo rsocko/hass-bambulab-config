@@ -14,6 +14,7 @@ Primary planning docs:
 - [Backend Migration Plan](backend-migration-plan.md)
 - [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
 - [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+- [Backend Consumer Change Map](backend-consumer-change-map.md)
 
 ## Recommended Integration Boundary
 

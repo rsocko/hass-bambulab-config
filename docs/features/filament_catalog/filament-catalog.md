@@ -6,6 +6,7 @@ See also:
 - [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
 - [Backend Integration Design](backend-integration-design.md)
 - [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+- [Backend Consumer Change Map](backend-consumer-change-map.md)
 
 > **Status**: Phase 1–4 and 5A complete (5 phases total, Phase 5 split into 5A–5E sub-phases)
 > **Last updated**: 2026-04-05
