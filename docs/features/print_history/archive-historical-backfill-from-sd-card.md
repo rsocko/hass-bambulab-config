@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `274` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `284` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, and `274`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, and `284`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -320,6 +320,8 @@ Current live checkpoint:
 - `95F373651EC9E55CA3B27AA78CDEF2AE9916FB7566A4AE2E35F1822EE9FAFEEB` (`cache/240-1w-1h-decor-drawer.stl + 240-1w-1h-decor-drawer.stl.3mf`) imported successfully as archive `263` with sidecar runtime repair applied
 - `175A2230F4629EE3D1B461B0B8D9BBC851096137667B8D34BC005DDC8688923B` (`cache/600mm x 200mm 3-Piece Stormtrooper Hueforge Mural.3mf`) matched existing archive `124` by `content_hash`
 - `5159262D9660C92CBF72811BD53EF70F8B35CEF221464A2F1D650C7E720B3CAC` (`cache/All (8) hooks on the same build plate.3mf`) matched existing archive `58` by `content_hash`
+- `1480BD1FF6943C3C7291EF404679EAC35C87B44B9F7EC8AE3F137FDAA8747F23` (`cache/BAMBU - LEBRON signed lay - Large.3mf`) matched existing archive `77` by `content_hash`
+- `CB431F9945339C850725F102B72DD9F95481934CC0F7CE32FA3D10858C8DBBCC` (`cache/BAMBU - LEBRON signed lay.3mf`) matched existing archive `75` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -335,13 +337,23 @@ Current live checkpoint:
    - archive `272` <- `cache/_V2_ Filament Clips + Tool.3mf`
    - archive `273` <- `cache/All hands, 100%, recommended settings.3mf`
    - archive `274` <- `cache/AllPrinters-0.2mm layer, 2 walls, 15% infill.3mf`
-- the next validated small-run candidates continue in `batch-003`:
-   - `DB89EEB73248FE087F832C6A1EE6DBF8A6BA4DED59284DF95E311846A76FD835` -> `cache/AMS Head.3mf`
-   - `BAE85BFCDFA9D6E6188A7A791E604C55D3708910B08906682DF67E1112DD1147` -> `cache/AMS Hygrometer LED Channel.3mf`
-   - `7A7989C365C80BF2CD871E44A6B79961365B3DDFCF7C69035AD0AB4676FF9CE0` -> `cache/ASA and PETG on Smooth Plate - Brims ON for ASA_.3mf`
-   - `D93D3F9DB226A7A6171B21736C7448414957EA85C362E67903A72C15434E4BA6` -> `cache/Assembled, 1 plate, 80mm high, 0.12mm layer, 8% infill.3mf`
-- manifest summary is now `completed: 41`, `already_in_archive: 26`, `batch_ready: 163`, `manual_review: 1`
-- the next queued high-confidence SD-cache imports now begin with the four `batch-003` entries listed above
+   - archive `275` <- `cache/AMS Head.3mf`
+   - archive `276` <- `cache/AMS Hygrometer LED Channel.3mf`
+   - archive `277` <- `cache/ASA and PETG on Smooth Plate - Brims ON for ASA_.3mf`
+   - archive `278` <- `cache/Assembled, 1 plate, 80mm high, 0.12mm layer, 8% infill.3mf`
+   - archive `279` <- `cache/Bambu Spool.3mf`
+   - archive `280` <- `cache/bambu-faceplate-1w-1h-accent-v12(grain variants)_Faceplate.3mf`
+   - archive `281` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 2)_plate_1.3mf`
+   - archive `282` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 2)_plate_2.3mf`
+   - archive `283` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 3)_plate_1.3mf`
+   - archive `284` <- `cache/bambu-faceplate-2w-1h-accent-v121 (grain variant 3)_plate_2.3mf`
+- the next validated small-run candidates now continue in `batch-004`:
+   - `C0FB0BA9B4CFB5FAC0D0668A4A99BA0D8A0CAA60FCAAC9A8269C3BD0837D5E5B` -> `cache/BASE.stl.3mf`
+   - `3AEBDEC110B2D80F872032A5FD43C67177FE19BAD02EF66C4D3CFDA34C57D241` -> `cache/Basket Only V2 .3mf`
+   - `7F25413763B9268006F9B7D503F8C171DC96C5583598304FE57E413BDBAF30BC` -> `cache/Basket, Style 1 Lid and Style 2 Lid.3mf`
+   - `EA2E3127C18925E8B436ADAFDD66228C1A0FC2A087A387894CD27F00F2B939B7` -> `cache/Big printer - 0.16mm layer, 2 walls, 15% infill.3mf`
+- manifest summary is now `completed: 51`, `already_in_archive: 28`, `batch_ready: 151`, `manual_review: 1`
+- the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
 
