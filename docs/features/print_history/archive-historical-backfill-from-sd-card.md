@@ -167,6 +167,7 @@ Add a separate import runner for historical backfill that does:
 
 For each candidate in the SD backup, record:
 
+- `entry_id` as a manifest-stable per-source candidate ID
 - `source_path`
 - `source_type` (`sd_cache_3mf`, `bambu_studio_exported_sliced_3mf`, `bambu_studio_source_3mf`)
 - `file_size`
@@ -194,6 +195,7 @@ The repo now has a resumable manifest contract built around:
 
 The generated manifest now carries additional operator-state fields per candidate:
 
+- `entry_id`
 - `processing_bucket`
 - `selected_action`
 - `batch_id`
@@ -202,6 +204,13 @@ The generated manifest now carries additional operator-state fields per candidat
 - `created_archive_id`
 - `last_attempted_at`
 - `operator_note`
+- `allow_same_content_reimport`
+
+Identity and dedupe are intentionally separate:
+
+- `entry_id` is the candidate identity used by the manifest and runner state machine
+- `source_sha256` remains the archived file content hash used for duplicate detection
+- that means multiple source files can legitimately share the same `source_sha256` without collapsing into one manifest row
 
 The generator also emits top-level resumability metadata:
 
@@ -222,7 +231,7 @@ Recommended manifest generation example:
 ```powershell
 python .\tools\bambuddy\generate_archive_backfill_manifest.py `
    --source-root '.\bambuddy\Backup SD Card - 2026-04-03' `
-   --output '.\tmp\archive_backfill_manifest.json' `
+   --output '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
    --batch-size 25
 ```
 
@@ -234,7 +243,7 @@ Set-ExecutionPolicy -Scope Process Bypass
    -Mode Backfill `
    -BaseUrl 'http://bambuddy.socko.us' `
    -PrinterId 1 `
-   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
    -BackfillAction Inspect `
    -BatchId 'batch-001' `
    -UpdateManifest `
@@ -248,7 +257,7 @@ Recommended upload-and-annotate batch example:
    -Mode Backfill `
    -BaseUrl 'http://bambuddy.socko.us' `
    -PrinterId 1 `
-   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
    -BackfillAction Full `
    -BatchId 'batch-001' `
    -UpdateManifest `
@@ -263,7 +272,7 @@ For the current workflow, only the active manifest file needs to persist if the 
 
 Keep:
 
-- `tmp/archive_backfill_manifest_v2.json` as the canonical resumable ledger for batch assignment, import status, matched archive IDs, created archive IDs, operator notes, and repair state
+- `bambuddy/backfill-state/archive_backfill_manifest_v2.json` as the canonical resumable ledger for batch assignment, import status, matched archive IDs, created archive IDs, operator notes, and repair state
 
 Do not rely on older or one-off outputs as the source of truth:
 
@@ -273,8 +282,20 @@ Do not rely on older or one-off outputs as the source of truth:
 
 Practical rule:
 
-- if you want the minimum state needed to continue safely, keep `tmp/archive_backfill_manifest_v2.json`
+- if you want the minimum state needed to continue safely, keep `bambuddy/backfill-state/archive_backfill_manifest_v2.json`
 - keep the other `tmp` JSON files only if you want an operator audit trail of specific preview, import, or repair runs
+
+Current live checkpoint:
+
+- archives `234` through `250` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
+- they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
+- `batch-001` is exhausted; the next validated small-run candidates are now in `batch-002`:
+   - `330D0FCB56E244F712428FF80D16A911CA7DA5913F91CDD9EEB278F955DED179` -> `cache/0.2mm layer, 3 walls, 15% infill.3mf`
+   - `FA28E6B5F49D8030D60F164D5FCA1662E9A3787AD590AD858774303EBDD464D1` -> `cache/0.2mm layer, 3 walls, 5% infill.3mf`
+   - `B9582DB7FAF9AB099EDC617B7B3783424A5A7CF2F789147D36B9A6ADD04D8FD3` -> `cache/0.2mm layer, 5 walls, 40% infill.3mf`
+   - `F786687A8D4008D14B21887D6C79C242DD9D76DBD588DFD45F1CA30558235845` -> `cache/0.2mm layer, 6 walls, 25% infill.3mf`
+- all four are currently `batch_ready` high-confidence SD-cache imports in the permanent manifest
 
 ### Optional runtime-repair flow
 
@@ -293,7 +314,7 @@ Recommended preview example against an already imported candidate:
    -Mode Backfill `
    -BaseUrl 'http://bambuddy.socko.us' `
    -PrinterId 1 `
-   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
    -ManifestEntryId '<entry_id>' `
    -BackfillAction Full `
    -RepairAction Preview `
@@ -310,7 +331,7 @@ Recommended apply example against the deployed sidecar:
    -Mode Backfill `
    -BaseUrl 'http://bambuddy.socko.us' `
    -PrinterId 1 `
-   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
    -ManifestEntryId '<entry_id>' `
    -BackfillAction Full `
    -RepairAction Apply `
@@ -362,6 +383,12 @@ Important nuance:
 - an exact hash match proves the archived file is already represented
 - it does **not** prove the existing archive metadata is semantically correct for the intended print record
 - if the matched archive has materially different `print_name`, suspicious duplicate-chain behavior, or prior repair flags, route the candidate to manual review instead of silently treating it as a clean skip
+
+Legitimate reprint override:
+
+- if the operator confirms the same archived file was printed multiple times, set that candidate's `allow_same_content_reimport` flag to `true` in the manifest
+- with that flag set, inspect mode keeps the candidate in `batch_ready` and full mode imports a new archive even when another archive already has the same `content_hash`
+- use this only for real repeated prints, not for accidental duplicate source files that point at the same historical event
 
 ### Duplicate rule 2: existing import manifest match
 
@@ -690,7 +717,7 @@ The repo now has two operator-side building blocks for this workflow:
 Example:
 
 ```powershell
-python .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\tmp\bambuddy-backfill-manifest.json'
+python .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json'
 ```
 
 What it records per candidate:
@@ -713,14 +740,14 @@ Inspect only:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Inspect
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' -BackfillAction Inspect
 ```
 
 Upload only high-confidence non-duplicate candidates:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' -BackfillAction Full
 ```
 
 Behavior:

@@ -46,6 +46,32 @@ class Hashes:
     sha256: str
 
 
+def build_path_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest().upper()
+
+
+def normalize_relative_path(value: str) -> str:
+    return value.replace("\\", "/").strip().lower()
+
+
+def assign_entry_ids(candidates: list[dict[str, Any]]) -> None:
+    by_hash: dict[str, list[dict[str, Any]]] = {}
+    for candidate in candidates:
+        by_hash.setdefault(candidate["source_sha256"], []).append(candidate)
+
+    for sha256, grouped in by_hash.items():
+        ordered = sorted(grouped, key=lambda candidate: normalize_relative_path(candidate["relative_path"]))
+        for index, candidate in enumerate(ordered):
+            if index == 0:
+                candidate["entry_id"] = sha256
+            else:
+                suffix = build_path_hash(normalize_relative_path(candidate["relative_path"]))[:12]
+                candidate["entry_id"] = f"{sha256}::{suffix}"
+
+            candidate["same_hash_group_size"] = len(ordered)
+            candidate["same_hash_group_index"] = index
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a Bambuddy historical archive backfill manifest")
     parser.add_argument("--source-root", required=True, help="Root directory containing SD-card artifacts")
@@ -474,6 +500,9 @@ def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
         "repair_confidence": None,
         "repair_preview": None,
         "repair_applied_at": None,
+        "allow_same_content_reimport": False,
+        "same_hash_group_size": 1,
+        "same_hash_group_index": 0,
     }
 
 
@@ -495,6 +524,7 @@ def main() -> int:
         raise FileNotFoundError(f"Source root not found: {source_root}")
 
     candidates = [build_candidate(source_root, path) for path in iter_candidates(source_root, args.include_patterns)]
+    assign_entry_ids(candidates)
     batch_counts = assign_batch_ids(candidates, args.batch_size)
     bucket_counts: dict[str, int] = {}
     for candidate in candidates:
@@ -502,7 +532,7 @@ def main() -> int:
         bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
 
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "source_root": str(source_root),
         "batch_size": args.batch_size,

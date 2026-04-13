@@ -51,7 +51,7 @@ If you want to execute the new historical-import tooling, use this order.
 ### 1. Generate a manifest from the SD backup
 
 ```powershell
-c:/dev/hass-bambulab-config/.venv/Scripts/python.exe .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\tmp\bambuddy-backfill-manifest.json'
+c:/dev/hass-bambulab-config/.venv/Scripts/python.exe .\tools\bambuddy\generate_archive_backfill_manifest.py --source-root '.\bambuddy\Backup SD Card - 2026-04-03' --output '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json'
 ```
 
 What this does:
@@ -65,7 +65,7 @@ What this does:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Inspect
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' -BackfillAction Inspect
 ```
 
 What this does:
@@ -79,7 +79,7 @@ What this does:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' -BackfillAction Full
 ```
 
 What this does:
@@ -94,7 +94,7 @@ Only do this for manual experiments or provenance-grade imports:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\tmp\bambuddy-backfill-manifest.json' -BackfillAction Full -AllowSourceProjectImport
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' -Mode Backfill -BaseUrl 'http://bambuddy.socko.us' -PrinterId 1 -ManifestPath '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' -BackfillAction Full -AllowSourceProjectImport
 ```
 
 ### 5. Optional: repair canonical runtime fields after import

@@ -1,15 +1,14 @@
 ﻿{
-    "schema_version":  2,
+    "schema_version":  3,
     "generated_at":  "2026-04-13T02:33:01.794311+00:00",
     "source_root":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03",
     "batch_size":  25,
     "candidate_count":  231,
     "candidate_counts_by_bucket":  {
-                                       "manual_review":  1,
-                                       "completed":  1,
-                                       "batch_ready":  219,
+                                       "batch_ready":  204,
+                                       "completed":  17,
                                        "already_in_archive":  9,
-                                       "deferred":  1
+                                       "manual_review":  1
                                    },
     "batch_counts":  {
                          "batch-003":  25,
@@ -183,7 +182,10 @@
                            "matched_archive_id":  229,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:05.8068346Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A13FCC17AF25F4C6BE9CA0AC79E84FAA73ECE334740E855A861BAC61C12E8853",
@@ -236,14 +238,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "deferred",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "error",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  234,
                            "created_archive_id":  234,
                            "last_attempted_at":  "2026-04-13T02:45:51.1929245Z",
-                           "operator_note":  "Runtime repair via sidecar requires -RepairSidecarToken or REPAIR_API_TOKEN.",
+                           "operator_note":  "Archive created and annotated with historical import provenance; runtime repair applied via sidecar.",
                            "repair_status":  "applied",
                            "repair_preview":  {
                                                   "archive_id":  234,
@@ -262,7 +264,10 @@
                                                   "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
                                               },
                            "repair_confidence":  "medium",
-                           "repair_applied_at":  "2026-04-13T02:49:29.2154074Z"
+                           "repair_applied_at":  "2026-04-13T02:49:29.2154074Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A895561C06F3FBA27471AC39EA20BEA34B2B76D80091A6F0E02E0CFAC2BFD40C",
@@ -322,7 +327,7 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  235,
                            "last_attempted_at":  "2026-04-13T02:36:49.2487435Z",
-                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "operator_note":  "Archive created and annotated with historical import provenance; runtime repair applied via sidecar.",
                            "repair_status":  "applied",
                            "repair_preview":  {
                                                   "archive_id":  235,
@@ -341,7 +346,10 @@
                                                   "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
                                               },
                            "repair_confidence":  "medium",
-                           "repair_applied_at":  "2026-04-13T02:49:33.5591437Z"
+                           "repair_applied_at":  "2026-04-13T02:49:33.5591437Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1687695701363CFDF21EFA57753BA418DAFF8F9DFF5E7FB2D371B11D25273E0C",
@@ -394,14 +402,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:07.4445403Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  236,
+                           "last_attempted_at":  "2026-04-13T03:24:25.0476143Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance; runtime repair applied via sidecar.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  236,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-01-15T20:28:52+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-01-15T19:25:27.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-01-15T20:28:52+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  3805,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:24:51.1263442Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D6BE7CD12383F184B443D883B19409F92A3FE7AB30E080EFA580A48BE65619F6",
@@ -461,7 +491,10 @@
                            "matched_archive_id":  63,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:07.7413158Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B1FC0E50AF6F1F0B6C908341C071A7E081CB13AB4EAA7B72EF67882013CDEB91",
@@ -522,7 +555,10 @@
                            "matched_archive_id":  222,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:08.1067949Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "04E0A9DBFEBB3E345F45EA0F0952AFC8A10B380C04DD490BEF265E484ED11F9F",
@@ -575,14 +611,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:08.4545611Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  237,
+                           "last_attempted_at":  "2026-04-13T03:24:25.4429580Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance; runtime repair applied via sidecar.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  237,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-12-30T17:07:44+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-12-30T12:40:12.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-12-30T17:07:44+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  16052,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:24:51.6430503Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7FF815B32BA5C6014A210CF5076F8CB9291361D0449AA9816A9E277B1961C4BE",
@@ -643,7 +701,10 @@
                            "matched_archive_id":  178,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:08.7369925Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "3DB7A6E71A667877476E0BB9D69CD6D1BA8003D0596584DA23ECCA9C306674D3",
@@ -703,7 +764,10 @@
                            "matched_archive_id":  74,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:09.0745880Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "203361E8120F5870761B32697CF25F407D773A954A1477FACC258A5D8F1093E6",
@@ -756,14 +820,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:09.3791675Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  238,
+                           "last_attempted_at":  "2026-04-13T03:27:17.7083306Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  238,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-12-28T18:26:48+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-12-28T17:56:45.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-12-28T18:26:48+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  1803,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:27:49.1422427Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1C13AA4BF64CCAB2E2226CD984F9DBF0F5A195FC2321BADB328E64ED368DEA7D",
@@ -823,7 +909,10 @@
                            "matched_archive_id":  2,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:09.6662286Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "6CDE15F88DE55C6EE38E53208D2C34075A89EFF957CA10D78C00BB480A36B588",
@@ -876,14 +965,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:09.9619714Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  239,
+                           "last_attempted_at":  "2026-04-13T03:27:18.2365124Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  239,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-01-25T19:31:42+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-01-25T18:07:48.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-01-25T19:31:42+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  5034,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:27:49.5756346Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5ADAFC1E4E3C918F1E83CBDD7AAA561B762D76091B387E750EBB85040341FB7D",
@@ -936,14 +1047,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:10.2844019Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  240,
+                           "last_attempted_at":  "2026-04-13T03:27:18.6910202Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  240,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-01-11T02:43:16+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-01-11T01:29:44.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-01-11T02:43:16+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  4412,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:27:50.0844632Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "368620B67AEA9F8E0012564513A521F5E7A70B910B42D2C185C7D7C16D08AD7B",
@@ -996,14 +1129,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:10.7079988Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  241,
+                           "last_attempted_at":  "2026-04-13T03:27:19.2064514Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  241,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-12-25T03:05:40+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-12-25T02:41:27.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-12-25T03:05:40+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  1453,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:27:50.5221152Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "10C951470CA6BF0FEB53CC8A9D790388BC1ED4B9D900015CA40F1439DCF0A94D",
@@ -1063,7 +1218,10 @@
                            "matched_archive_id":  44,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:11.0243032Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "37FE0DA4722AAEF49D01B904D46066DA78E1534B9ECD71D17FF658B77E9AECDD",
@@ -1116,14 +1274,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.3316078Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  242,
+                           "last_attempted_at":  "2026-04-13T03:30:12.6694100Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  242,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-10-06T16:17:08+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-10-06T15:56:59.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-10-06T16:17:08+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  1209,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:30:53.9325978Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "345751776B0EEAA73973229386EF77378F4C71E2623A01810FB9802BFB0E0126",
@@ -1176,14 +1356,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.4719341Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  243,
+                           "last_attempted_at":  "2026-04-13T03:30:13.2237396Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  243,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-02-03T18:52:48+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-02-03T14:58:55.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-02-03T18:52:48+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  14033,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:30:54.4800695Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "10718441CF485F7AB83CAA1282359EAC5FBCFC97114662848F68D3B3C9057FFF",
@@ -1243,7 +1445,10 @@
                            "matched_archive_id":  102,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:11.4921165Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8E02BC17D4E9BEBB2509D0773D1AB0F050F88B672EA425B295D2880717970632",
@@ -1296,14 +1501,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.5196257Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  244,
+                           "last_attempted_at":  "2026-04-13T03:30:13.6340308Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  244,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-02-05T18:13:48+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-02-05T17:52:24.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-02-05T18:13:48+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  1284,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:30:54.8966862Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "72828F135EA9D5E350FE5E7FF61CF673CB5512056AF23143D5F5B97FC4A48E43",
@@ -1356,14 +1583,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.5406263Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  245,
+                           "last_attempted_at":  "2026-04-13T03:30:14.1523053Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  245,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-11-26T20:24:10+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-11-26T17:28:31.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-11-26T20:24:10+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  10539,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:30:55.3569546Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "91AA807062B591F1331EE79EC75F4403F5530F821E950FC488761B1FDADA5E7F",
@@ -1416,14 +1665,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.5746339Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  246,
+                           "last_attempted_at":  "2026-04-13T03:34:04.8441651Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance; runtime repair applied via sidecar.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  246,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-09-28T15:38:06+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-09-28T13:58:26.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-09-28T15:38:06+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  5980,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:34:04.7704099Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  2,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "73218BB8B769D4F4B632738FE1A1EABADBDC835051F1171C9B0EE2D199AB1C4B",
@@ -1483,7 +1754,10 @@
                            "matched_archive_id":  104,
                            "created_archive_id":  null,
                            "last_attempted_at":  "2026-04-13T02:33:11.5948048Z",
-                           "operator_note":  "Existing Bambuddy archive has matching content_hash."
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "ED011F4780BA8F8D512D81E3DA8A93782FAA90E8B31574CA026E6960240F60A9",
@@ -1536,14 +1810,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.6183167Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  247,
+                           "last_attempted_at":  "2026-04-13T03:33:39.1003698Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  247,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-11-23T14:21:12+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-11-23T12:34:37.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-11-23T14:21:12+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  6395,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:34:05.2752804Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5900995FA83A920245C8AEAD0F4F03C0CD6FE98C220F05207E4FA89024684FC1",
@@ -1596,14 +1892,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.6383171Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  248,
+                           "last_attempted_at":  "2026-04-13T03:33:39.5767808Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  248,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2026-01-11T22:44:54+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2026-01-11T22:11:50.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2026-01-11T22:44:54+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  1984,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:34:05.8184314Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F0A6DA4E6A1F850584EB986542492D8D03EEFC034922745C12B5F11B4687D971",
@@ -1656,14 +1974,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-001",
-                           "import_status":  "batch_ready",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  "2026-04-13T02:33:11.6734044Z",
-                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload."
+                           "created_archive_id":  249,
+                           "last_attempted_at":  "2026-04-13T03:33:40.0669602Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  249,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-12-01T15:31:54+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-12-01T13:48:35.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-12-01T15:31:54+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  6199,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:34:06.2321651Z",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "330D0FCB56E244F712428FF80D16A911CA7DA5913F91CDD9EEB278F955DED179",
@@ -1719,11 +2059,14 @@
                            "processing_bucket":  "batch_ready",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-002",
-                           "import_status":  "pending",
+                           "import_status":  "batch_ready",
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null
+                           "last_attempted_at":  "2026-04-13T03:41:01.4087218Z",
+                           "operator_note":  "Candidate passed hash dedupe and is eligible for upload.",
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FA28E6B5F49D8030D60F164D5FCA1662E9A3787AD590AD858774303EBDD464D1",
@@ -1783,7 +2126,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B9582DB7FAF9AB099EDC617B7B3783424A5A7CF2F789147D36B9A6ADD04D8FD3",
@@ -1843,7 +2189,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F786687A8D4008D14B21887D6C79C242DD9D76DBD588DFD45F1CA30558235845",
@@ -1903,7 +2252,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "70408491340083DEF1CE0B07C24BEC770F85CED7AC7A2F00B94B2893BB86FDD9",
@@ -1963,7 +2315,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B99EFA16C6119D47548DA4B52BE15A85239322D24524F05B01D90D972BC233FA",
@@ -2023,7 +2378,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "565583B2B3474E52E3D8946361D6272C533C103210EE4B81BAAAB6340A850ED2",
@@ -2083,7 +2441,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0",
@@ -2143,7 +2504,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A566915905C551CF49FF3488AD5A7C3F741901BF3324C25F535C2D3ABED1123A",
@@ -2203,7 +2567,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "22B2DE7F67BBE54D6C11BF26AE729140BE1016EB9BB081CE0CEB8635652442E9",
@@ -2263,7 +2630,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "881F616AFE189342EF22F3220342E95EB4039B3CE69E0691F9B8ADCEFF1B1FF9",
@@ -2323,7 +2693,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7",
@@ -2383,7 +2756,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8DA30846EA368AFF5DB530B4BF3BCD0270E15715C88CCF076D0C6AF1217DAEEA",
@@ -2443,7 +2819,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856",
@@ -2503,7 +2882,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "76973985F87350420F8272E888DCAE3186774B9EE67F68FF53A85CB2299F7388",
@@ -2563,7 +2945,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "14FFD5889A13EFDFB609F7E9C0F3CB484375434A7EB5EB52FA8FBD5279FEFE16",
@@ -2623,7 +3008,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "93CB5FDC3EF8CE8C21E4A757FC3C1D194AE6AFED68725F922D739EAE54DE32D8",
@@ -2683,7 +3071,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1BBEE9FFB7EB97E5DB97DD6FF9EB09658A3866CF41F82BB2BB3DD0B84D5AA7BA",
@@ -2743,7 +3134,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9CC0B28C8FC474FC2CDCA6CEA30900B4C2C9025CA565D3C49F602AFB10FC7E49",
@@ -2804,7 +3198,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "64F0988D6D0FDEFC84BC78B509AC12E89AAAF1A4DFC4F98BD4FD6652FC140015",
@@ -2864,7 +3261,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C3A3448D8C45C20CD2D555937F8B84726B33B288E48B2E5DE4CB8CD15457D2E9",
@@ -2924,7 +3324,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "4EBA6B4EACE8D55A2C39C583E610AB7DD3DE22DBA54AB6D98C16F68AFD001953",
@@ -2985,7 +3388,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FCC1DDCA74FF99FD77E465CF68F4297C0A14B992582535A4A76BEBA7DAC66F5C",
@@ -3045,7 +3451,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "ED0ABB3570C9364E59BD4D0F52713E46EED606E3FCA04EEDD0DDAD40BCC956DF",
@@ -3105,7 +3514,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "95F373651EC9E55CA3B27AA78CDEF2AE9916FB7566A4AE2E35F1822EE9FAFEEB",
@@ -3165,7 +3577,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B0A6FFB56BCF5EAA781355BA5985A357ED4392A021FCC852EB7ED29C931D04F0",
@@ -3225,7 +3640,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5FD67FCBDA1F36495ACAA188AD3D5357E88218F8930FA0C4F37872AC7EFA2088",
@@ -3285,7 +3703,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0D707702C28822820730C622EF46490F446B631791F9193B557C74971188440D",
@@ -3345,7 +3766,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0A6D96CF3B8DB2A3538EA84D985244D909D453DD0DFEAD2F96F9565E22B5A50A",
@@ -3405,7 +3829,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "927F2D14EBE5C8AE612359FF845CEC96F33620AA83C9AFBDDA673812A996BC9D",
@@ -3465,7 +3892,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "175A2230F4629EE3D1B461B0B8D9BBC851096137667B8D34BC005DDC8688923B",
@@ -3525,7 +3955,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B9421E9002D0CC2A651131CDEB469F43D6D7E3BE58F8909E92F6AC3A9E22F92B",
@@ -3585,7 +4018,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F9A5C9D3CBB7D53CE58636B539A4453B025020EADE58AEFB2BE5625A33D8E36E",
@@ -3645,7 +4081,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "22004D88591D096E99F0D1C8194CE6096FEA82EEC62F73BA4454F784E7867031",
@@ -3705,7 +4144,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FF45CF07341C77C46D84AC08D3A7148823251D0F7EB62B45CB06ED5C39FFD699",
@@ -3765,7 +4207,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE",
@@ -3826,7 +4271,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7",
@@ -3886,7 +4334,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5159262D9660C92CBF72811BD53EF70F8B35CEF221464A2F1D650C7E720B3CAC",
@@ -3946,7 +4397,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "BC5C7C2B25E655D1930E047DB8CEE602679CAD79250E56FBB920C807F33B20B4",
@@ -4006,7 +4460,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FDFD8B003FFAE2902CD3AE745C364430EDE6BDD3970D86CF14027AA610DE5108",
@@ -4066,7 +4523,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11",
@@ -4126,7 +4586,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "DB89EEB73248FE087F832C6A1EE6DBF8A6BA4DED59284DF95E311846A76FD835",
@@ -4186,7 +4649,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "BAE85BFCDFA9D6E6188A7A791E604C55D3708910B08906682DF67E1112DD1147",
@@ -4246,7 +4712,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7A7989C365C80BF2CD871E44A6B79961365B3DDFCF7C69035AD0AB4676FF9CE0",
@@ -4306,7 +4775,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D93D3F9DB226A7A6171B21736C7448414957EA85C362E67903A72C15434E4BA6",
@@ -4366,7 +4838,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1480BD1FF6943C3C7291EF404679EAC35C87B44B9F7EC8AE3F137FDAA8747F23",
@@ -4426,7 +4901,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "CB431F9945339C850725F102B72DD9F95481934CC0F7CE32FA3D10858C8DBBCC",
@@ -4486,7 +4964,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "2E2B12458EE322EF26E0A77476210989A11D6D5BDDD6B076D9E9FB6CC5CF450B",
@@ -4546,7 +5027,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8604A23F5379AA315F5596BD56480F2A6571161294E3FCCE381520763B505D8A",
@@ -4606,7 +5090,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "EA780883EBA7A5CC664BF0EFAF589F0E26133F74A96332E3B23CE9237F778EA2",
@@ -4666,7 +5153,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C649A3776AB9388D1B171EBA6C24ECF999B5C3BD82A5251B32A1ABEDC6BC339C",
@@ -4726,7 +5216,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "3F48980A29DDA7A72BF29CF39CF49006DFC1B599817FD64B0989C1C1167C7D75",
@@ -4786,7 +5279,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C8708777038019866B6F738A2EA318FCE78FE04F4E282E120AD088BF1E4EDAE4",
@@ -4846,7 +5342,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C0FB0BA9B4CFB5FAC0D0668A4A99BA0D8A0CAA60FCAAC9A8269C3BD0837D5E5B",
@@ -4906,7 +5405,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "3AEBDEC110B2D80F872032A5FD43C67177FE19BAD02EF66C4D3CFDA34C57D241",
@@ -4966,7 +5468,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7F25413763B9268006F9B7D503F8C171DC96C5583598304FE57E413BDBAF30BC",
@@ -5026,7 +5531,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "EA2E3127C18925E8B436ADAFDD66228C1A0FC2A087A387894CD27F00F2B939B7",
@@ -5086,7 +5594,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A6B23C7B840ECFBDE528BCB365424F1868A683C4F4445A56C85E6BDC6690359A",
@@ -5146,7 +5657,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7DDFDF52574A2916C54D020EF7BC63114E842A171BD5BF8764D3EF468D141C51",
@@ -5206,7 +5720,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C60F54159D593C0407644830650794A013F1A93C230F66E147B8CB18C66983A7",
@@ -5266,7 +5783,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "93913A5231056A0C9B2F68CE7D2EC3A1FC1AFF97F015C6E5BEA041ECAE597E2B",
@@ -5326,7 +5846,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "31470E40FDDCBBE23E588716CC96B783C214FDBB4131FFE2A0FAADEE877865F1",
@@ -5386,7 +5909,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FA78866937010B344D330CAA9CE9B5D489B56DA1C92927F28AE1E5F28D458EF7",
@@ -5446,7 +5972,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "106FB2CD7DAE6AE8227CF835AF1B9C5EB8B64655B93480F5162075FDD51113B1",
@@ -5506,7 +6035,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1B834C6B904BD0BFD17603647E0A1E9D216F1C9E9BFD20250F12511A21805029",
@@ -5566,7 +6098,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "DF0686EEF223E09E6EAF97F9602D2B73B7E802FA20C26C16F7BCB47E4277E28C",
@@ -5626,7 +6161,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F91593B26C327F2CC7C10AD1073A1BB2B5982CEE25F61689E81B0E10DBA3D2CE",
@@ -5686,7 +6224,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C19AA64B764B09D174F60BC2F72C48C0DC95B24426F0995432A795EF82C648AA",
@@ -5746,7 +6287,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B1855F2AC74580CB3EE3B5E858BAEE13A83438071BBF604E64911B9774506472",
@@ -5806,7 +6350,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "E92043E1EC0FDDE31DCE89AD80AAE0F3FCF07C7CA58E35779D31B9D97B0F7E5E",
@@ -5866,7 +6413,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "3D3789D4CFDDB1A1CE060A5BB0132847D4BC2A4DE2B194F5AB96ABB7ADD862C0",
@@ -5926,7 +6476,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E",
@@ -5986,7 +6539,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  2,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "16E57F36BE95C328AFFDF1D5E6601DB77F4A64D9D8BB63B06FA6A525673D854C",
@@ -6047,7 +6603,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "811BDBA79010BEFD140E21009A67F0325DED4CCCECA41079F98BED7B659C9479",
@@ -6107,7 +6666,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "ADEA8B3EFBCA35763FF8BFBCE81DDAD599FA7587BD6F0F880D28AD4D4BF70668",
@@ -6167,7 +6729,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F6828BA542F96598ED9D343D1370AB4FE8778B8357CC82FC6B39BD73F0F4D43E",
@@ -6227,7 +6792,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7513C26F33950148C03629F387B9AB67F5076C878411FF910B30137C38585C5C",
@@ -6287,7 +6855,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A80B3199F6CDA0B02F32EC0B4C8A7522CE5D085AEA9000F3E3B308B78ADB7A9F",
@@ -6347,7 +6918,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "899E4D3F73715E3CB242BB368699AF6B842C27BCCC5A2A02EF4FDF26A1CE9681",
@@ -6407,7 +6981,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "4CA1B8BA8D97A2581F76F35C344938BA1A278DBE4F0F26EAECBE49262973A478",
@@ -6467,10 +7044,13 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
-                           "entry_id":  "91AA807062B591F1331EE79EC75F4403F5530F821E950FC488761B1FDADA5E7F",
+                           "entry_id":  "91AA807062B591F1331EE79EC75F4403F5530F821E950FC488761B1FDADA5E7F::67222D974625",
                            "source_path":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03\\cache\\Filament_spool_holder_-_shelf_with_one_pipe.3mf",
                            "relative_path":  "cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf",
                            "source_type":  "sd_cache_3mf",
@@ -6520,14 +7100,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-005",
-                           "import_status":  "pending",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null
+                           "created_archive_id":  250,
+                           "last_attempted_at":  "2026-04-13T03:39:18.0000000Z",
+                           "operator_note":  "Legitimate same-hash second print imported manually after operator confirmation; runtime repair applied via sidecar.",
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  250,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-09-29T00:38:00+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-09-28T22:58:20.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-09-29T00:38:00+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  5980,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T03:39:18.0000000Z",
+                           "allow_same_content_reimport":  true,
+                           "same_hash_group_size":  2,
+                           "same_hash_group_index":  1
                        },
                        {
                            "entry_id":  "3EE7401DC3F85F5D1668E806B65F52EC62CD2920C4BE2A553D0232752F6F8D99",
@@ -6587,7 +7189,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "70A983F366FED72AF997B0A540FA3925AD147F79F03DE6522A4815E987230DBD",
@@ -6647,7 +7252,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9655586D79F50879A5A7DA1FF8629D6A792194B39C008C0A27542C42B474729D",
@@ -6707,7 +7315,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A5F70CA5554B759885D574BBD498A105D1DB65F54395537066CF413290AEDA89",
@@ -6767,7 +7378,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "21C9F0F5E70626777CC37ACB559D91B4F34FC3595D36912CD7C4E9DC395352D2",
@@ -6827,7 +7441,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "64B64A94ACD3E3615F3D1998B0776CA133B9A83A002767A4A255A35C0EFE7013",
@@ -6887,7 +7504,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "3B33F2CBA0CC82269D1B5F9387193F632E9A85556CB61112235EECCBC358C545",
@@ -6947,7 +7567,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "4DA9719AB8BBAC919DB06C7EC80E328AE89DA4A16208C41A2ED6A203A3905B4B",
@@ -7007,7 +7630,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "6C9EB19DD82756F5BBB3ED7E0918B159F7C638AB5F6F287FCEFEA154CA30C5E3",
@@ -7067,7 +7693,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "32CDC2FA3B7357A724CBAC7C57E9F3240A5DB2EC27C4222549DB18E50CE1C428",
@@ -7127,7 +7756,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8E94367E3BC3E761C4D7DA55B366F572216ACF0AB901A90024095095C5C52667",
@@ -7187,7 +7819,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "15119D02CD53E17FAF100E56975008D9D52632EE2A2FEBE0D785CC355D1A97CF",
@@ -7247,7 +7882,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0BE16E2E675C011F4A3D8A62238E75252910519705712EDBCDFBB046C4D320A4",
@@ -7307,7 +7945,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "DCA620A30983E04F2732A1A89D87A03838BCE54D9915ABC77FD262EE619B6A5E",
@@ -7367,7 +8008,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "39A27226D08BBEE25E2999BE298DC0145BB9F63E6703D5FEBF1C810397D06E44",
@@ -7427,7 +8071,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F767365DC8F034ED83C6418BE0C3E17C3C154BE0AD3A970DD0C6B42FF8BB6746",
@@ -7487,7 +8134,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1A3D1778A73356A7FE7AAB2477548BD09F1FCC48A289A94669ABDC5AA0A4967C",
@@ -7547,7 +8197,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "67F5F8C5EBEFEC8836CABC0898990161B7071CB9761FCED0071CA7BA59970A28",
@@ -7607,7 +8260,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "AED394930768859ED4F96DE71D9C669F19D4C954F267706D4060599E2C219769",
@@ -7667,7 +8323,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B6BCB8C4AC5E4209762E5A0BBE750948A495CB95D26BD0790075D0ED975125FC",
@@ -7727,7 +8386,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D2EE50A110F06546FE52F2A4AFB01D2894BA84A2D37FA37F495931B6DF75AA05",
@@ -7787,7 +8449,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "CA84660EB54C803A314328E8CD60B2EC988A3410C79F6FDA0AEB2F2C9CAE0353",
@@ -7847,7 +8512,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F2AE5C285706DD162540EFBE501C1D8963C52000EB4FE2F271F1F80DB3297C34",
@@ -7907,7 +8575,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "6D45295B9C1849A4E39ADDC74860B912FC7801C919F3F20FC1478B92A48F5445",
@@ -7967,7 +8638,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9D03E8C75887CFF2B23627A726B1A06D6B7F2F6C9AFB9DE4F00AD9FE7F871572",
@@ -8027,7 +8701,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "488A4EDBEF7978C4DC1E9FAAF9C3115AA53434426CCD83E54AD0ECAF99CC55FF",
@@ -8087,7 +8764,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7D3AEBD553E095FAEA6D11E85F40F2A8F54F72D886AAD1EBFA16483744F046E9",
@@ -8147,7 +8827,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "E8A8934C032A822772C23255DB8AC237D9A9C80A3B48A0C322216A7C9DC7C76E",
@@ -8207,7 +8890,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "31873F5588B243A03EB6139532AC97F37C79BFE9A2043A7399D553CE85D19D5D",
@@ -8267,7 +8953,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "223BDCB1E446159D2BC91824D83446DF99B436449C7909562CC1A1D655EBBAFC",
@@ -8327,7 +9016,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "61B3CFE782CC96CAF90A3EAE8F1893795EC00FE297AA9D31C80639F1AC6A9773",
@@ -8387,7 +9079,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D8337D7F1761C77F7473F99D6361A423719B0D80E451C85EB336C5A448B9E3B1",
@@ -8447,7 +9142,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C610BE07F18C51EEB32A2A684C0E58A7FC10D2B675F9EA8C1BE508F4A82CD8BC",
@@ -8507,7 +9205,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "89A4612356233E6DC12CD45AA77FCD325E316993A1BC9E81F74D9EB674040BE7",
@@ -8567,7 +9268,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "AAAB03AFB3C22E100BE2DA40D7562CB779A24DDE8BDE07A36F68082B2310A012",
@@ -8627,7 +9331,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0CA648707E1DE734C18BF8C9D713CD161CAF86ADB337680C9B745304604630BB",
@@ -8687,7 +9394,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "40556AC96DF3F2EDE385C0A3A95C730A56C3C9B22AAF7D7E6E485AF4F10AE209",
@@ -8748,7 +9458,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "ACE6EA5AB8C761082841604EAA123A1D1180E9A38518DA1538E84D69A9A8B9E6",
@@ -8808,7 +9521,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "112D01F3C10A747EE712D812F5A9F8EBC2DEB1A136E514B5F12D44FFA47A18B4",
@@ -8868,7 +9584,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7F3365CEA65609FA2BD4B640BA7AAFBCB3C0D1DA247B5E675DBB05FD166C5A4D",
@@ -8928,7 +9647,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "85C56A3A3BB1F5800F53F50682EDFEFF601113D563F88125086D1C6B0478A0C7",
@@ -8988,7 +9710,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9AB9E92DCCB07AECE106D08575BFFEC73BB3F682FE977407FE93A989FEE069DF",
@@ -9048,7 +9773,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "39E3889000E78B52C1E3C82A7FF8441D837C9FAF189B9EA2A32438DE28D9C3AA",
@@ -9108,7 +9836,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8A740BFF42FD4A71465715E6847FB1899B506242F1A362AA4C4E09E4A5E6589D",
@@ -9168,7 +9899,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "26414EFF8AD2E4634B10AC20B5890D074A3BEDF6D7A5EA2A2A25B0B0BD4B0BED",
@@ -9228,7 +9962,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "58CB7B666AC04A05927DAF6B43E9CDA00EF05D2739B119F587B6DC24E432830B",
@@ -9288,7 +10025,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C8DD3721E6D7304300806358C4659C83BF9EC07627A13ABE512DFDF72712B793",
@@ -9348,7 +10088,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9DC1C6863E0824E9B69E7124AF6808B0F5F44141324CD820E6E32A0FE071394A",
@@ -9409,7 +10152,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F0E5C738DDECDD71D8F0329BBCB4A00B398188781820100723BF13FAE3161E3A",
@@ -9469,7 +10215,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "67C2EB8955C0D8B576FA4A11FDD11FE433860D5CCEF194215540A4CAA5960EC3",
@@ -9529,7 +10278,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "014F458549413655F7EFD446316CBA23B391AC107F0F74E560FED76DB7469E5B",
@@ -9590,7 +10342,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "231A1E630F1D1A88A698DB40C9ECEC4C8A251B0636C30B5163FB2CCA203C9EF2",
@@ -9650,7 +10405,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D",
@@ -9710,7 +10468,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "75714D1687F36E303BD4DE304599EED5AD1B3F99603C5E03A1DA76B62CCA8924",
@@ -9770,7 +10531,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "7B7D0456271A8974BFD654348200CCCCAD1CE50926C392A69E80FF1EAEDDA22C",
@@ -9830,7 +10594,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "577ED1CCA9326B02FEC1B2F67F2BD76F481DE850BBFFE70D0BE4F5F76F2B61B5",
@@ -9890,7 +10657,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FBF724FF125F1C3AC839D950080D54B7A418684D06D41CD56CED8905C1878CB4",
@@ -9950,7 +10720,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "214CF0B92C0833C3793F458584AC12FDE986452A37EBB8B1AFA82DF105315920",
@@ -10010,7 +10783,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C3075305B255BCCAAC267DDD3DD56C9BEB872BAD898BBA982ED74C24A0154B93",
@@ -10070,7 +10846,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "01FA70F261DD2060A6284CA78E1D5B9F3752ED03E3A7BF33B08CB52DE3ECC704",
@@ -10130,7 +10909,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B6E68AF3833E3AE2360F0784D255D8219792B5F61CDBA7E01E40E904CA19C3CF",
@@ -10190,7 +10972,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5C73AE875BA975DECF634C326907F3F303CFF12313C38256C116097632135158",
@@ -10250,7 +11035,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "73CC7109D835BBD8C58D7FC9C4EF15A33C576CB39D1E85AA0FA423DE47BFBF51",
@@ -10310,7 +11098,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "327CAF9D93814F4E1F28CAB0096BF281642FB4BF7941B6AFE8D174AAD4E142AE",
@@ -10370,7 +11161,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "EAC1F93622B47ABDA1A66B4A6E36CCC8E79316BB2EC9B9E57BB7B2A19EDA49E7",
@@ -10430,7 +11224,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0EAE2C3E1D2A0CB02B951B70146E04AB5C9C598F26604E09529C8D070C721F56",
@@ -10490,7 +11287,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "01363822BDE37A12750F072E9641BF5F08EDE0BC99D10FE5396EF078151AC9A6",
@@ -10550,7 +11350,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1D84550AC86B0B88B6863A8CEA199CF9C1CDADD01753D170581257EAE20E2D80",
@@ -10610,7 +11413,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "65D49B5D91D05E179366F5230A69CD4A61997FDA97B873150AC80BCA95BAB9E8",
@@ -10670,7 +11476,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "980CBAC9D5AD5B7D0BC7B366778F0B2038F9D954053F9A5768C0991F21D802E0",
@@ -10730,7 +11539,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B37D05C376430C5A872A50A90213908E73ECA2A12B26499696F055760AE6AB8D",
@@ -10790,7 +11602,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F485F3F2628565961FEC938A0709F109CFA16517F835BD7981BC791CC9F5884D",
@@ -10850,7 +11665,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "0FA2910898BE00482C4E64ED1D02E408C528412099716B74EBEFE518DB9C5272",
@@ -10910,7 +11728,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C27BBA5C35C2C778668DB11159B5EC1642EB7326DEC78E8E2585D0D53D5E9962",
@@ -10970,7 +11791,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D07E09697E4EBF2878A8D878CD8923153BEF2ED0CAF7D96B7768BDD3D3373433",
@@ -11030,7 +11854,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D1B90904C3CBD263811EC4266888647748EB2E4CAC8ECFC98B664D00EE0BF52B",
@@ -11090,7 +11917,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "43504ED82B22F7FC6075DB13F5EB2363D53D881676418CF48AA0AA1BA8BED063",
@@ -11150,7 +11980,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE",
@@ -11210,7 +12043,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B91AB26F834B59E35D8A0721349B1BFE8E668568D0003FD60431FC01F4584548",
@@ -11270,7 +12106,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B24F22B860D50FAB6B99F601BDC417BD06A591AA403696A407429E833CA7BF68",
@@ -11330,7 +12169,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "787C4FA28A78577C47DE76F40B7F82A8B44FB6CA61F2FDA244DF5F88AFFD2BA4",
@@ -11391,7 +12233,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "05F7CF9C8986D7AB41E20F0051CE3A7CF461C467020724ACB653D92F19128E54",
@@ -11451,7 +12296,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "63FD5A1BCD2E28E2B8BF4355E4E5ABFDAB55D01B0924D30702400AF695A02A02",
@@ -11511,7 +12359,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D1B2F3A97657F390C17C678E58D1AA85DC773BAE6275352C54787D4EB2F7C828",
@@ -11571,7 +12422,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B6266321B54E406FA94E4679923FD32D03E34C2FD6CE297460295F5C3D67D358",
@@ -11631,7 +12485,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B0BC78C83DAE7CF17581A18F5F670A1282F1DB9B16B515B68FCF3D7D2B6DA9E6",
@@ -11691,7 +12548,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "6F047C260343AE1CA6325EFBD3D0B2B58218770D0D2D80D1E15FCE5DB56F8C37",
@@ -11751,7 +12611,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "4E8BC39135009FE4114C4E3F293E876C5AF4D944C25DAFCA417B8948203F60DF",
@@ -11811,7 +12674,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "D13621D23CE63138827CCB2E6EF316CC306E54B7A278D91FACE0173339BB5017",
@@ -11871,7 +12737,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "AC249C9D775E6B0CFA3C6D2E059991B47A6C363C8E7AE5DC3E1CE7C1B4AF8CF8",
@@ -11931,7 +12800,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "52816CE2D2339622AB0E195E8764D827EB4746866632F8B92188E2995406F899",
@@ -11991,7 +12863,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "00BFA054F2C7AA8243E818EB1FFFDC0859B1D8BFDBE5D78D80D4FCC67A960ED5",
@@ -12051,7 +12926,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1E30604344F52761447A909C84599BE9B871A9E9070358300A3DCBD1F6679E58",
@@ -12111,7 +12989,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "CA31D5976BB67AB3AEFC71FA47B33C638C592AD453ABE589C9FAF3A0A2D4898F",
@@ -12172,7 +13053,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8A8CEFAA39B8335DCFC15029E349E2862E48DDA9B817557882CFE4EAF25249D3",
@@ -12232,7 +13116,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5D1C00E8DE562D0383E8F62CBC0A91158149CD4459FE9959DEDAC2519F1CCE07",
@@ -12292,7 +13179,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "2AAFF42E90D27CF338F83A9E2E78B4C2314E8F7D4DF5254532D93716DAE2627A",
@@ -12352,7 +13242,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "5841F9D6471F97D8BF59B4CDB004D21BDEB5F8BCB609042FFD0B9106205C72F9",
@@ -12412,7 +13305,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "C23D6757FD034422ECCBBB94F117BED40F1C01A4A05D00242BE1680E4AA00E40",
@@ -12472,7 +13368,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "79C1EACD41CD447D98D0A96F85AEC57A7480A8C8C49C3AD770D2527CC847B1F9",
@@ -12532,7 +13431,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "34031BFB9071ADB8920297FA461067DB1A14B5142E9DAA187311E0D3B7C39B5A",
@@ -12592,7 +13494,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "83B6CC89DE8D14032F66E7183EA1954748D6F99AE37217E6AA81F80A9B308388",
@@ -12652,7 +13557,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B5E33186151EFB262C39E94858129C3FC385E988079D3154FC859E3E228BA643",
@@ -12712,7 +13620,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "747571E9332C134938E9CE3AC0E806061D056A98E23DD777CEBE93CA59063A7E",
@@ -12772,7 +13683,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "40687510F1DD2C2BF78F0D1AAFD40D4BB9A6ABF13FA38ED116D1DD2123ACAB48",
@@ -12832,7 +13746,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8D1724AB3B78FCFBF9D5FA5E3CE455B4B9D1CBE5DA0B0636308E7FB83F9DE552",
@@ -12892,10 +13809,13 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
-                           "entry_id":  "C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E",
+                           "entry_id":  "C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E::FE2847C2B3EB",
                            "source_path":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03\\cache\\Standard.3mf",
                            "relative_path":  "cache/Standard.3mf",
                            "source_type":  "sd_cache_3mf",
@@ -12952,7 +13872,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  2,
+                           "same_hash_group_index":  1
                        },
                        {
                            "entry_id":  "037BB3BD1F46C607F21208BCB856A96DEEA5C856B31E3085BCB9CF01D4D83A16",
@@ -13012,7 +13935,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "128CEB4E10B0E984FEBAC39356417E303FC2D30FDB9EE117EC84316A485E9D4B",
@@ -13072,7 +13998,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "CC62299C244478E1A36CF9DCFD9B8C0C8113B447E5502E0E73693408DE52E886",
@@ -13132,7 +14061,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "1CB8271709685EE82D10346E1DF4687E983596DC620F4D8D146C87D56344DAF8",
@@ -13192,7 +14124,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "517016F5A5632DD700B65B4D7AA90ED0BEE6FF70E97A10ECE3B3720FDE16D2EC",
@@ -13252,7 +14187,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "26A4AA66B4948FF5653C8601B6FA1E3DBFFD25589F5273CA119736B9CA32F097",
@@ -13312,7 +14250,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "8E4A0602944A0366596137BF5E2DF921EDB65205633751BF2F4C6799C1355375",
@@ -13372,7 +14313,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "45F982F8F94D8DCC3F3841DC07C76820BAD11BE4F59F715A25A7347F1E72169A",
@@ -13432,7 +14376,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "2C3E4D5E1AD513CF6A2C35998F7C4CB7400959AE1A116FCB7A71E8DF64AF9673",
@@ -13492,7 +14439,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "9AC3F00C40656DB77663C41264602E8181F2083CC36F4C40549D219E777CA414",
@@ -13552,7 +14502,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "984185E5C440C2969C97E4A09BFDA90D2EC98D0044D2E004EF8D98DFCBFE0279",
@@ -13612,7 +14565,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "61622836CF643247D838E6A0868A08377D2F1DE9348590D12174784E6993C62B",
@@ -13672,7 +14628,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "B5350C4B475A8C181C4E257F8ECF019864F73310157B3285C3F758AD5B6EF1D3",
@@ -13732,7 +14691,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "A8EB3E6AF0CCC705A5F4AAF779C055AD9D94DA069EBF1BC23FC215E457750CC7",
@@ -13792,7 +14754,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "ACD40484B8563BD0B79E7EA34580664907C6811AD4B10AE1FE67E5BF802A4FE9",
@@ -13852,7 +14817,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "F880151D656AD80A281CEFE658DDB0F4A652EB2DD090320A9DA0CB9EA7C22B04",
@@ -13912,7 +14880,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "2D4BF0D7141648FB1E3A7ADE1C2989B50EF72CC7E5CF9A607480E6E9573EC3E9",
@@ -13971,7 +14942,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FEC212637B4A24C1B4A4427B7DE7CF9FCDB2D9AAC5D522FD18ADBA836792201E",
@@ -14030,7 +15004,10 @@
                            "matched_archive_id":  null,
                            "created_archive_id":  null,
                            "last_attempted_at":  null,
-                           "operator_note":  null
+                           "operator_note":  null,
+                           "allow_same_content_reimport":  false,
+                           "same_hash_group_size":  1,
+                           "same_hash_group_index":  0
                        }
                    ]
 }

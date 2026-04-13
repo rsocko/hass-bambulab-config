@@ -273,7 +273,9 @@ function Get-ManifestCandidates {
 function Get-ManifestDocument {
     param([string]$Path)
 
-    return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    Normalize-ManifestDocument -Manifest $manifest
+    return $manifest
 }
 
 function Save-ManifestDocument {
@@ -301,6 +303,85 @@ function Find-ManifestCandidate {
     return $null
 }
 
+function Get-NormalizedRelativePathForEntryId {
+    param([object]$Candidate)
+
+    $value = [string]$Candidate.relative_path
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        $value = [string]$Candidate.source_path
+    }
+
+    return $value.Replace('\', '/').Trim().ToLowerInvariant()
+}
+
+function Get-StringSha256 {
+    param([string]$Value)
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+        $hashBytes = $sha.ComputeHash($bytes)
+        return ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').ToUpperInvariant()
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-CanonicalManifestEntryId {
+    param(
+        [object]$Candidate,
+        [int]$Index = 0
+    )
+
+    $sha256 = [string]$Candidate.source_sha256
+    if ([string]::IsNullOrWhiteSpace($sha256)) {
+        $sha256 = Get-StringSha256 -Value (Get-NormalizedRelativePathForEntryId -Candidate $Candidate)
+    }
+
+    if ($Index -le 0) {
+        return $sha256
+    }
+
+    $pathHash = Get-StringSha256 -Value (Get-NormalizedRelativePathForEntryId -Candidate $Candidate)
+    return ('{0}::{1}' -f $sha256, $pathHash.Substring(0, 12))
+}
+
+function Normalize-ManifestDocument {
+    param([object]$Manifest)
+
+    $grouped = @{}
+    foreach ($candidate in @($Manifest.candidates)) {
+        $groupKey = [string]$candidate.source_sha256
+        if ([string]::IsNullOrWhiteSpace($groupKey)) {
+            $groupKey = Get-NormalizedRelativePathForEntryId -Candidate $candidate
+        }
+
+        if (-not $grouped.ContainsKey($groupKey)) {
+            $grouped[$groupKey] = New-Object System.Collections.ArrayList
+        }
+
+        [void]$grouped[$groupKey].Add($candidate)
+
+        if (-not ($candidate.PSObject.Properties.Name -contains 'allow_same_content_reimport')) {
+            Set-ObjectPropertyValue -InputObject $candidate -Name 'allow_same_content_reimport' -Value $false
+        }
+    }
+
+    foreach ($groupKey in $grouped.Keys) {
+        $ordered = @($grouped[$groupKey] | Sort-Object { Get-NormalizedRelativePathForEntryId -Candidate $_ })
+        for ($index = 0; $index -lt $ordered.Count; $index++) {
+            $candidate = $ordered[$index]
+            Set-ObjectPropertyValue -InputObject $candidate -Name 'entry_id' -Value (Get-CanonicalManifestEntryId -Candidate $candidate -Index $index)
+            Set-ObjectPropertyValue -InputObject $candidate -Name 'same_hash_group_size' -Value $ordered.Count
+            Set-ObjectPropertyValue -InputObject $candidate -Name 'same_hash_group_index' -Value $index
+        }
+    }
+
+    Set-ObjectPropertyValue -InputObject $Manifest -Name 'schema_version' -Value 3
+    Update-ManifestSummary -Manifest $Manifest
+}
+
 function Get-ProcessingBucketForStatus {
     param(
         [string]$Status,
@@ -309,6 +390,7 @@ function Get-ProcessingBucketForStatus {
 
     switch ($Status) {
         'skipped_existing_content_hash' { return 'already_in_archive' }
+        'batch_ready_same_hash_allowed' { return 'batch_ready' }
         'manual_review_source_only' { return 'manual_review' }
         'batch_ready' { return 'batch_ready' }
         'uploaded' { return 'completed' }
@@ -702,13 +784,31 @@ function Invoke-BackfillMode {
                     continue
                 }
 
-                $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id))
-                $results += $result
-                if ($PersistManifestState.IsPresent) {
-                    Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id)
-                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                $allowSameContentReimport = $false
+                if ($candidate.PSObject.Properties.Name -contains 'allow_same_content_reimport') {
+                    $allowSameContentReimport = [bool]$candidate.allow_same_content_reimport
                 }
-                continue
+
+                if ($allowSameContentReimport) {
+                    if ($Action -eq 'Inspect') {
+                        $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'batch_ready_same_hash_allowed' -Reason ('Candidate shares content_hash with archive {0}, but manifest explicitly allows same-content reimport.' -f [int]$existing.id) -MatchedArchiveId ([int]$existing.id))
+                        $results += $result
+                        if ($PersistManifestState.IsPresent) {
+                            Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'batch_ready_same_hash_allowed' -Reason ('Candidate shares content_hash with archive {0}, but manifest explicitly allows same-content reimport.' -f [int]$existing.id)
+                            Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                        }
+                        continue
+                    }
+                }
+                else {
+                    $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id))
+                    $results += $result
+                    if ($PersistManifestState.IsPresent) {
+                        Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id)
+                        Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                    }
+                    continue
+                }
             }
 
             if (Test-ManifestCandidateAlreadyHandled -Candidate $candidate) {

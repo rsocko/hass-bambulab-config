@@ -418,7 +418,7 @@ Partially.
 What exists today:
 
 - `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1` has a `Backfill` mode
-- `tmp/archive_backfill_manifest.json` already contains a large SD-card candidate set
+- `bambuddy/backfill-state/archive_backfill_manifest_v2.json` is the active SD-card candidate ledger, and archives `234` and `235` are already recorded there as completed repaired imports
 - `tmp/archive_backfill_inspect.json` shows bulk inspect output
 - `tmp/archive_backfill_full_one.json` shows that the backfill helper can create and annotate imported archives from a manifest entry
 
