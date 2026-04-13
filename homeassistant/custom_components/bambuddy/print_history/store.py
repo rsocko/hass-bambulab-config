@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 import logging
@@ -161,6 +162,22 @@ class PrintHistoryStore:
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS archive_event_timeline (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                archive_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL DEFAULT '',
+                event_time TEXT NOT NULL DEFAULT '',
+                event_source TEXT NOT NULL DEFAULT '',
+                event_status TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL DEFAULT '',
+                derived_from TEXT NOT NULL DEFAULT '',
+                event_key TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_archive_id ON archive_event_timeline(archive_id);
+            CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_event_time ON archive_event_timeline(event_time);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_archive_event_timeline_event_key ON archive_event_timeline(event_key);
+
             CREATE TABLE IF NOT EXISTS archive_repair_lineage (
                 archive_id INTEGER NOT NULL,
                 related_archive_id INTEGER NOT NULL,
@@ -181,6 +198,7 @@ class PrintHistoryStore:
             """
         )
         self._ensure_archive_columns(connection)
+        self._ensure_event_timeline_columns(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at)")
 
     def _ensure_archive_columns(self, connection: sqlite3.Connection) -> None:
@@ -234,12 +252,36 @@ class PrintHistoryStore:
                 (archive_day_local, archive_id),
             )
 
+    def _ensure_event_timeline_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(archive_event_timeline)").fetchall()
+            if len(row) > 1
+        }
+        required_columns = {
+            "event_status": "TEXT NOT NULL DEFAULT ''",
+            "payload_json": "TEXT NOT NULL DEFAULT ''",
+            "derived_from": "TEXT NOT NULL DEFAULT ''",
+            "event_key": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column_name, definition in required_columns.items():
+            if column_name in columns:
+                continue
+            _LOGGER.info("Adding missing archive_event_timeline.%s column to Bambuddy local store", column_name)
+            connection.execute(f"ALTER TABLE archive_event_timeline ADD COLUMN {column_name} {definition}")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_archive_id ON archive_event_timeline(archive_id)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_event_time ON archive_event_timeline(event_time)")
+        connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_archive_event_timeline_event_key ON archive_event_timeline(event_key)")
+
     def replace_archives(self, archives: list[dict[str, Any]]) -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             self._ensure_schema(connection)
             review_rows = connection.execute(
                 "SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note FROM archive_review_state"
+            ).fetchall()
+            event_rows = connection.execute(
+                "SELECT archive_id, event_type, event_time, event_source, event_status, payload_json, derived_from, event_key FROM archive_event_timeline"
             ).fetchall()
             lineage_rows = connection.execute(
                 "SELECT archive_id, related_archive_id, relation_type, created_at, note FROM archive_repair_lineage"
@@ -421,6 +463,19 @@ class PrintHistoryStore:
                     ) VALUES (?, ?, ?, ?, ?)
                     """,
                     lineage_row,
+                )
+
+            for event_row in event_rows:
+                archive_id = as_int(event_row[0])
+                if archive_id not in active_archive_ids:
+                    continue
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO archive_event_timeline (
+                        archive_id, event_type, event_time, event_source, event_status, payload_json, derived_from, event_key
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    event_row,
                 )
 
     def load_archives(self) -> list[dict[str, Any]]:
@@ -629,6 +684,32 @@ class PrintHistoryStore:
             for row in rows
         ]
 
+    def load_archive_event_timeline(self, archive_id: int) -> list[dict[str, Any]]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT event_type, event_time, event_source, event_status, payload_json, derived_from, event_key
+                FROM archive_event_timeline
+                WHERE archive_id = ?
+                ORDER BY event_time ASC, id ASC
+                """,
+                (archive_id,),
+            ).fetchall()
+        timeline: list[dict[str, Any]] = []
+        for row in rows:
+            timeline.append(
+                {
+                    "type": row[0],
+                    "time": row[1],
+                    "source": row[2],
+                    "status": row[3],
+                    "payload": self._parse_payload_json(row[4]),
+                    "derived_from": row[5],
+                    "event_key": row[6],
+                }
+            )
+        return timeline
+
     def load_review_state(self, archive_id: int) -> dict[str, Any] | None:
         with self._connect() as connection:
             row = connection.execute(
@@ -646,6 +727,73 @@ class PrintHistoryStore:
             "mismatch_flags": row[1],
             "reviewed_at": row[2],
             "review_note": row[3],
+        }
+
+    def append_archive_event(
+        self,
+        archive_id: int,
+        *,
+        event_type: str,
+        event_source: str,
+        event_time: str | None = None,
+        event_status: str = "",
+        payload: Any | None = None,
+        derived_from: str = "",
+        event_key: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        normalized_event_type = as_text(event_type).strip().lower()
+        normalized_event_source = as_text(event_source).strip().lower()
+        normalized_event_time = as_text(event_time).strip() or datetime.now(timezone.utc).isoformat()
+        normalized_event_status = as_text(event_status).strip().lower()
+        normalized_derived_from = as_text(derived_from).strip()
+        payload_json = self._payload_json(payload)
+        normalized_event_key = as_text(event_key).strip() or self._event_key(
+            normalized_archive_id,
+            normalized_event_type,
+            normalized_event_time,
+            normalized_event_source,
+            normalized_event_status,
+            payload_json,
+            normalized_derived_from,
+        )
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+        if not normalized_event_type:
+            raise ValueError("event_type is required")
+        if not normalized_event_source:
+            raise ValueError("event_source is required")
+
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO archive_event_timeline (
+                    archive_id, event_type, event_time, event_source, event_status, payload_json, derived_from, event_key
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_archive_id,
+                    normalized_event_type,
+                    normalized_event_time,
+                    normalized_event_source,
+                    normalized_event_status,
+                    payload_json,
+                    normalized_derived_from,
+                    normalized_event_key,
+                ),
+            )
+
+        return {
+            "archive_id": normalized_archive_id,
+            "type": normalized_event_type,
+            "time": normalized_event_time,
+            "source": normalized_event_source,
+            "status": normalized_event_status,
+            "payload": self._parse_payload_json(payload_json),
+            "derived_from": normalized_derived_from,
+            "event_key": normalized_event_key,
         }
 
     def upsert_review_state(
@@ -859,6 +1007,7 @@ class PrintHistoryStore:
         with self._connect() as connection:
             archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
             note_payload_count = connection.execute("SELECT COUNT(*) FROM archive_note_payload_rows").fetchone()[0]
+            event_timeline_count = connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
             lineage_count = connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
             last_synced_at = connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
@@ -866,10 +1015,55 @@ class PrintHistoryStore:
             "db_path": str(self._db_path),
             "archive_count": archive_count,
             "note_payload_row_count": note_payload_count,
+            "event_timeline_count": event_timeline_count,
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
             "last_synced_at": last_synced_at or "",
         }
+
+    def _payload_json(self, payload: Any | None) -> str:
+        if payload in (None, "", {}):
+            return ""
+        if isinstance(payload, str):
+            return payload.strip()
+        try:
+            return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        except TypeError:
+            return as_text(payload).strip()
+
+    def _parse_payload_json(self, payload_json: str) -> Any:
+        normalized = as_text(payload_json).strip()
+        if not normalized:
+            return {}
+        try:
+            return json.loads(normalized)
+        except json.JSONDecodeError:
+            return normalized
+
+    def _event_key(
+        self,
+        archive_id: int,
+        event_type: str,
+        event_time: str,
+        event_source: str,
+        event_status: str,
+        payload_json: str,
+        derived_from: str,
+    ) -> str:
+        encoded = json.dumps(
+            {
+                "archive_id": archive_id,
+                "event_type": event_type,
+                "event_time": event_time,
+                "event_source": event_source,
+                "event_status": event_status,
+                "payload_json": payload_json,
+                "derived_from": derived_from,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return sha256(encoded).hexdigest()
 
     def _extract_photos(self, archive: dict[str, Any]) -> list[dict[str, str]]:
         raw_photos = archive.get("photos")
@@ -936,9 +1130,9 @@ class PrintHistoryStore:
             where_clauses.append("LOWER(a.filament_type) = ?")
             params.append(filters["material"].lower())
         if filters["duplicates"] == "Originals Only":
-            where_clauses.append("a.duplicate_count > 0 AND COALESCE(a.original_archive_id, 0) = 0 AND COALESCE(a.duplicate_sequence, 0) = 0")
+            where_clauses.append("a.duplicate_count > 0 AND COALESCE(a.duplicate_sequence, 0) = 0 AND (COALESCE(a.original_archive_id, 0) = 0 OR COALESCE(a.original_archive_id, 0) = a.archive_id)")
         elif filters["duplicates"] == "Duplicates Only":
-            where_clauses.append("(COALESCE(a.original_archive_id, 0) > 0 OR COALESCE(a.duplicate_sequence, 0) > 0)")
+            where_clauses.append("((COALESCE(a.original_archive_id, 0) > 0 AND COALESCE(a.original_archive_id, 0) != a.archive_id) OR COALESCE(a.duplicate_sequence, 0) > 0)")
         if filters["printer"] not in {"", "All"}:
             selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"])
             if not selected_printer_ids:
@@ -961,8 +1155,20 @@ class PrintHistoryStore:
             where_clauses.append("a.is_favorite = 1")
         if filters["search"]:
             like = f"%{filters['search']}%"
-            where_clauses.append("(LOWER(a.print_name) LIKE ? OR LOWER(a.designer) LIKE ? OR LOWER(a.tags) LIKE ?)")
-            params.extend([like, like, like])
+            where_clauses.append(
+                "("
+                "CAST(a.archive_id AS TEXT) LIKE ? OR "
+                "CAST(COALESCE(a.original_archive_id, '') AS TEXT) LIKE ? OR "
+                "CAST(COALESCE(a.printer_id, '') AS TEXT) LIKE ? OR "
+                "LOWER(COALESCE(a.print_name, '')) LIKE ? OR "
+                "LOWER(COALESCE(a.printer_name, '')) LIKE ? OR "
+                "LOWER(COALESCE(a.designer, '')) LIKE ? OR "
+                "LOWER(COALESCE(a.project_name, '')) LIKE ? OR "
+                "LOWER(COALESCE(a.failure_reason, '')) LIKE ? OR "
+                "LOWER(COALESCE(a.tags, '')) LIKE ?"
+                ")"
+            )
+            params.extend([like, like, like, like, like, like, like, like, like])
         if filters["selected_day"]:
             where_clauses.append("a.archive_day_local = ?")
             params.append(filters["selected_day"])

@@ -33,6 +33,7 @@ print_history_archive_popup_content:
         const popupArchiveId = states['input_text.print_history_popup_archive_id']?.state || '';
         const popupFavoriteState = states['input_boolean.print_history_popup_is_favorite']?.state || 'off';
         let archive = snapshotArchive;
+        let detailEventTimeline = [];
         const detailState = states['sensor.print_history_popup_archive_detail'];
         if (detailState && String(detailState.state || '') === String(snapshotArchiveId || '')) {
           try {
@@ -41,8 +42,12 @@ print_history_archive_popup_content:
             if (detailArchive && typeof detailArchive === 'object') {
               archive = { ...archive, ...detailArchive };
             }
+            const timelineRaw = detailState.attributes?.event_timeline_json || '[]';
+            const parsedTimeline = typeof timelineRaw === 'string' ? JSON.parse(timelineRaw || '[]') : timelineRaw;
+            detailEventTimeline = Array.isArray(parsedTimeline) ? parsedTimeline : [];
           } catch (_error) {
             archive = snapshotArchive;
+            detailEventTimeline = [];
           }
         }
 
@@ -168,6 +173,13 @@ print_history_archive_popup_content:
               hour: 'numeric',
               minute: '2-digit'
             });
+          };
+          const parseDateMs = (value) => {
+            if (!value) return null;
+            const raw = String(value);
+            const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
+            const parsed = new Date(normalized);
+            return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
           };
         const formatDuration = (secondsValue) => {
           const seconds = Number(secondsValue || 0);
@@ -312,13 +324,89 @@ print_history_archive_popup_content:
           : (status === 'failed' || status === 'cancelled')
             ? '#C62828'
             : '#78909C';
+        const timelineColorForKey = (colorKey) => ({
+          start: '#1565C0',
+          pause: '#FB8C00',
+          resume: '#00ACC1',
+          success: '#2E7D32',
+          failure: '#C62828',
+          media: '#00897B',
+          repair: '#8E24AA',
+          neutral: '#78909C'
+        })[String(colorKey || '').trim()] || '#78909C';
+        const timelineLegendTitle = [
+          'Timeline colors',
+          'Blue: Print started',
+          'Orange: Print paused',
+          'Cyan: Print resumed',
+          'Green: Print finished or enrichment applied',
+          'Red: Print failed or stopped',
+          'Teal: Photo captured',
+          'Purple: Repair applied'
+        ].join(' | ');
+        const anchorEventTypes = new Set(['print_started', 'print_finished', 'print_failed', 'print_stopped']);
+        const rawTimelineStartTime = parseDateMs(archive?.started_at || archive?.created_at);
+        const rawTimelineEvents = Array.isArray(detailEventTimeline) ? detailEventTimeline : [];
+        const timelineEventTimes = rawTimelineEvents
+          .map((item) => parseDateMs(item?.time))
+          .filter((value) => value !== null);
+        const rawTimelineEndTime = parseDateMs(archive?.completed_at)
+          ?? (timelineEventTimes.length ? Math.max(...timelineEventTimes) : null);
+        const buildTimelineDots = () => {
+          if (rawTimelineStartTime === null || rawTimelineEndTime === null || rawTimelineEndTime <= rawTimelineStartTime) {
+            return [];
+          }
+          const trackMin = 6;
+          const trackMax = 94;
+          const minGap = 4;
+          const projected = rawTimelineEvents
+            .filter((item) => item && typeof item === 'object' && !anchorEventTypes.has(String(item.type || '').trim()))
+            .map((item) => {
+              const eventTimeMs = parseDateMs(item.time);
+              if (eventTimeMs === null) return null;
+              const clampedMs = Math.min(rawTimelineEndTime, Math.max(rawTimelineStartTime, eventTimeMs));
+              const rawPosition = trackMin + (((clampedMs - rawTimelineStartTime) / Math.max(1, rawTimelineEndTime - rawTimelineStartTime)) * (trackMax - trackMin));
+              const color = timelineColorForKey(item.color_key);
+              return {
+                type: String(item.type || '').trim(),
+                time: item.time,
+                label: String(item.label || String(item.type || '').replace(/_/g, ' ').trim()),
+                color,
+                ringColor: rgbaFromHex(color, 0.22, 'rgba(255,255,255,0.12)'),
+                position: Math.min(trackMax, Math.max(trackMin, rawPosition))
+              };
+            })
+            .filter(Boolean)
+            .sort((left, right) => parseDateMs(left.time) - parseDateMs(right.time));
+          if (!projected.length) return [];
+          const adjusted = projected.map((item) => ({ ...item }));
+          for (let index = 1; index < adjusted.length; index += 1) {
+            adjusted[index].position = Math.max(adjusted[index].position, adjusted[index - 1].position + minGap);
+          }
+          for (let index = adjusted.length - 1; index >= 0; index -= 1) {
+            const maxPosition = trackMax - ((adjusted.length - 1 - index) * minGap);
+            adjusted[index].position = Math.min(adjusted[index].position, maxPosition);
+            if (index < adjusted.length - 1) {
+              adjusted[index].position = Math.min(adjusted[index].position, adjusted[index + 1].position - minGap);
+            }
+            adjusted[index].position = Math.max(trackMin + (index * minGap), adjusted[index].position);
+          }
+          return adjusted;
+        };
+        const timelineDots = buildTimelineDots();
+        const timelineDotMarkup = timelineDots.map((item) => `<span title="${escapeHtml(`${item.label} | ${formatTimelineDate(item.time)}`)}" style="position:absolute;left:${item.position}%;top:50%;width:8px;height:8px;border-radius:999px;background:${item.color};transform:translate(-50%, -50%);box-shadow:0 0 0 3px ${item.ringColor};"></span>`).join('');
+        const startTimelineTitle = `Print started | ${formatTimelineDate(archive?.started_at || archive?.created_at)}`;
+        const endTimelineLabel = status === 'completed' ? 'Print finished' : (status === 'failed' ? 'Print failed' : (status === 'cancelled' ? 'Print stopped' : statusLabel));
+        const endTimelineTitle = `${endTimelineLabel} | ${formatTimelineDate(archive?.completed_at)}`;
         const archiveError = buildArchiveErrorState(archive);
         const buildDuplicateState = (currentArchive) => {
+          const archiveId = Math.max(0, Number(currentArchive?.id || 0));
           const duplicateCount = Math.max(0, Number(currentArchive?.duplicate_count || 0));
           const duplicateSequence = Math.max(0, Number(currentArchive?.duplicate_sequence || 0));
           const originalArchiveId = Math.max(0, Number(currentArchive?.original_archive_id || 0));
-          const isDuplicate = originalArchiveId > 0 || duplicateSequence > 0;
-          const isOriginal = duplicateCount > 0 && !isDuplicate;
+          const isSource = duplicateSequence === 0 && originalArchiveId > 0 && originalArchiveId === archiveId;
+          const isDuplicate = !isSource && (originalArchiveId > 0 || duplicateSequence > 0);
+          const isOriginal = duplicateCount > 0 && (isSource || !isDuplicate);
           const groupSize = duplicateCount > 0 ? duplicateCount + 1 : 0;
           if (!isDuplicate && !isOriginal) {
             return {
@@ -336,25 +424,25 @@ print_history_archive_popup_content:
             const duplicatePosition = groupSize > 0 ? Math.min(groupSize, Math.max(1, duplicateSequence + 1)) : Math.max(1, duplicateSequence + 1);
             return {
               hasDuplicateContext: true,
-              roleLabel: 'Duplicate',
-              chipLabel: groupSize > 1 ? `Duplicate ${duplicatePosition}/${groupSize}` : 'Duplicate',
+              roleLabel: 'Duplicate Copy',
+              chipLabel: originalArchiveId > 0 ? `Dup of #${originalArchiveId}` : (groupSize > 1 ? `Duplicate ${duplicatePosition}/${groupSize}` : 'Duplicate'),
               chipColor: '#00897B',
               summary: originalArchiveId > 0
-                ? `This archive is a duplicate entry that points back to archive #${originalArchiveId}.`
+                ? `This archive is a duplicate copy derived from original archive #${originalArchiveId}.`
                 : 'This archive is part of a duplicate print set.',
               groupSize,
               sequenceLabel: groupSize > 1 ? `${duplicatePosition} of ${groupSize}` : `${duplicatePosition}`,
-              originalLabel: originalArchiveId > 0 ? `Archive #${originalArchiveId}` : '',
+              originalLabel: originalArchiveId > 0 ? `Source #${originalArchiveId}` : '',
             };
           }
           return {
             hasDuplicateContext: true,
-            roleLabel: 'Original',
-            chipLabel: groupSize > 1 ? `Original · ${groupSize} prints` : 'Original',
+            roleLabel: 'Original Source',
+            chipLabel: groupSize > 1 ? `Source · ${groupSize} prints` : 'Source',
             chipColor: '#1565C0',
             summary: groupSize > 1
-              ? `This archive is the original entry for a duplicate set of ${groupSize} prints.`
-              : 'This archive is the original entry in a duplicate set.',
+              ? `This archive is the original source for a duplicate set of ${groupSize} prints.`
+              : 'This archive is the original source in a duplicate set.',
             groupSize,
             sequenceLabel: groupSize > 1 ? `1 of ${groupSize}` : '1',
             originalLabel: '',
@@ -480,7 +568,9 @@ print_history_archive_popup_content:
             .print-history-popup-timeline-value{font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}
             .print-history-popup-timeline-main{grid-area:track;display:flex;align-items:center;min-width:0;width:100%;}
             .print-history-popup-timeline-track{position:relative;width:100%;height:18px;}
-            .print-history-popup-timeline-duration{grid-area:duration;align-self:center;justify-self:center;display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;white-space:nowrap;}
+            .print-history-popup-timeline-duration-wrap{grid-area:duration;align-self:center;justify-self:center;display:inline-flex;align-items:center;justify-content:center;gap:8px;max-width:100%;}
+            .print-history-popup-timeline-duration{display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;white-space:nowrap;}
+            .print-history-popup-timeline-legend{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:var(--secondary-text-color);}
             @media (max-width: 640px) {
               .print-history-popup-timeline{column-gap:10px;row-gap:8px;}
             }
@@ -492,12 +582,16 @@ print_history_archive_popup_content:
                   <div class="print-history-popup-timeline-label">Start</div>
                   <div class="print-history-popup-timeline-value">${escapeHtml(startedDisplay)}</div>
                 </div>
-                <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
+                <div class="print-history-popup-timeline-duration-wrap">
+                  <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
+                  <span class="print-history-popup-timeline-legend" title="${escapeHtml(timelineLegendTitle)}"><ha-icon icon="mdi:information-outline" style="--mdc-icon-size:16px;color:var(--secondary-text-color);"></ha-icon></span>
+                </div>
                 <div class="print-history-popup-timeline-main">
                   <div class="print-history-popup-timeline-track">
                     <span style="position:absolute;left:4px;right:4px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
-                    <span style="position:absolute;left:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(21,101,192,0.12);"></span>
-                    <span style="position:absolute;right:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
+                    <span title="${escapeHtml(startTimelineTitle)}" style="position:absolute;left:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(21,101,192,0.12);"></span>
+                    ${timelineDotMarkup}
+                    <span title="${escapeHtml(endTimelineTitle)}" style="position:absolute;right:0;top:50%;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};transform:translateY(-50%);box-shadow:0 0 0 4px rgba(255,255,255,0.08);"></span>
                   </div>
                 </div>
                 <div class="print-history-popup-timeline-side print-history-popup-timeline-side--end">

@@ -46,6 +46,21 @@
             {% endif %}
             {{ detail | tojson }}
           {% endif %}
+        event_timeline_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            []
+          {% else %}
+            {% set content = result.get('event_timeline', []) if result is defined and result is mapping else [] %}
+            {% if content is string %}
+              {% set timeline = content | from_json([]) %}
+            {% elif content is iterable and content is not mapping %}
+              {% set timeline = content | list %}
+            {% else %}
+              {% set timeline = [] %}
+            {% endif %}
+            {{ timeline | tojson }}
+          {% endif %}
         photos_json: >-
           {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
           {% if archive_id == '' %}

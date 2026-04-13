@@ -30,7 +30,7 @@ def _projected_archives() -> list[dict]:
             "cost": 2.35,
             "duplicate_count": 2,
             "duplicate_sequence": 0,
-            "original_archive_id": None,
+            "original_archive_id": 101,
             "object_count": 2,
             "layer_height": 0.16,
             "designer": "Jane",
@@ -196,6 +196,46 @@ def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blan
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
 
 
+def test_variant3_query_search_matches_archive_ids_and_operational_fields() -> None:
+    archives = _projected_archives()
+    base_states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    cases = {
+        "202": [202],
+        "101": [101, 202],
+        "workshop p1s": [101],
+        "wall art": [101],
+        "layer shift": [202],
+    }
+
+    for search_text, expected_ids in cases.items():
+        result = query_archives(
+            archives,
+            {**base_states, "input_text.print_history_search": search_text},
+            now=datetime(2026, 4, 10, tzinfo=timezone.utc),
+        )
+        assert [archive["id"] for archive in result.page_items] == expected_ids
+
+
 def test_variant3_query_local_date_key_uses_home_assistant_timezone() -> None:
     original_timezone = query_module.dt_util.DEFAULT_TIME_ZONE
     try:
@@ -218,6 +258,7 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
     assert [archive["id"] for archive in loaded] == [101, 202]
     assert loaded[0]["duplicate_count"] == 2
     assert loaded[1]["duplicate_sequence"] == 1
+    assert loaded[0]["original_archive_id"] == 101
     assert loaded[1]["original_archive_id"] == 101
     assert loaded[0]["filament_slots"][0]["color"] == "#112233"
     assert loaded[0]["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
@@ -607,6 +648,43 @@ def test_variant3_store_query_uses_note_payload_names_for_tooltips_when_slot_nam
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
 
 
+def test_variant3_store_query_search_matches_archive_ids_and_operational_fields(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    base_states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    cases = {
+        "202": [202],
+        "101": [101, 202],
+        "workshop p1s": [101],
+        "wall art": [101],
+        "layer shift": [202],
+    }
+
+    for search_text, expected_ids in cases.items():
+        result = store.load_query_result({**base_states, "input_text.print_history_search": search_text})
+        assert [archive["id"] for archive in result.page_items] == expected_ids
+
+
 def test_variant3_query_this_month_uses_calendar_month_boundary() -> None:
     archives = _projected_archives()
     states = {
@@ -804,6 +882,60 @@ def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
     assert lineage[0]["related_archive_id"] == 202
     assert sync is not None
     assert sync["last_synced_at"]
+
+
+def test_variant3_store_appends_timeline_events_idempotently(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    first = store.append_archive_event(
+        101,
+        event_type="print_started",
+        event_source="bambuddy_webhook",
+        event_time="2026-04-08T10:00:00Z",
+        event_status="printing",
+        payload={"print_name": "Hueforge Batman"},
+    )
+    second = store.append_archive_event(
+        101,
+        event_type="print_started",
+        event_source="bambuddy_webhook",
+        event_time="2026-04-08T10:00:00Z",
+        event_status="printing",
+        payload={"print_name": "Hueforge Batman"},
+    )
+
+    timeline = store.load_archive_event_timeline(101)
+    stats = store.load_store_stats()
+
+    assert first["event_key"] == second["event_key"]
+    assert len(timeline) == 1
+    assert timeline[0]["type"] == "print_started"
+    assert timeline[0]["source"] == "bambuddy_webhook"
+    assert timeline[0]["payload"] == {"print_name": "Hueforge Batman"}
+    assert stats["event_timeline_count"] == 1
+
+
+def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = _projected_archives()
+    store.replace_archives(archives)
+    store.append_archive_event(
+        101,
+        event_type="print_finished",
+        event_source="bambuddy_webhook",
+        event_time="2026-04-08T14:00:00Z",
+        event_status="completed",
+    )
+
+    store.replace_archives(archives)
+
+    timeline = store.load_archive_event_timeline(101)
+
+    assert len(timeline) == 1
+    assert timeline[0]["type"] == "print_finished"
 
 
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:

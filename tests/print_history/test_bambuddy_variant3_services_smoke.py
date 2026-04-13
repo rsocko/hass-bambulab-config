@@ -293,7 +293,7 @@ def _projected_archives(project_archive) -> list[dict]:
             "cost": 2.35,
             "duplicate_count": 2,
             "duplicate_sequence": 0,
-            "original_archive_id": None,
+            "original_archive_id": 101,
             "object_count": 2,
             "layer_height": 0.16,
             "designer": "Jane",
@@ -447,6 +447,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
@@ -469,6 +470,20 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         detail_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
                 SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        append_event_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "event_type": "photo_captured",
+                        "event_source": "ha_script",
+                        "event_time": "2026-04-10T00:02:00Z",
+                        "event_status": "verified",
+                        "payload": {"stage": "finish"},
+                    }
+                )
             )
         )
         review_response = asyncio.run(
@@ -529,6 +544,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert len(activity_query_response["activity_rows"]) == 2
     assert detail_response["archive_id"] == 101
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
+    assert append_event_response["event_timeline"][0]["type"] == "photo_captured"
+    assert append_event_response["event_timeline"][0]["label"] == "Photo captured"
     assert review_response["review_state"]["review_status"] == "reviewed"
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
@@ -630,3 +647,31 @@ def test_variant3_manager_refresh_cools_down_after_store_open_failure(tmp_path: 
     assert calls["count"] == 1
     assert manager.status_state == "error"
     assert "cooldown remaining" in manager.status_message
+
+
+def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.store.append_archive_event(
+        101,
+        event_type="print_finished",
+        event_source="bambuddy_webhook",
+        event_time="2026-04-08T14:00:00Z",
+        event_status="completed",
+    )
+
+    detail = manager.build_archive_detail_response(101)
+
+    assert detail is not None
+    assert detail["event_timeline"][0]["type"] == "print_finished"
+    assert detail["event_timeline"][0]["label"] == "Print finished"
+    assert detail["event_timeline"][0]["color_key"] == "success"

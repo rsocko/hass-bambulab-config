@@ -16,6 +16,7 @@ from .const import (
     DATA_MANAGER,
     DOMAIN,
     PLATFORMS,
+    SERVICE_APPEND_PRINT_HISTORY_EVENT,
     CONF_RUNTIME_REPAIR_BASE_URL,
     CONF_RUNTIME_REPAIR_TOKEN,
     CONF_FETCH_TIMEOUT_SECONDS,
@@ -72,6 +73,19 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
+SERVICE_APPEND_EVENT_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("event_type"): str,
+        vol.Required("event_source"): str,
+        vol.Optional("event_time"): str,
+        vol.Optional("event_status", default=""): str,
+        vol.Optional("payload", default={}): vol.Any(dict, str),
+        vol.Optional("derived_from", default=""): str,
+        vol.Optional("event_key"): str,
+    }
+)
 SERVICE_REVIEW_STATE_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -200,6 +214,29 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_append_event(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        try:
+            await manager.async_record_archive_event(
+                archive_id,
+                event_type=str(call.data["event_type"]),
+                event_source=str(call.data["event_source"]),
+                event_time=call.data.get("event_time"),
+                event_status=str(call.data.get("event_status", "")),
+                payload=call.data.get("payload", {}),
+                derived_from=str(call.data.get("derived_from", "")),
+                event_key=call.data.get("event_key"),
+            )
+        except ValueError as error:
+            raise HomeAssistantError(str(error)) from error
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
     async def async_handle_set_review_state(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -242,6 +279,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
         except ValueError as error:
             raise HomeAssistantError(str(error)) from error
+        await manager.async_record_archive_event(
+            archive_id,
+            event_type="repair_applied",
+            event_source="ha_service",
+            event_time=call.data.get("created_at"),
+            payload={
+                "related_archive_id": related_archive_id,
+                "relation_type": str(call.data[CONF_RELATION_TYPE]),
+            },
+            notify=False,
+        )
         manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
@@ -365,6 +413,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
             async_handle_detail,
             schema=SERVICE_DETAIL_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_APPEND_PRINT_HISTORY_EVENT):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_APPEND_PRINT_HISTORY_EVENT,
+            async_handle_append_event,
+            schema=SERVICE_APPEND_EVENT_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_REVIEW_STATE):

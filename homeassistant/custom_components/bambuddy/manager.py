@@ -29,11 +29,42 @@ from .const import (
     REFRESH_WEBHOOK_EVENTS,
     STORE_FILENAME,
 )
-from .print_history.query import QueryResult, option_sets, project_archive, query_archives
+from .print_history.query import QueryResult, as_int, as_text, normalize_status, option_sets, project_archive, query_archives
 from .print_history.store import PrintHistoryStore
 
 
 _LOGGER = logging.getLogger(__name__)
+
+WEBHOOK_EVENT_TYPE_MAP = {
+    "print_started": {"type": "print_started", "status": "printing"},
+    "print_complete": {"type": "print_finished", "status": "completed"},
+    "print_failed": {"type": "print_failed", "status": "failed"},
+    "print_stopped": {"type": "print_stopped", "status": "cancelled"},
+}
+
+EVENT_LABELS = {
+    "print_started": "Print started",
+    "print_paused": "Print paused",
+    "print_resumed": "Print resumed",
+    "print_finished": "Print finished",
+    "print_failed": "Print failed",
+    "print_stopped": "Print stopped",
+    "photo_captured": "Photo captured",
+    "enrichment_applied": "Enrichment applied",
+    "repair_applied": "Repair applied",
+}
+
+EVENT_COLOR_KEYS = {
+    "print_started": "start",
+    "print_paused": "pause",
+    "print_resumed": "resume",
+    "print_finished": "success",
+    "print_failed": "failure",
+    "print_stopped": "failure",
+    "photo_captured": "media",
+    "enrichment_applied": "success",
+    "repair_applied": "repair",
+}
 
 
 QUERY_OVERRIDE_ENTITY_MAP = {
@@ -310,12 +341,42 @@ class PrintHistoryBrowserManager:
             return None
         return {
             "archive": archive,
+            "event_timeline": self._normalized_event_timeline(archive_id),
             "note_payload_rows": self.store.load_note_payload_rows(archive_id),
             "review_state": self.store.load_review_state(archive_id),
             "repair_lineage": self.store.load_repair_lineage(archive_id),
             "sync": self.store.load_sync_metadata(archive_id),
             "store": self.store.load_store_stats(),
         }
+
+    async def async_record_archive_event(
+        self,
+        archive_id: int,
+        *,
+        event_type: str,
+        event_source: str,
+        event_time: str | None = None,
+        event_status: str = "",
+        payload: Any | None = None,
+        derived_from: str = "",
+        event_key: str | None = None,
+        notify: bool = True,
+    ) -> dict[str, Any]:
+        recorded = await self.hass.async_add_executor_job(
+            lambda: self.store.append_archive_event(
+                archive_id,
+                event_type=event_type,
+                event_source=event_source,
+                event_time=event_time,
+                event_status=event_status,
+                payload=payload,
+                derived_from=derived_from,
+                event_key=event_key,
+            )
+        )
+        if notify:
+            self._notify_listeners()
+        return recorded
 
     def diagnostics(self) -> dict[str, Any]:
         return {
@@ -432,6 +493,26 @@ class PrintHistoryBrowserManager:
     @callback
     def _async_handle_webhook_event(self, event: Event) -> None:
         event_type = str((event.data or {}).get("event", "")).strip().lower()
+        if event_type in WEBHOOK_EVENT_TYPE_MAP:
+            archive_id = as_int((event.data or {}).get("archive_id"))
+            if archive_id > 0:
+                mapping = WEBHOOK_EVENT_TYPE_MAP[event_type]
+                event_status = normalize_status((event.data or {}).get("status")) or mapping["status"]
+                self.hass.async_create_task(
+                    self.async_record_archive_event(
+                        archive_id,
+                        event_type=mapping["type"],
+                        event_source="bambuddy_webhook",
+                        event_time=as_text((event.data or {}).get("timestamp")).strip() or None,
+                        event_status=event_status,
+                        payload={
+                            key: value
+                            for key, value in (event.data or {}).items()
+                            if key not in {"event", "archive_id", "timestamp", "status"}
+                        },
+                        notify=False,
+                    )
+                )
         if event_type in REFRESH_WEBHOOK_EVENTS:
             self.hass.async_create_task(self.async_refresh(f"webhook:{event_type}"))
 
@@ -446,6 +527,23 @@ class PrintHistoryBrowserManager:
     def _notify_listeners(self) -> None:
         for listener in list(self._listeners):
             listener()
+
+    def _normalized_event_timeline(self, archive_id: int) -> list[dict[str, Any]]:
+        timeline = self.store.load_archive_event_timeline(archive_id)
+        return [
+            {
+                "type": row["type"],
+                "time": row["time"],
+                "source": row["source"],
+                "status": row["status"],
+                "label": EVENT_LABELS.get(row["type"], row["type"].replace("_", " ").strip().title()),
+                "color_key": EVENT_COLOR_KEYS.get(row["type"], "neutral"),
+                "payload": row["payload"],
+                "derived_from": row["derived_from"],
+                "event_key": row["event_key"],
+            }
+            for row in timeline
+        ]
 
     @property
     def _scan_interval_seconds(self) -> int:

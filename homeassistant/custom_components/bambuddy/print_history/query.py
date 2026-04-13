@@ -137,6 +137,21 @@ def archive_date_key(archive: dict[str, Any], *, local_tz: tzinfo | None = None)
     return parsed.astimezone(local_tz or local_timezone()).strftime("%Y-%m-%d")
 
 
+def archive_search_blob(archive: dict[str, Any]) -> str:
+    values = [
+        archive.get("id"),
+        archive.get("original_archive_id"),
+        archive.get("printer_id"),
+        archive.get("print_name"),
+        archive.get("printer_name"),
+        archive.get("designer"),
+        archive.get("project_name"),
+        archive.get("failure_reason"),
+        archive.get("tags"),
+    ]
+    return " ".join(as_text(value).strip() for value in values if as_text(value).strip()).lower()
+
+
 def extract_enrichment_payload(notes: str) -> dict[str, Any]:
     marker_index = notes.find(ENRICHMENT_MARKER)
     if marker_index < 0:
@@ -236,12 +251,21 @@ def original_archive_id(value: Any) -> int | None:
     return normalized if normalized > 0 else None
 
 
+def is_duplicate_source(archive: dict[str, Any]) -> bool:
+    archive_id = as_int(archive.get("id"))
+    duplicate_sequence_value = duplicate_sequence(archive.get("duplicate_sequence"))
+    original_id = original_archive_id(archive.get("original_archive_id"))
+    return duplicate_sequence_value == 0 and original_id is not None and original_id == archive_id
+
+
 def is_duplicate_archive(archive: dict[str, Any]) -> bool:
+    if is_duplicate_source(archive):
+        return False
     return original_archive_id(archive.get("original_archive_id")) is not None or duplicate_sequence(archive.get("duplicate_sequence")) > 0
 
 
 def is_duplicate_original(archive: dict[str, Any]) -> bool:
-    return duplicate_count(archive.get("duplicate_count")) > 0 and not is_duplicate_archive(archive)
+    return duplicate_count(archive.get("duplicate_count")) > 0 and (is_duplicate_source(archive) or not is_duplicate_archive(archive))
 
 
 def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
@@ -701,13 +725,7 @@ def query_archives(
         archive_user_tags = [tag.lower() for tag in user_tags(as_text(archive.get("tags")))]
         archive_palette = archive_colors(archive)
         archive_day = archive_date_key(archive)
-        search_blob = " ".join(
-            [
-                as_text(archive.get("print_name")),
-                as_text(archive.get("designer")),
-                as_text(archive.get("tags")),
-            ]
-        ).lower()
+        search_blob = archive_search_blob(archive)
 
         if status_filter != "All" and archive_status != status_filter.lower():
             continue

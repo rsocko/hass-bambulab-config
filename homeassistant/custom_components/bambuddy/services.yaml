@@ -148,6 +148,67 @@ get_print_history_archive_detail:
           min: 1
           mode: box
 
+append_print_history_event:
+  name: Append Print History Event
+  description: Append one local per-archive timeline event to the Bambuddy Variant 3 store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    event_type:
+      name: Event Type
+      description: Normalized event identifier such as print_started, photo_captured, or enrichment_applied.
+      required: true
+      selector:
+        text:
+    event_source:
+      name: Event Source
+      description: Provenance label such as bambuddy_webhook, bambu_lab, ha_script, or ha_service.
+      required: true
+      selector:
+        text:
+    event_time:
+      name: Event Time
+      description: Optional ISO timestamp override. Defaults to now.
+      required: false
+      selector:
+        text:
+    event_status:
+      name: Event Status
+      description: Optional normalized archive-status snapshot.
+      required: false
+      selector:
+        text:
+    payload:
+      name: Payload
+      description: Optional compact JSON-like context for diagnostics or popup hover metadata.
+      required: false
+      selector:
+        object:
+    derived_from:
+      name: Derived From
+      description: Fill only when the event was inferred or backfilled rather than directly emitted.
+      required: false
+      selector:
+        text:
+    event_key:
+      name: Event Key
+      description: Optional idempotence key override. Leave blank to let the integration derive one.
+      required: false
+      selector:
+        text:
+
 set_print_history_review_state:
   name: Set Print History Review State
   description: Create or update local review metadata for one archive in the Bambuddy store.

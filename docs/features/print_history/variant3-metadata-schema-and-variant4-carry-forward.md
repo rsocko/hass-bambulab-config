@@ -92,6 +92,8 @@ Recommended additions:
 - `archive_artifact_metadata`
 - `archive_lineage`
 
+The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](archive-popup-timeline-design.md).
+
 These should be integration-owned in Variant 3. If Variant 4 happens later, the same tables or equivalent collections should move behind the sidecar without changing their semantic contract.
 
 ## Proposed Tables
@@ -155,6 +157,12 @@ Why this belongs in Variant 3:
 - it improves diagnostics, audits, and future repair review immediately
 - it does not conflict with Bambuddy archive ownership
 - it can back a future popup timeline without widening the archive row
+
+Additional rules for the active implementation slice:
+
+- event rows must be idempotent so repeated webhook delivery or replayed HA workflows do not create duplicates
+- detail hydration should expose compact normalized event DTOs to the popup rather than forcing card-local provenance parsing
+- page rows must not gain serialized event lists or popup-only legend labels
 
 ### 3. `archive_spool_snapshots`
 
@@ -268,6 +276,8 @@ Detail hydration should own richer payloads such as:
 - artifact extraction details
 - lineage and compare relationships
 - derivation provenance
+
+For the active popup timeline work, the detail response should include a compact normalized event-timeline DTO that is ready for popup rendering while still keeping raw local provenance available for later diagnostics if needed.
 
 ### What Should Stay Out Of Layer 1 And Page Rows
 

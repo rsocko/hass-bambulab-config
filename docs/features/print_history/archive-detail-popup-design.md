@@ -392,6 +392,8 @@ Examples:
 
 The UI should not imply that a recovery-time `created_at` is the actual print date when provenance says otherwise.
 
+Issue `#868` extends this section with a durable event timeline rendered directly in the popup track. The detailed contract for event types, overlap handling, hover behavior, and legend behavior lives in [archive-popup-timeline-design.md](archive-popup-timeline-design.md).
+
 ### Data-loading rule
 
 Do not bloat the main browser page payload with the full provenance record.
@@ -400,6 +402,7 @@ Preferred shape:
 
 - main page payload gets a compact summary such as `origin_kind`, `timing_confidence`, and `duplicate_review_state`
 - popup detail entity or on-demand detail service provides the heavier lineage, duplicate-chain, and timing-source explanation
+- popup detail hydration also owns the normalized archive `event_timeline` payload used by the popup track; the archive page payload should not carry serialized timeline rows
 
 ### Guardrail
 

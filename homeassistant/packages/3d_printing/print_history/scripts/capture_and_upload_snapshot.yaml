@@ -338,6 +338,24 @@ capture_and_upload_snapshot:
       data:
         value: "{{ upload_result_summary[:255] }}"
 
+    - if:
+        - condition: template
+          value_template: "{{ has_archive_id and has_captured_photos }}"
+      then:
+        - action: bambuddy.append_print_history_event
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+            event_type: photo_captured
+            event_source: ha_script
+            event_status: "{{ upload_status_summary | string }}"
+            payload:
+              stage: "{{ stage }}"
+              captured_camera_count: "{{ captured_camera_count | int(0) }}"
+              verified_upload_count: "{{ verified_upload_count | int(0) }}"
+              upload_status: "{{ upload_status_summary | string }}"
+            event_key: >-
+              photo:{{ archive_id }}:{{ stage }}:{{ captured_filenames | default('', true) | string | trim }}
+
     - action: logbook.log
       data:
         name: Print History

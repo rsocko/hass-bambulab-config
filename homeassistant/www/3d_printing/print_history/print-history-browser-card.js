@@ -99,6 +99,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card:focus-visible{outline:none;}" +
       ".card.archive-error-warning::after{opacity:1;background:#EF6C00;}" +
       ".card.archive-error-error::after{opacity:1;background:#C62828;}" +
+      ".card.duplicate-source{border-color:color-mix(in srgb, #1565C0 34%, var(--divider-color));}" +
+      ".card.duplicate-source::after{opacity:1;background:#1565C0;}" +
+      ".card.duplicate-copy{border-color:color-mix(in srgb, #00897B 34%, var(--divider-color));}" +
+      ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
@@ -107,6 +111,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".thumb.media{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
+      ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
+      ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
+      ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
       ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--secondary-text-color) 40%, transparent);text-underline-offset:0.18em;}" +
@@ -339,7 +346,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _renderArchiveCard(variant, archive) {
     var normalized = this._normalizeArchive(archive || {});
-    var showImages = this._showImages();
+        var showImages = this._showImages(); 
     var baseUrl = this._apiBaseUrl();
     var hasImage = showImages && !!normalized.thumbnailUrl(baseUrl);
     var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
@@ -352,7 +359,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (variant === "Detail" && normalized.facts.length) {
       chips = chips.concat(normalized.facts.map(this._renderInfoChip.bind(this)));
     }
-    var cardClass = "card" + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
+    var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
 
     return "" +
       '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
@@ -362,6 +369,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
       '<div class="content">' +
+          (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '') +
       '<div class="header">' +
       '<div style="min-width:0;flex:1 1 220px;max-width:100%;">' +
       '<div class="name">' + this._escapeHtml(normalized.printName) + '</div>' +
@@ -405,33 +413,41 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _duplicateSummary(archive) {
+    var archiveId = Math.max(0, Number(archive && archive.id || 0));
     var duplicateCount = Math.max(0, Number(archive && archive.duplicate_count || 0));
     var duplicateSequence = Math.max(0, Number(archive && archive.duplicate_sequence || 0));
     var originalArchiveId = Math.max(0, Number(archive && archive.original_archive_id || 0));
-    var isDuplicate = originalArchiveId > 0 || duplicateSequence > 0;
-    var isOriginal = duplicateCount > 0 && !isDuplicate;
+    var isSource = duplicateSequence === 0 && originalArchiveId > 0 && originalArchiveId === archiveId;
+    var isDuplicate = !isSource && (originalArchiveId > 0 || duplicateSequence > 0);
+    var isOriginal = duplicateCount > 0 && (isSource || !isDuplicate);
     var groupSize = duplicateCount > 0 ? (duplicateCount + 1) : 0;
 
     if (isDuplicate) {
       var duplicatePosition = groupSize > 0 ? Math.min(groupSize, Math.max(1, duplicateSequence + 1)) : Math.max(1, duplicateSequence + 1);
-      var duplicateLabel = groupSize > 1 ? ('Duplicate ' + duplicatePosition + '/' + groupSize) : 'Duplicate';
+      var duplicateLabel = originalArchiveId > 0 ? ('Dup of #' + originalArchiveId) : (groupSize > 1 ? ('Duplicate ' + duplicatePosition + '/' + groupSize) : 'Duplicate');
       var duplicateTooltip = originalArchiveId > 0
-        ? ('Duplicate archive in the same set as archive #' + originalArchiveId)
+        ? ('Duplicate copy derived from original archive #' + originalArchiveId)
         : 'Duplicate archive in a shared print set';
       return {
         chipLabel: duplicateLabel,
         chipColor: '#00897B',
         tooltip: duplicateTooltip,
+        roleClass: 'duplicate-copy',
+        roleEmblemLabel: 'Duplicate',
+        roleEmblemClass: 'duplicate',
       };
     }
 
     if (isOriginal) {
       return {
-        chipLabel: groupSize > 1 ? ('Original · ' + groupSize + ' prints') : 'Original',
+        chipLabel: groupSize > 1 ? ('Source · ' + groupSize + ' prints') : 'Source',
         chipColor: '#1565C0',
         tooltip: groupSize > 1
-          ? ('Original archive for a duplicate set of ' + groupSize + ' prints')
-          : 'Original archive in a duplicate set',
+          ? ('Original source archive for a duplicate set of ' + groupSize + ' prints')
+          : 'Original source archive in a duplicate set',
+        roleClass: 'duplicate-source',
+        roleEmblemLabel: 'Source',
+        roleEmblemClass: 'source',
       };
     }
 
@@ -439,6 +455,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       chipLabel: '',
       chipColor: '',
       tooltip: '',
+      roleClass: '',
+      roleEmblemLabel: '',
+      roleEmblemClass: '',
     };
   }
 
@@ -494,6 +513,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       duplicateChipLabel: duplicateSummary.chipLabel,
       duplicateChipColor: duplicateSummary.chipColor,
       duplicateTooltip: duplicateSummary.tooltip,
+      roleClass: duplicateSummary.roleClass,
+      roleEmblemLabel: duplicateSummary.roleEmblemLabel,
+      roleEmblemClass: duplicateSummary.roleEmblemClass,
       metadata: metadata,
       facts: facts,
       filamentChips: filamentChips,

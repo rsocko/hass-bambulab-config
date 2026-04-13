@@ -775,6 +775,19 @@ reenrich_print_history_archive:
                     archive_id: "{{ resolved_archive_id }}"
                     tags: "{{ merged_tags }}"
                     notes: "{{ merged_notes }}"
+                - action: bambuddy.append_print_history_event
+                  data:
+                    archive_id: "{{ resolved_archive_id | int(0) }}"
+                    event_type: enrichment_applied
+                    event_source: ha_script
+                    event_status: "{{ candidate_payload_status_label | lower | trim }}"
+                    payload:
+                      mode: manual_reenrich
+                      source: "{{ archive_row_source_label | string }}"
+                      rows: "{{ candidate_filament_rows | int(0) }}"
+                      ambiguities: "{{ candidate_ambiguity_rows | count }}"
+                    event_key: >-
+                      manual-reenrich:{{ resolved_archive_id }}:{{ candidate_payload_status_label | lower | trim }}:{{ archive_row_source | default('unknown', true) | string | trim }}:{{ candidate_filament_rows | int(0) }}
                 - if:
                     - condition: template
                       value_template: "{{ should_refresh_browser }}"

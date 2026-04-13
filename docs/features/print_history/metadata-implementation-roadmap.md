@@ -99,11 +99,20 @@ Persist lifecycle rows for each archive rather than relying only on final archiv
 
 - `#235` for the event-ledger pattern
 - `#793` because mismatch and repair review benefit from a durable event trail
+- `#868` because the archive popup timeline should render durable intermediate events from detail hydration rather than a widened page payload
+
+### Implementation notes for the active slice
+
+- add an integration-owned local append path for HA workflow events such as `photo_captured`, `enrichment_applied`, and `repair_applied`
+- append webhook-driven lifecycle rows at the manager boundary where Bambuddy webhook events are already observed
+- keep timeline rows local to Variant 3 for now instead of persisting them back to Bambuddy through archive-core fields
+- expose a compact normalized `event_timeline` DTO through archive detail hydration only
 
 ### Exit criteria
 
 - archive detail hydration can include timeline rows
 - review flows can see the sequence of archive lifecycle events without re-parsing logs or notes
+- popup timeline UI can render intermediate event dots from persisted rows without expanding the Layer 1 browser payload
 
 ## Phase C: Artifact Extraction At Print Start
 
