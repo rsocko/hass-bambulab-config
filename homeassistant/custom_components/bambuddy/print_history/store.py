@@ -17,6 +17,7 @@ try:
         as_float,
         as_int,
         as_text,
+        effective_duration_seconds,
         has_active_filters,
         local_timezone,
         normalize_hex,
@@ -25,6 +26,7 @@ try:
         resolve_printer_filter_ids,
         selected_colors,
         split_tags,
+        with_effective_duration_seconds,
     )
 except ImportError:  # pragma: no cover - direct-path test import fallback
     from query import (
@@ -34,6 +36,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         as_float,
         as_int,
         as_text,
+        effective_duration_seconds,
         has_active_filters,
         local_timezone,
         normalize_hex,
@@ -42,6 +45,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         resolve_printer_filter_ids,
         selected_colors,
         split_tags,
+        with_effective_duration_seconds,
     )
 
 
@@ -579,6 +583,7 @@ class PrintHistoryStore:
                     "created_at": base["created_at"],
                     "actual_time_seconds": base["actual_time_seconds"],
                     "print_time_seconds": base["print_time_seconds"],
+                    "effective_duration_seconds": effective_duration_seconds(base),
                     "filament_used_grams": base["filament_used_grams"],
                     "filament_type": base["filament_type"],
                     "filament_color": base["filament_color"],
@@ -656,7 +661,7 @@ class PrintHistoryStore:
             payload = json.loads(row[0])
         except json.JSONDecodeError:
             return None
-        return payload if isinstance(payload, dict) else None
+        return with_effective_duration_seconds(payload) if isinstance(payload, dict) else None
 
     def load_note_payload_rows(self, archive_id: int) -> list[dict[str, Any]]:
         with self._connect() as connection:
@@ -1210,11 +1215,12 @@ class PrintHistoryStore:
         return [as_int(row[0]) for row in rows if as_int(row[0]) > 0]
 
     def _sort_sql(self, sort_option: str) -> str:
+        duration_sql = self._effective_duration_sql("a")
         mapping = {
             "Date (Newest)": "COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, '')) DESC, a.archive_id DESC",
             "Date (Oldest)": "COALESCE(NULLIF(a.started_at, ''), NULLIF(a.created_at, ''), NULLIF(a.completed_at, '')) ASC, a.archive_id ASC",
-            "Duration (Longest)": "COALESCE(NULLIF(a.actual_time_seconds, 0), a.print_time_seconds, 0) DESC, a.archive_id DESC",
-            "Duration (Shortest)": "COALESCE(NULLIF(a.actual_time_seconds, 0), a.print_time_seconds, 0) ASC, a.archive_id ASC",
+            "Duration (Longest)": f"{duration_sql} DESC, a.archive_id DESC",
+            "Duration (Shortest)": f"{duration_sql} ASC, a.archive_id ASC",
             "Cost (Highest)": "a.cost DESC, a.archive_id DESC",
             "Cost (Lowest)": "a.cost ASC, a.archive_id ASC",
             "Filament (Most)": "a.filament_used_grams DESC, a.archive_id DESC",
@@ -1223,6 +1229,18 @@ class PrintHistoryStore:
             "Name (Z-A)": "LOWER(a.print_name) DESC, a.archive_id DESC",
         }
         return mapping.get(sort_option, mapping["Date (Newest)"])
+
+    def _effective_duration_sql(self, alias: str) -> str:
+        return (
+            "CASE "
+            f"WHEN COALESCE({alias}.actual_time_seconds, 0) > 0 THEN {alias}.actual_time_seconds "
+            f"WHEN LOWER(COALESCE({alias}.status, '')) IN ('completed', 'failed', 'cancelled', 'canceled') "
+            f"AND TRIM(COALESCE({alias}.started_at, '')) != '' "
+            f"AND TRIM(COALESCE({alias}.completed_at, '')) != '' "
+            f"AND (julianday({alias}.completed_at) - julianday({alias}.started_at)) > 0 "
+            f"THEN CAST((julianday({alias}.completed_at) - julianday({alias}.started_at)) * 86400 AS INTEGER) "
+            f"ELSE COALESCE({alias}.print_time_seconds, 0) END"
+        )
 
     def _date_range_threshold(self, filter_value: str, today: Any) -> str:
         if filter_value in {"", "All Time"}:
@@ -1259,7 +1277,7 @@ class PrintHistoryStore:
             except json.JSONDecodeError:
                 continue
             if isinstance(payload, dict):
-                archives.append(payload)
+                archives.append(with_effective_duration_seconds(payload))
         return archives
 
     def _load_available_colors(self) -> list[str]:
@@ -1340,6 +1358,8 @@ class PrintHistoryStore:
                 SELECT
                     a.archive_id,
                     a.status,
+                    a.started_at,
+                    a.completed_at,
                     a.filament_used_grams,
                     a.object_count,
                     a.cost,
@@ -1363,13 +1383,15 @@ class PrintHistoryStore:
             {
                 "archive_id": as_int(row[0]),
                 "status": as_text(row[1]).strip().lower(),
-                "filament_used_grams": as_float(row[2]),
-                "object_count": max(1, as_int(row[3], 1)),
-                "cost": as_float(row[4]),
-                "actual_time_seconds": as_int(row[5]),
-                "print_time_seconds": as_int(row[6]),
-                "archive_day": as_text(row[7]).strip(),
-                "slot_count": as_int(row[8]),
+                "started_at": as_text(row[2]).strip(),
+                "completed_at": as_text(row[3]).strip(),
+                "filament_used_grams": as_float(row[4]),
+                "object_count": max(1, as_int(row[5], 1)),
+                "cost": as_float(row[6]),
+                "actual_time_seconds": as_int(row[7]),
+                "print_time_seconds": as_int(row[8]),
+                "archive_day": as_text(row[9]).strip(),
+                "slot_count": as_int(row[10]),
             }
             for row in rows
         ]
@@ -1388,9 +1410,7 @@ class PrintHistoryStore:
             total_slots = sum(row["slot_count"] for row in metric_rows)
             return f"{total_slots:,} slots", f"{total_slots:,}"
         if activity_mode == "Total Time Printing":
-            total_hours = sum(
-                row["actual_time_seconds"] or row["print_time_seconds"] for row in metric_rows
-            ) / 3600
+            total_hours = sum(effective_duration_seconds(row) for row in metric_rows) / 3600
             total = f"{total_hours:,.1f} h"
             return total, total
         if activity_mode == "Dominant Color":

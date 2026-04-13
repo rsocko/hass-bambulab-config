@@ -589,7 +589,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       objectCount: Math.max(1, this._toNumber(archive && archive.object_count)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
       filamentCount: this._countDistinctFilaments(archive),
-      durationHours: this._secondsToHours(archive && (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)),
+      durationHours: this._secondsToHours(
+        archive && (
+          archive.effective_duration_seconds != null
+            ? archive.effective_duration_seconds
+            : (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)
+        )
+      ),
       cost: this._toNumber(archive && archive.cost),
       layerHeight: archive && archive.layer_height != null && archive.layer_height !== "" ? String(archive.layer_height) : "",
       tags: archive && archive.tags ? String(archive.tags) : "",

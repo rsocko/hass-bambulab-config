@@ -29,6 +29,7 @@ SYSTEM_TAG_PREFIXES = (
     "ha_enrichment:",
 )
 SYSTEM_TAG_VALUES = {"ha_enriched:true"}
+TERMINAL_DURATION_STATUSES = {"completed", "failed", "cancelled"}
 ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_status": "All",
     "input_select.print_history_filter_archive_error": "All",
@@ -117,6 +118,27 @@ def archive_datetime(archive: dict[str, Any]) -> datetime | None:
         if parsed is not None:
             return parsed
     return None
+
+
+def effective_duration_seconds(archive: dict[str, Any]) -> int:
+    actual_seconds = as_int(archive.get("actual_time_seconds"))
+    if actual_seconds > 0:
+        return actual_seconds
+
+    status = normalize_status(archive.get("status"))
+    if status in TERMINAL_DURATION_STATUSES:
+        started = parse_iso_datetime(archive.get("started_at"))
+        completed = parse_iso_datetime(archive.get("completed_at"))
+        if started is not None and completed is not None and completed > started:
+            return int((completed - started).total_seconds())
+
+    return max(0, as_int(archive.get("print_time_seconds")))
+
+
+def with_effective_duration_seconds(archive: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(archive)
+    normalized["effective_duration_seconds"] = effective_duration_seconds(archive)
+    return normalized
 
 
 def local_timezone() -> tzinfo:
@@ -428,6 +450,7 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
         "created_at": as_text(archive.get("created_at")).strip(),
         "actual_time_seconds": as_int(archive.get("actual_time_seconds")),
         "print_time_seconds": as_int(archive.get("print_time_seconds")),
+        "effective_duration_seconds": effective_duration_seconds(archive),
         "filament_used_grams": as_float(archive.get("filament_used_grams")),
         "filament_type": as_text(archive.get("filament_type")).strip(),
         "cost": as_float(archive.get("cost")),
@@ -568,7 +591,7 @@ def sort_key(archive: dict[str, Any], sort_option: str) -> Any:
         parsed = archive_datetime(archive)
         return parsed.timestamp() if parsed else 0
     if sort_option in {"Duration (Longest)", "Duration (Shortest)"}:
-        return as_int(archive.get("actual_time_seconds") or archive.get("print_time_seconds"))
+        return effective_duration_seconds(archive)
     if sort_option in {"Cost (Highest)", "Cost (Lowest)"}:
         return as_float(archive.get("cost"))
     if sort_option in {"Filament (Most)", "Filament (Least)"}:
@@ -659,7 +682,7 @@ def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_
         )
         return f"{total_slots:,} slots", f"{total_slots:,}"
     if activity_mode == "Total Time Printing":
-        total_hours = sum(as_int(archive.get("actual_time_seconds") or archive.get("print_time_seconds")) for archive in sorted_matches) / 3600
+        total_hours = sum(effective_duration_seconds(archive) for archive in sorted_matches) / 3600
         total = f"{total_hours:,.1f} h"
         return total, total
     if activity_mode == "Dominant Color":
@@ -781,7 +804,7 @@ def query_archives(
     total_pages = max(1, (len(sorted_matches) + page_size - 1) // page_size)
     current_page = min(requested_page, total_pages)
     start_index = (current_page - 1) * page_size
-    page_items = sorted_matches[start_index : start_index + page_size]
+    page_items = [with_effective_duration_seconds(archive) for archive in sorted_matches[start_index : start_index + page_size]]
     return QueryResult(
         filtered_count=len(sorted_matches),
         total_pages=total_pages,

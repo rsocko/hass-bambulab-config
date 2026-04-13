@@ -504,7 +504,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
       statusIcon: status === "completed" ? "✅" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
       enrichmentLabel: enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
       enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "partial" ? "#EF6C00" : "#546E7A",
-      durationLabel: this._formatDuration(archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds),
+      durationLabel: this._formatDuration(
+        archive.effective_duration_seconds != null
+          ? archive.effective_duration_seconds
+          : (archive.actual_time_seconds != null ? archive.actual_time_seconds : archive.print_time_seconds)
+      ),
       filamentLabel: this._formatNumber(archive.filament_used_grams, 1, "g"),
       costLabel: this._formatCurrency(archive.cost),
       objectLabel: String(archive.object_count || 1),

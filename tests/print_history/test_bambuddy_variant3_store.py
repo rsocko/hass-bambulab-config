@@ -128,6 +128,36 @@ def _live_style_projected_archive() -> dict:
     )
 
 
+def _failed_duration_fallback_archive() -> dict:
+    return project_archive(
+        {
+            "id": 213,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "Filament Swatch System - Plate 18",
+            "actual_time_seconds": None,
+            "print_time_seconds": 1834,
+            "filament_used_grams": 7.56,
+            "filament_type": "PLA",
+            "filament_color": "#000000,#E8E6D0",
+            "status": "failed",
+            "started_at": "2026-04-09T23:46:54.459808",
+            "completed_at": "2026-04-09T23:58:10.320886",
+            "created_at": "2026-04-09T23:46:54",
+            "cost": 0.19,
+            "object_count": 1,
+            "layer_height": 0.2,
+            "designer": "",
+            "is_favorite": False,
+            "tags": "3D Printing,Filament",
+            "notes": "Failed print",
+            "failure_reason": "Adhesion failure",
+            "project_name": "",
+            "extra_data": {},
+        }
+    )
+
+
 def test_variant3_query_contract_matches_browser_filters() -> None:
     archives = _projected_archives()
     states = {
@@ -245,6 +275,42 @@ def test_variant3_query_local_date_key_uses_home_assistant_timezone() -> None:
         assert query_module.archive_date_key({"started_at": "2026-04-09T05:30:00Z"}) == "2026-04-08"
     finally:
         query_module.dt_util.DEFAULT_TIME_ZONE = original_timezone
+
+
+def test_variant3_query_effective_duration_falls_back_to_timestamps_for_failed_archive() -> None:
+    archive = _failed_duration_fallback_archive()
+
+    assert archive["actual_time_seconds"] == 0
+    assert query_module.effective_duration_seconds(archive) == 675
+
+
+def test_variant3_query_page_items_include_effective_duration_seconds() -> None:
+    archive = _failed_duration_fallback_archive()
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Total Time Printing",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives([archive], states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+
+    assert result.page_items[0]["effective_duration_seconds"] == 675
 
 
 def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> None:
@@ -518,6 +584,12 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     assert "payload_hash" not in rows[0]
 
 
+def test_variant3_activity_rows_include_effective_duration_seconds() -> None:
+    rows = archive_activity_rows([_failed_duration_fallback_archive()])
+
+    assert rows[0]["effective_duration_seconds"] == 675
+
+
 def test_variant3_store_query_and_annotations_are_store_backed(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()
@@ -755,6 +827,72 @@ def test_variant3_store_activity_rows_ignore_selected_day(tmp_path: Path) -> Non
     assert [row["id"] for row in rows] == [101, 202]
     assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["filament_slots"][0]["color"] == "#112233"
+
+
+def test_variant3_store_uses_effective_duration_for_failed_archive_sort_and_output(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = [
+        _failed_duration_fallback_archive(),
+        project_archive(
+            {
+                "id": 301,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Completed Control Print",
+                "actual_time_seconds": 1200,
+                "print_time_seconds": 1260,
+                "filament_used_grams": 9.0,
+                "filament_type": "PLA",
+                "filament_color": "#abcdef",
+                "status": "completed",
+                "started_at": "2026-04-10T10:00:00Z",
+                "completed_at": "2026-04-10T10:20:00Z",
+                "created_at": "2026-04-10T10:00:00Z",
+                "cost": 0.25,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "",
+                "is_favorite": False,
+                "tags": "",
+                "notes": "",
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+    ]
+    store.replace_archives(archives)
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Duration (Longest)",
+        "input_select.print_history_activity_metric": "Total Time Printing",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = store.load_query_result(states)
+    detail = store.load_archive(213)
+    activity_rows = store.load_activity_rows(states)
+
+    assert [archive["id"] for archive in result.page_items] == [301, 213]
+    assert result.page_items[1]["effective_duration_seconds"] == 675
+    assert detail is not None
+    assert detail["effective_duration_seconds"] == 675
+    assert activity_rows[1]["effective_duration_seconds"] == 675
+    assert result.activity_metric_total_label == "0.5 h"
 
 
 def test_variant3_store_selected_day_uses_shared_local_day_projection(tmp_path: Path, monkeypatch) -> None:
