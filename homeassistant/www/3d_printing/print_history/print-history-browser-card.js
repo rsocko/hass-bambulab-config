@@ -121,8 +121,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
       ".dot{width:14px;height:14px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
-      ".card-hint{display:flex;justify-content:flex-end;align-items:center;margin-top:2px;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:color-mix(in srgb, var(--secondary-text-color) 78%, rgba(255,255,255,0.15));opacity:0.72;transition:transform .16s ease, opacity .16s ease, color .16s ease;}" +
-      ".card:hover .card-hint,.card:focus-visible .card-hint,.card:focus-within .card-hint{opacity:0.92;color:var(--secondary-text-color);transform:translateX(3px);}" +
       ".favorite{position:absolute;top:16px;right:16px;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
@@ -380,7 +378,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
       (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
-      '<div class="card-hint">Open details</div>' +
       '</div>' +
       '</div>' +
       '</article>';
