@@ -1220,11 +1220,28 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("archive_temporal_window_start_ts", content)
         self.assertIn("archive_temporal_window_end_ts", content)
+        self.assertIn("opened_ts", content)
         self.assertIn("first_used_ts", content)
         self.assertIn("last_used_ts", content)
+        self.assertIn("archived_ts", content)
         self.assertIn("ns_match.match_method = 't_hist'", content)
         self.assertIn("ns_row.pm = 't_hist'", content)
         self.assertIn("Multiple Spoolman spools matched the archive time window.", content)
+
+    def test_reenrich_uses_lifecycle_dates_before_filament_family_resolution(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("ns_temporal_scope = namespace(items=[])", content)
+        self.assertIn("candidate.opened_ts | default(0, true) | float(0)", content)
+        self.assertIn("candidate.archived_ts | default(0, true) | float(0)", content)
+        self.assertIn("starts_before_archive", content)
+        self.assertIn("ends_after_archive", content)
+        self.assertIn("ns_temporal_scope.items | count == 1", content)
+
+    def test_reenrich_reports_candidate_ambiguity_instead_of_archived_tray_text(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("Multiple candidate spools or filaments matched type+color.", content)
+        self.assertIn("Archive-level fallback matched multiple candidate spools or filaments.", content)
+        self.assertNotIn("Multiple archived AMS trays matched type+color.", content)
 
     def test_reenrich_identifies_filament_before_resolving_spool_family(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")

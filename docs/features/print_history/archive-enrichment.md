@@ -184,11 +184,11 @@ Optional top-level manual re-enrich fields:
 
 Optional row field used only when operator review is needed:
 
-- `am`: ambiguity code. `a_tc` = multiple archived AMS trays matched type+color. `a_fb` = multiple archived AMS trays matched archive-level fallback. `s_uuid` = multiple Spoolman spools matched archived tray UUID. `s_tc` = multiple Spoolman spools matched type+color.
+- `am`: ambiguity code. `a_tc` = multiple candidate spools or filaments matched type+color. `a_fb` = archive-level fallback still left multiple candidate spools or filaments. `s_uuid` = multiple Spoolman spools matched archived tray UUID. `s_tc` = multiple candidate spools or filaments matched type+color.
 
 Optional row field used when lineage is inferred rather than exact:
 
-- `pm`: provenance marker. `t_hist` = the spool was resolved from a strict archive-time window fallback using Spoolman `last_used`/`first_used` after stronger UUID, location, and direct color/material paths failed.
+- `pm`: provenance marker. `t_hist` = the spool was resolved from lifecycle-date overlap against the archive window using any available Spoolman `date_opened`, `first_used`, `last_used`, or archived date evidence after stronger UUID and direct metadata paths failed.
 
 Optional row field used when filament identity is recovered before spool identity:
 
@@ -241,16 +241,17 @@ It currently:
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
 - identifies filament families first from color matches, then narrows them with material and archived profile/type metadata before trying to select the actual spool
+- uses spool lifecycle overlap evidence from `date_opened`, `first_used`, `last_used`, and any archived date metadata before and after filament-family narrowing so obviously impossible candidates are dropped earlier
 - expands a uniquely identified filament into the full Spoolman spool family for that filament so older archived or replaced spools remain eligible for recovery
 - prefers a unique spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`) before treating the remaining family as unresolved spool ambiguity
-- can use a strict archive-time window fallback based on Spoolman `last_used` and `first_used`, but only when that window reduces the remaining filament-family candidates to one defensible spool
+- can use a strict archive-time window fallback based on Spoolman lifecycle dates, and that temporal narrowing is allowed to reduce either a mixed-filament candidate pool or a same-filament spool family to one defensible spool
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
 - writes managed tags plus the hidden `+>` payload when it has a usable candidate
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
 
-The temporal fallback is intentionally conservative. It is a last-tier recovery path and records `pm:"t_hist"` on any row resolved this way so inferred lineage stays distinguishable from exact UUID or direct match lineage. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
+The temporal fallback is intentionally conservative. It records `pm:"t_hist"` on any row resolved from archive-window lifecycle evidence so inferred lineage stays distinguishable from exact UUID or direct match lineage. The lifecycle check now considers `date_opened`, `first_used`, `last_used`, and any archived date metadata when those timestamps exist. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
 
 Generic `afs` fallback rows with no archived UUID, vendor, or profile hint no longer treat missing Bambu evidence as proof that the row must be non-Bambu. In those cases the matcher now keeps all vendors in the candidate pool and only narrows vendor when archived metadata explicitly supports it.
 
@@ -391,13 +392,20 @@ python tools/bambuddy/migrate_archive_notes_format.py \
 - keep compact searchable facts in Bambuddy
 - move richer provenance, confidence history, reconciliation history, or larger structured metadata into a linked HA-side store only if the current note payload becomes too limiting
 
+#### Phase F: Operator correction UI for ambiguous archive enrichment
+
+- add popup UI that lets the user review unresolved archive rows and explicitly set a spool and/or filament when heuristics cannot prove a unique answer
+- support lookup flows that search by color, material, profile, tray family, and lifecycle dates so the user can confirm or override the candidate set without editing hidden tags manually
+- write the confirmed choice back through the managed enrichment path so `f:` / `s:` tags, `+>` payload rows, and ambiguity codes stay internally consistent
+- preserve a lightweight operator-audit trail in the payload or related review metadata so later reenrich passes can distinguish user-confirmed rows from heuristic-only matches
+
 ### Manual re-enrich target state
 
 The shipped manual re-enrich flow is already useful, but the deferred target state is still:
 
 - filament-first recovery when spool identity is not safely recoverable
 - archived-spool or timeframe heuristics only as explicitly lower-confidence follow-on logic
-- optional operator validation before commit for ambiguous or heuristic candidates
+- optional operator validation before commit for ambiguous or heuristic candidates, with a later popup workflow for explicit spool or filament correction
 - anti-downgrade rules that prefer preserving richer existing spool-level detail over replacing it with filament-only guesses
 
 ### Design refinements that remain valid

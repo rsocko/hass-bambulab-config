@@ -345,8 +345,10 @@ reenrich_print_history_archive:
                     {% set color_value = '#' ~ color_raw.upper() if color_raw | length == 6 else none %}
                     {% set filament_id_raw = filament.id | default('', true) | string | trim %}
                     {% set filament_id_value = filament_id_raw | int(0) if filament_id_raw | regex_match('^\d+$') else none %}
+                    {% set opened_ts = as_timestamp(spool_extra.date_opened | default('', true), 0) | float(0) %}
                     {% set first_used_ts = as_timestamp(spool.first_used | default('', true), 0) | float(0) %}
                     {% set last_used_ts = as_timestamp(spool.last_used | default('', true), 0) | float(0) %}
+                    {% set archived_ts = as_timestamp(spool.archived_at | default(spool_extra.date_archived | default('', true), true), 0) | float(0) %}
                     {% set multi = namespace(values=[], first='') %}
                     {% for raw_hex in (filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}
                       {% set parsed_hex = raw_hex | string | trim | replace('#', '') %}
@@ -374,8 +376,10 @@ reenrich_print_history_archive:
                       'multi_first': multi.first,
                       'multi_any': multi.values,
                       'location': spool.location | default('', true) | string,
+                      'opened_ts': opened_ts,
                       'first_used_ts': first_used_ts,
                       'last_used_ts': last_used_ts,
+                      'archived_ts': archived_ts,
                       'sealed': spool_extra.sealed | default('', true) | string | lower == 'true',
                       'archived': spool.archived | default(false, true)
                     }] %}
@@ -470,6 +474,28 @@ reenrich_print_history_archive:
                         {% set ns_match.raw_candidates = [] %}
                       {% endif %}
 
+                      {% if ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
+                        {% set ns_temporal_scope = namespace(items=[]) %}
+                        {% for candidate in ns_match.raw_candidates %}
+                          {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
+                          {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
+                          {% set starts_before_archive = (candidate_opened <= 0 or candidate_opened <= archive_temporal_window_end_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) %}
+                          {% set ends_after_archive = ((candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_temporal_window_start_ts | float(0)) or ((candidate_last <= 0 and candidate_archived <= 0) and not (candidate.archived | default(false, true)))) %}
+                          {% if starts_before_archive and ends_after_archive %}
+                            {% set ns_temporal_scope.items = ns_temporal_scope.items + [candidate] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_temporal_scope.items | count == 1 %}
+                          {% set ns_match.matched_spool = ns_temporal_scope.items[0] %}
+                          {% set ns_match.raw_candidates = ns_temporal_scope.items %}
+                          {% set ns_match.match_method = 't_hist' %}
+                        {% elif ns_temporal_scope.items | count > 1 and ns_temporal_scope.items | count < ns_match.raw_candidates | count %}
+                          {% set ns_match.raw_candidates = ns_temporal_scope.items %}
+                        {% endif %}
+                      {% endif %}
+
                       {% set ns_filament = namespace(material=[], type_meta=[], combined=[], ids=[]) %}
                       {% for candidate in ns_match.raw_candidates %}
                         {% set material_ok = target_type | length > 0 and candidate.material == target_type %}
@@ -535,12 +561,14 @@ reenrich_print_history_archive:
                           {% set ns_match.raw_candidates = ns_location.items %}
                         {% endif %}
                       {% endif %}
-                      {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) and ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
+                      {% if not (ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined) and ns_match.raw_candidates | count > 1 and archive_temporal_window_start_ts | float(0) > 0 and archive_temporal_window_end_ts | float(0) > 0 %}
                         {% set ns_temporal = namespace(items=[]) %}
                         {% for candidate in ns_match.raw_candidates %}
+                          {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
                           {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
-                          {% if candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0) and candidate_last <= archive_temporal_window_end_ts | float(0) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) %}
+                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
+                          {% if (candidate_opened <= 0 or candidate_opened <= archive_temporal_window_end_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) and ((candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0) and candidate_last <= archive_temporal_window_end_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_temporal_window_start_ts | float(0) and candidate_archived <= archive_temporal_window_end_ts | float(0))) %}
                             {% set ns_temporal.items = ns_temporal.items + [candidate] %}
                           {% endif %}
                         {% endfor %}
@@ -628,15 +656,15 @@ reenrich_print_history_archive:
                     {% endif %}
                     {% if code | length > 0 %}
                       {% if code == 'a_tc' %}
-                        {% set reason = 'Multiple archived AMS trays matched type+color.' %}
+                        {% set reason = 'Multiple candidate spools or filaments matched type+color.' %}
                       {% elif code == 'a_fb' %}
-                        {% set reason = 'Multiple archived AMS trays matched the archive-level fallback.' %}
+                        {% set reason = 'Archive-level fallback matched multiple candidate spools or filaments.' %}
                       {% elif code == 's_uuid' %}
                         {% set reason = 'Multiple Spoolman spools matched the archived tray UUID.' %}
                       {% elif code == 's_tw' %}
                         {% set reason = 'Multiple Spoolman spools matched the archive time window.' %}
                       {% elif code == 's_tc' %}
-                        {% set reason = 'Multiple Spoolman spools matched type+color.' %}
+                        {% set reason = 'Multiple candidate spools or filaments matched type+color.' %}
                       {% else %}
                         {% set reason = code %}
                       {% endif %}
