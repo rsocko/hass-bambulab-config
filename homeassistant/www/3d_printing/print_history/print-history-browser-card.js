@@ -704,22 +704,38 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _formatDate(value) {
-    if (!value) {
+    var parsed = this._parseDate(value);
+    if (!parsed) {
       return "Unknown";
     }
-    var raw = String(value);
-    var normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : (raw + "Z");
-    var parsed = new Date(normalized);
-    if (Number.isNaN(parsed.getTime())) {
-      return "Unknown";
-    }
-    return new Intl.DateTimeFormat(undefined, {
+    var formatOptions = {
       month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
       timeZone: this._haTimeZone(),
-    }).format(parsed);
+    };
+    if (this._dateYear(parsed) !== this._dateYear(new Date())) {
+      formatOptions.year = "numeric";
+    }
+    return new Intl.DateTimeFormat(undefined, formatOptions).format(parsed);
+  }
+
+  _parseDate(value) {
+    if (!value) {
+      return null;
+    }
+    var raw = String(value);
+    var normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : (raw + "Z");
+    var parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  _dateYear(value) {
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      timeZone: this._haTimeZone(),
+    }).format(value);
   }
 
   _haTimeZone() {

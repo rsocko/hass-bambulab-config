@@ -800,13 +800,21 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=14", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=33", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn('raw === "cancelled" || raw === "aborted" || raw === "stopped"', content)
         self.assertIn('return "cancelled";', content)
         self.assertIn('cancelledCount', content)
+
+    def test_heatmap_card_tracks_archived_statuses_separately_from_failures(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('archivedCount: 0', content)
+        self.assertIn('archive.status === "archived"', content)
+        self.assertIn('archived: { label: "Archived", color: "#1D4ED8" }', content)
+        self.assertIn('return this._mixHexColors(baseColor, archivedColor', content)
+        self.assertIn('return "Archived";', content)
 
     def test_heatmap_card_rerenders_when_reconnected(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -992,7 +1000,7 @@ class TestHelpers(unittest.TestCase):
 
         self.assertEqual(
             filter_options,
-            ["All", "Completed", "Failed", "Cancelled", "Printing"],
+            ["All", "Completed", "Archived", "Failed", "Cancelled", "Printing"],
         )
         self.assertEqual(
             archive_error_filter_options,
@@ -1375,6 +1383,23 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("if (hours || days) parts.push(`${hours}h`);", content)
         self.assertIn("if (minutes || (!days && !hours)) parts.push(`${minutes}m`);", content)
         self.assertIn('<span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>\n                <div class="print-history-popup-timeline-main">', content)
+
+    def test_browser_card_only_appends_year_for_non_current_year_archives(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("if (this._dateYear(parsed) !== this._dateYear(new Date())) {", content)
+        self.assertIn('formatOptions.year = "numeric";', content)
+
+    def test_popup_timeline_only_appends_year_for_non_current_year_archives(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const haTimeZone = hass?.config?.time_zone ? String(hass.config.time_zone) : undefined;", content)
+        self.assertIn("if (options.includeYearWhenNotCurrent === true && formatDateYear(parsed) !== formatDateYear(new Date())) {", content)
+        self.assertIn("const formatTimelineDate = (value) => formatDateLabel(value, { includeTime: true, includeYearWhenNotCurrent: true });", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")

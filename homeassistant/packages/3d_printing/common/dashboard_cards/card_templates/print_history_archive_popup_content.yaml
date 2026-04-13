@@ -156,38 +156,40 @@ print_history_archive_popup_content:
           .replace(/>/g, '&gt;')
           .replace(/\"/g, '&quot;')
           .replace(/'/g, '&#39;');
-        const formatDate = (value) => {
-          if (!value) return '-';
+        const haTimeZone = hass?.config?.time_zone ? String(hass.config.time_zone) : undefined;
+        const parseDateValue = (value) => {
+          if (!value) return null;
           const raw = String(value);
           const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
           const parsed = new Date(normalized);
-          if (Number.isNaN(parsed.getTime())) return '-';
-          return parsed.toLocaleDateString('en-US', {
+          return Number.isNaN(parsed.getTime()) ? null : parsed;
+        };
+        const formatDateYear = (value) => new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          timeZone: haTimeZone
+        }).format(value);
+        const formatDateLabel = (value, options = {}) => {
+          const parsed = parseDateValue(value);
+          if (!parsed) return '-';
+          const formatOptions = {
             month: 'short',
             day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        };
-          const formatTimelineDate = (value) => {
-            if (!value) return '-';
-            const raw = String(value);
-            const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
-            const parsed = new Date(normalized);
-            if (Number.isNaN(parsed.getTime())) return '-';
-            return parsed.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit'
-            });
+            timeZone: haTimeZone
           };
+          if (options.includeTime !== false) {
+            formatOptions.hour = 'numeric';
+            formatOptions.minute = '2-digit';
+          }
+          if (options.includeYearWhenNotCurrent === true && formatDateYear(parsed) !== formatDateYear(new Date())) {
+            formatOptions.year = 'numeric';
+          }
+          return new Intl.DateTimeFormat('en-US', formatOptions).format(parsed);
+        };
+        const formatDate = (value) => formatDateLabel(value, { includeTime: true, includeYearWhenNotCurrent: true });
+          const formatTimelineDate = (value) => formatDateLabel(value, { includeTime: true, includeYearWhenNotCurrent: true });
           const parseDateMs = (value) => {
-            if (!value) return null;
-            const raw = String(value);
-            const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : `${raw}Z`;
-            const parsed = new Date(normalized);
-            return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+            const parsed = parseDateValue(value);
+            return parsed ? parsed.getTime() : null;
           };
         const formatDuration = (secondsValue) => {
           const seconds = Number(secondsValue || 0);
