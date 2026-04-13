@@ -3,11 +3,10 @@
     "generated_at":  "2026-04-13T02:33:01.794311+00:00",
     "source_root":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03",
     "batch_size":  25,
-    "candidate_count":  231,
+    "candidate_count":  230,
     "candidate_counts_by_bucket":  {
                                        "completed":  168,
-                                       "already_in_archive":  62,
-                                       "manual_review":  1
+                                       "already_in_archive":  62
                                    },
     "batch_counts":  {
                          "batch-003":  25,
@@ -17752,68 +17751,6 @@
                                               },
                            "repair_confidence":  "medium",
                            "repair_applied_at":  "2026-04-13T05:55:20.9344769Z"
-                       },
-                       {
-                           "entry_id":  "2D4BF0D7141648FB1E3A7ADE1C2989B50EF72CC7E5CF9A607480E6E9573EC3E9",
-                           "source_path":  "C:\\dev\\hass-bambulab-config\\bambuddy\\Backup SD Card - 2026-04-03\\Deadpool___Wolverine.3mf",
-                           "relative_path":  "Deadpool___Wolverine.3mf",
-                           "source_type":  "bambu_studio_source_3mf",
-                           "confidence":  "low",
-                           "file_size":  36414894,
-                           "source_md5":  "626311611E7E79F460EDB2F7B8238738",
-                           "source_sha256":  "2D4BF0D7141648FB1E3A7ADE1C2989B50EF72CC7E5CF9A607480E6E9573EC3E9",
-                           "sibling_bbl_path":  null,
-                           "filename_stem":  "Deadpool___Wolverine",
-                           "last_write_time":  "2026-03-31T12:35:36.102874+00:00",
-                           "evidence_notes":  [
-                                                  "project object payload present without strong sliced signals"
-                                              ],
-                           "structural_signals":  {
-                                                      "is_zip":  true,
-                                                      "zip_entry_count":  26,
-                                                      "has_embedded_gcode":  false,
-                                                      "has_slice_info":  true,
-                                                      "slice_info_size":  205,
-                                                      "plate_preview_count":  8,
-                                                      "project_object_count":  2,
-                                                      "zip_first_modified":  "2026-03-31T08:35:32+00:00",
-                                                      "zip_last_modified":  "2026-03-31T08:35:36+00:00",
-                                                      "bbl_hash_match":  null
-                                                  },
-                           "timestamp_evidence":  {
-                                                      "filesystem_last_modified":  "2026-03-31T12:35:36.102874+00:00",
-                                                      "timestamp_candidates":  [
-                                                                                   {
-                                                                                       "source":  "filesystem",
-                                                                                       "key":  "last_modified",
-                                                                                       "raw_value":  "2026-03-31T12:35:36.102874+00:00",
-                                                                                       "normalized":  "2026-03-31T12:35:36.102874+00:00"
-                                                                                   },
-                                                                                   {
-                                                                                       "source":  "3mf:Deadpool___Wolverine.3mf",
-                                                                                       "key":  "zip_first_modified",
-                                                                                       "raw_value":  "2026-03-31T08:35:32+00:00",
-                                                                                       "normalized":  "2026-03-31T08:35:32+00:00"
-                                                                                   },
-                                                                                   {
-                                                                                       "source":  "3mf:Deadpool___Wolverine.3mf",
-                                                                                       "key":  "zip_last_modified",
-                                                                                       "raw_value":  "2026-03-31T08:35:36+00:00",
-                                                                                       "normalized":  "2026-03-31T08:35:36+00:00"
-                                                                                   }
-                                                                               ]
-                                                  },
-                           "processing_bucket":  "manual_review",
-                           "selected_action":  "manual_review",
-                           "batch_id":  null,
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
-                           "allow_same_content_reimport":  false,
-                           "same_hash_group_size":  1,
-                           "same_hash_group_index":  0
                        },
                        {
                            "entry_id":  "FEC212637B4A24C1B4A4427B7DE7CF9FCDB2D9AAC5D522FD18ADBA836792201E",

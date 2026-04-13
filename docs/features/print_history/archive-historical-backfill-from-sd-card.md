@@ -499,8 +499,8 @@ Current live checkpoint:
    - the final two `batch_ready` candidates both collapsed by exact `content_hash`, so the historical queue is exhausted without creating additional archives:
       - `B6BCB8C4AC5E4209762E5A0BBE750948A495CB95D26BD0790075D0ED975125FC` -> `cache/gridfinity-baseplate-250x220-446x338-5484a.stl_2.3mf` matched existing archive `8`
       - `AED394930768859ED4F96DE71D9C669F19D4C954F267706D4060599E2C219769` -> `cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_4.3mf` matched existing archive `17`
-   - manifest summary is now `completed: 166`, `already_in_archive: 62`, `deferred: 2`, `manual_review: 1`
-   - there are no remaining `batch_ready` historical SD-cache imports; follow-up work is limited to the existing deferred/manual-review anomalies
+   - manifest summary is now `completed: 168`, `already_in_archive: 62`
+   - there are no remaining `batch_ready`, `deferred`, or `manual_review` historical backfill candidates
 
 ### Optional runtime-repair flow
 
