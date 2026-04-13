@@ -302,11 +302,11 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `360`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `364`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) returned `400 Bad Request`, but Bambuddy still created archive `335`; treat that archive as anomalous until it is reviewed and reconciled with the manifest
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, and `360`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, `360`, `361`, `362`, `363`, and `364`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -440,12 +440,16 @@ Current live checkpoint:
    - archive `358` <- `cache/Smashing Snaget-Jaagub.stl.3mf`
    - archive `359` <- `cache/Snaps, 0.2mm layer, 2 walls, 15% infill.3mf`
    - archive `360` <- `cache/Split over more plates part count_plate below 64..3mf`
+   - archive `361` <- `cache/Multicolor-Halfcut_0.2mm layer, 2 walls, 25% infill.3mf`
+   - archive `362` <- `cache/Multicolor AMS, only 1 filament change.3mf`
+   - archive `363` <- `cache/Modular_Spool_Stand,_Only_8_Grams_Each.3mf`
+   - archive `364` <- `cache/Split Spiral, 0.2mm layer, 2 walls, 15% infill.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `577ED1CCA9326B02FEC1B2F67F2BD76F481DE850BBFFE70D0BE4F5F76F2B61B5` -> `cache/Multicolor-Halfcut_0.2mm layer, 2 walls, 25% infill.3mf`
-   - `7B7D0456271A8974BFD654348200CCCCAD1CE50926C392A69E80FF1EAEDDA22C` -> `cache/Multicolor AMS, only 1 filament change.3mf`
-   - `75714D1687F36E303BD4DE304599EED5AD1B3F99603C5E03A1DA76B62CCA8924` -> `cache/Modular_Spool_Stand,_Only_8_Grams_Each.3mf`
-   - `40687510F1DD2C2BF78F0D1AAFD40D4BB9A6ABF13FA38ED116D1DD2123ACAB48` -> `cache/Split Spiral, 0.2mm layer, 2 walls, 15% infill.3mf`
-- manifest summary is now `completed: 126`, `already_in_archive: 45`, `batch_ready: 58`, `manual_review: 1`
+   - `8D1724AB3B78FCFBF9D5FA5E3CE455B4B9D1CBE5DA0B0636308E7FB83F9DE552` -> `cache/Standard 0.2mm layer, 3 walls, 12% infill.3mf`
+   - `20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D` -> `cache/Modular_Magnetic_Frame_System_for_Hueforge_Art.3mf`
+   - `231A1E630F1D1A88A698DB40C9ECEC4C8A251B0636C30B5163FB2CCA203C9EF2` -> `cache/MODULAR.3mf`
+   - `CC62299C244478E1A36CF9DCFD9B8C0C8113B447E5502E0E73693408DE52E886` -> `cache/Stormtrooper Helmet Hueforge 200mm x 200mm.3mf`
+- manifest summary is now `completed: 130`, `already_in_archive: 45`, `batch_ready: 54`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow

@@ -6,9 +6,9 @@
     "candidate_count":  231,
     "candidate_counts_by_bucket":  {
                                        "manual_review":  1,
-                                       "batch_ready":  54,
-                                       "completed":  130,
-                                       "already_in_archive":  45,
+                                       "batch_ready":  50,
+                                       "completed":  132,
+                                       "already_in_archive":  47,
                                        "deferred":  1
                                    },
     "batch_counts":  {
@@ -11767,17 +11767,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-007",
-                           "import_status":  "pending",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "created_archive_id":  366,
+                           "last_attempted_at":  "2026-04-13T05:33:57.3681612Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
-                           "same_hash_group_index":  0
+                           "same_hash_group_index":  0,
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  366,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-12-04T05:05:30+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-12-04T03:53:56.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-12-04T05:05:30+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  4294,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T05:33:57.3701586Z"
                        },
                        {
                            "entry_id":  "20F27FDFAE8A74656FCC28F45B093DD1FEC63075EBBECD860F5174AC95BC947D",
@@ -11830,14 +11849,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "already_in_archive",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-007",
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
+                           "import_status":  "skipped_existing_content_hash",
+                           "matched_archive_id":  144,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "last_attempted_at":  "2026-04-13T05:33:56.5260416Z",
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
                            "same_hash_group_index":  0
@@ -15950,17 +15969,36 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "completed",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-009",
-                           "import_status":  "pending",
+                           "import_status":  "uploaded_and_annotated",
                            "matched_archive_id":  null,
-                           "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "created_archive_id":  365,
+                           "last_attempted_at":  "2026-04-13T05:33:55.9178554Z",
+                           "operator_note":  "Archive created and annotated with historical import provenance.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
-                           "same_hash_group_index":  0
+                           "same_hash_group_index":  0,
+                           "repair_status":  "applied",
+                           "repair_preview":  {
+                                                  "archive_id":  365,
+                                                  "timing_confidence":  "medium",
+                                                  "completed_at":  "2025-11-02T14:59:34+00:00",
+                                                  "completed_at_source":  "filesystem_last_modified",
+                                                  "started_at":  "2025-11-02T14:22:25.0000000+00:00",
+                                                  "started_at_source":  "completed_at_minus_print_time_seconds",
+                                                  "started_at_estimated":  true,
+                                                  "created_at":  "2025-11-02T14:59:34+00:00",
+                                                  "created_at_source":  "filesystem_last_modified",
+                                                  "status":  null,
+                                                  "failure_reason":  null,
+                                                  "print_time_seconds":  2229,
+                                                  "can_apply":  true,
+                                                  "review_reason":  "Candidate has enough evidence for an operator-approved runtime repair."
+                                              },
+                           "repair_confidence":  "medium",
+                           "repair_applied_at":  "2026-04-13T05:33:55.9198556Z"
                        },
                        {
                            "entry_id":  "C5646E6D686461D4E70EB8FB161304062C3DF0F793ACB96210BCE80563A0A49E::FE2847C2B3EB",
@@ -16202,14 +16240,14 @@
                                                                                    }
                                                                                ]
                                                   },
-                           "processing_bucket":  "batch_ready",
+                           "processing_bucket":  "already_in_archive",
                            "selected_action":  "upload_and_annotate",
                            "batch_id":  "batch-009",
-                           "import_status":  "pending",
-                           "matched_archive_id":  null,
+                           "import_status":  "skipped_existing_content_hash",
+                           "matched_archive_id":  43,
                            "created_archive_id":  null,
-                           "last_attempted_at":  null,
-                           "operator_note":  null,
+                           "last_attempted_at":  "2026-04-13T05:33:57.9931968Z",
+                           "operator_note":  "Existing Bambuddy archive has matching content_hash.",
                            "allow_same_content_reimport":  false,
                            "same_hash_group_size":  1,
                            "same_hash_group_index":  0
