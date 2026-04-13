@@ -168,7 +168,7 @@ append_print_history_event:
           mode: box
     event_type:
       name: Event Type
-      description: Normalized event identifier such as print_started, photo_captured, or enrichment_applied.
+      description: Normalized intermediate event identifier such as print_paused, photo_captured, or enrichment_applied. Start and terminal timeline anchors come from the archive record itself.
       required: true
       selector:
         text:

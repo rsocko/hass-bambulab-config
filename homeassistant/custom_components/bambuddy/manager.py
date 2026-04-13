@@ -35,13 +35,6 @@ from .print_history.store import PrintHistoryStore
 
 _LOGGER = logging.getLogger(__name__)
 
-WEBHOOK_EVENT_TYPE_MAP = {
-    "print_started": {"type": "print_started", "status": "printing"},
-    "print_complete": {"type": "print_finished", "status": "completed"},
-    "print_failed": {"type": "print_failed", "status": "failed"},
-    "print_stopped": {"type": "print_stopped", "status": "cancelled"},
-}
-
 EVENT_LABELS = {
     "print_started": "Print started",
     "print_paused": "Print paused",
@@ -493,26 +486,6 @@ class PrintHistoryBrowserManager:
     @callback
     def _async_handle_webhook_event(self, event: Event) -> None:
         event_type = str((event.data or {}).get("event", "")).strip().lower()
-        if event_type in WEBHOOK_EVENT_TYPE_MAP:
-            archive_id = as_int((event.data or {}).get("archive_id"))
-            if archive_id > 0:
-                mapping = WEBHOOK_EVENT_TYPE_MAP[event_type]
-                event_status = normalize_status((event.data or {}).get("status")) or mapping["status"]
-                self.hass.async_create_task(
-                    self.async_record_archive_event(
-                        archive_id,
-                        event_type=mapping["type"],
-                        event_source="bambuddy_webhook",
-                        event_time=as_text((event.data or {}).get("timestamp")).strip() or None,
-                        event_status=event_status,
-                        payload={
-                            key: value
-                            for key, value in (event.data or {}).items()
-                            if key not in {"event", "archive_id", "timestamp", "status"}
-                        },
-                        notify=False,
-                    )
-                )
         if event_type in REFRESH_WEBHOOK_EVENTS:
             self.hass.async_create_task(self.async_refresh(f"webhook:{event_type}"))
 

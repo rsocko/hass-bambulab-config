@@ -1,0 +1,76 @@
+# Capture pause/resume timeline events from the bambu_lab printer status path.
+# Uses the active archive binding rather than trying to infer historical rows.
+- alias: "Print History - Capture Pause Resume Timeline"
+  id: bambuddy_capture_pause_resume_timeline
+  description: >
+    Records durable pause and resume events for the active Bambuddy archive by
+    watching the live bambu_lab printer status sensor.
+
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_print_status
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_sync_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('input_text.bambuddy_current_archive_id') | string | trim not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+
+  actions:
+    - variables:
+        archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+        from_status: "{{ trigger.from_state.state if trigger.from_state is not none else '' }}"
+        to_status: "{{ trigger.to_state.state if trigger.to_state is not none else '' }}"
+        from_status_norm: "{{ from_status | string | lower | trim }}"
+        to_status_norm: "{{ to_status | string | lower | trim }}"
+        event_time: >-
+          {{ trigger.to_state.last_changed.isoformat() if trigger.to_state is not none and trigger.to_state.last_changed is not none else now().isoformat() }}
+        active_statuses: >-
+          {{ ['running', 'prepare', 'printing', 'slicing', 'init'] }}
+        paused_statuses: >-
+          {{ ['pause', 'paused'] }}
+        is_pause_transition: >-
+          {{ from_status_norm in active_statuses and to_status_norm in paused_statuses }}
+        is_resume_transition: >-
+          {{ from_status_norm in paused_statuses and to_status_norm in active_statuses }}
+
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ is_pause_transition }}"
+          sequence:
+            - action: bambuddy.append_print_history_event
+              data:
+                archive_id: "{{ archive_id | int(0) }}"
+                event_type: print_paused
+                event_source: bambu_lab
+                event_time: "{{ event_time }}"
+                event_status: paused
+                payload:
+                  from_status: "{{ from_status_norm }}"
+                  to_status: "{{ to_status_norm }}"
+                event_key: "pause:{{ archive_id }}:{{ event_time }}"
+
+        - conditions:
+            - condition: template
+              value_template: "{{ is_resume_transition }}"
+          sequence:
+            - action: bambuddy.append_print_history_event
+              data:
+                archive_id: "{{ archive_id | int(0) }}"
+                event_type: print_resumed
+                event_source: bambu_lab
+                event_time: "{{ event_time }}"
+                event_status: "{{ to_status_norm }}"
+                payload:
+                  from_status: "{{ from_status_norm }}"
+                  to_status: "{{ to_status_norm }}"
+                event_key: "resume:{{ archive_id }}:{{ event_time }}"
+
+  mode: queued
+  max: 10

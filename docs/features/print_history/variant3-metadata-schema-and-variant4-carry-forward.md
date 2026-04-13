@@ -145,7 +145,7 @@ Recommended columns:
 |---|---|---|---|
 | `id` | integer PK | local | |
 | `archive_id` | integer FK | local | |
-| `event_type` | text | local | `print_started`, `print_paused`, `print_resumed`, `print_finished`, `print_failed`, `print_stopped`, `photo_captured`, `enrichment_applied`, `repair_applied`, `favorite_toggled` |
+| `event_type` | text | local | `print_paused`, `print_resumed`, `photo_captured`, `enrichment_applied`, `repair_applied`, `favorite_toggled` |
 | `event_time` | text/datetime | local | event timestamp |
 | `event_source` | text | local | `bambuddy_webhook`, `bambu_lab`, `ha_script`, `repair_sidecar`, `artifact_scan` |
 | `event_status` | text | local | optional normalized status snapshot |
@@ -161,6 +161,7 @@ Why this belongs in Variant 3:
 Additional rules for the active implementation slice:
 
 - event rows must be idempotent so repeated webhook delivery or replayed HA workflows do not create duplicates
+- archive start and terminal anchors must continue to come from archive-core fields rather than duplicated event rows
 - detail hydration should expose compact normalized event DTOs to the popup rather than forcing card-local provenance parsing
 - page rows must not gain serialized event lists or popup-only legend labels
 

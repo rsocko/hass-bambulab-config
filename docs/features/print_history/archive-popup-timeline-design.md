@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Add a durable per-archive event timeline to the Variant 3 print-history store and render it inside the archive popup timeline track.
+Add a durable per-archive intermediate event timeline to the Variant 3 print-history store and render it inside the archive popup timeline track.
 
-This issue is not just a UI polish pass. The popup timeline depends on a first-class local event ledger so the UI can show real lifecycle and workflow events without scraping logs or overloading archive-core fields.
+This issue is not just a UI polish pass. The popup timeline depends on a first-class local event ledger so the UI can show real mid-print and post-print workflow events without scraping logs or overloading archive-core fields.
 
 ## Goals
 
-1. persist timeline events per archive in the Variant 3 local store
+1. persist intermediate timeline events per archive in the Variant 3 local store
 2. expose those rows through archive detail hydration only
 3. render intermediate timeline dots in the popup relative to their event time
 4. keep hover text limited to event label plus formatted date/time
@@ -19,7 +19,8 @@ This issue is not just a UI polish pass. The popup timeline depends on a first-c
 1. do not widen the base browser page payload with timeline rows
 2. do not store popup wording, tooltip strings, or legend labels in Layer 1
 3. do not persist this timeline back to Bambuddy by hiding it inside `notes`, `tags`, or other archive-core fields
-4. do not fabricate extra display-only events beyond the durable event types captured by the store
+4. do not duplicate the archive's canonical start or terminal timestamps inside the local ledger
+5. do not fabricate extra display-only events beyond the durable event types captured by the store
 
 ## Ownership Boundary
 
@@ -43,12 +44,8 @@ If Bambuddy later gains a native archive-event resource, the persistence boundar
 
 Initial supported event types:
 
-- `print_started`
 - `print_paused`
 - `print_resumed`
-- `print_finished`
-- `print_failed`
-- `print_stopped`
 - `photo_captured`
 - `enrichment_applied`
 - `repair_applied`
@@ -57,10 +54,9 @@ Initial supported event types:
 
 Preferred sources in priority order:
 
-1. Bambuddy webhook events when the webhook payload already carries trustworthy archive correlation
-2. verified native `bambu_lab` device events when Bambuddy does not emit an equivalent event
-3. integration service calls from HA automations/scripts for local workflow events such as enrichment, repair, and photo capture
-4. minimal derived backfill for historical rows only when needed, explicitly marked in `derived_from`
+1. verified native `bambu_lab` device signals for pause/resume when the current archive binding is already known
+2. integration service calls from HA automations/scripts for local workflow events such as enrichment, repair, and photo capture
+3. minimal derived backfill for historical rows only when needed, explicitly marked in `derived_from`
 
 Guardrail:
 
@@ -99,12 +95,12 @@ The popup-facing DTO should be compact and normalized. Recommended shape:
 ```json
 [
   {
-    "type": "print_started",
-    "time": "2026-04-10T13:56:31Z",
-    "source": "bambuddy_webhook",
-    "status": "printing",
-    "label": "Print started",
-    "color_key": "start"
+    "type": "print_paused",
+    "time": "2026-04-10T14:22:10Z",
+    "source": "bambu_lab",
+    "status": "paused",
+    "label": "Print paused",
+    "color_key": "pause"
   }
 ]
 ```
@@ -119,8 +115,8 @@ The existing popup track already shows start and end anchors. This issue extends
 
 Base behavior:
 
-1. start dot remains fixed at the left edge
-2. end dot remains fixed at the right edge when a terminal time exists
+1. start dot remains fixed at the left edge using the archive's canonical start time
+2. end dot remains fixed at the right edge using the archive's canonical end time when present
 3. intermediate event dots render between them based on relative event time
 
 ### Relative positioning
@@ -176,11 +172,9 @@ Recommended first-pass color keys:
 
 | Color key | Event types |
 |---|---|
-| `start` | `print_started` |
 | `pause` | `print_paused` |
 | `resume` | `print_resumed` |
-| `success` | `print_finished`, `enrichment_applied` |
-| `failure` | `print_failed`, `print_stopped` |
+| `success` | `enrichment_applied` |
 | `media` | `photo_captured` |
 | `repair` | `repair_applied` |
 
@@ -204,5 +198,5 @@ Required validation:
 2. duplicate event deliveries do not create duplicate dots
 3. popup detail includes timeline rows while page query payload remains unchanged
 4. dense event clusters remain individually visible
-5. start-only and no-terminal archives still render cleanly
+5. start-only and no-terminal archives still render cleanly without requiring duplicated ledger anchors
 6. hover content remains limited to date/time plus label

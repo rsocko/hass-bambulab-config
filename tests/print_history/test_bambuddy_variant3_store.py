@@ -891,18 +891,18 @@ def test_variant3_store_appends_timeline_events_idempotently(tmp_path: Path) -> 
 
     first = store.append_archive_event(
         101,
-        event_type="print_started",
-        event_source="bambuddy_webhook",
-        event_time="2026-04-08T10:00:00Z",
-        event_status="printing",
+        event_type="print_paused",
+        event_source="bambu_lab",
+        event_time="2026-04-08T11:15:00Z",
+        event_status="paused",
         payload={"print_name": "Hueforge Batman"},
     )
     second = store.append_archive_event(
         101,
-        event_type="print_started",
-        event_source="bambuddy_webhook",
-        event_time="2026-04-08T10:00:00Z",
-        event_status="printing",
+        event_type="print_paused",
+        event_source="bambu_lab",
+        event_time="2026-04-08T11:15:00Z",
+        event_status="paused",
         payload={"print_name": "Hueforge Batman"},
     )
 
@@ -911,8 +911,8 @@ def test_variant3_store_appends_timeline_events_idempotently(tmp_path: Path) -> 
 
     assert first["event_key"] == second["event_key"]
     assert len(timeline) == 1
-    assert timeline[0]["type"] == "print_started"
-    assert timeline[0]["source"] == "bambuddy_webhook"
+    assert timeline[0]["type"] == "print_paused"
+    assert timeline[0]["source"] == "bambu_lab"
     assert timeline[0]["payload"] == {"print_name": "Hueforge Batman"}
     assert stats["event_timeline_count"] == 1
 
@@ -924,8 +924,8 @@ def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_pa
     store.replace_archives(archives)
     store.append_archive_event(
         101,
-        event_type="print_finished",
-        event_source="bambuddy_webhook",
+        event_type="enrichment_applied",
+        event_source="ha_service",
         event_time="2026-04-08T14:00:00Z",
         event_status="completed",
     )
@@ -935,7 +935,7 @@ def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_pa
     timeline = store.load_archive_event_timeline(101)
 
     assert len(timeline) == 1
-    assert timeline[0]["type"] == "print_finished"
+    assert timeline[0]["type"] == "enrichment_applied"
 
 
 def test_variant3_option_sets_keep_none_and_strip_system_tags() -> None:

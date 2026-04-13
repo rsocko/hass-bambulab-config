@@ -76,24 +76,20 @@ Without this step, later features will continue to hide important state in:
 
 ### Objective
 
-Persist lifecycle rows for each archive rather than relying only on final archive status.
+Persist intermediate event rows for each archive while leaving start and terminal timestamps sourced from the archive record itself.
 
 ### Event types to capture first
 
-- `print_started`
 - `print_paused`
 - `print_resumed`
-- `print_finished`
-- `print_failed`
-- `print_stopped`
+- `photo_captured`
 - `enrichment_applied`
 - `repair_applied`
 
 ### Data sources
 
-- Bambuddy webhook events where they remain authoritative
-- native `bambu_lab` triggers where equivalent semantics are verified
-- integration services for enrichment and repair state
+- native `bambu_lab` signals where equivalent semantics are verified
+- integration services for photo capture, enrichment, and repair state
 
 ### Issue alignment
 
@@ -104,7 +100,7 @@ Persist lifecycle rows for each archive rather than relying only on final archiv
 ### Implementation notes for the active slice
 
 - add an integration-owned local append path for HA workflow events such as `photo_captured`, `enrichment_applied`, and `repair_applied`
-- append webhook-driven lifecycle rows at the manager boundary where Bambuddy webhook events are already observed
+- treat archive `started_at`, `completed_at`, and final archive status as the canonical timeline anchors instead of duplicating them into the local ledger
 - keep timeline rows local to Variant 3 for now instead of persisting them back to Bambuddy through archive-core fields
 - expose a compact normalized `event_timeline` DTO through archive detail hydration only
 

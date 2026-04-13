@@ -663,15 +663,15 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.store.append_archive_event(
         101,
-        event_type="print_finished",
-        event_source="bambuddy_webhook",
-        event_time="2026-04-08T14:00:00Z",
-        event_status="completed",
+        event_type="photo_captured",
+        event_source="ha_script",
+        event_time="2026-04-08T12:00:00Z",
+        event_status="printing",
     )
 
     detail = manager.build_archive_detail_response(101)
 
     assert detail is not None
-    assert detail["event_timeline"][0]["type"] == "print_finished"
-    assert detail["event_timeline"][0]["label"] == "Print finished"
-    assert detail["event_timeline"][0]["color_key"] == "success"
+    assert detail["event_timeline"][0]["type"] == "photo_captured"
+    assert detail["event_timeline"][0]["label"] == "Photo captured"
+    assert detail["event_timeline"][0]["color_key"] == "media"
