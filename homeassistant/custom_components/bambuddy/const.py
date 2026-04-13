@@ -34,6 +34,7 @@ REFRESH_WEBHOOK_EVENTS = {"print_complete", "print_failed", "print_started", "pr
 
 BROWSER_HELPER_ENTITY_IDS = [
     "input_select.print_history_filter_status",
+    "input_select.print_history_filter_archive_error",
     "input_select.print_history_filter_enrichment_status",
     "input_select.print_history_filter_material",
     "input_select.print_history_filter_printer",

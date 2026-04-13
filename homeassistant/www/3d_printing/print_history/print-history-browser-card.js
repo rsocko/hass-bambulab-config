@@ -92,10 +92,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid.detail{grid-template-columns:1fr;}" +
       ".card{position:relative;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:hidden;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
+      ".card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;opacity:0;transition:opacity .16s ease, background .16s ease;pointer-events:none;}" +
       ".card:hover,.card:focus-visible,.card:focus-within{border-color:color-mix(in srgb, var(--secondary-text-color) 22%, var(--divider-color));box-shadow:0 0 0 1px rgba(255,255,255,0.05), 0 10px 22px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 86%, rgba(148,163,184,0.18)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(148,163,184,0.10)));}" +
       ".card:hover::before,.card:focus-visible::before,.card:focus-within::before{opacity:1;}" +
       ".card:active{box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 6px 14px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 82%, rgba(148,163,184,0.20)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 90%, rgba(148,163,184,0.12)));}" +
       ".card:focus-visible{outline:none;}" +
+      ".card.archive-error-warning::after{opacity:1;background:#EF6C00;}" +
+      ".card.archive-error-error::after{opacity:1;background:#C62828;}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
@@ -111,6 +114,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
       ".status-chip{color:#fff;font-weight:700;}" +
+      ".archive-error-chip{color:#fff;font-weight:700;}" +
       ".metrics{display:grid;gap:10px;}" +
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
       ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
@@ -123,6 +127,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
       ".favorite{position:absolute;top:16px;right:16px;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
+      ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
+      ".archive-error-text.warning{color:#FFD89B;}" +
+      ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
       "</style>" +
       "<ha-card>" +
@@ -139,6 +146,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _buildQuerySignature(hass) {
     return JSON.stringify({
       status: this._stateValue("input_select.print_history_filter_status"),
+      archiveError: this._stateValue("input_select.print_history_filter_archive_error"),
       enrichmentStatus: this._stateValue("input_select.print_history_filter_enrichment_status"),
       material: this._stateValue("input_select.print_history_filter_material"),
       printer: this._stateValue("input_select.print_history_filter_printer"),
@@ -259,6 +267,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return {
       type: "bambuddy/print_history_query",
       status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_status")),
+      archive_error: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_archive_error")),
       enrichment_status: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_enrichment_status")),
       material: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_material")),
       printer: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_printer")),
@@ -343,9 +352,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (variant === "Detail" && normalized.facts.length) {
       chips = chips.concat(normalized.facts.map(this._renderInfoChip.bind(this)));
     }
+    var cardClass = "card" + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
 
     return "" +
-      '<article class="card" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
+      '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
       '<button class="favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
       '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
       '</button>' +
@@ -360,6 +370,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>' +
       '</div>' +
       '<div class="chip-row">' +
+      (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
       '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>' +
       (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
       '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>' +
@@ -377,6 +388,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
         return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
+      (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
       (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
       '</div>' +
       '</div>' +
@@ -420,6 +432,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archive.designer ? "Designer: " + String(archive.designer) : "",
     ].filter(Boolean);
     var status = this._normalizeStatus(archive.status);
+    var archiveError = this._normalizeArchiveError(archive);
 
     return {
       id: archive.id,
@@ -442,12 +455,72 @@ class PrintHistoryBrowserCard extends HTMLElement {
       facts: facts,
       filamentChips: filamentChips,
       userTags: this._userTags(archive.tags),
+      hasArchiveError: archiveError.hasArchiveError,
+      archiveErrorLabel: archiveError.label,
+      archiveErrorSeverity: archiveError.severity,
+      archiveErrorColor: archiveError.color,
+      archiveErrorIcon: archiveError.icon,
+      archiveErrorSummary: archiveError.summary,
       failureReason: archive.failure_reason ? String(archive.failure_reason) : "",
       thumbnailUrl: function (baseUrl) {
         return baseUrl && archive.id != null && String(archive.thumbnail_path || "").trim()
           ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
           : "";
       },
+    };
+  }
+
+  _normalizeArchiveError(archive) {
+    var filePath = String(archive && archive.file_path || "").trim();
+    var thumbnailPath = String(archive && archive.thumbnail_path || "").trim();
+    var source3mfPath = String(archive && archive.source_3mf_path || "").trim();
+    var missingCore3mf = !!(archive && archive.missing_core_3mf);
+    var missingThumbnail = !!(archive && archive.missing_thumbnail);
+    var hasSourceOnly = !!(archive && archive.has_source_only);
+
+    if (!missingCore3mf && !missingThumbnail) {
+      missingCore3mf = !!(archive && archive.no_3mf_available) || !filePath;
+      hasSourceOnly = missingCore3mf && !!source3mfPath;
+      missingThumbnail = !missingCore3mf && !thumbnailPath;
+    }
+
+    if (hasSourceOnly) {
+      return {
+        hasArchiveError: true,
+        severity: "error",
+        label: String(archive && archive.archive_error_label || "Source 3MF Only"),
+        summary: String(archive && archive.archive_error_summary || "Primary archive missing; source 3MF is attached separately."),
+        color: "#C62828",
+        icon: "⚠️",
+      };
+    }
+    if (missingCore3mf) {
+      return {
+        hasArchiveError: true,
+        severity: "error",
+        label: String(archive && archive.archive_error_label || "Archive Incomplete"),
+        summary: String(archive && archive.archive_error_summary || "Primary archived 3MF is missing and needs repair."),
+        color: "#C62828",
+        icon: "⚠️",
+      };
+    }
+    if (missingThumbnail) {
+      return {
+        hasArchiveError: true,
+        severity: "warning",
+        label: String(archive && archive.archive_error_label || "Thumbnail Missing"),
+        summary: String(archive && archive.archive_error_summary || "Thumbnail preview is unavailable for this archive."),
+        color: "#EF6C00",
+        icon: "⚠️",
+      };
+    }
+    return {
+      hasArchiveError: false,
+      severity: "",
+      label: "",
+      summary: "",
+      color: "",
+      icon: "",
     };
   }
 

@@ -31,6 +31,7 @@ SYSTEM_TAG_PREFIXES = (
 SYSTEM_TAG_VALUES = {"ha_enriched:true"}
 ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_status": "All",
+    "input_select.print_history_filter_archive_error": "All",
     "input_select.print_history_filter_enrichment_status": "All",
     "input_select.print_history_filter_material": "All",
     "input_select.print_history_filter_printer": "All",
@@ -157,6 +158,52 @@ def source_updated_at(raw_archive: dict[str, Any]) -> str:
     return ""
 
 
+def archive_error_state(raw_archive: dict[str, Any]) -> dict[str, Any]:
+    extra_data = raw_archive.get("extra_data") if isinstance(raw_archive.get("extra_data"), dict) else {}
+    file_path = as_text(raw_archive.get("file_path")).strip()
+    file_size = as_int(raw_archive.get("file_size"))
+    thumbnail_path = as_text(raw_archive.get("thumbnail_path")).strip()
+    source_3mf_path = as_text(raw_archive.get("source_3mf_path")).strip()
+    no_3mf_available = bool(extra_data.get("no_3mf_available") is True or raw_archive.get("no_3mf_available") is True)
+
+    missing_core_3mf = bool(no_3mf_available or not file_path or (file_size <= 0 and not thumbnail_path and not source_3mf_path))
+    has_source_only = bool(missing_core_3mf and source_3mf_path)
+    missing_thumbnail = bool(not missing_core_3mf and not thumbnail_path)
+    has_archive_error = bool(missing_core_3mf or missing_thumbnail)
+
+    if has_source_only:
+        archive_error_type = "source_only"
+        archive_error_label = "Source 3MF Only"
+        archive_error_summary = "Primary archive missing; source 3MF is attached separately"
+        archive_error_severity = "error"
+    elif missing_core_3mf:
+        archive_error_type = "missing_core_3mf"
+        archive_error_label = "Archive Incomplete"
+        archive_error_summary = "Primary archived 3MF is missing and needs repair"
+        archive_error_severity = "error"
+    elif missing_thumbnail:
+        archive_error_type = "missing_thumbnail"
+        archive_error_label = "Thumbnail Missing"
+        archive_error_summary = "Thumbnail preview is unavailable for this archive"
+        archive_error_severity = "warning"
+    else:
+        archive_error_type = ""
+        archive_error_label = ""
+        archive_error_summary = ""
+        archive_error_severity = ""
+
+    return {
+        "has_archive_error": has_archive_error,
+        "missing_core_3mf": missing_core_3mf,
+        "missing_thumbnail": missing_thumbnail,
+        "has_source_only": has_source_only,
+        "archive_error_type": archive_error_type,
+        "archive_error_label": archive_error_label,
+        "archive_error_summary": archive_error_summary,
+        "archive_error_severity": archive_error_severity,
+    }
+
+
 def payload_hash(archive: dict[str, Any]) -> str:
     encoded = json.dumps(archive, separators=(",", ":"), sort_keys=True).encode("utf-8")
     return sha256(encoded).hexdigest()
@@ -219,6 +266,7 @@ def project_photos(raw_photos: Any) -> list[str]:
 def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
     notes = as_text(raw_archive.get("notes"))
     payload = extract_enrichment_payload(notes)
+    error_state = archive_error_state(raw_archive)
     projected = {
         "id": raw_archive.get("id"),
         "printer_id": raw_archive.get("printer_id"),
@@ -248,13 +296,20 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "notes": notes,
         "failure_reason": as_text(raw_archive.get("failure_reason")).strip(),
         "photos": project_photos(raw_archive.get("photos")),
+        "file_path": as_text(raw_archive.get("file_path")).strip(),
+        "file_size": as_int(raw_archive.get("file_size")),
         "thumbnail_path": as_text(raw_archive.get("thumbnail_path")).strip(),
+        "source_3mf_path": as_text(raw_archive.get("source_3mf_path")).strip(),
+        "no_3mf_available": bool(
+            isinstance(raw_archive.get("extra_data"), dict) and raw_archive.get("extra_data", {}).get("no_3mf_available") is True
+        ),
         "project_id": raw_archive.get("project_id"),
         "project_name": as_text(raw_archive.get("project_name")).strip(),
         "filament_slots": project_filament_slots(raw_archive.get("extra_data")),
         "enrichment_status": enrichment_status(payload),
         "source_updated_at": source_updated_at(raw_archive),
     }
+    projected.update(error_state)
     projected["payload_hash"] = payload_hash(projected)
     return projected
 
@@ -488,6 +543,7 @@ def has_active_filters(states: dict[str, str]) -> bool:
 def active_filters(states: dict[str, str]) -> list[str]:
     labels = {
         "input_select.print_history_filter_status": "status",
+        "input_select.print_history_filter_archive_error": "archive_error",
         "input_select.print_history_filter_enrichment_status": "enrichment",
         "input_select.print_history_filter_material": "material",
         "input_select.print_history_filter_printer": "printer",
@@ -571,6 +627,7 @@ def query_archives(
 ) -> QueryResult:
     current_time = now or datetime.now(timezone.utc)
     status_filter = states.get("input_select.print_history_filter_status", "All")
+    archive_error_filter = states.get("input_select.print_history_filter_archive_error", "All")
     enrichment_filter = states.get("input_select.print_history_filter_enrichment_status", "All")
     material_filter = states.get("input_select.print_history_filter_material", "All")
     printer_filter = states.get("input_select.print_history_filter_printer", "All")
@@ -620,6 +677,14 @@ def query_archives(
         ).lower()
 
         if status_filter != "All" and archive_status != status_filter.lower():
+            continue
+        if archive_error_filter == "Any Error" and not bool(archive.get("has_archive_error")):
+            continue
+        if archive_error_filter == "Missing Core 3MF" and not bool(archive.get("missing_core_3mf")):
+            continue
+        if archive_error_filter == "Source 3MF Only" and not bool(archive.get("has_source_only")):
+            continue
+        if archive_error_filter == "Missing Thumbnail" and not bool(archive.get("missing_thumbnail")):
             continue
         if enrichment_filter != "All" and archive_enrichment != enrichment_filter.lower():
             continue

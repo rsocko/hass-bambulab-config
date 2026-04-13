@@ -92,6 +92,12 @@ class PrintHistoryStore:
                 project_id TEXT,
                 project_name TEXT NOT NULL DEFAULT '',
                 archive_day_local TEXT NOT NULL DEFAULT '',
+                has_archive_error INTEGER NOT NULL DEFAULT 0,
+                missing_core_3mf INTEGER NOT NULL DEFAULT 0,
+                missing_thumbnail INTEGER NOT NULL DEFAULT 0,
+                has_source_only INTEGER NOT NULL DEFAULT 0,
+                archive_error_type TEXT NOT NULL DEFAULT '',
+                archive_error_severity TEXT NOT NULL DEFAULT '',
                 enrichment_status TEXT NOT NULL DEFAULT '',
                 last_synced_at TEXT NOT NULL DEFAULT '',
                 source_updated_at TEXT NOT NULL DEFAULT '',
@@ -183,6 +189,12 @@ class PrintHistoryStore:
         required_columns = {
             "printer_name": "TEXT NOT NULL DEFAULT ''",
             "archive_day_local": "TEXT NOT NULL DEFAULT ''",
+            "has_archive_error": "INTEGER NOT NULL DEFAULT 0",
+            "missing_core_3mf": "INTEGER NOT NULL DEFAULT 0",
+            "missing_thumbnail": "INTEGER NOT NULL DEFAULT 0",
+            "has_source_only": "INTEGER NOT NULL DEFAULT 0",
+            "archive_error_type": "TEXT NOT NULL DEFAULT ''",
+            "archive_error_severity": "TEXT NOT NULL DEFAULT ''",
             "last_synced_at": "TEXT NOT NULL DEFAULT ''",
             "source_updated_at": "TEXT NOT NULL DEFAULT ''",
             "payload_hash": "TEXT NOT NULL DEFAULT ''",
@@ -248,9 +260,11 @@ class PrintHistoryStore:
                         object_count, layer_height, nozzle_diameter, nozzle_temperature,
                         total_layers, sliced_for_model, designer, makerworld_url,
                         is_favorite, tags, notes, failure_reason, thumbnail_path,
-                        project_id, project_name, archive_day_local, enrichment_status, last_synced_at,
+                        project_id, project_name, archive_day_local, has_archive_error,
+                        missing_core_3mf, missing_thumbnail, has_source_only,
+                        archive_error_type, archive_error_severity, enrichment_status, last_synced_at,
                         source_updated_at, payload_hash, json_payload, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         archive_id,
@@ -284,6 +298,12 @@ class PrintHistoryStore:
                         as_text(archive.get("project_id")).strip(),
                         as_text(archive.get("project_name")).strip(),
                         archive_date_key(archive),
+                        1 if bool(archive.get("has_archive_error")) else 0,
+                        1 if bool(archive.get("missing_core_3mf")) else 0,
+                        1 if bool(archive.get("missing_thumbnail")) else 0,
+                        1 if bool(archive.get("has_source_only")) else 0,
+                        as_text(archive.get("archive_error_type")).strip(),
+                        as_text(archive.get("archive_error_severity")).strip(),
                         as_text(archive.get("enrichment_status")).strip(),
                         timestamp,
                         as_text(archive.get("source_updated_at")).strip(),
@@ -864,6 +884,7 @@ class PrintHistoryStore:
         current_time = datetime.now(timezone.utc)
         return {
             "status": states.get("input_select.print_history_filter_status", "All").strip().lower(),
+            "archive_error": states.get("input_select.print_history_filter_archive_error", "All").strip(),
             "enrichment_status": states.get("input_select.print_history_filter_enrichment_status", "All").strip().lower(),
             "material": states.get("input_select.print_history_filter_material", "All").strip(),
             "printer": states.get("input_select.print_history_filter_printer", "All").strip(),
@@ -889,6 +910,14 @@ class PrintHistoryStore:
         if filters["status"] not in {"", "all"}:
             where_clauses.append("LOWER(a.status) = ?")
             params.append(filters["status"])
+        if filters["archive_error"] == "Any Error":
+            where_clauses.append("a.has_archive_error = 1")
+        elif filters["archive_error"] == "Missing Core 3MF":
+            where_clauses.append("a.missing_core_3mf = 1")
+        elif filters["archive_error"] == "Source 3MF Only":
+            where_clauses.append("a.has_source_only = 1")
+        elif filters["archive_error"] == "Missing Thumbnail":
+            where_clauses.append("a.missing_thumbnail = 1")
         if filters["enrichment_status"] not in {"", "all"}:
             where_clauses.append("LOWER(a.enrichment_status) = ?")
             params.append(filters["enrichment_status"])

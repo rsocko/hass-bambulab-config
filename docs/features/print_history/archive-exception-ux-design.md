@@ -102,9 +102,20 @@ Suggested labels:
 
 - `Thumb Missing`
 - `Archive Incomplete`
+- `Source 3MF Only`
 - `Recovered`
 - `Imported`
 - `Potential Duplicate`
+
+### Current shipped slice
+
+The active print history browser now implements a lightweight version of this model:
+
+- an `Archive Issue` dropdown in the always-visible filter section with `All`, `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, and `Missing Thumbnail`
+- row-level emphasis through a severity-colored left rail plus compact archive-issue chip on the archive card itself
+- popup-level issue surfacing through a dedicated `Archive Issue` summary block with operator-facing detail chips such as `Primary 3MF missing`, `Source 3MF attached`, and `Thumbnail unavailable`
+
+This keeps exception visibility inside the main browser and popup without introducing a separate exception card or recovery action surface yet.
 
 ## Exception Card
 

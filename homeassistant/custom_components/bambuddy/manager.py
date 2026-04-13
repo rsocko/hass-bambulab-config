@@ -38,6 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 
 QUERY_OVERRIDE_ENTITY_MAP = {
     "status": "input_select.print_history_filter_status",
+    "archive_error": "input_select.print_history_filter_archive_error",
     "enrichment_status": "input_select.print_history_filter_enrichment_status",
     "material": "input_select.print_history_filter_material",
     "printer": "input_select.print_history_filter_printer",

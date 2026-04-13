@@ -24,6 +24,12 @@ query_print_history_browser:
       required: false
       selector:
         text:
+    archive_error:
+      name: Archive Error
+      description: Filter by archive health state such as Any Error, Missing Core 3MF, Source 3MF Only, or Missing Thumbnail.
+      required: false
+      selector:
+        text:
     enrichment_status:
       name: Enrichment Status
       required: false

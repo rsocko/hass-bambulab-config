@@ -230,6 +230,61 @@ print_history_archive_popup_content:
           if (String(item?.am || item?.a || '').trim()) reviewReasons.push(describeEnrichmentAmbiguity(item?.am || item?.a));
           return reviewReasons;
         };
+        const buildArchiveErrorState = (currentArchive) => {
+          const filePath = String(currentArchive?.file_path || '').trim();
+          const thumbnailPath = String(currentArchive?.thumbnail_path || '').trim();
+          const source3mfPath = String(currentArchive?.source_3mf_path || '').trim();
+          const missingCore3mf = Boolean(currentArchive?.missing_core_3mf || currentArchive?.no_3mf_available || !filePath);
+          const hasSourceOnly = Boolean(currentArchive?.has_source_only || (missingCore3mf && source3mfPath));
+          const missingThumbnail = Boolean(currentArchive?.missing_thumbnail || (!missingCore3mf && !thumbnailPath));
+
+          if (hasSourceOnly) {
+            return {
+              hasArchiveError: true,
+              severity: 'error',
+              label: String(currentArchive?.archive_error_label || 'Source 3MF Only'),
+              summary: String(currentArchive?.archive_error_summary || 'Primary archive missing; source 3MF is attached separately.'),
+              background: 'rgba(198,40,40,0.14)',
+              border: 'rgba(198,40,40,0.34)',
+              color: '#FFCDD2',
+              chips: ['Primary 3MF missing', 'Source 3MF attached'],
+            };
+          }
+          if (missingCore3mf) {
+            return {
+              hasArchiveError: true,
+              severity: 'error',
+              label: String(currentArchive?.archive_error_label || 'Archive Incomplete'),
+              summary: String(currentArchive?.archive_error_summary || 'Primary archived 3MF is missing and needs repair.'),
+              background: 'rgba(198,40,40,0.14)',
+              border: 'rgba(198,40,40,0.34)',
+              color: '#FFCDD2',
+              chips: ['Primary 3MF missing'],
+            };
+          }
+          if (missingThumbnail) {
+            return {
+              hasArchiveError: true,
+              severity: 'warning',
+              label: String(currentArchive?.archive_error_label || 'Thumbnail Missing'),
+              summary: String(currentArchive?.archive_error_summary || 'Thumbnail preview is unavailable for this archive.'),
+              background: 'rgba(239,108,0,0.14)',
+              border: 'rgba(239,108,0,0.34)',
+              color: '#FFE0B2',
+              chips: ['Thumbnail unavailable'],
+            };
+          }
+          return {
+            hasArchiveError: false,
+            severity: '',
+            label: '',
+            summary: '',
+            background: '',
+            border: '',
+            color: '',
+            chips: [],
+          };
+        };
 
         const startedDisplay = formatTimelineDate(archive?.started_at || archive?.created_at);
         const completedDisplay = archive?.completed_at
@@ -242,9 +297,11 @@ print_history_archive_popup_content:
           : (status === 'failed' || status === 'cancelled')
             ? '#C62828'
             : '#78909C';
+        const archiveError = buildArchiveErrorState(archive);
         const favoriteChip = `<span title="${isFavorite ? 'Favorite archive' : 'Not marked as favorite'}" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:${isFavorite ? 'rgba(245,194,66,0.18)' : 'rgba(255,255,255,0.05)'};border:1px solid ${isFavorite ? 'rgba(245,194,66,0.35)' : 'rgba(255,255,255,0.08)'};flex:0 0 auto;"><ha-icon icon="${isFavorite ? 'mdi:star' : 'mdi:star-outline'}" style="--mdc-icon-size:18px;color:${isFavorite ? '#f5c242' : 'var(--secondary-text-color)'};"></ha-icon></span>`;
         const summaryRowChips = [
           `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
+          archiveError.hasArchiveError ? `<span style="background:${archiveError.severity === 'error' ? '#C62828' : '#EF6C00'};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:15px;color:#fff;"></ha-icon><span>${escapeHtml(archiveError.label)}</span></span>` : '',
           renderInfoChip('mdi:palette-swatch-outline', archive?.designer, { fontWeight: 500 }),
           favoriteChip
         ].filter(Boolean).join('');
@@ -381,6 +438,7 @@ print_history_archive_popup_content:
               <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${summaryRowChips}</div>
               ${metricChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${metricChips}</div>` : ''}
               ${printerDetailChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${printerDetailChips}</div>` : ''}
+              ${archiveError.hasArchiveError ? `<div style="display:flex;flex-direction:column;gap:10px;padding:12px 14px;border-radius:16px;background:${archiveError.background};border:1px solid ${archiveError.border};"><div style="display:flex;align-items:flex-start;gap:10px;"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:18px;color:${archiveError.color};margin-top:1px;"></ha-icon><div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:${archiveError.color};">Archive Issue</div><div style="font-size:13px;line-height:1.5;color:${archiveError.color};overflow-wrap:anywhere;">${escapeHtml(archiveError.summary)}</div></div></div>${archiveError.chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${archiveError.chips.map((chip) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);font-size:12px;font-weight:600;color:${archiveError.color};">${escapeHtml(chip)}</span>`).join('')}</div>` : ''}</div>` : ''}
             </div>
                   ${!hasEnrichmentPayload && filamentChips.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Filament Colors</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${filamentChips.map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;"><span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(chip.label)}</span></span>`).join('')}</div></div>` : ''}
                 ${hasEnrichmentPayload || hasEnrichmentData ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${enrichmentSourceLabel ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(21,101,192,0.16);color:#BBDEFB;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentSourceLabel)}</span>` : ''}<span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span>${enrichmentRows.length ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(String(enrichmentRows.length))} row${enrichmentRows.length === 1 ? '' : 's'}</span>` : ''}</div></div>${enrichmentReason ? `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.12)' : 'rgba(239,108,0,0.12)'};border:1px solid ${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.28)' : 'rgba(239,108,0,0.28)'};"><ha-icon icon="${enrichmentStatus === 'complete' ? 'mdi:information-outline' : 'mdi:alert-outline'}" style="--mdc-icon-size:16px;color:${enrichmentStatus === 'complete' ? '#90CAF9' : '#FFCC80'};margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:${enrichmentStatus === 'complete' ? '#E3F2FD' : '#FFE0B2'};overflow-wrap:anywhere;">${escapeHtml(enrichmentReason)}</div></div>` : ''}</div>` : ''}

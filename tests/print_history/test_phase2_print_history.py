@@ -255,6 +255,7 @@ class TestFileInventory(unittest.TestCase):
         "input_select_bambuddy_photo_review_state.yaml",
         "input_select_print_history_activity_metric.yaml",
         "input_select_print_history_filter_status.yaml",
+        "input_select_print_history_filter_archive_error.yaml",
         "input_select_print_history_filter_enrichment_status.yaml",
         "input_select_print_history_filter_material.yaml",
         "input_select_print_history_filter_color.yaml",
@@ -796,7 +797,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=10", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=12", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=33", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
@@ -974,19 +975,26 @@ class TestHelpers(unittest.TestCase):
 
     def test_status_helpers_use_separate_archive_and_enrichment_statuses(self):
         filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_status.yaml"
+        archive_error_filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_archive_error.yaml"
         enrichment_filter_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_enrichment_status.yaml"
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_status.yaml"
         filter_data = _load_yaml_safe(filter_path)
+        archive_error_filter_data = _load_yaml_safe(archive_error_filter_path)
         enrichment_filter_data = _load_yaml_safe(enrichment_filter_path)
         popup_data = _load_yaml_safe(popup_path)
 
         filter_options = next(iter(filter_data.values())).get("options", []) if isinstance(filter_data, dict) else []
+        archive_error_filter_options = next(iter(archive_error_filter_data.values())).get("options", []) if isinstance(archive_error_filter_data, dict) else []
         enrichment_filter_options = next(iter(enrichment_filter_data.values())).get("options", []) if isinstance(enrichment_filter_data, dict) else []
         popup_options = next(iter(popup_data.values())).get("options", []) if isinstance(popup_data, dict) else []
 
         self.assertEqual(
             filter_options,
             ["All", "Completed", "Failed", "Cancelled", "Printing"],
+        )
+        self.assertEqual(
+            archive_error_filter_options,
+            ["All", "Any Error", "Missing Core 3MF", "Source 3MF Only", "Missing Thumbnail"],
         )
         self.assertEqual(
             enrichment_filter_options,
@@ -1024,6 +1032,7 @@ class TestCrossReferences(unittest.TestCase):
         "input_number.print_history_max_archives",
         "input_select.bambuddy_photo_review_state",
         "input_select.print_history_filter_status",
+        "input_select.print_history_filter_archive_error",
         "input_select.print_history_filter_enrichment_status",
         "input_select.print_history_filter_material",
         "input_select.print_history_filter_color",
@@ -1226,6 +1235,7 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
     def test_tag_filter_none_uses_only_user_tags(self):
         filtered_content = (LEGACY_BROWSER / "template_sensors" / "print_history_filtered.yaml").read_text("utf-8")
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+        browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
 
         self.assertIn("user_tag_values = namespace(values=[])", filtered_content)
@@ -1233,6 +1243,18 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("filter_tag in user_tag_values.values", filtered_content)
         self.assertIn('tag: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tag"))', browser_card_content)
         self.assertIn("- None", helper_content)
+        self.assertIn("input_select.print_history_filter_archive_error", browser_yaml_content)
+
+    def test_archive_error_filter_wired_into_browser_contract(self):
+        browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+        browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+        clear_script_content = (HISTORY / "scripts" / "clear_print_history_filters.yaml").read_text("utf-8")
+        reset_page_content = (HISTORY / "automations" / "print_history_reset_page_on_filter_change.yaml").read_text("utf-8")
+
+        self.assertIn('archive_error: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_archive_error"))', browser_card_content)
+        self.assertIn("Clear Archive Error Filter", browser_yaml_content)
+        self.assertIn("input_select.print_history_filter_archive_error", clear_script_content)
+        self.assertIn("input_select.print_history_filter_archive_error", reset_page_content)
 
 
 # =============================================================================

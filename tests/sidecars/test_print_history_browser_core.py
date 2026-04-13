@@ -28,6 +28,8 @@ def _projected_archives() -> list[dict]:
             "is_favorite": True,
             "tags": "display,hueforge,s:123",
             "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+            "file_path": "archives/101/model.3mf",
+            "file_size": 98304,
             "thumbnail_path": "/api/v1/archives/101/thumbnail",
             "project_name": "Wall Art",
             "extra_data": {
@@ -59,7 +61,11 @@ def _projected_archives() -> list[dict]:
             "notes": "Failed print",
             "failure_reason": "Layer shift",
             "project_name": "",
-            "extra_data": {"filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}]},
+            "source_3mf_path": "archive_sources/202/source.3mf",
+            "extra_data": {
+                "no_3mf_available": True,
+                "filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}],
+            },
         },
     ]
     return [project_archive(item) for item in raw]
@@ -108,12 +114,24 @@ def test_project_archive_extracts_compact_fields() -> None:
     assert archive["enrichment_status"] == "complete"
     assert archive["filament_slots"][0]["color"] == "#112233"
     assert archive["object_count"] == 2
+    assert archive["has_archive_error"] is False
+
+
+def test_project_archive_flags_source_only_archive_errors() -> None:
+    archive = _projected_archives()[1]
+
+    assert archive["has_archive_error"] is True
+    assert archive["missing_core_3mf"] is True
+    assert archive["has_source_only"] is True
+    assert archive["archive_error_type"] == "source_only"
+    assert archive["archive_error_label"] == "Source 3MF Only"
 
 
 def test_query_archives_filters_sorts_and_pages() -> None:
     archives = _projected_archives()
     states = {
         "input_select.print_history_filter_status": "Completed",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
         "input_select.print_history_filter_printer": "1",
@@ -145,6 +163,7 @@ def test_query_archives_uses_note_payload_names_when_slot_names_blank() -> None:
     archives = [_live_style_projected_archive()]
     states = {
         "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
         "input_select.print_history_filter_printer": "All",
@@ -176,6 +195,7 @@ def test_query_archives_this_month_uses_calendar_month_boundary() -> None:
     archives = _projected_archives()
     states = {
         "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
         "input_select.print_history_filter_printer": "All",
@@ -202,6 +222,34 @@ def test_query_archives_this_month_uses_calendar_month_boundary() -> None:
 
     assert [archive["id"] for archive in this_month.page_items] == [101]
     assert [archive["id"] for archive in last_30_days.page_items] == [101, 202]
+
+
+def test_query_archives_filters_archive_errors_by_specific_type() -> None:
+    archives = _projected_archives()
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "Source 3MF Only",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+
+    assert result.filtered_count == 1
+    assert [archive["id"] for archive in result.page_items] == [202]
 
 
 def test_option_sets_include_none_and_strip_system_tags() -> None:

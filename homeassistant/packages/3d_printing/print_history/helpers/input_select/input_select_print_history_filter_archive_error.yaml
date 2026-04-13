@@ -1,0 +1,10 @@
+print_history_filter_archive_error:
+  name: Print History Filter Archive Error
+  icon: mdi:alert-circle-outline
+  options:
+    - All
+    - Any Error
+    - Missing Core 3MF
+    - Source 3MF Only
+    - Missing Thumbnail
+  initial: All

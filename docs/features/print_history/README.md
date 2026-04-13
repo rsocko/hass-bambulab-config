@@ -543,7 +543,7 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │                                                                             │
 │  ┌─ Browser Header ──────────────────────────────────────────────────────┐ │
 │  │ Open Bambuddy  Settings                                               │ │
-│  │ Status  Material  Printer  Date                                       │ │
+│  │ Status  Archive Issue  Material  Printer  Date                        │ │
 │  │ Designer  Project  Layer Height  Tag  Favorites  Sort                │ │
 │  │ Search  Matches  Clear actions (including tag clear when active)      │ │
 │  │ Multi-select color chips (one chip per archive color)                │ │
@@ -605,6 +605,8 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 5. **Color filter chips are generated from live archive data** — The browser header exposes one clickable swatch per discovered filament color. The chips use `custom:auto-entities` to build simple built-in `button` cards, and the selected state is stored as a comma-separated hex list in `input_text.print_history_filter_colors`.
 
 6. **Photo review chip stays with the browser** — The chip is contextual to the history workflow and currently acts as a lightweight status surface. It belongs in the same full-width browsing flow as the archive browser.
+
+7. **Archive issues stay visible in both browse and inspect flows** — The filter bar includes an `Archive Issue` selector (`All`, `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, `Missing Thumbnail`), archive cards add a severity-colored left rail plus issue chip when repair-worthy data problems exist, and the per-print popup repeats the issue summary with operator-facing detail chips rather than raw `file_path` / `no_3mf_available` fields.
 
 #### Previous Layout (v1) — Issues
 

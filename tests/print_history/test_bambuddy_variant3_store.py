@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 
 import query as query_module  # noqa: E402
@@ -33,6 +34,8 @@ def _projected_archives() -> list[dict]:
             "is_favorite": True,
             "tags": "display,hueforge,s:123",
             "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+            "file_path": "archives/101/model.3mf",
+            "file_size": 98304,
             "photos": [
                 "finish-overview.webp",
                 {"path": "topdown-closeup.jpg", "role": "finish"},
@@ -70,7 +73,11 @@ def _projected_archives() -> list[dict]:
             "notes": "Failed print",
             "failure_reason": "Layer shift",
             "project_name": "",
-            "extra_data": {"filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}]},
+            "source_3mf_path": "archive_sources/202/source.3mf",
+            "extra_data": {
+                "no_3mf_available": True,
+                "filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}],
+            },
         },
     ]
     return [project_archive(item) for item in raw]
@@ -119,6 +126,7 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
     archives = _projected_archives()
     states = {
         "input_select.print_history_filter_status": "Completed",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
         "input_select.print_history_filter_printer": "Workshop P1S",
@@ -151,6 +159,7 @@ def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blan
     archives = [_live_style_projected_archive()]
     states = {
         "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
         "input_select.print_history_filter_printer": "All",
@@ -239,6 +248,22 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
     assert sync is not None
     assert sync["source_updated_at"] == "2026-04-08T14:00:00Z"
     assert sync["payload_hash"]
+
+
+def test_variant3_store_preserves_archive_error_projection_fields(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    detail = store.load_archive(202)
+
+    assert detail is not None
+    assert detail["has_archive_error"] is True
+    assert detail["missing_core_3mf"] is True
+    assert detail["has_source_only"] is True
+    assert detail["archive_error_type"] == "source_only"
 
 
 def test_variant3_store_migrates_legacy_schema_before_refresh(tmp_path: Path) -> None:

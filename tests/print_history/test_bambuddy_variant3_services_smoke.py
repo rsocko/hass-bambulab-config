@@ -251,6 +251,7 @@ class FakeHass:
 def _default_state_map() -> dict[str, str]:
     return {
         "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
         "input_select.print_history_filter_printer": "All",
@@ -295,6 +296,8 @@ def _projected_archives(project_archive) -> list[dict]:
             "is_favorite": True,
             "tags": "display,hueforge,s:123",
             "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+            "file_path": "archives/101/model.3mf",
+            "file_size": 98304,
             "thumbnail_path": "/api/v1/archives/101/thumbnail",
             "project_name": "Wall Art",
             "extra_data": {
@@ -326,7 +329,11 @@ def _projected_archives(project_archive) -> list[dict]:
             "notes": "Failed print",
             "failure_reason": "Layer shift",
             "project_name": "",
-            "extra_data": {"filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}]},
+            "source_3mf_path": "archive_sources/202/source.3mf",
+            "extra_data": {
+                "no_3mf_available": True,
+                "filament_slots": [{"tray": "B1", "color": "#445566", "used_grams": 15.0}],
+            },
         },
     ]
     return [project_archive(item) for item in raw]

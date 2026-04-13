@@ -6,6 +6,7 @@
     - trigger: state
       entity_id:
         - input_select.print_history_filter_status
+        - input_select.print_history_filter_archive_error
         - input_select.print_history_filter_enrichment_status
         - input_select.print_history_filter_material
         - input_select.print_history_filter_printer

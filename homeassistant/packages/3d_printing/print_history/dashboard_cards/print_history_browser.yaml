@@ -111,6 +111,7 @@ cards:
   - type: custom:config-template-card
     entities:
       - input_select.print_history_filter_status
+      - input_select.print_history_filter_archive_error
       - input_select.print_history_filter_enrichment_status
       - input_select.print_history_filter_material
       - input_select.print_history_filter_printer
@@ -203,6 +204,16 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_designer']?.state !== (states['input_select.print_history_filter_designer']?.attributes?.options?.[0] ?? '')}
+                fill_width: true
+              - entity: input_select.print_history_filter_archive_error
+                sub_button_type: select
+                name: Archive Issue
+                icon: mdi:alert-circle-outline
+                show_name: true
+                show_state: true
+                show_background: true
+                state_background: ${states['input_select.print_history_filter_archive_error']?.state !== (states['input_select.print_history_filter_archive_error']?.attributes?.options?.[0] ?? '')}
+                state_color: ${states['input_select.print_history_filter_archive_error']?.state !== (states['input_select.print_history_filter_archive_error']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
               - entity: input_select.print_history_filter_project
                 sub_button_type: select
@@ -300,6 +311,7 @@ cards:
       - type: custom:config-template-card
         entities:
           - input_select.print_history_filter_status
+          - input_select.print_history_filter_archive_error
           - input_select.print_history_filter_enrichment_status
           - input_select.print_history_filter_material
           - input_select.print_history_filter_printer
@@ -340,6 +352,7 @@ cards:
                   pointer-events: auto !important;
                 }
                 .bubble-sub-button.clear-status-filter,
+                .bubble-sub-button.clear-archive-error-filter,
                 .bubble-sub-button.clear-enrichment-filter,
                 .bubble-sub-button.clear-material-filter,
                 .bubble-sub-button.clear-printer-filter,
@@ -357,6 +370,7 @@ cards:
                   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 55%, transparent) !important;
                 }
                 .bubble-sub-button.clear-status-filter ha-icon,
+                .bubble-sub-button.clear-archive-error-filter ha-icon,
                 .bubble-sub-button.clear-enrichment-filter ha-icon,
                 .bubble-sub-button.clear-material-filter ha-icon,
                 .bubble-sub-button.clear-printer-filter ha-icon,
@@ -428,6 +442,26 @@ cards:
                 service: input_select.select_option
                 target:
                   entity_id: input_select.print_history_filter_enrichment_status
+                data:
+                  option: "All"
+            - entity: input_select.print_history_filter_archive_error
+              sub_button_type: default
+              name: Clear Archive Error Filter
+              icon: mdi:alert-remove-outline
+              show_icon: true
+              show_name: false
+              show_state: false
+              show_background: true
+              fill_width: false
+              visibility:
+                - condition: state
+                  entity: input_select.print_history_filter_archive_error
+                  state_not: "All"
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                target:
+                  entity_id: input_select.print_history_filter_archive_error
                 data:
                   option: "All"
             - entity: input_select.print_history_filter_material

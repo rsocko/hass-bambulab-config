@@ -50,6 +50,7 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
         vol.Optional("status"): str,
+        vol.Optional("archive_error"): str,
         vol.Optional("enrichment_status"): str,
         vol.Optional("material"): str,
         vol.Optional("printer"): str,
@@ -130,6 +131,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             vol.Required("type"): WS_TYPE_PRINT_HISTORY_QUERY,
             vol.Optional(CONF_ENTRY_ID): str,
             vol.Optional("status"): str,
+            vol.Optional("archive_error"): str,
             vol.Optional("enrichment_status"): str,
             vol.Optional("material"): str,
             vol.Optional("printer"): str,

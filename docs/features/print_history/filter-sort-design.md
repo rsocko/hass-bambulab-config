@@ -1324,8 +1324,8 @@ The Print History view now uses an always-visible header modeled after the Filam
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [ Search Prints........................ ] [Matches] [Open Bambuddy] [⚙]     │
-│ [Status] [Material] [Printer] [Date]                                      │
-│ [Designer] [Layer Height] [Tag] [Favorites Only] [Sort]                    │
+│ [Status] [Archive Issue] [Material] [Printer] [Date]                       │
+│ [Designer] [Project] [Layer Height] [Tag] [Favorites Only] [Sort]          │
 │ [Items Per Page Slider] [Compact] [Media] [Detail] [Refresh]               │
 │ [Clear Active Filter Chips] [Clear Filters] [Refresh]                      │
 │ Color Filters: All Colors or #FFFFFF • #000000                             │
@@ -1341,7 +1341,8 @@ The Print History view now uses an always-visible header modeled after the Filam
 | `Matches` | Show the current filtered result count | Always visible near the search box |
 | `Open Bambuddy` | Jump directly to Bambuddy's archive UI | Replaces the old large `Recent Prints` header card |
 | `Settings` | Open only capture/history settings | Kept top-right; browsing controls stay on-page |
-| Filter pills | Status/material/printer/date/designer/layer-height/tag | Rounded cards with current value and active-state indicator |
+| Filter pills | Status/archive-issue/material/printer/date/designer/project/layer-height/tag | Rounded cards with current value and active-state indicator |
+| `Archive Issue` | Scope the browser to archive health states that need correction | Current options: `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, `Missing Thumbnail` |
 | Tag filter | Exact-match archive tag selector | `All` does not exclude untagged archives |
 | `Favorites Only` | Toggle favorites-only filtering | Boolean button rather than a dropdown |
 | Layout toggles | Switch between `Compact`, `Media`, and `Detail` | Only one is active at a time |
@@ -1377,12 +1378,17 @@ The same filtered dataset is renderable in three presentation modes, but all thr
 - The `Media` card should be allowed to use a noticeably larger image region than the compact row.
 - Every variant should render inside the same two-column desktop grid and collapse to one column on narrow/mobile screens.
 - Cards should use the full page width of a `panel: true` Lovelace view rather than a constrained section column.
+- When `has_archive_error` is true, add a compact issue chip plus a severity-colored left rail so archive-health problems remain obvious even in dense browsing modes.
 
-### Planned Archive Detail Popup
+### Archive Detail Popup
 
-Archive cards are now structured so a future tap action can open an archive-detail popup. That popup is intentionally not implemented yet, but the planned content should include:
+Archive cards now open a live archive-detail popup. The popup should continue to include:
 
-1. Header with print name, result badge, date, printer, and favorite state
+1. Header with print name, result badge, date, printer, favorite state, and archive-issue chip when present
+2. Operator-facing archive issue summary block for missing core 3MF / source-only / missing thumbnail cases
+3. Timeline, filament/cost breakdown, and enrichment state
+4. Editable `print_name`, `tags`, `notes`, `status`, and `failure_reason`
+5. Manual `Re-Enrich`, favorite toggle, save, and close actions
 2. Large cover image / thumbnail with quick links back to Bambuddy
 	1. Ability to switch to view other images stored on the print archive
 	2. Ability to view multiple images at once / expanded view
