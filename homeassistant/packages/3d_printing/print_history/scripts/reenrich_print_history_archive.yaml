@@ -45,7 +45,7 @@ reenrich_print_history_archive:
                     message: >-
                       Print History debug: starting manual re-enrich for archive {{ resolved_archive_id }}.
                       refresh_browser={{ should_refresh_browser }}.
-                    level: info
+                    level: warning
                     logger: homeassistant.components.bambulab.print_history
             - action: rest_command.bambuddy_get_archive_detail
               data:
@@ -315,7 +315,7 @@ reenrich_print_history_archive:
                       archived_rows={{ archive_slot_rows | count }},
                       source={{ archive_row_source }},
                       reason={{ archive_row_reason if archive_row_reason | length > 0 else 'none' }}.
-                    level: info
+                    level: warning
                     logger: homeassistant.components.bambulab.print_history
             - action: rest_command.spoolman_getspools
               data:
@@ -720,7 +720,7 @@ reenrich_print_history_archive:
                       ambiguities={{ candidate_ambiguity_rows | count }},
                       preserve_existing={{ should_preserve_existing }},
                       elapsed_s={{ reenrich_elapsed_seconds }}.
-                    level: info
+                    level: warning
                     logger: homeassistant.components.bambulab.print_history
             - choose:
                 - conditions:
@@ -754,7 +754,7 @@ reenrich_print_history_archive:
                               existing_status={{ existing_payload_status_label }},
                               candidate_status={{ candidate_payload_status_label }},
                               elapsed_s={{ reenrich_elapsed_seconds }}.
-                            level: info
+                            level: warning
                             logger: homeassistant.components.bambulab.print_history
               default:
                 - if:
@@ -768,7 +768,7 @@ reenrich_print_history_archive:
                           effective_status={{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }},
                           tags={{ effective_system_tags | count }},
                           elapsed_s={{ reenrich_elapsed_seconds }}.
-                        level: info
+                        level: warning
                         logger: homeassistant.components.bambulab.print_history
                 - action: rest_command.bambuddy_update_archive
                   data:
@@ -830,7 +830,7 @@ reenrich_print_history_archive:
                           rows={{ candidate_filament_rows }},
                           ambiguities={{ candidate_ambiguity_rows | count }},
                           elapsed_s={{ reenrich_elapsed_seconds }}.
-                        level: info
+                        level: warning
                         logger: homeassistant.components.bambulab.print_history
           else:
             - action: logbook.log

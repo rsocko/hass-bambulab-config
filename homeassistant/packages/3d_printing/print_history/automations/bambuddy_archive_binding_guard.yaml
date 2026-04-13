@@ -76,6 +76,8 @@
                   Cleared retained archive binding {{ retained_archive_id }} during Home Assistant startup
                   because no active print was detected.
         - conditions:
+            - condition: trigger
+              id: native_status_change
             - condition: template
               value_template: >-
                 {% set from_state = trigger.from_state.state | string | lower if trigger.from_state is not none else '' %}
@@ -146,6 +148,8 @@
             - action: script.resolve_current_archive_id
 
         - conditions:
+            - condition: trigger
+              id: native_status_change
             - condition: template
               value_template: >-
                 {% set from_state = trigger.from_state.state | string | lower if trigger.from_state is not none else '' %}
