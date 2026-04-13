@@ -92,6 +92,7 @@ class BambuddyBrowserSensor(SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         backend = "custom_integration_local_store"
         if self.entity_description.key == ENTITY_STATUS:
+            store_stats = self.manager.store.load_store_stats()
             return {
                 "backend": backend,
                 "browser_revision": self.manager.browser_revision,
@@ -99,9 +100,21 @@ class BambuddyBrowserSensor(SensorEntity):
                 "archive_count": len(self.manager.archives),
                 "current_limit": self.manager.max_archives,
                 "last_refresh": self.manager.last_refresh,
+                "last_refresh_reason": self.manager.last_refresh_reason,
+                "last_refresh_started_at": self.manager.last_refresh_started_at,
+                "last_refresh_duration_ms": self.manager.last_refresh_duration_ms,
+                "last_refresh_fetch_ms": self.manager.last_refresh_fetch_ms,
+                "last_refresh_store_replace_ms": self.manager.last_refresh_store_replace_ms,
+                "last_refresh_store_load_ms": self.manager.last_refresh_store_load_ms,
+                "last_refresh_archive_count": self.manager.last_refresh_archive_count,
+                "last_refresh_printer_count": self.manager.last_refresh_printer_count,
                 "last_error": self.manager.last_error,
                 "enabled": self.manager.enabled,
                 "store_path": str(self.manager.store._db_path),
+                "store_db_size_bytes": store_stats.get("db_size_bytes", 0),
+                "store_last_synced_at": store_stats.get("last_synced_at", ""),
+                "store_event_timeline_count": store_stats.get("event_timeline_count", 0),
+                "store_note_payload_row_count": store_stats.get("note_payload_row_count", 0),
                 "page_size": self.manager.hass.states.get("input_number.print_history_page_size").state if self.manager.hass.states.get("input_number.print_history_page_size") else "10",
                 "current_page": self.manager.result.current_page,
             }

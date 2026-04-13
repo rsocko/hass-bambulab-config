@@ -1095,8 +1095,10 @@ class PrintHistoryStore:
             lineage_count = connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
             last_synced_at = connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
+        db_size_bytes = self._db_path.stat().st_size if self._db_path.exists() else 0
         return {
             "db_path": str(self._db_path),
+            "db_size_bytes": db_size_bytes,
             "archive_count": archive_count,
             "note_payload_row_count": note_payload_count,
             "event_timeline_count": event_timeline_count,

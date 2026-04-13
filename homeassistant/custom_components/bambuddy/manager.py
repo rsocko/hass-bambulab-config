@@ -97,6 +97,14 @@ class PrintHistoryBrowserManager:
         self.last_refresh: str | None = None
         self.last_error = ""
         self.loaded_at: str | None = None
+        self.last_refresh_reason = ""
+        self.last_refresh_started_at: str | None = None
+        self.last_refresh_duration_ms: float = 0.0
+        self.last_refresh_fetch_ms: float = 0.0
+        self.last_refresh_store_replace_ms: float = 0.0
+        self.last_refresh_store_load_ms: float = 0.0
+        self.last_refresh_archive_count: int = 0
+        self.last_refresh_printer_count: int = 0
         self._listeners: list[Callable[[], None]] = []
         self._unsubscribers: list[Callable[[], None]] = []
         self._refresh_lock = asyncio.Lock()
@@ -221,6 +229,9 @@ class PrintHistoryBrowserManager:
             self._notify_listeners()
 
             try:
+                refresh_started = perf_counter()
+                self.last_refresh_reason = reason
+                self.last_refresh_started_at = dt_util.utcnow().isoformat()
                 session = aiohttp_client.async_get_clientsession(self.hass)
                 client = BambuddyApiClient(
                     session,
@@ -228,6 +239,7 @@ class PrintHistoryBrowserManager:
                     self.api_key,
                     self.fetch_timeout_seconds,
                 )
+                fetch_started = perf_counter()
                 raw_archives = await client.async_fetch_archives(limit=self.max_archives)
                 raw_printers: list[dict[str, Any]] = []
                 try:
@@ -237,11 +249,19 @@ class PrintHistoryBrowserManager:
                         "Unable to fetch Bambuddy printers while refreshing print history; falling back to archive payload names: %s",
                         error,
                     )
+                self.last_refresh_fetch_ms = round((perf_counter() - fetch_started) * 1000, 1)
+                self.last_refresh_archive_count = len(raw_archives)
+                self.last_refresh_printer_count = len(raw_printers)
                 enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
                 projected = [project_archive(item) for item in enriched_archives]
                 archives_changed = projected != self.archives
+                store_replace_started = perf_counter()
                 await self.hass.async_add_executor_job(self.store.replace_archives, projected)
+                self.last_refresh_store_replace_ms = round((perf_counter() - store_replace_started) * 1000, 1)
+                store_load_started = perf_counter()
                 self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
+                self.last_refresh_store_load_ms = round((perf_counter() - store_load_started) * 1000, 1)
+                self.last_refresh_duration_ms = round((perf_counter() - refresh_started) * 1000, 1)
                 self.last_refresh = dt_util.utcnow().isoformat()
                 self.last_error = ""
                 self._store_unavailable_until = None
@@ -376,6 +396,14 @@ class PrintHistoryBrowserManager:
             "status_state": self.status_state,
             "status_message": self.status_message,
             "last_refresh": self.last_refresh,
+            "last_refresh_reason": self.last_refresh_reason,
+            "last_refresh_started_at": self.last_refresh_started_at,
+            "last_refresh_duration_ms": self.last_refresh_duration_ms,
+            "last_refresh_fetch_ms": self.last_refresh_fetch_ms,
+            "last_refresh_store_replace_ms": self.last_refresh_store_replace_ms,
+            "last_refresh_store_load_ms": self.last_refresh_store_load_ms,
+            "last_refresh_archive_count": self.last_refresh_archive_count,
+            "last_refresh_printer_count": self.last_refresh_printer_count,
             "last_error": self.last_error,
             "enabled": self.enabled,
             "archive_count": len(self.archives),
