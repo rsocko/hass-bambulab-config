@@ -680,14 +680,78 @@ class PrintHistoryStore:
 
     def _connect(self) -> sqlite3.Connection:
         self._ensure_parent_directory()
+        recovered_store = False
 
         try:
             connection = sqlite3.connect(self._db_path)
         except sqlite3.OperationalError as exc:
-            raise sqlite3.OperationalError(self._format_connection_error(str(exc))) from exc
+            if self._should_recover_unopenable_database(exc):
+                recovered_store = self._quarantine_unopenable_database()
+                if recovered_store:
+                    try:
+                        connection = sqlite3.connect(self._db_path)
+                    except sqlite3.OperationalError as retry_exc:
+                        raise sqlite3.OperationalError(self._format_connection_error(str(retry_exc))) from retry_exc
+                else:
+                    raise sqlite3.OperationalError(self._format_connection_error(str(exc))) from exc
+            else:
+                raise sqlite3.OperationalError(self._format_connection_error(str(exc))) from exc
 
         connection.execute("PRAGMA foreign_keys=ON")
+        if recovered_store:
+            self._ensure_schema(connection)
         return connection
+
+    def _should_recover_unopenable_database(self, error: sqlite3.OperationalError) -> bool:
+        message = str(error).lower()
+        return "unable to open database file" in message and self._db_path.exists()
+
+    def _quarantine_unopenable_database(self) -> bool:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        renamed_paths: list[tuple[Path, Path]] = []
+
+        try:
+            for source in self._quarantine_candidates():
+                if not source.exists():
+                    continue
+                destination = self._quarantine_destination(source, timestamp)
+                source.rename(destination)
+                renamed_paths.append((source, destination))
+        except OSError as exc:
+            for source, destination in reversed(renamed_paths):
+                if destination.exists() and not source.exists():
+                    destination.rename(source)
+            _LOGGER.warning(
+                "Failed to quarantine unopenable Bambuddy browser cache at %s: %s",
+                self._db_path,
+                exc,
+            )
+            return False
+
+        if not renamed_paths:
+            return False
+
+        _LOGGER.warning(
+            "Quarantined unopenable Bambuddy browser cache files at %s; rebuilding local cache",
+            self._db_path,
+        )
+        return True
+
+    def _quarantine_candidates(self) -> tuple[Path, ...]:
+        return (
+            self._db_path,
+            Path(f"{self._db_path}-wal"),
+            Path(f"{self._db_path}-shm"),
+        )
+
+    def _quarantine_destination(self, source: Path, timestamp: str) -> Path:
+        base_name = f"{source.name}.open-failure-{timestamp}"
+        destination = source.with_name(base_name)
+        counter = 1
+        while destination.exists():
+            destination = source.with_name(f"{base_name}-{counter}")
+            counter += 1
+        return destination
 
     def _ensure_parent_directory(self) -> None:
         try:

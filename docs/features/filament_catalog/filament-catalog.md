@@ -190,6 +190,12 @@ totals[filament_id] = {
 }
 ```
 
+Contract notes:
+
+- This helper represents **active inventory only**. Archived spools are intentionally excluded from `weight`, `count`, and `spools`.
+- `Include Archived Spools` changes which spool cards the catalog grid may render, but it does not widen this aggregate into a historical/all-spools helper.
+- Zero-spool fallback logic and filament-level stock/repurchase logic depend on this remaining active-only.
+
 ### `sensor.spoolman_filament_{id}` Attributes
 
 The Spoolman integration also exposes a filament entity for each filament record under the single `Filaments` device. These entities are the catalog's secondary server-side input for the hybrid datasource.
@@ -795,6 +801,7 @@ The April 2026 catalog follow-on work added three user-facing behaviors on top o
 - Default scope remains `In-Stock Spools`, so archived spools are excluded from normal browsing.
 - `Include Archived Spools` adds archived spool cards back into the same grid and marks them clearly on both cards and popups.
 - `All Filaments` switches the catalog to one-card-per-filament summary mode and does not render spool cards.
+- `sensor.spoolman_filament_totals` still remains active-only in all three scope modes; scope changes affect browsing rows, not inventory aggregates.
 
 This keeps archived history opt-in while still allowing broad browsing when needed.
 

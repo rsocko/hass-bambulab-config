@@ -10,7 +10,9 @@
       {% set ns = namespace(result={}) %}
       {% for spool in spool_entities %}
         {% set fid = spool.attributes.filament_id | string %}
-        {% if fid and fid != 'None' %}
+        {% set archived_raw = spool.attributes.archived | default(false) %}
+        {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+        {% if fid and fid != 'None' and not archived %}
           {% set w = spool.attributes.remaining_weight | default(0) | float(0) %}
           {% set sid = spool.entity_id.split('_') | last %}
           {% set spool_entry = {

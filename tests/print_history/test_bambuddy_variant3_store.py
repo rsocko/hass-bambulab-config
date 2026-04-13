@@ -331,6 +331,39 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
     assert loaded[0]["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
 
 
+def test_variant3_store_quarantine_helper_renames_cache_files(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store._db_path.write_text("broken-cache", encoding="utf-8")
+
+    recovered = store._quarantine_unopenable_database()
+
+    assert recovered is True
+    assert store._db_path.exists() is False
+    quarantined = [path.name for path in tmp_path.iterdir() if ".open-failure-" in path.name]
+    assert len(quarantined) == 1
+
+
+def test_variant3_store_quarantines_unopenable_cache_and_rebuilds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store._db_path.write_text("broken-cache", encoding="utf-8")
+    real_connect = store_module.sqlite3.connect
+    state = {"failed": False}
+
+    def flaky_connect(path: str | Path, *args: object, **kwargs: object) -> sqlite3.Connection:
+        if Path(path) == store._db_path and not state["failed"]:
+            state["failed"] = True
+            raise sqlite3.OperationalError("unable to open database file")
+        return real_connect(path, *args, **kwargs)
+
+    monkeypatch.setattr(store_module.sqlite3, "connect", flaky_connect)
+
+    loaded = store.load_archives()
+
+    assert loaded == []
+    assert state["failed"] is True
+    assert store._db_path.exists() is True
+
+
 def test_variant3_query_contract_filters_duplicates_and_originals() -> None:
     archives = _projected_archives()
     base_states = {

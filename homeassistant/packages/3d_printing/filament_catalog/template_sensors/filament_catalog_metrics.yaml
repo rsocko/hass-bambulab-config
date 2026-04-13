@@ -2,8 +2,6 @@
     - platform: state
       entity_id:
         - sensor.spoolman_filament_totals
-    - platform: time_pattern
-      hours: "/1"
   sensor:
     - name: Filament Catalog Metrics
       unique_id: filament_catalog_metrics
@@ -19,7 +17,6 @@
         {%- endfor -%}
         {{ ns.total }}
       attributes:
-        generated_at: "{{ now().isoformat() }}"
         inventory_summary_json: >-
           {%- set summary = namespace(spool_count=0, filament_count=0, total_weight=0.0, priced_cost_total=0.0, priced_spool_count=0) -%}
           {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
