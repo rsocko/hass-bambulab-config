@@ -111,6 +111,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".thumb.media{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
+      ".content-top{display:flex;align-items:flex-start;justify-content:flex-start;min-width:0;}" +
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
       ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
@@ -132,7 +133,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
       ".dot{width:14px;height:14px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
-      ".favorite{position:absolute;top:16px;right:16px;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}" +
+      ".favorite{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
       ".archive-error-text.warning{color:#FFD89B;}" +
@@ -363,12 +364,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     return "" +
       '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
-      '<button class="favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
-      '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
-      '</button>' +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
       '<div class="content">' +
+        '<div class="content-top">' +
+        '<button class="favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
+        '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
+        '</button>' +
+        '</div>' +
           (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '') +
       '<div class="header">' +
       '<div style="min-width:0;flex:1 1 220px;max-width:100%;">' +
