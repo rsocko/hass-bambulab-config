@@ -193,6 +193,57 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
     assert tooltip_by_color["#ffffff"] == "White PLA (#FFFFFF)"
 
 
+def test_variant3_query_contract_supports_archived_status_filter() -> None:
+    archived_archive = project_archive(
+        {
+            "id": 303,
+            "printer_id": 3,
+            "printer_name": "Import Queue",
+            "print_name": "Historical Import",
+            "actual_time_seconds": 5400,
+            "print_time_seconds": 5400,
+            "filament_used_grams": 18.0,
+            "filament_type": "PLA",
+            "filament_color": "#3366CC",
+            "status": "archived",
+            "started_at": "2026-04-07T09:00:00Z",
+            "completed_at": "2026-04-07T10:30:00Z",
+            "created_at": "2026-04-07T09:00:00Z",
+            "cost": 0.55,
+            "object_count": 1,
+            "project_name": "",
+            "extra_data": {},
+        }
+    )
+    archives = _projected_archives() + [archived_archive]
+    states = {
+        "input_select.print_history_filter_status": "Archived",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+
+    assert result.filtered_count == 1
+    assert [archive["id"] for archive in result.page_items] == [303]
+
+
 def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blank() -> None:
     archives = [_live_style_projected_archive()]
     states = {

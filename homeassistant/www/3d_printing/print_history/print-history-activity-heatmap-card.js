@@ -717,6 +717,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             filamentCount: 0,
             durationHours: 0,
             successCount: 0,
+            archivedCount: 0,
             failedCount: 0,
             cancelledCount: 0,
             printingCount: 0,
@@ -736,6 +737,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
         if (archive.status === "completed") {
           day.successCount += 1;
+        } else if (archive.status === "archived") {
+          day.archivedCount += 1;
         } else if (archive.status === "failed") {
           day.failedCount += 1;
         } else if (archive.status === "cancelled") {
@@ -914,9 +917,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         durationHours: stats ? stats.durationHours : 0,
         dominantColor: stats ? stats.dominantColor || "" : "",
         outcomeColor: stats ? stats.outcomeColor : "",
-        outcomeLabel: stats ? this._outcomeBandLabel(stats.outcomeBand) : "",
+        outcomeLabel: stats ? this._buildOutcomeLabel(stats) : "",
         hasFullDayPrinting: stats ? !!stats.hasFullDayPrinting : false,
         successCount: stats ? stats.successCount : 0,
+        archivedCount: stats ? stats.archivedCount : 0,
         failedCount: stats ? stats.failedCount : 0,
         cancelledCount: stats ? stats.cancelledCount : 0,
         printingCount: stats ? stats.printingCount : 0,
@@ -1303,13 +1307,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     if (mode === "Outcome") {
-      return ranges.concat([
-        { from: 1, to: 1, color: "#D32F2F" },
-        { from: 2, to: 2, color: "#F57C00" },
-        { from: 3, to: 3, color: "#FBC02D" },
-        { from: 4, to: 4, color: "#9CCC65" },
-        { from: 5, to: 5, color: "#2E7D32" },
-      ]);
+      return ranges.concat(this._buildCategoricalColorRanges(series, function (point) {
+        return point && point.meta && point.meta.outcomeColor ? point.meta.outcomeColor : emptyColor;
+      }));
     }
 
     var modeConfig = this._modeScaleConfig(mode, maxima || {});
@@ -1476,7 +1476,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       'Cost: ' + this._formatCost(meta.cost || 0),
       'Filaments: ' + this._formatCount(meta.filamentCount || 0),
       'Time: ' + this._formatHours(meta.durationHours || 0),
-      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
+      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.archivedCount || 0) + ' archived, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
     ];
 
     if (mode === 'Dominant Color' && meta.dominantColor) {
@@ -1658,6 +1658,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._formatCount(day.count) + (day.count === 1 ? " print" : " prints"),
       this._formatWeight(day.weight),
       this._formatCount(day.successCount) + " completed",
+      this._formatCount(day.archivedCount) + " archived",
       this._formatCount(day.failedCount) + " failed",
       this._formatCount(day.cancelledCount) + " cancelled",
     ].join(" | ");
@@ -1712,6 +1713,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _buildStatusPill(status) {
     var map = {
       completed: { label: "Completed", color: "#2E7D32" },
+      archived: { label: "Archived", color: "#1D4ED8" },
       failed: { label: "Failed", color: "#C62828" },
       cancelled: { label: "Cancelled", color: "#EF6C00" },
       printing: { label: "Printing", color: "#1565C0" },
@@ -1744,7 +1746,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
       '<div>Filaments: <strong>' + this._escapeHtml(this._formatCount(meta.filamentCount || 0)) + "</strong></div>",
       '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
-      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.failedCount) + " failed, " + this._formatCount(meta.cancelledCount) + " cancelled") + "</strong></div>",
+      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.archivedCount) + " archived, " + this._formatCount(meta.failedCount) + " failed, " + this._formatCount(meta.cancelledCount) + " cancelled") + "</strong></div>",
     ];
 
     if (mode === "Dominant Color" && meta.dominantColor) {
@@ -1774,6 +1776,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   _buildOutcomeColor(day) {
     var band = this._buildOutcomeBand(day);
+    var archivedCount = Number(day.archivedCount || 0);
+    var total = Number(day.count || 0);
+    var archivedColor = "#1D4ED8";
     var palette = {
       1: "#D32F2F",
       2: "#F57C00",
@@ -1781,18 +1786,32 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       4: "#9CCC65",
       5: "#2E7D32",
     };
-    return palette[band] || this._emptyCellColor();
+    var baseColor = palette[band] || this._emptyCellColor();
+
+    if (archivedCount <= 0 || total <= 0) {
+      return baseColor;
+    }
+    if (archivedCount >= total) {
+      return archivedColor;
+    }
+
+    return this._mixHexColors(baseColor, archivedColor, Math.min(1, 0.2 + (archivedCount / total) * 0.8));
   }
 
   _buildOutcomeBand(day) {
     var total = Number(day.count || 0);
+    var archivedCount = Number(day.archivedCount || 0);
+    var scoredTotal = Math.max(0, total - archivedCount);
     if (total <= 0) {
       return 0;
+    }
+    if (scoredTotal <= 0) {
+      return 5;
     }
 
     var negatives = Number(day.failedCount || 0) + Number(day.cancelledCount || 0) + Number(day.otherCount || 0);
     var neutrals = Number(day.printingCount || 0);
-    var penalty = (negatives + neutrals * 0.5) / total;
+    var penalty = (negatives + neutrals * 0.5) / scoredTotal;
 
     if (penalty >= 0.8) {
       return 1;
@@ -1818,6 +1837,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       5: "Good",
     };
     return labels[band] || "";
+  }
+
+  _buildOutcomeLabel(day) {
+    if (!day || Number(day.count || 0) <= 0) {
+      return "";
+    }
+
+    var base = this._outcomeBandLabel(day.outcomeBand);
+    var archivedCount = Number(day.archivedCount || 0);
+    if (archivedCount <= 0) {
+      return base;
+    }
+    if (archivedCount >= Number(day.count || 0)) {
+      return "Archived";
+    }
+    return base ? ("Archived + " + base) : "Archived";
   }
 
   _normalizeMode(mode) {

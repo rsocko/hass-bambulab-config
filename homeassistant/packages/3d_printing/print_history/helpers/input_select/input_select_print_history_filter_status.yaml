@@ -4,6 +4,7 @@ print_history_filter_status:
   options:
     - All
     - Completed
+    - Archived
     - Failed
     - Cancelled
     - Printing
