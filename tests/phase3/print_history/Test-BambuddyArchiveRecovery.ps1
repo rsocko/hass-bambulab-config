@@ -395,6 +395,7 @@ function Get-ProcessingBucketForStatus {
         'skipped_existing_content_hash' { return 'already_in_archive' }
         'batch_ready_same_hash_allowed' { return 'batch_ready' }
         'manual_review_source_only' { return 'manual_review' }
+        'manual_review_non_importable' { return 'manual_review' }
         'batch_ready' { return 'batch_ready' }
         'uploaded' { return 'completed' }
         'uploaded_and_annotated' { return 'completed' }
@@ -573,6 +574,7 @@ function Test-ManifestCandidateAlreadyHandled {
 
     switch ([string]$Candidate.import_status) {
         'skipped_existing_content_hash' { return $true }
+        'manual_review_non_importable' { return $true }
         'uploaded' { return $true }
         'uploaded_and_annotated' { return $true }
         'runtime_repaired' { return $true }

@@ -521,18 +521,26 @@ Current live checkpoint:
    - it serves a browser UI with a static XY toolpath preview from raw `.gcode`, matched nearby `image/*.png` files, header metadata, related cache `.3mf` manifest/import status, and operator triage fields for `Keep`, `Ignore`, or `Investigate`
    - it now includes an optional on-demand interactive G-code viewer that uses the same upstream `gcode-preview` library as Bambuddy and does not load until requested from the page
    - decisions always export to a sidecar JSON file; optional manifest writeback can also store them under `secondary_artifact_analysis.cache_secondary_artifacts.manual_triage_decisions`
-   - recommended launch command:
-
-   ```powershell
-   C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe `
-      .\tools\bambuddy\gcode_forensics_viewer.py
-   ```
-
-   - recommended launch command with direct manifest writeback enabled:
+   - launch command for the first backup without manifest writeback:
 
    ```powershell
    C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe `
       .\tools\bambuddy\gcode_forensics_viewer.py `
+      --source-root '.\bambuddy\Backup SD Card - 2026-04-03' `
+      --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
+      --pairings '.\tmp\cache_gcode_pairing_analysis.json' `
+      --port 8768
+   ```
+
+   - launch command for the first backup with direct manifest writeback enabled:
+
+   ```powershell
+   C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe `
+      .\tools\bambuddy\gcode_forensics_viewer.py `
+      --source-root '.\bambuddy\Backup SD Card - 2026-04-03' `
+      --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
+      --pairings '.\tmp\cache_gcode_pairing_analysis.json' `
+      --port 8769 `
       --manifest-writeback
    ```
 

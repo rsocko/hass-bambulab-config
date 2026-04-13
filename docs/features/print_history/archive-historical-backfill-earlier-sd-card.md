@@ -58,6 +58,39 @@ Set-ExecutionPolicy -Scope Process Bypass
   -ResultPath '.\tmp\archive_backfill_earlier_sd_batch-001_full.json'
 ```
 
+## Secondary Artifact Analysis
+
+Generate `.gcode` and `image` forensic analysis for the earlier backup and write it back into the isolated manifest:
+
+```powershell
+C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe .\tools\bambuddy\analyze_cache_secondary_artifacts.py `
+  --source-root 'C:\Users\rysock\OneDrive\3D Printing\_BACKUP MicroSD Card' `
+  --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2_earlier_sd_card.json' `
+  --pairings-output '.\tmp\earlier_sd_cache_gcode_pairing_analysis.json' `
+  --write-manifest
+```
+
+Launch the forensics viewer against the earlier backup without manifest writeback:
+
+```powershell
+C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe .\tools\bambuddy\gcode_forensics_viewer.py `
+  --source-root 'C:\Users\rysock\OneDrive\3D Printing\_BACKUP MicroSD Card' `
+  --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2_earlier_sd_card.json' `
+  --pairings '.\tmp\earlier_sd_cache_gcode_pairing_analysis.json' `
+  --port 8771
+```
+
+Launch the forensics viewer against the earlier backup with manifest writeback:
+
+```powershell
+C:/Users/rysock/AppData/Local/Python/pythoncore-3.14-64/python.exe .\tools\bambuddy\gcode_forensics_viewer.py `
+  --source-root 'C:\Users\rysock\OneDrive\3D Printing\_BACKUP MicroSD Card' `
+  --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2_earlier_sd_card.json' `
+  --pairings '.\tmp\earlier_sd_cache_gcode_pairing_analysis.json' `
+  --manifest-writeback `
+  --port 8770
+```
+
 ## Batch Workflow
 
 1. Generate or refresh the isolated manifest.
@@ -75,4 +108,6 @@ Set-ExecutionPolicy -Scope Process Bypass
 - Runtime repair preview and apply were run through `http://bambuddy-runtime-repair.socko.us` for all 19 imported archives.
 - Applied repair fields per archive were `started_at`, `completed_at`, `created_at`, plus the repair audit note in `notes`; all repaired entries landed with `repair_confidence: medium`.
 - Archive `status` was intentionally left unchanged because this lane did not use `-RepairSetCompletedStatus`.
+- Secondary artifact analysis is now written into the isolated manifest with `437` cache `.gcode`, `20` cache `.bbl`, `455` `image/*.png`, and `19` `model/*.gcode` files recorded.
+- Current older-backup `.gcode` pairing summary is `21` exact cache-`.3mf` stem matches, `3` near-time-only matches, and `413` ambiguous `.gcode` files for forensic review.
 - Final manifest summary: `completed: 19`, `already_in_archive: 1`.
