@@ -730,8 +730,21 @@ reenrich_print_history_archive:
                     (existing_resolved_rows | int(0)) * 100 +
                     (existing_filament_rows | int(0))
                   }}
+                candidate_replaces_heuristic_existing: >-
+                  {% set ns = namespace(replace=false) %}
+                  {% if existing_payload is mapping and (existing_filaments | count) == (candidate_filaments | count) and (candidate_filaments | count) > 0 %}
+                    {% for row in candidate_filaments %}
+                      {% set existing_row = existing_filaments[loop.index0] if loop.index0 < (existing_filaments | count) else {} %}
+                      {% set existing_fm = existing_row.fm | default('', true) | string if existing_row is mapping else '' %}
+                      {% set candidate_am = row.am | default('', true) | string if row is mapping else '' %}
+                      {% if existing_fm | length > 0 and (candidate_am | length > 0 or row.f is none or row.s is none) %}
+                        {% set ns.replace = true %}
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {{ ns.replace }}
                 should_preserve_existing: >-
-                  {{ existing_payload is mapping and (existing_detail_score | int(-1)) > (candidate_detail_score | int(-1)) }}
+                  {{ existing_payload is mapping and not candidate_replaces_heuristic_existing and (existing_detail_score | int(-1)) > (candidate_detail_score | int(-1)) }}
                 has_candidate_payload: "{{ candidate_filament_rows | int(0) > 0 }}"
                 effective_payload: >-
                   {{ (existing_payload if should_preserve_existing else candidate_payload) | tojson | from_json }}

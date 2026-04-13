@@ -1247,6 +1247,13 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("{% else %}\n                          {% set vendor_ok = true %}", content)
         self.assertNotIn("vendor_ok = (spool.vendor == 'Bambu Lab') if bambu_only else (spool.vendor != 'Bambu Lab')", content)
 
+    def test_reenrich_replaces_old_heuristic_rows_when_new_candidate_is_ambiguous(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("candidate_replaces_heuristic_existing", content)
+        self.assertIn("existing_row.fm | default('', true) | string", content)
+        self.assertIn("candidate_am | length > 0 or row.f is none or row.s is none", content)
+        self.assertIn("not candidate_replaces_heuristic_existing", content)
+
     def test_reenrich_supports_batch_mode_without_refreshing_every_archive(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("refresh_browser:", content)

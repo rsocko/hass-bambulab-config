@@ -254,6 +254,8 @@ The temporal fallback is intentionally conservative. It is a last-tier recovery 
 
 Generic `afs` fallback rows with no archived UUID, vendor, or profile hint no longer treat missing Bambu evidence as proof that the row must be non-Bambu. In those cases the matcher now keeps all vendors in the candidate pool and only narrows vendor when archived metadata explicitly supports it.
 
+Manual re-enrich also no longer preserves an older payload just because it has more resolved rows when those older rows were only heuristic `fm` recoveries and the current run now marks the same rows ambiguous or unresolved. That lets a rerun clear previously overconfident matches after the matching rules get stricter.
+
 ### Bulk backfill
 
 The shipped `backfill_print_history_archive_enrichment.yaml` script accepts a CSV list of archive IDs and runs `reenrich_print_history_archive` in batch mode with browser refresh deferred until the batch completes.
