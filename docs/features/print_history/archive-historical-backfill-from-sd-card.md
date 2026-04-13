@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `312` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `316` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, and `312`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, and `316`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -380,12 +380,16 @@ Current live checkpoint:
    - archive `310` <- `cache/filament_swatch (larger - fits Phenmo Label).3mf`
    - archive `311` <- `cache/Football National Championship Trophy - Brick Accessory_Inner Part.3mf`
    - archive `312` <- `cache/Football National Championship Trophy - Brick Accessory_Outer Shell.3mf`
+   - archive `313` <- `cache/Football National Championship Trophy - Brick Accessory_Trophy Base - Indiana 2025 Variant.3mf`
+   - archive `314` <- `cache/For P1S, 0.2mm layer, 3 walls, 15% infill.3mf`
+   - archive `315` <- `cache/Funnel - 0.16mm layer, 2 walls, 15% infill.3mf`
+   - archive `316` <- `cache/gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-....3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `64B64A94ACD3E3615F3D1998B0776CA133B9A83A002767A4A255A35C0EFE7013` -> `cache/Football National Championship Trophy - Brick Accessory_Trophy Base - Indiana 2025 Variant.3mf`
-   - `3B33F2CBA0CC82269D1B5F9387193F632E9A85556CB61112235EECCBC358C545` -> `cache/For P1S, 0.2mm layer, 3 walls, 15% infill.3mf`
-   - `4DA9719AB8BBAC919DB06C7EC80E328AE89DA4A16208C41A2ED6A203A3905B4B` -> `cache/Funnel - 0.16mm layer, 2 walls, 15% infill.3mf`
-   - `6C9EB19DD82756F5BBB3ED7E0918B159F7C638AB5F6F287FCEFEA154CA30C5E3` -> `cache/gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-v111.stl + gen2-quicklocks-....3mf`
-- manifest summary is now `completed: 79`, `already_in_archive: 33`, `batch_ready: 118`, `manual_review: 1`
+   - `32CDC2FA3B7357A724CBAC7C57E9F3240A5DB2EC27C4222549DB18E50CE1C428` -> `cache/Generic Player and Jersey Options (0-9).3mf`
+   - `8E94367E3BC3E761C4D7DA55B366F572216ACF0AB901A90024095095C5C52667` -> `cache/GF Bins - Spool Parts (4H).3mf`
+   - `15119D02CD53E17FAF100E56975008D9D52632EE2A2FEBE0D785CC355D1A97CF` -> `cache/GF Bins - Spool Parts (6H).3mf`
+   - `0BE16E2E675C011F4A3D8A62238E75252910519705712EDBCDFBB046C4D320A4` -> `cache/gf-extended-bin-10x3x6-s1x1-444fa.stl.3mf`
+- manifest summary is now `completed: 83`, `already_in_archive: 33`, `batch_ready: 114`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
