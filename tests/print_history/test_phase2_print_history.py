@@ -1523,6 +1523,22 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("action: input_boolean.turn_on", content)
         self.assertIn("action: input_boolean.turn_off", content)
 
+    def test_print_history_append_event_calls_capture_response_data(self):
+        files = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_capture_pause_resume_timeline.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_enrich_archive_on_complete.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "capture_and_upload_snapshot.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "reenrich_print_history_archive.yaml",
+        )
+
+        for path in files:
+            content = path.read_text("utf-8")
+            self.assertEqual(
+                content.count("action: bambuddy.append_print_history_event"),
+                content.count("response_variable: append_event_result"),
+                msg=f"{path} must capture every append_print_history_event response",
+            )
+
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"

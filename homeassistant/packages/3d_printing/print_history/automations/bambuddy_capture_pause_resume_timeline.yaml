@@ -55,6 +55,7 @@
                   from_status: "{{ from_status_norm }}"
                   to_status: "{{ to_status_norm }}"
                 event_key: "pause:{{ archive_id }}:{{ event_time }}"
+              response_variable: append_event_result
 
         - conditions:
             - condition: template
@@ -71,6 +72,7 @@
                   from_status: "{{ from_status_norm }}"
                   to_status: "{{ to_status_norm }}"
                 event_key: "resume:{{ archive_id }}:{{ event_time }}"
+              response_variable: append_event_result
 
   mode: queued
   max: 10

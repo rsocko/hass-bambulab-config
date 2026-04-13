@@ -539,6 +539,7 @@
               terminal: "{{ is_terminal_trigger }}"
             event_key: >-
               enrichment:{{ archive_id }}:{{ trigger_id }}:{{ effective_payload_status_label | lower | trim }}:{{ effective_payload_source | default('unknown', true) | string | trim }}:{{ is_terminal_trigger }}
+          response_variable: append_event_result
 
     - if:
         - condition: template

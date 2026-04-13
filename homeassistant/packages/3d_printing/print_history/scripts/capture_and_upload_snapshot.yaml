@@ -355,6 +355,7 @@ capture_and_upload_snapshot:
               upload_status: "{{ upload_status_summary | string }}"
             event_key: >-
               photo:{{ archive_id }}:{{ stage }}:{{ captured_filenames | default('', true) | string | trim }}
+          response_variable: append_event_result
 
     - action: logbook.log
       data:
