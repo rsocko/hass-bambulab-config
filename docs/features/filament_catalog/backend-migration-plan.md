@@ -20,6 +20,12 @@ That architecture was the right tradeoff to ship the catalog quickly and keep th
 
 This document proposes a phased migration of the **heavy Spoolman-derived projection layer** out of YAML template sensors and into a custom integration or integration-owned backend service, while keeping the dashboard shell and user-policy controls in Home Assistant YAML.
 
+Related design docs:
+
+- [Backend Migration Phase 0 Checklist](backend-phase0-contract-checklist.md)
+- [Backend Integration Design](backend-integration-design.md)
+- [Backend Entity Contract Matrix](backend-entity-contract-matrix.md)
+
 ## Executive Decision
 
 Do **not** migrate the full filament catalog feature out of YAML.
