@@ -302,10 +302,10 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `322` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `334` are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, and `322`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, and `334`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -329,6 +329,10 @@ Current live checkpoint:
 - `9655586D79F50879A5A7DA1FF8629D6A792194B39C008C0A27542C42B474729D` (`cache/Fits A1_P1S_P2S_X1C 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `226` by `content_hash`
 - `F767365DC8F034ED83C6418BE0C3E17C3C154BE0AD3A970DD0C6B42FF8BB6746` (`cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_1.3mf`) matched existing archive `15` by `content_hash`
 - `1A3D1778A73356A7FE7AAB2477548BD09F1FCC48A289A94669ABDC5AA0A4967C` (`cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_2.3mf`) matched existing archive `14` by `content_hash`
+- `52816CE2D2339622AB0E195E8764D827EB4746866632F8B92188E2995406F899` (`cache/Screw version 0.16mm layer, 2 walls, 15% infill.3mf`) matched existing archive `50` by `content_hash`
+- `05F7CF9C8986D7AB41E20F0051CE3A7CF461C467020724ACB653D92F19128E54` (`cache/Printer Accessory Controller Box_Plate 1.3mf`) matched existing archive `13` by `content_hash`
+- `63FD5A1BCD2E28E2B8BF4355E4E5ABFDAB55D01B0924D30702400AF695A02A02` (`cache/Printer Accessory Controller Box_plate_7.3mf`) matched existing archive `12` by `content_hash`
+- `787C4FA28A78577C47DE76F40B7F82A8B44FB6CA61F2FDA244DF5F88AFFD2BA4` (`cache/Printable Frame (Optional).3mf`) matched existing archive `187` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -392,12 +396,24 @@ Current live checkpoint:
    - archive `320` <- `cache/gf-extended-bin-10x3x6-s1x1-444fa.stl.3mf`
    - archive `321` <- `cache/Golden Retriever.stl.3mf`
    - archive `322` <- `cache/grid 2x1 (with split) half size gf grid 6H.stl.3mf`
+   - archive `323` <- `cache/Rivers Logo_plate_3.3mf`
+   - archive `324` <- `cache/Rivers Logo_plate_6.3mf`
+   - archive `325` <- `cache/Round_filament_box_for_spools.3mf`
+   - archive `326` <- `cache/RallyChain_MichiganWolverines.3mf`
+   - archive `327` <- `cache/Rivers Logo_4 Color.3mf`
+   - archive `328` <- `cache/Sample Mosfet Stands.3mf`
+   - archive `329` <- `cache/Rivers Logo 1 - Full Gray Layer.3mf`
+   - archive `330` <- `cache/Silk Filament.3mf`
+   - archive `331` <- `cache/PLA 0.2mm layer, 2 walls, 15% infill.3mf`
+   - archive `332` <- `cache/Simple_Rugged_Large_Utility_Toolbox_With_Handle.3mf`
+   - archive `333` <- `cache/Print by Object Print Profile 0.20 mm.3mf`
+   - archive `334` <- `cache/PLA - ESP32 C3 Supermini - 4 Versions on Plates.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `67F5F8C5EBEFEC8836CABC0898990161B7071CB9761FCED0071CA7BA59970A28` -> `cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_3.3mf`
-   - `AED394930768859ED4F96DE71D9C669F19D4C954F267706D4060599E2C219769` -> `cache/gridfinity-baseplate (Desk drawer - no magnets)-250x220-446x338-5fa47_plate_4.3mf`
-   - `B6BCB8C4AC5E4209762E5A0BBE750948A495CB95D26BD0790075D0ED975125FC` -> `cache/gridfinity-baseplate-250x220-446x338-5484a.stl_2.3mf`
-   - `D2EE50A110F06546FE52F2A4AFB01D2894BA84A2D37FA37F495931B6DF75AA05` -> `cache/gridplates-158x225-Standard-58de9.stl.3mf`
-- manifest summary is now `completed: 89`, `already_in_archive: 35`, `batch_ready: 106`, `manual_review: 1`
+   - `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` -> `cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`
+   - `CA31D5976BB67AB3AEFC71FA47B33C638C592AD453ABE589C9FAF3A0A2D4898F` -> `cache/Size 200x200 X1_P1_A1.3mf`
+   - `D1B90904C3CBD263811EC4266888647748EB2E4CAC8ECFC98B664D00EE0BF52B` -> `cache/PETG - 0.2mm layer, 3 walls, 10% infill.3mf`
+   - `C27BBA5C35C2C778668DB11159B5EC1642EB7326DEC78E8E2585D0D53D5E9962` -> `cache/Parts Label - bambu-label-v12_Parts.3mf`
+- manifest summary is now `completed: 101`, `already_in_archive: 39`, `batch_ready: 90`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
