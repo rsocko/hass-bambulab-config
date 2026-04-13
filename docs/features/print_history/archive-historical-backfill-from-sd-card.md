@@ -302,11 +302,11 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `356`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `360`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) returned `400 Bad Request`, but Bambuddy still created archive `335`; treat that archive as anomalous until it is reviewed and reconciled with the manifest
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, and `356`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, `352`, `353`, `354`, `355`, `356`, `357`, `358`, `359`, and `360`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -336,6 +336,10 @@ Current live checkpoint:
 - `787C4FA28A78577C47DE76F40B7F82A8B44FB6CA61F2FDA244DF5F88AFFD2BA4` (`cache/Printable Frame (Optional).3mf`) matched existing archive `187` by `content_hash`
 - `CA31D5976BB67AB3AEFC71FA47B33C638C592AD453ABE589C9FAF3A0A2D4898F` (`cache/Size 200x200 X1_P1_A1.3mf`) matched existing archive `183` by `content_hash`
 - `F485F3F2628565961FEC938A0709F109CFA16517F835BD7981BC791CC9F5884D` (`cache/Parametric mount_Plate 1.3mf`) matched existing archive `7` by `content_hash`
+- `C3075305B255BCCAAC267DDD3DD56C9BEB872BAD898BBA982ED74C24A0154B93` (`cache/My Parametric Project Box_plate_6.3mf`) matched existing archive `10` by `content_hash`
+- `01FA70F261DD2060A6284CA78E1D5B9F3752ED03E3A7BF33B08CB52DE3ECC704` (`cache/Narrow - Strong Hook.3mf`) matched existing archive `53` by `content_hash`
+- `214CF0B92C0833C3793F458584AC12FDE986452A37EBB8B1AFA82DF105315920` (`cache/My Parametric Project Box_plate_5.3mf`) matched existing archive `9` by `content_hash`
+- `FBF724FF125F1C3AC839D950080D54B7A418684D06D41CD56CED8905C1878CB4` (`cache/My Parametric Project Box_Plate 1.3mf`) matched existing archive `11` by `content_hash`
 - `B4CF4E2F03A9E6B288A12E1B17FC2C6DC9F2C416ACA6B67251D23C05FABD8FDE` (`cache/Adaptive Layer Height - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `199` by `content_hash`
 - `1DD30ECF299CBE150733711A875AD0D7A28130FB2B2B67CA32C28BD27C225AF7` (`cache/Adaptive Layers .  100% Infill.3mf`) matched existing archive `228` by `content_hash`
 - `1B8B123869C18FF118B3449F5868ED2F9E58008755BA2F051C5E04CDAA6DCF11` (`cache/AMS Filament Changes. 0.08mm layer, 1 walls, 100% infill..3mf`) matched existing archive `190` by `content_hash`
@@ -432,12 +436,16 @@ Current live checkpoint:
    - archive `354` <- `cache/Smart Controller Case ++_plate_7.3mf`
    - archive `355` <- `cache/openGrid 3x5_Plate 1.3mf`
    - archive `356` <- `cache/openGrid 5x9 stacked x2_Plate 1.3mf`
+   - archive `357` <- `cache/Normal_Mahjong_Rack_with_Pusher.3mf`
+   - archive `358` <- `cache/Smashing Snaget-Jaagub.stl.3mf`
+   - archive `359` <- `cache/Snaps, 0.2mm layer, 2 walls, 15% infill.3mf`
+   - archive `360` <- `cache/Split over more plates part count_plate below 64..3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `B6E68AF3833E3AE2360F0784D255D8219792B5F61CDBA7E01E40E904CA19C3CF` -> `cache/Normal_Mahjong_Rack_with_Pusher.3mf`
-   - `83B6CC89DE8D14032F66E7183EA1954748D6F99AE37217E6AA81F80A9B308388` -> `cache/Smashing Snaget-Jaagub.stl.3mf`
-   - `C3075305B255BCCAAC267DDD3DD56C9BEB872BAD898BBA982ED74C24A0154B93` -> `cache/My Parametric Project Box_plate_6.3mf`
-   - `01FA70F261DD2060A6284CA78E1D5B9F3752ED03E3A7BF33B08CB52DE3ECC704` -> `cache/Narrow - Strong Hook.3mf`
-- manifest summary is now `completed: 122`, `already_in_archive: 41`, `batch_ready: 66`, `manual_review: 1`
+   - `577ED1CCA9326B02FEC1B2F67F2BD76F481DE850BBFFE70D0BE4F5F76F2B61B5` -> `cache/Multicolor-Halfcut_0.2mm layer, 2 walls, 25% infill.3mf`
+   - `7B7D0456271A8974BFD654348200CCCCAD1CE50926C392A69E80FF1EAEDDA22C` -> `cache/Multicolor AMS, only 1 filament change.3mf`
+   - `75714D1687F36E303BD4DE304599EED5AD1B3F99603C5E03A1DA76B62CCA8924` -> `cache/Modular_Spool_Stand,_Only_8_Grams_Each.3mf`
+   - `40687510F1DD2C2BF78F0D1AAFD40D4BB9A6ABF13FA38ED116D1DD2123ACAB48` -> `cache/Split Spiral, 0.2mm layer, 2 walls, 15% infill.3mf`
+- manifest summary is now `completed: 126`, `already_in_archive: 45`, `batch_ready: 58`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
