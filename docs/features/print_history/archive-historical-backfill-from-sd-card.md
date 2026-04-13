@@ -302,11 +302,11 @@ Practical rule:
 
 Current live checkpoint:
 
-- archives `234` through `344`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
+- archives `234` through `352`, except anomalous `335`, are now recorded in the permanent manifest as completed historical imports with sidecar runtime repair applied
 - candidate `E0B5292FB2715334668F6770768D92B08106DE61EB5FEAFB106643CE8D3489EE` (`cache/PLA - Small - works with 4 ½_ x 2 ¾_ wall plates and smaller.3mf`) returned `400 Bad Request`, but Bambuddy still created archive `335`; treat that archive as anomalous until it is reviewed and reconciled with the manifest
 - archive `250` was a manual legitimate same-hash reprint import from `cache/Filament_spool_holder_-_shelf_with_one_pipe.3mf` after operator confirmation that it was a real second print, not a duplicate to suppress
 - they should not be re-run unless you are intentionally testing cleanup, replacement, or a new repair mode
-- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, and `344`
+- the most recent completed small runs created and repaired archives `254`, `255`, `256`, `257`, `258`, `259`, `260`, `261`, `262`, `263`, `264`, `265`, `266`, `267`, `268`, `269`, `270`, `271`, `272`, `273`, `274`, `275`, `276`, `277`, `278`, `279`, `280`, `281`, `282`, `283`, `284`, `285`, `286`, `287`, `288`, `289`, `290`, `291`, `292`, `293`, `294`, `295`, `296`, `297`, `298`, `299`, `300`, `301`, `302`, `303`, `304`, `305`, `306`, `307`, `308`, `309`, `310`, `311`, `312`, `313`, `314`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331`, `332`, `333`, `334`, `336`, `337`, `338`, `339`, `340`, `341`, `342`, `343`, `344`, `345`, `346`, `347`, `348`, `349`, `350`, `351`, and `352`
 - `D67FB61E6CE6E7CE38EE4C35BAD5E7146CDF5BDE04980A4543BD90ADC02F60A0` (`cache/100x100 - 0.08mm layer, 2 walls, 100% infill.3mf`) matched existing archive `73` by `content_hash` and was operator-reviewed as a true collapse, not a second-print import
 - `F6C1FDB630EF5D1A0DFFE57418D60B2E10CFD99C39650FCB5D0A9DF37CCE03A7` (`cache/2 AMS.3mf`) matched existing archive `225` by `content_hash` and is now represented in the manifest as already in archive
 - `1AEDFF714998C7F18B179028B13F378683A2BB6D31A3C02BBB6CCF4790A87856` (`cache/200mm x 200mm Deadpool & Wolverine Hueforge.3mf`) matched existing archive `181` by `content_hash`
@@ -420,12 +420,20 @@ Current live checkpoint:
    - archive `342` <- `cache/Smart Controller Case ++_Custom - Lid.3mf`
    - archive `343` <- `cache/Painters Pyramid V2.3mf`
    - archive `344` <- `cache/P1x, X1x - 0.2mm layer, 2 walls, 15% infill.3mf`
+   - archive `345` <- `cache/P2S, P1S_One Plate Print By Object_0.16mm layer_2 walls.3mf`
+   - archive `346` <- `cache/Smart Controller Case ++_CUSTOM.3mf`
+   - archive `347` <- `cache/openGrid Wall Mount, 0.2mm layer, 3 walls, 15% infill.3mf`
+   - archive `348` <- `cache/Oversized_Rally_Chain_-_Michigan_Wolverines_M_Logo.3mf`
+   - archive `349` <- `cache/openGrid under printer desk_Grid 8x8.3mf`
+   - archive `350` <- `cache/Smart Controller Case ++_MagWLED Lid.3mf`
+   - archive `351` <- `cache/openGrid 8x8_Plate 1.3mf`
+   - archive `352` <- `cache/openGrid under printer desk_Grid - 9x5.3mf`
 - the next validated small-run candidates now continue in `batch-004`:
-   - `980CBAC9D5AD5B7D0BC7B366778F0B2038F9D954053F9A5768C0991F21D802E0` -> `cache/P2S, P1S_One Plate Print By Object_0.16mm layer_2 walls.3mf`
-   - `5841F9D6471F97D8BF59B4CDB004D21BDEB5F8BCB609042FFD0B9106205C72F9` -> `cache/Smart Controller Case ++_CUSTOM.3mf`
-   - `01363822BDE37A12750F072E9641BF5F08EDE0BC99D10FE5396EF078151AC9A6` -> `cache/openGrid Wall Mount, 0.2mm layer, 3 walls, 15% infill.3mf`
-   - `1D84550AC86B0B88B6863A8CEA199CF9C1CDADD01753D170581257EAE20E2D80` -> `cache/Oversized_Rally_Chain_-_Michigan_Wolverines_M_Logo.3mf`
-- manifest summary is now `completed: 110`, `already_in_archive: 41`, `batch_ready: 78`, `manual_review: 1`
+   - `79C1EACD41CD447D98D0A96F85AEC57A7480A8C8C49C3AD770D2527CC847B1F9` -> `cache/Smart Controller Case ++_plate_6.3mf`
+   - `34031BFB9071ADB8920297FA461067DB1A14B5142E9DAA187311E0D3B7C39B5A` -> `cache/Smart Controller Case ++_plate_7.3mf`
+   - `5C73AE875BA975DECF634C326907F3F303CFF12313C38256C116097632135158` -> `cache/openGrid 3x5_Plate 1.3mf`
+   - `73CC7109D835BBD8C58D7FC9C4EF15A33C576CB39D1E85AA0FA423DE47BFBF51` -> `cache/openGrid 5x9 stacked x2_Plate 1.3mf`
+- manifest summary is now `completed: 118`, `already_in_archive: 41`, `batch_ready: 70`, `manual_review: 1`
 - the next queued high-confidence SD-cache imports now begin with the four entries listed above
 
 ### Optional runtime-repair flow
