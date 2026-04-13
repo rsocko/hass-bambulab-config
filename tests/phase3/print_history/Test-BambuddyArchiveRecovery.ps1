@@ -15,6 +15,8 @@ param(
 
     [string]$ManifestPath,
 
+    [string]$BatchId,
+
     [ValidateSet('Inspect', 'Upload', 'Full')]
     [string]$BackfillAction = 'Inspect',
 
@@ -24,6 +26,19 @@ param(
 
     [ValidateSet('sd_cache_3mf', 'bambu_studio_exported_sliced_3mf', 'bambu_studio_source_3mf')]
     [string]$RecoverySource = 'sd_cache_3mf',
+
+    [switch]$UpdateManifest,
+
+    [string]$ResultPath,
+
+    [ValidateSet('None', 'Preview', 'Apply')]
+    [string]$RepairAction = 'None',
+
+    [string]$RepairSidecarBaseUrl = 'http://127.0.0.1:8818',
+
+    [string]$RepairSidecarToken,
+
+    [switch]$RepairSetCompletedStatus,
 
     [string]$ApiKey
 )
@@ -121,7 +136,7 @@ function Join-TagString {
     return (($tags | Select-Object -Unique) -join ',')
 }
 
-function Append-NotesBlock {
+function Add-NotesBlock {
     param(
         [string]$ExistingNotes,
         [string]$Block
@@ -132,6 +147,21 @@ function Append-NotesBlock {
     }
 
     return ($ExistingNotes.TrimEnd() + "`n`n" + $Block)
+}
+
+function Set-ObjectPropertyValue {
+    param(
+        [object]$InputObject,
+        [string]$Name,
+        [object]$Value
+    )
+
+    if ($InputObject.PSObject.Properties.Name -contains $Name) {
+        $InputObject.$Name = $Value
+        return
+    }
+
+    $InputObject | Add-Member -NotePropertyName $Name -NotePropertyValue $Value
 }
 
 function New-RecoveryAuditBlock {
@@ -240,6 +270,152 @@ function Get-ManifestCandidates {
     return @($manifest.candidates)
 }
 
+function Get-ManifestDocument {
+    param([string]$Path)
+
+    return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+}
+
+function Save-ManifestDocument {
+    param(
+        [string]$Path,
+        [object]$Manifest
+    )
+
+    $json = $Manifest | ConvertTo-Json -Depth 16
+    Set-Content -LiteralPath $Path -Value ($json + "`n") -Encoding utf8
+}
+
+function Find-ManifestCandidate {
+    param(
+        [object]$Manifest,
+        [string]$EntryId
+    )
+
+    foreach ($candidate in @($Manifest.candidates)) {
+        if ($candidate.entry_id -eq $EntryId) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Get-ProcessingBucketForStatus {
+    param(
+        [string]$Status,
+        [string]$CurrentBucket
+    )
+
+    switch ($Status) {
+        'skipped_existing_content_hash' { return 'already_in_archive' }
+        'manual_review_source_only' { return 'manual_review' }
+        'batch_ready' { return 'batch_ready' }
+        'uploaded' { return 'completed' }
+        'uploaded_and_annotated' { return 'completed' }
+        'runtime_repaired' { return 'completed' }
+        'error' { return 'deferred' }
+        default { return $CurrentBucket }
+    }
+}
+
+function Update-ManifestSummary {
+    param([object]$Manifest)
+
+    $bucketCounts = @{}
+    $batchCounts = @{}
+
+    foreach ($candidate in @($Manifest.candidates)) {
+        $bucket = [string]$candidate.processing_bucket
+        if ([string]::IsNullOrWhiteSpace($bucket)) {
+            $bucket = 'unclassified'
+            $candidate.processing_bucket = $bucket
+        }
+
+        if ($bucketCounts.ContainsKey($bucket)) {
+            $bucketCounts[$bucket] += 1
+        }
+        else {
+            $bucketCounts[$bucket] = 1
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace([string]$candidate.batch_id)) {
+            $candidateBatchId = [string]$candidate.batch_id
+            if ($batchCounts.ContainsKey($candidateBatchId)) {
+                $batchCounts[$candidateBatchId] += 1
+            }
+            else {
+                $batchCounts[$candidateBatchId] = 1
+            }
+        }
+    }
+
+    Set-ObjectPropertyValue -InputObject $Manifest -Name 'candidate_count' -Value (@($Manifest.candidates).Count)
+    Set-ObjectPropertyValue -InputObject $Manifest -Name 'candidate_counts_by_bucket' -Value ([pscustomobject]$bucketCounts)
+    Set-ObjectPropertyValue -InputObject $Manifest -Name 'batch_counts' -Value ([pscustomobject]$batchCounts)
+}
+
+function Set-ManifestCandidateState {
+    param(
+        [object]$Manifest,
+        [string]$EntryId,
+        [string]$Status,
+        [string]$Reason,
+        [Nullable[int]]$MatchedArchiveId = $null,
+        [Nullable[int]]$CreatedArchiveId = $null
+    )
+
+    $candidate = Find-ManifestCandidate -Manifest $Manifest -EntryId $EntryId
+    if ($null -eq $candidate) {
+        return
+    }
+
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'import_status' -Value $Status
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'processing_bucket' -Value (Get-ProcessingBucketForStatus -Status $Status -CurrentBucket ([string]$candidate.processing_bucket))
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'last_attempted_at' -Value ((Get-Date).ToUniversalTime().ToString('o'))
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'operator_note' -Value $Reason
+
+    if ($PSBoundParameters.ContainsKey('MatchedArchiveId')) {
+        Set-ObjectPropertyValue -InputObject $candidate -Name 'matched_archive_id' -Value $(if ($null -ne $MatchedArchiveId -and [int]$MatchedArchiveId -gt 0) { [int]$MatchedArchiveId } else { $null })
+    }
+
+    if ($PSBoundParameters.ContainsKey('CreatedArchiveId')) {
+        Set-ObjectPropertyValue -InputObject $candidate -Name 'created_archive_id' -Value $(if ($null -ne $CreatedArchiveId -and [int]$CreatedArchiveId -gt 0) { [int]$CreatedArchiveId } else { $null })
+    }
+
+    Update-ManifestSummary -Manifest $Manifest
+}
+
+function Write-OptionalJsonFile {
+    param(
+        [string]$Path,
+        [object]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return
+    }
+
+    $json = $Value | ConvertTo-Json -Depth 16
+    Set-Content -LiteralPath $Path -Value ($json + "`n") -Encoding utf8
+}
+
+function Test-ManifestCandidateAlreadyHandled {
+    param([object]$Candidate)
+
+    if ($Candidate.created_archive_id -or $Candidate.matched_archive_id) {
+        return $true
+    }
+
+    switch ([string]$Candidate.import_status) {
+        'skipped_existing_content_hash' { return $true }
+        'uploaded' { return $true }
+        'uploaded_and_annotated' { return $true }
+        'runtime_repaired' { return $true }
+        default { return $false }
+    }
+}
+
 function Find-ExistingArchiveByHash {
     param(
         [object[]]$Archives,
@@ -280,6 +456,196 @@ function ConvertTo-BackfillResult {
     }
 }
 
+function Get-LatestTimestampValue {
+    param(
+        [object[]]$Candidates,
+        [string[]]$SourcePrefixes
+    )
+
+    $matches = @($Candidates | Where-Object {
+        $source = [string]$_.source
+        foreach ($prefix in $SourcePrefixes) {
+            if ($source.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+        }
+        return $false
+    })
+
+    if ($matches.Count -eq 0) {
+        return $null
+    }
+
+    return ($matches | Sort-Object { [datetimeoffset]$_.normalized } | Select-Object -Last 1)
+}
+
+function New-RuntimeRepairProposal {
+    param(
+        [object]$Candidate,
+        [object]$Archive,
+        [switch]$SetCompletedStatus
+    )
+
+    $timestampCandidates = @()
+    if ($Candidate.timestamp_evidence -and $Candidate.timestamp_evidence.timestamp_candidates) {
+        $timestampCandidates = @($Candidate.timestamp_evidence.timestamp_candidates)
+    }
+
+    $filesystemCompleted = $null
+    if ($Candidate.timestamp_evidence -and $Candidate.timestamp_evidence.filesystem_last_modified) {
+        $filesystemCompleted = [string]$Candidate.timestamp_evidence.filesystem_last_modified
+    }
+
+    $zipCandidate = Get-LatestTimestampValue -Candidates $timestampCandidates -SourcePrefixes @('3mf:')
+    $bblCandidate = Get-LatestTimestampValue -Candidates $timestampCandidates -SourcePrefixes @('bbl:')
+
+    $completedAt = $null
+    $completedSource = $null
+    if ($filesystemCompleted) {
+        $completedAt = $filesystemCompleted
+        $completedSource = 'filesystem_last_modified'
+    }
+    elseif ($zipCandidate) {
+        $completedAt = [string]$zipCandidate.normalized
+        $completedSource = [string]$zipCandidate.source
+    }
+
+    $startedAt = $null
+    $startedSource = $null
+    $startedEstimated = $false
+    $printTimeSeconds = 0
+    if ($Archive.print_time_seconds) {
+        $printTimeSeconds = [int]$Archive.print_time_seconds
+    }
+    if ($completedAt -and $printTimeSeconds -gt 0) {
+        $startedAt = ([datetimeoffset]$completedAt).AddSeconds(-1 * $printTimeSeconds).ToString('o')
+        $startedSource = 'completed_at_minus_print_time_seconds'
+        $startedEstimated = $true
+    }
+
+    $createdAt = $completedAt
+    $createdSource = $completedSource
+
+    $timingConfidence = 'low'
+    if (($Candidate.source_type -eq 'sd_cache_3mf' -or $Candidate.source_type -eq 'bambu_studio_exported_sliced_3mf') -and $completedAt) {
+        if ($zipCandidate -or $bblCandidate) {
+            $timingConfidence = 'medium'
+        }
+    }
+
+    $statusValue = $null
+    if ($SetCompletedStatus.IsPresent -and $timingConfidence -ne 'low' -and [string]$Archive.status -eq 'archived') {
+        $statusValue = 'completed'
+    }
+
+    return [ordered]@{
+        archive_id = $Archive.id
+        timing_confidence = $timingConfidence
+        completed_at = $completedAt
+        completed_at_source = $completedSource
+        started_at = $startedAt
+        started_at_source = $startedSource
+        started_at_estimated = $startedEstimated
+        created_at = $createdAt
+        created_at_source = $createdSource
+        status = $statusValue
+        failure_reason = $null
+        print_time_seconds = $printTimeSeconds
+        can_apply = [bool]($timingConfidence -ne 'low' -and $completedAt)
+        review_reason = $(if ($timingConfidence -eq 'low') { 'Only weak timestamp evidence is available; keep as preview-only provenance.' } else { 'Candidate has enough evidence for an operator-approved runtime repair.' })
+    }
+}
+
+function Invoke-RuntimeRepair {
+    param(
+        [hashtable]$Proposal,
+        [string]$SidecarBaseUrl,
+        [string]$SidecarToken,
+        [switch]$Apply,
+        [string]$AuditNote
+    )
+
+    if ([string]::IsNullOrWhiteSpace($SidecarToken)) {
+        throw 'Runtime repair via sidecar requires -RepairSidecarToken or REPAIR_API_TOKEN.'
+    }
+
+    $payload = [ordered]@{
+        archive_id = [int]$Proposal.archive_id
+        started_at = $(if ($Proposal.started_at) { [string]$Proposal.started_at } else { $null })
+        completed_at = $(if ($Proposal.completed_at) { [string]$Proposal.completed_at } else { $null })
+        created_at = $(if ($Proposal.created_at) { [string]$Proposal.created_at } else { $null })
+        status = $(if ($Proposal.status) { [string]$Proposal.status } else { $null })
+        failure_reason = $(if ($Proposal.failure_reason) { [string]$Proposal.failure_reason } else { $null })
+        audit_note = $AuditNote
+        dry_run = (-not $Apply.IsPresent)
+    }
+
+    $headers = @{ Authorization = "Bearer $SidecarToken" }
+    $body = $payload | ConvertTo-Json -Depth 10
+    return Invoke-RestMethod -Method Post -Uri ($SidecarBaseUrl.TrimEnd('/') + '/admin/archive-runtime-repair') -Headers $headers -ContentType 'application/json' -Body $body
+}
+
+function Set-ManifestCandidateRepairState {
+    param(
+        [object]$Manifest,
+        [string]$EntryId,
+        [string]$RepairStatus,
+        [object]$RepairPreview = $null,
+        [string]$RepairConfidence = $null,
+        [bool]$MarkApplied = $false
+    )
+
+    $candidate = Find-ManifestCandidate -Manifest $Manifest -EntryId $EntryId
+    if ($null -eq $candidate) {
+        return
+    }
+
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'repair_status' -Value $RepairStatus
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'repair_preview' -Value $RepairPreview
+    Set-ObjectPropertyValue -InputObject $candidate -Name 'repair_confidence' -Value $RepairConfidence
+    if ($MarkApplied) {
+        Set-ObjectPropertyValue -InputObject $candidate -Name 'repair_applied_at' -Value ((Get-Date).ToUniversalTime().ToString('o'))
+    }
+}
+
+function Get-ExistingCandidateRepairResult {
+    param(
+        [object]$Candidate,
+        [string]$Url,
+        [hashtable]$Headers,
+        [string]$RequestedRepairAction,
+        [string]$SidecarBaseUrl,
+        [string]$SidecarToken,
+        [switch]$SetCompletedStatus
+    )
+
+    if (-not $Candidate.created_archive_id) {
+        return $null
+    }
+
+    $archiveDetail = Get-ArchiveDetail -Url $Url -ArchiveId ([int]$Candidate.created_archive_id) -Headers $Headers
+    $repairPreview = New-RuntimeRepairProposal -Candidate $Candidate -Archive $archiveDetail -SetCompletedStatus:$SetCompletedStatus
+    $repairResult = $null
+
+    if ($RequestedRepairAction -eq 'Apply') {
+        if (-not $repairPreview.can_apply) {
+            throw 'Repair apply requested, but inferred timing confidence is too low for canonical runtime changes.'
+        }
+
+        $auditNote = ('Historical import runtime repair from {0} ({1})' -f $Candidate.relative_path, $repairPreview.timing_confidence)
+        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -Apply -AuditNote $auditNote
+    }
+    elseif ($RequestedRepairAction -eq 'Preview') {
+        $auditNote = ('Historical import runtime repair preview from {0} ({1})' -f $Candidate.relative_path, $repairPreview.timing_confidence)
+        $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $SidecarBaseUrl -SidecarToken $SidecarToken -AuditNote $auditNote
+    }
+
+    return [ordered]@{
+        preview = $repairPreview
+        result = $repairResult
+    }
+}
+
 function Invoke-BackfillMode {
     param(
         [string]$Url,
@@ -288,16 +654,23 @@ function Invoke-BackfillMode {
         [string]$Action,
         [hashtable]$Headers,
         [string]$EntryId,
-        [switch]$AllowSourceImport
+        [switch]$AllowSourceImport,
+        [string]$TargetBatchId,
+        [switch]$PersistManifestState,
+        [string]$OutputPath
     )
 
     Assert-Required -Value $Url -Name 'BaseUrl'
     Assert-Required -Value $TargetPrinterId -Name 'PrinterId'
     Assert-Required -Value $Path -Name 'ManifestPath'
 
-    $candidates = @(Get-ManifestCandidates -Path $Path)
+    $manifestDocument = Get-ManifestDocument -Path $Path
+    $candidates = @($manifestDocument.candidates)
     if (-not [string]::IsNullOrWhiteSpace($EntryId)) {
         $candidates = @($candidates | Where-Object { $_.entry_id -eq $EntryId -or $_.source_sha256 -eq $EntryId -or $_.source_path -eq $EntryId })
+    }
+    if (-not [string]::IsNullOrWhiteSpace($TargetBatchId)) {
+        $candidates = @($candidates | Where-Object { $_.batch_id -eq $TargetBatchId })
     }
 
     $existingArchives = Get-AllArchives -Url $Url -Headers $Headers
@@ -310,66 +683,171 @@ function Invoke-BackfillMode {
     $results = @()
 
     foreach ($candidate in $candidates) {
-        $existing = Find-ExistingArchiveByHash -Archives $existingArchives -Sha256 ([string]$candidate.source_sha256)
-        if ($existing) {
-            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id))
-            continue
+        try {
+            $existing = Find-ExistingArchiveByHash -Archives $existingArchives -Sha256 ([string]$candidate.source_sha256)
+            if ($existing) {
+                if ($RepairAction -ne 'None' -and $candidate.created_archive_id -and [int]$existing.id -eq [int]$candidate.created_archive_id) {
+                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -SetCompletedStatus:$RepairSetCompletedStatus
+                    $resultPayload = ConvertTo-BackfillResult -Candidate $candidate -Status $(if ($RepairAction -eq 'Apply') { 'runtime_repaired' } else { 'repair_previewed' }) -Reason $(if ($RepairAction -eq 'Apply') { 'Existing imported archive received runtime repair.' } else { 'Existing imported archive evaluated for runtime repair.' }) -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id)
+                    $resultPayload['repair_preview'] = $repairOutcome.preview
+                    if ($repairOutcome.result) {
+                        $resultPayload['repair_result'] = $repairOutcome.result
+                    }
+                    $results += [pscustomobject]$resultPayload
+
+                    if ($PersistManifestState.IsPresent) {
+                        Set-ManifestCandidateRepairState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -RepairStatus $(if ($RepairAction -eq 'Apply') { 'applied' } else { 'previewed' }) -RepairPreview $repairOutcome.preview -RepairConfidence ([string]$repairOutcome.preview.timing_confidence) -MarkApplied:($RepairAction -eq 'Apply')
+                        Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                    }
+                    continue
+                }
+
+                $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id))
+                $results += $result
+                if ($PersistManifestState.IsPresent) {
+                    Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'skipped_existing_content_hash' -Reason 'Existing Bambuddy archive has matching content_hash.' -MatchedArchiveId ([int]$existing.id)
+                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                }
+                continue
+            }
+
+            if (Test-ManifestCandidateAlreadyHandled -Candidate $candidate) {
+                if ($RepairAction -ne 'None' -and $candidate.created_archive_id) {
+                    $repairOutcome = Get-ExistingCandidateRepairResult -Candidate $candidate -Url $Url -Headers $Headers -RequestedRepairAction $RepairAction -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -SetCompletedStatus:$RepairSetCompletedStatus
+                    $resultPayload = ConvertTo-BackfillResult -Candidate $candidate -Status $(if ($RepairAction -eq 'Apply') { 'runtime_repaired' } else { 'repair_previewed' }) -Reason $(if ($RepairAction -eq 'Apply') { 'Existing imported archive received runtime repair.' } else { 'Existing imported archive evaluated for runtime repair.' }) -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id)
+                    $resultPayload['repair_preview'] = $repairOutcome.preview
+                    if ($repairOutcome.result) {
+                        $resultPayload['repair_result'] = $repairOutcome.result
+                    }
+                    $results += [pscustomobject]$resultPayload
+
+                    if ($PersistManifestState.IsPresent) {
+                        Set-ManifestCandidateRepairState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -RepairStatus $(if ($RepairAction -eq 'Apply') { 'applied' } else { 'previewed' }) -RepairPreview $repairOutcome.preview -RepairConfidence ([string]$repairOutcome.preview.timing_confidence) -MarkApplied:($RepairAction -eq 'Apply')
+                        Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                    }
+                }
+                else {
+                    $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_manifest_state' -Reason 'Manifest already records a completed or matched state.' -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id))
+                }
+                continue
+            }
+
+            if ($candidate.source_type -eq 'bambu_studio_source_3mf' -and -not $AllowSourceImport.IsPresent) {
+                $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'manual_review_source_only' -Reason 'Source-project 3mf skipped by default. Pass -AllowSourceProjectImport to upload it.')
+                $results += $result
+                if ($PersistManifestState.IsPresent) {
+                    Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'manual_review_source_only' -Reason 'Source-project 3mf skipped by default. Pass -AllowSourceProjectImport to upload it.'
+                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                }
+                continue
+            }
+
+            if ($Action -eq 'Inspect') {
+                $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'batch_ready' -Reason 'Candidate passed hash dedupe and is eligible for upload.')
+                $results += $result
+                if ($PersistManifestState.IsPresent) {
+                    Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'batch_ready' -Reason 'Candidate passed hash dedupe and is eligible for upload.'
+                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                }
+                continue
+            }
+
+            $created = Invoke-ArchiveUpload -Url $Url -TargetPrinterId $TargetPrinterId -Path ([string]$candidate.source_path) -Headers $Headers
+            $existingArchives += $created
+            if ($Action -eq 'Upload') {
+                $result = [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'uploaded' -Reason 'Archive created from manifest candidate.' -CreatedArchiveId ([int]$created.id))
+                $results += $result
+                if ($PersistManifestState.IsPresent) {
+                    Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'uploaded' -Reason 'Archive created from manifest candidate.' -CreatedArchiveId ([int]$created.id)
+                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+                }
+                continue
+            }
+
+            $notePayload = [ordered]@{
+                import_source = $candidate.source_type
+                source_sha256 = $candidate.source_sha256
+                source_md5 = $candidate.source_md5
+                source_path = $candidate.relative_path
+                confidence = $candidate.confidence
+                last_write_time = $candidate.last_write_time
+                timestamp_evidence = $candidate.timestamp_evidence
+            }
+
+            $updated = Update-Archive -Url $Url -ArchiveId ([int]$created.id) -Headers $Headers -Body ([ordered]@{
+                tags = (Join-TagString -ExistingTags $created.tags -AdditionalTags @('historical_import', ('import_source:{0}' -f $candidate.source_type)))
+                notes = (Add-NotesBlock -ExistingNotes $created.notes -Block (New-HistoricalImportBlock -Payload $notePayload))
+            })
+
+            $repairPreview = $null
+            $repairResult = $null
+            if ($RepairAction -ne 'None') {
+                $archiveDetail = Get-ArchiveDetail -Url $Url -ArchiveId ([int]$updated.id) -Headers $Headers
+                $repairPreview = New-RuntimeRepairProposal -Candidate $candidate -Archive $archiveDetail -SetCompletedStatus:$RepairSetCompletedStatus
+
+                if ($RepairAction -eq 'Apply') {
+                    if (-not $repairPreview.can_apply) {
+                        throw 'Repair apply requested, but inferred timing confidence is too low for canonical runtime changes.'
+                    }
+
+                    $auditNote = ('Historical import runtime repair from {0} ({1})' -f $candidate.relative_path, $repairPreview.timing_confidence)
+                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -Apply -AuditNote $auditNote
+                }
+                elseif ($RepairAction -eq 'Preview') {
+                    $auditNote = ('Historical import runtime repair preview from {0} ({1})' -f $candidate.relative_path, $repairPreview.timing_confidence)
+                    $repairResult = Invoke-RuntimeRepair -Proposal $repairPreview -SidecarBaseUrl $RepairSidecarBaseUrl -SidecarToken $(if ($RepairSidecarToken) { $RepairSidecarToken } else { $env:REPAIR_API_TOKEN }) -AuditNote $auditNote
+                }
+            }
+
+            $resultPayload = ConvertTo-BackfillResult -Candidate $candidate -Status 'uploaded_and_annotated' -Reason 'Archive created and annotated with historical import provenance.' -CreatedArchiveId ([int]$updated.id)
+            if ($repairPreview) {
+                $resultPayload['repair_preview'] = $repairPreview
+            }
+            if ($repairResult) {
+                $resultPayload['repair_result'] = $repairResult
+            }
+            $result = [pscustomobject]$resultPayload
+            $results += $result
+            if ($PersistManifestState.IsPresent) {
+                Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'uploaded_and_annotated' -Reason 'Archive created and annotated with historical import provenance.' -CreatedArchiveId ([int]$updated.id)
+                if ($repairPreview -and $repairResult) {
+                    Set-ManifestCandidateRepairState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -RepairStatus 'applied' -RepairPreview $repairPreview -RepairConfidence ([string]$repairPreview.timing_confidence) -MarkApplied $true
+                }
+                elseif ($repairPreview) {
+                    Set-ManifestCandidateRepairState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -RepairStatus 'previewed' -RepairPreview $repairPreview -RepairConfidence ([string]$repairPreview.timing_confidence)
+                }
+                Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+            }
         }
-
-        if ($candidate.import_status -and $candidate.import_status -ne 'pending' -and $candidate.created_archive_id) {
-            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'skipped_manifest_state' -Reason 'Manifest already records a non-pending import state.' -CreatedArchiveId ([int]$candidate.created_archive_id))
-            continue
+        catch {
+            $message = $_.Exception.Message
+            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'error' -Reason $message -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id))
+            if ($PersistManifestState.IsPresent) {
+                Set-ManifestCandidateState -Manifest $manifestDocument -EntryId ([string]$candidate.entry_id) -Status 'error' -Reason $message -MatchedArchiveId ([int]$candidate.matched_archive_id) -CreatedArchiveId ([int]$candidate.created_archive_id)
+                    Save-ManifestDocument -Path $Path -Manifest $manifestDocument
+            }
         }
-
-        if ($candidate.source_type -eq 'bambu_studio_source_3mf' -and -not $AllowSourceImport.IsPresent) {
-            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'manual_review_source_only' -Reason 'Source-project 3mf skipped by default. Pass -AllowSourceProjectImport to upload it.')
-            continue
-        }
-
-        if ($Action -eq 'Inspect') {
-            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'inspect_ready' -Reason 'Candidate passed hash dedupe and is eligible for upload.')
-            continue
-        }
-
-        $created = Invoke-ArchiveUpload -Url $Url -TargetPrinterId $TargetPrinterId -Path ([string]$candidate.source_path) -Headers $Headers
-        if ($Action -eq 'Upload') {
-            $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'uploaded' -Reason 'Archive created from manifest candidate.' -CreatedArchiveId ([int]$created.id))
-            continue
-        }
-
-        $notePayload = [ordered]@{
-            import_source = $candidate.source_type
-            source_sha256 = $candidate.source_sha256
-            source_md5 = $candidate.source_md5
-            source_path = $candidate.relative_path
-            confidence = $candidate.confidence
-            last_write_time = $candidate.last_write_time
-            timestamp_evidence = $candidate.timestamp_evidence
-        }
-
-        $updated = Update-Archive -Url $Url -ArchiveId ([int]$created.id) -Headers $Headers -Body ([ordered]@{
-            tags = (Join-TagString -ExistingTags $created.tags -AdditionalTags @('historical_import', ('import_source:{0}' -f $candidate.source_type)))
-            notes = (Append-NotesBlock -ExistingNotes $created.notes -Block (New-HistoricalImportBlock -Payload $notePayload))
-        })
-
-        $results += [pscustomobject](ConvertTo-BackfillResult -Candidate $candidate -Status 'uploaded_and_annotated' -Reason 'Archive created and annotated with historical import provenance.' -CreatedArchiveId ([int]$updated.id))
     }
 
-    [PSCustomObject]@{
+    $output = [PSCustomObject]@{
         mode = 'Backfill'
         action = $Action
         manifest_path = (Resolve-Path -LiteralPath $Path).Path
+        batch_id = $TargetBatchId
         candidate_count = $candidates.Count
         existing_archive_count = $existingArchives.Count
         results = $results
-    } | ConvertTo-Json -Depth 12
+    }
+
+    Write-OptionalJsonFile -Path $OutputPath -Value $output
+    $output | ConvertTo-Json -Depth 12
 }
 
 $headers = New-Headers -Key $ApiKey
 $isBackfillMode = $Mode -eq 'Backfill'
 
 if ($isBackfillMode) {
-    Invoke-BackfillMode -Url $BaseUrl -TargetPrinterId $PrinterId -Path $ManifestPath -Action $BackfillAction -Headers $headers -EntryId $ManifestEntryId -AllowSourceImport:$AllowSourceProjectImport
+    Invoke-BackfillMode -Url $BaseUrl -TargetPrinterId $PrinterId -Path $ManifestPath -Action $BackfillAction -Headers $headers -EntryId $ManifestEntryId -AllowSourceImport:$AllowSourceProjectImport -TargetBatchId $BatchId -PersistManifestState:$UpdateManifest -OutputPath $ResultPath
     return
 }
 
@@ -405,12 +883,6 @@ $newArchiveNoteBlock = New-RecoveryAuditBlock -Payload ([ordered]@{
     original_completed_at = $fallback.completed_at
     original_actual_time_seconds = $fallback.actual_time_seconds
 })
-
-$oldArchiveNoteTemplate = [ordered]@{
-    replaced_by_archive_id = $null
-    replacement_status = 'archived'
-    recovery_source = $RecoverySource
-}
 
 if ($Mode -eq 'Inspect') {
     [PSCustomObject]$inspection | ConvertTo-Json -Depth 8
@@ -461,12 +933,12 @@ $oldArchiveTags = Join-TagString -ExistingTags $fallback.tags -AdditionalTags @(
 
 $updatedNew = Update-Archive -Url $BaseUrl -ArchiveId $newArchive.id -Headers $headers -Body ([ordered]@{
     tags = $newArchiveTags
-    notes = Append-NotesBlock -ExistingNotes $newArchive.notes -Block $newArchiveNoteBlock
+    notes = Add-NotesBlock -ExistingNotes $newArchive.notes -Block $newArchiveNoteBlock
 })
 
 $updatedOld = Update-Archive -Url $BaseUrl -ArchiveId $fallback.id -Headers $headers -Body ([ordered]@{
     tags = $oldArchiveTags
-    notes = Append-NotesBlock -ExistingNotes $fallback.notes -Block $oldArchiveNoteBlock
+    notes = Add-NotesBlock -ExistingNotes $fallback.notes -Block $oldArchiveNoteBlock
 })
 
 [PSCustomObject]@{

@@ -29,7 +29,7 @@ SYSTEM_TAG_PREFIXES = (
     "ha_enrichment:",
 )
 SYSTEM_TAG_VALUES = {"ha_enriched:true"}
-TERMINAL_DURATION_STATUSES = {"completed", "failed", "cancelled"}
+TERMINAL_DURATION_STATUSES = {"completed", "failed", "cancelled", "archived"}
 ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_status": "All",
     "input_select.print_history_filter_archive_error": "All",

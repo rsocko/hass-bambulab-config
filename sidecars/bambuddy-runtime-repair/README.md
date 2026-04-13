@@ -124,6 +124,11 @@ It does not mean `n8n` is required. It only means that if `n8n` is already part 
 
 ## Health Check
 
+Deployed sidecar endpoint for operator-driven calls:
+
+- `http://bambuddy-runtime-repair.socko.us`
+- local host-port mapping remains `http://127.0.0.1:8818` when you are testing directly on the sidecar host
+
 ```bash
 curl http://127.0.0.1:8818/health
 ```
@@ -132,6 +137,16 @@ PowerShell smoke-test helper:
 
 ```powershell
 pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://127.0.0.1:8818
+```
+
+Hosted endpoint variant:
+
+```bash
+curl http://bambuddy-runtime-repair.socko.us/health
+```
+
+```powershell
+pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://bambuddy-runtime-repair.socko.us
 ```
 
 ## Archive Spool Linkage Inspection
@@ -276,6 +291,13 @@ pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 \
 ```
 
 Those commands stay in dry-run mode unless you add `-Apply`.
+
+Historical backfill integration note:
+
+- the resumable SD-card backfill runner in `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1` now uses this same endpoint for runtime-repair preview and apply
+- inferred timings are still computed on the caller side from manifest evidence, but canonical validation and DB writes happen only through `POST /admin/archive-runtime-repair`
+- no separate historical-backfill-specific runtime-repair endpoint is required for the current workflow
+- for the current deployed environment, prefer `http://bambuddy-runtime-repair.socko.us` as the runner's `-RepairSidecarBaseUrl` unless you are intentionally targeting a local port mapping or container-internal DNS name
 
 ## Planned `restore_from` Endpoint
 

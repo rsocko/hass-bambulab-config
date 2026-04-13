@@ -30,6 +30,14 @@ TIME_FORMATS = (
     "%m/%d/%Y %H:%M:%S",
     "%Y-%m-%d",
 )
+NON_IMPORT_DIRECTORIES = {
+    "corelogger",
+    "image",
+    "ipcam",
+    "logger",
+    "recorder",
+    "timelapse",
+}
 
 
 @dataclass
@@ -42,6 +50,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a Bambuddy historical archive backfill manifest")
     parser.add_argument("--source-root", required=True, help="Root directory containing SD-card artifacts")
     parser.add_argument("--output", help="Optional output path for manifest JSON")
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=25,
+        help="Number of batch-ready candidates to group into each deterministic batch. Defaults to 25.",
+    )
     parser.add_argument(
         "--include-patterns",
         nargs="*",
@@ -275,6 +289,96 @@ def choose_bbl_path(path: Path) -> Path | None:
     return candidates[0] if candidates else None
 
 
+def get_processing_bucket(source_type: str) -> str:
+    if source_type == "bambu_studio_source_3mf":
+        return "manual_review"
+    return "batch_ready"
+
+
+def get_selected_action(source_type: str) -> str:
+    if source_type == "bambu_studio_source_3mf":
+        return "manual_review"
+    return "upload_and_annotate"
+
+
+def classify_inventory_role(relative_path: Path) -> str:
+    first_part = relative_path.parts[0].lower() if relative_path.parts else ""
+    if relative_path.suffix.lower() == ".3mf":
+        return "archive_input"
+    if first_part in NON_IMPORT_DIRECTORIES:
+        return "non_import_media_or_logs"
+    return "mixed_or_unknown"
+
+
+def build_source_inventory(source_root: Path) -> list[dict[str, Any]]:
+    buckets: dict[str, dict[str, Any]] = {}
+
+    for path in sorted(source_root.rglob("*")):
+        if not path.is_file():
+            continue
+
+        try:
+            relative_path = path.relative_to(source_root)
+        except ValueError:
+            relative_path = Path(path.name)
+
+        bucket_name = relative_path.parts[0] if relative_path.parts else "."
+        bucket = buckets.setdefault(
+            bucket_name,
+            {
+                "path": bucket_name,
+                "file_count": 0,
+                "total_bytes": 0,
+                "three_mf_file_count": 0,
+                "archive_input_count": 0,
+                "non_import_media_or_logs_count": 0,
+                "mixed_or_unknown_count": 0,
+            },
+        )
+
+        bucket["file_count"] += 1
+        bucket["total_bytes"] += path.stat().st_size
+        if path.suffix.lower() == ".3mf":
+            bucket["three_mf_file_count"] += 1
+
+        role = classify_inventory_role(relative_path)
+        bucket[f"{role}_count"] += 1
+
+    inventory: list[dict[str, Any]] = []
+    for name in sorted(buckets):
+        bucket = buckets[name]
+        if bucket["archive_input_count"] > 0 and bucket["non_import_media_or_logs_count"] == 0:
+            recommended_role = "archive_input"
+        elif bucket["non_import_media_or_logs_count"] > 0 and bucket["archive_input_count"] == 0:
+            recommended_role = "non_import_media_or_logs"
+        else:
+            recommended_role = "mixed_or_unknown"
+
+        inventory.append(
+            {
+                **bucket,
+                "recommended_role": recommended_role,
+            }
+        )
+
+    return inventory
+
+
+def assign_batch_ids(candidates: list[dict[str, Any]], batch_size: int) -> dict[str, int]:
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero")
+
+    counts: dict[str, int] = {}
+    batch_ready = [candidate for candidate in candidates if candidate["processing_bucket"] == "batch_ready"]
+    for index, candidate in enumerate(batch_ready, start=1):
+        batch_number = ((index - 1) // batch_size) + 1
+        batch_id = f"batch-{batch_number:03d}"
+        candidate["batch_id"] = batch_id
+        counts[batch_id] = counts.get(batch_id, 0) + 1
+
+    return counts
+
+
 def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
     hashes = compute_hashes(file_path)
     relative_path = str(file_path.relative_to(source_root))
@@ -327,6 +431,8 @@ def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
         seen.add(marker)
         deduped_candidates.append(candidate)
 
+    processing_bucket = get_processing_bucket(source_type)
+
     return {
         "entry_id": hashes.sha256,
         "source_path": str(file_path),
@@ -356,9 +462,18 @@ def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
             "filesystem_last_modified": last_modified,
             "timestamp_candidates": deduped_candidates,
         },
+        "processing_bucket": processing_bucket,
+        "selected_action": get_selected_action(source_type),
+        "batch_id": None,
         "import_status": "pending",
         "matched_archive_id": None,
         "created_archive_id": None,
+        "last_attempted_at": None,
+        "operator_note": None,
+        "repair_status": "not_evaluated",
+        "repair_confidence": None,
+        "repair_preview": None,
+        "repair_applied_at": None,
     }
 
 
@@ -380,10 +495,21 @@ def main() -> int:
         raise FileNotFoundError(f"Source root not found: {source_root}")
 
     candidates = [build_candidate(source_root, path) for path in iter_candidates(source_root, args.include_patterns)]
+    batch_counts = assign_batch_ids(candidates, args.batch_size)
+    bucket_counts: dict[str, int] = {}
+    for candidate in candidates:
+        bucket = candidate["processing_bucket"]
+        bucket_counts[bucket] = bucket_counts.get(bucket, 0) + 1
+
     manifest = {
+        "schema_version": 2,
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "source_root": str(source_root),
+        "batch_size": args.batch_size,
         "candidate_count": len(candidates),
+        "candidate_counts_by_bucket": bucket_counts,
+        "batch_counts": batch_counts,
+        "source_inventory": build_source_inventory(source_root),
         "candidates": candidates,
     }
 

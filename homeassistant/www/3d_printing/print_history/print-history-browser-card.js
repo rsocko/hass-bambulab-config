@@ -502,9 +502,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       isFavorite: !!archive.is_favorite,
       printName: archive.print_name ? String(archive.print_name) : "Unnamed",
       startedLabel: this._formatDate(archive.started_at || archive.created_at),
-      statusLabel: status === "completed" ? "Completed" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : status === "printing" ? "Printing" : "Unknown",
-      statusColor: status === "completed" ? "#2E7D32" : status === "failed" ? "#C62828" : status === "cancelled" ? "#EF6C00" : status === "printing" ? "#1565C0" : "#546E7A",
-      statusIcon: status === "completed" ? "✅" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
+      statusLabel: status === "completed" ? "Completed" : status === "archived" ? "Archived" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : status === "printing" ? "Printing" : "Unknown",
+      statusColor: status === "completed" ? "#2E7D32" : status === "archived" ? "#546E7A" : status === "failed" ? "#C62828" : status === "cancelled" ? "#EF6C00" : status === "printing" ? "#1565C0" : "#546E7A",
+      statusIcon: status === "completed" ? "✅" : status === "archived" ? "📦" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
       enrichmentLabel: enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
       enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "partial" ? "#EF6C00" : "#546E7A",
       durationLabel: this._formatDuration(
@@ -621,6 +621,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var raw = String(status || "").toLowerCase();
     if (raw === "completed" || raw === "success") {
       return "completed";
+    }
+    if (raw === "archived") {
+      return "archived";
     }
     if (raw === "cancelled" || raw === "aborted" || raw === "stopped") {
       return "cancelled";

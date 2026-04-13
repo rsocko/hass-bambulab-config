@@ -172,6 +172,10 @@ If `n8n` already runs in a container on the same host as Bambuddy, prefer an HTT
 - Header: `Authorization: Bearer <token>`
 - Body: same runtime-repair payload sent from HA
 
+For operator-driven calls outside that container network, use the deployed endpoint instead:
+
+- URL: `http://bambuddy-runtime-repair.socko.us/admin/archive-runtime-repair`
+
 Reference example workflow for this mode:
 
 - `examples/archive-runtime-repair-n8n-workflow.json`

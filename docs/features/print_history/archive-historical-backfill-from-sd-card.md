@@ -185,6 +185,133 @@ Also record lightweight structural classification:
 - has plate previews
 - looks like sliced artifact versus source project
 
+### Current repo implementation
+
+The repo now has a resumable manifest contract built around:
+
+- [tools/bambuddy/generate_archive_backfill_manifest.py](../../../tools/bambuddy/generate_archive_backfill_manifest.py)
+- [tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1](../../../tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1)
+
+The generated manifest now carries additional operator-state fields per candidate:
+
+- `processing_bucket`
+- `selected_action`
+- `batch_id`
+- `import_status`
+- `matched_archive_id`
+- `created_archive_id`
+- `last_attempted_at`
+- `operator_note`
+
+The generator also emits top-level resumability metadata:
+
+- `schema_version`
+- `batch_size`
+- `candidate_counts_by_bucket`
+- `batch_counts`
+- `source_inventory`
+
+Initial bucket behavior is intentionally conservative:
+
+- `sd_cache_3mf` and `bambu_studio_exported_sliced_3mf` start as `batch_ready`
+- `bambu_studio_source_3mf` starts as `manual_review`
+- top-level directory inventory is recorded so non-import areas such as printer logs and media can be retained separately from archive inputs
+
+Recommended manifest generation example:
+
+```powershell
+python .\tools\bambuddy\generate_archive_backfill_manifest.py `
+   --source-root '.\bambuddy\Backup SD Card - 2026-04-03' `
+   --output '.\tmp\archive_backfill_manifest.json' `
+   --batch-size 25
+```
+
+Recommended inspect-only batch review example:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' `
+   -Mode Backfill `
+   -BaseUrl 'http://bambuddy.socko.us' `
+   -PrinterId 1 `
+   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -BackfillAction Inspect `
+   -BatchId 'batch-001' `
+   -UpdateManifest `
+   -ResultPath '.\tmp\archive_backfill_batch-001_inspect.json'
+```
+
+Recommended upload-and-annotate batch example:
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' `
+   -Mode Backfill `
+   -BaseUrl 'http://bambuddy.socko.us' `
+   -PrinterId 1 `
+   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -BackfillAction Full `
+   -BatchId 'batch-001' `
+   -UpdateManifest `
+   -ResultPath '.\tmp\archive_backfill_batch-001_full.json'
+```
+
+With `-UpdateManifest`, the runner updates each candidate in place after it is inspected, skipped, uploaded, annotated, or fails. That makes batch execution resumable without maintaining a separate progress database.
+
+### Optional runtime-repair flow
+
+The same runner now supports an optional post-import runtime-repair stage:
+
+- `-RepairAction None` leaves imports file-backed and provenance-only
+- `-RepairAction Preview` computes proposed runtime values and stores them in output and manifest state without touching Bambuddy DB fields
+- `-RepairAction Apply` sends the inferred runtime fields through the Bambuddy runtime-repair sidecar after import or against an already imported manifest candidate
+- operator-facing sidecar base URL: `http://bambuddy-runtime-repair.socko.us`
+- local-host fallback for direct port mapping: `http://127.0.0.1:8818`
+
+Recommended preview example against an already imported candidate:
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' `
+   -Mode Backfill `
+   -BaseUrl 'http://bambuddy.socko.us' `
+   -PrinterId 1 `
+   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestEntryId '<entry_id>' `
+   -BackfillAction Full `
+   -RepairAction Preview `
+   -RepairSidecarBaseUrl 'http://bambuddy-runtime-repair.socko.us' `
+   -RepairSidecarToken $env:REPAIR_API_TOKEN `
+   -UpdateManifest `
+   -ResultPath '.\tmp\archive_backfill_repair_preview.json'
+```
+
+Recommended apply example against the deployed sidecar:
+
+```powershell
+& '.\tests\phase3\print_history\Test-BambuddyArchiveRecovery.ps1' `
+   -Mode Backfill `
+   -BaseUrl 'http://bambuddy.socko.us' `
+   -PrinterId 1 `
+   -ManifestPath '.\tmp\archive_backfill_manifest.json' `
+   -ManifestEntryId '<entry_id>' `
+   -BackfillAction Full `
+   -RepairAction Apply `
+   -RepairSidecarBaseUrl 'http://bambuddy-runtime-repair.socko.us' `
+   -RepairSidecarToken $env:REPAIR_API_TOKEN `
+   -UpdateManifest `
+   -ResultPath '.\tmp\archive_backfill_repair_apply.json'
+```
+
+Current repair inference is intentionally conservative:
+
+- `completed_at` prefers filesystem last-modified time, then ZIP/config timestamps if filesystem evidence is unavailable
+- `started_at` is only estimated as `completed_at - print_time_seconds` when the uploaded archive exposes parser-backed `print_time_seconds`
+- `created_at` follows the inferred completion time for completed-print style historical records
+- automatic apply is blocked when timing confidence stays `low`
+- status is not changed by default; add `-RepairSetCompletedStatus` only when you explicitly want medium-confidence imports to flip from `archived` to `completed`
+- preview and apply are both sent through the existing sidecar `POST /admin/archive-runtime-repair` endpoint; preview uses sidecar `dry_run: true`, apply uses `dry_run: false`
+
+This keeps preview and apply separate: preview is safe evidence review validated by the sidecar, while apply is an explicit administrative action executed through the same sidecar boundary that already owns direct DB access.
+
 ## Phase 2: Compare against existing Bambuddy archives
 
 Build an index from current Bambuddy archives using at least:
