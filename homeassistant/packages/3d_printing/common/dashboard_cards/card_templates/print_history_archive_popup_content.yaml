@@ -318,7 +318,9 @@ print_history_archive_popup_content:
         const completedDisplay = archive?.completed_at
           ? formatTimelineDate(archive.completed_at)
           : (status === 'printing' ? 'In progress' : '-');
-        const timelineDuration = formatTimelineDuration(archive?.actual_time_seconds || archive?.print_time_seconds);
+        const timelineDuration = formatTimelineDuration(
+          archive?.effective_duration_seconds ?? archive?.actual_time_seconds ?? archive?.print_time_seconds
+        );
         const timelineStartColor = '#1565C0';
         const timelineEndColor = status === 'completed'
           ? '#2E7D32'
@@ -335,16 +337,19 @@ print_history_archive_popup_content:
           repair: '#8E24AA',
           neutral: '#78909C'
         })[String(colorKey || '').trim()] || '#78909C';
-        const timelineLegendTitle = [
-          'Timeline colors',
-          'Blue: Print started',
-          'Orange: Print paused',
-          'Cyan: Print resumed',
-          'Green: Print finished or enrichment applied',
-          'Red: Print failed or stopped',
-          'Teal: Photo captured',
-          'Purple: Repair applied'
-        ].join(' | ');
+        const timelineLegendItems = [
+          { color: timelineColorForKey('start'), label: 'Print started' },
+          { color: timelineColorForKey('pause'), label: 'Print paused' },
+          { color: timelineColorForKey('resume'), label: 'Print resumed' },
+          { color: timelineColorForKey('success'), label: 'Print finished or enrichment applied' },
+          { color: timelineColorForKey('failure'), label: 'Print failed or stopped' },
+          { color: timelineColorForKey('media'), label: 'Photo captured' },
+          { color: timelineColorForKey('repair'), label: 'Repair applied' }
+        ];
+        const timelineLegendMarkup = [
+          '<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(245,247,250,0.72);margin-bottom:8px;">Timeline colors</div>',
+          ...timelineLegendItems.map((item) => `<div class="print-history-popup-timeline-legend-item"><span class="print-history-popup-timeline-legend-dot" style="background:${item.color};box-shadow:0 0 0 3px ${rgbaFromHex(item.color, 0.22, 'rgba(255,255,255,0.12)')};"></span><span>${escapeHtml(item.label)}</span></div>`)
+        ].join('');
         const anchorEventTypes = new Set(['print_started', 'print_finished', 'print_failed', 'print_stopped']);
         const rawTimelineStartTime = parseDateMs(archive?.started_at || archive?.created_at);
         const rawTimelineEvents = Array.isArray(detailEventTimeline) ? detailEventTimeline : [];
@@ -575,6 +580,9 @@ print_history_archive_popup_content:
             .print-history-popup-timeline-legend{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:var(--secondary-text-color);cursor:help;pointer-events:auto;}
             .print-history-popup-timeline-legend-tooltip{position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%, -6px);width:min(260px, 72vw);padding:10px 12px;border-radius:12px;background:rgba(18,22,28,0.96);border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 30px rgba(0,0,0,0.28);color:#F5F7FA;font-size:12px;line-height:1.45;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 160ms ease, transform 160ms ease;z-index:40;}
             .print-history-popup-timeline-legend-tooltip::after{content:'';position:absolute;left:50%;bottom:100%;transform:translateX(-50%);border-width:0 6px 6px 6px;border-style:solid;border-color:transparent transparent rgba(18,22,28,0.96) transparent;}
+            .print-history-popup-timeline-legend-item{display:flex;align-items:center;gap:10px;}
+            .print-history-popup-timeline-legend-item + .print-history-popup-timeline-legend-item{margin-top:7px;}
+            .print-history-popup-timeline-legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;flex:0 0 auto;}
             .print-history-popup-timeline-legend-wrap:hover .print-history-popup-timeline-legend-tooltip,
             .print-history-popup-timeline-legend-wrap:focus-within .print-history-popup-timeline-legend-tooltip{opacity:1;visibility:visible;transform:translate(-50%, 0);}
             @media (max-width: 640px) {
@@ -592,7 +600,7 @@ print_history_archive_popup_content:
                   <span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>
                   <span class="print-history-popup-timeline-legend-wrap">
                     <span class="print-history-popup-timeline-legend" tabindex="0" aria-label="Timeline color legend"><ha-icon icon="mdi:information-outline" style="--mdc-icon-size:16px;color:var(--secondary-text-color);"></ha-icon></span>
-                    <span class="print-history-popup-timeline-legend-tooltip">${escapeHtml(timelineLegendTitle).replace(/ \| /g, '<br>')}</span>
+                    <span class="print-history-popup-timeline-legend-tooltip">${timelineLegendMarkup}</span>
                   </span>
                 </div>
                 <div class="print-history-popup-timeline-main">
