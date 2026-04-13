@@ -477,8 +477,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var missingCore3mf = !!(archive && archive.missing_core_3mf);
     var missingThumbnail = !!(archive && archive.missing_thumbnail);
     var hasSourceOnly = !!(archive && archive.has_source_only);
+    var hasProjectedArchiveState = !!(archive && (
+      Object.prototype.hasOwnProperty.call(archive, "has_archive_error") ||
+      Object.prototype.hasOwnProperty.call(archive, "missing_core_3mf") ||
+      Object.prototype.hasOwnProperty.call(archive, "missing_thumbnail") ||
+      Object.prototype.hasOwnProperty.call(archive, "has_source_only")
+    ));
 
-    if (!missingCore3mf && !missingThumbnail) {
+    if (!hasProjectedArchiveState && !missingCore3mf && !missingThumbnail) {
       missingCore3mf = !!(archive && archive.no_3mf_available) || !filePath;
       hasSourceOnly = missingCore3mf && !!source3mfPath;
       missingThumbnail = !missingCore3mf && !thumbnailPath;

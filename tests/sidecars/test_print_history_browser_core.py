@@ -127,6 +127,27 @@ def test_project_archive_flags_source_only_archive_errors() -> None:
     assert archive["archive_error_label"] == "Source 3MF Only"
 
 
+def test_project_archive_ignores_stale_no_3mf_marker_when_primary_archive_exists() -> None:
+    archive = project_archive(
+        {
+            "id": 229,
+            "printer_id": 1,
+            "print_name": "Batman Hueforge",
+            "status": "completed",
+            "file_path": "archive/1/20260412_191606_bat4 - 200x200.gcode/bat4 - 200x200.gcode.3mf",
+            "file_size": 12216866,
+            "content_hash": "bcfcdbd1e2091838a858d596be4d2f33fcfe74db766a569238f1c07472aa3a8e",
+            "thumbnail_path": "archive/1/20260412_191606_bat4 - 200x200.gcode/thumbnail.png",
+            "extra_data": {"no_3mf_available": True},
+        }
+    )
+
+    assert archive["no_3mf_available"] is True
+    assert archive["has_archive_error"] is False
+    assert archive["missing_core_3mf"] is False
+
+
+
 def test_query_archives_filters_sorts_and_pages() -> None:
     archives = _projected_archives()
     states = {

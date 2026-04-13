@@ -234,9 +234,24 @@ print_history_archive_popup_content:
           const filePath = String(currentArchive?.file_path || '').trim();
           const thumbnailPath = String(currentArchive?.thumbnail_path || '').trim();
           const source3mfPath = String(currentArchive?.source_3mf_path || '').trim();
-          const missingCore3mf = Boolean(currentArchive?.missing_core_3mf || currentArchive?.no_3mf_available || !filePath);
-          const hasSourceOnly = Boolean(currentArchive?.has_source_only || (missingCore3mf && source3mfPath));
-          const missingThumbnail = Boolean(currentArchive?.missing_thumbnail || (!missingCore3mf && !thumbnailPath));
+          const hasProjectedArchiveState = Boolean(
+            currentArchive
+            && (
+              Object.prototype.hasOwnProperty.call(currentArchive, 'has_archive_error')
+              || Object.prototype.hasOwnProperty.call(currentArchive, 'missing_core_3mf')
+              || Object.prototype.hasOwnProperty.call(currentArchive, 'missing_thumbnail')
+              || Object.prototype.hasOwnProperty.call(currentArchive, 'has_source_only')
+            )
+          );
+          let missingCore3mf = Boolean(currentArchive?.missing_core_3mf);
+          let hasSourceOnly = Boolean(currentArchive?.has_source_only);
+          let missingThumbnail = Boolean(currentArchive?.missing_thumbnail);
+
+          if (!hasProjectedArchiveState && !missingCore3mf && !missingThumbnail) {
+            missingCore3mf = Boolean(currentArchive?.no_3mf_available || !filePath);
+            hasSourceOnly = Boolean(missingCore3mf && source3mfPath);
+            missingThumbnail = Boolean(!missingCore3mf && !thumbnailPath);
+          }
 
           if (hasSourceOnly) {
             return {

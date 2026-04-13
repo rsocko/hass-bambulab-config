@@ -162,11 +162,15 @@ def archive_error_state(raw_archive: dict[str, Any]) -> dict[str, Any]:
     extra_data = raw_archive.get("extra_data") if isinstance(raw_archive.get("extra_data"), dict) else {}
     file_path = as_text(raw_archive.get("file_path")).strip()
     file_size = as_int(raw_archive.get("file_size"))
+    content_hash = as_text(raw_archive.get("content_hash")).strip()
     thumbnail_path = as_text(raw_archive.get("thumbnail_path")).strip()
     source_3mf_path = as_text(raw_archive.get("source_3mf_path")).strip()
     no_3mf_available = bool(extra_data.get("no_3mf_available") is True or raw_archive.get("no_3mf_available") is True)
+    has_primary_archive_file = bool(file_path and (file_size > 0 or content_hash))
 
-    missing_core_3mf = bool(no_3mf_available or not file_path or (file_size <= 0 and not thumbnail_path and not source_3mf_path))
+    missing_core_3mf = bool(
+        not has_primary_archive_file and (no_3mf_available or not file_path or (file_size <= 0 and not thumbnail_path and not source_3mf_path))
+    )
     has_source_only = bool(missing_core_3mf and source_3mf_path)
     missing_thumbnail = bool(not missing_core_3mf and not thumbnail_path)
     has_archive_error = bool(missing_core_3mf or missing_thumbnail)
