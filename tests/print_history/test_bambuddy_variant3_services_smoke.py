@@ -390,6 +390,9 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
     assert response["sync_metadata_by_archive"]["101"]["payload_hash"]
     assert response["store"]["archive_count"] == 2
     assert response["query"]["page_info"] == "1 of 1"
+    assert manager.query_stats["count"] == 1
+    assert manager.query_stats["last_page_item_count"] == 2
+    assert manager.diagnostics()["recent_operations"][0]["type"] == "query"
 
 
 def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path) -> None:
@@ -556,6 +559,31 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert estimate_response["success"] is True
     assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
+    assert manager.query_stats["count"] == 2
+    assert manager.query_stats["last_source"] == "service"
+    assert manager.mutation_stats["count"] == 5
+    assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
+
+
+def test_variant3_manager_records_helper_recompute_diagnostics(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+
+    manager._async_handle_helper_state_change(SimpleNamespace(data={"entity_id": "input_text.print_history_search"}))
+
+    assert manager.recompute_stats["count"] >= 1
+    assert manager.recompute_stats["last_reason"] == "state:input_text.print_history_search"
+    assert manager.diagnostics()["recent_operations"][0]["type"] == "recompute"
 
 
 def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_path: Path) -> None:

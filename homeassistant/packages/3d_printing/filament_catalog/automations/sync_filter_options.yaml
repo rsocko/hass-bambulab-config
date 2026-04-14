@@ -28,6 +28,26 @@ actions:
 
   - variables:
       filter_options: >-
+        {%- set spool_ids = integration_entities('spoolman')
+            | select('match', '^sensor\\.spoolman_spool_\\d+$')
+            | list -%}
+        {%- set spool_entities = expand(spool_ids)
+            | rejectattr('entity_id', 'equalto', none)
+            | list -%}
+        {%- set filament_ids = integration_entities('spoolman')
+            | select('match', '^sensor\\.spoolman_filament_\\d+$')
+            | list -%}
+        {%- set filament_entities = expand(filament_ids)
+            | rejectattr('entity_id', 'equalto', none)
+            | list -%}
+        {%- set filament_inventory_rules = namespace(data={}) -%}
+        {%- for filament in filament_entities -%}
+          {%- set filament_id = filament.attributes.get('id') -%}
+          {%- if filament_id not in [none, '', 'unknown', 'unavailable'] -%}
+            {%- set rule = filament.attributes.get('extra_inventory_rule', '') | string | trim -%}
+            {%- set filament_inventory_rules.data = filament_inventory_rules.data | combine({(filament_id | string): rule}) -%}
+          {%- endif -%}
+        {%- endfor -%}
         {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
         {%- if totals_raw is mapping -%}
           {%- set totals = totals_raw -%}
@@ -39,8 +59,7 @@ actions:
           color_families=[], types=[], locations=[],
           spool_types=[], clip_types=[], inventory_rules=[]
         ) -%}
-        {%- for s in states.sensor
-            if s.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
+        {%- for s in spool_entities -%}
           {%- set attrs = s.attributes -%}
           {%- set archived = attrs.get('archived', false)
               in [true, 'true', 'True', 1, '1'] -%}
@@ -91,7 +110,7 @@ actions:
             {%- set filament_id = attrs.get('filament_id') -%}
             {%- set inventory_rule_source = attrs.get('filament_extra_inventory_rule', '') | string | trim -%}
             {%- if inventory_rule_source in ['', 'None', 'none', 'unknown', 'unavailable'] and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
-              {%- set inventory_rule_source = state_attr('sensor.spoolman_filament_' ~ filament_id, 'extra_inventory_rule') | default('', true) | string | trim -%}
+              {%- set inventory_rule_source = filament_inventory_rules.data.get(filament_id | string, '') | string | trim -%}
             {%- endif -%}
             {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
             {%- set inventory_rule_aliases = {
@@ -112,7 +131,7 @@ actions:
             {%- endif -%}
           {%- endif -%}
         {%- endfor -%}
-        {%- for f in states.sensor if f.entity_id is match('^sensor\\.spoolman_filament_\\d+$') -%}
+        {%- for f in filament_entities -%}
           {%- set attrs = f.attributes -%}
           {%- set filament_id = attrs.get('id') -%}
           {%- set fil_total = totals.get(filament_id) if filament_id is not none else none -%}

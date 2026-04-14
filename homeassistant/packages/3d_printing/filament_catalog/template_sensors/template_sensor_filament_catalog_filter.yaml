@@ -23,6 +23,26 @@
         # For non-grouped tabs (All), a single group with name "".
         # ================================================================
         grouped_entity_ids_json: >-
+          {%- set spool_ids = integration_entities('spoolman')
+            | select('match', '^sensor\\.spoolman_spool_\\d+$')
+            | list -%}
+          {%- set spool_entities = expand(spool_ids)
+            | rejectattr('entity_id', 'equalto', none)
+            | list -%}
+          {%- set filament_ids = integration_entities('spoolman')
+            | select('match', '^sensor\\.spoolman_filament_\\d+$')
+            | list -%}
+          {%- set filament_entities = expand(filament_ids)
+            | rejectattr('entity_id', 'equalto', none)
+            | list -%}
+          {%- set filament_inventory_rules = namespace(data={}) -%}
+          {%- for filament in filament_entities -%}
+            {%- set filament_id = filament.attributes.get('id') -%}
+            {%- if filament_id not in [none, '', 'unknown', 'unavailable'] -%}
+              {%- set rule = filament.attributes.get('extra_inventory_rule', '') | string | trim -%}
+              {%- set filament_inventory_rules.data = filament_inventory_rules.data | combine({(filament_id | string): rule}) -%}
+            {%- endif -%}
+          {%- endfor -%}
           {%- set filter_material = states('input_select.filament_catalog_filter_material') -%}
           {%- set filter_vendor = states('input_select.filament_catalog_filter_vendor') -%}
           {%- set filter_color = states('input_select.filament_catalog_filter_color') -%}
@@ -111,7 +131,7 @@
            {# -----------------------------------------------------------------
              Spool-backed catalog entries
              ----------------------------------------------------------------- #}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\\.spoolman_spool_\\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set attrs = spool.attributes -%}
             {%- set archived_raw = attrs.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -144,7 +164,7 @@
               {%- set filament_id = attrs.get('filament_id') -%}
               {%- set inventory_rule_source = attrs.get('filament_extra_inventory_rule', '') | string | trim -%}
               {%- if inventory_rule_source in ['', 'None', 'none', 'unknown', 'unavailable'] and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
-                {%- set inventory_rule_source = state_attr('sensor.spoolman_filament_' ~ filament_id, 'extra_inventory_rule') | default('', true) | string | trim -%}
+                {%- set inventory_rule_source = filament_inventory_rules.data.get(filament_id | string, '') | string | trim -%}
               {%- endif -%}
               {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
               {%- set inventory_rule_aliases = {
@@ -334,7 +354,7 @@
              We treat a filament as zero-spool when it has no totals entry/count,
              while still using the filament entity as the canonical source.
              ----------------------------------------------------------------- #}
-          {%- for filament in states.sensor if filament.entity_id is match('^sensor\\.spoolman_filament_\\d+$') -%}
+          {%- for filament in filament_entities -%}
             {%- set attrs = filament.attributes -%}
             {%- set filament_id = attrs.get('id') -%}
             {%- set fil_total = totals.get(filament_id) if filament_id is not none else none -%}

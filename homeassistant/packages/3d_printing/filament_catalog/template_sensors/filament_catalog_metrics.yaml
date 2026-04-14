@@ -2,13 +2,30 @@
     - platform: state
       entity_id:
         - sensor.spoolman_filament_totals
+  variables:
+    spool_ids: >-
+      {{ integration_entities('spoolman')
+         | select('match', '^sensor\\.spoolman_spool_\\d+$')
+         | list }}
+    spool_entities: >-
+      {{ expand(spool_ids)
+         | rejectattr('entity_id', 'equalto', none)
+         | list }}
+    filament_ids: >-
+      {{ integration_entities('spoolman')
+         | select('match', '^sensor\\.spoolman_filament_\\d+$')
+         | list }}
+    filament_entities: >-
+      {{ expand(filament_ids)
+         | rejectattr('entity_id', 'equalto', none)
+         | list }}
   sensor:
     - name: Filament Catalog Metrics
       unique_id: filament_catalog_metrics
       icon: mdi:chart-box-outline
       state: >-
         {%- set ns = namespace(total=0) -%}
-        {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+        {%- for spool in spool_entities -%}
           {%- set archived_raw = spool.attributes.get('archived', false) -%}
           {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
           {%- if not archived -%}
@@ -19,7 +36,7 @@
       attributes:
         inventory_summary_json: >-
           {%- set summary = namespace(spool_count=0, filament_count=0, total_weight=0.0, priced_cost_total=0.0, priced_spool_count=0) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -33,7 +50,7 @@
               {%- endif -%}
             {%- endif -%}
           {%- endfor -%}
-          {%- for filament in states.sensor if filament.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
+          {%- for filament in filament_entities -%}
             {%- set summary.filament_count = summary.filament_count + 1 -%}
           {%- endfor -%}
           {{ {
@@ -44,7 +61,7 @@
           } | tojson }}
         weight_by_material_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -57,7 +74,7 @@
           {{ buckets.data | tojson }}
         weight_by_vendor_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -70,7 +87,7 @@
           {{ buckets.data | tojson }}
         weight_by_color_family_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -83,7 +100,7 @@
           {{ buckets.data | tojson }}
         count_by_material_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -95,7 +112,7 @@
           {{ buckets.data | tojson }}
         count_by_vendor_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -107,7 +124,7 @@
           {{ buckets.data | tojson }}
         count_by_type_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -129,7 +146,7 @@
           {{ buckets.data | tojson }}
         count_by_color_family_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -141,7 +158,7 @@
           {{ buckets.data | tojson }}
         count_by_spool_type_clip_type_stack_segments_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -179,7 +196,7 @@
           {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
         count_by_primary_color_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -191,7 +208,7 @@
           {{ buckets.data | tojson }}
         primary_color_weight_segments_json: >-
           {%- set names = namespace(weights={}, hexes={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -218,7 +235,7 @@
           {{ segs.items | sort(attribute='weight', reverse=true) | tojson }}
         primary_color_count_segments_json: >-
           {%- set names = namespace(counts={}, hexes={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -244,7 +261,7 @@
           {{ segs.items | sort(attribute='count', reverse=true) | tojson }}
         primary_color_weight_stack_segments_json: >-
           {%- set stacks = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -275,7 +292,7 @@
           {{ sorted_segs[:20] | tojson }}
         primary_color_count_stack_segments_json: >-
           {%- set stacks = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -305,7 +322,7 @@
           {{ sorted_segs[:20] | tojson }}
         spools_by_location_json: >-
           {%- set buckets = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -317,7 +334,7 @@
           {{ buckets.data | tojson }}
         qty_to_order_by_filament_json: >-
           {%- set rows = namespace(items=[]) -%}
-          {%- for filament in states.sensor if filament.entity_id is match('^sensor\.spoolman_filament_\d+$') -%}
+          {%- for filament in filament_entities -%}
             {%- set attrs = filament.attributes -%}
             {%- set qty = attrs.get('extra_purchase_qty', 0) | int(0) -%}
             {%- if qty > 0 -%}
@@ -340,7 +357,7 @@
           {%- set des_orange_thresh = states('input_number.desiccant_threshold_orange_days') | float(60) -%}
           {%- set des_red_thresh = states('input_number.desiccant_threshold_red_days') | float(75) -%}
           {%- set filament_counts = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -352,7 +369,7 @@
             {%- endif -%}
           {%- endfor -%}
           {%- set counts = namespace(low_stock=0, nearly_empty=0, needs_repurchase=0, desiccant_overdue=0, desiccant_red=0, desiccant_orange=0, desiccant_yellow=0, desiccant_undefined=0, missing_desiccant=0, needs_drying=0, stale=0, multiple_unsealed_duplicates=0, duplicate_hex_colors=0, missing_uuid=0, tag_uuid_mismatch=0, missing_profile=0) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -436,7 +453,7 @@
           {%- endfor -%}
           {%- set unsealed_by_filament = namespace(data={}) -%}
           {%- set hex_to_filaments = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -491,7 +508,7 @@
           {%- set des_orange_thresh = states('input_number.desiccant_threshold_orange_days') | float(60) -%}
           {%- set des_red_thresh = states('input_number.desiccant_threshold_red_days') | float(75) -%}
           {%- set filament_counts = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set archived_raw = spool.attributes.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
             {%- if not archived -%}
@@ -509,7 +526,7 @@
             multiple_unsealed_duplicates=[], duplicate_hex_colors=[],
             missing_uuid=[], tag_uuid_mismatch=[], missing_profile=[]
           ) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -572,7 +589,7 @@
           {%- set unsealed_by_filament = namespace(data={}) -%}
           {%- set hex_to_filaments = namespace(data={}) -%}
           {%- set hex_to_entities = namespace(data={}) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -641,7 +658,7 @@
           {%- set dq_missing_uuid = namespace(items=[]) -%}
           {%- set dq_tag_uuid_mismatch = namespace(items=[]) -%}
           {%- set dq_missing_profile = namespace(items=[]) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -717,7 +734,7 @@
           } | tojson }}
         total_inventory_value: >-
           {%- set ns = namespace(value=0) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
@@ -733,7 +750,7 @@
           {{ ns.value | round(2) }}
         avg_cost_per_kg: >-
           {%- set ns = namespace(total=0, count=0) -%}
-          {%- for spool in states.sensor if spool.entity_id is match('^sensor\.spoolman_spool_\d+$') -%}
+          {%- for spool in spool_entities -%}
             {%- set a = spool.attributes -%}
             {%- set archived_raw = a.get('archived', false) -%}
             {%- set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] -%}
