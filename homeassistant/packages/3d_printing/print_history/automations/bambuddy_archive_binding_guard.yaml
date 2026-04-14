@@ -36,12 +36,72 @@
               id: homeassistant_started
             - condition: template
               value_template: >-
-                {{ states('input_text.bambuddy_current_archive_id') | string | trim != ''
-                   and states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
-                     not in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
+                {{ states('input_text.bambuddy_current_archive_id') | string | trim != '' }}
           sequence:
             - variables:
                 retained_archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+                startup_validation_delay_seconds: 60
+            - delay:
+                seconds: "{{ startup_validation_delay_seconds }}"
+            - variables:
+                startup_print_status: >-
+                  {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim }}
+                printer_is_active_after_startup: >-
+                  {{ startup_print_status in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
+            - if:
+                - condition: template
+                  value_template: "{{ not printer_is_active_after_startup }}"
+              then:
+                - action: rest_command.bambuddy_get_archive_detail
+                  data:
+                    archive_id: "{{ retained_archive_id }}"
+                  response_variable: retained_archive_response
+            - variables:
+                retained_archive_detail_ok: >-
+                  {{ retained_archive_response is defined and retained_archive_response.status == 200 }}
+                retained_archive_status: >-
+                  {% if retained_archive_detail_ok %}
+                    {{ retained_archive_response.content.status | default('', true) | string | lower | trim }}
+                  {% else %}
+                    {{ '' }}
+                  {% endif %}
+                retained_archive_is_terminal: >-
+                  {{ retained_archive_status in ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] }}
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ printer_is_active_after_startup }}"
+                  sequence:
+                    - action: logbook.log
+                      data:
+                        name: Print History
+                        message: >-
+                          Preserved retained archive binding {{ retained_archive_id }} during Home Assistant startup
+                          because the printer returned to an active state.
+                    - stop: Startup validation preserved retained binding for an active print.
+                - conditions:
+                    - condition: template
+                      value_template: "{{ retained_archive_detail_ok and not retained_archive_is_terminal }}"
+                  sequence:
+                    - action: logbook.log
+                      data:
+                        name: Print History
+                        message: >-
+                          Preserved retained archive binding {{ retained_archive_id }} during Home Assistant startup
+                          because Bambuddy still reports archive status '{{ retained_archive_status }}'.
+                    - stop: Startup validation preserved retained binding for a non-terminal archive.
+                - conditions:
+                    - condition: template
+                      value_template: "{{ not retained_archive_detail_ok }}"
+                  sequence:
+                    - action: system_log.write
+                      data:
+                        message: >-
+                          Print History kept retained archive binding {{ retained_archive_id }} during Home Assistant startup
+                          because Bambuddy archive validation was unavailable. printer_status={{ startup_print_status if startup_print_status != '' else 'unknown' }}.
+                        level: warning
+                        logger: homeassistant.components.bambulab.print_history
+                    - stop: Startup validation preserved retained binding because archive status could not be confirmed.
             - action: input_text.set_value
               target:
                 entity_id: input_text.bambuddy_current_archive_id
@@ -66,7 +126,7 @@
               data:
                 message: >-
                   Print History cleared retained archive binding {{ retained_archive_id }} during Home Assistant startup
-                  because the printer was not active.
+                  because the printer remained inactive and Bambuddy reported terminal archive status '{{ retained_archive_status if retained_archive_status != '' else 'unknown' }}'.
                 level: warning
                 logger: homeassistant.components.bambulab.print_history
             - action: logbook.log
@@ -74,7 +134,7 @@
                 name: Print History
                 message: >-
                   Cleared retained archive binding {{ retained_archive_id }} during Home Assistant startup
-                  because no active print was detected.
+                  because no active print was detected and Bambuddy reported terminal archive status '{{ retained_archive_status if retained_archive_status != '' else 'unknown' }}'.
         - conditions:
             - condition: trigger
               id: native_status_change
