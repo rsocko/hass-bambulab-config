@@ -89,8 +89,8 @@ capture_and_upload_snapshot:
             seconds: 1
 
     - variables:
-      camera_results: >-
-        {{ [] | tojson | from_json([]) }}
+        camera_results: >-
+          {{ [] | tojson | from_json([]) }}
 
     # --- Capture configured cameras ---
     - if:
