@@ -365,7 +365,7 @@ Deferred advanced scripts:
 | `bambuddy_capture_print_photos` | Print running + progress milestones | Multi-stage photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
-| `bambuddy_event_history_refresh` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Reset browser paging after lifecycle events; the Bambuddy integration refreshes its own store-backed browser state directly |
+| `print_history_browser_refresh_on_event` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Reset browser paging after lifecycle events; the Bambuddy integration refreshes its own store-backed browser state directly |
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook
@@ -382,7 +382,7 @@ But these shipped behaviors are currently webhook-dependent and will not fire re
 - `finish` capture in `bambuddy_capture_print_photos`
 - `print_failed` error captures unless the HMS or print-error sensors happen to catch the case
 - `bambuddy_enrich_archive_on_complete`
-- `bambuddy_event_history_refresh` immediate recent-print sensor refresh and page reset; the Bambuddy integration handles its own post-print store refresh internally
+- `print_history_browser_refresh_on_event` immediate recent-print sensor refresh and page reset; the Bambuddy integration handles its own post-print store refresh internally
 
 If both Bambuddy webhook reception and the native `bambu_lab` cancel trigger are enabled, a single user stop/cancel can reach HA twice. Any automation listening to both sources can therefore run twice unless it has explicit deduplication.
 

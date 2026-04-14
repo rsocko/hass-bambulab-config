@@ -57,13 +57,22 @@ The system log also reported:
 
 > `RuntimeWarning: coroutine 'async_setup_entry.<locals>.async_add_extra_field_entities' was never awaited`
 
-This warning came from `update_coordinator.py:202` and indicates a custom integration callback is being used incorrectly. That kind of bug can destabilize HA even if it does not always produce a fatal stack trace.
+This warning came from `update_coordinator.py:202` and indicates a custom integration callback is being used incorrectly.
 
-### HASS.Agent remains a live risk
+Follow-up tracing confirmed the callback name matches the installed HACS Spoolman integration (`Disane87/spoolman-homeassistant`). Its sensor platform defines a local coroutine named `async_add_extra_field_entities()` and registers it with `coordinator.async_add_listener(...)`, which is consistent with the exact runtime warning observed in HA.
 
-HACS currently reports the abandoned repository `LAB02-Research/HASS.Agent-Integration` as still installed on the live HA instance.
+That makes Spoolman a concrete startup/runtime suspect for the warning, even though it does not by itself prove it is the only restart cause.
 
-That matters because earlier investigation already captured a stronger crash signal tied to this integration: an off-event-loop device registry update that HA explicitly warned could crash Home Assistant or corrupt data. The full stack trace was not re-observed in this MCP sampling pass, but the integration remains a high-confidence crash suspect.
+### HASS.Agent suspicion is stale
+
+An earlier diagnostic pass called out `LAB02-Research/HASS.Agent-Integration` as a likely suspect.
+
+Current MCP checks do not support that conclusion:
+
+- HACS installed-integration inventory does not currently show HASS.Agent installed.
+- Current MCP sampling did not surface any `agent`, `hass_agent`, or `LAB02` log evidence.
+
+Treat that earlier suspicion as stale until new runtime evidence appears.
 
 ## What Does Not Look Like The Cause
 
@@ -87,15 +96,15 @@ That does not completely rule out host-level issues outside HA's visible logs, b
 
 ## Most Likely Suspects
 
-### 1. Abandoned HASS.Agent custom integration
+### 1. Spoolman extra-field callback misuse
 
 This is the top suspect.
 
 Reasons:
 
-- HACS still flags it as installed and abandoned.
-- Prior evidence already tied it to event-loop unsafe registry writes.
-- Event-loop misuse remains a theme in the current diagnostics.
+- The warning callback name exactly matches a local coroutine in the installed HACS Spoolman integration.
+- That coroutine is registered with the update coordinator listener path, which aligns with the `never awaited` warning from `update_coordinator.py:202`.
+- Spoolman is also involved in the heaviest entity churn seen during startup and runtime.
 
 ### 2. Startup-heavy Spoolman and filament-catalog churn
 
@@ -132,7 +141,7 @@ They should still be cleaned up, but they currently look more like background er
 
 ### Immediate isolation order
 
-1. Disable or remove the live HASS.Agent integration first.
+1. Reduce or temporarily disable Spoolman extra-field activity first, or temporarily disable the Spoolman custom integration to isolate the callback warning.
 2. If restarts continue, temporarily disable the startup-heavy filament-catalog sync automation.
 3. If restarts still continue, temporarily disable the print-history startup automations and the temporary spoolman diagnostic automation.
 

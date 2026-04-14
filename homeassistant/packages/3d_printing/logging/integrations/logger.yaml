@@ -8,6 +8,17 @@ default: info
 
 # Specific component logging levels
 logs:
+  # Bambuddy print-history browser integration (temporary diagnostics)
+  custom_components.bambuddy: debug
+  custom_components.bambuddy.manager: debug
+
+  # Spoolman dynamic extra-field entity callbacks (temporary diagnostics)
+  custom_components.spoolman: debug
+  custom_components.spoolman.sensor: debug
+
+  # Coordinator callback tracing for the startup warning investigation
+  homeassistant.helpers.update_coordinator: debug
+
   # Bambu Lab Spoolman Sync - All automation logs
   homeassistant.components.bambulab.spoolman_sync: info
   

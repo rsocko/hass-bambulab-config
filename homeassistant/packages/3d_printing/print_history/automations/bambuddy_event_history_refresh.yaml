@@ -3,7 +3,7 @@
 # and on HA startup.
 # Docs: docs/features/print_history/README.md
 - alias: "Print History - Refresh on Event"
-  id: bambuddy_event_history_refresh
+  id: print_history_browser_refresh_on_event
   description: >
     Resets the browser page when a print completes, fails, stops, or on HA
     startup. The Bambuddy integration refreshes its own local browser store
