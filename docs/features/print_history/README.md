@@ -257,6 +257,14 @@ archive/print_history/
 automation: !include_dir_merge_list automations
 rest_command: !include_dir_merge_named rest_commands
 shell_command: !include_dir_merge_named shell_commands
+recorder:
+    exclude:
+        entities:
+            - sensor.bambuddy_print_history_browser_status
+            - sensor.bambuddy_print_history_browser_filtered
+            - sensor.bambuddy_print_history_browser_page_archives
+            - sensor.bambuddy_print_history_browser_page_info
+            - sensor.bambuddy_print_history_browser_activity
 script: !include_dir_merge_named scripts
 template: !include_dir_merge_list template_sensors
 counter: !include_dir_merge_named helpers/counter
@@ -289,6 +297,8 @@ input_select: !include_dir_merge_named helpers/input_select
 | `sensor.print_history_popup_archive_detail` | Template sensor | Popup-scoped detail cache for one selected archive |
 
 > The older REST-derived `sensor.bambuddy_print_history` and `sensor.bambuddy_last_print_*` entities were retired and moved to `archive/print_history/legacy-yaml-browser/`. The active browser contract now comes from the Bambuddy custom integration entities above.
+>
+> Recorder policy: all five Bambuddy browser entities are excluded from Home Assistant history. `status`, `filtered`, `page_archives`, `page_info`, and `activity` are all live browser-health or view-state outputs rather than useful long-term historical signals.
 
 ### Helpers
 

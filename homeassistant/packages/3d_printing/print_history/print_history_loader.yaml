@@ -3,6 +3,14 @@
 automation: !include_dir_merge_list automations
 rest_command: !include_dir_merge_named rest_commands
 shell_command: !include_dir_merge_named shell_commands
+recorder:
+  exclude:
+    entities:
+      - sensor.bambuddy_print_history_browser_status
+      - sensor.bambuddy_print_history_browser_filtered
+      - sensor.bambuddy_print_history_browser_page_archives
+      - sensor.bambuddy_print_history_browser_page_info
+      - sensor.bambuddy_print_history_browser_activity
 script: !include_dir_merge_named scripts
 template: !include_dir_merge_list template_sensors
 counter: !include_dir_merge_named helpers/counter
