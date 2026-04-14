@@ -8,7 +8,7 @@ from pathlib import Path
 
 import query as query_module  # noqa: E402
 import store as store_module  # noqa: E402
-from query import archive_activity_rows, option_sets, project_archive, query_archives  # noqa: E402
+from query import activity_metric_total_labels, archive_activity_rows, option_sets, project_archive, query_archives  # noqa: E402
 from store import PrintHistoryStore  # noqa: E402
 
 
@@ -768,6 +768,19 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
     assert actual.activity_metric_total_compact_label == expected.activity_metric_total_compact_label
     assert actual.available_colors == expected.available_colors
     assert actual.available_color_tooltips == expected.available_color_tooltips
+
+
+def test_variant3_query_activity_metric_total_uses_kg_for_large_filament_totals() -> None:
+    label, compact = activity_metric_total_labels(
+        [
+            {"filament_used_grams": 999.9},
+            {"filament_used_grams": 20.1},
+        ],
+        "Filament Weight",
+    )
+
+    assert label == "1.02 kg"
+    assert compact == "1.02 kg"
 
 
 def test_variant3_store_query_uses_note_payload_names_for_tooltips_when_slot_names_blank(tmp_path: Path) -> None:

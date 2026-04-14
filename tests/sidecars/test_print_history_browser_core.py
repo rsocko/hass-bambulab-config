@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 
-from print_history_browser_core import activity_metric_total_labels, option_sets, project_archive, query_archives  # noqa: E402
+from print_history_browser_core import option_sets, project_archive, query_archives  # noqa: E402
 
 
 def _projected_archives() -> list[dict]:
@@ -212,17 +212,6 @@ def test_query_archives_uses_note_payload_names_when_slot_names_blank() -> None:
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
 
 
-def test_activity_metric_total_labels_use_kg_for_large_filament_totals() -> None:
-    label, compact = activity_metric_total_labels(
-        [
-            {"filament_used_grams": 999.9},
-            {"filament_used_grams": 20.1},
-        ],
-        "Filament Weight",
-    )
-
-    assert label == "1.02 kg"
-    assert compact == "1.02 kg"
 
 
 def test_query_archives_search_matches_archive_ids_and_operational_fields() -> None:
