@@ -13,6 +13,7 @@ try:
     from .query import (
         QueryResult,
         active_filters,
+        activity_filament_weight_total_labels,
         archive_date_key,
         as_float,
         as_int,
@@ -32,6 +33,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
     from query import (
         QueryResult,
         active_filters,
+        activity_filament_weight_total_labels,
         archive_date_key,
         as_float,
         as_int,
@@ -1543,8 +1545,7 @@ class PrintHistoryStore:
 
     def _metric_total_labels(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
         if activity_mode == "Filament Weight":
-            total = f"{sum(row['filament_used_grams'] for row in metric_rows):,.1f} g"
-            return total, total
+            return activity_filament_weight_total_labels(sum(row["filament_used_grams"] for row in metric_rows))
         if activity_mode == "Number of Printed Objects":
             total_objects = sum(row["object_count"] for row in metric_rows)
             return f"{total_objects:,} objects", f"{total_objects:,}"

@@ -980,6 +980,91 @@ def test_variant3_store_uses_effective_duration_for_failed_archive_sort_and_outp
     assert result.activity_metric_total_label == "0.5 h"
 
 
+def test_variant3_store_activity_metric_total_uses_kg_for_large_filament_totals(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = [
+        project_archive(
+            {
+                "id": 401,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Large Weight Print",
+                "actual_time_seconds": 1800,
+                "print_time_seconds": 1800,
+                "filament_used_grams": 1000.0,
+                "filament_type": "PLA",
+                "filament_color": "#123456",
+                "status": "completed",
+                "started_at": "2026-04-10T10:00:00Z",
+                "completed_at": "2026-04-10T10:30:00Z",
+                "created_at": "2026-04-10T10:00:00Z",
+                "cost": 12.34,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": False,
+                "tags": "",
+                "notes": "",
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+        project_archive(
+            {
+                "id": 402,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Top Off Print",
+                "actual_time_seconds": 900,
+                "print_time_seconds": 900,
+                "filament_used_grams": 15.0,
+                "filament_type": "PLA",
+                "filament_color": "#654321",
+                "status": "completed",
+                "started_at": "2026-04-11T10:00:00Z",
+                "completed_at": "2026-04-11T10:15:00Z",
+                "created_at": "2026-04-11T10:00:00Z",
+                "cost": 0.5,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": False,
+                "tags": "",
+                "notes": "",
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+    ]
+    store.replace_archives(archives)
+
+    result = store.load_query_result(
+        {
+            "input_select.print_history_filter_status": "All",
+            "input_select.print_history_filter_enrichment_status": "All",
+            "input_select.print_history_filter_material": "All",
+            "input_select.print_history_filter_printer": "All",
+            "input_select.print_history_filter_date_range": "All Time",
+            "input_select.print_history_filter_designer": "All",
+            "input_select.print_history_filter_project": "All",
+            "input_select.print_history_filter_layer_height": "All",
+            "input_select.print_history_filter_tag": "All",
+            "input_boolean.print_history_filter_favorites_only": "off",
+            "input_text.print_history_search": "",
+            "input_text.print_history_filter_colors": "",
+            "input_text.print_history_activity_selected_date": "",
+            "input_select.print_history_sort": "Date (Newest)",
+            "input_select.print_history_activity_metric": "Filament Weight",
+            "input_number.print_history_page_size": "10",
+            "input_number.history_current_page": "1",
+        }
+    )
+
+    assert result.activity_metric_total_label == "1.01 kg"
+    assert result.activity_metric_total_compact_label == "1.01 kg"
+
+
 def test_variant3_store_selected_day_uses_shared_local_day_projection(tmp_path: Path, monkeypatch) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

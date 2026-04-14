@@ -665,10 +665,20 @@ def activity_day_labels(active_day_count: int) -> tuple[str, str]:
     )
 
 
+def activity_filament_weight_total_labels(total_grams: float) -> tuple[str, str]:
+    total_grams = as_float(total_grams)
+    if total_grams >= 1000:
+        total = f"{total_grams / 1000:,.2f} kg"
+        return total, total
+    total = f"{total_grams:,.1f} g"
+    return total, total
+
+
 def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
     if activity_mode == "Filament Weight":
-        total = f"{sum(as_float(archive.get('filament_used_grams')) for archive in sorted_matches):,.1f} g"
-        return total, total
+        return activity_filament_weight_total_labels(
+            sum(as_float(archive.get("filament_used_grams")) for archive in sorted_matches)
+        )
     if activity_mode == "Number of Printed Objects":
         total_objects = sum(as_int(archive.get("object_count"), 1) for archive in sorted_matches)
         return f"{total_objects:,} objects", f"{total_objects:,}"

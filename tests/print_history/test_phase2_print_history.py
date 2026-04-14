@@ -853,6 +853,12 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("this._buildChipHtml(this._formatCount(activeDays) + \" active days\")", content)
         self.assertIn("this._formatCount(day.count) + (day.count === 1 ? \" print\" : \" prints\")", content)
 
+    def test_activity_panel_switches_filament_weight_icon_to_kg_when_needed(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "dashboard_cards" / "print_history_activity_panel.yaml").read_text("utf-8")
+        self.assertIn("activity_metric_total_label", content)
+        self.assertIn("totalLabel.endsWith('kg')", content)
+        self.assertIn("return 'mdi:weight-kilogram';", content)
+
 
 # =============================================================================
 # 9. SCRIPT VALIDATION

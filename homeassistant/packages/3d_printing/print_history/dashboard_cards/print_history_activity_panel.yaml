@@ -46,6 +46,9 @@ cards:
           icon: >-
             ${(() => {
               const mode = states['input_select.print_history_activity_metric']?.state || 'Print Count';
+              const totalLabel = String(
+                states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.activity_metric_total_label || ''
+              ).trim();
               const icons = {
                 'Print Count': 'mdi:counter',
                 'Filament Weight': 'mdi:weight-gram',
@@ -56,6 +59,9 @@ cards:
                 'Filaments Used': 'mdi:palette-swatch-outline',
                 'Total Time Printing': 'mdi:timer-outline',
               };
+              if (mode === 'Filament Weight' && totalLabel.endsWith('kg')) {
+                return 'mdi:weight-kilogram';
+              }
               return icons[mode] || 'mdi:counter';
             })()}
           show_icon: true
