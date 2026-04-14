@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
 from typing import Any
 
 import voluptuous as vol
@@ -175,7 +176,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     ) -> None:
         try:
             entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
-            response = manager.build_query_response(_strip_entry_id(msg))
+            response = manager.build_query_response(_strip_entry_id(msg), source="websocket")
             response[CONF_ENTRY_ID] = entry_id
         except HomeAssistantError as err:
             connection.send_error(msg["id"], "query_failed", str(err))
@@ -200,7 +201,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def async_handle_query(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
-        response = manager.build_query_response({key: value for key, value in call.data.items() if key != CONF_ENTRY_ID})
+        response = manager.build_query_response(
+            {key: value for key, value in call.data.items() if key != CONF_ENTRY_ID},
+            source="service",
+        )
         response[CONF_ENTRY_ID] = entry_id
         return response
 
@@ -243,6 +247,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         mismatch_flags = call.data.get("mismatch_flags", "")
         if isinstance(mismatch_flags, list):
             mismatch_flags = ",".join(str(item).strip() for item in mismatch_flags if str(item).strip())
+        started = perf_counter()
         try:
             await hass.async_add_executor_job(
                 lambda: manager.store.upsert_review_state(
@@ -255,6 +260,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
         except ValueError as error:
             raise HomeAssistantError(str(error)) from error
+        manager.record_mutation(
+            operation="set_review_state",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={"review_status": str(call.data["review_status"]), "mismatch_flags": str(mismatch_flags)},
+        )
         manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
@@ -267,6 +278,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
         related_archive_id = int(call.data[CONF_RELATED_ARCHIVE_ID])
+        started = perf_counter()
         try:
             await hass.async_add_executor_job(
                 lambda: manager.store.upsert_repair_lineage(
@@ -290,6 +302,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             },
             notify=False,
         )
+        manager.record_mutation(
+            operation="set_repair_lineage",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={"related_archive_id": related_archive_id, "relation_type": str(call.data[CONF_RELATION_TYPE])},
+        )
         manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
@@ -302,6 +320,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
         related_archive_id = int(call.data[CONF_RELATED_ARCHIVE_ID])
+        started = perf_counter()
         try:
             deleted = await hass.async_add_executor_job(
                 manager.store.delete_repair_lineage,
@@ -311,6 +330,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
         except ValueError as error:
             raise HomeAssistantError(str(error)) from error
+        manager.record_mutation(
+            operation="delete_repair_lineage",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "related_archive_id": related_archive_id,
+                "relation_type": str(call.data[CONF_RELATION_TYPE]),
+                "deleted": deleted,
+            },
+        )
         manager._notify_listeners()
         return {
             CONF_ENTRY_ID: entry_id,

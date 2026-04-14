@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from datetime import timedelta
 import logging
 from pathlib import Path
@@ -34,6 +35,11 @@ from .print_history.store import PrintHistoryStore
 
 
 _LOGGER = logging.getLogger(__name__)
+
+SLOW_QUERY_THRESHOLD_MS = 500.0
+SLOW_RECOMPUTE_THRESHOLD_MS = 250.0
+SLOW_MUTATION_THRESHOLD_MS = 200.0
+RECENT_OPERATION_LIMIT = 15
 
 EVENT_LABELS = {
     "print_started": "Print started",
@@ -109,12 +115,46 @@ class PrintHistoryBrowserManager:
         self._unsubscribers: list[Callable[[], None]] = []
         self._refresh_lock = asyncio.Lock()
         self._store_unavailable_until = None
+        self.query_stats: dict[str, Any] = {
+            "count": 0,
+            "slow_count": 0,
+            "last_source": "",
+            "last_total_ms": 0.0,
+            "last_query_ms": 0.0,
+            "last_annotations_ms": 0.0,
+            "last_activity_rows_ms": 0.0,
+            "last_filtered_count": 0,
+            "last_page_item_count": 0,
+            "last_activity_row_count": 0,
+            "last_include_activity_rows": False,
+            "last_timestamp": "",
+            "max_total_ms": 0.0,
+        }
+        self.recompute_stats: dict[str, Any] = {
+            "count": 0,
+            "slow_count": 0,
+            "last_reason": "",
+            "last_duration_ms": 0.0,
+            "last_changed": False,
+            "last_timestamp": "",
+            "max_duration_ms": 0.0,
+        }
+        self.mutation_stats: dict[str, Any] = {
+            "count": 0,
+            "slow_count": 0,
+            "last_operation": "",
+            "last_archive_id": 0,
+            "last_duration_ms": 0.0,
+            "last_timestamp": "",
+            "max_duration_ms": 0.0,
+        }
+        self._recent_operations: deque[dict[str, Any]] = deque(maxlen=RECENT_OPERATION_LIMIT)
 
     async def async_initialize(self) -> None:
         await self.hass.async_add_executor_job(self.store.initialize)
         _LOGGER.info("Initialized Bambuddy local store at %s", self.store._db_path)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-        if self._recompute_query():
+        if self._recompute_query("initialize"):
             self.browser_revision += 1
 
         self._unsubscribers.append(
@@ -265,7 +305,7 @@ class PrintHistoryBrowserManager:
                 self.last_refresh = dt_util.utcnow().isoformat()
                 self.last_error = ""
                 self._store_unavailable_until = None
-                query_changed = self._recompute_query()
+                query_changed = self._recompute_query(f"refresh:{reason}")
                 if archives_changed or query_changed:
                     self.browser_revision += 1
                 await self._async_sync_options()
@@ -286,7 +326,7 @@ class PrintHistoryBrowserManager:
 
             self._notify_listeners()
 
-    def build_query_response(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    def build_query_response(self, overrides: dict[str, Any] | None = None, *, source: str = "unknown") -> dict[str, Any]:
         merged_overrides = dict(overrides or {})
         include_activity_rows = bool(merged_overrides.pop("include_activity_rows", False))
         states = self._merged_state_snapshot(merged_overrides)
@@ -346,6 +386,19 @@ class PrintHistoryBrowserManager:
                 "activity_row_count": activity_row_count,
                 "timestamp": dt_util.utcnow().isoformat(),
             }
+
+        total_ms = round((perf_counter() - total_started) * 1000, 1)
+        self._record_query_stats(
+            source=source,
+            total_ms=total_ms,
+            query_ms=query_ms,
+            annotations_ms=annotations_ms,
+            activity_rows_ms=activity_rows_ms,
+            filtered_count=result.filtered_count,
+            page_item_count=len(result.page_items),
+            activity_row_count=activity_row_count,
+            include_activity_rows=include_activity_rows,
+        )
         return response
 
     def build_archive_detail_response(self, archive_id: int) -> dict[str, Any] | None:
@@ -375,6 +428,7 @@ class PrintHistoryBrowserManager:
         event_key: str | None = None,
         notify: bool = True,
     ) -> dict[str, Any]:
+        started = perf_counter()
         recorded = await self.hass.async_add_executor_job(
             lambda: self.store.append_archive_event(
                 archive_id,
@@ -386,6 +440,16 @@ class PrintHistoryBrowserManager:
                 derived_from=derived_from,
                 event_key=event_key,
             )
+        )
+        self._record_mutation_stats(
+            operation="append_event",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "event_type": event_type,
+                "event_source": event_source,
+                "event_status": event_status,
+            },
         )
         if notify:
             self._notify_listeners()
@@ -412,6 +476,10 @@ class PrintHistoryBrowserManager:
                 "total_pages": self.result.total_pages,
                 "current_page": self.result.current_page,
             },
+            "query_stats": dict(self.query_stats),
+            "recompute_stats": dict(self.recompute_stats),
+            "mutation_stats": dict(self.mutation_stats),
+            "recent_operations": list(self._recent_operations),
             "store": self.store.load_store_stats(),
         }
 
@@ -456,7 +524,8 @@ class PrintHistoryBrowserManager:
             printer_names[printer_id] = printer_name
         return printer_names
 
-    def _recompute_query(self) -> bool:
+    def _recompute_query(self, reason: str = "internal") -> bool:
+        started = perf_counter()
         next_result = self.store.load_query_result(self._state_snapshot())
         next_activity_summary = self.store.load_activity_summary()
         changed = next_result != self.result or next_activity_summary != self.activity_summary
@@ -464,6 +533,11 @@ class PrintHistoryBrowserManager:
         self.activity_summary = next_activity_summary
         if changed:
             self.loaded_at = dt_util.utcnow().isoformat()
+        self._record_recompute_stats(
+            reason=reason,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            changed=changed,
+        )
         return changed
 
     def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
@@ -507,7 +581,7 @@ class PrintHistoryBrowserManager:
         if entity_id in OPTION_SET_HELPERS and self.archives:
             self.hass.async_create_task(self._async_sync_options())
 
-        if self._recompute_query():
+        if self._recompute_query(f"state:{entity_id}"):
             self.browser_revision += 1
         self._notify_listeners()
 
@@ -528,6 +602,138 @@ class PrintHistoryBrowserManager:
     def _notify_listeners(self) -> None:
         for listener in list(self._listeners):
             listener()
+
+    def _record_query_stats(
+        self,
+        *,
+        source: str,
+        total_ms: float,
+        query_ms: float,
+        annotations_ms: float,
+        activity_rows_ms: float,
+        filtered_count: int,
+        page_item_count: int,
+        activity_row_count: int,
+        include_activity_rows: bool,
+    ) -> None:
+        timestamp = dt_util.utcnow().isoformat()
+        self.query_stats["count"] += 1
+        self.query_stats["last_source"] = source
+        self.query_stats["last_total_ms"] = total_ms
+        self.query_stats["last_query_ms"] = query_ms
+        self.query_stats["last_annotations_ms"] = annotations_ms
+        self.query_stats["last_activity_rows_ms"] = activity_rows_ms
+        self.query_stats["last_filtered_count"] = filtered_count
+        self.query_stats["last_page_item_count"] = page_item_count
+        self.query_stats["last_activity_row_count"] = activity_row_count
+        self.query_stats["last_include_activity_rows"] = include_activity_rows
+        self.query_stats["last_timestamp"] = timestamp
+        self.query_stats["max_total_ms"] = max(float(self.query_stats["max_total_ms"]), total_ms)
+        slow = total_ms >= SLOW_QUERY_THRESHOLD_MS
+        if slow:
+            self.query_stats["slow_count"] += 1
+            _LOGGER.warning(
+                "Slow Bambuddy query: source=%s total_ms=%s filtered=%s page_items=%s activity_rows=%s include_activity_rows=%s",
+                source,
+                total_ms,
+                filtered_count,
+                page_item_count,
+                activity_row_count,
+                include_activity_rows,
+            )
+        self._recent_operations.appendleft(
+            {
+                "type": "query",
+                "source": source,
+                "duration_ms": total_ms,
+                "filtered_count": filtered_count,
+                "page_item_count": page_item_count,
+                "activity_row_count": activity_row_count,
+                "include_activity_rows": include_activity_rows,
+                "slow": slow,
+                "timestamp": timestamp,
+            }
+        )
+
+    def _record_recompute_stats(self, *, reason: str, duration_ms: float, changed: bool) -> None:
+        timestamp = dt_util.utcnow().isoformat()
+        self.recompute_stats["count"] += 1
+        self.recompute_stats["last_reason"] = reason
+        self.recompute_stats["last_duration_ms"] = duration_ms
+        self.recompute_stats["last_changed"] = changed
+        self.recompute_stats["last_timestamp"] = timestamp
+        self.recompute_stats["max_duration_ms"] = max(float(self.recompute_stats["max_duration_ms"]), duration_ms)
+        slow = duration_ms >= SLOW_RECOMPUTE_THRESHOLD_MS
+        if slow:
+            self.recompute_stats["slow_count"] += 1
+            _LOGGER.warning(
+                "Slow Bambuddy recompute: reason=%s duration_ms=%s changed=%s",
+                reason,
+                duration_ms,
+                changed,
+            )
+        self._recent_operations.appendleft(
+            {
+                "type": "recompute",
+                "reason": reason,
+                "duration_ms": duration_ms,
+                "changed": changed,
+                "slow": slow,
+                "timestamp": timestamp,
+            }
+        )
+
+    def _record_mutation_stats(
+        self,
+        *,
+        operation: str,
+        archive_id: int,
+        duration_ms: float,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        timestamp = dt_util.utcnow().isoformat()
+        self.mutation_stats["count"] += 1
+        self.mutation_stats["last_operation"] = operation
+        self.mutation_stats["last_archive_id"] = archive_id
+        self.mutation_stats["last_duration_ms"] = duration_ms
+        self.mutation_stats["last_timestamp"] = timestamp
+        self.mutation_stats["max_duration_ms"] = max(float(self.mutation_stats["max_duration_ms"]), duration_ms)
+        slow = duration_ms >= SLOW_MUTATION_THRESHOLD_MS
+        if slow:
+            self.mutation_stats["slow_count"] += 1
+            _LOGGER.warning(
+                "Slow Bambuddy mutation: operation=%s archive_id=%s duration_ms=%s details=%s",
+                operation,
+                archive_id,
+                duration_ms,
+                details or {},
+            )
+        entry = {
+            "type": "mutation",
+            "operation": operation,
+            "archive_id": archive_id,
+            "duration_ms": duration_ms,
+            "slow": slow,
+            "timestamp": timestamp,
+        }
+        if details:
+            entry["details"] = details
+        self._recent_operations.appendleft(entry)
+
+    def record_mutation(
+        self,
+        *,
+        operation: str,
+        archive_id: int,
+        duration_ms: float,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self._record_mutation_stats(
+            operation=operation,
+            archive_id=archive_id,
+            duration_ms=duration_ms,
+            details=details,
+        )
 
     def _normalized_event_timeline(self, archive_id: int) -> list[dict[str, Any]]:
         timeline = self.store.load_archive_event_timeline(archive_id)
