@@ -33,8 +33,44 @@
     # API format puts details inside a `data` object; notification format is flat.
     - variables:
         is_api_format: "{{ trigger.json.data is defined and trigger.json.data is mapping }}"
+        raw_event_name: >-
+          {% if trigger.json.event is defined and trigger.json.event not in ['', none] %}
+            {{ trigger.json.event }}
+          {% elif is_api_format and trigger.json.data.event is defined and trigger.json.data.event not in ['', none] %}
+            {{ trigger.json.data.event }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
+        generic_title: "{{ trigger.json.title | default('', true) | string | trim }}"
+        generic_message: "{{ trigger.json.message | default('', true) | string | trim }}"
+        generic_source: "{{ trigger.json.source | default('', true) | string | trim }}"
+        generic_text: >-
+          {{ (generic_title ~ ' ' ~ generic_message) | lower | trim }}
         event_name: >-
-          {{ trigger.json.event | default('unknown') }}
+          {% set raw = raw_event_name | string | lower | trim %}
+          {% if raw in ['print_complete', 'print_completed', 'print_finished', 'print_finish', 'print_done'] %}
+            print_complete
+          {% elif raw in ['print_failed', 'print_failure', 'print_error'] %}
+            print_failed
+          {% elif raw in ['print_stopped', 'print_stop', 'print_cancelled', 'print_canceled'] %}
+            print_stopped
+          {% elif raw in ['print_started', 'print_start'] %}
+            print_started
+          {% elif raw == 'queue_ready' %}
+            queue_ready
+          {% elif 'print started' in generic_text or 'started printing' in generic_text %}
+            print_started
+          {% elif 'print complete' in generic_text or 'print completed' in generic_text or 'print finished' in generic_text or 'has finished printing' in generic_text %}
+            print_complete
+          {% elif 'print failed' in generic_text or 'failed printing' in generic_text or 'encountered an error during' in generic_text %}
+            print_failed
+          {% elif 'print stopped' in generic_text or 'print cancelled' in generic_text or 'print canceled' in generic_text or 'stopped printing' in generic_text %}
+            print_stopped
+          {% elif 'queue ready' in generic_text %}
+            queue_ready
+          {% else %}
+            unknown
+          {% endif %}
         archive_id: >-
           {% if is_api_format %}
             {{ trigger.json.data.archive_id | default('') }}
@@ -44,14 +80,20 @@
         print_name: >-
           {% if is_api_format %}
             {{ trigger.json.data.print_name | default(trigger.json.data.name, true) | default('') }}
+          {% elif trigger.json.print_name is defined and trigger.json.print_name not in ['', none] %}
+            {{ trigger.json.print_name }}
+          {% elif trigger.json.task_name is defined and trigger.json.task_name not in ['', none] %}
+            {{ trigger.json.task_name }}
           {% else %}
-            {{ trigger.json.print_name | default('') }}
+            {{ '' }}
           {% endif %}
         printer_name: >-
           {% if is_api_format %}
             {{ trigger.json.data.printer_name | default('') }}
+          {% elif trigger.json.printer_name is defined and trigger.json.printer_name not in ['', none] %}
+            {{ trigger.json.printer_name }}
           {% else %}
-            {{ trigger.json.printer_name | default('') }}
+            {{ generic_source }}
           {% endif %}
         status: >-
           {% if is_api_format %}
@@ -82,6 +124,8 @@
         printer_name: "{{ printer_name }}"
         printer_id: "{{ printer_id }}"
         status: "{{ status }}"
+        raw_title: "{{ generic_title }}"
+        raw_message: "{{ generic_message }}"
         raw_payload: "{{ trigger.json }}"
 
   mode: queued

@@ -35,11 +35,11 @@ capture_and_upload_snapshot:
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
 
     - variables:
-        configured_cameras_json: >-
+        configured_cameras: >-
           {% set raw = configured_cameras_raw | trim %}
           {% set ns = namespace(items=[]) %}
           {% if raw in ['', 'unknown', 'unavailable', 'None', 'none'] %}
-            {{ [default_camera] | to_json }}
+            {{ [default_camera] | tojson | from_json([]) }}
           {% else %}
             {% for token in raw.split(',') %}
               {% set camera = token | string | trim %}
@@ -47,14 +47,14 @@ capture_and_upload_snapshot:
                 {% set ns.items = ns.items + [camera] %}
               {% endif %}
             {% endfor %}
-            {{ ns.items | to_json }}
+            {{ ns.items | tojson | from_json([]) }}
           {% endif %}
         camera_selection_mode: >-
           {% if configured_cameras_raw in ['', 'unknown', 'unavailable', 'None', 'none'] %}default_bambu
           {% else %}custom
           {% endif %}
-        active_cameras_json: >-
-          {% set configured = configured_cameras_json | from_json %}
+        active_cameras: >-
+          {% set configured = configured_cameras if configured_cameras is sequence else [] %}
           {% set ns = namespace(items=[]) %}
           {% for camera in configured %}
             {% set camera_state = states(camera) %}
@@ -64,9 +64,9 @@ capture_and_upload_snapshot:
               {% set ns.items = ns.items + [camera] %}
             {% endif %}
           {% endfor %}
-          {{ ns.items | to_json }}
-        configured_camera_count: "{{ configured_cameras_json | from_json | count }}"
-        active_camera_count: "{{ active_cameras_json | from_json | count }}"
+          {{ ns.items | tojson | from_json([]) }}
+        configured_camera_count: "{{ configured_cameras | count }}"
+        active_camera_count: "{{ active_cameras | count }}"
         has_capture_cameras: "{{ active_camera_count | int(0) > 0 }}"
         has_light: >-
           {{ snapshot_light not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
@@ -89,7 +89,8 @@ capture_and_upload_snapshot:
             seconds: 1
 
     - variables:
-        camera_results_json: "[]"
+      camera_results: >-
+        {{ [] | tojson | from_json([]) }}
 
     # --- Capture configured cameras ---
     - if:
@@ -97,7 +98,7 @@ capture_and_upload_snapshot:
           value_template: "{{ has_capture_cameras }}"
       then:
         - repeat:
-            for_each: "{{ active_cameras_json | from_json }}"
+            for_each: "{{ active_cameras }}"
             sequence:
               - variables:
                   camera_entity: "{{ repeat.item }}"
@@ -113,13 +114,13 @@ capture_and_upload_snapshot:
                 target:
                   entity_id: counter.bambuddy_captured_photo_count
               - variables:
-                  camera_results_json: >-
-                    {% set captures = camera_results_json | default('[]') | from_json %}
+                  camera_results: >-
+                    {% set captures = camera_results if camera_results is sequence else [] %}
                     {{ (captures + [{
                       'camera': camera_entity,
                       'filename': camera_filename,
                       'file_path': camera_file_path
-                    }]) | to_json }}
+                    }]) | tojson | from_json([]) }}
 
     # --- Turn off snapshot light ---
     - if:
@@ -239,12 +240,12 @@ capture_and_upload_snapshot:
           {{ archive_id if resolved_archive_present else 'missing' }}
 
     - variables:
-        captured_camera_count: "{{ camera_results_json | from_json | count }}"
+        captured_camera_count: "{{ camera_results | count }}"
         has_captured_photos: "{{ captured_camera_count | int(0) > 0 }}"
-        camera_upload_results_json: >-
-          {% set captures = camera_results_json | from_json %}
+        camera_upload_results: >-
+          {% set captures = camera_results if camera_results is sequence else [] %}
           {% if has_archive_id %}
-            []
+            {{ [] | tojson | from_json([]) }}
           {% else %}
             {% set ns = namespace(items=[]) %}
             {% for capture in captures %}
@@ -255,7 +256,7 @@ capture_and_upload_snapshot:
                 'upload_status': archive_lookup_status
               }] %}
             {% endfor %}
-            {{ ns.items | to_json }}
+            {{ ns.items | tojson | from_json([]) }}
           {% endif %}
 
     # --- Upload each captured snapshot and verify via archive detail ---
@@ -264,7 +265,7 @@ capture_and_upload_snapshot:
           value_template: "{{ has_archive_id and has_captured_photos }}"
       then:
         - repeat:
-            for_each: "{{ camera_results_json | from_json }}"
+            for_each: "{{ camera_results }}"
             sequence:
               - variables:
                   camera_entity: "{{ repeat.item.camera }}"
@@ -303,18 +304,18 @@ capture_and_upload_snapshot:
                     {% if upload_after_count | int(0) > upload_before_count | int(0) %}verified
                     {% else %}unverified
                     {% endif %}
-                  camera_upload_results_json: >-
-                    {% set uploads = camera_upload_results_json | default('[]') | from_json %}
+                  camera_upload_results: >-
+                    {% set uploads = camera_upload_results if camera_upload_results is sequence else [] %}
                     {{ (uploads + [{
                       'camera': camera_entity,
                       'filename': camera_filename,
                       'file_path': camera_file_path,
                       'upload_status': upload_status
-                    }]) | to_json }}
+                    }]) | tojson | from_json([]) }}
 
     - variables:
         verified_upload_count: >-
-          {{ camera_upload_results_json | from_json
+          {{ camera_upload_results
              | selectattr('upload_status', 'eq', 'verified') | list | count }}
         upload_status_summary: >-
           {% if not has_captured_photos %}no_photos_captured
@@ -324,7 +325,7 @@ capture_and_upload_snapshot:
           {% else %}unverified
           {% endif %}
         captured_filenames: >-
-          {% set captures = camera_results_json | from_json %}
+          {% set captures = camera_results if camera_results is sequence else [] %}
           {{ captures | map(attribute='filename') | list | join(', ') }}
         upload_result_summary: >-
           stage={{ stage }} archive={{ archive_display_id }} archive_status={{ archive_lookup_status }}
