@@ -5,6 +5,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 
 ## Key Features
 - **Backup/restore support**: If Home Assistant restarts during a print, the automation falls back to a backed-up snapshot of print weight attributes (captured after printer status reaches `running`, with wait/retry for MQTT tray data) so Spoolman is still updated correctly. See [Print Weight Persistence](print-weight-persistence.md) for details.
+- **Guarded native print-status fallback**: If the Bambu device `print_finished` event is missed, the automation can still run from a `print_status` transition to `finish`/`failed`/`idle`/`offline`. This fallback only runs when the printer transitioned from an active print state and there is usable live tray data or a valid backup payload. It does not rely on a fixed maximum print duration.
 - **Multi-AMS tray mapping**: Dynamically resolves AMS tray entities from the reported tray label (e.g., `AMS 2 Tray 3` → `sensor.[printer]_ams_2_tray_3`) so AMS2+ usage updates the correct spool.
 - **Runout/swap safety guard**: If an AMS tray UUID is missing at print completion (common after runout or spool swap), the automation skips automatic decrement for that tray to avoid updating the wrong spool.
 - **External Spool support**: Handles filament usage for AMS trays and one external spool entity (`sensor.ntk_ryansoffice_3dprinter_external_spool`). The `print_weight` sensor reports external spool usage as `External Spool: <weight>` when the external spool is active.
@@ -34,6 +35,7 @@ This Home Assistant automation triggers upon a successful completion of a print 
 - The automation now parses the AMS index from tray labels (for example `AMS 1 Tray 2`, `AMS 2 Tray 2`) instead of hardcoding AMS 1 tray entities.
 - Matching now uses `sensor.spoolman_tray_map` as the shared source of truth.
 - Sealed spools are intentionally excluded from template matching (same behavior used by this automation through tray_map).
+- The status fallback is intentionally guarded by print-context validation rather than a blanket age cutoff. The automation still validates backup task name and total print weight before using backup data, which is the actual protection against stale payloads.
 - This automation remains the recommended authority for successful-print
 	decrements even if a future Bambuddy hybrid partial-usage fallback is added.
 	See [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md).

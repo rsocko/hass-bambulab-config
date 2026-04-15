@@ -41,8 +41,10 @@
   # Determine which data source to use
   - variables:
       trigger_id: "{{ trigger.id | default('unknown', true) }}"
-      trigger_from_status: "{{ trigger.from_state.state | string | lower if trigger.from_state is not none else '' }}"
-      trigger_to_status: "{{ trigger.to_state.state | string | lower if trigger.to_state is not none else '' }}"
+      trigger_from_state_obj: "{{ trigger.get('from_state') if trigger is mapping else none }}"
+      trigger_to_state_obj: "{{ trigger.get('to_state') if trigger is mapping else none }}"
+      trigger_from_status: "{{ trigger_from_state_obj.state | string | lower if trigger_from_state_obj is not none else '' }}"
+      trigger_to_status: "{{ trigger_to_state_obj.state | string | lower if trigger_to_state_obj is not none else '' }}"
       task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
       current_total_weight_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string }}"
       current_has_attributes: >-
@@ -77,21 +79,22 @@
         {{
           status_fallback_trigger and
           trigger_from_status in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] and
-          backup_present and
-          backup_metadata_valid and
-          backup_age_seconds <= 21600
+          (
+            current_has_attributes or
+            (backup_present and backup_metadata_valid)
+          )
         }}
       status_fallback_skip_reason: >-
         {% if not status_fallback_trigger %}
           not_status_trigger
         {% elif trigger_from_status not in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] %}
           from_state_not_active
+        {% elif current_has_attributes %}
+          ok
         {% elif not backup_present %}
           backup_missing
         {% elif not backup_metadata_valid %}
           backup_metadata_invalid
-        {% elif backup_age_seconds > 21600 %}
-          backup_too_old
         {% else %}
           ok
         {% endif %}
@@ -142,7 +145,9 @@
             Print Complete: Ignoring status fallback trigger {{ trigger_id }}.
             Reason={{ status_fallback_skip_reason }}, from={{ trigger_from_status }},
             to={{ trigger_to_status }}, backup_present={{ backup_present }},
-            backup_metadata_valid={{ backup_metadata_valid }}.
+            backup_metadata_valid={{ backup_metadata_valid }},
+            current_has_attributes={{ current_has_attributes }},
+            backup_age_seconds={{ backup_age_seconds | round(0) }}.
           level: info
           logger: homeassistant.components.bambulab.spoolman_sync
       - stop: Status fallback ignored.
