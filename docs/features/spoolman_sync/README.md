@@ -183,6 +183,23 @@ Current rollout state remains intentionally conservative:
 - the consume endpoint is implemented for a later apply phase, not yet used by
   the HA automation
 
+### 12. Missed successful-print recovery design
+
+Design note for recovering successful prints that finished normally but did not
+decrement Spoolman due to a missed or skipped completion path.
+
+This recovery capability is intentionally scoped to the `spoolman_sync` feature
+set because `spoolman_sync` remains the authoritative success-path writer to
+Spoolman.
+
+The design is split into two phases:
+
+- Phase 1: a narrow dry-run/apply recovery service for one targeted print
+- Phase 2: a fuller scan, review, and apply workflow with replay protection and
+  candidate management
+
+- [Missed Successful-Print Recovery Design](missed-print-recovery-design.md)
+
 ### External Spool Assumption
 Current default logic assumes a single external spool entity:
 
