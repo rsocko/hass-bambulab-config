@@ -487,6 +487,23 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
     assert sync["payload_hash"]
 
 
+def test_variant3_store_fast_unchanged_sync_skips_second_serialization(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+
+    archives = _projected_archives()
+    first = store.replace_archives(archives)
+    second = store.replace_archives(archives)
+
+    assert first["serialized_count"] == len(archives)
+    assert first["fast_unchanged_count"] == 0
+    assert second["inserted_count"] == 0
+    assert second["updated_count"] == 0
+    assert second["unchanged_count"] == len(archives)
+    assert second["fast_unchanged_count"] == len(archives)
+    assert second["serialized_count"] == 0
+
+
 def test_variant3_store_preserves_archive_error_projection_fields(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()
@@ -768,6 +785,41 @@ def test_variant3_store_query_matches_python_contract_across_filters(tmp_path: P
     assert actual.activity_metric_total_compact_label == expected.activity_metric_total_compact_label
     assert actual.available_colors == expected.available_colors
     assert actual.available_color_tooltips == expected.available_color_tooltips
+
+
+def test_variant3_store_query_result_details_report_matching_and_metric_counts(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = _projected_archives()
+    store.replace_archives(archives)
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Filament Weight",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result, details = store.load_query_result_details(states)
+
+    assert result.filtered_count == 2
+    assert details["matching_archive_count"] == 2
+    assert details["metric_archive_count"] == 2
+    assert details["page_archive_count"] == 2
+    assert details["metric_aggregate_ms"] >= 0.0
 
 
 def test_variant3_query_activity_metric_total_uses_kg_for_large_filament_totals() -> None:

@@ -111,6 +111,13 @@ class PrintHistoryBrowserManager:
         self.last_refresh_fetch_ms: float = 0.0
         self.last_refresh_store_replace_ms: float = 0.0
         self.last_refresh_store_load_ms: float = 0.0
+        self.last_refresh_store_total_count: int = 0
+        self.last_refresh_store_inserted_count: int = 0
+        self.last_refresh_store_updated_count: int = 0
+        self.last_refresh_store_unchanged_count: int = 0
+        self.last_refresh_store_removed_count: int = 0
+        self.last_refresh_store_fast_unchanged_count: int = 0
+        self.last_refresh_store_serialized_count: int = 0
         self.last_refresh_archive_count: int = 0
         self.last_refresh_printer_count: int = 0
         self._listeners: list[Callable[[], None]] = []
@@ -128,9 +135,12 @@ class PrintHistoryBrowserManager:
             "last_total_ms": 0.0,
             "last_query_ms": 0.0,
             "last_annotations_ms": 0.0,
+            "last_metric_aggregate_ms": 0.0,
             "last_activity_rows_ms": 0.0,
             "last_filtered_count": 0,
+            "last_matching_archive_count": 0,
             "last_page_item_count": 0,
+            "last_metric_archive_count": 0,
             "last_activity_row_count": 0,
             "last_include_activity_rows": False,
             "last_timestamp": "",
@@ -377,11 +387,17 @@ class PrintHistoryBrowserManager:
                 projected = [project_archive(item) for item in enriched_archives]
                 archives_changed = projected != self.archives
                 store_replace_started = perf_counter()
-                await self.hass.async_add_executor_job(self.store.replace_archives, projected)
+                store_replace_result = await self.hass.async_add_executor_job(self.store.replace_archives, projected)
                 self.last_refresh_store_replace_ms = round((perf_counter() - store_replace_started) * 1000, 1)
-                store_load_started = perf_counter()
-                self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-                self.last_refresh_store_load_ms = round((perf_counter() - store_load_started) * 1000, 1)
+                self.last_refresh_store_load_ms = 0.0
+                self.last_refresh_store_total_count = int(store_replace_result.get("total_count", 0))
+                self.last_refresh_store_inserted_count = int(store_replace_result.get("inserted_count", 0))
+                self.last_refresh_store_updated_count = int(store_replace_result.get("updated_count", 0))
+                self.last_refresh_store_unchanged_count = int(store_replace_result.get("unchanged_count", 0))
+                self.last_refresh_store_removed_count = int(store_replace_result.get("removed_count", 0))
+                self.last_refresh_store_fast_unchanged_count = int(store_replace_result.get("fast_unchanged_count", 0))
+                self.last_refresh_store_serialized_count = int(store_replace_result.get("serialized_count", 0))
+                self.archives = projected
                 self.last_refresh_duration_ms = round((perf_counter() - refresh_started) * 1000, 1)
                 self.last_refresh = dt_util.utcnow().isoformat()
                 self.last_error = ""
@@ -416,7 +432,7 @@ class PrintHistoryBrowserManager:
 
         total_started = perf_counter()
         query_started = perf_counter()
-        result = self.store.load_query_result(states)
+        result, query_details = self.store.load_query_result_details(states)
         query_ms = round((perf_counter() - query_started) * 1000, 1)
 
         archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
@@ -460,11 +476,14 @@ class PrintHistoryBrowserManager:
                 "enabled": True,
                 "query_ms": query_ms,
                 "annotations_ms": annotations_ms,
+                "metric_aggregate_ms": float(query_details.get("metric_aggregate_ms", 0.0)),
                 "activity_rows_ms": activity_rows_ms,
                 "total_ms": round((perf_counter() - total_started) * 1000, 1),
                 "include_activity_rows": include_activity_rows,
+                "matching_archive_count": int(query_details.get("matching_archive_count", result.filtered_count)),
                 "page_item_count": len(result.page_items),
                 "filtered_count": result.filtered_count,
+                "metric_archive_count": int(query_details.get("metric_archive_count", result.filtered_count)),
                 "activity_row_count": activity_row_count,
                 "timestamp": dt_util.utcnow().isoformat(),
             }
@@ -475,9 +494,12 @@ class PrintHistoryBrowserManager:
             total_ms=total_ms,
             query_ms=query_ms,
             annotations_ms=annotations_ms,
+            metric_aggregate_ms=float(query_details.get("metric_aggregate_ms", 0.0)),
             activity_rows_ms=activity_rows_ms,
             filtered_count=result.filtered_count,
+            matching_archive_count=int(query_details.get("matching_archive_count", result.filtered_count)),
             page_item_count=len(result.page_items),
+            metric_archive_count=int(query_details.get("metric_archive_count", result.filtered_count)),
             activity_row_count=activity_row_count,
             include_activity_rows=include_activity_rows,
         )
@@ -548,6 +570,13 @@ class PrintHistoryBrowserManager:
             "last_refresh_fetch_ms": self.last_refresh_fetch_ms,
             "last_refresh_store_replace_ms": self.last_refresh_store_replace_ms,
             "last_refresh_store_load_ms": self.last_refresh_store_load_ms,
+            "last_refresh_store_total_count": self.last_refresh_store_total_count,
+            "last_refresh_store_inserted_count": self.last_refresh_store_inserted_count,
+            "last_refresh_store_updated_count": self.last_refresh_store_updated_count,
+            "last_refresh_store_unchanged_count": self.last_refresh_store_unchanged_count,
+            "last_refresh_store_removed_count": self.last_refresh_store_removed_count,
+            "last_refresh_store_fast_unchanged_count": self.last_refresh_store_fast_unchanged_count,
+            "last_refresh_store_serialized_count": self.last_refresh_store_serialized_count,
             "last_refresh_archive_count": self.last_refresh_archive_count,
             "last_refresh_printer_count": self.last_refresh_printer_count,
             "last_error": self.last_error,
@@ -831,9 +860,12 @@ class PrintHistoryBrowserManager:
         total_ms: float,
         query_ms: float,
         annotations_ms: float,
+        metric_aggregate_ms: float,
         activity_rows_ms: float,
         filtered_count: int,
+        matching_archive_count: int,
         page_item_count: int,
+        metric_archive_count: int,
         activity_row_count: int,
         include_activity_rows: bool,
     ) -> None:
@@ -843,9 +875,12 @@ class PrintHistoryBrowserManager:
         self.query_stats["last_total_ms"] = total_ms
         self.query_stats["last_query_ms"] = query_ms
         self.query_stats["last_annotations_ms"] = annotations_ms
+        self.query_stats["last_metric_aggregate_ms"] = metric_aggregate_ms
         self.query_stats["last_activity_rows_ms"] = activity_rows_ms
         self.query_stats["last_filtered_count"] = filtered_count
+        self.query_stats["last_matching_archive_count"] = matching_archive_count
         self.query_stats["last_page_item_count"] = page_item_count
+        self.query_stats["last_metric_archive_count"] = metric_archive_count
         self.query_stats["last_activity_row_count"] = activity_row_count
         self.query_stats["last_include_activity_rows"] = include_activity_rows
         self.query_stats["last_timestamp"] = timestamp
@@ -868,7 +903,10 @@ class PrintHistoryBrowserManager:
                 "source": source,
                 "duration_ms": total_ms,
                 "filtered_count": filtered_count,
+                "matching_archive_count": matching_archive_count,
                 "page_item_count": page_item_count,
+                "metric_archive_count": metric_archive_count,
+                "metric_aggregate_ms": metric_aggregate_ms,
                 "activity_row_count": activity_row_count,
                 "include_activity_rows": include_activity_rows,
                 "slow": slow,

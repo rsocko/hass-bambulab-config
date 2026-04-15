@@ -123,7 +123,10 @@ class BambuddyBrowserSensor(SensorEntity):
                 "query_last_total_ms": self.manager.query_stats.get("last_total_ms", 0.0),
                 "query_max_total_ms": self.manager.query_stats.get("max_total_ms", 0.0),
                 "query_last_filtered_count": self.manager.query_stats.get("last_filtered_count", 0),
+                "query_last_matching_archive_count": self.manager.query_stats.get("last_matching_archive_count", 0),
                 "query_last_page_item_count": self.manager.query_stats.get("last_page_item_count", 0),
+                "query_last_metric_archive_count": self.manager.query_stats.get("last_metric_archive_count", 0),
+                "query_last_metric_aggregate_ms": self.manager.query_stats.get("last_metric_aggregate_ms", 0.0),
                 "query_last_activity_row_count": self.manager.query_stats.get("last_activity_row_count", 0),
                 "query_last_include_activity_rows": self.manager.query_stats.get("last_include_activity_rows", False),
                 "recompute_count": self.manager.recompute_stats.get("count", 0),
@@ -144,6 +147,15 @@ class BambuddyBrowserSensor(SensorEntity):
                 attributes.update(
                     {
                         "debug_enabled": True,
+                        "refresh_store": {
+                            "total_count": self.manager.last_refresh_store_total_count,
+                            "inserted_count": self.manager.last_refresh_store_inserted_count,
+                            "updated_count": self.manager.last_refresh_store_updated_count,
+                            "unchanged_count": self.manager.last_refresh_store_unchanged_count,
+                            "removed_count": self.manager.last_refresh_store_removed_count,
+                            "fast_unchanged_count": self.manager.last_refresh_store_fast_unchanged_count,
+                            "serialized_count": self.manager.last_refresh_store_serialized_count,
+                        },
                         "refresh_scheduler": self.manager._scheduler_diagnostics(
                             self.manager.refresh_scheduler_stats,
                             self.manager._scheduled_refresh_reasons,

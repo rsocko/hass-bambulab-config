@@ -414,6 +414,9 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
     assert response["store"]["archive_count"] == 2
     assert response["query"]["page_info"] == "1 of 1"
     assert manager.query_stats["count"] == 1
+    assert manager.query_stats["last_matching_archive_count"] == 2
+    assert manager.query_stats["last_metric_archive_count"] == 2
+    assert manager.query_stats["last_metric_aggregate_ms"] >= 0.0
     assert manager.query_stats["last_page_item_count"] == 2
     assert manager.diagnostics()["recent_operations"][0]["type"] == "query"
 
@@ -738,6 +741,59 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         if call[2]["entity_id"] == "input_select.print_history_filter_printer"
     )
     assert printer_options == ["All", "Workshop P1S"]
+
+
+def test_variant3_manager_refresh_does_not_reload_archives_from_store(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+
+    FakeApiClient.archives = [
+        {
+            "id": 101,
+            "printer_id": 1,
+            "print_name": "Hueforge Batman",
+            "actual_time_seconds": 14400,
+            "print_time_seconds": 15000,
+            "filament_used_grams": 42.5,
+            "filament_type": "PLA",
+            "filament_color": "#112233,#ffffff",
+            "status": "completed",
+            "started_at": "2026-04-08T10:00:00Z",
+            "completed_at": "2026-04-08T14:00:00Z",
+            "created_at": "2026-04-08T09:58:00Z",
+            "cost": 2.35,
+            "object_count": 2,
+            "layer_height": 0.16,
+            "designer": "Jane",
+            "is_favorite": True,
+            "tags": "display,hueforge,s:123",
+            "notes": "User note",
+            "project_name": "Wall Art",
+        }
+    ]
+    FakeApiClient.printers = [{"id": 1, "name": "Workshop P1S"}]
+
+    original_client = manager_module.BambuddyApiClient
+    original_load_archives = manager.store.load_archives
+    manager_module.BambuddyApiClient = FakeApiClient
+    manager.store.load_archives = lambda: (_ for _ in ()).throw(AssertionError("load_archives should not run during refresh"))
+    try:
+        asyncio.run(manager.async_refresh("test"))
+    finally:
+        manager_module.BambuddyApiClient = original_client
+        manager.store.load_archives = original_load_archives
+
+    assert manager.archives[0]["printer_name"] == "Workshop P1S"
+    assert manager.last_refresh_store_load_ms == 0.0
+    assert manager.last_refresh_store_total_count == 1
 
 
 def test_variant3_manager_refresh_cools_down_after_store_open_failure(tmp_path: Path) -> None:

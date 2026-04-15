@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 import logging
 
@@ -279,9 +280,8 @@ class PrintHistoryStore:
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_event_time ON archive_event_timeline(event_time)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_archive_event_timeline_event_key ON archive_event_timeline(event_key)")
 
-    def replace_archives(self, archives: list[dict[str, Any]]) -> None:
+    def replace_archives(self, archives: list[dict[str, Any]]) -> dict[str, Any]:
         timestamp = datetime.now(timezone.utc).isoformat()
-        prepared_archives = self._prepare_archives_for_sync(archives, timestamp)
         with self._connect() as connection:
             self._ensure_schema(connection)
             existing_rows = connection.execute(
@@ -296,6 +296,7 @@ class PrintHistoryStore:
                 for row in existing_rows
                 if as_int(row[0]) > 0
             }
+            prepared_archives, preparation_stats = self._prepare_archives_for_sync(archives, timestamp, existing_by_id)
 
             incoming_ids = set(prepared_archives)
             existing_ids = set(existing_by_id)
@@ -305,6 +306,9 @@ class PrintHistoryStore:
             updated_count = 0
 
             for archive_id, prepared in prepared_archives.items():
+                if prepared.get("fast_unchanged") is True:
+                    unchanged_ids.append(archive_id)
+                    continue
                 existing = existing_by_id.get(archive_id)
                 if self._archive_matches_existing(prepared, existing):
                     unchanged_ids.append(archive_id)
@@ -326,30 +330,68 @@ class PrintHistoryStore:
             if removed_ids:
                 self._delete_removed_archives(connection, removed_ids)
 
+        stats = {
+            "total_count": len(prepared_archives),
+            "inserted_count": inserted_count,
+            "updated_count": updated_count,
+            "unchanged_count": len(unchanged_ids),
+            "removed_count": len(removed_ids),
+            **preparation_stats,
+        }
         _LOGGER.info(
-            "Delta-synced Bambuddy print history store: total=%s inserted=%s updated=%s unchanged=%s removed=%s",
-            len(prepared_archives),
-            inserted_count,
-            updated_count,
-            len(unchanged_ids),
-            len(removed_ids),
+            "Delta-synced Bambuddy print history store: total=%s inserted=%s updated=%s unchanged=%s removed=%s fast_unchanged=%s serialized=%s",
+            stats["total_count"],
+            stats["inserted_count"],
+            stats["updated_count"],
+            stats["unchanged_count"],
+            stats["removed_count"],
+            stats["fast_unchanged_count"],
+            stats["serialized_count"],
         )
+        return stats
 
-    def _prepare_archives_for_sync(self, archives: list[dict[str, Any]], timestamp: str) -> dict[int, dict[str, Any]]:
+    def _prepare_archives_for_sync(
+        self,
+        archives: list[dict[str, Any]],
+        timestamp: str,
+        existing_by_id: dict[int, dict[str, str]],
+    ) -> tuple[dict[int, dict[str, Any]], dict[str, int]]:
         prepared_archives: dict[int, dict[str, Any]] = {}
+        serialized_count = 0
+        fast_unchanged_count = 0
         for archive in archives:
             archive_id = as_int(archive.get("id"))
             if archive_id <= 0:
                 continue
+            payload_hash = as_text(archive.get("payload_hash")).strip()
+            source_updated_at = as_text(archive.get("source_updated_at")).strip()
+            existing = existing_by_id.get(archive_id)
+            if self._archive_matches_fast(payload_hash, source_updated_at, existing):
+                prepared_archives[archive_id] = {
+                    "archive": archive,
+                    "payload_hash": payload_hash,
+                    "source_updated_at": source_updated_at,
+                    "json_payload": "",
+                    "row": None,
+                    "fast_unchanged": True,
+                }
+                fast_unchanged_count += 1
+                continue
+
             json_payload = json.dumps(archive, separators=(",", ":"), sort_keys=True)
+            serialized_count += 1
             prepared_archives[archive_id] = {
                 "archive": archive,
-                "payload_hash": as_text(archive.get("payload_hash")).strip(),
-                "source_updated_at": as_text(archive.get("source_updated_at")).strip(),
+                "payload_hash": payload_hash,
+                "source_updated_at": source_updated_at,
                 "json_payload": json_payload,
                 "row": self._archive_row(archive, timestamp, json_payload),
+                "fast_unchanged": False,
             }
-        return prepared_archives
+        return prepared_archives, {
+            "serialized_count": serialized_count,
+            "fast_unchanged_count": fast_unchanged_count,
+        }
 
     def _archive_row(self, archive: dict[str, Any], timestamp: str, json_payload: str) -> tuple[Any, ...]:
         return (
@@ -405,6 +447,15 @@ class PrintHistoryStore:
         if existing is None:
             return False
         return existing["json_payload"] == prepared["json_payload"]
+
+    def _archive_matches_fast(self, payload_hash: str, source_updated_at: str, existing: dict[str, str] | None) -> bool:
+        if existing is None or not payload_hash:
+            return False
+        if existing["payload_hash"] != payload_hash:
+            return False
+        if source_updated_at:
+            return existing["source_updated_at"] == source_updated_at
+        return True
 
     def _upsert_archive(self, connection: sqlite3.Connection, row: tuple[Any, ...]) -> None:
         connection.execute(
@@ -583,6 +634,10 @@ class PrintHistoryStore:
         return archives
 
     def load_query_result(self, states: dict[str, str]) -> QueryResult:
+        result, _details = self.load_query_result_details(states)
+        return result
+
+    def load_query_result_details(self, states: dict[str, str]) -> tuple[QueryResult, dict[str, Any]]:
         filters = self._query_filters(states)
         archive_ids = self._matching_archive_ids(filters)
         filtered_count = len(archive_ids)
@@ -592,25 +647,36 @@ class PrintHistoryStore:
         start_index = (current_page - 1) * page_size
         page_ids = archive_ids[start_index : start_index + page_size]
         page_items = self._load_archives_by_ids(page_ids)
-        metric_rows = self._load_metric_rows(archive_ids)
-        active_day_count = len({row["archive_day"] for row in metric_rows if row["archive_day"]})
+        metric_started = perf_counter()
+        metric_aggregates = self._load_metric_aggregates(archive_ids, filters["activity_mode"])
+        metric_aggregate_ms = round((perf_counter() - metric_started) * 1000, 1)
+        active_day_count = metric_aggregates["active_day_count"]
         activity_active_days_label = f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}"
-        activity_metric_total_label, activity_metric_total_compact_label = self._metric_total_labels(metric_rows, filters["activity_mode"])
+        activity_metric_total_label = metric_aggregates["total_label"]
+        activity_metric_total_compact_label = metric_aggregates["total_compact_label"]
 
-        return QueryResult(
-            filtered_count=filtered_count,
-            total_pages=total_pages,
-            current_page=current_page,
-            page_items=page_items,
-            page_info=f"{current_page} of {total_pages}",
-            has_active_filters=has_active_filters(states),
-            active_filters=active_filters(states),
-            available_colors=self._load_available_colors(),
-            available_color_tooltips=self._load_available_color_tooltips(),
-            activity_active_days_label=activity_active_days_label,
-            activity_active_days_compact_label=f"{active_day_count:,}",
-            activity_metric_total_label=activity_metric_total_label,
-            activity_metric_total_compact_label=activity_metric_total_compact_label,
+        return (
+            QueryResult(
+                filtered_count=filtered_count,
+                total_pages=total_pages,
+                current_page=current_page,
+                page_items=page_items,
+                page_info=f"{current_page} of {total_pages}",
+                has_active_filters=has_active_filters(states),
+                active_filters=active_filters(states),
+                available_colors=self._load_available_colors(),
+                available_color_tooltips=self._load_available_color_tooltips(),
+                activity_active_days_label=activity_active_days_label,
+                activity_active_days_compact_label=f"{active_day_count:,}",
+                activity_metric_total_label=activity_metric_total_label,
+                activity_metric_total_compact_label=activity_metric_total_compact_label,
+            ),
+            {
+                "matching_archive_count": filtered_count,
+                "page_archive_count": len(page_ids),
+                "metric_archive_count": metric_aggregates["metric_archive_count"],
+                "metric_aggregate_ms": metric_aggregate_ms,
+            },
         )
 
     def load_activity_summary(self) -> dict[str, Any]:
@@ -1542,6 +1608,77 @@ class PrintHistoryStore:
             }
             for row in rows
         ]
+
+    def _load_metric_aggregates(self, archive_ids: list[int], activity_mode: str) -> dict[str, Any]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            total_label, total_compact_label = self._metric_total_labels([], activity_mode)
+            return {
+                "metric_archive_count": 0,
+                "active_day_count": 0,
+                "total_label": total_label,
+                "total_compact_label": total_compact_label,
+            }
+
+        placeholders = ",".join("?" for _ in normalized_ids)
+        duration_sql = self._effective_duration_sql("a")
+        with self._connect() as connection:
+            row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS metric_archive_count,
+                    COUNT(DISTINCT CASE WHEN TRIM(COALESCE(a.archive_day_local, '')) != '' THEN a.archive_day_local END) AS active_day_count,
+                    COALESCE(SUM(a.filament_used_grams), 0) AS total_filament_used_grams,
+                    COALESCE(SUM(CASE WHEN COALESCE(a.object_count, 0) > 0 THEN a.object_count ELSE 1 END), 0) AS total_object_count,
+                    COALESCE(SUM(a.cost), 0) AS total_cost,
+                    COALESCE(SUM({duration_sql}), 0) AS total_duration_seconds,
+                    COALESCE(SUM(COALESCE(slot_counts.slot_count, 0)), 0) AS total_slot_count,
+                    COALESCE(SUM(CASE WHEN LOWER(COALESCE(a.status, '')) = 'completed' THEN 1 ELSE 0 END), 0) AS completed_count,
+                    COALESCE(SUM(CASE WHEN LOWER(COALESCE(a.status, '')) = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
+                FROM archives a
+                LEFT JOIN (
+                    SELECT archive_id, COUNT(*) AS slot_count
+                    FROM archive_filament_rows
+                    WHERE TRIM(COALESCE(color, '')) != ''
+                    GROUP BY archive_id
+                ) AS slot_counts ON slot_counts.archive_id = a.archive_id
+                WHERE a.archive_id IN ({placeholders})
+                """,
+                normalized_ids,
+            ).fetchone()
+
+        metric_archive_count = 0 if row is None else as_int(row[0])
+        active_day_count = 0 if row is None else as_int(row[1])
+        total_filament_used_grams = 0.0 if row is None else as_float(row[2])
+        total_object_count = 0 if row is None else as_int(row[3])
+        total_cost = 0.0 if row is None else as_float(row[4])
+        total_duration_seconds = 0 if row is None else as_int(row[5])
+        total_slot_count = 0 if row is None else as_int(row[6])
+        completed_count = 0 if row is None else as_int(row[7])
+        failed_count = 0 if row is None else as_int(row[8])
+
+        if activity_mode == "Filament Weight":
+            total_label, total_compact_label = activity_filament_weight_total_labels(total_filament_used_grams)
+        elif activity_mode == "Number of Printed Objects":
+            total_label, total_compact_label = f"{total_object_count:,} objects", f"{total_object_count:,}"
+        elif activity_mode == "Cost of Prints":
+            total_label = total_compact_label = f"${total_cost:,.2f}"
+        elif activity_mode == "Filaments Used":
+            total_label, total_compact_label = f"{total_slot_count:,} slots", f"{total_slot_count:,}"
+        elif activity_mode == "Total Time Printing":
+            total_hours = total_duration_seconds / 3600
+            total_label = total_compact_label = f"{total_hours:,.1f} h"
+        elif activity_mode == "Outcome":
+            total_label, total_compact_label = f"{completed_count} ok / {failed_count} failed", f"{completed_count}/{failed_count}"
+        else:
+            total_label, total_compact_label = f"{metric_archive_count:,} prints", f"{metric_archive_count:,}"
+
+        return {
+            "metric_archive_count": metric_archive_count,
+            "active_day_count": active_day_count,
+            "total_label": total_label,
+            "total_compact_label": total_compact_label,
+        }
 
     def _metric_total_labels(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
         if activity_mode == "Filament Weight":
