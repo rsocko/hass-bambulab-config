@@ -93,7 +93,7 @@ class BambuddyBrowserSensor(SensorEntity):
         backend = "custom_integration_local_store"
         if self.entity_description.key == ENTITY_STATUS:
             store_stats = self.manager.store.load_store_stats()
-            return {
+            attributes = {
                 "backend": backend,
                 "browser_revision": self.manager.browser_revision,
                 "message": self.manager.status_message,
@@ -140,6 +140,21 @@ class BambuddyBrowserSensor(SensorEntity):
                 "mutation_max_duration_ms": self.manager.mutation_stats.get("max_duration_ms", 0.0),
                 "recent_operations": list(self.manager._recent_operations),
             }
+            if self.manager.debug_enabled:
+                attributes.update(
+                    {
+                        "debug_enabled": True,
+                        "refresh_scheduler": self.manager._scheduler_diagnostics(
+                            self.manager.refresh_scheduler_stats,
+                            self.manager._scheduled_refresh_reasons,
+                        ),
+                        "recompute_scheduler": self.manager._scheduler_diagnostics(
+                            self.manager.recompute_scheduler_stats,
+                            self.manager._scheduled_recompute_reasons,
+                        ),
+                    }
+                )
+            return attributes
         if self.entity_description.key == ENTITY_FILTERED:
             return {
                 "backend": backend,

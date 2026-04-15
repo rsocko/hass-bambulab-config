@@ -17,7 +17,6 @@ toggle_print_history_archive_favorite:
         - action: rest_command.bambuddy_toggle_favorite
           data:
             archive_id: "{{ resolved_archive_id }}"
-        - action: script.refresh_print_history_archives
         - if:
             - condition: template
               value_template: >-

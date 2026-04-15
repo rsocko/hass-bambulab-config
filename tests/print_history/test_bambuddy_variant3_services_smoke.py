@@ -248,6 +248,29 @@ class FakeHass:
         return coro
 
 
+class FakeTimerHandle:
+    def __init__(self, callback) -> None:
+        self._callback = callback
+        self.cancelled = False
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+    def fire(self) -> None:
+        if not self.cancelled:
+            self._callback()
+
+
+class FakeLoop:
+    def __init__(self) -> None:
+        self.handles: list[FakeTimerHandle] = []
+
+    def call_later(self, _delay: float, callback):
+        handle = FakeTimerHandle(callback)
+        self.handles.append(handle)
+        return handle
+
+
 def _default_state_map() -> dict[str, str]:
     return {
         "input_select.print_history_filter_status": "All",
@@ -584,6 +607,80 @@ def test_variant3_manager_records_helper_recompute_diagnostics(tmp_path: Path) -
     assert manager.recompute_stats["count"] >= 1
     assert manager.recompute_stats["last_reason"] == "state:input_text.print_history_search"
     assert manager.diagnostics()["recent_operations"][0]["type"] == "recompute"
+
+
+def test_variant3_manager_debounces_helper_recomputes_when_loop_available(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_boolean.print_history_debug_instrumentation"] = "on"
+    hass = FakeHass(tmp_path, state_map)
+    hass.loop = FakeLoop()
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+
+    manager._async_handle_helper_state_change(SimpleNamespace(data={"entity_id": "input_text.print_history_search"}))
+    manager._async_handle_helper_state_change(SimpleNamespace(data={"entity_id": "input_select.print_history_sort"}))
+
+    assert manager.recompute_stats["count"] == 0
+    assert manager._scheduled_recompute_handle is not None
+    assert manager.recompute_scheduler_stats["request_count"] == 2
+    assert manager.recompute_scheduler_stats["scheduled_count"] == 1
+    assert manager.recompute_scheduler_stats["coalesced_count"] == 1
+
+    manager._scheduled_recompute_handle.fire()
+
+    assert manager.recompute_stats["count"] == 1
+    assert manager.recompute_stats["last_reason"] == (
+        "state_batch[2]:state:input_text.print_history_search|state:input_select.print_history_sort"
+    )
+    assert manager.recompute_scheduler_stats["executed_count"] == 1
+    assert manager.diagnostics()["recompute_scheduler_stats"]["last_batch_size"] == 2
+
+
+def test_variant3_manager_coalesces_service_refresh_requests(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_boolean.print_history_debug_instrumentation"] = "on"
+    hass = FakeHass(tmp_path, state_map)
+    hass.loop = FakeLoop()
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    refresh_reasons: list[str] = []
+
+    async def fake_refresh(reason: str) -> None:
+        refresh_reasons.append(reason)
+
+    manager.async_refresh = fake_refresh
+    hass.async_create_task = lambda coro: asyncio.run(coro)
+
+    asyncio.run(manager.async_request_refresh("service", delay_seconds=1.0))
+    asyncio.run(manager.async_request_refresh("service:save", delay_seconds=1.0))
+
+    assert len(hass.loop.handles) == 1
+    assert manager._scheduled_refresh_handle is hass.loop.handles[0]
+    assert manager.refresh_scheduler_stats["request_count"] == 2
+    assert manager.refresh_scheduler_stats["scheduled_count"] == 1
+    assert manager.refresh_scheduler_stats["coalesced_count"] == 1
+
+    hass.loop.handles[0].fire()
+
+    assert refresh_reasons == ["refresh_batch[2]:service|service:save"]
+    assert manager.refresh_scheduler_stats["executed_count"] == 1
+    assert manager.diagnostics()["refresh_scheduler_stats"]["last_batch_size"] == 2
 
 
 def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_path: Path) -> None:

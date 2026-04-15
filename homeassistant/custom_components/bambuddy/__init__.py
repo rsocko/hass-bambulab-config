@@ -197,7 +197,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             managers.extend(data[DATA_MANAGER] for data in hass.data[DOMAIN].values())
 
         for manager in managers:
-            await manager.async_refresh("service")
+            await manager.async_request_refresh("service", delay_seconds=1.0)
 
     async def async_handle_query(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))

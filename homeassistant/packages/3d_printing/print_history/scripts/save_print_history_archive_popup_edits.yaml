@@ -1,10 +1,18 @@
 # Save popup-edited archive fields back to Bambuddy, then refresh the history cache.
 save_print_history_archive_popup_edits:
   alias: Save Print History Archive Popup Edits
+  fields:
+    refresh_browser:
+      name: Refresh Browser
+      description: Refresh the print-history browser after saving. Defaults to true.
+      required: false
+      selector:
+        boolean:
   sequence:
     - variables:
         enrichment_marker: "+>"
         recovery_marker: "[RECOVERY_AUDIT_V1]"
+        should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
         resolved_archive_id: "{{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim }}"
         resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
         resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
@@ -189,7 +197,11 @@ save_print_history_archive_popup_edits:
             notes: "{{ merged_notes }}"
             status: "{{ resolved_status }}"
             failure_reason: "{{ resolved_failure_reason }}"
-        - action: script.refresh_print_history_archives
+        - if:
+            - condition: template
+              value_template: "{{ should_refresh_browser }}"
+          then:
+            - action: script.refresh_print_history_archives
         - action: browser_mod.close_popup
         - action: logbook.log
           data:

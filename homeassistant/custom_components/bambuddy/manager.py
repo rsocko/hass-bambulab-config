@@ -40,6 +40,8 @@ SLOW_QUERY_THRESHOLD_MS = 500.0
 SLOW_RECOMPUTE_THRESHOLD_MS = 250.0
 SLOW_MUTATION_THRESHOLD_MS = 200.0
 RECENT_OPERATION_LIMIT = 15
+HELPER_RECOMPUTE_DEBOUNCE_SECONDS = 0.2
+SERVICE_REFRESH_COALESCE_SECONDS = 1.0
 
 EVENT_LABELS = {
     "print_started": "Print started",
@@ -115,6 +117,10 @@ class PrintHistoryBrowserManager:
         self._unsubscribers: list[Callable[[], None]] = []
         self._refresh_lock = asyncio.Lock()
         self._store_unavailable_until = None
+        self._scheduled_refresh_handle: asyncio.TimerHandle | None = None
+        self._scheduled_refresh_reasons: list[str] = []
+        self._scheduled_recompute_handle: asyncio.TimerHandle | None = None
+        self._scheduled_recompute_reasons: list[str] = []
         self.query_stats: dict[str, Any] = {
             "count": 0,
             "slow_count": 0,
@@ -148,6 +154,30 @@ class PrintHistoryBrowserManager:
             "last_timestamp": "",
             "max_duration_ms": 0.0,
         }
+        self.refresh_scheduler_stats: dict[str, Any] = {
+            "request_count": 0,
+            "immediate_count": 0,
+            "scheduled_count": 0,
+            "coalesced_count": 0,
+            "executed_count": 0,
+            "rescheduled_while_locked_count": 0,
+            "last_reason": "",
+            "last_batch_reason": "",
+            "last_batch_size": 0,
+            "last_timestamp": "",
+        }
+        self.recompute_scheduler_stats: dict[str, Any] = {
+            "request_count": 0,
+            "immediate_count": 0,
+            "scheduled_count": 0,
+            "coalesced_count": 0,
+            "executed_count": 0,
+            "suppressed_due_refresh_count": 0,
+            "last_reason": "",
+            "last_batch_reason": "",
+            "last_batch_size": 0,
+            "last_timestamp": "",
+        }
         self._recent_operations: deque[dict[str, Any]] = deque(maxlen=RECENT_OPERATION_LIMIT)
 
     async def async_initialize(self) -> None:
@@ -176,6 +206,8 @@ class PrintHistoryBrowserManager:
 
     async def async_shutdown(self) -> None:
         _LOGGER.debug("Shutting down Bambuddy print history browser manager")
+        self._cancel_scheduled_refresh()
+        self._cancel_scheduled_recompute()
         while self._unsubscribers:
             self._unsubscribers.pop()()
         self._listeners.clear()
@@ -237,6 +269,32 @@ class PrintHistoryBrowserManager:
 
         return remove_listener
 
+    async def async_request_refresh(self, reason: str, *, delay_seconds: float = 0.0) -> None:
+        self._record_scheduler_request(self.refresh_scheduler_stats, reason)
+        self._cancel_scheduled_recompute()
+        if delay_seconds <= 0 or self._scheduler_loop is None:
+            self.refresh_scheduler_stats["immediate_count"] += 1
+            await self.async_refresh(reason)
+            return
+
+        self._append_unique_reason(self._scheduled_refresh_reasons, reason)
+        if self._scheduled_refresh_handle is not None:
+            self.refresh_scheduler_stats["coalesced_count"] += 1
+            self._record_debug_scheduler_event("refresh_coalesced", reason=reason, pending_reasons=list(self._scheduled_refresh_reasons))
+            return
+
+        self.refresh_scheduler_stats["scheduled_count"] += 1
+        self._scheduled_refresh_handle = self._scheduler_loop.call_later(
+            delay_seconds,
+            self._async_execute_scheduled_refresh,
+        )
+        self._record_debug_scheduler_event(
+            "refresh_scheduled",
+            reason=reason,
+            delay_seconds=delay_seconds,
+            pending_reasons=list(self._scheduled_refresh_reasons),
+        )
+
     async def async_refresh(self, reason: str) -> None:
         if not self.enabled:
             self._set_status("disabled", "Bambuddy print history browser is disabled by helper")
@@ -261,9 +319,32 @@ class PrintHistoryBrowserManager:
 
         if self._refresh_lock.locked():
             _LOGGER.info("Skipping Bambuddy print history browser refresh (%s) because another refresh is already running", reason)
+            if self._scheduler_loop is not None:
+                self._append_unique_reason(self._scheduled_refresh_reasons, reason)
+                if self._scheduled_refresh_handle is None:
+                    self.refresh_scheduler_stats["scheduled_count"] += 1
+                    self.refresh_scheduler_stats["rescheduled_while_locked_count"] += 1
+                    self._scheduled_refresh_handle = self._scheduler_loop.call_later(
+                        SERVICE_REFRESH_COALESCE_SECONDS,
+                        self._async_execute_scheduled_refresh,
+                    )
+                    self._record_debug_scheduler_event(
+                        "refresh_rescheduled_while_locked",
+                        reason=reason,
+                        delay_seconds=SERVICE_REFRESH_COALESCE_SECONDS,
+                        pending_reasons=list(self._scheduled_refresh_reasons),
+                    )
+                else:
+                    self.refresh_scheduler_stats["coalesced_count"] += 1
+                    self._record_debug_scheduler_event(
+                        "refresh_coalesced_while_locked",
+                        reason=reason,
+                        pending_reasons=list(self._scheduled_refresh_reasons),
+                    )
             return
 
         async with self._refresh_lock:
+            self._cancel_scheduled_recompute()
             _LOGGER.info("Refreshing Bambuddy print history browser (%s)", reason)
             self._set_status("refreshing", f"Refreshing Bambuddy print history browser ({reason})")
             self._notify_listeners()
@@ -324,6 +405,7 @@ class PrintHistoryBrowserManager:
                     self._set_status("error", str(error))
                 _LOGGER.exception("Failed to refresh Bambuddy print history browser (%s)", reason)
 
+                self._scheduled_recompute_reasons.clear()
             self._notify_listeners()
 
     def build_query_response(self, overrides: dict[str, Any] | None = None, *, source: str = "unknown") -> dict[str, Any]:
@@ -479,9 +561,16 @@ class PrintHistoryBrowserManager:
             "query_stats": dict(self.query_stats),
             "recompute_stats": dict(self.recompute_stats),
             "mutation_stats": dict(self.mutation_stats),
+            "refresh_scheduler_stats": self._scheduler_diagnostics(self.refresh_scheduler_stats, self._scheduled_refresh_reasons),
+            "recompute_scheduler_stats": self._scheduler_diagnostics(self.recompute_scheduler_stats, self._scheduled_recompute_reasons),
             "recent_operations": list(self._recent_operations),
             "store": self.store.load_store_stats(),
         }
+
+    @property
+    def debug_enabled(self) -> bool:
+        state = self.hass.states.get("input_boolean.print_history_debug_instrumentation")
+        return state is not None and state.state == "on"
 
     def _state_snapshot(self) -> dict[str, str]:
         snapshot: dict[str, str] = {}
@@ -575,25 +664,23 @@ class PrintHistoryBrowserManager:
     def _async_handle_helper_state_change(self, event: Event) -> None:
         entity_id = event.data.get("entity_id")
         if entity_id in REFRESH_TRIGGER_HELPERS:
-            self.hass.async_create_task(self.async_refresh(f"state:{entity_id}"))
+            self.hass.async_create_task(self.async_request_refresh(f"state:{entity_id}"))
             return
 
         if entity_id in OPTION_SET_HELPERS and self.archives:
             self.hass.async_create_task(self._async_sync_options())
 
-        if self._recompute_query(f"state:{entity_id}"):
-            self.browser_revision += 1
-        self._notify_listeners()
+        self._schedule_recompute(f"state:{entity_id}")
 
     @callback
     def _async_handle_webhook_event(self, event: Event) -> None:
         event_type = str((event.data or {}).get("event", "")).strip().lower()
         if event_type in REFRESH_WEBHOOK_EVENTS:
-            self.hass.async_create_task(self.async_refresh(f"webhook:{event_type}"))
+            self.hass.async_create_task(self.async_request_refresh(f"webhook:{event_type}"))
 
     @callback
     def _async_handle_interval_refresh(self, _now: Any) -> None:
-        self.hass.async_create_task(self.async_refresh("interval"))
+        self.hass.async_create_task(self.async_request_refresh("interval"))
 
     def _set_status(self, state: str, message: str) -> None:
         self.status_state = state
@@ -602,6 +689,140 @@ class PrintHistoryBrowserManager:
     def _notify_listeners(self) -> None:
         for listener in list(self._listeners):
             listener()
+
+    @property
+    def _scheduler_loop(self) -> asyncio.AbstractEventLoop | None:
+        return getattr(self.hass, "loop", None)
+
+    @callback
+    def _schedule_recompute(self, reason: str) -> None:
+        self._record_scheduler_request(self.recompute_scheduler_stats, reason)
+        if self._refresh_lock.locked() or self._scheduled_refresh_handle is not None:
+            self.recompute_scheduler_stats["suppressed_due_refresh_count"] += 1
+            self._record_debug_scheduler_event(
+                "recompute_suppressed",
+                reason=reason,
+                refresh_locked=self._refresh_lock.locked(),
+                refresh_pending=self._scheduled_refresh_handle is not None,
+            )
+            return
+
+        if self._scheduler_loop is None:
+            self.recompute_scheduler_stats["immediate_count"] += 1
+            if self._recompute_query(reason):
+                self.browser_revision += 1
+            self._notify_listeners()
+            return
+
+        self._append_unique_reason(self._scheduled_recompute_reasons, reason)
+        if self._scheduled_recompute_handle is not None:
+            self.recompute_scheduler_stats["coalesced_count"] += 1
+            self._scheduled_recompute_handle.cancel()
+        else:
+            self.recompute_scheduler_stats["scheduled_count"] += 1
+
+        self._scheduled_recompute_handle = self._scheduler_loop.call_later(
+            HELPER_RECOMPUTE_DEBOUNCE_SECONDS,
+            self._execute_scheduled_recompute,
+        )
+        self._record_debug_scheduler_event(
+            "recompute_scheduled",
+            reason=reason,
+            delay_seconds=HELPER_RECOMPUTE_DEBOUNCE_SECONDS,
+            pending_reasons=list(self._scheduled_recompute_reasons),
+        )
+
+    @callback
+    def _execute_scheduled_recompute(self) -> None:
+        self._scheduled_recompute_handle = None
+        reasons = self._drain_reasons(self._scheduled_recompute_reasons)
+        if not reasons:
+            return
+        if self._refresh_lock.locked() or self._scheduled_refresh_handle is not None:
+            self.recompute_scheduler_stats["suppressed_due_refresh_count"] += 1
+            self._record_debug_scheduler_event(
+                "recompute_dropped_for_refresh",
+                pending_reasons=reasons,
+                refresh_locked=self._refresh_lock.locked(),
+                refresh_pending=self._scheduled_refresh_handle is not None,
+            )
+            return
+
+        batch_reason = self._summarize_reasons("state_batch", reasons)
+        self.recompute_scheduler_stats["executed_count"] += 1
+        self.recompute_scheduler_stats["last_batch_reason"] = batch_reason
+        self.recompute_scheduler_stats["last_batch_size"] = len(reasons)
+        self.recompute_scheduler_stats["last_timestamp"] = dt_util.utcnow().isoformat()
+        self._record_debug_scheduler_event("recompute_executed", batch_reason=batch_reason, pending_reasons=reasons)
+        if self._recompute_query(batch_reason):
+            self.browser_revision += 1
+        self._notify_listeners()
+
+    @callback
+    def _async_execute_scheduled_refresh(self) -> None:
+        self._scheduled_refresh_handle = None
+        reasons = self._drain_reasons(self._scheduled_refresh_reasons)
+        if not reasons:
+            return
+        batch_reason = self._summarize_reasons("refresh_batch", reasons)
+        self.refresh_scheduler_stats["executed_count"] += 1
+        self.refresh_scheduler_stats["last_batch_reason"] = batch_reason
+        self.refresh_scheduler_stats["last_batch_size"] = len(reasons)
+        self.refresh_scheduler_stats["last_timestamp"] = dt_util.utcnow().isoformat()
+        self._record_debug_scheduler_event("refresh_executed", batch_reason=batch_reason, pending_reasons=reasons)
+        self.hass.async_create_task(self.async_refresh(batch_reason))
+
+    @callback
+    def _cancel_scheduled_refresh(self) -> None:
+        if self._scheduled_refresh_handle is not None:
+            self._scheduled_refresh_handle.cancel()
+            self._scheduled_refresh_handle = None
+        self._scheduled_refresh_reasons.clear()
+
+    @callback
+    def _cancel_scheduled_recompute(self) -> None:
+        if self._scheduled_recompute_handle is not None:
+            self._scheduled_recompute_handle.cancel()
+            self._scheduled_recompute_handle = None
+        self._scheduled_recompute_reasons.clear()
+
+    def _record_scheduler_request(self, stats: dict[str, Any], reason: str) -> None:
+        stats["request_count"] += 1
+        stats["last_reason"] = reason
+        stats["last_timestamp"] = dt_util.utcnow().isoformat()
+
+    def _scheduler_diagnostics(self, stats: dict[str, Any], pending_reasons: list[str]) -> dict[str, Any]:
+        data = dict(stats)
+        data["pending_reason_count"] = len(pending_reasons)
+        if self.debug_enabled:
+            data["pending_reasons"] = list(pending_reasons)
+        return data
+
+    def _record_debug_scheduler_event(self, event_type: str, **details: Any) -> None:
+        if not self.debug_enabled:
+            return
+        self._recent_operations.appendleft(
+            {
+                "type": "scheduler",
+                "event": event_type,
+                "details": details,
+                "timestamp": dt_util.utcnow().isoformat(),
+            }
+        )
+
+    def _append_unique_reason(self, target: list[str], reason: str) -> None:
+        if reason not in target:
+            target.append(reason)
+
+    def _drain_reasons(self, target: list[str]) -> list[str]:
+        reasons = list(target)
+        target.clear()
+        return reasons
+
+    def _summarize_reasons(self, prefix: str, reasons: list[str]) -> str:
+        if len(reasons) == 1:
+            return reasons[0]
+        return f"{prefix}[{len(reasons)}]:{'|'.join(reasons)}"
 
     def _record_query_stats(
         self,

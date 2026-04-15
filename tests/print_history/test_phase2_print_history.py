@@ -1467,6 +1467,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("existing_recovery_block | length > 0", content)
         self.assertIn("existing_payload is mapping and existing_payload.s is defined", content)
 
+    def test_save_script_supports_optional_browser_refresh(self):
+        content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
+        self.assertIn("refresh_browser:", content)
+        self.assertIn("should_refresh_browser", content)
+        self.assertIn('should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"', content)
+        self.assertIn('value_template: "{{ should_refresh_browser }}"', content)
+        self.assertIn("action: script.refresh_print_history_archives", content)
+
 
 # =============================================================================
 # 16. TAG COLOR CONSISTENCY
@@ -1598,6 +1606,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("{{ detail.get('is_favorite', false) }}", content)
         self.assertIn("action: input_boolean.turn_on", content)
         self.assertIn("action: input_boolean.turn_off", content)
+        self.assertNotIn("action: script.refresh_print_history_archives", content)
 
     def test_print_history_append_event_calls_capture_response_data(self):
         files = (
