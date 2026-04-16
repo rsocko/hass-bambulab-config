@@ -9,23 +9,23 @@ wled_3dprinter_apply_error_tray_overlay:
   sequence:
     - variables:
         active_tray_entity: sensor.ntk_ryansoffice_3dprinter_active_tray
-        active_tray_state: "{{ states(active_tray_entity) | string | trim }}"
-        smart_status_lc: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') | lower }}"
-        stage_lc: "{{ states('sensor.ntk_ryansoffice_3dprinter_current_stage') | lower }}"
-        parse_text_lc: "{{ (smart_status_lc ~ ' ' ~ stage_lc) | lower }}"
+        active_tray_state: "{{ (states(active_tray_entity) | string | trim) ~ '' }}"
+        smart_status_lc: "{{ (states('sensor.ntk_ryansoffice_3dprinter_smart_status') | string | lower) ~ '' }}"
+        stage_lc: "{{ (states('sensor.ntk_ryansoffice_3dprinter_current_stage') | string | lower) ~ '' }}"
+        parse_text_lc: "{{ ((smart_status_lc ~ ' ' ~ stage_lc) | lower) ~ '' }}"
         ams_index_attr: >-
           {{ state_attr(active_tray_entity, 'AMS Index') | default(state_attr(active_tray_entity, 'ams_index'), true) }}
         tray_index_attr: >-
           {{ state_attr(active_tray_entity, 'Tray Index') | default(state_attr(active_tray_entity, 'tray_index'), true) }}
         ams_index_from_state: >-
-          {% set s = active_tray_state | upper %}
+          {% set s = (active_tray_state ~ '') | upper %}
           {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
             {{ 1 if s[0] == 'A' else 2 }}
           {% else %}
             0
           {% endif %}
         tray_slot_from_state: >-
-          {% set s = active_tray_state | upper %}
+          {% set s = (active_tray_state ~ '') | upper %}
           {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
             {{ s[1] | int(0) }}
           {% else %}

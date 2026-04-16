@@ -64,7 +64,7 @@ wled_3dprinter_apply_active_tray_overlay:
           {% else %}
             
           {% endif %}
-        color_hex_string: "{{ (color_hex | string | trim) ~ '' }}"
+        color_hex_string: "{{ (color_hex | default('', true) | string | trim) ~ '' }}"
         has_valid_color: >-
           {{ color_hex_string | regex_match('^[0-9a-f]{6}$') }}
         base_r: "{{ color_hex_string[0:2] | int(0, 16) if has_valid_color else 0 }}"
@@ -136,7 +136,7 @@ wled_3dprinter_apply_active_tray_overlay:
     - action: rest_command.wled_3dprinter_digquad_update_state
       data:
         payload: >-
-          {{ {'seg': [{'id': tag_segment | int, 'col': [[color_r | int, color_g | int, color_b | int]], 'fx': 0}]} | tojson }}
+          {{ {'seg': [{'id': tag_segment | int, 'col': [[color_r | int, color_g | int, color_b | int]], 'fx': 0}]} }}
     - action: logbook.log
       data:
         name: WLED 3D Printer Active Tray Overlay
