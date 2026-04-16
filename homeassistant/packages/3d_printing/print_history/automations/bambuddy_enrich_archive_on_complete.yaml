@@ -114,6 +114,7 @@
             {{ {} }}
           {% endif %}
         archive_status: "{{ archive_detail.status | default('', true) | string | lower | trim }}"
+        existing_archive_cost_raw: "{{ archive_detail.cost | default(none, true) }}"
         archive_is_terminal: >-
           {{ archive_status in ['archived', 'completed', 'complete', 'failed', 'cancelled', 'canceled', 'stopped', 'success'] }}
         archive_task_matches: >-
@@ -442,6 +443,10 @@
         live_print_cost_available: >-
           {{ live_print_cost_raw not in ['', 'unknown', 'unavailable', 'none', 'None']
              and (live_print_cost_raw | regex_match('^-?\d+(\.\d+)?$')) }}
+        live_print_cost_positive: >-
+          {{ live_print_cost_available and (live_print_cost_raw | float(0)) > 0 }}
+        existing_archive_cost_positive: >-
+          {{ existing_archive_cost_raw is not none and (existing_archive_cost_raw | float(0)) > 0 }}
         archive_cost_breakdown: >-
           {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
           {% set default_spool_weight_g = 1000 %}
@@ -485,13 +490,17 @@
           {{ {'has_weight': ns.has_weight, 'rows': ns.rows, 'total': ns.total | round(2)} | tojson | from_json }}
         archive_cost_defined: "{{ archive_cost_breakdown.has_weight | default(false, true) }}"
         archive_cost_value: >-
-          {% if live_print_cost_available %}
+          {% if existing_archive_cost_positive and not live_print_cost_positive %}
+            {{ existing_archive_cost_raw | float(0) | round(2) }}
+          {% elif live_print_cost_positive %}
             {{ live_print_cost_raw | float(0) | round(2) }}
           {% else %}
             {{ archive_cost_breakdown.total | default(0, true) | float(0) | round(2) }}
           {% endif %}
         archive_cost_source: >-
-          {% if live_print_cost_available %}
+          {% if existing_archive_cost_positive and not live_print_cost_positive %}
+            preserved_bambuddy_value
+          {% elif live_print_cost_positive %}
             sensor.print_cost
           {% elif archive_cost_breakdown.has_weight | default(false, true) %}
             effective_payload_rows
