@@ -5,9 +5,83 @@ type: vertical-stack
 cards:
   - type: custom:bubble-card
     card_type: separator
+    card_mod:
+      style: |
+        ha-card {
+          margin-top: 8px !important;
+        }
+        {% set notice_state = state_attr('sensor.bambuddy_print_history_browser_status', 'limit_notice_state') %}
+        {% if not state_attr('sensor.bambuddy_print_history_browser_status', 'limit_notice_show') %}
+        .bubble-sub-button-container > *:first-child,
+        .bubble-sub-buttons-container > *:first-child {
+          display: none !important;
+        }
+        {% endif %}
+        {% if notice_state == 'truncated' %}
+        .bubble-sub-button-container > *:first-child,
+        .bubble-sub-buttons-container > *:first-child {
+          background: rgba(198, 40, 40, 0.16) !important;
+          color: #c62828 !important;
+          box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.32) !important;
+        }
+        .bubble-sub-button-container > *:first-child ha-icon,
+        .bubble-sub-buttons-container > *:first-child ha-icon {
+          color: #c62828 !important;
+        }
+        {% elif notice_state == 'at_limit' %}
+        .bubble-sub-button-container > *:first-child,
+        .bubble-sub-buttons-container > *:first-child {
+          background: rgba(239, 108, 0, 0.16) !important;
+          color: #ef6c00 !important;
+          box-shadow: inset 0 0 0 1px rgba(239, 108, 0, 0.32) !important;
+        }
+        .bubble-sub-button-container > *:first-child ha-icon,
+        .bubble-sub-buttons-container > *:first-child ha-icon {
+          color: #ef6c00 !important;
+        }
+        {% elif notice_state == 'near_limit' %}
+        .bubble-sub-button-container > *:first-child,
+        .bubble-sub-buttons-container > *:first-child {
+          background: rgba(21, 101, 192, 0.14) !important;
+          color: #1565c0 !important;
+          box-shadow: inset 0 0 0 1px rgba(21, 101, 192, 0.28) !important;
+        }
+        .bubble-sub-button-container > *:first-child ha-icon,
+        .bubble-sub-buttons-container > *:first-child ha-icon {
+          color: #1565c0 !important;
+        }
+        {% endif %}
     name: Print History Browser
     icon: mdi:history
     sub_button:
+      - entity: sensor.bambuddy_print_history_browser_status
+        sub_button_type: state
+        name: Cache Limit
+        icon: mdi:archive-alert-outline
+        show_icon: true
+        show_name: false
+        show_state: false
+        show_attribute: true
+        attribute: limit_notice_chip_label
+        show_background: true
+        fill_width: false
+        tap_action:
+          action: fire-dom-event
+          browser_mod:
+            service: browser_mod.popup
+            data:
+              title: Print History Cache
+              size: normal
+              content:
+                type: markdown
+                content: >-
+                  {{ state_attr('sensor.bambuddy_print_history_browser_status',
+                  'limit_notice_popup_markdown') or 'The print history cache is
+                  healthy.' }}
+        hold_action:
+          action: none
+        double_tap_action:
+          action: none
       - entity: input_select.print_history_sort
         sub_button_type: select
         name: Sort
@@ -85,9 +159,6 @@ cards:
                   - entity: input_boolean.print_history_debug_instrumentation
                     name: Debug Instrumentation
     styles: |
-      ha-card {
-        margin-top: 8px !important;
-      }
       .bubble-sub-button-container,
       .bubble-sub-buttons-container {
         gap: 8px !important;

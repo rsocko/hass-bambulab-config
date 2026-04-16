@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes a shipped manual `Re-Enrich` action for older archives. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
 
 For the active print-history control-strip structure and mobile pagination guardrails, see `top-controls-contract.md`.
 
@@ -231,6 +231,7 @@ homeassistant/packages/3d_printing/print_history/
 │       ├── input_select_print_history_activity_metric.yaml
 │       ├── input_select_print_history_filter_*.yaml
 │       ├── input_select_print_history_popup_failure_reason.yaml
+│       ├── input_select_print_history_popup_project.yaml
 │       ├── input_select_print_history_popup_status.yaml
 │       ├── input_select_print_history_sort.yaml
 │       └── input_select_print_history_card_variant.yaml

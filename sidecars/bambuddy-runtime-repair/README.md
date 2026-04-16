@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Small FastAPI sidecar that exposes authenticated admin endpoints for canonical Bambuddy archive runtime repair, archive restore workflows, and read-only inspection of native spool linkage.
+Small FastAPI sidecar that exposes an authenticated admin endpoint for canonical Bambuddy archive runtime repair.
 
 This is intended for environments where Home Assistant, `n8n`, or another tool should call a stable HTTP API instead of writing to the Bambuddy SQLite database directly.
 
@@ -124,11 +124,6 @@ It does not mean `n8n` is required. It only means that if `n8n` is already part 
 
 ## Health Check
 
-Deployed sidecar endpoint for operator-driven calls:
-
-- `http://bambuddy-runtime-repair.socko.us`
-- local host-port mapping remains `http://127.0.0.1:8818` when you are testing directly on the sidecar host
-
 ```bash
 curl http://127.0.0.1:8818/health
 ```
@@ -137,114 +132,6 @@ PowerShell smoke-test helper:
 
 ```powershell
 pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://127.0.0.1:8818
-```
-
-Hosted endpoint variant:
-
-```bash
-curl http://bambuddy-runtime-repair.socko.us/health
-```
-
-```powershell
-pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://bambuddy-runtime-repair.socko.us
-```
-
-Runtime repair callers can now choose between the default full response and a summary response that omits the verbose `before` and `after` snapshots:
-
-```bash
-curl -X POST http://127.0.0.1:8818/admin/archive-runtime-repair \
-  -H "Authorization: Bearer replace-me" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "archive_id": 200,
-    "dry_run": true,
-    "response_detail": "summary"
-  }'
-```
-
-Use `response_detail: "full"` when you need the complete pre/post row snapshots for forensics.
-
-## Archive Spool Linkage Inspection
-
-Use this endpoint to inspect whether Bambuddy itself is storing archive-to-spool linkage in native DB tables beyond the archive's current notes and tags.
-
-Current inspection payload includes:
-
-- archive summary fields relevant to print history
-- current system tags and hidden `+>` note payload rows
-- `extra_data` filament slot snapshot summary when present
-- native `spool_usage_history` rows for the archive when the table exists
-- native `active_print_spoolman` rows when present
-- current `spool_assignment` rows for any spools referenced by native usage history
-- a comparison summary between notes or tags and native usage rows
-
-Example:
-
-```bash
-curl http://127.0.0.1:8818/admin/archive-spool-linkage/200 \
-  -H "Authorization: Bearer replace-me"
-```
-
-PowerShell helper:
-
-```powershell
-pwsh -File tools/bambuddy/Test-InspectArchiveSpoolLinkage.ps1 \
-  -BaseUrl http://127.0.0.1:8818 \
-  -Token replace-me \
-  -ArchiveId 200
-```
-
-This is intended as a read-only diagnostic surface before deciding whether to extend the sidecar into any DB-backed reconciliation or backfill work.
-
-## Partial Usage Estimate Example
-
-The sidecar now includes a review-oriented estimate endpoint for failed or
-stopped prints:
-
-```bash
-curl -X POST http://127.0.0.1:8818/admin/archive-partial-usage/estimate \
-  -H "Authorization: Bearer replace-me" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "archive_id": 191,
-    "printer_id": 1,
-    "print_status": "failed",
-    "last_layer_num": 87,
-    "last_progress": 42.5,
-    "resolve_spoolman_matches": true
-  }'
-```
-
-The estimate response includes:
-
-- source-state diagnostics for archive and transient tracking lookup
-- calculation method and confidence
-- per-slot estimated grams
-- optional spool resolution via Bambuddy `tag_uid` or `tray_uuid`
-- a dedupe key suitable for later consume/apply flows
-
-When Home Assistant uses the repository's hybrid path, this endpoint is now
-called through the Bambuddy custom integration service
-`bambuddy.estimate_partial_usage`. The runtime-repair base URL and bearer token
-are expected to live on the Bambuddy config entry, not in `input_text` helpers.
-
-## Partial Usage Consume Example
-
-The consume endpoint marks one estimate as handled so retries do not decrement
-twice once an apply path exists:
-
-```bash
-curl -X POST http://127.0.0.1:8818/admin/archive-partial-usage/consume \
-  -H "Authorization: Bearer replace-me" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "archive_id": 191,
-    "dedupe_key": "191:failed:87:42.5",
-    "consumed_by": "ha_spoolman_sync_review",
-    "applied_spool_ids": [10],
-    "applied_total_g": 34.21,
-    "print_status": "failed"
-  }'
 ```
 
 ## Repair Request Example
@@ -307,13 +194,6 @@ pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 \
 
 Those commands stay in dry-run mode unless you add `-Apply`.
 
-Historical backfill integration note:
-
-- the resumable SD-card backfill runner in `tests/phase3/print_history/Test-BambuddyArchiveRecovery.ps1` now uses this same endpoint for runtime-repair preview and apply
-- inferred timings are still computed on the caller side from manifest evidence, but canonical validation and DB writes happen only through `POST /admin/archive-runtime-repair`
-- no separate historical-backfill-specific runtime-repair endpoint is required for the current workflow
-- for the current deployed environment, prefer `http://bambuddy-runtime-repair.socko.us` as the runner's `-RepairSidecarBaseUrl` unless you are intentionally targeting a local port mapping or container-internal DNS name
-
 ## Planned `restore_from` Endpoint
 
 The sidecar now includes typed request and response models, plus a guarded endpoint stub for:
@@ -351,7 +231,6 @@ PowerShell helpers:
 
 - `tools/bambuddy/Test-RuntimeRepairSidecar.ps1`
 - `tools/bambuddy/Test-RestoreFromSidecar.ps1`
-- `tools/bambuddy/Test-InspectArchiveSpoolLinkage.ps1`
 
 ## Verify Request Example
 

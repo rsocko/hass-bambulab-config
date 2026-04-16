@@ -1490,6 +1490,48 @@ def test_variant3_store_appends_timeline_events_idempotently(tmp_path: Path) -> 
     assert stats["event_timeline_count"] == 1
 
 
+def test_variant3_store_closes_connections_after_repeated_access(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    for _ in range(25):
+        store.load_query_result(states)
+        store.load_activity_summary()
+        store.load_archive_detail_bundle(101)
+        store.load_store_stats()
+
+    diagnostics = store.diagnostics_snapshot()
+    stats = store.load_store_stats()
+
+    assert diagnostics["current_open_count"] == 0
+    assert stats["connection_current_open_count"] == 0
+    assert diagnostics["open_count"] > 0
+    assert diagnostics["max_open_count"] >= 1
+
+
 def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

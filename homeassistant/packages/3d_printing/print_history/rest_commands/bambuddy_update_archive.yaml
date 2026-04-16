@@ -1,7 +1,7 @@
 # Update a Bambuddy archive — tags, notes, name, and optional native fields.
 # Tags are a comma-separated string, not a JSON array.
 # Usage: service: rest_command.bambuddy_update_archive
-# Data: { "archive_id": "42", "print_name": "Benchy", "tags": "hueforge,f:34,s:123", "notes": "...", "cost": 1.23, "status": "failed", "failure_reason": "Layer shift" }
+# Data: { "archive_id": "42", "print_name": "Benchy", "tags": "hueforge,f:34,s:123", "notes": "...", "cost": 1.23, "status": "failed", "failure_reason": "Layer shift", "project_id": "123" }
 # Docs: docs/features/print_history/archive-enrichment.md
 bambuddy_update_archive:
   url: >-
@@ -28,6 +28,13 @@ bambuddy_update_archive:
         {% set ns.body = dict(ns.body, failure_reason=none) %}
       {% else %}
         {% set ns.body = dict(ns.body, failure_reason=failure_reason) %}
+      {% endif %}
+    {% endif %}
+    {% if project_id is defined %}
+      {% if project_id == '__NULL__' %}
+        {% set ns.body = dict(ns.body, project_id=none) %}
+      {% else %}
+        {% set ns.body = dict(ns.body, project_id=(project_id | int(0))) %}
       {% endif %}
     {% endif %}
     {{ ns.body | tojson }}

@@ -93,12 +93,20 @@ class BambuddyBrowserSensor(SensorEntity):
         backend = "custom_integration_local_store"
         if self.entity_description.key == ENTITY_STATUS:
             store_stats = self.manager.store.load_store_stats()
+            limit_notice = self.manager.limit_notice
             attributes = {
                 "backend": backend,
                 "browser_revision": self.manager.browser_revision,
                 "message": self.manager.status_message,
                 "archive_count": len(self.manager.archives),
                 "current_limit": self.manager.max_archives,
+                "archive_total_count": self.manager.last_refresh_archive_total_count,
+                "limit_notice": limit_notice,
+                "limit_notice_show": limit_notice.get("show", False),
+                "limit_notice_state": limit_notice.get("state", "hidden"),
+                "limit_notice_chip_label": limit_notice.get("chip_label", ""),
+                "limit_notice_popup_title": limit_notice.get("popup_title", "Print History Cache"),
+                "limit_notice_popup_markdown": limit_notice.get("popup_markdown", "The print history cache is healthy."),
                 "last_refresh": self.manager.last_refresh,
                 "last_refresh_reason": self.manager.last_refresh_reason,
                 "last_refresh_started_at": self.manager.last_refresh_started_at,
@@ -107,7 +115,9 @@ class BambuddyBrowserSensor(SensorEntity):
                 "last_refresh_store_replace_ms": self.manager.last_refresh_store_replace_ms,
                 "last_refresh_store_load_ms": self.manager.last_refresh_store_load_ms,
                 "last_refresh_archive_count": self.manager.last_refresh_archive_count,
+                "last_refresh_archive_total_count": self.manager.last_refresh_archive_total_count,
                 "last_refresh_printer_count": self.manager.last_refresh_printer_count,
+                "last_refresh_project_count": self.manager.last_refresh_project_count,
                 "last_error": self.manager.last_error,
                 "enabled": self.manager.enabled,
                 "store_path": str(self.manager.store._db_path),
@@ -115,6 +125,17 @@ class BambuddyBrowserSensor(SensorEntity):
                 "store_last_synced_at": store_stats.get("last_synced_at", ""),
                 "store_event_timeline_count": store_stats.get("event_timeline_count", 0),
                 "store_note_payload_row_count": store_stats.get("note_payload_row_count", 0),
+                "store_connection_open_count": store_stats.get("connection_open_count", 0),
+                "store_connection_open_error_count": store_stats.get("connection_open_error_count", 0),
+                "store_connection_current_open_count": store_stats.get("connection_current_open_count", 0),
+                "store_connection_max_open_count": store_stats.get("connection_max_open_count", 0),
+                "store_connection_last_error": store_stats.get("connection_last_error", ""),
+                "store_connection_last_open_duration_ms": store_stats.get("connection_last_open_duration_ms", 0.0),
+                "store_connection_max_open_duration_ms": store_stats.get("connection_max_open_duration_ms", 0.0),
+                "store_proc_fd_count": store_stats.get("proc_fd_count"),
+                "store_proc_fd_max_count": store_stats.get("proc_fd_max_count"),
+                "store_db_fd_count": store_stats.get("db_fd_count"),
+                "store_db_fd_max_count": store_stats.get("db_fd_max_count"),
                 "page_size": self.manager.hass.states.get("input_number.print_history_page_size").state if self.manager.hass.states.get("input_number.print_history_page_size") else "10",
                 "current_page": self.manager.result.current_page,
                 "query_request_count": self.manager.query_stats.get("count", 0),
@@ -141,6 +162,7 @@ class BambuddyBrowserSensor(SensorEntity):
                 "mutation_last_archive_id": self.manager.mutation_stats.get("last_archive_id", 0),
                 "mutation_last_duration_ms": self.manager.mutation_stats.get("last_duration_ms", 0.0),
                 "mutation_max_duration_ms": self.manager.mutation_stats.get("max_duration_ms", 0.0),
+                "project_options": list(self.manager.project_options),
                 "recent_operations": list(self.manager._recent_operations),
             }
             if self.manager.debug_enabled:

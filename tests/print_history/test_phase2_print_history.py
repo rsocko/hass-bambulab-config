@@ -1353,6 +1353,14 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("input_select.print_history_filter_archive_error", clear_script_content)
         self.assertIn("input_select.print_history_filter_archive_error", reset_page_content)
 
+    def test_browser_header_exposes_limit_notice_chip(self):
+        browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+
+        self.assertIn("sensor.bambuddy_print_history_browser_status", browser_yaml_content)
+        self.assertIn("limit_notice", browser_yaml_content)
+        self.assertIn("browser_mod.popup", browser_yaml_content)
+        self.assertIn("Print History Cache", browser_yaml_content)
+
 
 # =============================================================================
 # 15. POPUP AND SAVE REGRESSIONS
@@ -1457,6 +1465,9 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("existing_tags_raw", content)
         self.assertIn("existing_recovery_block", content)
         self.assertIn("existing_payload", content)
+        self.assertIn("resolved_project_label", content)
+        self.assertIn("state_attr('sensor.bambuddy_print_history_browser_status', 'project_options')", content)
+        self.assertIn("project_id: \"{{ merged_project_id }}\"", content)
         self.assertIn("existing_tags_raw.split(',')", content)
         self.assertIn("lowered.startswith('s:')", content)
         self.assertIn("lowered.startswith('vendor:')", content)
@@ -1474,6 +1485,23 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn('should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"', content)
         self.assertIn('value_template: "{{ should_refresh_browser }}"', content)
         self.assertIn("action: script.refresh_print_history_archives", content)
+
+    def test_popup_project_helper_uses_no_project_default(self):
+        popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_project.yaml"
+        popup_data = _load_yaml_safe(popup_path)
+        popup_options = next(iter(popup_data.values())).get("options", []) if isinstance(popup_data, dict) else []
+
+        self.assertEqual(popup_options, ["No Project"])
+
+    def test_browser_popup_includes_project_selector(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('input_select.print_history_popup_project', content)
+        self.assertIn('name: "Project"', content)
+        self.assertIn('service: "input_select.set_options"', content)
+        self.assertIn('entity_id: "input_select.print_history_popup_project"', content)
 
 
 # =============================================================================

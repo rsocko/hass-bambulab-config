@@ -119,7 +119,10 @@ class PrintHistoryBrowserManager:
         self.last_refresh_store_fast_unchanged_count: int = 0
         self.last_refresh_store_serialized_count: int = 0
         self.last_refresh_archive_count: int = 0
+        self.last_refresh_archive_total_count: int | None = None
         self.last_refresh_printer_count: int = 0
+        self.last_refresh_project_count: int = 0
+        self.project_options: list[dict[str, str]] = []
         self._listeners: list[Callable[[], None]] = []
         self._unsubscribers: list[Callable[[], None]] = []
         self._refresh_lock = asyncio.Lock()
@@ -371,18 +374,48 @@ class PrintHistoryBrowserManager:
                     self.fetch_timeout_seconds,
                 )
                 fetch_started = perf_counter()
-                raw_archives = await client.async_fetch_archives(limit=self.max_archives)
+                archives_result, printers_result, stats_result, projects_result = await asyncio.gather(
+                    client.async_fetch_archives(limit=self.max_archives),
+                    client.async_fetch_printers(),
+                    client.async_fetch_archive_stats(),
+                    client.async_fetch_projects(),
+                    return_exceptions=True,
+                )
+                if isinstance(archives_result, Exception):
+                    raise archives_result
+
+                raw_archives = archives_result
                 raw_printers: list[dict[str, Any]] = []
-                try:
-                    raw_printers = await client.async_fetch_printers()
-                except Exception as error:  # noqa: BLE001
+                raw_projects: list[dict[str, Any]] = []
+                if isinstance(printers_result, Exception):
                     _LOGGER.warning(
                         "Unable to fetch Bambuddy printers while refreshing print history; falling back to archive payload names: %s",
-                        error,
+                        printers_result,
                     )
+                else:
+                    raw_printers = printers_result
+
+                if isinstance(projects_result, Exception):
+                    _LOGGER.warning(
+                        "Unable to fetch Bambuddy projects while refreshing print history; popup project assignment options may be incomplete: %s",
+                        projects_result,
+                    )
+                else:
+                    raw_projects = projects_result
+
+                if isinstance(stats_result, Exception):
+                    _LOGGER.warning(
+                        "Unable to fetch Bambuddy archive stats while refreshing print history; limit warnings may be incomplete: %s",
+                        stats_result,
+                    )
+                else:
+                    self.last_refresh_archive_total_count = self._extract_total_prints(stats_result)
+
                 self.last_refresh_fetch_ms = round((perf_counter() - fetch_started) * 1000, 1)
                 self.last_refresh_archive_count = len(raw_archives)
                 self.last_refresh_printer_count = len(raw_printers)
+                self.last_refresh_project_count = len(raw_projects)
+                self.project_options = self._project_options_from_projects(raw_projects)
                 enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
                 projected = [project_archive(item) for item in enriched_archives]
                 archives_changed = projected != self.archives
@@ -424,6 +457,50 @@ class PrintHistoryBrowserManager:
                 self._scheduled_recompute_reasons.clear()
             self._notify_listeners()
 
+    def _project_options_from_projects(self, raw_projects: list[dict[str, Any]]) -> list[dict[str, str]]:
+        normalized: list[dict[str, str]] = []
+        name_counts: dict[str, int] = {}
+        seen_ids: set[str] = set()
+
+        for project in raw_projects:
+            project_id = as_text(project.get("id")).strip()
+            if not project_id or project_id in seen_ids:
+                continue
+            seen_ids.add(project_id)
+            project_name = as_text(project.get("name")).strip()
+            status = as_text(project.get("status")).strip().lower()
+            if project_name:
+                key = project_name.casefold()
+                name_counts[key] = name_counts.get(key, 0) + 1
+            normalized.append(
+                {
+                    "id": project_id,
+                    "name": project_name,
+                    "status": status,
+                }
+            )
+
+        options: list[dict[str, str]] = []
+        for project in normalized:
+            project_name = project["name"]
+            if project_name:
+                label = project_name
+                if name_counts.get(project_name.casefold(), 0) > 1:
+                    label = f"{project_name} [{project['id']}]"
+            else:
+                label = f"Project [{project['id']}]"
+            options.append(
+                {
+                    "id": project["id"],
+                    "name": project_name,
+                    "status": project["status"],
+                    "label": label,
+                }
+            )
+
+        options.sort(key=lambda item: (item["label"].casefold(), item["id"]))
+        return options
+
     def build_query_response(self, overrides: dict[str, Any] | None = None, *, source: str = "unknown") -> dict[str, Any]:
         merged_overrides = dict(overrides or {})
         include_activity_rows = bool(merged_overrides.pop("include_activity_rows", False))
@@ -432,14 +509,11 @@ class PrintHistoryBrowserManager:
 
         total_started = perf_counter()
         query_started = perf_counter()
-        result, query_details = self.store.load_query_result_details(states)
+        bundle = self.store.load_query_bundle(states, include_activity_rows=include_activity_rows)
         query_ms = round((perf_counter() - query_started) * 1000, 1)
-
-        archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
-
-        annotations_started = perf_counter()
-        annotations = self.store.load_query_annotations(archive_ids)
-        annotations_ms = round((perf_counter() - annotations_started) * 1000, 1)
+        result = bundle["result"]
+        query_details = bundle["query_details"]
+        annotations = bundle["annotations"]
 
         response = {
             "archive_count": self.activity_summary.get("archive_count", len(self.archives)),
@@ -459,23 +533,19 @@ class PrintHistoryBrowserManager:
             },
             "archives": result.page_items,
             **annotations,
-            "store": self.store.load_store_stats(),
+            "store": bundle["store"],
         }
         activity_rows_ms = 0.0
         activity_row_count = 0
         if include_activity_rows:
-            activity_states = dict(states)
-            activity_states["input_text.print_history_activity_selected_date"] = ""
-            activity_started = perf_counter()
-            response["activity_rows"] = self.store.load_activity_rows(activity_states)
-            activity_rows_ms = round((perf_counter() - activity_started) * 1000, 1)
+            response["activity_rows"] = bundle.get("activity_rows", [])
             activity_row_count = len(response["activity_rows"])
 
         if debug_enabled:
             response["debug"] = {
                 "enabled": True,
                 "query_ms": query_ms,
-                "annotations_ms": annotations_ms,
+                "annotations_ms": 0.0,
                 "metric_aggregate_ms": float(query_details.get("metric_aggregate_ms", 0.0)),
                 "activity_rows_ms": activity_rows_ms,
                 "total_ms": round((perf_counter() - total_started) * 1000, 1),
@@ -493,7 +563,7 @@ class PrintHistoryBrowserManager:
             source=source,
             total_ms=total_ms,
             query_ms=query_ms,
-            annotations_ms=annotations_ms,
+            annotations_ms=0.0,
             metric_aggregate_ms=float(query_details.get("metric_aggregate_ms", 0.0)),
             activity_rows_ms=activity_rows_ms,
             filtered_count=result.filtered_count,
@@ -506,18 +576,24 @@ class PrintHistoryBrowserManager:
         return response
 
     def build_archive_detail_response(self, archive_id: int) -> dict[str, Any] | None:
-        archive = self.store.load_archive(archive_id)
-        if archive is None:
+        detail = self.store.load_archive_detail_bundle(archive_id)
+        if detail is None:
             return None
-        return {
-            "archive": archive,
-            "event_timeline": self._normalized_event_timeline(archive_id),
-            "note_payload_rows": self.store.load_note_payload_rows(archive_id),
-            "review_state": self.store.load_review_state(archive_id),
-            "repair_lineage": self.store.load_repair_lineage(archive_id),
-            "sync": self.store.load_sync_metadata(archive_id),
-            "store": self.store.load_store_stats(),
-        }
+        detail["event_timeline"] = [
+            {
+                "type": row["type"],
+                "time": row["time"],
+                "source": row["source"],
+                "status": row["status"],
+                "label": EVENT_LABELS.get(row["type"], row["type"].replace("_", " ").strip().title()),
+                "color_key": EVENT_COLOR_KEYS.get(row["type"], "neutral"),
+                "payload": row["payload"],
+                "derived_from": row["derived_from"],
+                "event_key": row["event_key"],
+            }
+            for row in detail["event_timeline"]
+        ]
+        return detail
 
     async def async_record_archive_event(
         self,
@@ -578,10 +654,12 @@ class PrintHistoryBrowserManager:
             "last_refresh_store_fast_unchanged_count": self.last_refresh_store_fast_unchanged_count,
             "last_refresh_store_serialized_count": self.last_refresh_store_serialized_count,
             "last_refresh_archive_count": self.last_refresh_archive_count,
+            "last_refresh_archive_total_count": self.last_refresh_archive_total_count,
             "last_refresh_printer_count": self.last_refresh_printer_count,
             "last_error": self.last_error,
             "enabled": self.enabled,
             "archive_count": len(self.archives),
+            "limit_notice": self.limit_notice,
             "query": {
                 "filtered_count": self.result.filtered_count,
                 "total_pages": self.result.total_pages,
@@ -594,12 +672,92 @@ class PrintHistoryBrowserManager:
             "recompute_scheduler_stats": self._scheduler_diagnostics(self.recompute_scheduler_stats, self._scheduled_recompute_reasons),
             "recent_operations": list(self._recent_operations),
             "store": self.store.load_store_stats(),
+            "store_connection": self.store.diagnostics_snapshot(),
         }
 
     @property
     def debug_enabled(self) -> bool:
         state = self.hass.states.get("input_boolean.print_history_debug_instrumentation")
         return state is not None and state.state == "on"
+
+    @property
+    def limit_notice(self) -> dict[str, Any]:
+        limit = self.max_archives
+        loaded_count = max(0, len(self.archives))
+        total_prints = self.last_refresh_archive_total_count
+        total_known = isinstance(total_prints, int) and total_prints >= 0
+        threshold_count = min(limit, max(1, limit - 25, int(limit * 0.9)))
+        is_truncated = bool(total_known and total_prints > limit)
+        is_at_limit = loaded_count >= limit
+        is_near_limit = loaded_count >= threshold_count and loaded_count < limit
+        show = limit > 0 and (is_truncated or is_at_limit or is_near_limit)
+
+        state = "hidden"
+        chip_icon = "mdi:archive-outline"
+        chip_label = ""
+        popup_title = "Print History Cache"
+        popup_markdown = "The print history cache is healthy."
+        missing_count = 0
+
+        if show:
+            if is_truncated:
+                state = "truncated"
+                chip_icon = "mdi:archive-remove-outline"
+                chip_label = f"{loaded_count:,} of {total_prints:,}"
+                missing_count = max(0, total_prints - loaded_count)
+                popup_title = "Print History Cache Limit Reached"
+                popup_markdown = (
+                    f"Home Assistant cached **{loaded_count:,}** archived prints out of your configured limit of **{limit:,}**.\n\n"
+                    f"Bambuddy reports **{total_prints:,}** total prints, so **{missing_count:,}** older prints are not included in the local browser cache right now.\n\n"
+                    "Increase `input_number.print_history_max_archives` if you want older prints to remain visible here."
+                )
+            elif is_at_limit:
+                state = "at_limit"
+                chip_icon = "mdi:archive-alert-outline"
+                chip_label = (
+                    f"{loaded_count:,} of {total_prints:,}"
+                    if total_known
+                    else f"{loaded_count:,} of {limit:,}"
+                )
+                popup_title = "Print History Cache At Max"
+                if total_known and total_prints <= limit:
+                    popup_markdown = (
+                        f"Home Assistant cached **{loaded_count:,}** archived prints, which matches your configured limit of **{limit:,}**.\n\n"
+                        f"Bambuddy currently reports **{total_prints:,}** total prints, so nothing appears to be missing yet.\n\n"
+                        "If new prints arrive, older ones will start falling out of the cache unless you raise the max."
+                    )
+                else:
+                    popup_markdown = (
+                        f"Home Assistant cached **{loaded_count:,}** archived prints, which matches your configured limit of **{limit:,}**.\n\n"
+                        "The integration could not confirm the full Bambuddy print count, so older prints may be missing once the browser reaches this cap.\n\n"
+                        "Raise `input_number.print_history_max_archives` if you want more history retained locally."
+                    )
+            else:
+                remaining_capacity = max(0, limit - loaded_count)
+                state = "near_limit"
+                chip_icon = "mdi:archive-clock-outline"
+                chip_label = f"{loaded_count:,} of {limit:,}"
+                popup_title = "Print History Cache Near Max"
+                popup_markdown = (
+                    f"Home Assistant cached **{loaded_count:,}** archived prints out of your configured limit of **{limit:,}**.\n\n"
+                    f"Only **{remaining_capacity:,}** cache slots remain before older prints start dropping out of the local browser history.\n\n"
+                    "If you want a deeper browser history, raise `input_number.print_history_max_archives` before you hit the cap."
+                )
+
+        return {
+            "show": show,
+            "state": state,
+            "limit": limit,
+            "threshold_count": threshold_count,
+            "loaded_count": loaded_count,
+            "total_prints": total_prints,
+            "total_known": total_known,
+            "missing_count": missing_count,
+            "chip_icon": chip_icon,
+            "chip_label": chip_label,
+            "popup_title": popup_title,
+            "popup_markdown": popup_markdown,
+        }
 
     def _state_snapshot(self) -> dict[str, str]:
         snapshot: dict[str, str] = {}
@@ -644,8 +802,9 @@ class PrintHistoryBrowserManager:
 
     def _recompute_query(self, reason: str = "internal") -> bool:
         started = perf_counter()
-        next_result = self.store.load_query_result(self._state_snapshot())
-        next_activity_summary = self.store.load_activity_summary()
+        with self.store._connect() as connection:
+            next_result = self.store.load_query_result(self._state_snapshot(), connection=connection)
+            next_activity_summary = self.store.load_activity_summary(connection=connection)
         changed = next_result != self.result or next_activity_summary != self.activity_summary
         self.result = next_result
         self.activity_summary = next_activity_summary
@@ -718,6 +877,15 @@ class PrintHistoryBrowserManager:
     def _notify_listeners(self) -> None:
         for listener in list(self._listeners):
             listener()
+
+    def _extract_total_prints(self, payload: dict[str, Any]) -> int | None:
+        value = payload.get("total_prints")
+        if value is None:
+            return None
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return None
 
     @property
     def _scheduler_loop(self) -> asyncio.AbstractEventLoop | None:

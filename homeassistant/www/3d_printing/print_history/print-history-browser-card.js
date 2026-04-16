@@ -776,6 +776,54 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return helper && typeof helper.colorForTag === "function" ? helper.colorForTag(tag) : "#86EFAC";
   }
 
+  _statusEntityAttributes() {
+    var state = this._hass && this._hass.states ? this._hass.states["sensor.bambuddy_print_history_browser_status"] : null;
+    return state && state.attributes ? state.attributes : {};
+  }
+
+  _popupProjectCatalog() {
+    var attributes = this._statusEntityAttributes();
+    return Array.isArray(attributes.project_options) ? attributes.project_options : [];
+  }
+
+  _popupProjectLabel(projectId, projectName) {
+    var projectIdText = projectId == null ? "" : String(projectId).trim();
+    var projectNameText = projectName == null ? "" : String(projectName).trim();
+    var catalog = this._popupProjectCatalog();
+    for (var index = 0; index < catalog.length; index += 1) {
+      var option = catalog[index] || {};
+      if (String(option.id || "").trim() === projectIdText && String(option.label || "").trim()) {
+        return String(option.label).trim();
+      }
+    }
+    if (projectNameText) {
+      return projectIdText ? projectNameText + " [" + projectIdText + "]" : projectNameText;
+    }
+    if (projectIdText) {
+      return "Project [" + projectIdText + "]";
+    }
+    return "No Project";
+  }
+
+  _popupProjectOptions(archive) {
+    var labels = ["No Project"];
+    var catalog = this._popupProjectCatalog();
+    for (var index = 0; index < catalog.length; index += 1) {
+      var label = catalog[index] && catalog[index].label ? String(catalog[index].label).trim() : "";
+      if (label && labels.indexOf(label) === -1) {
+        labels.push(label);
+      }
+    }
+    var selected = this._popupProjectLabel(archive && archive.project_id, archive && archive.project_name);
+    if (selected !== "No Project" && labels.indexOf(selected) === -1) {
+      labels.push(selected);
+    }
+    return {
+      options: labels,
+      selected: selected,
+    };
+  }
+
   async _handleClick(event) {
     var actionNode = event.target && event.target.closest ? event.target.closest("[data-action]") : null;
     if (!actionNode) {
@@ -883,6 +931,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveUserTags = this._userTags(archive.tags);
     var archiveStatus = this._normalizeStatus(archive.status || "completed");
     var archiveFailureReason = String(archive.failure_reason || "").trim();
+    var projectPicker = this._popupProjectOptions(archive);
     var statusOptions = ["Completed", "Failed", "Cancelled", "Printing"];
     var archiveStatusOption = archiveStatus ? archiveStatus.charAt(0).toUpperCase() + archiveStatus.slice(1) : "Completed";
     if (statusOptions.indexOf(archiveStatusOption) === -1) {
@@ -978,6 +1027,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         show_header_toggle: false,
         entities: [
           { entity: "input_text.print_history_popup_print_name", name: "Print Name", icon: "mdi:printer-3d" },
+          { entity: "input_select.print_history_popup_project", name: "Project", icon: "mdi:folder-outline" },
           { entity: "input_select.print_history_popup_status", name: "Status", icon: "mdi:list-status" },
           {
             type: "conditional",
@@ -1059,6 +1109,20 @@ class PrintHistoryBrowserCard extends HTMLElement {
           data: {
             entity_id: "input_text.print_history_popup_notes",
             value: editableNotes,
+          },
+        },
+        {
+          service: "input_select.set_options",
+          data: {
+            entity_id: "input_select.print_history_popup_project",
+            options: projectPicker.options,
+          },
+        },
+        {
+          service: "input_select.select_option",
+          data: {
+            entity_id: "input_select.print_history_popup_project",
+            option: projectPicker.selected,
           },
         },
         {

@@ -54,6 +54,42 @@ print_history_archive_popup:
       const archiveTags = archiveUserTags.join(', ');
       const archiveNotes = String(archiveNotesInfo.userNotes || '');
       const archiveFailureReason = String(archive?.failure_reason || '').trim();
+      const statusEntity = states['sensor.bambuddy_print_history_browser_status'];
+      const projectCatalog = Array.isArray(statusEntity?.attributes?.project_options)
+        ? statusEntity.attributes.project_options
+        : [];
+      const popupProjectLabel = (projectId, projectName) => {
+        const projectIdText = String(projectId || '').trim();
+        const projectNameText = String(projectName || '').trim();
+        for (const option of projectCatalog) {
+          const optionId = String(option?.id || '').trim();
+          const optionLabel = String(option?.label || '').trim();
+          if (projectIdText && optionId === projectIdText && optionLabel) {
+            return optionLabel;
+          }
+        }
+        if (projectNameText) {
+          return projectIdText ? `${projectNameText} [${projectIdText}]` : projectNameText;
+        }
+        if (projectIdText) {
+          return `Project [${projectIdText}]`;
+        }
+        return 'No Project';
+      };
+      const popupProjectOptions = (() => {
+        const labels = ['No Project'];
+        for (const option of projectCatalog) {
+          const label = String(option?.label || '').trim();
+          if (label && !labels.includes(label)) {
+            labels.push(label);
+          }
+        }
+        const currentLabel = popupProjectLabel(archive?.project_id, archive?.project_name);
+        if (currentLabel !== 'No Project' && !labels.includes(currentLabel)) {
+          labels.push(currentLabel);
+        }
+        return { options: labels, selected: currentLabel };
+      })();
       const normalizeStatusOption = (status) => {
         const raw = String(status || '').toLowerCase().trim();
         if (raw === 'success') return 'completed';
@@ -216,6 +252,11 @@ print_history_archive_popup:
               icon: 'mdi:printer-3d'
             },
             {
+              entity: 'input_select.print_history_popup_project',
+              name: 'Project',
+              icon: 'mdi:folder-outline'
+            },
+            {
               entity: 'input_select.print_history_popup_status',
               name: 'Status',
               icon: 'mdi:list-status'
@@ -302,6 +343,20 @@ print_history_archive_popup:
                 data: {
                   entity_id: 'input_text.print_history_popup_notes',
                   value: editableNotes
+                }
+              },
+              {
+                service: 'input_select.set_options',
+                data: {
+                  entity_id: 'input_select.print_history_popup_project',
+                  options: popupProjectOptions.options
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: 'input_select.print_history_popup_project',
+                  option: popupProjectOptions.selected
                 }
               },
               {

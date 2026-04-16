@@ -1,0 +1,6 @@
+print_history_popup_project:
+  name: Print History Popup Project
+  icon: mdi:folder-outline
+  options:
+    - No Project
+  initial: No Project

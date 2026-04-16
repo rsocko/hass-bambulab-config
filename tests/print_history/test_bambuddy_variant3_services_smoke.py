@@ -199,6 +199,8 @@ class FakeBus:
 class FakeApiClient:
     archives: list[dict] = []
     printers: list[dict] = []
+    projects: list[dict] = []
+    archive_stats: dict[str, object] = {}
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -208,6 +210,12 @@ class FakeApiClient:
 
     async def async_fetch_printers(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.printers]
+
+    async def async_fetch_projects(self) -> list[dict[str, object]]:
+        return [dict(item) for item in self.projects]
+
+    async def async_fetch_archive_stats(self) -> dict[str, object]:
+        return dict(self.archive_stats)
 
 
 class FakeRuntimeRepairClient:
@@ -723,6 +731,8 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         }
     ]
     FakeApiClient.printers = [{"id": 1, "name": "Workshop P1S"}]
+    FakeApiClient.projects = [{"id": 77, "name": "Wall Art", "status": "active"}]
+    FakeApiClient.archive_stats = {"total_prints": 1}
 
     original_client = manager_module.BambuddyApiClient
     manager_module.BambuddyApiClient = FakeApiClient
@@ -732,6 +742,8 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         manager_module.BambuddyApiClient = original_client
 
     assert manager.archives[0]["printer_name"] == "Workshop P1S"
+    assert manager.project_options == [{"id": "77", "name": "Wall Art", "status": "active", "label": "Wall Art"}]
+    assert manager.last_refresh_archive_total_count == 1
     printer_option_calls = [
         call for call in hass.services.calls if call[0] == "input_select" and call[1] == "set_options"
     ]
@@ -780,6 +792,8 @@ def test_variant3_manager_refresh_does_not_reload_archives_from_store(tmp_path: 
         }
     ]
     FakeApiClient.printers = [{"id": 1, "name": "Workshop P1S"}]
+    FakeApiClient.projects = []
+    FakeApiClient.archive_stats = {"total_prints": 1}
 
     original_client = manager_module.BambuddyApiClient
     original_load_archives = manager.store.load_archives
@@ -794,6 +808,63 @@ def test_variant3_manager_refresh_does_not_reload_archives_from_store(tmp_path: 
     assert manager.archives[0]["printer_name"] == "Workshop P1S"
     assert manager.last_refresh_store_load_ms == 0.0
     assert manager.last_refresh_store_total_count == 1
+
+
+def test_variant3_manager_limit_notice_reports_truncated_history(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_number.print_history_max_archives"] = "2"
+    hass = FakeHass(tmp_path, state_map)
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(manager_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.last_refresh_archive_total_count = 5
+
+    notice = manager.limit_notice
+
+    assert notice["show"] is True
+    assert notice["state"] == "truncated"
+    assert notice["chip_label"] == "2 of 5"
+    assert notice["missing_count"] == 3
+    assert "not included in the local browser cache" in notice["popup_markdown"]
+
+
+def test_variant3_manager_limit_notice_reports_near_limit(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_number.print_history_max_archives"] = "20"
+    hass = FakeHass(tmp_path, state_map)
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    template_archives = _projected_archives(manager_module.project_archive)
+    archives: list[dict[str, object]] = []
+    for index in range(18):
+        source = dict(template_archives[index % len(template_archives)])
+        source["id"] = 1000 + index
+        archives.append(source)
+    manager.store.replace_archives(archives)
+    manager.archives = manager.store.load_archives()
+    manager.last_refresh_archive_total_count = 18
+
+    notice = manager.limit_notice
+
+    assert notice["show"] is True
+    assert notice["state"] == "near_limit"
+    assert notice["chip_label"] == "18 of 20"
+    assert "Only **2** cache slots remain" in notice["popup_markdown"]
 
 
 def test_variant3_manager_refresh_cools_down_after_store_open_failure(tmp_path: Path) -> None:
@@ -859,3 +930,29 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     assert detail["event_timeline"][0]["type"] == "photo_captured"
     assert detail["event_timeline"][0]["label"] == "Photo captured"
     assert detail["event_timeline"][0]["color_key"] == "media"
+
+
+def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+
+    options = manager._project_options_from_projects(
+        [
+            {"id": 100, "name": "Controller Box", "status": "active"},
+            {"id": 200, "name": "Controller Box", "status": "archived"},
+            {"id": 300, "name": "Moon Lamp", "status": "active"},
+        ]
+    )
+
+    assert options == [
+        {"id": "100", "name": "Controller Box", "status": "active", "label": "Controller Box [100]"},
+        {"id": "200", "name": "Controller Box", "status": "archived", "label": "Controller Box [200]"},
+        {"id": "300", "name": "Moon Lamp", "status": "active", "label": "Moon Lamp"},
+    ]

@@ -17,6 +17,7 @@ save_print_history_archive_popup_edits:
         resolved_print_name: "{{ states('input_text.print_history_popup_print_name') | default('', true) | string | trim }}"
         resolved_tags: "{{ states('input_text.print_history_popup_tags') | default('', true) | string }}"
         resolved_notes: "{{ states('input_text.print_history_popup_notes') | default('', true) | string }}"
+        resolved_project_label: "{{ states('input_select.print_history_popup_project') | default('No Project', true) | string | trim }}"
         resolved_status: "{{ states('input_select.print_history_popup_status') | default('', true) | string | trim | lower }}"
         resolved_failure_reason: >-
           {% set current_status = states('input_select.print_history_popup_status') | default('', true) | string | trim | lower %}
@@ -69,6 +70,22 @@ save_print_history_archive_popup_edits:
             {% endif %}
           {% endfor %}
           {{ ns.result | tojson | from_json }}
+        resolved_project_id: >-
+          {% set selected = resolved_project_label %}
+          {% set options = state_attr('sensor.bambuddy_print_history_browser_status', 'project_options') | default([], true) %}
+          {% if selected in ['', 'No Project'] %}
+            __NULL__
+          {% else %}
+            {% set ns = namespace(value='') %}
+            {% for option in options if option is mapping %}
+              {% set label = option.label | default('', true) | string | trim %}
+              {% set option_id = option.id | default('', true) | string | trim %}
+              {% if ns.value == '' and label == selected and option_id != '' %}
+                {% set ns.value = option_id %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.value if ns.value != '' else '__LOOKUP__' }}
+          {% endif %}
     - if:
         - condition: template
           value_template: "{{ resolved_archive_id != '' }}"
@@ -89,6 +106,8 @@ save_print_history_archive_popup_edits:
               {% endif %}
             existing_tags_raw: "{{ archive_detail.tags | default('', true) | string }}"
             existing_notes_raw: "{{ archive_detail.notes | default('', true) | string }}"
+            existing_project_id: "{{ archive_detail.project_id | default('', true) | string | trim }}"
+            existing_project_name: "{{ archive_detail.project_name | default('', true) | string | trim }}"
             existing_marker_index: "{{ existing_notes_raw.find(enrichment_marker) }}"
             existing_recovery_index: "{{ existing_notes_raw.find(recovery_marker) }}"
             existing_payload_raw: >-
@@ -189,12 +208,23 @@ save_print_history_archive_popup_edits:
                 {% set parts.values = parts.values + [existing_hidden_notes_suffix] %}
               {% endif %}
               {{ parts.values | join('\n\n') }}
+            merged_project_id: >-
+              {% if resolved_project_id == '__NULL__' %}
+                __NULL__
+              {% elif resolved_project_id != '__LOOKUP__' %}
+                {{ resolved_project_id }}
+              {% elif resolved_project_label != '' and existing_project_id != '' and resolved_project_label == existing_project_name %}
+                {{ existing_project_id }}
+              {% else %}
+                __NULL__
+              {% endif %}
         - action: rest_command.bambuddy_update_archive
           data:
             archive_id: "{{ resolved_archive_id }}"
             print_name: "{{ resolved_print_name }}"
             tags: "{{ merged_tags }}"
             notes: "{{ merged_notes }}"
+            project_id: "{{ merged_project_id }}"
             status: "{{ resolved_status }}"
             failure_reason: "{{ resolved_failure_reason }}"
         - if:

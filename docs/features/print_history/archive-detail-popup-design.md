@@ -280,7 +280,7 @@ Status and failure-reason editing are now also in scope for the HA popup because
 
 Bambuddy itself supports a broader archive update contract than the initial HA popup edit scope. Additional mutable fields include `project_id`, `status`, `failure_reason`, `quantity`, `external_url`, and `cost`.
 
-The remaining deferred fields are `project_id`, `quantity`, `external_url`, and `cost`. Those stay out of the current popup slice because they are not required for the first archive-review workflow and would push the popup toward a full archive-admin form.
+The remaining deferred fields are `quantity`, `external_url`, and `cost`. `project_id` now has an initial shipped slice: the popup can assign an archive to one of Bambuddy's existing projects, but it does not create, edit, or browse projects inline. That narrower scope keeps the popup out of full project-admin territory while still covering the highest-value archive-linking action.
 
 ### Why these first
 
@@ -293,6 +293,7 @@ The remaining deferred fields are `project_id`, `quantity`, `external_url`, and 
 
 - `is_favorite` is toggleable from both the archive cards and the popup action bar
 - `print_name`, `tags`, and `notes` are editable from the popup through helper-backed fields plus a save action, with current inline editing capped by Home Assistant helper limits
+- `project_id` is editable from the popup by selecting from the current Bambuddy project catalog fetched from `/api/v1/projects/`; the popup also exposes `No Project` to clear an assignment
 - `status` is editable from the popup
 - `failure_reason` is editable from the popup, but only when the selected status is `failed` or `cancelled`
 - manual `Re-Enrich` is exposed from the popup for older archives and preserves hidden enrichment metadata while rebuilding managed tags/notes when possible
@@ -300,7 +301,9 @@ The remaining deferred fields are `project_id`, `quantity`, `external_url`, and 
 ### Upstream Bambuddy behavior verified against source
 
 - backend `PATCH /archives/{id}` accepts `failure_reason` as `string | null`, so the API contract itself allows arbitrary custom strings
+- backend `PATCH /archives/{id}` accepts `project_id` as `int | null`, so project assignment can be handled as a simple native archive mutation when the UI already knows the target project ID
 - the shipped Bambuddy frontend does not expose a free-text failure-reason field; it uses a fixed dropdown list in `EditArchiveModal.tsx`
+- the popup's first project-assignment slice uses Bambuddy's existing `/api/v1/projects/` list as the source of truth and intentionally does not expose project creation or editing
 - the shipped Bambuddy frontend only shows that dropdown for failure/cancel-style outcomes; our HA popup normalizes stored `cancelled`, `aborted`, and legacy `stopped` values into a single `Cancelled` option
 - the HA popup status list is `Completed`, `Failed`, `Cancelled`, and `Printing`, while still accepting legacy raw values from stored archives
 - the HA popup preserves an existing non-standard stored failure reason as a selectable option if one already exists on the archive

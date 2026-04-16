@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
+import logging
 import os
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 from time import perf_counter
-from typing import Any
-import logging
+from typing import Any, Iterator
 
 try:
     from .query import (
@@ -62,11 +64,35 @@ _LOGGER = logging.getLogger(__name__)
 class PrintHistoryStore:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
+        self._connection_lock = threading.Lock()
+        self._connection_stats: dict[str, Any] = {
+            "open_count": 0,
+            "open_error_count": 0,
+            "current_open_count": 0,
+            "max_open_count": 0,
+            "last_opened_at": "",
+            "last_closed_at": "",
+            "last_open_duration_ms": 0.0,
+            "max_open_duration_ms": 0.0,
+            "last_error": "",
+            "last_proc_fd_count": None,
+            "max_proc_fd_count": None,
+            "last_db_fd_count": None,
+            "max_db_fd_count": None,
+        }
 
     def initialize(self) -> None:
         self._ensure_parent_directory()
         with self._connect() as connection:
             self._ensure_schema(connection)
+
+    def diagnostics_snapshot(self) -> dict[str, Any]:
+        snapshot = self._fd_snapshot()
+        with self._connection_lock:
+            diagnostics = dict(self._connection_stats)
+        diagnostics["current_proc_fd_count"] = snapshot["proc_fd_count"]
+        diagnostics["current_db_fd_count"] = snapshot["db_fd_count"]
+        return diagnostics
 
     def _ensure_schema(self, connection: sqlite3.Connection) -> None:
         connection.executescript(
@@ -637,22 +663,32 @@ class PrintHistoryStore:
                 archives.append(payload)
         return archives
 
-    def load_query_result(self, states: dict[str, str]) -> QueryResult:
-        result, _details = self.load_query_result_details(states)
+    def load_query_result(
+        self,
+        states: dict[str, str],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> QueryResult:
+        result, _details = self.load_query_result_details(states, connection=connection)
         return result
 
-    def load_query_result_details(self, states: dict[str, str]) -> tuple[QueryResult, dict[str, Any]]:
+    def load_query_result_details(
+        self,
+        states: dict[str, str],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> tuple[QueryResult, dict[str, Any]]:
         filters = self._query_filters(states)
-        archive_ids = self._matching_archive_ids(filters)
+        archive_ids = self._matching_archive_ids(filters, connection=connection)
         filtered_count = len(archive_ids)
         page_size = max(1, filters["page_size"])
         total_pages = max(1, (filtered_count + page_size - 1) // page_size)
         current_page = min(max(1, filters["requested_page"]), total_pages)
         start_index = (current_page - 1) * page_size
         page_ids = archive_ids[start_index : start_index + page_size]
-        page_items = self._load_archives_by_ids(page_ids)
+        page_items = self._load_archives_by_ids(page_ids, connection=connection)
         metric_started = perf_counter()
-        metric_aggregates = self._load_metric_aggregates(archive_ids, filters["activity_mode"])
+        metric_aggregates = self._load_metric_aggregates(archive_ids, filters["activity_mode"], connection=connection)
         metric_aggregate_ms = round((perf_counter() - metric_started) * 1000, 1)
         active_day_count = metric_aggregates["active_day_count"]
         activity_active_days_label = f"{active_day_count:,} active {'day' if active_day_count == 1 else 'days'}"
@@ -668,8 +704,8 @@ class PrintHistoryStore:
                 page_info=f"{current_page} of {total_pages}",
                 has_active_filters=has_active_filters(states),
                 active_filters=active_filters(states),
-                available_colors=self._load_available_colors(),
-                available_color_tooltips=self._load_available_color_tooltips(),
+                available_colors=self._load_available_colors(connection=connection),
+                available_color_tooltips=self._load_available_color_tooltips(connection=connection),
                 activity_active_days_label=activity_active_days_label,
                 activity_active_days_compact_label=f"{active_day_count:,}",
                 activity_metric_total_label=activity_metric_total_label,
@@ -683,9 +719,9 @@ class PrintHistoryStore:
             },
         )
 
-    def load_activity_summary(self) -> dict[str, Any]:
-        with self._connect() as connection:
-            row = connection.execute(
+    def load_activity_summary(self, *, connection: sqlite3.Connection | None = None) -> dict[str, Any]:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
                 """
                 SELECT
                     COUNT(*) AS archive_count,
@@ -694,7 +730,7 @@ class PrintHistoryStore:
                 WHERE TRIM(COALESCE(archive_day_local, '')) != ''
                 """
             ).fetchone()
-            latest = connection.execute(
+            latest = active_connection.execute(
                 """
                 SELECT archive_id
                 FROM archives
@@ -708,15 +744,20 @@ class PrintHistoryStore:
             "latest_archive_id": 0 if latest is None else as_int(latest[0]),
         }
 
-    def load_activity_rows(self, states: dict[str, str]) -> list[dict[str, Any]]:
+    def load_activity_rows(
+        self,
+        states: dict[str, str],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
         activity_states = dict(states)
         activity_states["input_text.print_history_activity_selected_date"] = ""
-        archive_ids = self._matching_archive_ids(self._query_filters(activity_states))
+        archive_ids = self._matching_archive_ids(self._query_filters(activity_states), connection=connection)
         if not archive_ids:
             return []
 
-        rows_by_id = self._load_activity_bases(archive_ids)
-        filament_rows_by_id = self._load_filament_rows_by_archive(archive_ids)
+        rows_by_id = self._load_activity_bases(archive_ids, connection=connection)
+        filament_rows_by_id = self._load_filament_rows_by_archive(archive_ids, connection=connection)
         activity_rows: list[dict[str, Any]] = []
         for archive_id in archive_ids:
             base = rows_by_id.get(archive_id)
@@ -750,19 +791,39 @@ class PrintHistoryStore:
             )
         return activity_rows
 
-    def _connect(self) -> sqlite3.Connection:
+    def load_query_bundle(self, states: dict[str, str], *, include_activity_rows: bool = False) -> dict[str, Any]:
+        with self._connect() as connection:
+            result, query_details = self.load_query_result_details(states, connection=connection)
+            archive_ids = [int(archive.get("id")) for archive in result.page_items if int(archive.get("id") or 0) > 0]
+            bundle = {
+                "result": result,
+                "query_details": query_details,
+                "annotations": self.load_query_annotations(archive_ids, connection=connection),
+                "store": self.load_store_stats(connection=connection),
+            }
+            if include_activity_rows:
+                activity_states = dict(states)
+                activity_states["input_text.print_history_activity_selected_date"] = ""
+                bundle["activity_rows"] = self.load_activity_rows(activity_states, connection=connection)
+            return bundle
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         self._ensure_parent_directory()
         recovered_store = False
+        connection_started = perf_counter()
 
         try:
             connection = sqlite3.connect(self._db_path)
         except sqlite3.OperationalError as exc:
+            self._record_connection_error(str(exc))
             if self._should_recover_unopenable_database(exc):
                 recovered_store = self._quarantine_unopenable_database()
                 if recovered_store:
                     try:
                         connection = sqlite3.connect(self._db_path)
                     except sqlite3.OperationalError as retry_exc:
+                        self._record_connection_error(str(retry_exc))
                         raise sqlite3.OperationalError(self._format_connection_error(str(retry_exc))) from retry_exc
                 else:
                     raise sqlite3.OperationalError(self._format_connection_error(str(exc))) from exc
@@ -772,7 +833,100 @@ class PrintHistoryStore:
         connection.execute("PRAGMA foreign_keys=ON")
         if recovered_store:
             self._ensure_schema(connection)
-        return connection
+        self._record_connection_open(perf_counter() - connection_started)
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            try:
+                connection.close()
+            finally:
+                self._record_connection_close()
+
+    @contextmanager
+    def _borrow_connection(self, connection: sqlite3.Connection | None) -> Iterator[sqlite3.Connection]:
+        if connection is not None:
+            yield connection
+            return
+        with self._connect() as borrowed_connection:
+            yield borrowed_connection
+
+    def _record_connection_open(self, duration_seconds: float) -> None:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        duration_ms = round(duration_seconds * 1000, 1)
+        snapshot = self._fd_snapshot()
+        with self._connection_lock:
+            self._connection_stats["open_count"] += 1
+            self._connection_stats["current_open_count"] += 1
+            self._connection_stats["max_open_count"] = max(
+                int(self._connection_stats["max_open_count"]),
+                int(self._connection_stats["current_open_count"]),
+            )
+            self._connection_stats["last_opened_at"] = timestamp
+            self._connection_stats["last_open_duration_ms"] = duration_ms
+            self._connection_stats["max_open_duration_ms"] = max(
+                float(self._connection_stats["max_open_duration_ms"]),
+                duration_ms,
+            )
+            self._update_fd_high_watermarks_locked(snapshot)
+
+    def _record_connection_close(self) -> None:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        snapshot = self._fd_snapshot()
+        with self._connection_lock:
+            self._connection_stats["current_open_count"] = max(
+                0,
+                int(self._connection_stats["current_open_count"]) - 1,
+            )
+            self._connection_stats["last_closed_at"] = timestamp
+            self._update_fd_high_watermarks_locked(snapshot)
+
+    def _record_connection_error(self, message: str) -> None:
+        snapshot = self._fd_snapshot()
+        with self._connection_lock:
+            self._connection_stats["open_error_count"] += 1
+            self._connection_stats["last_error"] = message
+            self._update_fd_high_watermarks_locked(snapshot)
+
+    def _update_fd_high_watermarks_locked(self, snapshot: dict[str, int | None]) -> None:
+        proc_fd_count = snapshot["proc_fd_count"]
+        db_fd_count = snapshot["db_fd_count"]
+        self._connection_stats["last_proc_fd_count"] = proc_fd_count
+        self._connection_stats["last_db_fd_count"] = db_fd_count
+        if proc_fd_count is not None:
+            previous = self._connection_stats["max_proc_fd_count"]
+            self._connection_stats["max_proc_fd_count"] = (
+                proc_fd_count if previous is None else max(int(previous), proc_fd_count)
+            )
+        if db_fd_count is not None:
+            previous = self._connection_stats["max_db_fd_count"]
+            self._connection_stats["max_db_fd_count"] = (
+                db_fd_count if previous is None else max(int(previous), db_fd_count)
+            )
+
+    def _fd_snapshot(self) -> dict[str, int | None]:
+        proc_fd_path = Path("/proc/self/fd")
+        if not proc_fd_path.exists():
+            return {"proc_fd_count": None, "db_fd_count": None}
+
+        proc_fd_count = 0
+        db_fd_count = 0
+        db_targets = {str(self._db_path), str(Path(f"{self._db_path}-wal")), str(Path(f"{self._db_path}-shm"))}
+        try:
+            for entry in os.scandir(proc_fd_path):
+                proc_fd_count += 1
+                try:
+                    target = os.readlink(entry.path)
+                except OSError:
+                    continue
+                if target in db_targets:
+                    db_fd_count += 1
+        except OSError:
+            return {"proc_fd_count": None, "db_fd_count": None}
+        return {"proc_fd_count": proc_fd_count, "db_fd_count": db_fd_count}
 
     def _should_recover_unopenable_database(self, error: sqlite3.OperationalError) -> bool:
         message = str(error).lower()
@@ -845,9 +999,14 @@ class PrintHistoryStore:
             f"parent_is_dir={parent_is_dir}, parent_writable={writable}, db_exists={db_exists})"
         )
 
-    def _resolve_selected_printer_ids(self, selected_printer: str) -> set[str]:
-        with self._connect() as connection:
-            rows = connection.execute(
+    def _resolve_selected_printer_ids(
+        self,
+        selected_printer: str,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> set[str]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 """
                 SELECT DISTINCT printer_id, printer_name
                 FROM archives
@@ -864,9 +1023,14 @@ class PrintHistoryStore:
         ]
         return resolve_printer_filter_ids(printers, selected_printer)
 
-    def load_archive(self, archive_id: int) -> dict[str, Any] | None:
-        with self._connect() as connection:
-            row = connection.execute(
+    def load_archive(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
                 "SELECT json_payload FROM archives WHERE archive_id = ?",
                 (archive_id,),
             ).fetchone()
@@ -878,9 +1042,14 @@ class PrintHistoryStore:
             return None
         return with_effective_duration_seconds(payload) if isinstance(payload, dict) else None
 
-    def load_note_payload_rows(self, archive_id: int) -> list[dict[str, Any]]:
-        with self._connect() as connection:
-            rows = connection.execute(
+    def load_note_payload_rows(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 """
                 SELECT row_index, tray, name, type, color, used_grams, filament_id, spool_id, ambiguity_code
                 FROM archive_note_payload_rows
@@ -904,9 +1073,14 @@ class PrintHistoryStore:
             for row in rows
         ]
 
-    def load_archive_event_timeline(self, archive_id: int) -> list[dict[str, Any]]:
-        with self._connect() as connection:
-            rows = connection.execute(
+    def load_archive_event_timeline(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 """
                 SELECT event_type, event_time, event_source, event_status, payload_json, derived_from, event_key
                 FROM archive_event_timeline
@@ -930,9 +1104,14 @@ class PrintHistoryStore:
             )
         return timeline
 
-    def load_review_state(self, archive_id: int) -> dict[str, Any] | None:
-        with self._connect() as connection:
-            row = connection.execute(
+    def load_review_state(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
                 """
                 SELECT review_status, mismatch_flags, reviewed_at, review_note
                 FROM archive_review_state
@@ -1047,9 +1226,14 @@ class PrintHistoryStore:
                 ),
             )
 
-    def load_sync_metadata(self, archive_id: int) -> dict[str, Any] | None:
-        with self._connect() as connection:
-            row = connection.execute(
+    def load_sync_metadata(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
                 """
                 SELECT last_synced_at, source_updated_at, payload_hash, updated_at
                 FROM archives
@@ -1066,9 +1250,14 @@ class PrintHistoryStore:
             "store_updated_at": row[3],
         }
 
-    def load_repair_lineage(self, archive_id: int) -> list[dict[str, Any]]:
-        with self._connect() as connection:
-            rows = connection.execute(
+    def load_repair_lineage(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 """
                 SELECT archive_id, related_archive_id, relation_type, created_at, note
                 FROM archive_repair_lineage
@@ -1148,7 +1337,12 @@ class PrintHistoryStore:
             )
         return cursor.rowcount
 
-    def load_query_annotations(self, archive_ids: list[int]) -> dict[str, Any]:
+    def load_query_annotations(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
         normalized_ids = [archive_id for archive_id in {as_int(value) for value in archive_ids} if archive_id > 0]
         if not normalized_ids:
             return {
@@ -1159,8 +1353,8 @@ class PrintHistoryStore:
 
         placeholders = ",".join("?" for _ in normalized_ids)
         lineage_placeholders = ",".join("?" for _ in normalized_ids)
-        with self._connect() as connection:
-            review_rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            review_rows = active_connection.execute(
                 f"""
                 SELECT archive_id, review_status, mismatch_flags, reviewed_at, review_note
                 FROM archive_review_state
@@ -1168,7 +1362,7 @@ class PrintHistoryStore:
                 """,
                 normalized_ids,
             ).fetchall()
-            sync_rows = connection.execute(
+            sync_rows = active_connection.execute(
                 f"""
                 SELECT archive_id, last_synced_at, source_updated_at, payload_hash, updated_at
                 FROM archives
@@ -1176,7 +1370,7 @@ class PrintHistoryStore:
                 """,
                 normalized_ids,
             ).fetchall()
-            lineage_rows = connection.execute(
+            lineage_rows = active_connection.execute(
                 f"""
                 SELECT archive_id, related_archive_id, relation_type, created_at, note
                 FROM archive_repair_lineage
@@ -1223,15 +1417,16 @@ class PrintHistoryStore:
             "sync_metadata_by_archive": sync_metadata_by_archive,
         }
 
-    def load_store_stats(self) -> dict[str, Any]:
-        with self._connect() as connection:
-            archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
-            note_payload_count = connection.execute("SELECT COUNT(*) FROM archive_note_payload_rows").fetchone()[0]
-            event_timeline_count = connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
-            lineage_count = connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
-            review_count = connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
-            last_synced_at = connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
+    def load_store_stats(self, *, connection: sqlite3.Connection | None = None) -> dict[str, Any]:
+        with self._borrow_connection(connection) as active_connection:
+            archive_count = active_connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+            note_payload_count = active_connection.execute("SELECT COUNT(*) FROM archive_note_payload_rows").fetchone()[0]
+            event_timeline_count = active_connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
+            lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
+            review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
+            last_synced_at = active_connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
         db_size_bytes = self._db_path.stat().st_size if self._db_path.exists() else 0
+        diagnostics = self.diagnostics_snapshot()
         return {
             "db_path": str(self._db_path),
             "db_size_bytes": db_size_bytes,
@@ -1241,7 +1436,35 @@ class PrintHistoryStore:
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
             "last_synced_at": last_synced_at or "",
+            "connection_open_count": diagnostics.get("open_count", 0),
+            "connection_open_error_count": diagnostics.get("open_error_count", 0),
+            "connection_current_open_count": diagnostics.get("current_open_count", 0),
+            "connection_max_open_count": diagnostics.get("max_open_count", 0),
+            "connection_last_error": diagnostics.get("last_error", ""),
+            "connection_last_opened_at": diagnostics.get("last_opened_at", ""),
+            "connection_last_closed_at": diagnostics.get("last_closed_at", ""),
+            "connection_last_open_duration_ms": diagnostics.get("last_open_duration_ms", 0.0),
+            "connection_max_open_duration_ms": diagnostics.get("max_open_duration_ms", 0.0),
+            "proc_fd_count": diagnostics.get("current_proc_fd_count"),
+            "proc_fd_max_count": diagnostics.get("max_proc_fd_count"),
+            "db_fd_count": diagnostics.get("current_db_fd_count"),
+            "db_fd_max_count": diagnostics.get("max_db_fd_count"),
         }
+
+    def load_archive_detail_bundle(self, archive_id: int) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            archive = self.load_archive(archive_id, connection=connection)
+            if archive is None:
+                return None
+            return {
+                "archive": archive,
+                "event_timeline": self.load_archive_event_timeline(archive_id, connection=connection),
+                "note_payload_rows": self.load_note_payload_rows(archive_id, connection=connection),
+                "review_state": self.load_review_state(archive_id, connection=connection),
+                "repair_lineage": self.load_repair_lineage(archive_id, connection=connection),
+                "sync": self.load_sync_metadata(archive_id, connection=connection),
+                "store": self.load_store_stats(connection=connection),
+            }
 
     def _payload_json(self, payload: Any | None) -> str:
         if payload in (None, "", {}):
@@ -1331,7 +1554,12 @@ class PrintHistoryStore:
             "today": current_time.astimezone(local_timezone()).date(),
         }
 
-    def _matching_archive_ids(self, filters: dict[str, Any]) -> list[int]:
+    def _matching_archive_ids(
+        self,
+        filters: dict[str, Any],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[int]:
         where_clauses = ["1 = 1"]
         params: list[Any] = []
         if filters["status"] not in {"", "all"}:
@@ -1356,7 +1584,7 @@ class PrintHistoryStore:
         elif filters["duplicates"] == "Duplicates Only":
             where_clauses.append("((COALESCE(a.original_archive_id, 0) > 0 AND COALESCE(a.original_archive_id, 0) != a.archive_id) OR COALESCE(a.duplicate_sequence, 0) > 0)")
         if filters["printer"] not in {"", "All"}:
-            selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"])
+            selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"], connection=connection)
             if not selected_printer_ids:
                 return []
             placeholders = ",".join("?" for _ in selected_printer_ids)
@@ -1427,8 +1655,8 @@ class PrintHistoryStore:
             WHERE {' AND '.join(where_clauses)}
             ORDER BY {sort_sql}
         """
-        with self._connect() as connection:
-            rows = connection.execute(query, params).fetchall()
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(query, params).fetchall()
         return [as_int(row[0]) for row in rows if as_int(row[0]) > 0]
 
     def _sort_sql(self, sort_option: str) -> str:
@@ -1474,7 +1702,12 @@ class PrintHistoryStore:
             return (today - timedelta(days=89)).isoformat()
         return ""
 
-    def _load_archives_by_ids(self, archive_ids: list[int]) -> list[dict[str, Any]]:
+    def _load_archives_by_ids(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
         if not normalized_ids:
             return []
@@ -1482,8 +1715,8 @@ class PrintHistoryStore:
         order_clause = "CASE archive_id " + " ".join(
             f"WHEN {archive_id} THEN {index}" for index, archive_id in enumerate(normalized_ids)
         ) + " END"
-        with self._connect() as connection:
-            rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 f"SELECT archive_id, json_payload FROM archives WHERE archive_id IN ({placeholders}) ORDER BY {order_clause}",
                 normalized_ids,
             ).fetchall()
@@ -1497,13 +1730,13 @@ class PrintHistoryStore:
                 archives.append(with_effective_duration_seconds(payload))
         return archives
 
-    def _load_available_colors(self) -> list[str]:
+    def _load_available_colors(self, *, connection: sqlite3.Connection | None = None) -> list[str]:
         colors: set[str] = set()
-        with self._connect() as connection:
-            filament_rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            filament_rows = active_connection.execute(
                 "SELECT DISTINCT color FROM archive_filament_rows WHERE TRIM(COALESCE(color, '')) != ''"
             ).fetchall()
-            archive_rows = connection.execute(
+            archive_rows = active_connection.execute(
                 "SELECT filament_color FROM archives WHERE TRIM(COALESCE(filament_color, '')) != ''"
             ).fetchall()
         for row in filament_rows:
@@ -1517,12 +1750,16 @@ class PrintHistoryStore:
                     colors.add(normalized)
         return sorted(colors)
 
-    def _load_available_color_tooltips(self) -> list[dict[str, str]]:
-        colors = self._load_available_colors()
+    def _load_available_color_tooltips(
+        self,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, str]]:
+        colors = self._load_available_colors(connection=connection)
         tooltip_rows: list[dict[str, Any]] = []
 
-        with self._connect() as connection:
-            note_rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            note_rows = active_connection.execute(
                 """
                 SELECT color, name
                 FROM archive_note_payload_rows
@@ -1530,7 +1767,7 @@ class PrintHistoryStore:
                 ORDER BY archive_id DESC, row_index ASC
                 """
             ).fetchall()
-            filament_rows = connection.execute(
+            filament_rows = active_connection.execute(
                 """
                 SELECT color, name
                 FROM archive_filament_rows
@@ -1598,7 +1835,13 @@ class PrintHistoryStore:
             for row in rows
         ]
 
-    def _load_metric_aggregates(self, archive_ids: list[int], activity_mode: str) -> dict[str, Any]:
+    def _load_metric_aggregates(
+        self,
+        archive_ids: list[int],
+        activity_mode: str,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
         if not normalized_ids:
             total_label, total_compact_label = self._metric_total_labels([], activity_mode)
@@ -1611,8 +1854,8 @@ class PrintHistoryStore:
 
         placeholders = ",".join("?" for _ in normalized_ids)
         duration_sql = self._effective_duration_sql("a")
-        with self._connect() as connection:
-            row = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
                 f"""
                 SELECT
                     COUNT(*) AS metric_archive_count,
@@ -1695,13 +1938,18 @@ class PrintHistoryStore:
         total = f"{len(metric_rows):,} prints"
         return total, f"{len(metric_rows):,}"
 
-    def _load_activity_bases(self, archive_ids: list[int]) -> dict[int, dict[str, Any]]:
+    def _load_activity_bases(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[int, dict[str, Any]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
         if not normalized_ids:
             return {}
         placeholders = ",".join("?" for _ in normalized_ids)
-        with self._connect() as connection:
-            rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 f"""
                 SELECT
                     archive_id,
@@ -1754,13 +2002,18 @@ class PrintHistoryStore:
             for row in rows
         }
 
-    def _load_filament_rows_by_archive(self, archive_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    def _load_filament_rows_by_archive(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[int, list[dict[str, Any]]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
         if not normalized_ids:
             return {}
         placeholders = ",".join("?" for _ in normalized_ids)
-        with self._connect() as connection:
-            rows = connection.execute(
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
                 f"""
                 SELECT archive_id, row_index, color, used_grams, name
                 FROM archive_filament_rows
