@@ -10,6 +10,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._archiveName = "Archive Photos";
     this._archiveIdentity = "";
     this._localPrimaryPhotoPath = null;
+    this._localSelectedPrimaryPhotoPath = null;
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -250,8 +251,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     if (this._localPrimaryPhotoPath !== null) {
       merged.primary_photo_path = this._localPrimaryPhotoPath;
-      merged.selected_primary_photo_path = this._localPrimaryPhotoPath;
-      merged.has_primary_photo_override = this._localPrimaryPhotoPath !== "";
+    }
+
+    if (this._localSelectedPrimaryPhotoPath !== null) {
+      merged.selected_primary_photo_path = this._localSelectedPrimaryPhotoPath;
+      merged.has_primary_photo_override = this._localSelectedPrimaryPhotoPath !== "";
     }
 
     return merged;
@@ -287,9 +291,19 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var updatedArchive = response && response.archive && typeof response.archive === "object"
         ? response.archive
         : null;
+      var selection = response && response.primary_photo_selection && typeof response.primary_photo_selection === "object"
+        ? response.primary_photo_selection
+        : null;
       this._localPrimaryPhotoPath = normalizedPhotoPath;
+      this._localSelectedPrimaryPhotoPath = normalizedPhotoPath;
       if (updatedArchive && updatedArchive.primary_photo_path != null) {
         this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
+      }
+      if (updatedArchive && updatedArchive.selected_primary_photo_path != null) {
+        this._localSelectedPrimaryPhotoPath = String(updatedArchive.selected_primary_photo_path || "").trim();
+      }
+      if (selection && selection.photo_path != null) {
+        this._localSelectedPrimaryPhotoPath = String(selection.photo_path || "").trim();
       }
       this._render();
     } catch (error) {
@@ -421,6 +435,35 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return images;
   }
 
+  _findPreferredActiveIndex(images) {
+    if (!Array.isArray(images) || !images.length) {
+      return 0;
+    }
+
+    var primaryIndex = images.findIndex(function (image) {
+      return !!(image && image.isPrimary);
+    });
+
+    return primaryIndex >= 0 ? primaryIndex : 0;
+  }
+
+  _photoCount(images) {
+    if (!Array.isArray(images) || !images.length) {
+      return 0;
+    }
+
+    return images.reduce(function (count, image) {
+      return count + (image && image.kind === "photo" ? 1 : 0);
+    }, 0);
+  }
+
+  _subtitleForImages(images) {
+    var photoCount = this._photoCount(images);
+    return photoCount > 0
+      ? photoCount + (photoCount === 1 ? " photo" : " photos")
+      : "Thumbnail only";
+  }
+
   _moveActiveIndex(direction) {
     var images = this._images;
     if (!images.length) {
@@ -536,10 +579,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var active = this._images[this._activeIndex];
-    var photoCount = Math.max(0, this._images.length - (this._images[0] && this._images[0].kind === "thumbnail" ? 1 : 0));
-    var subtitle = photoCount > 0
-      ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
-      : "Thumbnail only";
+    var subtitle = this._subtitleForImages(this._images);
     var primaryAction = active.kind === "photo"
       ? '<button class="button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
       : (active.hasPrimaryOverride ? '<button class="button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
@@ -599,10 +639,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var active = this._images[this._activeIndex];
-    var photoCount = Math.max(0, this._images.length - (this._images[0] && this._images[0].kind === "thumbnail" ? 1 : 0));
-    var subtitle = photoCount > 0
-      ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
-      : "Thumbnail only";
+    var subtitle = this._subtitleForImages(this._images);
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
 
     var stageImage = this.shadowRoot.querySelector(".stage-image");
@@ -709,10 +746,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var archive = this._resolveArchive();
     var archiveIdentity = this._archiveKey(archive);
+    var shouldPreferPrimary = !this._archiveIdentity;
     if (this._archiveIdentity && archiveIdentity && archiveIdentity !== this._archiveIdentity) {
+      shouldPreferPrimary = true;
       this._setExpanded(false);
       this._activeIndex = 0;
       this._localPrimaryPhotoPath = null;
+      this._localSelectedPrimaryPhotoPath = null;
     }
     this._archiveIdentity = archiveIdentity;
 
@@ -724,16 +764,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
 
+    if (shouldPreferPrimary) {
+      this._activeIndex = this._findPreferredActiveIndex(images);
+    }
+
     if (this._activeIndex >= images.length) {
       this._activeIndex = 0;
     }
 
     var active = images[this._activeIndex];
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
-    var photoCount = Math.max(0, images.length - (images[0] && images[0].kind === "thumbnail" ? 1 : 0));
-    var subtitle = photoCount > 0
-      ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
-      : "Thumbnail only";
+    var subtitle = this._subtitleForImages(images);
     var primaryAction = active.kind === "photo"
       ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
       : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
