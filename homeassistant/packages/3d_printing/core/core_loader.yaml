@@ -1,6 +1,8 @@
 # Core — foundational template sensors and automations.
 # Docs: docs/features/core/README.md
 
+input_number: !include_dir_merge_named helpers/input_number
+
 template:
   - sensor: !include_dir_merge_list template_sensors
 
