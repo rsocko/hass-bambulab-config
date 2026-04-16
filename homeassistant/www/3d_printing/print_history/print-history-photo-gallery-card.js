@@ -8,6 +8,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._expanded = false;
     this._images = [];
     this._archiveName = "Archive Photos";
+    this._archiveIdentity = "";
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -589,6 +590,22 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       .replace(/'/g, "&#39;");
   }
 
+  _archiveKey(archive) {
+    if (!archive || typeof archive !== "object") {
+      return "";
+    }
+
+    if (archive.id != null) {
+      return "id:" + String(archive.id);
+    }
+
+    return JSON.stringify({
+      print_name: archive.print_name || "",
+      thumbnail_path: archive.thumbnail_path || "",
+      photos: Array.isArray(archive.photos) ? archive.photos : [],
+    });
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) {
       return;
@@ -601,9 +618,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var archive = this._resolveArchive();
+    var archiveIdentity = this._archiveKey(archive);
+    if (this._archiveIdentity && archiveIdentity && archiveIdentity !== this._archiveIdentity) {
+      this._setExpanded(false);
+      this._activeIndex = 0;
+    }
+    this._archiveIdentity = archiveIdentity;
+
     var images = this._buildImages(archive);
     if (!images.length) {
       this._setExpanded(false);
+      this._archiveIdentity = "";
       this.shadowRoot.innerHTML = "<style>:host{display:none}</style>";
       return;
     }
