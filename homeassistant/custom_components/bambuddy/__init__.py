@@ -26,6 +26,7 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
+    SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
 )
@@ -87,6 +88,13 @@ SERVICE_APPEND_EVENT_SCHEMA = vol.Schema(
         vol.Optional("payload", default={}): vol.Any(dict, str),
         vol.Optional("derived_from", default=""): str,
         vol.Optional("event_key"): str,
+    }
+)
+SERVICE_PRIMARY_PHOTO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("photo_path", default=""): str,
     }
 )
 SERVICE_REVIEW_STATE_SCHEMA = vol.Schema(
@@ -284,6 +292,43 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_set_primary_photo(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        started = perf_counter()
+        try:
+            selection = await hass.async_add_executor_job(
+                lambda: manager.store.set_primary_photo(
+                    archive_id,
+                    photo_path=str(call.data.get("photo_path", "")),
+                )
+            )
+        except ValueError as error:
+            raise HomeAssistantError(str(error)) from error
+
+        query_changed = manager._recompute_query("set_primary_photo")
+        if query_changed:
+            manager.browser_revision += 1
+        manager.record_mutation(
+            operation="set_primary_photo",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "photo_path": selection.get("photo_path", ""),
+                "cleared": bool(selection.get("cleared", False)),
+            },
+        )
+        manager._notify_listeners()
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response["primary_photo_selection"] = selection
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
     async def async_handle_set_repair_lineage(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -474,6 +519,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
             async_handle_set_review_state,
             schema=SERVICE_REVIEW_STATE_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
+            async_handle_set_primary_photo,
+            schema=SERVICE_PRIMARY_PHOTO_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE):

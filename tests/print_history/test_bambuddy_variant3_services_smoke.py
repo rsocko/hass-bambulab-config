@@ -353,6 +353,11 @@ def _projected_archives(project_archive) -> list[dict]:
             "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
             "file_path": "archives/101/model.3mf",
             "file_size": 98304,
+            "photos": [
+                "finish-overview.webp",
+                {"path": "topdown-closeup.jpg", "role": "finish"},
+                {"url": "detail-angle.png"},
+            ],
             "thumbnail_path": "/api/v1/archives/101/thumbnail",
             "project_name": "Wall Art",
             "extra_data": {
@@ -506,6 +511,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE) in registered
@@ -527,6 +533,16 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         detail_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
                 SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        primary_photo_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "photo_path": "topdown-closeup.jpg",
+                    }
+                )
             )
         )
         append_event_response = asyncio.run(
@@ -604,6 +620,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert detail_response["archive_id"] == 101
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
+    assert primary_photo_response["primary_photo_selection"]["photo_path"] == "topdown-closeup.jpg"
+    assert primary_photo_response["archive"]["primary_photo_path"] == "topdown-closeup.jpg"
     assert append_event_response["event_timeline"][0]["type"] == "photo_captured"
     assert append_event_response["event_timeline"][0]["label"] == "Photo captured"
     assert review_response["review_state"]["review_status"] == "reviewed"
@@ -615,7 +633,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
-    assert manager.mutation_stats["count"] == 5
+    assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
+    assert manager.mutation_stats["count"] == 6
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
 
 

@@ -1457,6 +1457,59 @@ def test_variant3_store_mutation_helpers_update_review_and_lineage(tmp_path: Pat
     assert store.load_repair_lineage(101) == []
 
 
+def test_variant3_store_primary_photo_selection_updates_archive_reads(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    initial_archive = store.load_archive(101)
+    selection = store.set_primary_photo(101, "topdown-closeup.jpg")
+    updated_archive = store.load_archive(101)
+    activity_rows = store.load_activity_rows(
+        {
+            "input_select.print_history_filter_status": "All",
+            "input_select.print_history_filter_archive_error": "All",
+            "input_select.print_history_filter_enrichment_status": "All",
+            "input_select.print_history_filter_material": "All",
+            "input_select.print_history_filter_duplicates": "All",
+            "input_select.print_history_filter_printer": "All",
+            "input_select.print_history_filter_date_range": "All Time",
+            "input_text.print_history_filter_start_date": "",
+            "input_text.print_history_filter_end_date": "",
+            "input_select.print_history_filter_designer": "All",
+            "input_select.print_history_filter_project": "All",
+            "input_select.print_history_filter_layer_height": "All",
+            "input_select.print_history_filter_tag": "All",
+            "input_boolean.print_history_filter_favorites_only": "off",
+            "input_text.print_history_search": "",
+            "input_text.print_history_filter_colors": "",
+            "input_text.print_history_activity_selected_date": "",
+            "input_select.print_history_activity_metric": "Print Count",
+            "input_select.print_history_sort": "Date (Newest)",
+            "input_number.history_current_page": "1",
+            "input_number.print_history_page_size": "10",
+        }
+    )
+
+    assert initial_archive is not None
+    assert initial_archive["primary_photo_path"] == "finish-overview.webp"
+    assert selection["photo_path"] == "topdown-closeup.jpg"
+    assert updated_archive is not None
+    assert updated_archive["primary_photo_path"] == "topdown-closeup.jpg"
+    assert updated_archive["selected_primary_photo_path"] == "topdown-closeup.jpg"
+    assert updated_archive["photo_items"][1]["is_primary"] is True
+    assert activity_rows[0]["primary_photo_path"] == "topdown-closeup.jpg"
+
+
+def test_variant3_store_primary_photo_selection_rejects_unknown_photo(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    with pytest.raises(ValueError, match="was not found"):
+        store.set_primary_photo(101, "missing-photo.jpg")
+
+
 def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

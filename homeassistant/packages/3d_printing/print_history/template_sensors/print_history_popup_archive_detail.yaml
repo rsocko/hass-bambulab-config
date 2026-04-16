@@ -10,7 +10,7 @@
       entity_id: input_boolean.print_history_popup_is_favorite
     - trigger: state
       entity_id: sensor.bambuddy_print_history_browser_status
-      to: "ready"
+      attribute: browser_revision
     - trigger: homeassistant
       event: start
   action:

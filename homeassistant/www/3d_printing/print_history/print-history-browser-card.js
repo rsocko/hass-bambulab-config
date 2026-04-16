@@ -539,6 +539,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archiveErrorSummary: archiveError.summary,
       failureReason: archive.failure_reason ? String(archive.failure_reason) : "",
       thumbnailUrl: function (baseUrl) {
+        var primaryPhotoPath = String(archive.primary_photo_path || "").trim();
+        if (baseUrl && archive.id != null && primaryPhotoPath) {
+          return baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/photos/" + encodeURIComponent(primaryPhotoPath);
+        }
         return baseUrl && archive.id != null && String(archive.thumbnail_path || "").trim()
           ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
           : "";

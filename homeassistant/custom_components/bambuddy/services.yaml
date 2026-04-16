@@ -263,6 +263,31 @@ set_print_history_review_state:
       selector:
         text:
 
+set_print_history_primary_photo:
+  name: Set Print History Primary Photo
+  description: Store or clear the local primary photo override used for list and preview rendering in the Bambuddy store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    photo_path:
+      name: Photo Path
+      description: Archive photo filename/path to promote. Leave blank to clear the local override and fall back to the default preview order.
+      required: false
+      selector:
+        text:
+
 set_print_history_repair_lineage:
   name: Set Print History Repair Lineage
   description: Create or update a local provenance relationship between two Bambuddy archives.

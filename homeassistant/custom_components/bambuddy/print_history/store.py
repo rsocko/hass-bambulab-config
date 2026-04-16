@@ -29,6 +29,7 @@ try:
         normalize_filter_date_value,
         normalize_hex,
         note_payload_rows,
+        payload_hash as compute_payload_hash,
         query_archives,
         resolve_printer_filter_ids,
         selected_colors,
@@ -52,6 +53,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         normalize_filter_date_value,
         normalize_hex,
         note_payload_rows,
+        payload_hash as compute_payload_hash,
         query_archives,
         resolve_printer_filter_ids,
         selected_colors,
@@ -183,6 +185,13 @@ class PrintHistoryStore:
                 photo_path TEXT NOT NULL,
                 photo_role TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (archive_id, photo_index),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS archive_primary_photo_selection (
+                archive_id INTEGER PRIMARY KEY,
+                photo_path TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
 
@@ -447,8 +456,11 @@ class PrintHistoryStore:
             archive_id = as_int(archive.get("id"))
             if archive_id <= 0:
                 continue
-            payload_hash = as_text(archive.get("payload_hash")).strip()
+            hash_archive = dict(archive)
+            hash_archive.pop("payload_hash", None)
+            payload_hash = compute_payload_hash(hash_archive)
             source_updated_at = as_text(archive.get("source_updated_at")).strip()
+            archive["payload_hash"] = payload_hash
             existing = existing_by_id.get(archive_id)
             if self._archive_matches_fast(payload_hash, source_updated_at, existing):
                 prepared_archives[archive_id] = {
@@ -650,7 +662,8 @@ class PrintHistoryStore:
                 ),
             )
 
-        for photo_index, photo in enumerate(self._extract_photos(archive)):
+        extracted_photos = self._extract_photos(archive)
+        for photo_index, photo in enumerate(extracted_photos):
             connection.execute(
                 """
                 INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role)
@@ -662,6 +675,17 @@ class PrintHistoryStore:
                     photo["path"],
                     photo["role"],
                 ),
+            )
+
+        valid_photo_paths = {photo["path"] for photo in extracted_photos}
+        selected_primary_photo = connection.execute(
+            "SELECT photo_path FROM archive_primary_photo_selection WHERE archive_id = ?",
+            (archive_id,),
+        ).fetchone()
+        if selected_primary_photo is not None and selected_primary_photo[0] not in valid_photo_paths:
+            connection.execute(
+                "DELETE FROM archive_primary_photo_selection WHERE archive_id = ?",
+                (archive_id,),
             )
 
         for payload_row in note_payload_rows(archive):
@@ -812,11 +836,18 @@ class PrintHistoryStore:
 
         rows_by_id = self._load_activity_bases(archive_ids, connection=connection)
         filament_rows_by_id = self._load_filament_rows_by_archive(archive_ids, connection=connection)
+        photo_items_by_id = self._load_photo_items_by_archive(archive_ids, connection=connection)
+        selected_primary_by_id = self._load_primary_photo_selection_by_archive(archive_ids, connection=connection)
         activity_rows: list[dict[str, Any]] = []
         for archive_id in archive_ids:
             base = rows_by_id.get(archive_id)
             if base is None:
                 continue
+            selected_primary_path = selected_primary_by_id.get(archive_id, {}).get("photo_path", "")
+            primary_photo_path = self._resolve_primary_photo_path(
+                photo_items_by_id.get(archive_id, []),
+                selected_primary_path,
+            )
             activity_rows.append(
                 {
                     "id": archive_id,
@@ -840,6 +871,8 @@ class PrintHistoryStore:
                     "layer_height": base["layer_height"],
                     "tags": base["tags"],
                     "thumbnail_path": base["thumbnail_path"],
+                    "primary_photo_path": primary_photo_path,
+                    "selected_primary_photo_path": selected_primary_path,
                     "filament_slots": filament_rows_by_id.get(archive_id, []),
                 }
             )
@@ -1094,7 +1127,93 @@ class PrintHistoryStore:
             payload = json.loads(row[0])
         except json.JSONDecodeError:
             return None
-        return with_effective_duration_seconds(payload) if isinstance(payload, dict) else None
+        if not isinstance(payload, dict):
+            return None
+        archive = with_effective_duration_seconds(payload)
+        return self._augment_archive_with_photo_metadata(archive, connection=connection)
+
+    def load_primary_photo_selection(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, str] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                """
+                SELECT photo_path, updated_at
+                FROM archive_primary_photo_selection
+                WHERE archive_id = ?
+                """,
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "photo_path": as_text(row[0]).strip(),
+            "updated_at": as_text(row[1]).strip(),
+        }
+
+    def set_primary_photo(
+        self,
+        archive_id: int,
+        photo_path: str | None,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+
+        normalized_photo_path = as_text(photo_path).strip()
+        with self._borrow_connection(connection) as active_connection:
+            if active_connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+
+            if not normalized_photo_path:
+                deleted = active_connection.execute(
+                    "DELETE FROM archive_primary_photo_selection WHERE archive_id = ?",
+                    (normalized_archive_id,),
+                ).rowcount
+                return {
+                    "archive_id": normalized_archive_id,
+                    "photo_path": "",
+                    "cleared": True,
+                    "deleted": deleted,
+                    "updated_at": "",
+                }
+
+            row = active_connection.execute(
+                """
+                SELECT photo_role
+                FROM archive_photos
+                WHERE archive_id = ? AND photo_path = ?
+                """,
+                (normalized_archive_id, normalized_photo_path),
+            ).fetchone()
+            if row is None:
+                raise ValueError(
+                    f"Photo '{normalized_photo_path}' was not found for archive {normalized_archive_id}"
+                )
+
+            updated_at = datetime.now(timezone.utc).isoformat()
+            active_connection.execute(
+                """
+                INSERT INTO archive_primary_photo_selection (archive_id, photo_path, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(archive_id) DO UPDATE SET
+                    photo_path = excluded.photo_path,
+                    updated_at = excluded.updated_at
+                """,
+                (normalized_archive_id, normalized_photo_path, updated_at),
+            )
+        return {
+            "archive_id": normalized_archive_id,
+            "photo_path": normalized_photo_path,
+            "role": as_text(row[0]).strip(),
+            "cleared": False,
+            "updated_at": updated_at,
+        }
 
     def load_note_payload_rows(
         self,
@@ -1478,6 +1597,9 @@ class PrintHistoryStore:
             event_timeline_count = active_connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
             lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
+            primary_photo_selection_count = active_connection.execute(
+                "SELECT COUNT(*) FROM archive_primary_photo_selection"
+            ).fetchone()[0]
             last_synced_at = active_connection.execute("SELECT MAX(last_synced_at) FROM archives").fetchone()[0]
         db_size_bytes = self._db_path.stat().st_size if self._db_path.exists() else 0
         diagnostics = self.diagnostics_snapshot()
@@ -1489,6 +1611,7 @@ class PrintHistoryStore:
             "event_timeline_count": event_timeline_count,
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
+            "primary_photo_selection_count": primary_photo_selection_count,
             "last_synced_at": last_synced_at or "",
             "connection_open_count": diagnostics.get("open_count", 0),
             "connection_open_error_count": diagnostics.get("open_error_count", 0),
@@ -1582,6 +1705,108 @@ class PrintHistoryStore:
                 continue
             photos.append({"path": path, "role": as_text(item.get("role") or item.get("type")).strip()})
         return photos
+
+    def _augment_archive_with_photo_metadata(
+        self,
+        archive: dict[str, Any],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        archive_id = as_int(archive.get("id"))
+        if archive_id <= 0:
+            return archive
+
+        photo_items = self._load_photo_items_by_archive([archive_id], connection=connection).get(archive_id, [])
+        selected_primary = self._load_primary_photo_selection_by_archive([archive_id], connection=connection).get(archive_id, {})
+        selected_primary_path = selected_primary.get("photo_path", "")
+        primary_photo_path = self._resolve_primary_photo_path(photo_items, selected_primary_path)
+
+        augmented = dict(archive)
+        augmented["photos"] = [item["path"] for item in photo_items]
+        augmented["photo_items"] = [
+            {
+                "path": item["path"],
+                "role": item["role"],
+                "is_primary": item["path"] == primary_photo_path,
+                "is_selected_primary": bool(selected_primary_path) and item["path"] == selected_primary_path,
+            }
+            for item in photo_items
+        ]
+        augmented["primary_photo_path"] = primary_photo_path
+        augmented["selected_primary_photo_path"] = selected_primary_path
+        augmented["has_primary_photo_override"] = bool(selected_primary_path)
+        return augmented
+
+    def _load_photo_items_by_archive(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[int, list[dict[str, str]]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return {}
+        placeholders = ",".join("?" for _ in normalized_ids)
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                f"""
+                SELECT archive_id, photo_path, photo_role
+                FROM archive_photos
+                WHERE archive_id IN ({placeholders})
+                ORDER BY archive_id ASC, photo_index ASC
+                """,
+                normalized_ids,
+            ).fetchall()
+        items_by_archive = {archive_id: [] for archive_id in normalized_ids}
+        for row in rows:
+            archive_id = as_int(row[0])
+            items_by_archive.setdefault(archive_id, []).append(
+                {
+                    "path": as_text(row[1]).strip(),
+                    "role": as_text(row[2]).strip(),
+                }
+            )
+        return items_by_archive
+
+    def _load_primary_photo_selection_by_archive(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[int, dict[str, str]]:
+        normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]
+        if not normalized_ids:
+            return {}
+        placeholders = ",".join("?" for _ in normalized_ids)
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                f"""
+                SELECT archive_id, photo_path, updated_at
+                FROM archive_primary_photo_selection
+                WHERE archive_id IN ({placeholders})
+                """,
+                normalized_ids,
+            ).fetchall()
+        return {
+            as_int(row[0]): {
+                "photo_path": as_text(row[1]).strip(),
+                "updated_at": as_text(row[2]).strip(),
+            }
+            for row in rows
+        }
+
+    def _resolve_primary_photo_path(self, photo_items: list[dict[str, str]], selected_primary_path: str) -> str:
+        if selected_primary_path:
+            for item in photo_items:
+                if item["path"] == selected_primary_path:
+                    return selected_primary_path
+
+        for preferred_role in ("primary", "cover", "hero", "featured"):
+            for item in photo_items:
+                if item["role"].strip().lower() == preferred_role:
+                    return item["path"]
+
+        return photo_items[0]["path"] if photo_items else ""
 
     def _query_filters(self, states: dict[str, str]) -> dict[str, Any]:
         current_time = datetime.now(timezone.utc)
@@ -1793,7 +2018,7 @@ class PrintHistoryStore:
             except json.JSONDecodeError:
                 continue
             if isinstance(payload, dict):
-                archives.append(with_effective_duration_seconds(payload))
+                archives.append(self._augment_archive_with_photo_metadata(with_effective_duration_seconds(payload), connection=connection))
         return archives
 
     def _load_available_colors(self, *, connection: sqlite3.Connection | None = None) -> list[str]:

@@ -9,6 +9,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._images = [];
     this._archiveName = "Archive Photos";
     this._archiveIdentity = "";
+    this._localPrimaryPhotoPath = null;
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -129,6 +130,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (action === "collapse") {
       this._setExpanded(false);
+      return;
+    }
+    if (action === "set-primary-photo") {
+      this._applyPrimaryPhotoSelection(this._activePhotoPath());
+      return;
+    }
+    if (action === "clear-primary-photo") {
+      this._applyPrimaryPhotoSelection("");
     }
   }
 
@@ -167,6 +176,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (action === "collapse") {
       this._setExpanded(false);
+      return;
+    }
+    if (action === "set-primary-photo") {
+      this._applyPrimaryPhotoSelection(this._activePhotoPath());
+      return;
+    }
+    if (action === "clear-primary-photo") {
+      this._applyPrimaryPhotoSelection("");
     }
   }
 
@@ -231,7 +248,42 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       merged.thumbnail_path = archive.thumbnail_path;
     }
 
+    if (this._localPrimaryPhotoPath !== null) {
+      merged.primary_photo_path = this._localPrimaryPhotoPath;
+      merged.selected_primary_photo_path = this._localPrimaryPhotoPath;
+      merged.has_primary_photo_override = this._localPrimaryPhotoPath !== "";
+    }
+
     return merged;
+  }
+
+  _activePhotoPath() {
+    var active = this._images && this._images.length ? this._images[this._activeIndex] : null;
+    if (!active || active.kind !== "photo") {
+      return "";
+    }
+    return String(active.filename || "").trim();
+  }
+
+  async _applyPrimaryPhotoSelection(photoPath) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (!this._hass || archiveId == null) {
+      return;
+    }
+
+    var normalizedPhotoPath = String(photoPath || "").trim();
+    try {
+      await this._hass.callService("bambuddy", "set_print_history_primary_photo", {
+        archive_id: archiveId,
+        photo_path: normalizedPhotoPath,
+      });
+      this._localPrimaryPhotoPath = normalizedPhotoPath;
+      this._render();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to update Bambuddy primary photo", error);
+    }
   }
 
   _getDetailArchive(archiveId) {
@@ -315,6 +367,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   _buildImages(archive) {
     var baseUrl = this._getBaseUrl();
     var archiveId = archive && archive.id != null ? archive.id : null;
+    var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
+    var hasPrimaryOverride = !!String(archive && archive.selected_primary_photo_path || "").trim();
     var images = [];
     var seen = {};
 
@@ -328,6 +382,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         label: "Thumbnail",
         src: baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/thumbnail",
         kind: "thumbnail",
+        isPrimary: !primaryPhotoPath,
+        hasPrimaryOverride: hasPrimaryOverride,
       });
       seen.thumbnail = true;
     }
@@ -345,6 +401,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         src: baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(value),
         kind: "photo",
         filename: value,
+        isPrimary: value === primaryPhotoPath,
+        hasPrimaryOverride: hasPrimaryOverride,
       });
     });
 
@@ -470,6 +528,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var subtitle = photoCount > 0
       ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
       : "Thumbnail only";
+    var primaryAction = active.kind === "photo"
+      ? '<button class="button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
+      : (active.hasPrimaryOverride ? '<button class="button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
 
     this._overlayRoot.innerHTML =
       "<style>" +
@@ -501,7 +562,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._archiveName) + '">' +
       '<div class="header">' +
       '<div><div class="title">' + this._escapeHtml(this._archiveName) + '</div><div class="subtitle">' + this._escapeHtml(active.label) + ' \u00b7 ' + this._escapeHtml(subtitle) + '</div></div>' +
-      '<div class="actions"><button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '<div class="actions">' + primaryAction + '<button class="button" type="button" data-action="collapse">Close</button></div>' +
       '</div>' +
       '<div class="stage">' +
       '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || this._archiveName) + '" loading="eager" decoding="async"></div>' +
@@ -616,6 +677,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (this._archiveIdentity && archiveIdentity && archiveIdentity !== this._archiveIdentity) {
       this._setExpanded(false);
       this._activeIndex = 0;
+      this._localPrimaryPhotoPath = null;
     }
     this._archiveIdentity = archiveIdentity;
 
@@ -637,6 +699,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var subtitle = photoCount > 0
       ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
       : "Thumbnail only";
+    var primaryAction = active.kind === "photo"
+      ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
+      : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -656,9 +721,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
       ".meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:0 2px;}" +
+      ".meta-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}" +
       ".title{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);}" +
       ".subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);margin-top:4px;}" +
       ".expand{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(21,101,192,0.14);color:#bbdefb;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
+      ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
       ".thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}" +
       ".thumb{appearance:none;border:1px solid transparent;background:none;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;flex:0 0 auto;position:relative;}" +
       ".thumb.active{border-color:rgba(59,130,246,0.9);box-shadow:0 0 0 2px rgba(59,130,246,0.2);}" +
@@ -684,7 +751,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "</div>" +
       (compact ? "" : ('<div class="meta">' +
       '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
-      '<button class="expand" type="button" data-action="expand">Full Screen</button>' +
+      '<div class="meta-actions">' + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
       "</div>")) +
       '<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
