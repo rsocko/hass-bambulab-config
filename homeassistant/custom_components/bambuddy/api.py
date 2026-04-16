@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 
@@ -114,6 +115,60 @@ class BambuddyApiClient:
             if not isinstance(payload, dict):
                 raise RuntimeError("Bambuddy archive stats response was not a JSON object")
             return payload
+
+    async def async_upload_archive_photo(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        normalized_file_name = str(file_name or "").strip().replace("\r", "_").replace("\n", "_")
+        normalized_file_name = normalized_file_name.replace("\\", "/").split("/")[-1].replace('"', "")
+        if not normalized_file_name:
+            raise RuntimeError("Upload file_name is empty")
+
+        normalized_mime_type = str(mime_type or "application/octet-stream").strip().replace("\r", "").replace("\n", "")
+        if not content:
+            raise RuntimeError("Upload content is empty")
+
+        boundary = f"----ha-bambuddy-{uuid4().hex}"
+        body = (
+            f"--{boundary}\r\n".encode("utf-8")
+            + f'Content-Disposition: form-data; name="file"; filename="{normalized_file_name}"\r\n'.encode("utf-8")
+            + f"Content-Type: {normalized_mime_type}\r\n\r\n".encode("utf-8")
+            + content
+            + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        )
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/photos",
+            headers={
+                "X-API-Key": self._api_key,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+            data=body,
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
 
     async def async_fetch_projects(self) -> list[dict[str, Any]]:
         if not self._base_url:

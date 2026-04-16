@@ -479,6 +479,23 @@ class PrintHistoryBrowserManager:
         if existing is not None:
             return True
 
+        hydrated = await self.async_refresh_archive_detail(
+            normalized_archive_id,
+            operation="hydrate_archive",
+        )
+        return hydrated is not None
+
+    async def async_refresh_archive_detail(
+        self,
+        archive_id: int,
+        *,
+        operation: str = "refresh_archive_detail",
+        extra_details: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            return None
+
         started = perf_counter()
         session = aiohttp_client.async_get_clientsession(self.hass)
         client = BambuddyApiClient(
@@ -508,22 +525,25 @@ class PrintHistoryBrowserManager:
         projected_archive = project_archive(enriched_archive)
         sync_result = await self.hass.async_add_executor_job(self.store.upsert_archive, projected_archive)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
-        query_changed = self._recompute_query(f"hydrate_archive:{normalized_archive_id}")
+        query_changed = self._recompute_query(f"{operation}:{normalized_archive_id}")
         if query_changed or int(sync_result.get("inserted_count", 0)) > 0 or int(sync_result.get("updated_count", 0)) > 0:
             self.browser_revision += 1
+        mutation_details = {
+            "inserted_count": int(sync_result.get("inserted_count", 0)),
+            "updated_count": int(sync_result.get("updated_count", 0)),
+            "unchanged_count": int(sync_result.get("unchanged_count", 0)),
+        }
+        if extra_details:
+            mutation_details.update(extra_details)
         self.record_mutation(
-            operation="hydrate_archive",
+            operation=operation,
             archive_id=normalized_archive_id,
             duration_ms=round((perf_counter() - started) * 1000, 1),
-            details={
-                "inserted_count": int(sync_result.get("inserted_count", 0)),
-                "updated_count": int(sync_result.get("updated_count", 0)),
-                "unchanged_count": int(sync_result.get("unchanged_count", 0)),
-            },
+            details=mutation_details,
         )
         self._notify_listeners()
         hydrated = await self.hass.async_add_executor_job(self.store.load_archive, normalized_archive_id)
-        return hydrated is not None
+        return hydrated
 
     def _project_options_from_projects(self, raw_projects: list[dict[str, Any]]) -> list[dict[str, str]]:
         normalized: list[dict[str, str]] = []
@@ -834,6 +854,24 @@ class PrintHistoryBrowserManager:
             snapshot[entity_id] = "" if state is None else state.state
         return snapshot
 
+    def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
+        snapshot = self._state_snapshot()
+        for field_name, entity_id in QUERY_OVERRIDE_ENTITY_MAP.items():
+            if field_name not in overrides or overrides[field_name] is None:
+                continue
+            value = overrides[field_name]
+            if field_name == "favorites_only":
+                snapshot[entity_id] = "on" if bool(value) else "off"
+                continue
+            if field_name in {"page", "page_size"}:
+                snapshot[entity_id] = str(int(value))
+                continue
+            if field_name == "colors" and isinstance(value, list):
+                snapshot[entity_id] = ",".join(str(item).strip() for item in value if str(item).strip())
+                continue
+            snapshot[entity_id] = str(value)
+        return snapshot
+
     def _enrich_archives_with_printer_names(
         self,
         raw_archives: list[dict[str, Any]],
@@ -884,24 +922,6 @@ class PrintHistoryBrowserManager:
             changed=changed,
         )
         return changed
-
-    def _merged_state_snapshot(self, overrides: dict[str, Any]) -> dict[str, str]:
-        snapshot = self._state_snapshot()
-        for field_name, entity_id in QUERY_OVERRIDE_ENTITY_MAP.items():
-            if field_name not in overrides or overrides[field_name] is None:
-                continue
-            value = overrides[field_name]
-            if field_name == "favorites_only":
-                snapshot[entity_id] = "on" if bool(value) else "off"
-                continue
-            if field_name in {"page", "page_size"}:
-                snapshot[entity_id] = str(int(value))
-                continue
-            if field_name == "colors" and isinstance(value, list):
-                snapshot[entity_id] = ",".join(str(item).strip() for item in value if str(item).strip())
-                continue
-            snapshot[entity_id] = str(value)
-        return snapshot
 
     async def _async_sync_options(self) -> None:
         for entity_id, options in option_sets(self.archives).items():

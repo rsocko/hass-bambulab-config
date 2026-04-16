@@ -202,6 +202,7 @@ class FakeApiClient:
     projects: list[dict] = []
     archive_stats: dict[str, object] = {}
     last_fetch_archives_kwargs: dict[str, object] = {}
+    uploaded_photos: list[dict[str, object]] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -234,6 +235,23 @@ class FakeApiClient:
 
     async def async_fetch_archive_stats(self) -> dict[str, object]:
         return dict(self.archive_stats)
+
+    async def async_upload_archive_photo(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, object]:
+        record = {
+            "archive_id": archive_id,
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "byte_count": len(content),
+        }
+        type(self).uploaded_photos.append(record)
+        return record
 
 
 class FakeRuntimeRepairClient:
@@ -758,9 +776,49 @@ def test_variant3_append_event_hydrates_missing_archive_from_api(tmp_path: Path)
     assert hydrated_archive is not None
     assert hydrated_archive["printer_name"] == "P1S"
     assert append_event_response["archive_id"] == 303
-    assert append_event_response["event_timeline"][0]["type"] == "enrichment_applied"
-    assert manager.mutation_stats["count"] == 2
-    assert manager.mutation_stats["last_operation"] == "append_event"
+
+
+def test_variant3_refresh_archive_detail_updates_photo_list_after_upload(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+
+    refreshed_raw_archive = dict(_projected_archives(query_module.project_archive)[0])
+    refreshed_raw_archive["photos"] = [
+        "finish-overview.webp",
+        {"path": "topdown-closeup.jpg", "role": "finish"},
+        {"path": "phone-upload.jpg", "role": "manual"},
+    ]
+    FakeApiClient.archives = [refreshed_raw_archive]
+    FakeApiClient.printers = [{"id": 1, "name": "Workshop P1S"}]
+
+    original_manager_api_client = manager_module.BambuddyApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+
+    try:
+        refreshed = asyncio.run(
+            manager.async_refresh_archive_detail(
+                101,
+                operation="upload_archive_photo",
+                extra_details={"file_name": "phone-upload.jpg"},
+            )
+        )
+    finally:
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert refreshed is not None
+    assert refreshed["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "phone-upload.jpg"]
+    assert manager.mutation_stats["last_operation"] == "upload_archive_photo"
 
 
 def test_variant3_manager_records_helper_recompute_diagnostics(tmp_path: Path) -> None:

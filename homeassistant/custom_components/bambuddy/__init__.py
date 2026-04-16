@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 from time import perf_counter
 from typing import Any
@@ -42,6 +44,8 @@ CONF_RELATION_TYPE = "relation_type"
 _LOGGER = logging.getLogger(__name__)
 
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
+WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
+MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
 
 
 def _strip_entry_id(payload: dict[str, Any]) -> dict[str, Any]:
@@ -197,6 +201,87 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection.send_result(msg["id"], response)
 
     websocket_api.async_register_command(hass, websocket_handle_query)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+            vol.Required("file_name"): str,
+            vol.Required("mime_type"): str,
+            vol.Required("content_base64"): str,
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_upload_photo(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            archive_id = int(msg[CONF_ARCHIVE_ID])
+            if not await manager.async_ensure_archive_loaded(archive_id):
+                raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+            try:
+                content = base64.b64decode(str(msg.get("content_base64", "")), validate=True)
+            except (ValueError, binascii.Error) as error:
+                raise HomeAssistantError("Upload payload is not valid base64") from error
+            if not content:
+                raise HomeAssistantError("Upload payload is empty")
+            if len(content) > MAX_MANUAL_PHOTO_UPLOAD_BYTES:
+                raise HomeAssistantError(
+                    f"Upload payload exceeds the {MAX_MANUAL_PHOTO_UPLOAD_BYTES // (1024 * 1024)}MB limit"
+                )
+
+            mime_type = str(msg.get("mime_type", "")).strip().lower()
+            if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+                raise HomeAssistantError("Manual upload only supports JPEG, PNG, or WebP images")
+
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            upload_response = await client.async_upload_archive_photo(
+                archive_id,
+                file_name=str(msg.get("file_name", "")),
+                mime_type=mime_type,
+                content=content,
+            )
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="upload_archive_photo",
+                extra_details={
+                    "file_name": str(msg.get("file_name", "")).strip(),
+                    "mime_type": mime_type,
+                    "byte_count": len(content),
+                },
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id} could not be refreshed after upload")
+
+            response = manager.build_archive_detail_response(archive_id)
+            if response is None:
+                raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+            response[CONF_ENTRY_ID] = entry_id
+            response[CONF_ARCHIVE_ID] = archive_id
+            response["upload"] = {
+                "file_name": str(msg.get("file_name", "")).strip(),
+                "mime_type": mime_type,
+                "byte_count": len(content),
+            }
+            if upload_response:
+                response["upload_response"] = upload_response
+            connection.send_result(msg["id"], response)
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "upload_failed", str(err))
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "upload_failed", str(err))
+
+    websocket_api.async_register_command(hass, websocket_handle_upload_photo)
 
     async def async_handle_refresh(call: ServiceCall) -> None:
         entry_id = call.data.get(CONF_ENTRY_ID)

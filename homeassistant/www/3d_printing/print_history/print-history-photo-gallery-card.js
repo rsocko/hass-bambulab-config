@@ -9,9 +9,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._images = [];
     this._archiveName = "Archive Photos";
     this._archiveIdentity = "";
+    this._localArchiveOverride = null;
     this._localPrimaryPhotoPath = null;
     this._localSelectedPrimaryPhotoPath = null;
     this._localHasPrimaryPhotoOverride = null;
+    this._uploadInProgress = false;
+    this._uploadStatus = "";
+    this._uploadStatusTone = "info";
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -19,6 +23,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._boundKeydownHandler = this._handleKeydown.bind(this);
     this._boundClickHandler = this._handleHostClick.bind(this);
     this._boundShadowClickHandler = this._handleShadowClick.bind(this);
+    this._boundShadowChangeHandler = this._handleShadowChange.bind(this);
     this._boundOverlayClickHandler = this._handleOverlayClick.bind(this);
     this._boundOverlayHostClickHandler = this._handleOverlayHostClick.bind(this);
     this._boundOverlayCancelHandler = this._handleOverlayCancel.bind(this);
@@ -55,6 +60,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this.addEventListener("click", this._boundClickHandler);
     if (this.shadowRoot) {
       this.shadowRoot.addEventListener("click", this._boundShadowClickHandler);
+      this.shadowRoot.addEventListener("change", this._boundShadowChangeHandler);
     }
   }
 
@@ -63,6 +69,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this.removeEventListener("click", this._boundClickHandler);
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundShadowClickHandler);
+      this.shadowRoot.removeEventListener("change", this._boundShadowChangeHandler);
     }
     this._destroyOverlayRoot();
   }
@@ -130,6 +137,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._setExpanded(true);
       return;
     }
+    if (action === "upload-photo") {
+      this._openUploadPicker();
+      return;
+    }
     if (action === "collapse") {
       this._setExpanded(false);
       return;
@@ -176,6 +187,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._moveActiveIndex(1);
       return;
     }
+    if (action === "upload-photo") {
+      this._openUploadPicker();
+      return;
+    }
     if (action === "collapse") {
       this._setExpanded(false);
       return;
@@ -187,6 +202,16 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (action === "clear-primary-photo") {
       this._applyPrimaryPhotoSelection("");
     }
+  }
+
+  _handleShadowChange(event) {
+    var target = event.target;
+    if (!target || target.getAttribute("data-upload-input") !== "true") {
+      return;
+    }
+    var files = target.files;
+    target.value = "";
+    this._uploadSelectedFiles(files);
   }
 
   _handleOverlayHostClick(event) {
@@ -248,6 +273,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     if (!merged.thumbnail_path && archive && archive.thumbnail_path) {
       merged.thumbnail_path = archive.thumbnail_path;
+    }
+
+    if (this._localArchiveOverride && typeof this._localArchiveOverride === "object") {
+      merged = Object.assign({}, merged, this._localArchiveOverride);
     }
 
     if (this._localPrimaryPhotoPath !== null) {
@@ -326,6 +355,189 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       // eslint-disable-next-line no-console
       console.warn("Failed to update Bambuddy primary photo", error);
     }
+  }
+
+  _setUploadStatus(message, tone, inProgress) {
+    this._uploadStatus = String(message || "").trim();
+    this._uploadStatusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
+    this._uploadInProgress = !!inProgress;
+    this._render();
+  }
+
+  _openUploadPicker() {
+    if (this._uploadInProgress || !this.shadowRoot) {
+      return;
+    }
+    var input = this.shadowRoot.querySelector("input[data-upload-input='true']");
+    if (input) {
+      input.click();
+    }
+  }
+
+  async _uploadSelectedFiles(fileList) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (!this._hass || typeof this._hass.callWS !== "function" || archiveId == null) {
+      return;
+    }
+
+    var files = Array.prototype.slice.call(fileList || []).filter(function (file) {
+      return !!(file && (String(file.type || "").indexOf("image/") === 0 || /\.(jpe?g|png|webp)$/i.test(String(file.name || ""))));
+    });
+    if (!files.length) {
+      return;
+    }
+
+    var uploadedCount = 0;
+    try {
+      this._setUploadStatus("Preparing " + String(files.length) + (files.length === 1 ? " photo..." : " photos..."), "info", true);
+      for (var index = 0; index < files.length; index += 1) {
+        var file = files[index];
+        var prepared = await this._prepareUploadPayload(file, archiveId, index);
+        this._setUploadStatus(
+          "Uploading " + String(index + 1) + " of " + String(files.length) + "...",
+          "info",
+          true
+        );
+        var response = await this._hass.callWS({
+          type: "bambuddy/print_history_upload_photo",
+          archive_id: archiveId,
+          file_name: prepared.fileName,
+          mime_type: prepared.mimeType,
+          content_base64: prepared.contentBase64,
+        });
+        var updatedArchive = response && response.archive && typeof response.archive === "object"
+          ? response.archive
+          : null;
+        if (updatedArchive) {
+          this._localArchiveOverride = updatedArchive;
+          var photoCount = Array.isArray(updatedArchive.photos) ? updatedArchive.photos.length : 0;
+          if (photoCount > 0) {
+            this._activeIndex = photoCount - 1 + (this._config && this._config.include_thumbnail ? 1 : 0);
+          }
+        }
+        uploadedCount += 1;
+      }
+      this._setUploadStatus(
+        uploadedCount === 1 ? "Added 1 photo." : "Added " + String(uploadedCount) + " photos.",
+        "success",
+        false
+      );
+    } catch (error) {
+      var message = error && error.message ? error.message : "Photo upload failed";
+      this._setUploadStatus(message, "error", false);
+    }
+  }
+
+  async _prepareUploadPayload(file, archiveId, index) {
+    var image = await this._loadImageFromFile(file);
+    try {
+      var dimensions = this._scaledDimensions(image.width, image.height, 2048);
+      var canvas = document.createElement("canvas");
+      canvas.width = dimensions.width;
+      canvas.height = dimensions.height;
+      var context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Canvas rendering is unavailable for upload") ;
+      }
+      context.drawImage(image, 0, 0, dimensions.width, dimensions.height);
+      var blob = await this._canvasToBlob(canvas, "image/jpeg", 0.86);
+      if (!blob) {
+        throw new Error("Could not encode photo for upload");
+      }
+      return {
+        fileName: this._buildUploadFileName(file && file.name, archiveId, index),
+        mimeType: "image/jpeg",
+        contentBase64: await this._blobToBase64(blob),
+      };
+    } finally {
+      if (image && image.src && image.src.indexOf("blob:") === 0) {
+        URL.revokeObjectURL(image.src);
+      }
+    }
+  }
+
+  _scaledDimensions(width, height, maxDimension) {
+    var safeWidth = Math.max(1, Number(width) || 1);
+    var safeHeight = Math.max(1, Number(height) || 1);
+    var scale = Math.min(1, maxDimension / Math.max(safeWidth, safeHeight));
+    return {
+      width: Math.max(1, Math.round(safeWidth * scale)),
+      height: Math.max(1, Math.round(safeHeight * scale)),
+    };
+  }
+
+  _loadImageFromFile(file) {
+    return new Promise(function (resolve, reject) {
+      var objectUrl = URL.createObjectURL(file);
+      var image = new Image();
+      image.onload = function () {
+        resolve(image);
+      };
+      image.onerror = function () {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Selected file is not a readable image"));
+      };
+      image.src = objectUrl;
+    });
+  }
+
+  _canvasToBlob(canvas, mimeType, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (!blob) {
+          reject(new Error("Canvas export returned no data"));
+          return;
+        }
+        resolve(blob);
+      }, mimeType, quality);
+    });
+  }
+
+  _blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = String(reader.result || "");
+        var commaIndex = result.indexOf(",");
+        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+      };
+      reader.onerror = function () {
+        reject(new Error("Could not read the encoded photo"));
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  _buildUploadFileName(originalName, archiveId, index) {
+    var baseName = String(originalName || "manual-photo")
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase();
+    if (!baseName) {
+      baseName = "manual-photo";
+    }
+    var timestamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "z");
+    return "archive-" + String(archiveId) + "-" + baseName + "-" + timestamp + "-" + String(index + 1) + ".jpg";
+  }
+
+  _buildUploadAction(buttonClass) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (archiveId == null) {
+      return "";
+    }
+    var className = buttonClass || "action-button";
+    var label = this._uploadInProgress ? "Uploading..." : "Add Photo";
+    return '<button class="' + className + '" type="button" data-action="upload-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>' + label + '</button>';
+  }
+
+  _renderUploadStatus() {
+    if (!this._uploadStatus) {
+      return "";
+    }
+    return '<div class="upload-status ' + this._escapeHtml(this._uploadStatusTone) + '">' + this._escapeHtml(this._uploadStatus) + '</div>';
   }
 
   _getDetailArchive(archiveId) {
@@ -619,6 +831,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = this._images[this._activeIndex];
     var subtitle = this._subtitleForImages(this._images);
     var primaryAction = this._buildPrimaryAction(active, "button");
+    var uploadAction = this._buildUploadAction("button");
+    var uploadStatus = this._renderUploadStatus();
 
     this._overlayRoot.innerHTML =
       "<style>" +
@@ -630,7 +844,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".title{font:700 clamp(18px,2.2vw,28px)/1.2 system-ui,sans-serif;letter-spacing:0.01em;}" +
       ".subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}" +
       ".actions{display:flex;align-items:center;gap:10px;}" +
+      ".actions .button[disabled]{opacity:0.6;cursor:wait;}" +
       ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);}" +
+      ".upload-status{padding:10px 12px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif;}" +
+      ".upload-status.info{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.88);}" +
+      ".upload-status.success{background:rgba(46,125,50,0.2);color:#dcedc8;}" +
+      ".upload-status.error{background:rgba(183,28,28,0.24);color:#ffcdd2;}" +
       ".stage{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;border-radius:24px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.42);}" +
       ".image-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-height:0;padding:clamp(10px,1.6vw,22px);box-sizing:border-box;}" +
       ".image{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;border-radius:18px;background:rgba(15,23,42,0.32);}" +
@@ -650,8 +869,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._archiveName) + '">' +
       '<div class="header">' +
       '<div><div class="title">' + this._escapeHtml(this._archiveName) + '</div><div class="subtitle">' + this._escapeHtml(active.label) + ' \u00b7 ' + this._escapeHtml(subtitle) + '</div></div>' +
-      '<div class="actions">' + primaryAction + '<button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '<div class="actions">' + uploadAction + primaryAction + '<button class="button" type="button" data-action="collapse">Close</button></div>' +
       '</div>' +
+      uploadStatus +
       '<div class="stage">' +
       '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || this._archiveName) + '" loading="eager" decoding="async"></div>' +
       (this._images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
@@ -698,10 +918,16 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       }, this);
 
     var primaryAction = this._buildPrimaryAction(active, "action-button");
+    var uploadAction = this._buildUploadAction("action-button");
 
     var metaActions = this.shadowRoot.querySelector(".meta-actions");
     if (metaActions) {
-      metaActions.innerHTML = primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
+      metaActions.innerHTML = uploadAction + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
+    }
+
+    var uploadStatus = this.shadowRoot.querySelector(".upload-status-host");
+    if (uploadStatus) {
+      uploadStatus.innerHTML = this._renderUploadStatus();
     }
 
     if (this._expanded) {
@@ -770,6 +996,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       shouldPreferPrimary = true;
       this._setExpanded(false);
       this._activeIndex = 0;
+      this._localArchiveOverride = null;
       this._localPrimaryPhotoPath = null;
       this._localSelectedPrimaryPhotoPath = null;
       this._localHasPrimaryPhotoOverride = null;
@@ -796,6 +1023,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
     var subtitle = this._subtitleForImages(images);
     var primaryAction = this._buildPrimaryAction(active, "action-button");
+    var uploadAction = this._buildUploadAction("action-button");
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -822,6 +1050,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);margin-top:4px;}" +
       ".expand{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(21,101,192,0.14);color:#bbdefb;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
       ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
+      ".action-button[disabled]{opacity:0.6;cursor:wait;}" +
+      ".upload-status-host{min-height:0;}" +
+      ".upload-status{margin:2px 2px 0;padding:10px 12px;border-radius:14px;font-size:12px;font-weight:600;line-height:1.4;}" +
+      ".upload-status.info{background:rgba(21,101,192,0.10);color:#0d47a1;}" +
+      ".upload-status.success{background:rgba(46,125,50,0.12);color:#2e7d32;}" +
+      ".upload-status.error{background:rgba(183,28,28,0.12);color:#b71c1c;}" +
       ".thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;}" +
       ".thumb{appearance:none;border:1px solid transparent;background:none;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;flex:0 0 auto;position:relative;}" +
       ".thumb.active{border-color:rgba(59,130,246,0.9);box-shadow:0 0 0 2px rgba(59,130,246,0.2);}" +
@@ -847,14 +1081,16 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "</div>" +
       (compact ? "" : ('<div class="meta">' +
       '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
-      '<div class="meta-actions">' + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
+      '<div class="meta-actions">' + uploadAction + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
       "</div>")) +
+      '<div class="upload-status-host">' + this._renderUploadStatus() + '</div>' +
       '<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
           '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '">' +
           '<span class="thumb-label">' + this._escapeHtml(image.label) + '</span>' +
           '</button>';
       }.bind(this)).join("") + '</div>' +
+      '<input type="file" accept="image/*" multiple capture="environment" data-upload-input="true" style="display:none">' +
       "</div>" +
       "</ha-card>";
 
