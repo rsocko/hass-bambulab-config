@@ -18,9 +18,9 @@
         - sensor.ntk_ryansoffice_3dprinter_smart_status
       attribute: detail
   conditions:
-    - condition: state
-      entity_id: sensor.ntk_ryansoffice_3dprinter_smart_status
-      state: Unmapped Printer State
+    - condition: template
+      value_template: >-
+        {{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') == 'Unmapped Printer State' }}
   actions:
     - variables:
         smart_status: "{{ states('sensor.ntk_ryansoffice_3dprinter_smart_status') }}"
