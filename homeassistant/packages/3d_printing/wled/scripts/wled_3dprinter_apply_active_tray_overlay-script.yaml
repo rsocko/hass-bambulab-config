@@ -8,22 +8,22 @@ wled_3dprinter_apply_active_tray_overlay:
   sequence:
     - variables:
         active_tray_entity: sensor.ntk_ryansoffice_3dprinter_active_tray
-        active_tray_state: "{{ states(active_tray_entity) | string | trim }}"
+        active_tray_state: "{{ (states(active_tray_entity) | string | trim) ~ '' }}"
         ams_index_attr: >-
           {{ state_attr(active_tray_entity, 'AMS Index') | default(state_attr(active_tray_entity, 'ams_index'), true) }}
         tray_index_attr: >-
           {{ state_attr(active_tray_entity, 'Tray Index') | default(state_attr(active_tray_entity, 'tray_index'), true) }}
         color_hex_raw: >-
-          {{ state_attr(active_tray_entity, 'Color') | default(state_attr(active_tray_entity, 'color'), true) | string | trim }}
+          {{ (state_attr(active_tray_entity, 'Color') | default(state_attr(active_tray_entity, 'color'), true) | string | trim) ~ '' }}
         ams_index_from_state: >-
-          {% set s = active_tray_state | upper %}
+          {% set s = (active_tray_state ~ '') | upper %}
           {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
             {{ 1 if s[0] == 'A' else 2 }}
           {% else %}
             0
           {% endif %}
         tray_slot_from_state: >-
-          {% set s = active_tray_state | upper %}
+          {% set s = (active_tray_state ~ '') | upper %}
           {% if s | length >= 2 and s[0] in ['A', 'B'] and s[1] in ['1', '2', '3', '4'] %}
             {{ s[1] | int(0) }}
           {% else %}
@@ -54,20 +54,22 @@ wled_3dprinter_apply_active_tray_overlay:
             0
           {% endif %}
         color_hex_clean: >-
-          {{ color_hex_raw | replace('#', '') | replace('"', '') | lower }}
+          {{ ((color_hex_raw ~ '') | replace('#', '') | replace('"', '') | lower) ~ '' }}
         color_hex: >-
-          {% if color_hex_clean | regex_match('^[0-9a-f]{8}$') %}
-            {{ color_hex_clean[0:6] }}
-          {% elif color_hex_clean | regex_match('^[0-9a-f]{6}$') %}
-            {{ color_hex_clean }}
+          {% set color_value = color_hex_clean ~ '' %}
+          {% if color_value | regex_match('^[0-9a-f]{8}$') %}
+            {{ color_value[0:6] ~ '' }}
+          {% elif color_value | regex_match('^[0-9a-f]{6}$') %}
+            {{ color_value ~ '' }}
           {% else %}
             
           {% endif %}
+        color_hex_string: "{{ (color_hex | string | trim) ~ '' }}"
         has_valid_color: >-
-          {{ color_hex | regex_match('^[0-9a-f]{6}$') }}
-        base_r: "{{ color_hex[0:2] | int(0, 16) if has_valid_color else 0 }}"
-        base_g: "{{ color_hex[2:4] | int(0, 16) if has_valid_color else 0 }}"
-        base_b: "{{ color_hex[4:6] | int(0, 16) if has_valid_color else 0 }}"
+          {{ color_hex_string | regex_match('^[0-9a-f]{6}$') }}
+        base_r: "{{ color_hex_string[0:2] | int(0, 16) if has_valid_color else 0 }}"
+        base_g: "{{ color_hex_string[2:4] | int(0, 16) if has_valid_color else 0 }}"
+        base_b: "{{ color_hex_string[4:6] | int(0, 16) if has_valid_color else 0 }}"
         luminance: >-
           {{ (0.2126 * (base_r | float(0))) + (0.7152 * (base_g | float(0))) + (0.0722 * (base_b | float(0))) }}
         is_black_like: >-
