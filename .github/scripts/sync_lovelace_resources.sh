@@ -169,6 +169,9 @@ created=0
 updated=0
 skipped=0
 failed=0
+declare -a created_urls=()
+declare -a updated_urls=()
+declare -a failed_urls=()
 
 IFS=';' read -ra entries <<< "$desired_input"
 for entry in "${entries[@]}"; do
@@ -205,10 +208,12 @@ for entry in "${entries[@]}"; do
       "/api/config/lovelace/resources/$existing_id" 2>&1)" || {
       echo "  ERROR: $update_result"
       failed=$((failed + 1))
+      failed_urls+=("$url")
       continue
     }
     echo "  OK"
     updated=$((updated + 1))
+    updated_urls+=("$url")
     continue
   fi
 
@@ -224,16 +229,30 @@ for entry in "${entries[@]}"; do
     /api/config/lovelace/resources 2>&1)" || {
     echo "  ERROR: $result"
     failed=$((failed + 1))
+    failed_urls+=("$url")
     continue
   }
   echo "  OK"
   created=$((created + 1))
+  created_urls+=("$url")
 done
 
 if [ "$dry_run" = "true" ]; then
   echo "Dry-run summary: $created would be created, $updated would be updated, $skipped already registered."
 else
   echo "Resource sync complete: $created created, $updated updated, $skipped already registered, $failed failed."
+  if [ "${#created_urls[@]}" -gt 0 ]; then
+    echo "Created resources:"
+    printf '  - %s\n' "${created_urls[@]}"
+  fi
+  if [ "${#updated_urls[@]}" -gt 0 ]; then
+    echo "Updated resources:"
+    printf '  - %s\n' "${updated_urls[@]}"
+  fi
+  if [ "${#failed_urls[@]}" -gt 0 ]; then
+    echo "Failed resources:"
+    printf '  - %s\n' "${failed_urls[@]}"
+  fi
   if [ "$failed" -gt 0 ]; then
     echo "One or more Lovelace resource sync operations failed."
     exit 1
