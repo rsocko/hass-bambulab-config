@@ -633,11 +633,14 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert query_response["entry_id"] == "entry-1"
     assert query_response["archives"][0]["id"] == 101
     assert query_response["archives"][0]["effective_duration_seconds"] == 14400
+    assert query_response["archives"][0]["primary_photo_path"] == ""
     assert len(activity_query_response["activity_rows"]) == 2
     assert activity_query_response["activity_rows"][0]["effective_duration_seconds"] == 14400
+    assert activity_query_response["activity_rows"][0]["primary_photo_path"] == ""
     assert detail_response["archive_id"] == 101
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
+    assert detail_response["archive"]["primary_photo_path"] == ""
     assert primary_photo_response["primary_photo_selection"]["photo_path"] == "topdown-closeup.jpg"
     assert primary_photo_response["archive"]["primary_photo_path"] == "topdown-closeup.jpg"
     assert append_event_response["event_timeline"][0]["type"] == "photo_captured"

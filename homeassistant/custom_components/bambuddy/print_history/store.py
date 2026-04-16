@@ -846,9 +846,13 @@ class PrintHistoryStore:
             if base is None:
                 continue
             selected_primary_path = selected_primary_by_id.get(archive_id, {}).get("photo_path", "")
+            has_primary_override = bool(selected_primary_path)
+            if selected_primary_path == _THUMBNAIL_PRIMARY_SENTINEL:
+                selected_primary_path = ""
             primary_photo_path = self._resolve_primary_photo_path(
                 photo_items_by_id.get(archive_id, []),
                 selected_primary_path,
+                has_primary_override=has_primary_override,
             )
             activity_rows.append(
                 {
@@ -875,6 +879,7 @@ class PrintHistoryStore:
                     "thumbnail_path": base["thumbnail_path"],
                     "primary_photo_path": primary_photo_path,
                     "selected_primary_photo_path": selected_primary_path,
+                    "has_primary_photo_override": has_primary_override,
                     "filament_slots": filament_rows_by_id.get(archive_id, []),
                 }
             )
@@ -1823,15 +1828,7 @@ class PrintHistoryStore:
                 if item["path"] == selected_primary_path:
                     return selected_primary_path
 
-        if has_primary_override:
-            return ""
-
-        for preferred_role in ("primary", "cover", "hero", "featured"):
-            for item in photo_items:
-                if item["role"].strip().lower() == preferred_role:
-                    return item["path"]
-
-        return photo_items[0]["path"] if photo_items else ""
+        return ""
 
     def _query_filters(self, states: dict[str, str]) -> dict[str, Any]:
         current_time = datetime.now(timezone.utc)

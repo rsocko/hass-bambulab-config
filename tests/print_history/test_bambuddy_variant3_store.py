@@ -1492,13 +1492,16 @@ def test_variant3_store_primary_photo_selection_updates_archive_reads(tmp_path: 
     )
 
     assert initial_archive is not None
-    assert initial_archive["primary_photo_path"] == "finish-overview.webp"
+    assert initial_archive["primary_photo_path"] == ""
+    assert initial_archive["has_primary_photo_override"] is False
     assert selection["photo_path"] == "topdown-closeup.jpg"
     assert updated_archive is not None
     assert updated_archive["primary_photo_path"] == "topdown-closeup.jpg"
     assert updated_archive["selected_primary_photo_path"] == "topdown-closeup.jpg"
+    assert updated_archive["has_primary_photo_override"] is True
     assert updated_archive["photo_items"][1]["is_primary"] is True
     assert activity_rows[0]["primary_photo_path"] == "topdown-closeup.jpg"
+    assert activity_rows[0]["has_primary_photo_override"] is True
 
 
 def test_variant3_store_primary_photo_selection_rejects_unknown_photo(tmp_path: Path) -> None:

@@ -1090,7 +1090,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           '<span class="thumb-label">' + this._escapeHtml(image.label) + '</span>' +
           '</button>';
       }.bind(this)).join("") + '</div>' +
-      '<input type="file" accept="image/*" multiple capture="environment" data-upload-input="true" style="display:none">' +
+      '<input type="file" accept="image/*" multiple data-upload-input="true" style="display:none">' +
       "</div>" +
       "</ha-card>";
 
