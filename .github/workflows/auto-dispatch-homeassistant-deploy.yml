@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Resolve auto-deploy configuration
         id: config
@@ -85,6 +87,34 @@ jobs:
           AUTO_DEPLOY_RELOAD_DOMAINS_STRICT="$(normalize_bool "${AUTO_DEPLOY_RELOAD_DOMAINS_STRICT:-false}")"
 
           AUTO_DEPLOY_BRANCHES="$(trim "${AUTO_DEPLOY_BRANCHES:-}")"
+          AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")"
+          RESOURCE_RELATED_PUSH=false
+          BEFORE_SHA="${{ github.event.before }}"
+
+          if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" || true)"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+          else
+            CHANGED_FILES=""
+          fi
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              homeassistant/packages/3d_printing/common/common_loader.yaml|\
+              homeassistant/packages/3d_printing/common/dashboards/_resources.yaml|\
+              homeassistant/www/3d_printing/*)
+                RESOURCE_RELATED_PUSH=true
+                break
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          if [ "$RESOURCE_RELATED_PUSH" = "true" ] && [ "$AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED" != "restart_core" ]; then
+            echo "Resource-related changes detected in push range; overriding auto-deploy post action to restart_core."
+            AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="restart_core"
+          fi
 
           if [ "$AUTO_DEPLOY_ENABLED" != "true" ]; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
@@ -111,13 +141,14 @@ jobs:
           echo "check_ui_name_conflicts=$AUTO_DEPLOY_CHECK_UI_NAME_CONFLICTS" >> "$GITHUB_OUTPUT"
           echo "debug_deploy_sync=$AUTO_DEPLOY_DEBUG_DEPLOY_SYNC" >> "$GITHUB_OUTPUT"
           echo "fail_on_ui_conflict=$AUTO_DEPLOY_FAIL_ON_UI_CONFLICT" >> "$GITHUB_OUTPUT"
-          echo "post_deploy_action=$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")" >> "$GITHUB_OUTPUT"
+          echo "post_deploy_action=$AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED" >> "$GITHUB_OUTPUT"
           echo "reload_domains_strict=$AUTO_DEPLOY_RELOAD_DOMAINS_STRICT" >> "$GITHUB_OUTPUT"
           echo "resource_safety_mode=$(trim "${AUTO_DEPLOY_RESOURCE_SAFETY_MODE:-warn}")" >> "$GITHUB_OUTPUT"
           echo "feature_include_mode=$(trim "${AUTO_DEPLOY_FEATURE_INCLUDE_MODE:-auto_update_include_file}")" >> "$GITHUB_OUTPUT"
           echo "ha_configuration_yaml_path=$(trim "${AUTO_DEPLOY_HA_CONFIGURATION_YAML_PATH:-/config/configuration.yaml}")" >> "$GITHUB_OUTPUT"
           echo "ha_feature_include_file_path=$(trim "${AUTO_DEPLOY_HA_FEATURE_INCLUDE_FILE_PATH:-/config/packages/3d_printing/_feature_loaders.yaml}")" >> "$GITHUB_OUTPUT"
           echo "config_validation_mode=$(trim "${AUTO_DEPLOY_CONFIG_VALIDATION_MODE:-smart}")" >> "$GITHUB_OUTPUT"
+          echo "resource_related_push=$RESOURCE_RELATED_PUSH" >> "$GITHUB_OUTPUT"
 
       - name: Explain skip
         if: ${{ steps.config.outputs.should_dispatch != 'true' }}
@@ -135,6 +166,7 @@ jobs:
           echo "  selected_packages=${{ steps.config.outputs.selected_packages }}"
           echo "  package_preset=${{ steps.config.outputs.package_preset }}"
           echo "  include_www_for_selected=${{ steps.config.outputs.include_www_for_selected }}"
+          echo "  resource_related_push=${{ steps.config.outputs.resource_related_push }}"
           echo "  post_deploy_action=${{ steps.config.outputs.post_deploy_action }}"
           echo "  config_validation_mode=${{ steps.config.outputs.config_validation_mode }}"
 

@@ -75,6 +75,8 @@ This is handled by the `Sync Lovelace resources to HA storage` workflow step, wh
 
 The step runs in dry-run mode during `dry_run=true` deploys (preview only, no changes).
 
+If any individual resource create/update call fails, the sync step now fails the workflow instead of logging the error and continuing silently.
+
 Script: [.github/scripts/sync_lovelace_resources.sh](../../.github/scripts/sync_lovelace_resources.sh)
 
 **Adding a new JS resource to the repo:**
@@ -186,6 +188,15 @@ Notes:
 
 - Use this as a break-glass step when normal refresh/restart did not pick up JS updates.
 - Resources are managed in HA storage (UI/API), not in YAML. The file `common/dashboards/_resources.yaml` serves as a reference manifest only.
+
+## 9.1) Auto-dispatch behavior for JS resource changes
+
+The push-triggered wrapper workflow `.github/workflows/auto-dispatch-homeassistant-deploy.yml`
+now inspects the pushed file set.
+
+When it detects resource-related changes (`common/common_loader.yaml`, `common/dashboards/_resources.yaml`, or `homeassistant/www/3d_printing/**`), it automatically overrides the dispatched `post_deploy_action` to `restart_core` for that run.
+
+This keeps normal pushes on the lighter default action while making JS resource pushes use the reliable restart path without manual intervention.
 
 ## 10) `www/` Static Assets vs Lovelace Resources
 

@@ -179,6 +179,8 @@ Scope behavior:
 - With `package_scope=all`, any matching resource-related change is enforced.
 - With `package_scope=selected`, checks are enforced only when resource-related changes are in selected scope (for example package `common` and/or matching `www/3d_printing/<selected_package>/...` paths).
 
+For push-driven auto deploys, the wrapper workflow also inspects the pushed file set and upgrades the dispatched `post_deploy_action` to `restart_core` automatically when resource-related files changed.
+
 For manual break-glass cache busting of dashboard JS modules, see:
 
 - [Dashboard Deploy and Reload Behavior](./dashboard-deployment-behavior.md) -> "Manual JS Cache Bust (resource query string)"

@@ -168,6 +168,7 @@ fi
 created=0
 updated=0
 skipped=0
+failed=0
 
 IFS=';' read -ra entries <<< "$desired_input"
 for entry in "${entries[@]}"; do
@@ -203,6 +204,7 @@ for entry in "${entries[@]}"; do
       --raw-json "{\"url\":\"$url\",\"res_type\":\"$res_type\"}" \
       "/api/config/lovelace/resources/$existing_id" 2>&1)" || {
       echo "  ERROR: $update_result"
+      failed=$((failed + 1))
       continue
     }
     echo "  OK"
@@ -221,6 +223,7 @@ for entry in "${entries[@]}"; do
     --raw-json "{\"url\":\"$url\",\"res_type\":\"$res_type\"}" \
     /api/config/lovelace/resources 2>&1)" || {
     echo "  ERROR: $result"
+    failed=$((failed + 1))
     continue
   }
   echo "  OK"
@@ -230,7 +233,11 @@ done
 if [ "$dry_run" = "true" ]; then
   echo "Dry-run summary: $created would be created, $updated would be updated, $skipped already registered."
 else
-  echo "Resource sync complete: $created created, $updated updated, $skipped already registered."
+  echo "Resource sync complete: $created created, $updated updated, $skipped already registered, $failed failed."
+  if [ "$failed" -gt 0 ]; then
+    echo "One or more Lovelace resource sync operations failed."
+    exit 1
+  fi
 fi
 REMOTE_SYNC
 2>&1)"
