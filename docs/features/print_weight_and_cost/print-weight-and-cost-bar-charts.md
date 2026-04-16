@@ -244,3 +244,10 @@ The print-history archive popup now reuses the same shared renderer in `source: 
 - surfacing review gap cards below the chart on the archive weight tab
 
 The archive-cost tab derives per-filament cost proportionally from the archive's total `cost`, because Bambuddy currently stores archive cost only as a total rather than as per-row cost entries.
+
+For archive popup cards, the shared renderer now defaults to **Tray Location** ordering whenever structured tray labels exist, using AMS order (`A1` through `A4`, then `B1` through `B4`, with `Ext` after AMS slots). When tray labels are missing, it falls back to **Amount** ordering in descending order.
+
+The popup also exposes a compact sort toggle so the user can switch between:
+
+- **Tray Location** — preserves physical AMS/external spool order for easier print-to-tray inspection
+- **Amount** — sorts the archived rows by highest weight or highest apportioned cost first

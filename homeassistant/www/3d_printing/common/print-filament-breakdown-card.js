@@ -4,26 +4,35 @@ class PrintFilamentBreakdownCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = null;
     this._hass = null;
+    this._archiveSortMode = null;
   }
 
   setConfig(config) {
     const mode = String(config && config.mode ? config.mode : "weight").toLowerCase();
     const source = String(config && config.source ? config.source : "live").toLowerCase();
+    const archiveSort = String(config && config.archive_sort ? config.archive_sort : "auto").toLowerCase();
     if (["weight", "cost"].indexOf(mode) === -1) {
       throw new Error("print-filament-breakdown-card: mode must be 'weight' or 'cost'.");
     }
     if (["live", "archive"].indexOf(source) === -1) {
       throw new Error("print-filament-breakdown-card: source must be 'live' or 'archive'.");
     }
+    if (["auto", "tray", "amount"].indexOf(archiveSort) === -1) {
+      throw new Error("print-filament-breakdown-card: archive_sort must be 'auto', 'tray', or 'amount'.");
+    }
 
     this._config = {
       mode: mode,
       source: source,
+      archive_sort: archiveSort,
       title: config && config.title ? String(config.title) : "",
       show_title: !config || config.show_title !== false,
       show_issues: config && typeof config.show_issues === "boolean"
         ? config.show_issues
         : source === "archive" && mode === "weight",
+      show_archive_sort_toggle: config && typeof config.show_archive_sort_toggle === "boolean"
+        ? config.show_archive_sort_toggle
+        : source === "archive",
       entity: config && config.entity
         ? String(config.entity)
         : (mode === "weight" ? "sensor.print_weight_effective" : "sensor.print_cost"),
@@ -44,6 +53,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         ? Math.max(0, Number(config.label_threshold))
         : 10,
     };
+    this._archiveSortMode = null;
     this._render();
   }
 
@@ -65,6 +75,9 @@ class PrintFilamentBreakdownCard extends HTMLElement {
     const titleHtml = this._config.show_title
       ? `<div class="header"><div class="title">${this._escapeHtml(view.title)}</div><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>`
       : `<div class="header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>`;
+    const sortToggleHtml = view.sortOptions && view.sortOptions.length
+      ? `<div class="sort-toggle" role="group" aria-label="Archive filament sort order">${view.sortOptions.map((option) => `<button class="sort-toggle-button${option.active ? " is-active" : ""}" data-sort-mode="${this._escapeHtml(option.value)}" type="button">${this._escapeHtml(option.label)}</button>`).join("")}</div>`
+      : "";
     const barHtml = view.placeholder
       ? `<div class="placeholder"><div class="placeholder-bar">${view.placeholderLabel ? `<span class="placeholder-label">${this._escapeHtml(view.placeholderLabel)}</span>` : ""}</div>${view.placeholderMessage ? `<div class="placeholder-message">${this._escapeHtml(view.placeholderMessage)}</div>` : ""}</div>`
       : view.segments.length
@@ -112,6 +125,30 @@ class PrintFilamentBreakdownCard extends HTMLElement {
           font-weight: 600;
           line-height: 1.2;
           min-width: 0;
+        }
+        .sort-toggle {
+          display: inline-flex;
+          align-self: flex-start;
+          border-radius: 999px;
+          background: rgba(127, 127, 127, 0.12);
+          border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+          overflow: hidden;
+        }
+        .sort-toggle-button {
+          appearance: none;
+          border: 0;
+          background: transparent;
+          color: var(--secondary-text-color, #888);
+          cursor: pointer;
+          font: inherit;
+          font-size: 11px;
+          font-weight: 600;
+          line-height: 1;
+          padding: 7px 10px;
+        }
+        .sort-toggle-button.is-active {
+          background: var(--primary-color, #03a9f4);
+          color: var(--text-primary-color, #ffffff);
         }
         .total {
           font-size: 14px;
@@ -253,6 +290,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       <ha-card>
         <div class="wrap">
           ${titleHtml}
+          ${sortToggleHtml}
           ${barHtml}
           ${legendHtml}
           ${noticeHtml}
@@ -261,6 +299,10 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         </div>
       </ha-card>
     `;
+
+    Array.from(this.shadowRoot.querySelectorAll(".sort-toggle-button")).forEach(function (button) {
+      button.addEventListener("click", this._handleSortToggleClick.bind(this));
+    }.bind(this));
   }
 
   _renderSegment(segment) {
@@ -309,6 +351,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         issues: [],
         emptyMessage: "Loading filament breakdown...",
         placeholder: false,
+        sortOptions: [],
       };
     }
 
@@ -408,6 +451,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       },
       notices: notices,
       issues: [],
+      sortOptions: [],
     });
   }
 
@@ -477,6 +521,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       }.bind(this),
       notices: notices,
       issues: [],
+      sortOptions: [],
     });
   }
 
@@ -630,18 +675,21 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       return this._emptyViewModel(this._defaultTitle(), "No archived filament breakdown is available.", "Total: -", notices, issues);
     }
 
+    const sortOptions = this._archiveSortOptions(entries);
+    const sortedEntries = this._sortArchiveEntries(entries, this._config.mode === "cost" ? "cost" : "weight");
+
     if (this._config.mode === "cost") {
       if (!(totalCost > 0 && resolvedWeight > 0)) {
         return this._emptyViewModel(this._defaultTitle(), "No archive cost data is available for this print.", "Total: -", notices, issues);
       }
-      entries.forEach(function (entry) {
+      sortedEntries.forEach(function (entry) {
         entry.cost = totalCost * (entry.weight / resolvedWeight);
       });
       return this._buildChartViewModel({
         title: this._defaultTitle(),
         totalLabel: "Total: " + this._formatCurrency(totalCost),
         totalValue: totalCost,
-        entries: entries,
+        entries: sortedEntries,
         valueKey: "cost",
         valueFormatter: this._formatCurrency.bind(this),
         tooltipFormatter: function (entry, percent) {
@@ -667,6 +715,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         warningFormatter: this._archiveWarningFormatter.bind(this),
         notices: notices,
         issues: issues,
+        sortOptions: sortOptions,
       });
     }
 
@@ -674,7 +723,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       title: this._defaultTitle(),
       totalLabel: "Total: " + this._formatWeight(resolvedWeight),
       totalValue: resolvedWeight,
-      entries: entries,
+      entries: sortedEntries,
       valueKey: "weight",
       valueFormatter: this._formatWeight.bind(this),
       tooltipFormatter: function (entry, percent) {
@@ -700,6 +749,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       warningFormatter: this._archiveWarningFormatter.bind(this),
       notices: notices,
       issues: issues,
+      sortOptions: sortOptions,
     });
   }
 
@@ -757,7 +807,120 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       issues: options.issues || [],
       emptyMessage: "No filament breakdown available.",
       placeholder: false,
+      sortOptions: options.sortOptions || [],
     };
+  }
+
+  _handleSortToggleClick(event) {
+    const mode = event && event.currentTarget && event.currentTarget.dataset
+      ? String(event.currentTarget.dataset.sortMode || "").trim().toLowerCase()
+      : "";
+    if (!["tray", "amount"].includes(mode) || mode === this._archiveSortMode) {
+      return;
+    }
+    this._archiveSortMode = mode;
+    this._render();
+  }
+
+  _archiveSortOptions(entries) {
+    if (!this._config || this._config.source !== "archive" || !this._config.show_archive_sort_toggle) {
+      return [];
+    }
+    if (!Array.isArray(entries) || entries.length < 2 || !entries.some(function (entry) { return this._hasTrayLocation(entry); }.bind(this))) {
+      return [];
+    }
+    const activeMode = this._getArchiveSortMode(entries);
+    return [
+      { value: "tray", label: "Tray Location", active: activeMode === "tray" },
+      { value: "amount", label: "Amount", active: activeMode === "amount" },
+    ];
+  }
+
+  _sortArchiveEntries(entries, valueKey) {
+    const activeMode = this._getArchiveSortMode(entries);
+    return entries.slice().sort(function (left, right) {
+      if (activeMode === "tray") {
+        const trayCompare = this._compareTrayLocation(left, right);
+        if (trayCompare !== 0) {
+          return trayCompare;
+        }
+      }
+      const valueCompare = this._toNumber(right[valueKey]) - this._toNumber(left[valueKey]);
+      if (Math.abs(valueCompare) > 0.0001) {
+        return valueCompare;
+      }
+      if (activeMode !== "tray") {
+        const trayCompare = this._compareTrayLocation(left, right);
+        if (trayCompare !== 0) {
+          return trayCompare;
+        }
+      }
+      return String(left.displayName || left.name || "").localeCompare(String(right.displayName || right.name || ""), undefined, { sensitivity: "base" });
+    }.bind(this));
+  }
+
+  _getArchiveSortMode(entries) {
+    if (this._archiveSortMode === "tray" || this._archiveSortMode === "amount") {
+      return this._archiveSortMode;
+    }
+    if (this._config && this._config.archive_sort === "tray") {
+      return "tray";
+    }
+    if (this._config && this._config.archive_sort === "amount") {
+      return "amount";
+    }
+    return entries.some(function (entry) { return this._hasTrayLocation(entry); }.bind(this)) ? "tray" : "amount";
+  }
+
+  _hasTrayLocation(entry) {
+    return !!this._parseTrayLabel(entry && entry.trayLabel);
+  }
+
+  _compareTrayLocation(left, right) {
+    const leftTray = this._parseTrayLabel(left && left.trayLabel);
+    const rightTray = this._parseTrayLabel(right && right.trayLabel);
+    if (leftTray && rightTray) {
+      if (leftTray.rank !== rightTray.rank) {
+        return leftTray.rank - rightTray.rank;
+      }
+      if (leftTray.slot !== rightTray.slot) {
+        return leftTray.slot - rightTray.slot;
+      }
+      if (leftTray.label !== rightTray.label) {
+        return leftTray.label.localeCompare(rightTray.label, undefined, { sensitivity: "base" });
+      }
+      return 0;
+    }
+    if (leftTray) {
+      return -1;
+    }
+    if (rightTray) {
+      return 1;
+    }
+    return 0;
+  }
+
+  _parseTrayLabel(value) {
+    const label = String(value || "").trim().toUpperCase();
+    if (!label) {
+      return null;
+    }
+    const amsMatch = label.match(/^([A-Z])(\d+)$/);
+    if (amsMatch) {
+      return {
+        rank: amsMatch[1].charCodeAt(0) - 65,
+        slot: parseInt(amsMatch[2], 10),
+        label: label,
+      };
+    }
+    if (label === "EXT") {
+      return {
+        rank: 99,
+        slot: 0,
+        label: label,
+      };
+    }
+    return null;
   }
 
   _archiveWarningFormatter(entry) {
@@ -849,6 +1012,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       issues: issues || [],
       emptyMessage: emptyMessage,
       placeholder: false,
+      sortOptions: [],
     };
   }
 
@@ -864,6 +1028,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       placeholder: true,
       placeholderLabel: options.label || "Breakdown unavailable",
       placeholderMessage: options.message || "",
+      sortOptions: [],
     };
   }
 
