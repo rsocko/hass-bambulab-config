@@ -4,4 +4,9 @@
 template:
   - sensor: !include_dir_merge_list template_sensors
 
+recorder:
+  exclude:
+    entities:
+      - sensor.spoolman_filament_totals
+
 automation: !include_dir_merge_list automations

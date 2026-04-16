@@ -9,4 +9,9 @@ input_number: !include_dir_merge_named helpers/input_number
 input_select: !include_dir_merge_named helpers/input_select
 input_text: !include_dir_merge_named helpers/input_text
 
+recorder:
+  exclude:
+    entities:
+      - sensor.filament_catalog_metrics
+
 template: !include_dir_merge_list template_sensors
