@@ -675,16 +675,20 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       return this._emptyViewModel(this._defaultTitle(), "No archived filament breakdown is available.", "Total: -", notices, issues);
     }
 
-    const sortOptions = this._archiveSortOptions(entries);
-    const sortedEntries = this._sortArchiveEntries(entries, this._config.mode === "cost" ? "cost" : "weight");
+    const chartEntries = entries.map(function (entry) {
+      const nextEntry = Object.assign({}, entry);
+      if (this._config.mode === "cost" && totalCost > 0 && resolvedWeight > 0) {
+        nextEntry.cost = totalCost * (entry.weight / resolvedWeight);
+      }
+      return nextEntry;
+    }.bind(this));
+    const sortOptions = this._archiveSortOptions(chartEntries);
+    const sortedEntries = this._sortArchiveEntries(chartEntries, this._config.mode === "cost" ? "cost" : "weight");
 
     if (this._config.mode === "cost") {
       if (!(totalCost > 0 && resolvedWeight > 0)) {
         return this._emptyViewModel(this._defaultTitle(), "No archive cost data is available for this print.", "Total: -", notices, issues);
       }
-      sortedEntries.forEach(function (entry) {
-        entry.cost = totalCost * (entry.weight / resolvedWeight);
-      });
       return this._buildChartViewModel({
         title: this._defaultTitle(),
         totalLabel: "Total: " + this._formatCurrency(totalCost),
@@ -904,6 +908,14 @@ class PrintFilamentBreakdownCard extends HTMLElement {
     const label = String(value || "").trim().toUpperCase();
     if (!label) {
       return null;
+    }
+    const expandedAmsMatch = label.match(/^AMS(\d+)-(\d+)$/);
+    if (expandedAmsMatch) {
+      return {
+        rank: Math.max(0, parseInt(expandedAmsMatch[1], 10) - 1),
+        slot: parseInt(expandedAmsMatch[2], 10),
+        label: label,
+      };
     }
     const amsMatch = label.match(/^([A-Z])(\d+)$/);
     if (amsMatch) {

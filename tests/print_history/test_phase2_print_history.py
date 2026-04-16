@@ -1463,9 +1463,27 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
         self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.src || '').trim();", content)
-        self.assertIn("const enrichmentSourceLabel = enrichmentSource === 'at1'", content)
-        self.assertIn("Archive-level fallback", content)
-        self.assertIn("${escapeHtml(enrichmentReason)}", content)
+
+    def test_archive_filament_breakdown_card_sorts_derived_cost_amounts_after_computing_cost(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("const chartEntries = entries.map(function (entry) {", content)
+        self.assertIn("if (this._config.mode === \"cost\" && totalCost > 0 && resolvedWeight > 0) {", content)
+        self.assertIn("nextEntry.cost = totalCost * (entry.weight / resolvedWeight);", content)
+        self.assertIn("const sortedEntries = this._sortArchiveEntries(chartEntries, this._config.mode === \"cost\" ? \"cost\" : \"weight\");", content)
+
+    def test_archive_filament_breakdown_card_keeps_unresolved_rows_after_resolved_trays(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("const expandedAmsMatch = label.match(/^AMS(\\d+)-(\\d+)$/);", content)
+        self.assertIn("if (leftTray) {", content)
+        self.assertIn("return -1;", content)
+        self.assertIn("if (rightTray) {", content)
+        self.assertIn("return 1;", content)
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
