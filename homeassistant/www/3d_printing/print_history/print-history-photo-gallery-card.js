@@ -274,11 +274,23 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var normalizedPhotoPath = String(photoPath || "").trim();
     try {
-      await this._hass.callService("bambuddy", "set_print_history_primary_photo", {
-        archive_id: archiveId,
-        photo_path: normalizedPhotoPath,
-      });
+      var response = await this._hass.callService(
+        "bambuddy",
+        "set_print_history_primary_photo",
+        {
+          archive_id: archiveId,
+          photo_path: normalizedPhotoPath,
+        },
+        undefined,
+        true
+      );
+      var updatedArchive = response && response.archive && typeof response.archive === "object"
+        ? response.archive
+        : null;
       this._localPrimaryPhotoPath = normalizedPhotoPath;
+      if (updatedArchive && updatedArchive.primary_photo_path != null) {
+        this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
+      }
       this._render();
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -611,6 +623,29 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         var buttonIndex = Number(button.getAttribute("data-index"));
         button.classList.toggle("active", buttonIndex === this._activeIndex);
       }, this);
+
+    var primaryAction = active.kind === "photo"
+      ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
+      : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
+
+    var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
+    if (primaryAction) {
+      if (!topbarActions) {
+        var topbar = this.shadowRoot.querySelector(".topbar");
+        if (topbar) {
+          topbar.insertAdjacentHTML("beforeend", '<div class="topbar-actions">' + primaryAction + '</div>');
+        }
+      } else {
+        topbarActions.innerHTML = primaryAction;
+      }
+    } else if (topbarActions && topbarActions.parentNode) {
+      topbarActions.parentNode.removeChild(topbarActions);
+    }
+
+    var metaActions = this.shadowRoot.querySelector(".meta-actions");
+    if (metaActions) {
+      metaActions.innerHTML = primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
+    }
 
     if (this._expanded) {
       this._renderOverlay();
