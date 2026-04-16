@@ -36,18 +36,32 @@ wled_3dprinter_apply_core_state_to_presets:
           {% if core_state in ['S0_OFFLINE', 'S5_PAUSED_ERROR'] %}Idle Standby
           {% else %}Normal Printing
           {% endif %}
+        magwled_available_options: >-
+          {{ state_attr(magwled_preset_entity, 'options') | default([], true) }}
+        magwled_preset_supported: >-
+          {{
+            states(magwled_preset_entity) not in ['unavailable', 'unknown']
+            and (magwled_available_options | count) > 0
+            and (magwled_preset | trim) in magwled_available_options
+          }}
     - action: select.select_option
       target:
         entity_id: "{{ digquad_preset_entity }}"
       data:
         option: "{{ digquad_preset | trim }}"
-    - action: select.select_option
-      target:
-        entity_id: "{{ magwled_preset_entity }}"
-      data:
-        option: "{{ magwled_preset | trim }}"
+    - if:
+        - condition: template
+          value_template: "{{ magwled_preset_supported }}"
+      then:
+        - action: select.select_option
+          target:
+            entity_id: "{{ magwled_preset_entity }}"
+          data:
+            option: "{{ magwled_preset | trim }}"
     - action: logbook.log
       data:
         name: WLED 3D Printer State Machine
         message: >-
-          Applied presets - DigQuad: {{ digquad_preset | trim }}, MagWLED: {{ magwled_preset | trim }} ({{ core_state }})
+          Applied presets - DigQuad: {{ digquad_preset | trim }},
+          MagWLED: {% if magwled_preset_supported %}{{ magwled_preset | trim }}{% else %}skipped (entity unavailable or preset unsupported){% endif %}
+          ({{ core_state }})
