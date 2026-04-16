@@ -702,6 +702,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var primaryAction = active.kind === "photo"
       ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
       : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
+    var primaryTopbarAction = primaryAction
+      ? '<div class="topbar-actions">' + primaryAction + '</div>'
+      : '';
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -715,7 +718,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".stage{position:relative;border-radius:18px;overflow:hidden;background:rgba(15,23,42,0.32);min-height:220px;}" +
       ".stage-button{appearance:none;border:none;background:none;padding:0;display:block;width:100%;cursor:zoom-in;}" +
       ".stage-image{display:block;width:100%;max-height:320px;min-height:220px;object-fit:cover;background:rgba(15,23,42,0.32);}" +
-      ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;}" +
+      ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;}" +
+      ".topbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}" +
+      ".topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:auto;}" +
       ".badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
@@ -744,8 +749,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
       "</button>" +
       '<div class="topbar">' +
-      '<span class="badge">' + this._escapeHtml(active.label) + "</span>" +
-      '<span class="badge">' + this._escapeHtml(subtitle) + "</span>" +
+      '<div class="topbar-left"><span class="badge">' + this._escapeHtml(active.label) + "</span>" +
+      '<span class="badge">' + this._escapeHtml(subtitle) + "</span></div>" +
+      primaryTopbarAction +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +
