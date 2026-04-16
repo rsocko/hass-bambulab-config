@@ -417,8 +417,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._overlayRoot.style.height = "100vh";
     this._overlayRoot.style.maxHeight = "100vh";
     this._overlayRoot.style.overflow = "hidden";
-    this._overlayRoot.attachShadow({ mode: "open" });
-    this._overlayRoot.shadowRoot.addEventListener("click", this._boundOverlayClickHandler);
+    this._overlayRoot.addEventListener("click", this._boundOverlayClickHandler);
     this._overlayRoot.addEventListener("click", this._boundOverlayHostClickHandler);
     this._overlayRoot.addEventListener("cancel", this._boundOverlayCancelHandler);
     doc.body.appendChild(this._overlayRoot);
@@ -429,9 +428,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (!this._overlayRoot) {
       return;
     }
-    if (this._overlayRoot.shadowRoot) {
-      this._overlayRoot.shadowRoot.removeEventListener("click", this._boundOverlayClickHandler);
-    }
+    this._overlayRoot.removeEventListener("click", this._boundOverlayClickHandler);
     this._overlayRoot.removeEventListener("click", this._boundOverlayHostClickHandler);
     this._overlayRoot.removeEventListener("cancel", this._boundOverlayCancelHandler);
     if (this._overlayRoot.parentNode) {
@@ -460,7 +457,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
   _renderOverlay() {
     this._ensureOverlayRoot();
-    if (!this._overlayRoot || !this._overlayRoot.shadowRoot || !this._images.length) {
+    if (!this._overlayRoot || !this._images.length) {
       return;
     }
 
@@ -474,9 +471,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
       : "Thumbnail only";
 
-    this._overlayRoot.shadowRoot.innerHTML =
+    this._overlayRoot.innerHTML =
       "<style>" +
-      ":host{all:initial;}" +
+      ".phg-frame,.phg-frame *{box-sizing:border-box;}" +
       ".frame{position:fixed;inset:0;}" +
       ".backdrop{appearance:none;border:none;position:absolute;inset:0;background:rgba(4,8,15,0.94);padding:0;cursor:pointer;}" +
       ".shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;box-sizing:border-box;padding:clamp(16px,2.2vw,28px);padding-top:max(clamp(16px,2.2vw,28px), env(safe-area-inset-top));padding-right:max(clamp(16px,2.2vw,28px), env(safe-area-inset-right));padding-bottom:max(clamp(16px,2.2vw,28px), env(safe-area-inset-bottom));padding-left:max(clamp(16px,2.2vw,28px), env(safe-area-inset-left));}" +
@@ -495,12 +492,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}" +
       ".thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}" +
       ".thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
-      ".dialog{padding:0;border:none;background:transparent;}" +
-      ".dialog::backdrop{background:transparent;}" +
+      "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
       "@media (max-width: 900px){.shell{grid-template-rows:auto minmax(0,1fr) auto;gap:12px;}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}" +
       "@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}" +
       "</style>" +
-      '<div class="frame">' +
+      '<div class="frame phg-frame">' +
       '<button class="backdrop" type="button" data-action="collapse" aria-label="Close full-screen gallery"></button>' +
       '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._archiveName) + '">' +
       '<div class="header">' +
@@ -575,9 +571,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       if (this._overlayRoot.open) {
         this._overlayRoot.close();
       }
-      if (this._overlayRoot.shadowRoot) {
-        this._overlayRoot.shadowRoot.innerHTML = "";
-      }
+      this._overlayRoot.innerHTML = "";
     }
   }
 
