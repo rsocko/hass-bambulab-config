@@ -11,10 +11,37 @@ cards:
           margin-top: 8px !important;
         }
         {% set notice_state = state_attr('sensor.bambuddy_print_history_browser_status', 'limit_notice_state') %}
-        {% if not state_attr('sensor.bambuddy_print_history_browser_status', 'limit_notice_show') %}
+        {% set notice_show = state_attr('sensor.bambuddy_print_history_browser_status', 'limit_notice_show') %}
+        {% set accent_rgb = '' %}
+        {% set accent_hex = '' %}
+        {% if notice_state == 'truncated' %}
+          {% set accent_rgb = '198, 40, 40' %}
+          {% set accent_hex = '#c62828' %}
+        {% elif notice_state == 'at_limit' %}
+          {% set accent_rgb = '239, 108, 0' %}
+          {% set accent_hex = '#ef6c00' %}
+        {% elif notice_state == 'near_limit' %}
+          {% set accent_rgb = '21, 101, 192' %}
+          {% set accent_hex = '#1565c0' %}
+        {% endif %}
+        {% if not notice_show %}
         .bubble-sub-button-container > *:first-child,
         .bubble-sub-buttons-container > *:first-child {
           display: none !important;
+        }
+        {% endif %}
+        {% if notice_show and accent_rgb %}
+        .bubble-icon-container {
+          background: rgba({{ accent_rgb }}, 0.10) !important;
+          box-shadow: inset 0 0 0 1px rgba({{ accent_rgb }}, 0.18) !important;
+        }
+        .bubble-icon,
+        .bubble-icon ha-icon {
+          color: {{ accent_hex }} !important;
+        }
+        .bubble-line {
+          background: linear-gradient(90deg, rgba({{ accent_rgb }}, 0.54) 0%, rgba({{ accent_rgb }}, 0.20) 34%, rgba({{ accent_rgb }}, 0.05) 100%) !important;
+          box-shadow: inset 0 0 0 1px rgba({{ accent_rgb }}, 0.08) !important;
         }
         {% endif %}
         {% if notice_state == 'truncated' %}

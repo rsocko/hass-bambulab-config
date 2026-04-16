@@ -1397,6 +1397,7 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
 
         self.assertIn("sensor.bambuddy_print_history_browser_status", browser_yaml_content)
         self.assertIn("limit_notice", browser_yaml_content)
+        self.assertIn(".bubble-line", browser_yaml_content)
         self.assertIn("browser_mod.popup", browser_yaml_content)
         self.assertIn("Print History Cache", browser_yaml_content)
 
