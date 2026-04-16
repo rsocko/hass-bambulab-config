@@ -201,11 +201,23 @@ class FakeApiClient:
     printers: list[dict] = []
     projects: list[dict] = []
     archive_stats: dict[str, object] = {}
+    last_fetch_archives_kwargs: dict[str, object] = {}
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
 
-    async def async_fetch_archives(self, *, limit: int) -> list[dict[str, object]]:
+    async def async_fetch_archives(
+        self,
+        *,
+        limit: int,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> list[dict[str, object]]:
+        type(self).last_fetch_archives_kwargs = {
+            "limit": limit,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
         return [dict(item) for item in self.archives[:limit]]
 
     async def async_fetch_printers(self) -> list[dict[str, object]]:
@@ -288,6 +300,8 @@ def _default_state_map() -> dict[str, str]:
         "input_select.print_history_filter_duplicates": "All",
         "input_select.print_history_filter_printer": "All",
         "input_select.print_history_filter_date_range": "All Time",
+        "input_text.print_history_filter_start_date": "",
+        "input_text.print_history_filter_end_date": "",
         "input_select.print_history_filter_designer": "All",
         "input_select.print_history_filter_project": "All",
         "input_select.print_history_filter_layer_height": "All",
@@ -753,6 +767,42 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         if call[2]["entity_id"] == "input_select.print_history_filter_printer"
     )
     assert printer_options == ["All", "Workshop P1S"]
+
+
+def test_variant3_manager_refresh_passes_date_bounds_to_archive_fetch(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_text.print_history_filter_start_date"] = "2026-04-01"
+    state_map["input_text.print_history_filter_end_date"] = "2026-04-30"
+    state_map["input_number.print_history_max_archives"] = "25"
+    hass = FakeHass(tmp_path, state_map)
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+
+    FakeApiClient.archives = []
+    FakeApiClient.printers = []
+    FakeApiClient.projects = []
+    FakeApiClient.archive_stats = {"total_prints": 0}
+    FakeApiClient.last_fetch_archives_kwargs = {}
+
+    original_client = manager_module.BambuddyApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    try:
+        asyncio.run(manager.async_refresh("test"))
+    finally:
+        manager_module.BambuddyApiClient = original_client
+
+    assert FakeApiClient.last_fetch_archives_kwargs == {
+        "limit": 25,
+        "date_from": "2026-04-01",
+        "date_to": "2026-04-30",
+    }
 
 
 def test_variant3_manager_refresh_does_not_reload_archives_from_store(tmp_path: Path) -> None:

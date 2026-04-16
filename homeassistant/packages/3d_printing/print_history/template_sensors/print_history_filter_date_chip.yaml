@@ -1,0 +1,23 @@
+- trigger:
+    - trigger: state
+      entity_id:
+        - input_text.print_history_filter_start_date
+        - input_text.print_history_filter_end_date
+  sensor:
+    - name: Print History Filter Date Chip
+      unique_id: print_history_filter_date_chip
+      state: >-
+        {% set start = states('input_text.print_history_filter_start_date') | string | trim %}
+        {% set end = states('input_text.print_history_filter_end_date') | string | trim %}
+        {% if start == '' and end == '' %}
+          {{ '' }}
+        {% elif start != '' and end != '' %}
+          {{ start }} <> {{ end }}
+        {% elif start != '' %}
+          {{ start }} <>
+        {% else %}
+          <> {{ end }}
+        {% endif %}
+      attributes:
+        start_date: "{{ states('input_text.print_history_filter_start_date') | string | trim }}"
+        end_date: "{{ states('input_text.print_history_filter_end_date') | string | trim }}"

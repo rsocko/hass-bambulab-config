@@ -56,6 +56,18 @@ query_print_history_browser:
       required: false
       selector:
         text:
+    start_date:
+      name: Start Date
+      description: Inclusive lower bound in YYYY-MM-DD format.
+      required: false
+      selector:
+        text:
+    end_date:
+      name: End Date
+      description: Inclusive upper bound in YYYY-MM-DD format.
+      required: false
+      selector:
+        text:
     designer:
       name: Designer
       required: false

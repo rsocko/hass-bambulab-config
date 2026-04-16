@@ -137,6 +137,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       material: this._stateValue("input_select.print_history_filter_material"),
       printer: this._stateValue("input_select.print_history_filter_printer"),
       dateRange: this._stateValue("input_select.print_history_filter_date_range"),
+      startDate: this._stateValue("input_text.print_history_filter_start_date"),
+      endDate: this._stateValue("input_text.print_history_filter_end_date"),
       designer: this._stateValue("input_select.print_history_filter_designer"),
       layerHeight: this._stateValue("input_select.print_history_filter_layer_height"),
       tag: this._stateValue("input_select.print_history_filter_tag"),
@@ -479,6 +481,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       material: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_material")),
       printer: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_printer")),
       date_range: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_date_range")),
+      start_date: String(this._stateValue("input_text.print_history_filter_start_date") || "").trim(),
+      end_date: String(this._stateValue("input_text.print_history_filter_end_date") || "").trim(),
       designer: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_designer")),
       project: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_project")),
       layer_height: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_layer_height")),
@@ -609,6 +613,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var materialValue = this._stateValue("input_select.print_history_filter_material");
     var printerValue = this._stateValue("input_select.print_history_filter_printer");
     var dateRangeValue = this._stateValue("input_select.print_history_filter_date_range");
+    var startDateValue = String(this._stateValue("input_text.print_history_filter_start_date") || "").trim().slice(0, 10);
+    var endDateValue = String(this._stateValue("input_text.print_history_filter_end_date") || "").trim().slice(0, 10);
     var designerValue = this._stateValue("input_select.print_history_filter_designer");
     var layerHeightValue = this._stateValue("input_select.print_history_filter_layer_height");
     var tagValue = this._stateValue("input_select.print_history_filter_tag");
@@ -670,6 +676,15 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       matchesDate = archiveAgeDays < 30;
     } else if (dateRangeValue === "Last 90 Days") {
       matchesDate = archiveAgeDays < 90;
+    }
+    if (matchesDate && startDateValue) {
+      matchesDate = !!archive.dateKey && archive.dateKey >= startDateValue;
+    }
+    if (matchesDate && endDateValue) {
+      matchesDate = !!archive.dateKey && archive.dateKey <= endDateValue;
+    }
+    if (startDateValue && endDateValue && startDateValue > endDateValue) {
+      matchesDate = false;
     }
 
     return matchesStatus && matchesMaterial && matchesPrinter && matchesDesigner && matchesLayerHeight && matchesTag && matchesFavorite && matchesSearch && matchesColors && matchesDate;

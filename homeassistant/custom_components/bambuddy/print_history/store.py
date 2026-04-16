@@ -26,6 +26,7 @@ try:
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
+        normalize_filter_date_value,
         normalize_hex,
         note_payload_rows,
         query_archives,
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
+        normalize_filter_date_value,
         normalize_hex,
         note_payload_rows,
         query_archives,
@@ -1531,6 +1533,8 @@ class PrintHistoryStore:
 
     def _query_filters(self, states: dict[str, str]) -> dict[str, Any]:
         current_time = datetime.now(timezone.utc)
+        start_date = normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", ""))
+        end_date = normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", ""))
         return {
             "status": states.get("input_select.print_history_filter_status", "All").strip().lower(),
             "archive_error": states.get("input_select.print_history_filter_archive_error", "All").strip(),
@@ -1539,6 +1543,8 @@ class PrintHistoryStore:
             "duplicates": states.get("input_select.print_history_filter_duplicates", "All").strip(),
             "printer": states.get("input_select.print_history_filter_printer", "All").strip(),
             "date_range": states.get("input_select.print_history_filter_date_range", "All Time").strip(),
+            "start_date": start_date,
+            "end_date": end_date,
             "designer": states.get("input_select.print_history_filter_designer", "All").strip().lower(),
             "project": states.get("input_select.print_history_filter_project", "All").strip(),
             "layer_height": states.get("input_select.print_history_filter_layer_height", "All").strip(),
@@ -1644,9 +1650,17 @@ class PrintHistoryStore:
             params.extend(filters["colors"])
             params.extend([f"%{color}%" for color in filters["colors"]])
         date_threshold = self._date_range_threshold(filters["date_range"], filters["today"])
-        if date_threshold:
+        start_date = filters["start_date"]
+        end_date = filters["end_date"]
+        effective_start = max(value for value in (date_threshold, start_date) if value) if date_threshold or start_date else ""
+        if effective_start and end_date and effective_start > end_date:
+            return []
+        if effective_start:
             where_clauses.append("a.archive_day_local >= ?")
-            params.append(date_threshold)
+            params.append(effective_start)
+        if end_date:
+            where_clauses.append("a.archive_day_local <= ?")
+            params.append(end_date)
 
         sort_sql = self._sort_sql(filters["sort"])
         query = f"""

@@ -83,6 +83,8 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_boolean.print_history_filter_favorites_only": "off",
     "input_text.print_history_search": "",
     "input_text.print_history_filter_colors": "",
+    "input_text.print_history_filter_start_date": "",
+    "input_text.print_history_filter_end_date": "",
     "input_text.print_history_activity_selected_date": "",
     "input_select.print_history_sort": "Date (Newest)",
 }
@@ -110,6 +112,20 @@ def as_text(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def normalize_filter_date_value(value: Any) -> str:
+    raw = as_text(value).strip()
+    if not raw:
+        return ""
+    candidate = raw.replace("T", " ").split(" ", 1)[0].strip()
+    if len(candidate) != 10:
+        return ""
+    try:
+        datetime.strptime(candidate, "%Y-%m-%d")
+    except ValueError:
+        return ""
+    return candidate
 
 
 def normalize_status(value: Any) -> str:
@@ -727,6 +743,23 @@ def matches_date_range(archive: dict[str, Any], filter_value: str, now: datetime
     return True
 
 
+def matches_date_bounds(archive: dict[str, Any], start_date: str, end_date: str) -> bool:
+    normalized_start = normalize_filter_date_value(start_date)
+    normalized_end = normalize_filter_date_value(end_date)
+    if normalized_start and normalized_end and normalized_start > normalized_end:
+        return False
+    if not normalized_start and not normalized_end:
+        return True
+    archive_day = archive_date_key(archive)
+    if not archive_day:
+        return False
+    if normalized_start and archive_day < normalized_start:
+        return False
+    if normalized_end and archive_day > normalized_end:
+        return False
+    return True
+
+
 def sort_key(archive: dict[str, Any], sort_option: str) -> Any:
     if sort_option in {"Date (Newest)", "Date (Oldest)"}:
         parsed = archive_datetime(archive)
@@ -751,6 +784,12 @@ def sort_reverse(sort_option: str) -> bool:
 
 
 def has_active_filters(states: dict[str, str]) -> bool:
+    if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time":
+        return True
+    if normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", "")):
+        return True
+    if normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", "")):
+        return True
     for entity_id, default_value in ACTIVE_FILTER_DEFAULTS.items():
         if states.get(entity_id, default_value) != default_value:
             return True
@@ -765,7 +804,6 @@ def active_filters(states: dict[str, str]) -> list[str]:
         "input_select.print_history_filter_material": "material",
         "input_select.print_history_filter_duplicates": "duplicates",
         "input_select.print_history_filter_printer": "printer",
-        "input_select.print_history_filter_date_range": "date",
         "input_select.print_history_filter_designer": "designer",
         "input_select.print_history_filter_project": "project",
         "input_select.print_history_filter_layer_height": "layer_height",
@@ -776,6 +814,8 @@ def active_filters(states: dict[str, str]) -> list[str]:
         "input_text.print_history_activity_selected_date": "selected_day",
     }
     active: list[str] = []
+    if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time" or normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", "")) or normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", "")):
+        active.append("date")
     for entity_id, label in labels.items():
         if states.get(entity_id, ACTIVE_FILTER_DEFAULTS.get(entity_id, "")) != ACTIVE_FILTER_DEFAULTS.get(entity_id, ""):
             active.append(label)
@@ -861,6 +901,8 @@ def query_archives(
     duplicate_filter = states.get("input_select.print_history_filter_duplicates", "All")
     printer_filter = states.get("input_select.print_history_filter_printer", "All")
     date_filter = states.get("input_select.print_history_filter_date_range", "All Time")
+    start_date_filter = normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", ""))
+    end_date_filter = normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", ""))
     designer_filter = states.get("input_select.print_history_filter_designer", "All")
     project_filter = states.get("input_select.print_history_filter_project", "All")
     layer_height_filter = states.get("input_select.print_history_filter_layer_height", "All")
@@ -938,6 +980,8 @@ def query_archives(
         if colors and not any(color in archive_palette for color in colors):
             continue
         if not matches_date_range(archive, date_filter, current_time):
+            continue
+        if not matches_date_bounds(archive, start_date_filter, end_date_filter):
             continue
         matches.append(archive)
 

@@ -12,6 +12,8 @@
         - input_select.print_history_filter_duplicates
         - input_select.print_history_filter_printer
         - input_select.print_history_filter_date_range
+        - input_text.print_history_filter_start_date
+        - input_text.print_history_filter_end_date
         - input_boolean.print_history_filter_favorites_only
         - input_select.print_history_filter_designer
         - input_select.print_history_filter_project

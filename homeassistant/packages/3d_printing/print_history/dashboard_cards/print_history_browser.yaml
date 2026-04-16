@@ -82,6 +82,19 @@ cards:
           action: none
         double_tap_action:
           action: none
+      - entity: sensor.print_history_filter_date_chip
+        sub_button_type: default
+        name: Date Range
+        icon: mdi:calendar-range
+        show_icon: true
+        show_name: false
+        show_state: true
+        show_background: true
+        fill_width: false
+        visibility:
+          - condition: state
+            entity: sensor.print_history_filter_date_chip
+            state_not: ""
       - entity: input_select.print_history_sort
         sub_button_type: select
         name: Sort
@@ -153,6 +166,10 @@ cards:
                     name: History Sync
                   - entity: input_number.print_history_max_archives
                     name: Max Cached
+                  - entity: input_text.print_history_filter_start_date
+                    name: Filter Start Date (YYYY-MM-DD)
+                  - entity: input_text.print_history_filter_end_date
+                    name: Filter End Date (YYYY-MM-DD)
                   - entity: input_number.photo_review_timeout_hours
                     name: Review Timeout (hrs)
                   - type: divider
@@ -187,7 +204,6 @@ cards:
       - input_select.print_history_filter_material
       - input_select.print_history_filter_duplicates
       - input_select.print_history_filter_printer
-      - input_select.print_history_filter_date_range
       - input_select.print_history_filter_designer
       - input_select.print_history_filter_project
       - input_select.print_history_filter_layer_height
@@ -263,16 +279,6 @@ cards:
                 show_background: true
                 state_background: ${states['input_select.print_history_filter_printer']?.state !== (states['input_select.print_history_filter_printer']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_printer']?.state !== (states['input_select.print_history_filter_printer']?.attributes?.options?.[0] ?? '')}
-                fill_width: true
-              - entity: input_select.print_history_filter_date_range
-                sub_button_type: select
-                name: Date
-                icon: mdi:calendar-range
-                show_name: true
-                show_state: true
-                show_background: true
-                state_background: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
-                state_color: ${states['input_select.print_history_filter_date_range']?.state !== 'All Time'}
                 fill_width: true
             buttons_layout: inline
             justify_content: fill
@@ -398,7 +404,6 @@ cards:
           - input_select.print_history_filter_material
           - input_select.print_history_filter_duplicates
           - input_select.print_history_filter_printer
-          - input_select.print_history_filter_date_range
           - input_select.print_history_filter_designer
           - input_select.print_history_filter_project
           - input_select.print_history_filter_layer_height
@@ -607,26 +612,6 @@ cards:
                   entity_id: input_select.print_history_filter_printer
                 data:
                   option: "All"
-            - entity: input_select.print_history_filter_date_range
-              sub_button_type: default
-              name: Clear Date Filter
-              icon: mdi:calendar-range
-              show_icon: true
-              show_name: false
-              show_state: false
-              show_background: true
-              fill_width: false
-              visibility:
-                - condition: state
-                  entity: input_select.print_history_filter_date_range
-                  state_not: "All Time"
-              tap_action:
-                action: call-service
-                service: input_select.select_option
-                target:
-                  entity_id: input_select.print_history_filter_date_range
-                data:
-                  option: "All Time"
             - entity: input_select.print_history_filter_designer
               sub_button_type: default
               name: Clear Designer Filter

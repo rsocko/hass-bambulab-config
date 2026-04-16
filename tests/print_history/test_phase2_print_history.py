@@ -212,6 +212,7 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
+        "print_history_filter_date_chip.yaml",
         "print_history_payload_diagnostics.yaml",
         "print_history_popup_archive_detail.yaml",
     ]
@@ -227,6 +228,8 @@ class TestFileInventory(unittest.TestCase):
         "input_text_bambuddy_last_photo_upload_result.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_print_history_activity_selected_date.yaml",
+        "input_text_print_history_filter_end_date.yaml",
+        "input_text_print_history_filter_start_date.yaml",
         "input_text_print_history_search.yaml",
     ]
 
@@ -1166,13 +1169,23 @@ class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
 
     def test_enrichment_uses_native_cost_with_managed_tags_and_notes(self):
         content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
-        self.assertIn('cost: "{{ total_cost }}"', content)
+        self.assertIn("archive_cost_defined", content)
+        self.assertIn("live_print_cost_available", content)
+        self.assertIn("input_number.print_cost_default_per_kg", content)
+        self.assertIn('cost: "{{ archive_cost_value }}"', content)
         self.assertIn('tags: "{{ merged_tags }}"', content)
         self.assertIn('notes: "{{ merged_notes }}"', content)
         self.assertNotIn("ha_enriched:true", content)
         self.assertIn("'f:' ~ filament_id", content)
         self.assertIn("'s:' ~ spool_id", content)
         self.assertNotIn('status: "{{ archive_status }}"', content)
+        self.assertNotIn('cost: "{{ total_cost }}"', content)
+
+    def test_enrichment_omits_cost_when_no_safe_total_exists(self):
+        content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
+        self.assertIn('value_template: "{{ archive_cost_defined }}"', content)
+        self.assertIn("preserved_bambuddy_value", content)
+        self.assertIn("effective_payload_rows", content)
 
     def test_update_archive_payload_is_field_optional(self):
         """PATCH payload should always include tags/notes and add native fields only when passed."""
@@ -1215,6 +1228,16 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("spoolman_spools_normalized", content)
         self.assertNotIn("spoolman_spools: >-", content)
         self.assertIn("Multiple Spoolman spools matched the archived tray UUID.", content)
+
+    def test_reenrich_recomputes_cost_from_effective_payload_when_possible(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("resolved_archive_cost_breakdown", content)
+        self.assertIn("resolved_archive_cost_defined", content)
+        self.assertIn("matched_spool.value.price", content)
+        self.assertIn("matched_spool.value.filament_price", content)
+        self.assertIn("matched_filament.value.filament_price", content)
+        self.assertIn("input_number.print_cost_default_per_kg", content)
+        self.assertIn('cost: "{{ resolved_archive_cost }}"', content)
 
     def test_reenrich_prefers_matching_spool_location_before_declaring_color_ambiguity(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")

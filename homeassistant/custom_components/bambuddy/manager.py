@@ -30,7 +30,7 @@ from .const import (
     REFRESH_WEBHOOK_EVENTS,
     STORE_FILENAME,
 )
-from .print_history.query import QueryResult, as_int, as_text, normalize_status, option_sets, project_archive, query_archives
+from .print_history.query import QueryResult, as_int, as_text, normalize_filter_date_value, normalize_status, option_sets, project_archive, query_archives
 from .print_history.store import PrintHistoryStore
 
 
@@ -76,6 +76,8 @@ QUERY_OVERRIDE_ENTITY_MAP = {
     "duplicates": "input_select.print_history_filter_duplicates",
     "printer": "input_select.print_history_filter_printer",
     "date_range": "input_select.print_history_filter_date_range",
+    "start_date": "input_text.print_history_filter_start_date",
+    "end_date": "input_text.print_history_filter_end_date",
     "designer": "input_select.print_history_filter_designer",
     "project": "input_select.print_history_filter_project",
     "layer_height": "input_select.print_history_filter_layer_height",
@@ -373,9 +375,20 @@ class PrintHistoryBrowserManager:
                     self.api_key,
                     self.fetch_timeout_seconds,
                 )
+                refresh_states = self._state_snapshot()
+                refresh_start_date = normalize_filter_date_value(
+                    refresh_states.get("input_text.print_history_filter_start_date", "")
+                )
+                refresh_end_date = normalize_filter_date_value(
+                    refresh_states.get("input_text.print_history_filter_end_date", "")
+                )
                 fetch_started = perf_counter()
                 archives_result, printers_result, stats_result, projects_result = await asyncio.gather(
-                    client.async_fetch_archives(limit=self.max_archives),
+                    client.async_fetch_archives(
+                        limit=self.max_archives,
+                        date_from=refresh_start_date,
+                        date_to=refresh_end_date,
+                    ),
                     client.async_fetch_printers(),
                     client.async_fetch_archive_stats(),
                     client.async_fetch_projects(),

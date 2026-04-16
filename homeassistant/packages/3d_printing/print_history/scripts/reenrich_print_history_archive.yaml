@@ -369,6 +369,10 @@ reenrich_print_history_archive:
                       'filament_id': filament_id_value,
                       'display_name': filament.name | default(spool.name | default('Unknown Filament', true), true) | string,
                       'color_hex': color_value,
+                      'price': spool.price | default(none, true),
+                      'filament_price': filament.price | default(none, true),
+                      'initial_weight': spool.initial_weight | default(filament.weight | default(1000, true), true) | float(1000),
+                      'filament_weight': filament.weight | default(1000, true) | float(1000),
                       'material': filament.material | default('', true) | string,
                       'vendor': filament_vendor.name | default('', true) | string,
                       'profile_name': filament_extra.profile_name | default('', true) | string | trim('"'),
@@ -776,6 +780,50 @@ reenrich_print_history_archive:
                 has_candidate_payload: "{{ candidate_filament_rows | int(0) > 0 }}"
                 effective_payload: >-
                   {{ (existing_payload if should_preserve_existing else candidate_payload) | tojson | from_json }}
+                resolved_archive_cost_breakdown: >-
+                  {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
+                  {% set default_spool_weight_g = 1000 %}
+                  {% set ns = namespace(has_weight=false, total=0.0, rows=[]) %}
+                  {% for row in effective_payload.F | default([], true) %}
+                    {% set grams = row.w | default(0, true) | float(0) %}
+                    {% if grams > 0 %}
+                      {% set ns.has_weight = true %}
+                      {% set matched_spool = namespace(value={}) %}
+                      {% set matched_filament = namespace(value={}) %}
+                      {% for spool in spoolman_spools_normalized %}
+                        {% if row.s is not none and spool.id == (row.s | int(0)) and not (matched_spool.value is mapping and matched_spool.value.id is defined) %}
+                          {% set matched_spool.value = spool %}
+                        {% endif %}
+                        {% if row.f is not none and spool.filament_id == (row.f | int(0)) and not (matched_filament.value is mapping and matched_filament.value.filament_id is defined) %}
+                          {% set matched_filament.value = spool %}
+                        {% endif %}
+                      {% endfor %}
+                      {% if matched_spool.value is mapping and matched_spool.value.id is defined and (matched_spool.value.price | float(-1)) >= 0 and (matched_spool.value.initial_weight | float(default_spool_weight_g)) > 0 %}
+                        {% set price_per_gram = (matched_spool.value.price | float(0)) / (matched_spool.value.initial_weight | float(default_spool_weight_g)) %}
+                        {% set price_source = 'spool' %}
+                      {% elif matched_spool.value is mapping and matched_spool.value.id is defined and (matched_spool.value.filament_price | float(-1)) >= 0 and (matched_spool.value.initial_weight | float(default_spool_weight_g)) > 0 %}
+                        {% set price_per_gram = (matched_spool.value.filament_price | float(0)) / (matched_spool.value.initial_weight | float(default_spool_weight_g)) %}
+                        {% set price_source = 'filament' %}
+                      {% elif matched_filament.value is mapping and matched_filament.value.filament_id is defined and (matched_filament.value.filament_price | float(-1)) >= 0 and (matched_filament.value.filament_weight | float(default_spool_weight_g)) > 0 %}
+                        {% set price_per_gram = (matched_filament.value.filament_price | float(0)) / (matched_filament.value.filament_weight | float(default_spool_weight_g)) %}
+                        {% set price_source = 'filament' %}
+                      {% else %}
+                        {% set price_per_gram = default_price_per_kg / 1000 %}
+                        {% set price_source = 'default' %}
+                      {% endif %}
+                      {% set row_cost = grams * price_per_gram %}
+                      {% set ns.total = ns.total + row_cost %}
+                      {% set ns.rows = ns.rows + [{
+                        'tray': row.t | default('', true),
+                        'weight': grams | round(1),
+                        'source': price_source,
+                        'cost': row_cost | round(4)
+                      }] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ {'has_weight': ns.has_weight, 'rows': ns.rows, 'total': ns.total | round(2)} | tojson | from_json }}
+                resolved_archive_cost_defined: "{{ resolved_archive_cost_breakdown.has_weight | default(false, true) }}"
+                resolved_archive_cost: "{{ resolved_archive_cost_breakdown.total | default(0, true) | float(0) | round(2) }}"
                 effective_system_tags: >-
                   {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
                   {% for item in effective_payload.F | default([], true) %}
@@ -883,11 +931,23 @@ reenrich_print_history_archive:
                           elapsed_s={{ reenrich_elapsed_seconds }}.
                         level: warning
                         logger: homeassistant.components.bambulab.print_history
-                - action: rest_command.bambuddy_update_archive
-                  data:
-                    archive_id: "{{ resolved_archive_id }}"
-                    tags: "{{ merged_tags }}"
-                    notes: "{{ merged_notes }}"
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ resolved_archive_cost_defined }}"
+                      sequence:
+                        - action: rest_command.bambuddy_update_archive
+                          data:
+                            archive_id: "{{ resolved_archive_id }}"
+                            tags: "{{ merged_tags }}"
+                            notes: "{{ merged_notes }}"
+                            cost: "{{ resolved_archive_cost }}"
+                  default:
+                    - action: rest_command.bambuddy_update_archive
+                      data:
+                        archive_id: "{{ resolved_archive_id }}"
+                        tags: "{{ merged_tags }}"
+                        notes: "{{ merged_notes }}"
                 - action: bambuddy.append_print_history_event
                   data:
                     archive_id: "{{ resolved_archive_id | int(0) }}"
@@ -943,7 +1003,8 @@ reenrich_print_history_archive:
                     name: Print History Re-Enrich
                     message: >-
                       Re-enriched archive {{ resolved_archive_id }} with status {{ candidate_payload_status_label }}
-                      from {{ archive_row_source_label }} and {{ candidate_filament_rows }} filament row(s).
+                      from {{ archive_row_source_label }} and {{ candidate_filament_rows }} filament row(s)
+                      with {% if resolved_archive_cost_defined %}${{ resolved_archive_cost | float(0) | round(2) }} cost{% else %}the existing Bambuddy cost preserved{% endif %}.
                 - if:
                     - condition: template
                       value_template: "{{ debug_enabled }}"

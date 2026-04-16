@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout
 
@@ -38,14 +39,26 @@ class BambuddyApiClient:
             _LOGGER.debug("Fetched %s printers from Bambuddy", len(payload))
             return [item for item in payload if isinstance(item, dict)]
 
-    async def async_fetch_archives(self, *, limit: int) -> list[dict[str, Any]]:
+    async def async_fetch_archives(
+        self,
+        *,
+        limit: int,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> list[dict[str, Any]]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
         if not self._api_key:
             raise RuntimeError("Bambuddy API key is empty")
 
+        params: dict[str, str | int] = {"limit": max(1, limit)}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+
         async with self._session.get(
-            f"{self._base_url}/api/v1/archives/?limit={max(1, limit)}",
+            f"{self._base_url}/api/v1/archives/?{urlencode(params)}",
             headers={"X-API-Key": self._api_key},
             timeout=self._timeout,
         ) as response:

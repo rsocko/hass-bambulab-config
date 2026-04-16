@@ -68,7 +68,7 @@
         weight_data_available: >-
           {{ state_attr('sensor.print_weight_effective', 'weight_data_available') | string | lower == 'true' }}
         effective_total_weight: "{{ states('sensor.print_weight_effective') | float(0) }}"
-        total_cost: "{{ states('sensor.print_cost') | float(0) | round(2) }}"
+        live_print_cost_raw: "{{ states('sensor.print_cost') | string | trim }}"
         write_ready: >-
           {{ archive_id not in ['', 'unknown', 'unavailable', 'none', 'None']
              and weight_data_available
@@ -439,6 +439,65 @@
           {% endif %}
           {% set parts.values = parts.values + [enrichment_marker ~ (effective_payload | to_json)] %}
           {{ parts.values | join('\n\n') }}
+        live_print_cost_available: >-
+          {{ live_print_cost_raw not in ['', 'unknown', 'unavailable', 'none', 'None']
+             and (live_print_cost_raw | regex_match('^-?\d+(\.\d+)?$')) }}
+        archive_cost_breakdown: >-
+          {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
+          {% set default_spool_weight_g = 1000 %}
+          {% set ns = namespace(has_weight=false, total=0.0, rows=[]) %}
+          {% for item in effective_payload.F | default([], true) %}
+            {% set grams = item.w | default(0, true) | float(0) %}
+            {% if grams > 0 %}
+              {% set ns.has_weight = true %}
+              {% set spool_id = item.s | default(none, true) %}
+              {% set filament_id = item.f | default(none, true) %}
+              {% set spool_entity = 'sensor.spoolman_spool_' ~ (spool_id | string) if spool_id is not none else '' %}
+              {% set filament_entity = 'sensor.spoolman_filament_' ~ (filament_id | string) if filament_id is not none else '' %}
+              {% set spool_price = state_attr(spool_entity, 'price') | float(-1) if spool_entity | length > 0 else -1 %}
+              {% set spool_filament_price = state_attr(spool_entity, 'filament_price') | float(-1) if spool_entity | length > 0 else -1 %}
+              {% set spool_initial_weight = state_attr(spool_entity, 'initial_weight') | float(default_spool_weight_g) if spool_entity | length > 0 else default_spool_weight_g %}
+              {% set filament_price = state_attr(filament_entity, 'price') | float(-1) if filament_entity | length > 0 else -1 %}
+              {% set filament_weight = state_attr(filament_entity, 'weight') | float(default_spool_weight_g) if filament_entity | length > 0 else default_spool_weight_g %}
+              {% if spool_price >= 0 and spool_initial_weight > 0 %}
+                {% set price_per_gram = spool_price / spool_initial_weight %}
+                {% set price_source = 'spool' %}
+              {% elif spool_filament_price >= 0 and spool_initial_weight > 0 %}
+                {% set price_per_gram = spool_filament_price / spool_initial_weight %}
+                {% set price_source = 'filament' %}
+              {% elif filament_price >= 0 and filament_weight > 0 %}
+                {% set price_per_gram = filament_price / filament_weight %}
+                {% set price_source = 'filament' %}
+              {% else %}
+                {% set price_per_gram = default_price_per_kg / 1000 %}
+                {% set price_source = 'default' %}
+              {% endif %}
+              {% set row_cost = grams * price_per_gram %}
+              {% set ns.total = ns.total + row_cost %}
+              {% set ns.rows = ns.rows + [{
+                'tray': item.t | default('', true),
+                'weight': grams | round(1),
+                'source': price_source,
+                'cost': row_cost | round(4)
+              }] %}
+            {% endif %}
+          {% endfor %}
+          {{ {'has_weight': ns.has_weight, 'rows': ns.rows, 'total': ns.total | round(2)} | tojson | from_json }}
+        archive_cost_defined: "{{ archive_cost_breakdown.has_weight | default(false, true) }}"
+        archive_cost_value: >-
+          {% if live_print_cost_available %}
+            {{ live_print_cost_raw | float(0) | round(2) }}
+          {% else %}
+            {{ archive_cost_breakdown.total | default(0, true) | float(0) | round(2) }}
+          {% endif %}
+        archive_cost_source: >-
+          {% if live_print_cost_available %}
+            sensor.print_cost
+          {% elif archive_cost_breakdown.has_weight | default(false, true) %}
+            effective_payload_rows
+          {% else %}
+            preserved_bambuddy_value
+          {% endif %}
 
     - if:
         - condition: template
@@ -520,12 +579,23 @@
               WARNING: Archive {{ archive_id }} had no reliable terminal per-tray enrichment data.
               Enrichment was not updated automatically.
       else:
-        - action: rest_command.bambuddy_update_archive
-          data:
-            archive_id: "{{ archive_id }}"
-            tags: "{{ merged_tags }}"
-            notes: "{{ merged_notes }}"
-            cost: "{{ total_cost }}"
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ archive_cost_defined }}"
+              sequence:
+                - action: rest_command.bambuddy_update_archive
+                  data:
+                    archive_id: "{{ archive_id }}"
+                    tags: "{{ merged_tags }}"
+                    notes: "{{ merged_notes }}"
+                    cost: "{{ archive_cost_value }}"
+          default:
+            - action: rest_command.bambuddy_update_archive
+              data:
+                archive_id: "{{ archive_id }}"
+                tags: "{{ merged_tags }}"
+                notes: "{{ merged_notes }}"
         - action: bambuddy.append_print_history_event
           data:
             archive_id: "{{ archive_id | int(0) }}"
@@ -582,7 +652,7 @@
               {% else %}
                 Reconciled archive {{ archive_id }} with {{ effective_payload_status_label }}
                 enrichment data (source={{ effective_payload_source }}),
-                cost=${{ total_cost | float(0) | round(2) }},
+                cost={% if archive_cost_defined %}${{ archive_cost_value | float(0) | round(2) }} via {{ archive_cost_source }}{% else %}preserved existing Bambuddy value{% endif %},
                 tags={{ merged_tags | truncate(100) }},
                 captured_photos={{ states('counter.bambuddy_captured_photo_count') | int(0) }}
               {% endif %}
@@ -593,6 +663,7 @@
             message: >-
               Wrote during-print enrichment for archive {{ archive_id }}
               using {{ effective_payload_status_label }} payload data
-              (source={{ effective_payload_source }}).
+              (source={{ effective_payload_source }},
+              cost={% if archive_cost_defined %}${{ archive_cost_value | float(0) | round(2) }} via {{ archive_cost_source }}{% else %}preserved existing Bambuddy value{% endif %}).
 
   mode: queued

@@ -198,19 +198,34 @@ This payload `s` value is **not** the Bambuddy archive outcome. It only describe
 
 ## Cost Handling
 
-The current automation computes:
+The shipped archive write path now treats Bambuddy native `cost` as optional and only PATCHes it when Home Assistant can justify a total from real filament usage rows.
 
-```jinja
-{{ states('sensor.print_cost') | float(0) | round(2) }}
-```
+### Automatic enrichment cost source order
 
-and always passes that value to `rest_command.bambuddy_update_archive` during enrichment writes.
+For the live print-time enrichment automation:
 
-Implications of the shipped behavior:
+1. prefer a valid numeric `sensor.print_cost` state
+2. otherwise recompute from the effective enrichment rows already being written to the archive
 
-- when `sensor.print_cost` is valid, Bambuddy native `cost` is updated as expected
-- when `sensor.print_cost` is `unknown` or unavailable, the Jinja `float(0)` fallback turns that into `0.0`
-- popup edit saves and manual re-enrich saves do not currently change `cost` unless a caller explicitly passes it
+That recompute uses the same three-tier pricing contract as the live print-cost UI:
+
+1. spool-specific price from `sensor.spoolman_spool_<id>.price`
+2. filament price from either `sensor.spoolman_spool_<id>.filament_price` or `sensor.spoolman_filament_<id>.price`
+3. default price from `input_number.print_cost_default_per_kg`
+
+Rows with positive weight but missing spool or filament lineage still contribute to the total through the default `$ / kg` helper. If there are no weighted rows to price safely, the automation omits `cost` from the PATCH and leaves Bambuddy's existing value unchanged.
+
+### Manual re-enrich cost handling
+
+`reenrich_print_history_archive.yaml` now follows the same rule:
+
+- if the rebuilt or preserved effective payload contains weighted filament rows, HA computes a total and PATCHes `cost`
+- matched spool rows use spool price first, then filament price
+- filament-only rows use filament price when available
+- unresolved weighted rows fall back to the default price helper
+- archives with no weighted rows do not overwrite Bambuddy's existing `cost`
+
+Popup edit saves still leave `cost` unchanged unless a caller explicitly passes it.
 
 ## What The Popup Does Today
 
@@ -247,6 +262,7 @@ It currently:
 - can use a strict archive-time window fallback based on Spoolman lifecycle dates, and that temporal narrowing is allowed to reduce either a mixed-filament candidate pool or a same-filament spool family to one defensible spool
 - preserves richer existing enrichment if the rebuilt candidate is lower fidelity
 - writes managed tags plus the hidden `+>` payload when it has a usable candidate
+- updates native Bambuddy `cost` when the effective payload contains enough weighted rows to price safely
 - surfaces ambiguity and partial outcomes to the operator through persistent notifications and logbook entries
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.

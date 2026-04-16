@@ -41,6 +41,8 @@ BROWSER_HELPER_ENTITY_IDS = [
     "input_select.print_history_filter_duplicates",
     "input_select.print_history_filter_printer",
     "input_select.print_history_filter_date_range",
+    "input_text.print_history_filter_start_date",
+    "input_text.print_history_filter_end_date",
     "input_select.print_history_filter_designer",
     "input_select.print_history_filter_project",
     "input_select.print_history_filter_layer_height",
@@ -74,6 +76,8 @@ REFRESH_TRIGGER_HELPERS = {
     "input_number.print_history_max_archives",
     "input_boolean.bambuddy_integration_enabled",
     "input_boolean.bambuddy_history_sync_enabled",
+    "input_text.print_history_filter_start_date",
+    "input_text.print_history_filter_end_date",
 }
 
 SIGNAL_BROWSER_UPDATED = "bambuddy_print_history_browser_updated"
