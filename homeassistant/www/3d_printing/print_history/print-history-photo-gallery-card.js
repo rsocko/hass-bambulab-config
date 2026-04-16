@@ -278,7 +278,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var normalizedPhotoPath = String(photoPath || "").trim();
     try {
-      var response = await this._hass.callService(
+      var responseEnvelope = await this._hass.callService(
         "bambuddy",
         "set_print_history_primary_photo",
         {
@@ -286,8 +286,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           photo_path: normalizedPhotoPath,
         },
         undefined,
+        true,
         true
       );
+      var response = responseEnvelope && responseEnvelope.response && typeof responseEnvelope.response === "object"
+        ? responseEnvelope.response
+        : responseEnvelope;
       var updatedArchive = response && response.archive && typeof response.archive === "object"
         ? response.archive
         : null;
