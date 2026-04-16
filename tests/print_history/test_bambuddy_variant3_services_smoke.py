@@ -638,6 +638,42 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
 
 
+def test_variant3_primary_photo_service_can_explicitly_revert_to_thumbnail(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    response = asyncio.run(
+        hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO)(
+            SimpleNamespace(data={"archive_id": 101, "photo_path": ""})
+        )
+    )
+
+    assert response["primary_photo_selection"]["photo_path"] == ""
+    assert response["primary_photo_selection"]["cleared"] is True
+    assert response["archive"]["primary_photo_path"] == ""
+    assert response["archive"]["selected_primary_photo_path"] == ""
+    assert response["archive"]["has_primary_photo_override"] is True
+
+
 def test_variant3_append_event_hydrates_missing_archive_from_api(tmp_path: Path) -> None:
     const_module, query_module, manager_module, init_module = _import_component_modules()
 

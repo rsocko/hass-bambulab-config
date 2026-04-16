@@ -64,6 +64,8 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
 
 _LOGGER = logging.getLogger(__name__)
 
+_THUMBNAIL_PRIMARY_SENTINEL = "__thumbnail__"
+
 
 class PrintHistoryStore:
     def __init__(self, db_path: Path) -> None:
@@ -1171,16 +1173,23 @@ class PrintHistoryStore:
                 raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
 
             if not normalized_photo_path:
-                deleted = active_connection.execute(
-                    "DELETE FROM archive_primary_photo_selection WHERE archive_id = ?",
-                    (normalized_archive_id,),
-                ).rowcount
+                updated_at = datetime.now(timezone.utc).isoformat()
+                active_connection.execute(
+                    """
+                    INSERT INTO archive_primary_photo_selection (archive_id, photo_path, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(archive_id) DO UPDATE SET
+                        photo_path = excluded.photo_path,
+                        updated_at = excluded.updated_at
+                    """,
+                    (normalized_archive_id, _THUMBNAIL_PRIMARY_SENTINEL, updated_at),
+                )
                 return {
                     "archive_id": normalized_archive_id,
                     "photo_path": "",
                     "cleared": True,
-                    "deleted": deleted,
-                    "updated_at": "",
+                    "deleted": 0,
+                    "updated_at": updated_at,
                 }
 
             row = active_connection.execute(
@@ -1719,7 +1728,14 @@ class PrintHistoryStore:
         photo_items = self._load_photo_items_by_archive([archive_id], connection=connection).get(archive_id, [])
         selected_primary = self._load_primary_photo_selection_by_archive([archive_id], connection=connection).get(archive_id, {})
         selected_primary_path = selected_primary.get("photo_path", "")
-        primary_photo_path = self._resolve_primary_photo_path(photo_items, selected_primary_path)
+        has_primary_override = bool(selected_primary_path)
+        if selected_primary_path == _THUMBNAIL_PRIMARY_SENTINEL:
+            selected_primary_path = ""
+        primary_photo_path = self._resolve_primary_photo_path(
+            photo_items,
+            selected_primary_path,
+            has_primary_override=has_primary_override,
+        )
 
         augmented = dict(archive)
         augmented["photos"] = [item["path"] for item in photo_items]
@@ -1734,7 +1750,7 @@ class PrintHistoryStore:
         ]
         augmented["primary_photo_path"] = primary_photo_path
         augmented["selected_primary_photo_path"] = selected_primary_path
-        augmented["has_primary_photo_override"] = bool(selected_primary_path)
+        augmented["has_primary_photo_override"] = has_primary_override
         return augmented
 
     def _load_photo_items_by_archive(
@@ -1795,11 +1811,20 @@ class PrintHistoryStore:
             for row in rows
         }
 
-    def _resolve_primary_photo_path(self, photo_items: list[dict[str, str]], selected_primary_path: str) -> str:
+    def _resolve_primary_photo_path(
+        self,
+        photo_items: list[dict[str, str]],
+        selected_primary_path: str,
+        *,
+        has_primary_override: bool = False,
+    ) -> str:
         if selected_primary_path:
             for item in photo_items:
                 if item["path"] == selected_primary_path:
                     return selected_primary_path
+
+        if has_primary_override:
+            return ""
 
         for preferred_role in ("primary", "cover", "hero", "featured"):
             for item in photo_items:

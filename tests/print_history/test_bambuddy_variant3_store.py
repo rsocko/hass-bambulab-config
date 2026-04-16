@@ -1510,6 +1510,23 @@ def test_variant3_store_primary_photo_selection_rejects_unknown_photo(tmp_path: 
         store.set_primary_photo(101, "missing-photo.jpg")
 
 
+def test_variant3_store_primary_photo_selection_can_explicitly_use_thumbnail(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    selection = store.set_primary_photo(101, "")
+    updated_archive = store.load_archive(101)
+
+    assert selection["photo_path"] == ""
+    assert selection["cleared"] is True
+    assert updated_archive is not None
+    assert updated_archive["primary_photo_path"] == ""
+    assert updated_archive["selected_primary_photo_path"] == ""
+    assert updated_archive["has_primary_photo_override"] is True
+    assert all(item["is_primary"] is False for item in updated_archive["photo_items"])
+
+
 def test_variant3_store_detail_loads_review_and_lineage(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

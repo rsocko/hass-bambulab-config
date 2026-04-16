@@ -11,6 +11,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._archiveIdentity = "";
     this._localPrimaryPhotoPath = null;
     this._localSelectedPrimaryPhotoPath = null;
+    this._localHasPrimaryPhotoOverride = null;
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -255,7 +256,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     if (this._localSelectedPrimaryPhotoPath !== null) {
       merged.selected_primary_photo_path = this._localSelectedPrimaryPhotoPath;
-      merged.has_primary_photo_override = this._localSelectedPrimaryPhotoPath !== "";
+    }
+
+    if (this._localHasPrimaryPhotoOverride !== null) {
+      merged.has_primary_photo_override = this._localHasPrimaryPhotoOverride;
     }
 
     return merged;
@@ -300,14 +304,22 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         : null;
       this._localPrimaryPhotoPath = normalizedPhotoPath;
       this._localSelectedPrimaryPhotoPath = normalizedPhotoPath;
+      this._localHasPrimaryPhotoOverride = true;
       if (updatedArchive && updatedArchive.primary_photo_path != null) {
         this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
       }
       if (updatedArchive && updatedArchive.selected_primary_photo_path != null) {
         this._localSelectedPrimaryPhotoPath = String(updatedArchive.selected_primary_photo_path || "").trim();
       }
+      if (updatedArchive && updatedArchive.has_primary_photo_override != null) {
+        this._localHasPrimaryPhotoOverride = !!updatedArchive.has_primary_photo_override;
+      }
       if (selection && selection.photo_path != null) {
         this._localSelectedPrimaryPhotoPath = String(selection.photo_path || "").trim();
+      }
+      if (selection && selection.cleared) {
+        this._localPrimaryPhotoPath = "";
+        this._localSelectedPrimaryPhotoPath = "";
       }
       this._render();
     } catch (error) {
@@ -398,7 +410,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var baseUrl = this._getBaseUrl();
     var archiveId = archive && archive.id != null ? archive.id : null;
     var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
-    var hasPrimaryOverride = !!String(archive && archive.selected_primary_photo_path || "").trim();
+    var hasPrimaryOverride = archive && archive.has_primary_photo_override != null
+      ? !!archive.has_primary_photo_override
+      : !!String(archive && archive.selected_primary_photo_path || "").trim();
+    var hasPhotoPrimary = !!primaryPhotoPath;
     var images = [];
     var seen = {};
 
@@ -414,6 +429,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         kind: "thumbnail",
         isPrimary: !primaryPhotoPath,
         hasPrimaryOverride: hasPrimaryOverride,
+        hasPhotoPrimary: hasPhotoPrimary,
       });
       seen.thumbnail = true;
     }
@@ -433,10 +449,28 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         filename: value,
         isPrimary: value === primaryPhotoPath,
         hasPrimaryOverride: hasPrimaryOverride,
+        hasPhotoPrimary: hasPhotoPrimary,
       });
     });
 
     return images;
+  }
+
+  _buildPrimaryAction(active, buttonClass) {
+    if (!active) {
+      return "";
+    }
+
+    var className = buttonClass || "action-button";
+    if (active.kind === "photo" && !active.isPrimary) {
+      return '<button class="' + className + '" type="button" data-action="set-primary-photo">Use In List View</button>';
+    }
+
+    if (active.hasPhotoPrimary) {
+      return '<button class="' + className + '" type="button" data-action="clear-primary-photo">Use Thumbnail</button>';
+    }
+
+    return "";
   }
 
   _findPreferredActiveIndex(images) {
@@ -584,9 +618,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var active = this._images[this._activeIndex];
     var subtitle = this._subtitleForImages(this._images);
-    var primaryAction = active.kind === "photo"
-      ? '<button class="button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
-      : (active.hasPrimaryOverride ? '<button class="button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
+    var primaryAction = this._buildPrimaryAction(active, "button");
 
     this._overlayRoot.innerHTML =
       "<style>" +
@@ -665,9 +697,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         button.classList.toggle("active", buttonIndex === this._activeIndex);
       }, this);
 
-    var primaryAction = active.kind === "photo"
-      ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
-      : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
+    var primaryAction = this._buildPrimaryAction(active, "action-button");
 
     var metaActions = this.shadowRoot.querySelector(".meta-actions");
     if (metaActions) {
@@ -742,6 +772,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._activeIndex = 0;
       this._localPrimaryPhotoPath = null;
       this._localSelectedPrimaryPhotoPath = null;
+      this._localHasPrimaryPhotoOverride = null;
     }
     this._archiveIdentity = archiveIdentity;
 
@@ -764,9 +795,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = images[this._activeIndex];
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
     var subtitle = this._subtitleForImages(images);
-    var primaryAction = active.kind === "photo"
-      ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
-      : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
+    var primaryAction = this._buildPrimaryAction(active, "action-button");
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
