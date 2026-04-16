@@ -215,6 +215,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def async_handle_detail(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
@@ -225,6 +227,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def async_handle_append_event(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         try:
             await manager.async_record_archive_event(
                 archive_id,
@@ -248,6 +252,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def async_handle_set_review_state(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         mismatch_flags = call.data.get("mismatch_flags", "")
         if isinstance(mismatch_flags, list):
             mismatch_flags = ",".join(str(item).strip() for item in mismatch_flags if str(item).strip())
@@ -282,6 +288,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
         related_archive_id = int(call.data[CONF_RELATED_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        if not await manager.async_ensure_archive_loaded(related_archive_id):
+            raise HomeAssistantError(f"Archive {related_archive_id} was not found in the Bambuddy local store")
         started = perf_counter()
         try:
             await hass.async_add_executor_job(
@@ -324,6 +334,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
         related_archive_id = int(call.data[CONF_RELATED_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         started = perf_counter()
         try:
             deleted = await hass.async_add_executor_job(

@@ -382,6 +382,58 @@ class PrintHistoryStore:
         )
         return stats
 
+    def upsert_archive(self, archive: dict[str, Any]) -> dict[str, Any]:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        archive_id = as_int(archive.get("id"))
+        if archive_id <= 0:
+            raise ValueError("archive.id must be a positive integer")
+
+        with self._connect() as connection:
+            self._ensure_schema(connection)
+            existing_row = connection.execute(
+                "SELECT archive_id, payload_hash, source_updated_at, json_payload FROM archives WHERE archive_id = ?",
+                (archive_id,),
+            ).fetchone()
+            existing_by_id = {
+                archive_id: {
+                    "payload_hash": as_text(existing_row[1]).strip(),
+                    "source_updated_at": as_text(existing_row[2]).strip(),
+                    "json_payload": as_text(existing_row[3]),
+                }
+            } if existing_row is not None else {}
+            prepared_archives, preparation_stats = self._prepare_archives_for_sync([archive], timestamp, existing_by_id)
+            prepared = prepared_archives.get(archive_id)
+            if prepared is None:
+                raise ValueError(f"Archive {archive_id} could not be prepared for sync")
+
+            inserted_count = 0
+            updated_count = 0
+            unchanged_count = 0
+            existing = existing_by_id.get(archive_id)
+
+            if prepared.get("fast_unchanged") is True or self._archive_matches_existing(prepared, existing):
+                unchanged_count = 1
+                connection.execute(
+                    "UPDATE archives SET last_synced_at = ? WHERE archive_id = ?",
+                    (timestamp, archive_id),
+                )
+            else:
+                self._upsert_archive(connection, prepared["row"])
+                self._replace_archive_children(connection, archive_id, prepared["archive"])
+                if existing is None:
+                    inserted_count = 1
+                else:
+                    updated_count = 1
+
+        return {
+            "archive_id": archive_id,
+            "total_count": 1,
+            "inserted_count": inserted_count,
+            "updated_count": updated_count,
+            "unchanged_count": unchanged_count,
+            **preparation_stats,
+        }
+
     def _prepare_archives_for_sync(
         self,
         archives: list[dict[str, Any]],

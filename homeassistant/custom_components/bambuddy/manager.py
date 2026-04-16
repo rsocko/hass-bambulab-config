@@ -470,6 +470,61 @@ class PrintHistoryBrowserManager:
                 self._scheduled_recompute_reasons.clear()
             self._notify_listeners()
 
+    async def async_ensure_archive_loaded(self, archive_id: int) -> bool:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            return False
+
+        existing = await self.hass.async_add_executor_job(self.store.load_archive, normalized_archive_id)
+        if existing is not None:
+            return True
+
+        started = perf_counter()
+        session = aiohttp_client.async_get_clientsession(self.hass)
+        client = BambuddyApiClient(
+            session,
+            self.base_url,
+            self.api_key,
+            self.fetch_timeout_seconds,
+        )
+
+        raw_archive = await client.async_fetch_archive_detail(normalized_archive_id)
+        enriched_archive = dict(raw_archive)
+        printer_id = str(enriched_archive.get("printer_id") or "").strip()
+        printer_name = str(enriched_archive.get("printer_name") or "").strip()
+        if printer_id and not printer_name:
+            known_printer_names = {
+                str(archive.get("printer_id") or "").strip(): str(archive.get("printer_name") or "").strip()
+                for archive in self.archives
+                if str(archive.get("printer_id") or "").strip() and str(archive.get("printer_name") or "").strip()
+            }
+            resolved_printer_name = known_printer_names.get(printer_id, "")
+            if not resolved_printer_name:
+                raw_printers = await client.async_fetch_printers()
+                resolved_printer_name = self._printer_name_by_id(raw_printers).get(printer_id, "")
+            if resolved_printer_name:
+                enriched_archive["printer_name"] = resolved_printer_name
+
+        projected_archive = project_archive(enriched_archive)
+        sync_result = await self.hass.async_add_executor_job(self.store.upsert_archive, projected_archive)
+        self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
+        query_changed = self._recompute_query(f"hydrate_archive:{normalized_archive_id}")
+        if query_changed or int(sync_result.get("inserted_count", 0)) > 0 or int(sync_result.get("updated_count", 0)) > 0:
+            self.browser_revision += 1
+        self.record_mutation(
+            operation="hydrate_archive",
+            archive_id=normalized_archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "inserted_count": int(sync_result.get("inserted_count", 0)),
+                "updated_count": int(sync_result.get("updated_count", 0)),
+                "unchanged_count": int(sync_result.get("unchanged_count", 0)),
+            },
+        )
+        self._notify_listeners()
+        hydrated = await self.hass.async_add_executor_job(self.store.load_archive, normalized_archive_id)
+        return hydrated is not None
+
     def _project_options_from_projects(self, raw_projects: list[dict[str, Any]]) -> list[dict[str, str]]:
         normalized: list[dict[str, str]] = []
         name_counts: dict[str, int] = {}

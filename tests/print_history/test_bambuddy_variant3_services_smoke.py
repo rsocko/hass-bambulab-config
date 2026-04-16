@@ -223,6 +223,12 @@ class FakeApiClient:
     async def async_fetch_printers(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.printers]
 
+    async def async_fetch_archive_detail(self, archive_id: int) -> dict[str, object]:
+        for item in self.archives:
+            if int(item.get("id", 0)) == int(archive_id):
+                return dict(item)
+        raise RuntimeError("Bambuddy returned HTTP 404")
+
     async def async_fetch_projects(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.projects]
 
@@ -611,6 +617,95 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.query_stats["last_source"] == "service"
     assert manager.mutation_stats["count"] == 5
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
+
+
+def test_variant3_append_event_hydrates_missing_archive_from_api(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    FakeApiClient.archives = [
+        {
+            "id": 303,
+            "printer_id": 1,
+            "print_name": "Fresh Archive",
+            "actual_time_seconds": 1200,
+            "print_time_seconds": 1200,
+            "filament_used_grams": 9.5,
+            "filament_type": "PLA",
+            "filament_color": "#778899",
+            "status": "completed",
+            "started_at": "2026-04-10T11:00:00Z",
+            "completed_at": "2026-04-10T11:20:00Z",
+            "created_at": "2026-04-10T10:58:00Z",
+            "cost": 0.42,
+            "duplicate_count": 1,
+            "duplicate_sequence": 0,
+            "original_archive_id": 303,
+            "object_count": 1,
+            "layer_height": 0.2,
+            "designer": "Taylor",
+            "is_favorite": False,
+            "tags": "new",
+            "notes": "",
+            "thumbnail_path": "/api/v1/archives/303/thumbnail",
+            "extra_data": {
+                "filament_slots": [
+                    {"tray": "A1", "name": "Gray PLA", "color": "#778899", "used_grams": 9.5}
+                ]
+            },
+        }
+    ]
+    FakeApiClient.printers = [{"id": 1, "name": "P1S"}]
+    FakeApiClient.projects = []
+    FakeApiClient.archive_stats = {}
+
+    original_manager_api_client = manager_module.BambuddyApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+
+    try:
+        asyncio.run(init_module.async_setup(hass, {}))
+        append_event_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 303,
+                        "event_type": "enrichment_applied",
+                        "event_source": "ha_automation",
+                        "event_time": "2026-04-10T11:21:00Z",
+                        "event_status": "complete",
+                        "payload": {"source": "automation"},
+                    }
+                )
+            )
+        )
+    finally:
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    hydrated_archive = manager.store.load_archive(303)
+
+    assert hydrated_archive is not None
+    assert hydrated_archive["printer_name"] == "P1S"
+    assert append_event_response["archive_id"] == 303
+    assert append_event_response["event_timeline"][0]["type"] == "enrichment_applied"
+    assert manager.mutation_stats["count"] == 2
+    assert manager.mutation_stats["last_operation"] == "append_event"
 
 
 def test_variant3_manager_records_helper_recompute_diagnostics(tmp_path: Path) -> None:
