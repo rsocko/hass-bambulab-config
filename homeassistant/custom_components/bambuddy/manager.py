@@ -63,7 +63,7 @@ EVENT_COLOR_KEYS = {
     "print_failed": "failure",
     "print_stopped": "failure",
     "photo_captured": "media",
-    "enrichment_applied": "success",
+    "enrichment_applied": "enrichment",
     "repair_applied": "repair",
 }
 

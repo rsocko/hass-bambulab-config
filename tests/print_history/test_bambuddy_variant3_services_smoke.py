@@ -973,6 +973,13 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
         event_time="2026-04-08T12:00:00Z",
         event_status="printing",
     )
+    manager.store.append_archive_event(
+        101,
+        event_type="enrichment_applied",
+        event_source="ha_script",
+        event_time="2026-04-08T12:05:00Z",
+        event_status="completed",
+    )
 
     detail = manager.build_archive_detail_response(101)
 
@@ -980,6 +987,9 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     assert detail["event_timeline"][0]["type"] == "photo_captured"
     assert detail["event_timeline"][0]["label"] == "Photo captured"
     assert detail["event_timeline"][0]["color_key"] == "media"
+    assert detail["event_timeline"][1]["type"] == "enrichment_applied"
+    assert detail["event_timeline"][1]["label"] == "Enrichment applied"
+    assert detail["event_timeline"][1]["color_key"] == "enrichment"
 
 
 def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path: Path) -> None:

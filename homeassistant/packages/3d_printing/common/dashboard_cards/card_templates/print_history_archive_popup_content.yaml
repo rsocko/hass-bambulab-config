@@ -342,7 +342,8 @@ print_history_archive_popup_content:
           resume: '#00ACC1',
           success: '#2E7D32',
           failure: '#C62828',
-          media: '#00897B',
+          media: '#0277BD',
+          enrichment: '#7B1FA2',
           repair: '#8E24AA',
           neutral: '#78909C'
         })[String(colorKey || '').trim()] || '#78909C';
@@ -350,9 +351,10 @@ print_history_archive_popup_content:
           { color: timelineColorForKey('start'), label: 'Print started' },
           { color: timelineColorForKey('pause'), label: 'Print paused' },
           { color: timelineColorForKey('resume'), label: 'Print resumed' },
-          { color: timelineColorForKey('success'), label: 'Print finished or enrichment applied' },
+          { color: timelineColorForKey('success'), label: 'Print finished' },
           { color: timelineColorForKey('failure'), label: 'Print failed or stopped' },
           { color: timelineColorForKey('media'), label: 'Photo captured' },
+          { color: timelineColorForKey('enrichment'), label: 'Enrichment applied' },
           { color: timelineColorForKey('repair'), label: 'Repair applied' }
         ];
         const timelineLegendMarkup = [
