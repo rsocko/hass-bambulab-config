@@ -888,6 +888,23 @@ reenrich_print_history_archive:
                     - condition: template
                       value_template: "{{ should_preserve_existing }}"
                   sequence:
+                    - choose:
+                        - conditions:
+                            - condition: template
+                              value_template: "{{ resolved_archive_cost_defined }}"
+                          sequence:
+                            - action: rest_command.bambuddy_update_archive
+                              data:
+                                archive_id: "{{ resolved_archive_id }}"
+                                tags: "{{ merged_tags }}"
+                                notes: "{{ merged_notes }}"
+                                cost: "{{ resolved_archive_cost }}"
+                      default:
+                        - action: rest_command.bambuddy_update_archive
+                          data:
+                            archive_id: "{{ resolved_archive_id }}"
+                            tags: "{{ merged_tags }}"
+                            notes: "{{ merged_notes }}"
                     - action: persistent_notification.create
                       data:
                         notification_id: "print_history_reenrich_preserved_{{ resolved_archive_id }}"
@@ -898,12 +915,36 @@ reenrich_print_history_archive:
 
                           Existing status: `{{ existing_payload_status_label }}`
                           Candidate status: `{{ candidate_payload_status_label }}`
+                          {% if resolved_archive_cost_defined %}
+
+                          The existing enrichment payload was preserved, and the archive cost was refreshed to `${{ resolved_archive_cost | float(0) | round(2) }}`.
+                          {% endif %}
                     - action: logbook.log
                       data:
                         name: Print History Re-Enrich
                         message: >-
                           Preserved existing enrichment for archive {{ resolved_archive_id }} because
-                          the manual candidate was lower fidelity.
+                          the manual candidate was lower fidelity{% if resolved_archive_cost_defined %}, and refreshed archive cost to ${{ resolved_archive_cost | float(0) | round(2) }}{% endif %}.
+                    - action: bambuddy.append_print_history_event
+                      data:
+                        archive_id: "{{ resolved_archive_id | int(0) }}"
+                        event_type: enrichment_applied
+                        event_source: ha_script
+                        event_status: "{{ existing_payload_status_label | lower | trim }}"
+                        payload:
+                          mode: manual_reenrich
+                          source: preserved_existing
+                          rows: "{{ existing_filament_rows | int(0) }}"
+                          ambiguities: "{{ existing_ambiguity_rows | count }}"
+                          cost_refreshed: "{{ resolved_archive_cost_defined }}"
+                        event_key: >-
+                          manual-reenrich:{{ resolved_archive_id }}:preserved-existing:{{ existing_payload_status_label | lower | trim }}:{{ existing_filament_rows | int(0) }}:{{ resolved_archive_cost_defined }}
+                      response_variable: append_event_result
+                    - if:
+                        - condition: template
+                          value_template: "{{ should_refresh_browser }}"
+                      then:
+                        - action: script.refresh_print_history_archives
                     - if:
                         - condition: template
                           value_template: "{{ debug_enabled }}"
@@ -914,6 +955,7 @@ reenrich_print_history_archive:
                               Print History debug: archive {{ resolved_archive_id }} kept existing enrichment.
                               existing_status={{ existing_payload_status_label }},
                               candidate_status={{ candidate_payload_status_label }},
+                              cost_refreshed={{ resolved_archive_cost_defined }},
                               elapsed_s={{ reenrich_elapsed_seconds }}.
                             level: warning
                             logger: homeassistant.components.bambulab.print_history
