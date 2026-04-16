@@ -176,9 +176,9 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + reset browser page; integration refresh is internal
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
-│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (advanced review flow)
+│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (store-backed review flow)
 │   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
-│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — cover-photo contract still needs live validation
+│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — optional Bambuddy cover sync, still unverified
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — enrichment + popup edit fields
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 ├── scripts/
@@ -243,7 +243,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / Detail)
 │   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
 │   ├── print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
-│   └── photo_review_chip.yaml                     # conditional review-status chip; full popup flow still deferred
+│   └── photo_review_chip.yaml                     # conditional review-status chip; next step is chip → existing popup handoff
 └── dashboard_views/
     └── view_print_history.yaml
 
@@ -424,7 +424,7 @@ For detailed design of the two major subsystems, see:
 
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
 - **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
-- **[photo-review-design.md](photo-review-design.md)** — Post-print photo review: remove, replace, set cover
+- **[photo-review-design.md](photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
@@ -475,7 +475,8 @@ These are worth planning immediately after the core package is stable, but they 
 - **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
 - **Configurable browser instrumentation** — See [browser-instrumentation.md](browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
 - **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
-- **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable, but depends on multipart upload and more media-state handling.
+- **Photo review actions** — See [photo-review-design.md](photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
+- **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
 - **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
 - **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
 
