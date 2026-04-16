@@ -10,9 +10,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._archiveName = "Archive Photos";
     this._preloadedSources = {};
     this._lastRenderSignature = "";
+    this._overlayRoot = null;
+    this._previousBodyOverflow = null;
     this._boundKeydownHandler = this._handleKeydown.bind(this);
     this._boundClickHandler = this._handleHostClick.bind(this);
     this._boundShadowClickHandler = this._handleShadowClick.bind(this);
+    this._boundOverlayClickHandler = this._handleOverlayClick.bind(this);
   }
 
   setConfig(config) {
@@ -55,6 +58,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundShadowClickHandler);
     }
+    this._destroyOverlayRoot();
   }
 
   getCardSize() {
@@ -118,6 +122,42 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (action === "expand") {
       this._setExpanded(true);
+      return;
+    }
+    if (action === "collapse") {
+      this._setExpanded(false);
+    }
+  }
+
+  _handleOverlayClick(event) {
+    var target = event.target;
+    if (!target || !target.closest) {
+      return;
+    }
+
+    var indexButton = target.closest("[data-index]");
+    if (indexButton) {
+      event.stopPropagation();
+      var index = Number(indexButton.getAttribute("data-index"));
+      if (Number.isFinite(index)) {
+        this._setActiveIndex(index);
+      }
+      return;
+    }
+
+    var actionButton = target.closest("[data-action]");
+    if (!actionButton) {
+      return;
+    }
+
+    event.stopPropagation();
+    var action = actionButton.getAttribute("data-action");
+    if (action === "prev") {
+      this._moveActiveIndex(-1);
+      return;
+    }
+    if (action === "next") {
+      this._moveActiveIndex(1);
       return;
     }
     if (action === "collapse") {
@@ -342,6 +382,112 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }, this);
   }
 
+  _ensureOverlayRoot() {
+    var doc = this.ownerDocument || document;
+    if (this._overlayRoot || !doc || !doc.body) {
+      return;
+    }
+
+    this._overlayRoot = doc.createElement("div");
+    this._overlayRoot.setAttribute("hidden", "");
+    this._overlayRoot.attachShadow({ mode: "open" });
+    this._overlayRoot.shadowRoot.addEventListener("click", this._boundOverlayClickHandler);
+    doc.body.appendChild(this._overlayRoot);
+  }
+
+  _destroyOverlayRoot() {
+    this._restoreBodyScrollLock();
+    if (!this._overlayRoot) {
+      return;
+    }
+    if (this._overlayRoot.shadowRoot) {
+      this._overlayRoot.shadowRoot.removeEventListener("click", this._boundOverlayClickHandler);
+    }
+    if (this._overlayRoot.parentNode) {
+      this._overlayRoot.parentNode.removeChild(this._overlayRoot);
+    }
+    this._overlayRoot = null;
+  }
+
+  _applyBodyScrollLock() {
+    var doc = this.ownerDocument || document;
+    if (!doc || !doc.body || this._previousBodyOverflow !== null) {
+      return;
+    }
+    this._previousBodyOverflow = doc.body.style.overflow || "";
+    doc.body.style.overflow = "hidden";
+  }
+
+  _restoreBodyScrollLock() {
+    var doc = this.ownerDocument || document;
+    if (!doc || !doc.body || this._previousBodyOverflow === null) {
+      return;
+    }
+    doc.body.style.overflow = this._previousBodyOverflow;
+    this._previousBodyOverflow = null;
+  }
+
+  _renderOverlay() {
+    this._ensureOverlayRoot();
+    if (!this._overlayRoot || !this._overlayRoot.shadowRoot || !this._images.length) {
+      return;
+    }
+
+    if (this._activeIndex >= this._images.length) {
+      this._activeIndex = 0;
+    }
+
+    var active = this._images[this._activeIndex];
+    var photoCount = Math.max(0, this._images.length - (this._images[0] && this._images[0].kind === "thumbnail" ? 1 : 0));
+    var subtitle = photoCount > 0
+      ? photoCount + (photoCount === 1 ? " additional photo" : " additional photos")
+      : "Thumbnail only";
+
+    this._overlayRoot.shadowRoot.innerHTML =
+      "<style>" +
+      ":host{all:initial;}" +
+      ".frame{position:fixed;inset:0;z-index:2147483647;}" +
+      ".frame[hidden]{display:none;}" +
+      ".backdrop{appearance:none;border:none;position:absolute;inset:0;background:rgba(4,8,15,0.94);padding:0;cursor:pointer;}" +
+      ".shell{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;height:100%;box-sizing:border-box;padding:clamp(16px,2.2vw,28px);padding-top:max(clamp(16px,2.2vw,28px), env(safe-area-inset-top));padding-right:max(clamp(16px,2.2vw,28px), env(safe-area-inset-right));padding-bottom:max(clamp(16px,2.2vw,28px), env(safe-area-inset-bottom));padding-left:max(clamp(16px,2.2vw,28px), env(safe-area-inset-left));}" +
+      ".header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:#fff;}" +
+      ".title{font:700 clamp(18px,2.2vw,28px)/1.2 system-ui,sans-serif;letter-spacing:0.01em;}" +
+      ".subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}" +
+      ".actions{display:flex;align-items:center;gap:10px;}" +
+      ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);}" +
+      ".stage{position:relative;min-height:0;border-radius:24px;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.82), rgba(2,6,23,0.98));box-shadow:0 24px 60px rgba(0,0,0,0.42);}" +
+      ".image-wrap{display:flex;align-items:center;justify-content:center;height:100%;min-height:0;padding:clamp(10px,1.6vw,22px);box-sizing:border-box;}" +
+      ".image{display:block;max-width:min(96vw,2200px);max-height:calc(100vh - 210px);width:auto;height:auto;object-fit:contain;border-radius:18px;background:rgba(15,23,42,0.32);}" +
+      ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:56px;height:56px;border-radius:999px;background:rgba(255,255,255,0.14);color:#fff;font-size:30px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);}" +
+      ".nav.prev{left:16px;}" +
+      ".nav.next{right:16px;}" +
+      ".filmstrip{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 6px;}" +
+      ".thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}" +
+      ".thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}" +
+      ".thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
+      "@media (max-width: 900px){.shell{grid-template-rows:auto minmax(0,1fr) auto;gap:12px;}.image{max-height:calc(100vh - 190px);}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}" +
+      "@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.image{max-height:calc(100vh - 176px);max-width:100%;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}" +
+      "</style>" +
+      '<div class="frame"' + (this._expanded ? "" : " hidden") + '>' +
+      '<button class="backdrop" type="button" data-action="collapse" aria-label="Close full-screen gallery"></button>' +
+      '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._archiveName) + '">' +
+      '<div class="header">' +
+      '<div><div class="title">' + this._escapeHtml(this._archiveName) + '</div><div class="subtitle">' + this._escapeHtml(active.label) + ' \u00b7 ' + this._escapeHtml(subtitle) + '</div></div>' +
+      '<div class="actions"><button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '</div>' +
+      '<div class="stage">' +
+      '<div class="image-wrap"><img class="image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || this._archiveName) + '" loading="eager" decoding="async"></div>' +
+      (this._images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
+      '</div>' +
+      '<div class="filmstrip">' + this._images.map(function (image, index) {
+        return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '" aria-label="' + this._escapeHtml(image.label) + '">' +
+          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || this._archiveName) + '">' +
+          '</button>';
+      }.bind(this)).join("") + '</div>' +
+      '</div>' +
+      '</div>';
+  }
+
   _syncActiveImage() {
     if (!this.shadowRoot || !this._images.length) {
       return;
@@ -366,45 +512,35 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       stageImage.decoding = "async";
     }
 
-    var overlayImage = this.shadowRoot.querySelector(".overlay-image");
-    if (overlayImage) {
-      overlayImage.src = active.src;
-      overlayImage.alt = alt;
-      overlayImage.loading = "eager";
-      overlayImage.decoding = "async";
-    }
-
     Array.from(this.shadowRoot.querySelectorAll(".badge"))
       .forEach(function (badge, index) {
         badge.textContent = index === 0 ? active.label : subtitle;
       });
 
-    var overlaySubtitle = this.shadowRoot.querySelector(".overlay-subtitle");
-    if (overlaySubtitle) {
-      overlaySubtitle.textContent = active.label + " \u00b7 " + subtitle;
-    }
-
-    Array.from(this.shadowRoot.querySelectorAll(".thumb, .overlay-thumb"))
+    Array.from(this.shadowRoot.querySelectorAll(".thumb"))
       .forEach(function (button) {
         var buttonIndex = Number(button.getAttribute("data-index"));
         button.classList.toggle("active", buttonIndex === this._activeIndex);
       }, this);
+
+    if (this._expanded) {
+      this._renderOverlay();
+    }
   }
 
   _syncExpandedState() {
-    if (!this.shadowRoot) {
-      return;
-    }
-
-    var overlay = this.shadowRoot.querySelector('.overlay');
-    if (!overlay) {
-      return;
-    }
-
     if (this._expanded) {
-      overlay.removeAttribute('hidden');
-    } else {
-      overlay.setAttribute('hidden', '');
+      this._applyBodyScrollLock();
+      this._renderOverlay();
+      return;
+    }
+
+    this._restoreBodyScrollLock();
+    if (this._overlayRoot) {
+      this._overlayRoot.setAttribute("hidden", "");
+      if (this._overlayRoot.shadowRoot) {
+        this._overlayRoot.shadowRoot.innerHTML = "";
+      }
     }
   }
 
@@ -423,6 +559,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     if (!this._isVisible()) {
+      this._setExpanded(false);
       this.shadowRoot.innerHTML = "<style>:host{display:none}</style>";
       return;
     }
@@ -430,6 +567,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var archive = this._resolveArchive();
     var images = this._buildImages(archive);
     if (!images.length) {
+      this._setExpanded(false);
       this.shadowRoot.innerHTML = "<style>:host{display:none}</style>";
       return;
     }
@@ -471,27 +609,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb.active{border-color:rgba(59,130,246,0.9);box-shadow:0 0 0 2px rgba(59,130,246,0.2);}" +
       ".thumb img{display:block;width:72px;height:72px;object-fit:cover;background:rgba(15,23,42,0.28);}" +
       ".thumb-label{position:absolute;left:6px;bottom:6px;padding:3px 6px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:10px;font-weight:700;backdrop-filter:blur(10px);}" +
-      ".overlay{position:fixed;inset:0;z-index:9999;background:rgba(5,8,14,0.94);display:flex;flex-direction:column;justify-content:space-between;gap:14px;padding:20px 20px 18px;box-sizing:border-box;}" +
-      ".overlay[hidden]{display:none;}" +
-      ".overlay-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;color:#fff;}" +
-      ".overlay-title{font-size:1rem;font-weight:700;line-height:1.35;}" +
-      ".overlay-subtitle{font-size:13px;line-height:1.45;color:rgba(255,255,255,0.72);margin-top:4px;}" +
-      ".overlay-actions{display:flex;align-items:center;gap:8px;}" +
-      ".overlay-button{appearance:none;border:none;border-radius:999px;padding:10px 14px;background:rgba(255,255,255,0.12);color:#fff;font-size:12px;font-weight:700;cursor:pointer;}" +
-      ".overlay-stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:0;}" +
-      ".overlay-image{display:block;max-width:100%;max-height:100%;object-fit:contain;border-radius:18px;background:rgba(15,23,42,0.35);}" +
-      ".overlay-nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:50px;height:50px;border-radius:999px;background:rgba(255,255,255,0.12);color:#fff;font-size:28px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}" +
-      ".overlay-nav.prev{left:10px;}" +
-      ".overlay-nav.next{right:10px;}" +
-      ".overlay-filmstrip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}" +
-      ".overlay-thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:14px;overflow:hidden;cursor:pointer;flex:0 0 auto;}" +
-      ".overlay-thumb.active{border-color:#90caf9;}" +
-      ".overlay-thumb img{display:block;width:88px;height:88px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
       ":host([compact]) .wrap{gap:8px;}" +
       ":host([compact]) .stage{border-radius:16px;}" +
       ":host([compact]) .stage-image{max-height:220px;min-height:220px;}" +
       ":host([compact]) .thumb img{width:64px;height:64px;}" +
-      "@media (max-width: 640px){.stage-image{max-height:260px;min-height:180px;}.overlay{padding:14px 14px 12px;}.overlay-thumb img{width:72px;height:72px;}.overlay-nav{width:44px;height:44px;}}" +
+      "@media (max-width: 640px){.stage-image{max-height:260px;min-height:180px;}}" +
       "</style>" +
       "<ha-card>" +
       '<div class="wrap">' +
@@ -507,7 +629,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "</div>" +
       (compact ? "" : ('<div class="meta">' +
       '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
-      '<button class="expand" type="button" data-action="expand">Expand</button>' +
+      '<button class="expand" type="button" data-action="expand">Full Screen</button>' +
       "</div>")) +
       '<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
@@ -516,22 +638,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           '</button>';
       }.bind(this)).join("") + '</div>' +
       "</div>" +
-      "</ha-card>" +
-      '<div class="overlay"' + (this._expanded ? "" : " hidden") + '>' +
-      '<div class="overlay-header">' +
-      '<div><div class="overlay-title">' + this._escapeHtml(archiveName) + '</div><div class="overlay-subtitle">' + this._escapeHtml(active.label) + ' \u00b7 ' + this._escapeHtml(subtitle) + '</div></div>' +
-      '<div class="overlay-actions"><button class="overlay-button" type="button" data-action="collapse">Close</button></div>' +
-      "</div>" +
-      '<div class="overlay-stage">' +
-      '<img class="overlay-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
-      (images.length > 1 ? '<button class="overlay-nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="overlay-nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
-      "</div>" +
-      '<div class="overlay-filmstrip">' + images.map(function (image, index) {
-        return '<button class="overlay-thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
-          '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '">' +
-          '</button>';
-      }.bind(this)).join("") + "</div>" +
-      "</div>";
+      "</ha-card>";
 
     if (compact) {
       this.setAttribute("compact", "");
