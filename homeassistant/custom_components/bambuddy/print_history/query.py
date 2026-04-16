@@ -83,8 +83,6 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_boolean.print_history_filter_favorites_only": "off",
     "input_text.print_history_search": "",
     "input_text.print_history_filter_colors": "",
-    "input_text.print_history_filter_start_date": "",
-    "input_text.print_history_filter_end_date": "",
     "input_text.print_history_activity_selected_date": "",
     "input_select.print_history_sort": "Date (Newest)",
 }
@@ -786,10 +784,6 @@ def sort_reverse(sort_option: str) -> bool:
 def has_active_filters(states: dict[str, str]) -> bool:
     if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time":
         return True
-    if normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", "")):
-        return True
-    if normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", "")):
-        return True
     for entity_id, default_value in ACTIVE_FILTER_DEFAULTS.items():
         if states.get(entity_id, default_value) != default_value:
             return True
@@ -814,7 +808,7 @@ def active_filters(states: dict[str, str]) -> list[str]:
         "input_text.print_history_activity_selected_date": "selected_day",
     }
     active: list[str] = []
-    if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time" or normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", "")) or normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", "")):
+    if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time":
         active.append("date")
     for entity_id, label in labels.items():
         if states.get(entity_id, ACTIVE_FILTER_DEFAULTS.get(entity_id, "")) != ACTIVE_FILTER_DEFAULTS.get(entity_id, ""):

@@ -273,6 +273,38 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
     assert tooltip_by_color["#ffffff"] == "White PLA (#FFFFFF)"
 
 
+def test_variant3_query_explicit_date_bounds_do_not_count_as_active_filters() -> None:
+    archives = _projected_archives()
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_text.print_history_filter_start_date": "2026-04-01",
+        "input_text.print_history_filter_end_date": "2026-04-30",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+
+    assert [archive["id"] for archive in result.page_items] == [101]
+    assert result.has_active_filters is False
+    assert result.active_filters == []
+
+
 def test_variant3_query_contract_supports_archived_status_filter() -> None:
     archived_archive = project_archive(
         {

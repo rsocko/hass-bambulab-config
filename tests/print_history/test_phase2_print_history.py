@@ -1385,6 +1385,13 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("input_select.print_history_filter_archive_error", clear_script_content)
         self.assertIn("input_select.print_history_filter_archive_error", reset_page_content)
 
+    def test_clear_filters_script_preserves_explicit_date_bounds(self):
+        clear_script_content = (HISTORY / "scripts" / "clear_print_history_filters.yaml").read_text("utf-8")
+
+        self.assertNotIn("input_text.print_history_filter_start_date", clear_script_content)
+        self.assertNotIn("input_text.print_history_filter_end_date", clear_script_content)
+        self.assertIn("input_select.print_history_filter_date_range", clear_script_content)
+
     def test_browser_header_exposes_limit_notice_chip(self):
         browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
 
