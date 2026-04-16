@@ -57,11 +57,11 @@
            else 'sensor.ntk_ryansoffice_3dprinter_active_tray' }}
   - variables:
       active_tray:
-        uuid: "{{ state_attr(active_tray_source, 'tray_uuid') | default('') }}"
-        type: "{{ state_attr(active_tray_source, 'type') | default('') }}"
-        color: "{{ state_attr(active_tray_source, 'color') | default('') | replace('#', '') }}"
-        name: "{{ state_attr(active_tray_source, 'name') | default('') }}"
-        remain: "{{ state_attr(active_tray_source, 'remain') | default('') }}"
+          uuid: "{{ state_attr(active_tray_source, 'tray_uuid') | default('', true) | string | trim('\"') }}"
+          type: "{{ state_attr(active_tray_source, 'type') | default('', true) | string }}"
+          color: "{{ state_attr(active_tray_source, 'color') | default('', true) | string | replace('#', '') }}"
+          name: "{{ state_attr(active_tray_source, 'name') | default('', true) | string }}"
+          remain: "{{ state_attr(active_tray_source, 'remain') | default('', true) | string }}"
       tray_has_valid_uuid: >-
         {{ active_tray.uuid | length > 0 and not active_tray.uuid | regex_match('^0+$') }}
       tray_has_matchable_attributes: >-
