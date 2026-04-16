@@ -712,6 +712,15 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertIn("history_current_page", content)
         self.assertIn("print_history_filtered", content)
 
+    def test_date_filter_chip_uses_issue_898_format(self):
+        content = (HISTORY / "template_sensors" / "print_history_filter_date_chip.yaml").read_text("utf-8")
+        self.assertIn("{{ start }} - {{ end }}", content)
+        self.assertIn("> {{ start }}", content)
+        self.assertIn("< {{ end }}", content)
+        self.assertNotIn("{{ start }} <> {{ end }}", content)
+        self.assertNotIn("{{ start }} <>", content)
+        self.assertNotIn("<> {{ end }}", content)
+
     def test_image_url_prepends_base_url(self):
         """Image URL sensor must combine base_url + photo path for full URL."""
         sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"

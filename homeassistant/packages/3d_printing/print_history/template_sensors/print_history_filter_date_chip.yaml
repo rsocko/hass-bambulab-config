@@ -12,11 +12,11 @@
         {% if start == '' and end == '' %}
           {{ '' }}
         {% elif start != '' and end != '' %}
-          {{ start }} <> {{ end }}
+          {{ start }} - {{ end }}
         {% elif start != '' %}
-          {{ start }} <>
+          > {{ start }}
         {% else %}
-          <> {{ end }}
+          < {{ end }}
         {% endif %}
       attributes:
         start_date: "{{ states('input_text.print_history_filter_start_date') | string | trim }}"
