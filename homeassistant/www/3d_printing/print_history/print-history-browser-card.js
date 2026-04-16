@@ -553,6 +553,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _normalizeArchiveError(archive) {
     var filePath = String(archive && archive.file_path || "").trim();
     var thumbnailPath = String(archive && archive.thumbnail_path || "").trim();
+    var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
+    var previewPath = primaryPhotoPath || thumbnailPath;
     var source3mfPath = String(archive && archive.source_3mf_path || "").trim();
     var missingCore3mf = !!(archive && archive.missing_core_3mf);
     var missingThumbnail = !!(archive && archive.missing_thumbnail);
@@ -567,7 +569,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!hasProjectedArchiveState && !missingCore3mf && !missingThumbnail) {
       missingCore3mf = !!(archive && archive.no_3mf_available) || !filePath;
       hasSourceOnly = missingCore3mf && !!source3mfPath;
-      missingThumbnail = !missingCore3mf && !thumbnailPath;
+      missingThumbnail = !missingCore3mf && !previewPath;
     }
 
     if (hasSourceOnly) {
@@ -595,7 +597,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         hasArchiveError: true,
         severity: "warning",
         label: String(archive && archive.archive_error_label || "Thumbnail Missing"),
-        summary: String(archive && archive.archive_error_summary || "Thumbnail preview is unavailable for this archive."),
+        summary: String(archive && archive.archive_error_summary || "Preview image is unavailable for this archive."),
         color: "#EF6C00",
         icon: "⚠️",
       };

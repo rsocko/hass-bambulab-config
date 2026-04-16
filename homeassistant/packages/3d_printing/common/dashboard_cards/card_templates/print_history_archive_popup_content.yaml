@@ -255,6 +255,8 @@ print_history_archive_popup_content:
         const buildArchiveErrorState = (currentArchive) => {
           const filePath = String(currentArchive?.file_path || '').trim();
           const thumbnailPath = String(currentArchive?.thumbnail_path || '').trim();
+          const primaryPhotoPath = String(currentArchive?.primary_photo_path || '').trim();
+          const previewPath = primaryPhotoPath || thumbnailPath;
           const source3mfPath = String(currentArchive?.source_3mf_path || '').trim();
           const hasProjectedArchiveState = Boolean(
             currentArchive
@@ -272,7 +274,7 @@ print_history_archive_popup_content:
           if (!hasProjectedArchiveState && !missingCore3mf && !missingThumbnail) {
             missingCore3mf = Boolean(currentArchive?.no_3mf_available || !filePath);
             hasSourceOnly = Boolean(missingCore3mf && source3mfPath);
-            missingThumbnail = Boolean(!missingCore3mf && !thumbnailPath);
+            missingThumbnail = Boolean(!missingCore3mf && !previewPath);
           }
 
           if (hasSourceOnly) {
@@ -304,7 +306,7 @@ print_history_archive_popup_content:
               hasArchiveError: true,
               severity: 'warning',
               label: String(currentArchive?.archive_error_label || 'Thumbnail Missing'),
-              summary: String(currentArchive?.archive_error_summary || 'Thumbnail preview is unavailable for this archive.'),
+              summary: String(currentArchive?.archive_error_summary || 'Preview image is unavailable for this archive.'),
               background: 'rgba(239,108,0,0.14)',
               border: 'rgba(239,108,0,0.34)',
               color: '#FFE0B2',
