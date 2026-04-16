@@ -19,6 +19,8 @@ try:
         as_float,
         as_int,
         as_text,
+        build_color_tooltips,
+        canonical_color_tooltip_names,
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
@@ -39,6 +41,8 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         as_float,
         as_int,
         as_text,
+        build_color_tooltips,
+        canonical_color_tooltip_names,
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
@@ -1515,16 +1519,7 @@ class PrintHistoryStore:
 
     def _load_available_color_tooltips(self) -> list[dict[str, str]]:
         colors = self._load_available_colors()
-        names_by_color: dict[str, list[str]] = {}
-
-        def add_name(color: Any, name: Any) -> None:
-            normalized_color = normalize_hex(color)
-            normalized_name = as_text(name).strip()
-            if not normalized_color or not normalized_name:
-                return
-            bucket = names_by_color.setdefault(normalized_color, [])
-            if normalized_name not in bucket:
-                bucket.append(normalized_name)
+        tooltip_rows: list[dict[str, Any]] = []
 
         with self._connect() as connection:
             note_rows = connection.execute(
@@ -1545,17 +1540,11 @@ class PrintHistoryStore:
             ).fetchall()
 
         for color, name in note_rows:
-            add_name(color, name)
+            tooltip_rows.append({"color": color, "name": name, "source": "note"})
         for color, name in filament_rows:
-            add_name(color, name)
+            tooltip_rows.append({"color": color, "name": name, "source": "slot"})
 
-        return [
-            {
-                "color": color,
-                "tooltip": f"{' or '.join(names_by_color[color])} ({color.upper()})" if names_by_color.get(color) else color.upper(),
-            }
-            for color in colors
-        ]
+        return build_color_tooltips(colors, canonical_color_tooltip_names(tooltip_rows))
 
     def _load_metric_rows(self, archive_ids: list[int]) -> list[dict[str, Any]]:
         normalized_ids = [archive_id for archive_id in archive_ids if archive_id > 0]

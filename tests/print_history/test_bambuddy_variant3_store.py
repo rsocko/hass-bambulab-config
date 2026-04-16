@@ -159,6 +159,86 @@ def _failed_duration_fallback_archive() -> dict:
     )
 
 
+def _color_tooltip_normalization_archives() -> list[dict]:
+    return [
+        project_archive(
+            {
+                "id": 601,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Newest Short Name",
+                "status": "completed",
+                "started_at": "2026-04-12T10:00:00Z",
+                "completed_at": "2026-04-12T11:00:00Z",
+                "created_at": "2026-04-12T10:00:00Z",
+                "filament_type": "PLA",
+                "filament_color": "#123456",
+                "notes": "+>{\"F\":[{\"h\":\"#123456\",\"n\":\"Blue Ocean\"}]}",
+                "extra_data": {
+                    "filament_slots": [
+                        {"color": "#123456", "name": "PLA", "used_grams": 10.0},
+                    ]
+                },
+            }
+        ),
+        project_archive(
+            {
+                "id": 600,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Older Canonical Name",
+                "status": "completed",
+                "started_at": "2026-04-11T10:00:00Z",
+                "completed_at": "2026-04-11T11:00:00Z",
+                "created_at": "2026-04-11T10:00:00Z",
+                "filament_type": "PLA",
+                "filament_color": "#123456",
+                "notes": "+>{\"F\":[{\"h\":\"#123456\",\"n\":\"Bambu Lab Blue Ocean PLA\"}]}",
+                "extra_data": {},
+            }
+        ),
+        project_archive(
+            {
+                "id": 599,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Distinct Material",
+                "status": "completed",
+                "started_at": "2026-04-10T10:00:00Z",
+                "completed_at": "2026-04-10T11:00:00Z",
+                "created_at": "2026-04-10T10:00:00Z",
+                "filament_type": "PETG",
+                "filament_color": "#123456",
+                "notes": "+>{\"F\":[{\"h\":\"#123456\",\"n\":\"Blue Ocean PETG\"}]}",
+                "extra_data": {},
+            }
+        ),
+    ]
+
+
+def _generic_only_color_tooltip_archive() -> dict:
+    return project_archive(
+        {
+            "id": 602,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "Generic Only",
+            "status": "completed",
+            "started_at": "2026-04-12T12:00:00Z",
+            "completed_at": "2026-04-12T13:00:00Z",
+            "created_at": "2026-04-12T12:00:00Z",
+            "filament_type": "PLA",
+            "filament_color": "#654321",
+            "notes": "+>{\"F\":[{\"h\":\"#654321\",\"n\":\"PLA\"}]}",
+            "extra_data": {
+                "filament_slots": [
+                    {"color": "#654321", "name": "PLA", "used_grams": 5.0},
+                ]
+            },
+        }
+    )
+
+
 def test_variant3_query_contract_matches_browser_filters() -> None:
     archives = _projected_archives()
     states = {
@@ -276,6 +356,64 @@ def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blan
     assert tooltip_by_color["#e8e6d0"] == "Polymaker PolyLite PLA Natural PLA (#E8E6D0)"
     assert tooltip_by_color["#f7d959"] == "Bambu Lab Matte Lemon Yellow PLA (#F7D959)"
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
+
+
+def test_variant3_query_contract_normalizes_color_tooltip_aliases_but_keeps_distinct_materials() -> None:
+    archives = _color_tooltip_normalization_archives()
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 12, tzinfo=timezone.utc))
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+
+    assert tooltip_by_color["#123456"] == "Bambu Lab Blue Ocean PLA or Blue Ocean PETG (#123456)"
+
+
+def test_variant3_query_contract_falls_back_to_hex_when_only_generic_material_names_exist() -> None:
+    archives = [_generic_only_color_tooltip_archive()]
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 12, tzinfo=timezone.utc))
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+
+    assert tooltip_by_color["#654321"] == "#654321"
 
 
 def test_variant3_query_search_matches_archive_ids_and_operational_fields() -> None:
@@ -868,6 +1006,68 @@ def test_variant3_store_query_uses_note_payload_names_for_tooltips_when_slot_nam
     assert tooltip_by_color["#e8e6d0"] == "Polymaker PolyLite PLA Natural PLA (#E8E6D0)"
     assert tooltip_by_color["#f7d959"] == "Bambu Lab Matte Lemon Yellow PLA (#F7D959)"
     assert tooltip_by_color["#ffffff"] == "Bambu Lab Jade White PLA (#FFFFFF)"
+
+
+def test_variant3_store_query_normalizes_color_tooltip_aliases_but_keeps_distinct_materials(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_color_tooltip_normalization_archives())
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = store.load_query_result(states)
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+
+    assert tooltip_by_color["#123456"] == "Bambu Lab Blue Ocean PLA or Blue Ocean PETG (#123456)"
+
+
+def test_variant3_store_query_falls_back_to_hex_when_only_generic_material_names_exist(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives([_generic_only_color_tooltip_archive()])
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = store.load_query_result(states)
+    tooltip_by_color = {entry["color"]: entry["tooltip"] for entry in result.available_color_tooltips}
+
+    assert tooltip_by_color["#654321"] == "#654321"
 
 
 def test_variant3_store_query_search_matches_archive_ids_and_operational_fields(tmp_path: Path) -> None:

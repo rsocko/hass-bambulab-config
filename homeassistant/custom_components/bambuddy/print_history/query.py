@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone, tzinfo
@@ -30,6 +31,43 @@ SYSTEM_TAG_PREFIXES = (
 )
 SYSTEM_TAG_VALUES = {"ha_enriched:true"}
 TERMINAL_DURATION_STATUSES = {"completed", "failed", "cancelled", "archived"}
+MATERIAL_NAME_TOKENS = {
+    "pla",
+    "petg",
+    "abs",
+    "asa",
+    "tpu",
+    "pc",
+    "pa",
+    "nylon",
+    "hips",
+    "pva",
+    "pla+",
+    "pla-cf",
+    "petg-cf",
+    "pet-cf",
+    "cf",
+    "matte",
+    "basic",
+    "support",
+    "filament",
+    "material",
+}
+TOOLTIP_VENDOR_PREFIXES = (
+    "bambu lab ",
+    "bambu ",
+    "polymaker ",
+    "sunlu ",
+    "esun ",
+    "elegoo ",
+    "overture ",
+    "hatchbox ",
+    "prusament ",
+    "eryone ",
+    "amolen ",
+    "creality ",
+    "flashforge ",
+)
 ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_status": "All",
     "input_select.print_history_filter_archive_error": "All",
@@ -172,6 +210,118 @@ def archive_search_blob(archive: dict[str, Any]) -> str:
         archive.get("tags"),
     ]
     return " ".join(as_text(value).strip() for value in values if as_text(value).strip()).lower()
+
+
+def _clean_tooltip_name(name: Any) -> str:
+    cleaned = as_text(name).replace('"', " ").strip()
+    if not cleaned:
+        return ""
+    cleaned = re.sub(r"#[0-9a-fA-F]{6}\b", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -_/|(),")
+    return cleaned
+
+
+def _comparison_tooltip_name(name: str) -> str:
+    lowered = name.lower()
+    for prefix in TOOLTIP_VENDOR_PREFIXES:
+        if lowered.startswith(prefix):
+            return lowered[len(prefix) :].strip()
+    return lowered
+
+
+def _tooltip_name_parts(name: Any) -> dict[str, Any]:
+    display_name = _clean_tooltip_name(name)
+    comparison_name = _comparison_tooltip_name(display_name)
+    tokens = tuple(re.findall(r"[a-z0-9][a-z0-9+.-]*", comparison_name))
+    material_tokens = tuple(token for token in tokens if token in MATERIAL_NAME_TOKENS)
+    non_material_tokens = tuple(token for token in tokens if token not in MATERIAL_NAME_TOKENS)
+    generic_only = bool(tokens) and not non_material_tokens
+    return {
+        "display_name": display_name,
+        "comparison_name": comparison_name,
+        "tokens": tokens,
+        "material_tokens": material_tokens,
+        "non_material_tokens": non_material_tokens,
+        "generic_only": generic_only,
+    }
+
+
+def _tooltip_names_equivalent(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    if left["comparison_name"] == right["comparison_name"]:
+        return True
+    if left["generic_only"] or right["generic_only"]:
+        return False
+    if left["non_material_tokens"] != right["non_material_tokens"]:
+        return False
+    left_materials = set(left["material_tokens"])
+    right_materials = set(right["material_tokens"])
+    return not left_materials or not right_materials or left_materials == right_materials
+
+
+def _tooltip_name_score(candidate: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    return (
+        0 if candidate["generic_only"] else 1,
+        candidate["source_priority"],
+        len(candidate["non_material_tokens"]),
+        len(candidate["material_tokens"]),
+        len(candidate["display_name"]),
+    )
+
+
+def canonical_color_tooltip_names(rows: list[dict[str, Any]]) -> dict[str, list[str]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    seen_exact: set[tuple[str, str]] = set()
+
+    for order, row in enumerate(rows):
+        color = normalize_hex(row.get("color"))
+        parts = _tooltip_name_parts(row.get("name"))
+        display_name = parts["display_name"]
+        if not color or not display_name:
+            continue
+        exact_key = (color, display_name.lower())
+        if exact_key in seen_exact:
+            continue
+        seen_exact.add(exact_key)
+
+        candidate = {
+            **parts,
+            "source_priority": 1 if as_text(row.get("source")).strip().lower() == "note" else 0,
+            "order": order,
+        }
+        bucket = grouped.setdefault(color, [])
+        match_index = next(
+            (index for index, existing in enumerate(bucket) if _tooltip_names_equivalent(existing, candidate)),
+            None,
+        )
+        if match_index is None:
+            bucket.append(candidate)
+            continue
+
+        existing = bucket[match_index]
+        if _tooltip_name_score(candidate) > _tooltip_name_score(existing):
+            candidate["order"] = existing["order"]
+            bucket[match_index] = candidate
+
+    result: dict[str, list[str]] = {}
+    for color, candidates in grouped.items():
+        names = [
+            candidate["display_name"]
+            for candidate in sorted(candidates, key=lambda item: item["order"])
+            if not candidate["generic_only"]
+        ]
+        if names:
+            result[color] = names
+    return result
+
+
+def build_color_tooltips(colors: list[str], names_by_color: dict[str, list[str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "color": color,
+            "tooltip": f"{' or '.join(names_by_color[color])} ({color.upper()})" if names_by_color.get(color) else color.upper(),
+        }
+        for color in colors
+    ]
 
 
 def extract_enrichment_payload(notes: str) -> dict[str, Any]:
@@ -416,26 +566,17 @@ def note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def color_tooltip_names(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
-    names_by_color: dict[str, list[str]] = {}
-
-    def add_name(color: Any, name: Any) -> None:
-        normalized_color = normalize_hex(color)
-        normalized_name = as_text(name).strip()
-        if not normalized_color or not normalized_name:
-            return
-        bucket = names_by_color.setdefault(normalized_color, [])
-        if normalized_name not in bucket:
-            bucket.append(normalized_name)
+    rows: list[dict[str, Any]] = []
 
     for archive in archives:
         for row in note_payload_rows(archive):
-            add_name(row.get("color"), row.get("name"))
+            rows.append({"color": row.get("color"), "name": row.get("name"), "source": "note"})
         for slot in archive.get("filament_slots", []):
             if not isinstance(slot, dict):
                 continue
-            add_name(slot.get("color"), slot.get("name"))
+            rows.append({"color": slot.get("color"), "name": slot.get("name"), "source": "slot"})
 
-    return names_by_color
+    return canonical_color_tooltip_names(rows)
 
 
 def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
@@ -737,13 +878,7 @@ def query_archives(
     matches: list[dict[str, Any]] = []
     available_colors = sorted({color for archive in archives for color in archive_colors(archive)})
     tooltip_names = color_tooltip_names(archives)
-    available_color_tooltips = [
-        {
-            "color": color,
-            "tooltip": f"{' or '.join(tooltip_names[color])} ({color.upper()})" if tooltip_names.get(color) else color.upper(),
-        }
-        for color in available_colors
-    ]
+    available_color_tooltips = build_color_tooltips(available_colors, tooltip_names)
 
     for archive in archives:
         archive_status = normalize_status(archive.get("status"))
