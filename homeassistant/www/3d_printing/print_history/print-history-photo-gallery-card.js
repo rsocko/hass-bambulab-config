@@ -669,20 +669,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
       : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
 
-    var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
-    if (primaryAction) {
-      if (!topbarActions) {
-        var topbar = this.shadowRoot.querySelector(".topbar");
-        if (topbar) {
-          topbar.insertAdjacentHTML("beforeend", '<div class="topbar-actions">' + primaryAction + '</div>');
-        }
-      } else {
-        topbarActions.innerHTML = primaryAction;
-      }
-    } else if (topbarActions && topbarActions.parentNode) {
-      topbarActions.parentNode.removeChild(topbarActions);
-    }
-
     var metaActions = this.shadowRoot.querySelector(".meta-actions");
     if (metaActions) {
       metaActions.innerHTML = primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
@@ -726,13 +712,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return "";
     }
 
-    if (archive.id != null) {
-      return "id:" + String(archive.id);
-    }
-
     return JSON.stringify({
+      id: archive.id != null ? String(archive.id) : "",
       print_name: archive.print_name || "",
       thumbnail_path: archive.thumbnail_path || "",
+      primary_photo_path: archive.primary_photo_path || "",
+      selected_primary_photo_path: archive.selected_primary_photo_path || "",
       photos: Array.isArray(archive.photos) ? archive.photos : [],
     });
   }
@@ -782,9 +767,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var primaryAction = active.kind === "photo"
       ? '<button class="action-button" type="button" data-action="set-primary-photo">' + (active.isPrimary ? 'Primary Photo' : 'Use In List View') + '</button>'
       : (active.hasPrimaryOverride ? '<button class="action-button" type="button" data-action="clear-primary-photo">Use Thumbnail</button>' : '');
-    var primaryTopbarAction = primaryAction
-      ? '<div class="topbar-actions">' + primaryAction + '</div>'
-      : '';
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -831,7 +813,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="topbar">' +
       '<div class="topbar-left"><span class="badge">' + this._escapeHtml(active.label) + "</span>" +
       '<span class="badge">' + this._escapeHtml(subtitle) + "</span></div>" +
-      primaryTopbarAction +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +
