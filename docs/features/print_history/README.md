@@ -427,6 +427,8 @@ For detailed design of the two major subsystems, see:
 - **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
 - **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
 - **[photo-review-design.md](photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
+- **[source-3mf-import-design.md](source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
+- **[source-3mf-import-implementation-plan.md](source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
 - **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare

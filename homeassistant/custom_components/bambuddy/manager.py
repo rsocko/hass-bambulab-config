@@ -215,6 +215,7 @@ class PrintHistoryBrowserManager:
         )
 
         await self._async_sync_options()
+    await self._async_sync_media_review_helper()
         self._set_status("ready" if self.archives else "refreshing", "Loaded local print history cache")
         self._notify_listeners()
         self.hass.async_create_task(self.async_refresh("startup"))
@@ -452,6 +453,7 @@ class PrintHistoryBrowserManager:
                 if archives_changed or query_changed:
                     self.browser_revision += 1
                 await self._async_sync_options()
+                await self._async_sync_media_review_helper()
                 self._set_status("ready", f"Refreshed Bambuddy print history browser ({reason})")
                 _LOGGER.info("Refreshed Bambuddy print history browser (%s) with %s archives", reason, len(self.archives))
             except Exception as error:  # noqa: BLE001
@@ -935,6 +937,29 @@ class PrintHistoryBrowserManager:
                 {"entity_id": entity_id, "options": options},
                 blocking=True,
             )
+
+    async def _async_sync_media_review_helper(self) -> None:
+        entity_id = "input_select.bambuddy_photo_review_state"
+        if self.hass.states.get(entity_id) is None:
+            return
+
+        summary = await self.hass.async_add_executor_job(self.store.load_media_review_summary)
+        option = "idle"
+        if int(summary.get("reviewing_count", 0) or 0) > 0:
+            option = "reviewing"
+        elif int(summary.get("pending_count", 0) or 0) > 0:
+            option = "pending"
+
+        current_state = self.hass.states.get(entity_id)
+        if current_state is not None and str(current_state.state) == option:
+            return
+
+        await self.hass.services.async_call(
+            "input_select",
+            "select_option",
+            {"entity_id": entity_id, "option": option},
+            blocking=True,
+        )
 
     @callback
     def _async_handle_helper_state_change(self, event: Event) -> None:

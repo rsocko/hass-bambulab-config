@@ -509,6 +509,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 "photo_count": media_review_state.get("photo_count", 0),
             },
         )
+        await manager._async_sync_media_review_helper()
         manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
@@ -546,6 +547,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 "last_action": media_review_state.get("last_action", ""),
             },
         )
+        await manager._async_sync_media_review_helper()
         manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
