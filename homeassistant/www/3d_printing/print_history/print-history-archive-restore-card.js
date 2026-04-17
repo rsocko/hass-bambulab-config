@@ -82,7 +82,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     this._error = "";
     this._render();
     try {
-      const response = await this._hass.callService("bambuddy", service, data, true);
+      const response = await this._hass.callService("bambuddy", service, data, undefined, true);
       this._message = response?.message || "";
       if (response?.target_archive_id) {
         await this._setHelper(this._config.target_archive_helper, response.target_archive_id);

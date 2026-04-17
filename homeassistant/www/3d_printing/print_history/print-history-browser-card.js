@@ -111,7 +111,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".thumb.media{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
-      ".content-top{display:flex;align-items:flex-start;justify-content:flex-start;min-width:0;}" +
+      ".content-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}" +
+      ".action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
       ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
@@ -133,7 +134,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
       ".dot{width:14px;height:14px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
-      ".favorite{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
+      ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
+      ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
       ".archive-error-text.warning{color:#FFD89B;}" +
@@ -372,9 +374,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
       (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
       '<div class="content">' +
         '<div class="content-top">' +
-        '<button class="favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
+        '<span></span>' +
+        '<div class="action-buttons">' +
+        '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
+        '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
+        '</button>' +
+        '<button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
         '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
         '</button>' +
+        '</div>' +
         '</div>' +
           (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '') +
       '<div class="header">' +
@@ -791,6 +799,48 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return state && state.attributes ? state.attributes : {};
   }
 
+  _resolvedEntryId() {
+    var attributes = this._statusEntityAttributes();
+    return attributes && attributes.entry_id ? String(attributes.entry_id).trim() : "";
+  }
+
+  _buildArchiveViewerUrl(archive) {
+    var archiveId = archive && archive.id != null ? String(archive.id) : "";
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "";
+    var baseUrl = this._apiBaseUrl();
+    var entryId = this._resolvedEntryId();
+    var params = new URLSearchParams();
+    if (archiveId) {
+      params.set("archive_id", archiveId);
+    }
+    if (archiveName) {
+      params.set("archive_name", archiveName);
+    }
+    if (entryId) {
+      params.set("entry_id", entryId);
+    }
+    if (baseUrl) {
+      params.set("bambuddy_base", baseUrl);
+    }
+    return "/local/3d_printing/print_history/print-history-3d-viewer.html?" + params.toString();
+  }
+
+  _openArchiveViewerPopup(archive) {
+    if (!archive || archive.id == null) {
+      return;
+    }
+    var archiveName = archive.print_name || ("Archive " + archive.id);
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "3D View · " + archiveName,
+      size: "wide",
+      content: {
+        type: "iframe",
+        url: this._buildArchiveViewerUrl(archive),
+        aspect_ratio: "16:10",
+      },
+    });
+  }
+
   _popupProjectCatalog() {
     var attributes = this._statusEntityAttributes();
     return Array.isArray(attributes.project_options) ? attributes.project_options : [];
@@ -848,6 +898,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     if (action === "favorite") {
       await this._toggleFavorite(archive);
+      return;
+    }
+
+    if (action === "viewer") {
+      this._openArchiveViewerPopup(archive);
       return;
     }
 
@@ -1055,7 +1110,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
       {
         type: "grid",
-        columns: archiveStatus === "printing" ? 4 : 5,
+        columns: archiveStatus === "printing" ? 5 : 6,
         square: false,
         cards: [
           ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
@@ -1064,6 +1119,26 @@ class PrintHistoryBrowserCard extends HTMLElement {
             "rgba(46,125,50,0.18)",
             { action: "call-service", service: "script.reenrich_print_history_archive", data: { archive_id: String(archiveId) } }
           )]),
+          this._buildPopupActionButton(
+            "3D View",
+            "mdi:cube-scan",
+            "rgba(0,137,123,0.18)",
+            {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.popup",
+                data: {
+                  title: "3D View · " + archiveName,
+                  size: "wide",
+                  content: {
+                    type: "iframe",
+                    url: this._buildArchiveViewerUrl(archive),
+                    aspect_ratio: "16:10",
+                  },
+                },
+              },
+            }
+          ),
           {
             type: "custom:button-card",
             template: "print_history_archive_popup_favorite_button",
