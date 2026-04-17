@@ -39,7 +39,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _maybeLoad() {
-    if (!this.isConnected || !this._config || !this.shadowRoot) {
+    if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {
       return;
     }
     const signature = JSON.stringify(this._config);
