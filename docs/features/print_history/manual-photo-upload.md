@@ -72,28 +72,22 @@ The current file-picker path is already usable on desktop browsers, but a future
 
 ### Extract Images Embedded In `.3mf`
 
-A useful later phase is to surface images embedded inside the archive's `.3mf` so the operator can choose one or more to attach to the archive.
+This is now split into dedicated design docs:
 
-The likely shape is:
+- [source-3mf-import-design.md](source-3mf-import-design.md)
+- [source-3mf-import-implementation-plan.md](source-3mf-import-implementation-plan.md)
 
-1. parse the `.3mf` ZIP server-side from the archive's source file or stored `.3mf`
-2. enumerate candidate image assets from standard package parts and Bambu/Studio-specific preview locations
-3. generate a lightweight preview list in HA
-4. let the user select one or more images to import into Bambuddy as archive photos
+The agreed direction is:
 
-This should remain a separate phase because it introduces materially different concerns:
+1. upload the user-supplied source `.3mf` to HA, not directly to Bambuddy
+2. parse the `.3mf` ZIP server-side in the HA integration
+3. present grouped candidate images and normalized metadata in the popup
+4. let the operator import `none`, `some`, or `all` selected images into Bambuddy as normal archive photos
+5. optionally write back limited metadata such as external URL or a structured provenance notes block
 
-- ZIP/package parsing and file provenance
-- source-asset discovery rules across sliced `.3mf` vs project `.3mf`
-- duplicate detection between embedded previews and already-uploaded archive photos
-- UX for selecting several images instead of a single immediate camera/library action
+This remains a separate feature from ordinary phone/desktop photo upload because it introduces:
 
-### Best Next Step For `.3mf` Images
-
-If that phase is picked up, the first implementation should be read-only discovery:
-
-- inspect real `.3mf` files already present in the archive/backfill corpus
-- document where preview/model images actually live across the file variants in use here
-- only then add import actions into the archive gallery
-
-That keeps the current issue focused on the mobile upload path without overcommitting to assumptions about `.3mf` image layout.
+- ZIP/package parsing
+- source-project versus sliced-preview image classification
+- temporary import-session lifecycle
+- candidate selection UI rather than immediate one-shot upload

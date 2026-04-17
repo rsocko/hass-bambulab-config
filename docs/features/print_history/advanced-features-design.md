@@ -30,6 +30,7 @@ Status below reflects the current state of this repository as of 2026-04-16. `Pa
 | 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
 | 2.13  | Reprint from HA                                                     | High   | Medium                                          | Not started | No reprint action, AMS mapping UX, or safety confirmation flow is implemented yet. |
 | 2.14  | Search from HA                                                      | Medium | Low                                             | Partial     | HA-side local search/filtering exists in print history, but Bambuddy `/archives/search` integration is not wired yet. |
+| 2.15  | Source 3MF image and metadata import                               | Medium | Medium                                          | Not started | Manual photo upload exists, and the popup/gallery already owns archive media actions, but there is no HA-side source `.3mf` discovery, candidate selection, or selective import workflow yet. |
 
 ---
 
@@ -718,3 +719,37 @@ This stays in the roadmap as a fully assigned late phase rather than an unphased
 - **Package**: print_history or assistant-facing helper layer
 - **Effort**: Medium
 - **Value**: Low — mostly convenience, not core workflow improvement
+
+---
+
+## Phase 2.15: Source 3MF Image and Metadata Import
+
+Detailed design is tracked in [source-3mf-import-design.md](source-3mf-import-design.md) and [source-3mf-import-implementation-plan.md](source-3mf-import-implementation-plan.md).
+
+### Summary
+
+- add an archive-popup action that lets the user upload a source `.3mf` to Home Assistant
+- parse the `.3mf` server-side and preview embedded candidate images and normalized metadata
+- let the operator choose `none`, `some`, or `all` candidate images to import into Bambuddy as normal archive photos
+- optionally write back limited metadata such as external URL or a structured provenance notes block
+
+### Why this is a print-history feature
+
+- the popup/gallery already owns archive photo management
+- the HA integration already owns the authenticated photo-upload bridge into Bambuddy
+- Bambuddy source-3MF attachment alone does not provide candidate selection or automatic image import into archive photos
+
+### Recommended implementation shape
+
+- use a dedicated HA HTTP multipart upload view for source `.3mf` discovery rather than base64-over-websocket
+- keep discovery sessions temporary and HA-local
+- reuse the existing Bambuddy archive-photo upload bridge for selected imported images
+- keep imported images as normal Bambuddy archive photos so they automatically participate in existing gallery, delete, and primary-photo-selection flows
+
+### Phase & Dependencies
+
+- **Phase**: 2.15
+- **Depends on**: print_history popup/gallery, manual photo upload bridge, optional metadata write-back via archive PATCH
+- **Package**: print_history plus the `bambuddy` custom integration
+- **Effort**: Medium
+- **Value**: Medium — materially improves archive media quality for source-project prints without changing Bambuddy itself
