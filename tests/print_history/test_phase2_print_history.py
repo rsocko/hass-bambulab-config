@@ -1649,6 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=2", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1658,19 +1659,19 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 
-    def test_archive_viewer_page_uses_local_module_and_proxy_endpoints(self):
-        html = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer.html"
-        ).read_text("utf-8")
+    def test_archive_viewer_card_uses_proxy_endpoints_and_fallbacks(self):
         script = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-page.js"
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-card.js"
         ).read_text("utf-8")
 
-        self.assertIn('/local/3d_printing/print_history/print-history-3d-viewer-page.js?v=1', html)
         self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
         self.assertIn('/api/bambuddy/print-history/archive-viewer/', script)
+        self.assertIn('print-history-3d-viewer-card requires archive_id', script)
+        self.assertIn('const accessToken = this._hass?.auth?.data?.accessToken;', script)
+        self.assertIn('headers.Authorization = `Bearer ${accessToken}`;', script)
         self.assertIn('preview.processGCode(gcodeText);', script)
-        self.assertIn('showFallback(', script)
+        self.assertIn('_showFallback(', script)
+        self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
 
 
 class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
@@ -1703,9 +1704,9 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
         self.assertIn('data-action="viewer"', content)
         self.assertIn('mdi:cube-scan', content)
-        self.assertIn('_buildArchiveViewerUrl(archive)', content)
-        self.assertIn('type: "iframe"', content)
-        self.assertIn('/local/3d_printing/print_history/print-history-3d-viewer.html?', content)
+        self.assertIn('_buildArchiveViewerCardConfig(archive)', content)
+        self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
+        self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
 
     def test_browser_card_popup_action_row_includes_3d_view_button(self):
         content = (
@@ -1714,7 +1715,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
         self.assertIn('"3D View"', content)
         self.assertIn('title: "3D View · " + archiveName', content)
-        self.assertIn('aspect_ratio: "16:10"', content)
+        self.assertIn('content: this._buildArchiveViewerCardConfig(archive)', content)
 
     def test_popup_content_renders_duplicate_summary_from_projected_metadata(self):
         content = (

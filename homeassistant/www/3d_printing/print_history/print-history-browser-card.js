@@ -804,25 +804,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return attributes && attributes.entry_id ? String(attributes.entry_id).trim() : "";
   }
 
-  _buildArchiveViewerUrl(archive) {
-    var archiveId = archive && archive.id != null ? String(archive.id) : "";
-    var archiveName = archive && archive.print_name ? String(archive.print_name) : "";
-    var baseUrl = this._apiBaseUrl();
-    var entryId = this._resolvedEntryId();
-    var params = new URLSearchParams();
-    if (archiveId) {
-      params.set("archive_id", archiveId);
-    }
-    if (archiveName) {
-      params.set("archive_name", archiveName);
-    }
-    if (entryId) {
-      params.set("entry_id", entryId);
-    }
-    if (baseUrl) {
-      params.set("bambuddy_base", baseUrl);
-    }
-    return "/local/3d_printing/print_history/print-history-3d-viewer.html?" + params.toString();
+  _buildArchiveViewerCardConfig(archive) {
+    return {
+      type: "custom:print-history-3d-viewer-card",
+      archive_id: archive && archive.id != null ? String(archive.id) : "",
+      archive_name: archive && archive.print_name ? String(archive.print_name) : "",
+      entry_id: this._resolvedEntryId(),
+      bambuddy_base: this._apiBaseUrl(),
+    };
   }
 
   _openArchiveViewerPopup(archive) {
@@ -833,11 +822,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._fireBrowserModEvent("browser_mod.popup", {
       title: "3D View · " + archiveName,
       size: "wide",
-      content: {
-        type: "iframe",
-        url: this._buildArchiveViewerUrl(archive),
-        aspect_ratio: "16:10",
-      },
+      content: this._buildArchiveViewerCardConfig(archive),
     });
   }
 
@@ -1130,11 +1115,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
                 data: {
                   title: "3D View · " + archiveName,
                   size: "wide",
-                  content: {
-                    type: "iframe",
-                    url: this._buildArchiveViewerUrl(archive),
-                    aspect_ratio: "16:10",
-                  },
+                  content: this._buildArchiveViewerCardConfig(archive),
                 },
               },
             }
