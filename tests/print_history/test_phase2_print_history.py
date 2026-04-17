@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=8", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=9", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

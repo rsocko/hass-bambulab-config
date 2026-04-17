@@ -25,6 +25,7 @@ function getParams() {
     archiveName: String(params.get("archive_name") || "").trim(),
     entryId: String(params.get("entry_id") || "").trim(),
     bambuddyBase: String(params.get("bambuddy_base") || "").trim().replace(/\/$/, ""),
+    captureMode: String(params.get("capture_mode") || "").trim().toLowerCase(),
   };
 }
 
@@ -881,6 +882,9 @@ async function renderPreview(params) {
 async function bootstrap() {
   const params = getParams();
   appState.params = params;
+  if (params.captureMode === "crop") {
+    appState.cropMode = true;
+  }
   updateCapturePanel();
   updateCropOverlay();
   const refreshButton = document.getElementById("refresh-button");

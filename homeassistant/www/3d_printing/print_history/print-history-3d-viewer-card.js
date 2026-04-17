@@ -10,7 +10,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._loadedSignature = "";
     this._preview = null;
     this._refreshButton = null;
+    this._captureButton = null;
+    this._cropButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
+    this._boundCaptureHandler = this._handleOpenCapturePage.bind(this, "capture");
+    this._boundCropHandler = this._handleOpenCapturePage.bind(this, "crop");
   }
 
   setConfig(config) {
@@ -54,6 +58,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._refreshButton) {
       this._refreshButton.removeEventListener("click", this._boundRefreshHandler);
       this._refreshButton = null;
+    }
+    if (this._captureButton) {
+      this._captureButton.removeEventListener("click", this._boundCaptureHandler);
+      this._captureButton = null;
+    }
+    if (this._cropButton) {
+      this._cropButton.removeEventListener("click", this._boundCropHandler);
+      this._cropButton = null;
     }
   }
 
@@ -122,6 +134,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
       "</div>" +
       "<div class='toolbar'>" +
+      "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
+      "<button id='crop-button' class='button' type='button'>Crop Capture</button>" +
       "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
       "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div></div>" +
@@ -137,13 +151,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<p id='fallback-copy' class='fallback-copy'></p>" +
       "<pre id='fallback-snippet'></pre>" +
       "</section>" +
-      "<div class='footnote'>This popup prioritizes the Bambuddy G-code preview path. If the preview library cannot load in your browser, the raw G-code fallback remains available.</div>" +
+      "<div class='footnote'>This popup prioritizes the Bambuddy G-code preview path. Capture and crop tools open the standalone viewer page so the full image-export workflow only lives in one place.</div>" +
       "</div>" +
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
+    this._captureButton = this.shadowRoot.getElementById("capture-button");
+    this._cropButton = this.shadowRoot.getElementById("crop-button");
     if (this._refreshButton) {
       this._refreshButton.addEventListener("click", this._boundRefreshHandler);
+    }
+    if (this._captureButton) {
+      this._captureButton.addEventListener("click", this._boundCaptureHandler);
+    }
+    if (this._cropButton) {
+      this._cropButton.addEventListener("click", this._boundCropHandler);
     }
   }
 
@@ -151,6 +173,28 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const entryId = this._config && this._config.entry_id ? this._config.entry_id : "";
     const suffix = entryId ? `?entry_id=${encodeURIComponent(entryId)}` : "";
     return `${path}${suffix}`;
+  }
+
+  _viewerPageUrl(mode) {
+    const params = new URLSearchParams();
+    params.set("archive_id", String(this._config.archive_id || ""));
+    if (this._config.archive_name) {
+      params.set("archive_name", this._config.archive_name);
+    }
+    if (this._config.entry_id) {
+      params.set("entry_id", this._config.entry_id);
+    }
+    if (mode === "crop") {
+      params.set("capture_mode", "crop");
+    }
+    return `/local/3d_printing/print_history/print-history-3d-viewer.html?${params.toString()}`;
+  }
+
+  _handleOpenCapturePage(mode) {
+    const targetUrl = this._viewerPageUrl(mode);
+    if (typeof window !== "undefined" && typeof window.open === "function") {
+      window.open(targetUrl, "_blank", "noopener");
+    }
   }
 
   _escapeHtml(value) {
