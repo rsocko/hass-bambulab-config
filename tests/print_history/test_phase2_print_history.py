@@ -1705,6 +1705,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('data-action="viewer"', content)
         self.assertIn('mdi:cube-scan', content)
         self.assertIn('_buildArchiveViewerCardConfig(archive)', content)
+        self.assertIn('_buildArchiveViewerPopupContent(archive)', content)
         self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
         self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
 
@@ -1715,7 +1716,9 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
         self.assertIn('"3D View"', content)
         self.assertIn('title: "3D View · " + archiveName', content)
-        self.assertIn('content: this._buildArchiveViewerCardConfig(archive)', content)
+        self.assertIn('type: "vertical-stack"', content)
+        self.assertIn('cards: [this._buildArchiveViewerCardConfig(archive)]', content)
+        self.assertIn('content: this._buildArchiveViewerPopupContent(archive)', content)
 
     def test_popup_content_renders_duplicate_summary_from_projected_metadata(self):
         content = (

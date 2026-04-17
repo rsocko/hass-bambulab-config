@@ -814,6 +814,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
+  _buildArchiveViewerPopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [this._buildArchiveViewerCardConfig(archive)],
+    };
+  }
+
   _openArchiveViewerPopup(archive) {
     if (!archive || archive.id == null) {
       return;
@@ -822,7 +829,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._fireBrowserModEvent("browser_mod.popup", {
       title: "3D View · " + archiveName,
       size: "wide",
-      content: this._buildArchiveViewerCardConfig(archive),
+      content: this._buildArchiveViewerPopupContent(archive),
     });
   }
 
@@ -1115,7 +1122,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
                 data: {
                   title: "3D View · " + archiveName,
                   size: "wide",
-                  content: this._buildArchiveViewerCardConfig(archive),
+                  content: this._buildArchiveViewerPopupContent(archive),
                 },
               },
             }
