@@ -217,7 +217,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (!target || target.getAttribute("data-upload-input") !== "true") {
       return;
     }
-    var files = target.files;
+    var files = Array.prototype.slice.call(target.files || []);
     target.value = "";
     this._uploadSelectedFiles(files);
   }
@@ -430,6 +430,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     var input = this.shadowRoot.querySelector("input[data-upload-input='true']");
     if (input) {
+      try {
+        if (typeof input.showPicker === "function") {
+          input.showPicker();
+          return;
+        }
+      } catch (_error) {
+        // Fall back to click() for browsers without showPicker support.
+      }
       input.click();
     }
   }
@@ -1163,7 +1171,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           '<span class="thumb-label">' + this._escapeHtml(image.label) + '</span>' +
           '</button>';
       }.bind(this)).join("") + '</div>' +
-      '<input type="file" accept="image/*" multiple data-upload-input="true" style="display:none">' +
+      '<input type="file" accept="image/*" multiple data-upload-input="true" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none">' +
       "</div>" +
       "</ha-card>";
 

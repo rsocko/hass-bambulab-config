@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped first-phase multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, and phone-driven manual photo upload. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link and full photo-review workflows rather than basic archive editing.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
 
 Manual phone-photo upload is documented in `manual-photo-upload.md`.
 
@@ -243,7 +243,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / Detail)
 │   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
 │   ├── print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
-│   └── photo_review_chip.yaml                     # conditional review-status chip; next step is chip → existing popup handoff
+│   └── photo_review_chip.yaml                     # conditional review-status chip; remaining work is smarter chip → popup targeting
 └── dashboard_views/
     └── view_print_history.yaml
 
@@ -283,7 +283,7 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Advanced review placeholder; filename-based delete confirmed |
+| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Filename-based delete used by the shipped store-backed photo-review flow |
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, cost, status, and failure reason |
@@ -296,6 +296,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `sensor.bambuddy_print_history_browser_status` | Bambuddy custom integration | Browser backend health, sync state, and store path |
 | `sensor.bambuddy_print_history_browser_filtered` | Bambuddy custom integration | Filtered-count summary, page info, active filters, and color options |
 | `sensor.bambuddy_print_history_browser_page_info` | Bambuddy custom integration | Current page label and total page count |
+| `sensor.bambuddy_print_history_browser_activity` | Bambuddy custom integration | Activity-summary entity backing the heatmap and activity controls |
 | `sensor.print_history_payload_diagnostics` | Template sensor | Confirms the live browser path stays frontend-only and keeps large payloads out of HA state |
 | `sensor.print_history_popup_archive_detail` | Template sensor | Popup-scoped detail cache for one selected archive |
 
@@ -325,9 +326,9 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
 | `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
 | `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | — |
-| `input_number.photo_review_timeout_hours` | input_number | Hours before review auto-dismisses (default: 24) | — |
+| `input_number.photo_review_timeout_hours` | input_number | Timeout control reserved for follow-on media-review auto-dismiss lifecycle | — |
 | `counter.bambuddy_captured_photo_count` | counter | Number of photos captured in the current print cycle | Reset on `print_started` |
-| `input_select.bambuddy_photo_review_state` | input_select | Review lifecycle: `idle`, `pending`, `reviewing` | — |
+| `input_select.bambuddy_photo_review_state` | input_select | Coarse mirrored review lifecycle signal; per-archive source of truth now lives in store-backed `archive_media_review_state` | — |
 | `input_select.print_history_activity_metric` | input_select | Heatmap mode: count, weight, dominant color, outcome, objects, cost, filaments used, or total printing time | - |
 | `input_select.print_history_filter_*` | input_select | Browser filter state (status/material/printer/date/designer/project/layer/tag) | — |
 | `input_text.print_history_popup_*` | input_text | Helper-backed popup edit state for archive ID, print name, tags, and notes | — |
@@ -355,10 +356,8 @@ input_select: !include_dir_merge_named helpers/input_select
 
 Deferred advanced scripts:
 
-- `script.review_delete_photo`
 - `script.review_replace_photo`
 - `script.review_set_cover`
-- `script.review_dismiss`
 
 ### Automations
 
@@ -405,10 +404,13 @@ Implemented now:
 - Day drill-in cards that can follow the active browser filters or ignore them
 - Repeated top/bottom control strip with page navigation, page-size slider, layout toggles, and refresh
 - Archive grid renderer with `Compact`, `Media`, and `Detail` variants
+- Popup edit/save flows for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`
+- Store-backed media review primitives plus popup/gallery actions for primary-photo selection, photo upload, photo delete, and dismiss review
+- Archive-issue detection and browser/popup surfacing for missing core 3MF, source-only, and missing-thumbnail states
 
 Still deferred:
 
-- Photo review popup plus delete/replace/set-cover/dismiss actions
+- Replace-photo orchestration, smarter chip-target handoff, and auto-dismiss lifecycle for media review
 - Compare/deep-link actions and richer follow-on archive workflows
 - Feature-local popup/card template ownership inside `print_history`; today the live templates still sit in the shared button-card registry under `common/dashboard_cards/card_templates`
 
@@ -475,7 +477,7 @@ These are worth planning immediately after the core package is stable, but they 
 - **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
 - **Configurable browser instrumentation** — See [browser-instrumentation.md](browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
 - **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
-- **Photo review actions** — See [photo-review-design.md](photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, with delete actions available in the normal archive popup/gallery as well as review-driven entry, and confirmation required before deletion.
+- **Photo review actions** — See [photo-review-design.md](photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
 - **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
 - **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
 - **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
