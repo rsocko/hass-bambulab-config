@@ -106,6 +106,13 @@
       border-color: rgba(125, 211, 200, 0.28);
     }
 
+    .button[disabled],
+    .button[aria-disabled="true"] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     .chips {
       display: flex;
       flex-wrap: wrap;
@@ -213,11 +220,100 @@
       line-height: 1.5;
     }
 
+    .capture-panel {
+      display: none;
+      grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px 20px 22px;
+    }
+
+    .capture-panel.visible {
+      display: grid;
+    }
+
+    .capture-preview-wrap {
+      min-height: 180px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .capture-preview-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      background: linear-gradient(180deg, rgba(9, 17, 27, 0.86), rgba(14, 24, 36, 0.96));
+    }
+
+    .capture-empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--viewer-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .capture-meta {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .capture-kicker {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--viewer-accent);
+      font-weight: 700;
+    }
+
+    .capture-title {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .capture-copy {
+      color: var(--viewer-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .capture-status {
+      min-height: 24px;
+      color: var(--viewer-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .capture-status.error {
+      color: #fecaca;
+    }
+
+    .capture-status.success {
+      color: #bbf7d0;
+    }
+
+    .capture-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
     @media (max-width: 720px) {
       .shell { padding: 12px; }
       .header { padding: 16px; }
       .chips, .status, .fallback { padding-left: 16px; padding-right: 16px; }
       .stage { min-height: 58vh; }
+      .capture-panel {
+        grid-template-columns: 1fr;
+        padding-left: 16px;
+        padding-right: 16px;
+      }
     }
   </style>
 </head>
@@ -231,6 +327,7 @@
           <div id="viewer-subtitle" class="subtitle">Preparing Bambuddy archive preview.</div>
         </div>
         <div class="toolbar">
+          <button id="capture-button" class="button primary" type="button">Capture View</button>
           <button id="refresh-button" class="button" type="button">Refresh</button>
           <a id="download-link" class="button" href="#" download="archive.gcode">Download G-code</a>
           <a id="archives-link" class="button primary" href="#" target="_blank" rel="noopener noreferrer">Open Bambuddy</a>
@@ -246,6 +343,26 @@
       <div id="viewer-overlay" class="overlay"></div>
     </section>
 
+    <section id="capture-panel" class="panel capture-panel">
+      <div class="capture-preview-wrap">
+        <img id="capture-preview-image" alt="Captured viewer render" hidden>
+        <div id="capture-empty" class="capture-empty">
+          Capture the current render to save a viewer-based archive image. Phase 1 ships the full-frame export path first; crop mode stays in the follow-on slice.
+        </div>
+      </div>
+      <div class="capture-meta">
+        <div class="capture-kicker">Viewer Capture</div>
+        <div id="capture-title" class="capture-title">No render captured yet</div>
+        <div id="capture-copy" class="capture-copy">Use the current canvas as a better archive image when the parser thumbnail is not representative, especially for multi-color prints.</div>
+        <div id="capture-status" class="capture-status"></div>
+        <div class="capture-actions">
+          <button id="download-capture-button" class="button" type="button" disabled>Download PNG</button>
+          <button id="upload-capture-button" class="button" type="button" disabled>Upload to Archive</button>
+          <button id="upload-primary-capture-button" class="button primary" type="button" disabled>Upload + Use In List View</button>
+        </div>
+      </div>
+    </section>
+
     <section id="fallback-panel" class="panel fallback">
       <p class="fallback-title">Raw G-code Fallback</p>
       <p id="fallback-copy" class="fallback-copy"></p>
@@ -256,6 +373,6 @@
       This popup prioritizes the Bambuddy G-code preview path for issue #747. If the preview library cannot load in your browser, the raw G-code fallback remains available.
     </div>
   </div>
-  <script type="module" src="/local/3d_printing/print_history/print-history-3d-viewer-page.js?v=1"></script>
+  <script type="module" src="/local/3d_printing/print_history/print-history-3d-viewer-page.js?v=2"></script>
 </body>
 </html>

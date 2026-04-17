@@ -1683,6 +1683,28 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('_showFallback(', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
 
+    def test_archive_viewer_page_supports_capture_preview_and_upload(self):
+        html = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer.html"
+        ).read_text("utf-8")
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-page.js"
+        ).read_text("utf-8")
+        integration = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+        consts = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
+
+        self.assertIn('id="capture-button"', html)
+        self.assertIn('id="capture-panel"', html)
+        self.assertIn('Upload + Use In List View', html)
+        self.assertIn('Phase 1 ships the full-frame export path first', html)
+        self.assertIn('captureCurrentView()', script)
+        self.assertIn('resolveAccessToken()', script)
+        self.assertIn('uploadCapture(true)', script)
+        self.assertIn('/capture-upload', script)
+        self.assertIn('class ArchiveViewerCaptureUploadView(HomeAssistantView):', integration)
+        self.assertIn('upload_archive_viewer_capture', integration)
+        self.assertIn('ARCHIVE_VIEWER_CAPTURE_UPLOAD_URL', consts)
+
 
 class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
     """Browser card popup should re-render favorite UI from the popup helper."""
