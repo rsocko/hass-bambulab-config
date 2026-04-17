@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=11", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=12", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1686,6 +1686,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('type: "bambuddy/print_history_upload_photo"', script)
         self.assertIn('set_print_history_primary_photo', script)
         self.assertIn('this._hass.callService(', script)
+        self.assertIn('undefined,\n          true,\n          true', script)
         self.assertIn('window.open(targetUrl, "_blank", "noopener")', script)
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
         self.assertIn('tool === 1000', script)

@@ -446,6 +446,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
             photo_path: uploadedPhotoPath,
           },
           undefined,
+          true,
           true
         );
       }
