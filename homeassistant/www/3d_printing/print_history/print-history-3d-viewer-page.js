@@ -1,10 +1,21 @@
 const CDN_MODULE_URL = "https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm";
 
+const CROP_PRESETS = {
+  free: null,
+  square: 1,
+  landscape4x3: 4 / 3,
+  landscape16x9: 16 / 9,
+};
+
 const appState = {
   params: null,
   rendererMode: "gcode",
   capture: null,
   uploadInProgress: false,
+  cropMode: false,
+  cropAspectPreset: "square",
+  cropRect: null,
+  cropDrag: null,
 };
 
 function getParams() {
@@ -20,6 +31,28 @@ function getParams() {
 function buildProxyUrl(path, entryId) {
   const suffix = entryId ? `?entry_id=${encodeURIComponent(entryId)}` : "";
   return `${path}${suffix}`;
+}
+
+function getCropAspectRatio() {
+  return Object.prototype.hasOwnProperty.call(CROP_PRESETS, appState.cropAspectPreset)
+    ? CROP_PRESETS[appState.cropAspectPreset]
+    : CROP_PRESETS.square;
+}
+
+function getStageElement() {
+  const stage = document.getElementById("viewer-stage");
+  return stage instanceof HTMLElement ? stage : null;
+}
+
+function getStageMetrics() {
+  const stage = getStageElement();
+  if (!stage) {
+    return null;
+  }
+  const rect = stage.getBoundingClientRect();
+  const width = Math.max(1, stage.clientWidth || Math.round(rect.width) || 1);
+  const height = Math.max(1, stage.clientHeight || Math.round(rect.height) || 1);
+  return { width, height, rect };
 }
 
 function setButtonDisabled(id, disabled) {
@@ -224,12 +257,29 @@ function setCaptureStatus(message, tone) {
       : "capture-status";
 }
 
+function cropPresetLabel() {
+  switch (appState.cropAspectPreset) {
+    case "free":
+      return "Freeform crop";
+    case "landscape4x3":
+      return "Landscape 4:3 crop";
+    case "landscape16x9":
+      return "Landscape 16:9 crop";
+    default:
+      return "Square crop";
+  }
+}
+
 function updateCapturePanel() {
   const panel = document.getElementById("capture-panel");
   const image = document.getElementById("capture-preview-image");
   const empty = document.getElementById("capture-empty");
   const title = document.getElementById("capture-title");
   const copy = document.getElementById("capture-copy");
+  const controls = document.getElementById("capture-controls");
+  const note = document.getElementById("capture-note");
+  const captureButton = document.getElementById("capture-button");
+  const cropToggleButton = document.getElementById("crop-toggle-button");
   if (!panel || !image || !empty || !title || !copy) {
     return;
   }
@@ -240,13 +290,30 @@ function updateCapturePanel() {
     image.hidden = false;
     empty.hidden = true;
     title.textContent = `${appState.capture.width} x ${appState.capture.height} PNG ready`;
-    copy.textContent = `Archive #${appState.params && appState.params.archiveId ? appState.params.archiveId : ""} viewer capture prepared from the current render surface.`;
+    copy.textContent = `Archive #${appState.params && appState.params.archiveId ? appState.params.archiveId : ""} ${appState.capture.cropLabel || "viewer capture"} prepared from the current render surface.`;
   } else {
     image.removeAttribute("src");
     image.hidden = true;
     empty.hidden = false;
     title.textContent = "No render captured yet";
-    copy.textContent = "Use the current canvas as a better archive image when the parser thumbnail is not representative, especially for multi-color prints.";
+    copy.textContent = appState.cropMode
+      ? `Adjust the ${cropPresetLabel().toLowerCase()} and then capture it. Square is the thumbnail-like default, while landscape presets are better for wide card framing.`
+      : "Use the current canvas as a better archive image when the parser thumbnail is not representative, especially for multi-color prints.";
+  }
+
+  if (controls) {
+    controls.classList.toggle("visible", appState.cropMode);
+  }
+  if (note) {
+    note.textContent = appState.cropMode
+      ? "Square stays closest to the stock 200x200-like thumbnail behavior. Landscape presets usually frame better for the list card and camera-style previews."
+      : "Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.";
+  }
+  if (captureButton) {
+    captureButton.textContent = "Capture View";
+  }
+  if (cropToggleButton) {
+    cropToggleButton.textContent = appState.cropMode ? "Capture Crop" : "Crop Capture";
   }
 
   setButtonDisabled("download-capture-button", !appState.capture);
@@ -264,6 +331,303 @@ function revokeCapture() {
 function getViewerCanvas() {
   const canvas = document.getElementById("viewer-canvas");
   return canvas instanceof HTMLCanvasElement ? canvas : null;
+}
+
+function buildDefaultCropRect(width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const maxWidth = safeWidth * 0.78;
+  const maxHeight = safeHeight * 0.78;
+  const ratio = getCropAspectRatio();
+  let cropWidth = maxWidth;
+  let cropHeight = maxHeight;
+
+  if (ratio) {
+    cropHeight = cropWidth / ratio;
+    if (cropHeight > maxHeight) {
+      cropHeight = maxHeight;
+      cropWidth = cropHeight * ratio;
+    }
+  }
+
+  return {
+    x: Math.round((safeWidth - cropWidth) / 2),
+    y: Math.round((safeHeight - cropHeight) / 2),
+    width: Math.round(cropWidth),
+    height: Math.round(cropHeight),
+  };
+}
+
+function clampCropRect(rect, stageWidth, stageHeight) {
+  const minSize = 48;
+  const safeWidth = Math.max(1, Number(stageWidth) || 1);
+  const safeHeight = Math.max(1, Number(stageHeight) || 1);
+  const ratio = getCropAspectRatio();
+  let width = Math.max(minSize, Math.min(Number(rect.width) || minSize, safeWidth));
+  let height = Math.max(minSize, Math.min(Number(rect.height) || minSize, safeHeight));
+
+  if (ratio) {
+    height = width / ratio;
+    if (height > safeHeight) {
+      height = safeHeight;
+      width = height * ratio;
+    }
+    if (height < minSize) {
+      height = minSize;
+      width = height * ratio;
+    }
+    if (width < minSize) {
+      width = minSize;
+      height = width / ratio;
+    }
+    if (width > safeWidth) {
+      width = safeWidth;
+      height = width / ratio;
+    }
+  }
+
+  let x = Number(rect.x) || 0;
+  let y = Number(rect.y) || 0;
+  x = Math.min(Math.max(0, x), Math.max(0, safeWidth - width));
+  y = Math.min(Math.max(0, y), Math.max(0, safeHeight - height));
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    width: Math.round(width),
+    height: Math.round(height),
+  };
+}
+
+function ensureCropRect(reset) {
+  const metrics = getStageMetrics();
+  if (!metrics) {
+    return null;
+  }
+  if (!appState.cropRect || reset) {
+    appState.cropRect = clampCropRect(buildDefaultCropRect(metrics.width, metrics.height), metrics.width, metrics.height);
+    return appState.cropRect;
+  }
+  appState.cropRect = clampCropRect(appState.cropRect, metrics.width, metrics.height);
+  return appState.cropRect;
+}
+
+function updateCropOverlay() {
+  const layer = document.getElementById("crop-layer");
+  const box = document.getElementById("crop-box");
+  const maskTop = document.getElementById("crop-mask-top");
+  const maskLeft = document.getElementById("crop-mask-left");
+  const maskRight = document.getElementById("crop-mask-right");
+  const maskBottom = document.getElementById("crop-mask-bottom");
+  const select = document.getElementById("crop-aspect-select");
+  if (!layer || !box || !maskTop || !maskLeft || !maskRight || !maskBottom) {
+    return;
+  }
+
+  layer.classList.toggle("active", appState.cropMode);
+  layer.setAttribute("aria-hidden", appState.cropMode ? "false" : "true");
+  if (select) {
+    select.value = appState.cropAspectPreset;
+  }
+
+  if (!appState.cropMode) {
+    return;
+  }
+  const metrics = getStageMetrics();
+  const rect = ensureCropRect(false);
+  if (!metrics || !rect) {
+    return;
+  }
+
+  box.style.left = `${rect.x}px`;
+  box.style.top = `${rect.y}px`;
+  box.style.width = `${rect.width}px`;
+  box.style.height = `${rect.height}px`;
+
+  maskTop.style.left = "0px";
+  maskTop.style.top = "0px";
+  maskTop.style.width = `${metrics.width}px`;
+  maskTop.style.height = `${rect.y}px`;
+
+  maskLeft.style.left = "0px";
+  maskLeft.style.top = `${rect.y}px`;
+  maskLeft.style.width = `${rect.x}px`;
+  maskLeft.style.height = `${rect.height}px`;
+
+  maskRight.style.left = `${rect.x + rect.width}px`;
+  maskRight.style.top = `${rect.y}px`;
+  maskRight.style.width = `${Math.max(0, metrics.width - rect.x - rect.width)}px`;
+  maskRight.style.height = `${rect.height}px`;
+
+  maskBottom.style.left = "0px";
+  maskBottom.style.top = `${rect.y + rect.height}px`;
+  maskBottom.style.width = `${metrics.width}px`;
+  maskBottom.style.height = `${Math.max(0, metrics.height - rect.y - rect.height)}px`;
+}
+
+function setCropMode(enabled) {
+  appState.cropMode = !!enabled;
+  appState.cropDrag = null;
+  if (appState.cropMode) {
+    ensureCropRect(!appState.cropRect);
+    setCaptureStatus("Crop mode is active. Square is the thumbnail-like default; switch to a landscape preset if you want wider framing.", "info");
+  }
+  updateCropOverlay();
+  updateCapturePanel();
+}
+
+function resetCropRect() {
+  if (!appState.cropMode) {
+    return;
+  }
+  ensureCropRect(true);
+  updateCropOverlay();
+  setCaptureStatus(`Reset to ${cropPresetLabel().toLowerCase()}.`, "info");
+}
+
+function buildCornerRect(anchorX, anchorY, pointerX, pointerY, handle, stageWidth, stageHeight) {
+  const minSize = 48;
+  const ratio = getCropAspectRatio();
+  let width = Math.max(minSize, Math.abs(pointerX - anchorX));
+  let height = Math.max(minSize, Math.abs(pointerY - anchorY));
+
+  if (ratio) {
+    if (width / height > ratio) {
+      height = width / ratio;
+    } else {
+      width = height * ratio;
+    }
+  }
+
+  const x = handle.indexOf("w") >= 0 ? anchorX - width : anchorX;
+  const y = handle.indexOf("n") >= 0 ? anchorY - height : anchorY;
+  return clampCropRect({ x, y, width, height }, stageWidth, stageHeight);
+}
+
+function pointerPosition(event) {
+  const stage = getStageElement();
+  if (!stage) {
+    return null;
+  }
+  const rect = stage.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function handleCropPointerDown(event) {
+  if (!appState.cropMode) {
+    return;
+  }
+  const metrics = getStageMetrics();
+  const rect = ensureCropRect(false);
+  if (!metrics || !rect) {
+    return;
+  }
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const position = pointerPosition(event);
+  if (!position) {
+    return;
+  }
+
+  const handle = target.dataset && target.dataset.handle ? String(target.dataset.handle) : "";
+  if (handle) {
+    let anchorX = rect.x;
+    let anchorY = rect.y;
+    if (handle === "nw") {
+      anchorX = rect.x + rect.width;
+      anchorY = rect.y + rect.height;
+    } else if (handle === "ne") {
+      anchorX = rect.x;
+      anchorY = rect.y + rect.height;
+    } else if (handle === "sw") {
+      anchorX = rect.x + rect.width;
+      anchorY = rect.y;
+    } else if (handle === "se") {
+      anchorX = rect.x;
+      anchorY = rect.y;
+    }
+    appState.cropDrag = {
+      type: "resize",
+      handle,
+      anchorX,
+      anchorY,
+      stageWidth: metrics.width,
+      stageHeight: metrics.height,
+    };
+  } else if (target.id === "crop-box" || target.closest("#crop-box")) {
+    appState.cropDrag = {
+      type: "move",
+      startX: position.x,
+      startY: position.y,
+      originX: rect.x,
+      originY: rect.y,
+      width: rect.width,
+      height: rect.height,
+      stageWidth: metrics.width,
+      stageHeight: metrics.height,
+    };
+  }
+
+  if (appState.cropDrag) {
+    event.preventDefault();
+  }
+}
+
+function handleWindowPointerMove(event) {
+  if (!appState.cropDrag || !appState.cropMode) {
+    return;
+  }
+  const position = pointerPosition(event);
+  if (!position) {
+    return;
+  }
+
+  if (appState.cropDrag.type === "move") {
+    const nextX = appState.cropDrag.originX + (position.x - appState.cropDrag.startX);
+    const nextY = appState.cropDrag.originY + (position.y - appState.cropDrag.startY);
+    appState.cropRect = clampCropRect(
+      {
+        x: nextX,
+        y: nextY,
+        width: appState.cropDrag.width,
+        height: appState.cropDrag.height,
+      },
+      appState.cropDrag.stageWidth,
+      appState.cropDrag.stageHeight
+    );
+  } else if (appState.cropDrag.type === "resize") {
+    appState.cropRect = buildCornerRect(
+      appState.cropDrag.anchorX,
+      appState.cropDrag.anchorY,
+      position.x,
+      position.y,
+      appState.cropDrag.handle,
+      appState.cropDrag.stageWidth,
+      appState.cropDrag.stageHeight
+    );
+  }
+
+  updateCropOverlay();
+}
+
+function handleWindowPointerUp() {
+  if (!appState.cropDrag) {
+    return;
+  }
+  appState.cropDrag = null;
+}
+
+function applyCropPreset(value) {
+  appState.cropAspectPreset = Object.prototype.hasOwnProperty.call(CROP_PRESETS, value) ? value : "square";
+  if (appState.cropMode) {
+    ensureCropRect(true);
+    updateCropOverlay();
+  }
+  updateCapturePanel();
 }
 
 function scaledDimensions(width, height, maxDimension) {
@@ -301,13 +665,13 @@ function blobToBase64(blob) {
   });
 }
 
-function buildCaptureFileName() {
+function buildCaptureFileName(isCropped) {
   const params = appState.params || {};
   const archiveId = String(params.archiveId || "archive").trim();
   const rendererMode = String(appState.rendererMode || "viewer").trim().toLowerCase();
   const now = new Date();
   const timestamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  return `viewer-capture-${archiveId}-${rendererMode}-${timestamp}.png`;
+  return `viewer-capture-${archiveId}-${rendererMode}${isCropped ? "-crop" : ""}-${timestamp}.png`;
 }
 
 async function captureCurrentView() {
@@ -321,7 +685,13 @@ async function captureCurrentView() {
     throw new Error("The viewer has not rendered a captureable frame yet.");
   }
 
-  const dimensions = scaledDimensions(sourceWidth, sourceHeight, 2048);
+  const metrics = getStageMetrics();
+  const cropRect = appState.cropMode ? ensureCropRect(false) : null;
+  const sourceX = cropRect && metrics ? Math.max(0, Math.round((cropRect.x / metrics.width) * sourceWidth)) : 0;
+  const sourceY = cropRect && metrics ? Math.max(0, Math.round((cropRect.y / metrics.height) * sourceHeight)) : 0;
+  const sourceCropWidth = cropRect && metrics ? Math.max(1, Math.round((cropRect.width / metrics.width) * sourceWidth)) : sourceWidth;
+  const sourceCropHeight = cropRect && metrics ? Math.max(1, Math.round((cropRect.height / metrics.height) * sourceHeight)) : sourceHeight;
+  const dimensions = scaledDimensions(sourceCropWidth, sourceCropHeight, 2048);
   const exportCanvas = document.createElement("canvas");
   exportCanvas.width = dimensions.width;
   exportCanvas.height = dimensions.height;
@@ -329,8 +699,19 @@ async function captureCurrentView() {
   if (!context) {
     throw new Error("Canvas rendering is unavailable for capture.");
   }
-  context.drawImage(sourceCanvas, 0, 0, dimensions.width, dimensions.height);
+  context.drawImage(
+    sourceCanvas,
+    sourceX,
+    sourceY,
+    sourceCropWidth,
+    sourceCropHeight,
+    0,
+    0,
+    dimensions.width,
+    dimensions.height
+  );
   const blob = await canvasToBlob(exportCanvas, "image/png");
+  const cropLabel = cropRect ? cropPresetLabel() : "Full-frame capture";
 
   revokeCapture();
   appState.capture = {
@@ -339,10 +720,11 @@ async function captureCurrentView() {
     width: dimensions.width,
     height: dimensions.height,
     mimeType: "image/png",
-    fileName: buildCaptureFileName(),
+    fileName: buildCaptureFileName(!!cropRect),
+    cropLabel,
   };
   updateCapturePanel();
-  setCaptureStatus("Captured the current viewer render. Download it or upload it to the archive.", "success");
+  setCaptureStatus(`Captured ${cropLabel.toLowerCase()}. Download it or upload it to the archive.`, "success");
 }
 
 function downloadCapture() {
@@ -500,8 +882,14 @@ async function bootstrap() {
   const params = getParams();
   appState.params = params;
   updateCapturePanel();
+  updateCropOverlay();
   const refreshButton = document.getElementById("refresh-button");
   const captureButton = document.getElementById("capture-button");
+  const cropToggleButton = document.getElementById("crop-toggle-button");
+  const cropAspectSelect = document.getElementById("crop-aspect-select");
+  const resetCropButton = document.getElementById("reset-crop-button");
+  const cancelCropButton = document.getElementById("cancel-crop-button");
+  const cropLayer = document.getElementById("crop-layer");
   const downloadCaptureButton = document.getElementById("download-capture-button");
   const uploadCaptureButton = document.getElementById("upload-capture-button");
   const uploadPrimaryCaptureButton = document.getElementById("upload-primary-capture-button");
@@ -511,12 +899,52 @@ async function bootstrap() {
   if (captureButton) {
     captureButton.addEventListener("click", async () => {
       try {
+        if (appState.cropMode) {
+          setCropMode(false);
+        }
         await captureCurrentView();
       } catch (error) {
         setCaptureStatus(error && error.message ? error.message : "Capture failed.", "error");
       }
     });
   }
+  if (cropToggleButton) {
+    cropToggleButton.addEventListener("click", async () => {
+      try {
+        if (!appState.cropMode) {
+          setCropMode(true);
+          return;
+        }
+        await captureCurrentView();
+      } catch (error) {
+        setCaptureStatus(error && error.message ? error.message : "Crop capture failed.", "error");
+      }
+    });
+  }
+  if (cropAspectSelect) {
+    cropAspectSelect.addEventListener("change", (event) => {
+      const target = event.target;
+      applyCropPreset(target && target.value ? String(target.value) : "square");
+    });
+  }
+  if (resetCropButton) {
+    resetCropButton.addEventListener("click", () => resetCropRect());
+  }
+  if (cancelCropButton) {
+    cancelCropButton.addEventListener("click", () => setCropMode(false));
+  }
+  if (cropLayer) {
+    cropLayer.addEventListener("pointerdown", handleCropPointerDown);
+  }
+  window.addEventListener("pointermove", handleWindowPointerMove);
+  window.addEventListener("pointerup", handleWindowPointerUp);
+  window.addEventListener("resize", () => {
+    if (!appState.cropMode) {
+      return;
+    }
+    ensureCropRect(false);
+    updateCropOverlay();
+  });
   if (downloadCaptureButton) {
     downloadCaptureButton.addEventListener("click", () => downloadCapture());
   }

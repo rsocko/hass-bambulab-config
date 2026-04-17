@@ -172,6 +172,22 @@ Use a simple overlay on the viewer stage:
 
 Keep the interaction intentionally basic. No rotation, perspective correction, or annotation tools.
 
+### Aspect-ratio guidance
+
+Phase 1.1 should not hard-enforce one output ratio for all captures.
+
+- the existing archive photo pipeline already supports arbitrary image sizes
+- Bambuddy's parser-generated thumbnail artifacts appear to be square-like in current sample/archive naming (`200x200`)
+- the shipped print-history list card renders preview images in a wide landscape slot with `object-fit: cover`
+
+That means the right UX is **preset-guided cropping**, not a mandatory ratio lock:
+
+- `Square` is the best default when the user is trying to create a thumbnail-like replacement
+- `Landscape 4:3` and `Landscape 16:9` are better fits for wide card presentation and camera-style framing
+- `Freeform` remains useful for unusual prints such as tall plates or narrow Hueforge compositions
+
+The Phase 1.1 implementation should therefore offer aspect presets and make `Square` the initial default, while still allowing the operator to switch to wider framing when the model composition calls for it.
+
 ### Mobile behavior
 
 On narrow screens:
