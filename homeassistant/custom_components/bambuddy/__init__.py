@@ -584,7 +584,7 @@ class ArchiveViewerCapabilitiesView(HomeAssistantView):
     name = "api:bambuddy:print-history:archive-viewer:capabilities"
     requires_auth = True
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
         resolved = await _resolve_archive_viewer_request(request)
         if isinstance(resolved, web.Response):
             return resolved
@@ -609,7 +609,7 @@ class ArchiveViewerGcodeView(HomeAssistantView):
     name = "api:bambuddy:print-history:archive-viewer:gcode"
     requires_auth = True
 
-    async def get(self, request: web.Request) -> web.Response:
+    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
         resolved = await _resolve_archive_viewer_request(request)
         if isinstance(resolved, web.Response):
             return resolved
@@ -631,7 +631,7 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
     name = "api:bambuddy:print-history:archive-viewer:capture-upload"
     requires_auth = True
 
-    async def post(self, request: web.Request) -> web.Response:
+    async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
         resolved = await _resolve_archive_viewer_request(request)
         if isinstance(resolved, web.Response):
             return resolved
