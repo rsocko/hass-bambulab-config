@@ -329,7 +329,7 @@ The popup must reserve room for additional archive actions without needing anoth
 ### Reserved future consumer set
 
 - issue `#747`
-- issue `#748`
+- issue `#748` — viewer render capture and promote flow tracked in `viewer-render-capture-design.md`
 - issue `#750`
 - issue `#755`
 - issue `#783`
