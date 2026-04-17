@@ -1,0 +1,4 @@
+print_history_restore_upload_session_id:
+  name: Print History Restore Upload Session ID
+  max: 255
+  icon: mdi:file-upload-outline

@@ -272,6 +272,32 @@ class BambuddyRuntimeRepairClient:
         self._token = token.strip()
         self._timeout = ClientTimeout(total=max(1, timeout_seconds))
 
+    async def _async_post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy runtime repair base URL is empty")
+        if not self._token:
+            raise RuntimeError("Bambuddy runtime repair token is empty")
+
+        async with self._session.post(
+            f"{self._base_url}{path}",
+            headers={
+                "Authorization": f"Bearer {self._token}",
+                "Content-Type": "application/json",
+                "accept": "application/json",
+            },
+            json=payload,
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy runtime repair returned HTTP {error.status}") from error
+
+            response_payload = await response.json()
+            if not isinstance(response_payload, dict):
+                raise RuntimeError("Bambuddy runtime repair response was not a JSON object")
+            return response_payload
+
     async def async_estimate_partial_usage(
         self,
         *,
@@ -300,23 +326,10 @@ class BambuddyRuntimeRepairClient:
             payload["last_layer_num"] = last_layer_num
         if last_progress is not None:
             payload["last_progress"] = last_progress
+        return await self._async_post_json("/admin/archive-partial-usage/estimate", payload)
 
-        async with self._session.post(
-            f"{self._base_url}/admin/archive-partial-usage/estimate",
-            headers={
-                "Authorization": f"Bearer {self._token}",
-                "Content-Type": "application/json",
-                "accept": "application/json",
-            },
-            json=payload,
-            timeout=self._timeout,
-        ) as response:
-            try:
-                response.raise_for_status()
-            except ClientResponseError as error:
-                raise RuntimeError(f"Bambuddy runtime repair returned HTTP {error.status}") from error
+    async def async_restore_from(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-restore-from", payload)
 
-            response_payload = await response.json()
-            if not isinstance(response_payload, dict):
-                raise RuntimeError("Bambuddy runtime repair response was not a JSON object")
-            return response_payload
+    async def async_restore_verify(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-restore-verify", payload)

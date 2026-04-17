@@ -18,6 +18,7 @@ def _install_homeassistant_stubs() -> None:
     aiohttp_module = ModuleType("aiohttp")
     homeassistant_module = ModuleType("homeassistant")
     components_module = ModuleType("homeassistant.components")
+    http_module = ModuleType("homeassistant.components.http")
     websocket_api_module = ModuleType("homeassistant.components.websocket_api")
     config_entries_module = ModuleType("homeassistant.config_entries")
     const_module = ModuleType("homeassistant.const")
@@ -53,6 +54,7 @@ def _install_homeassistant_stubs() -> None:
 
     class SupportsResponse:
         ONLY = "only"
+        OPTIONAL = "optional"
 
     class Event:
         def __init__(self, data=None) -> None:
@@ -72,6 +74,29 @@ def _install_homeassistant_stubs() -> None:
     class ClientTimeout:
         def __init__(self, total=None) -> None:
             self.total = total
+
+    class FormData:
+        def __init__(self) -> None:
+            self.fields = []
+
+        def add_field(self, *args, **kwargs) -> None:
+            self.fields.append((args, kwargs))
+
+    class HomeAssistantView:
+        url = ""
+        name = ""
+        requires_auth = True
+
+    class _WebNamespace:
+        class Request:
+            pass
+
+        class Response:
+            pass
+
+        @staticmethod
+        def json_response(payload, status=200):
+            return {"payload": payload, "status": status}
 
     class ActiveConnection:
         def __init__(self) -> None:
@@ -93,6 +118,8 @@ def _install_homeassistant_stubs() -> None:
     aiohttp_module.ClientResponseError = ClientResponseError
     aiohttp_module.ClientSession = ClientSession
     aiohttp_module.ClientTimeout = ClientTimeout
+    aiohttp_module.FormData = FormData
+    aiohttp_module.web = _WebNamespace
 
     config_entries_module.ConfigEntry = ConfigEntry
     const_module.Platform = Platform
@@ -114,6 +141,7 @@ def _install_homeassistant_stubs() -> None:
     websocket_api_module.async_register_command = lambda hass, handler: None
     helpers_module.aiohttp_client = aiohttp_client_module
     util_module.dt = util_dt_module
+    http_module.HomeAssistantView = HomeAssistantView
 
     homeassistant_module.components = components_module
     homeassistant_module.config_entries = config_entries_module
@@ -122,11 +150,13 @@ def _install_homeassistant_stubs() -> None:
     homeassistant_module.helpers = helpers_module
     homeassistant_module.util = util_module
     components_module.websocket_api = websocket_api_module
+    components_module.http = http_module
 
     sys.modules["voluptuous"] = voluptuous_module
     sys.modules["aiohttp"] = aiohttp_module
     sys.modules["homeassistant"] = homeassistant_module
     sys.modules["homeassistant.components"] = components_module
+    sys.modules["homeassistant.components.http"] = http_module
     sys.modules["homeassistant.components.websocket_api"] = websocket_api_module
     sys.modules["homeassistant.config_entries"] = config_entries_module
     sys.modules["homeassistant.const"] = const_module
@@ -196,6 +226,14 @@ class FakeBus:
         return lambda: None
 
 
+class FakeHttp:
+    def __init__(self) -> None:
+        self.views: list[object] = []
+
+    def register_view(self, view) -> None:
+        self.views.append(view)
+
+
 class FakeApiClient:
     archives: list[dict] = []
     printers: list[dict] = []
@@ -203,6 +241,7 @@ class FakeApiClient:
     archive_stats: dict[str, object] = {}
     last_fetch_archives_kwargs: dict[str, object] = {}
     uploaded_photos: list[dict[str, object]] = []
+    uploaded_replacements: list[dict[str, object]] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -253,8 +292,30 @@ class FakeApiClient:
         type(self).uploaded_photos.append(record)
         return record
 
+    async def async_upload_archive_replacement(
+        self,
+        *,
+        printer_id: int,
+        file_path: Path,
+        file_name: str,
+        mime_type: str,
+    ) -> dict[str, object]:
+        record = {
+            "id": 232,
+            "archive_id": 232,
+            "printer_id": printer_id,
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "file_path": str(file_path),
+        }
+        type(self).uploaded_replacements.append(record)
+        return record
+
 
 class FakeRuntimeRepairClient:
+    restore_from_calls: list[dict[str, object]] = []
+    restore_verify_calls: list[dict[str, object]] = []
+
     def __init__(self, _session, _base_url: str, _token: str, _timeout_seconds: int) -> None:
         pass
 
@@ -266,6 +327,37 @@ class FakeRuntimeRepairClient:
             "totals": {"estimated_used_g_total": 12.5, "matched_slots": 1, "unmatched_slots": 0},
             "per_slot": [{"slot_id": 0, "estimated_used_g": 12.5, "spoolman_spool_id": 123}],
             "dedupe": {"dedupe_key": "101:failed:4:42.5", "already_consumed": False, "consumed_by": None},
+        }
+
+    async def async_restore_from(self, payload: dict[str, object]) -> dict[str, object]:
+        type(self).restore_from_calls.append(dict(payload))
+        if payload.get("dry_run"):
+            return {
+                "workflow_state": "plan_ready",
+                "warnings": ["target parser-derived fields preserved"],
+                "updated_fields": ["started_at", "completed_at", "tags"],
+            }
+        return {
+            "workflow_state": "applied_pending_verify",
+            "updated_fields": ["started_at", "completed_at", "tags"],
+            "applied": True,
+        }
+
+    async def async_restore_verify(self, payload: dict[str, object]) -> dict[str, object]:
+        type(self).restore_verify_calls.append(dict(payload))
+        if payload.get("remove_original"):
+            return {
+                "verified": True,
+                "removable": True,
+                "source_removed": True,
+                "blocking_difference_count": 0,
+                "remaining_difference_count": 0,
+            }
+        return {
+            "verified": True,
+            "removable": True,
+            "blocking_difference_count": 0,
+            "remaining_difference_count": 0,
         }
 
 
@@ -283,6 +375,7 @@ class FakeHass:
         self.states = FakeStates(states)
         self.services = FakeServices()
         self.bus = FakeBus()
+        self.http = FakeHttp()
         self.data: dict[str, object] = {}
 
     async def async_add_executor_job(self, func, *args):
@@ -533,6 +626,14 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
@@ -657,6 +758,136 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
     assert manager.mutation_stats["count"] == 6
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
+
+
+def test_variant3_restore_workflow_services_manage_upload_plan_verify_and_clear(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    replacement_file = tmp_path / "replacement.gcode.3mf"
+    replacement_file.write_bytes(b"replacement-bytes")
+    upload_session = manager.restore_uploads.finalize_session(
+        session_id="session-1",
+        entry_id=entry.entry_id,
+        source_archive_id=101,
+        printer_id=1,
+        file_name="replacement.gcode.3mf",
+        content_type="application/octet-stream",
+        size_bytes=replacement_file.stat().st_size,
+        file_path=replacement_file,
+    )
+    manager.restore_workflow.set_upload_ready(
+        entry_id=entry.entry_id,
+        source_archive_id=101,
+        upload_session_id=upload_session.session_id,
+        summary={"upload": upload_session.to_response()},
+    )
+
+    original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
+    original_api_client = init_module.BambuddyApiClient
+    FakeRuntimeRepairClient.restore_from_calls = []
+    FakeRuntimeRepairClient.restore_verify_calls = []
+    FakeApiClient.uploaded_replacements = []
+    FakeApiClient.archives = _projected_archives(query_module.project_archive) + [
+        query_module.project_archive(
+            {
+                "id": 232,
+                "printer_id": 1,
+                "print_name": "Replacement Archive",
+                "actual_time_seconds": 15000,
+                "print_time_seconds": 15000,
+                "filament_used_grams": 42.5,
+                "filament_type": "PLA",
+                "filament_color": "#112233,#ffffff",
+                "status": "completed",
+                "started_at": "2026-04-08T10:00:00Z",
+                "completed_at": "2026-04-08T14:10:00Z",
+                "created_at": "2026-04-08T09:58:00Z",
+                "cost": 2.40,
+                "duplicate_count": 1,
+                "duplicate_sequence": 0,
+                "original_archive_id": 232,
+                "object_count": 2,
+                "layer_height": 0.16,
+                "designer": "Jane",
+                "is_favorite": False,
+                "tags": "replacement",
+                "notes": "+>{\"s\":\"c\"}",
+                "thumbnail_path": "/api/v1/archives/232/thumbnail",
+                "extra_data": {"filament_slots": []},
+                "enrichment_status": "complete",
+            }
+        )
+    ]
+    FakeApiClient.printers = [{"id": 1, "name": "P1S"}]
+    FakeApiClient.projects = []
+    FakeApiClient.archive_stats = {"total_prints": 3}
+    init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
+    init_module.BambuddyApiClient = FakeApiClient
+
+    try:
+        asyncio.run(init_module.async_setup(hass, {}))
+        create_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD)(
+                SimpleNamespace(data={"source_archive_id": 101, "upload_session_id": "session-1"})
+            )
+        )
+        plan_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE)(
+                SimpleNamespace(data={"source_archive_id": 101, "target_archive_id": 232})
+            )
+        )
+        apply_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE)(
+                SimpleNamespace(data={"source_archive_id": 101, "target_archive_id": 232})
+            )
+        )
+        verify_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE)(
+                SimpleNamespace(data={"source_archive_id": 101, "target_archive_id": 232})
+            )
+        )
+        finish_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE)(
+                SimpleNamespace(data={"source_archive_id": 101, "target_archive_id": 232, "retain_original": True})
+            )
+        )
+        clear_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE)(
+                SimpleNamespace(data={"source_archive_id": 101, "target_archive_id": 232})
+            )
+        )
+    finally:
+        init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
+        init_module.BambuddyApiClient = original_api_client
+
+    assert create_response["success"] is True
+    assert create_response["target_archive_id"] == 232
+    assert FakeApiClient.uploaded_replacements[0]["printer_id"] == 1
+    assert plan_response["workflow_state"] == "plan_ready"
+    assert apply_response["workflow_state"] == "applied_pending_verify"
+    assert verify_response["workflow_state"] == "remove_ready"
+    assert finish_response["workflow_state"] == "completed_original_retained"
+    assert clear_response["cleared"] is True
+    assert len(FakeRuntimeRepairClient.restore_from_calls) == 2
+    assert len(FakeRuntimeRepairClient.restore_verify_calls) == 2
 
 
 def test_variant3_primary_photo_service_can_explicitly_revert_to_thumbnail(tmp_path: Path) -> None:

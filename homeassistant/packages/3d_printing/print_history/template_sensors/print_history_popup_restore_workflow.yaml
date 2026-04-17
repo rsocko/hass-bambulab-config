@@ -1,0 +1,63 @@
+- trigger:
+    - trigger: state
+      entity_id: input_text.print_history_restore_source_archive_id
+    - trigger: state
+      entity_id: input_text.print_history_restore_target_archive_id
+    - trigger: state
+      entity_id: input_text.print_history_restore_upload_session_id
+    - trigger: state
+      entity_id: sensor.bambuddy_print_history_browser_status
+      attribute: browser_revision
+    - trigger: homeassistant
+      event: start
+  action:
+    - variables:
+        source_archive_id: "{{ states('input_text.print_history_restore_source_archive_id') | string | trim }}"
+        target_archive_id: "{{ states('input_text.print_history_restore_target_archive_id') | string | trim }}"
+    - if:
+        - condition: template
+          value_template: "{{ source_archive_id != '' or target_archive_id != '' }}"
+      then:
+        - action: bambuddy.get_print_history_archive_restore_workflow
+          data:
+            source_archive_id: "{{ source_archive_id if source_archive_id != '' else none }}"
+            target_archive_id: "{{ target_archive_id if target_archive_id != '' else none }}"
+          response_variable: result
+  sensor:
+    - name: Print History Popup Restore Workflow
+      unique_id: print_history_popup_restore_workflow
+      icon: mdi:wrench-cog
+      state: >-
+        {{ result.get('workflow_state', 'idle') if result is defined and result is mapping else 'idle' }}
+      attributes:
+        source_archive_id: >-
+          {{ result.get('source_archive_id', states('input_text.print_history_restore_source_archive_id') | string | trim) if result is defined and result is mapping else states('input_text.print_history_restore_source_archive_id') | string | trim }}
+        target_archive_id: >-
+          {{ result.get('target_archive_id', states('input_text.print_history_restore_target_archive_id') | string | trim) if result is defined and result is mapping else states('input_text.print_history_restore_target_archive_id') | string | trim }}
+        upload_session_id: >-
+          {{ result.get('upload_session_id', states('input_text.print_history_restore_upload_session_id') | string | trim) if result is defined and result is mapping else states('input_text.print_history_restore_upload_session_id') | string | trim }}
+        pair_key: >-
+          {{ result.get('pair_key', '') if result is defined and result is mapping else '' }}
+        plan_warning_count: >-
+          {{ result.get('plan_warning_count', 0) if result is defined and result is mapping else 0 }}
+        plan_updated_field_count: >-
+          {{ result.get('plan_updated_field_count', 0) if result is defined and result is mapping else 0 }}
+        verify_remaining_difference_count: >-
+          {{ result.get('verify_remaining_difference_count', 0) if result is defined and result is mapping else 0 }}
+        verify_blocking_difference_count: >-
+          {{ result.get('verify_blocking_difference_count', 0) if result is defined and result is mapping else 0 }}
+        verified: >-
+          {{ result.get('verified', false) if result is defined and result is mapping else false }}
+        removable: >-
+          {{ result.get('removable', false) if result is defined and result is mapping else false }}
+        enrichment_status: >-
+          {{ result.get('enrichment_status', '') if result is defined and result is mapping else '' }}
+        last_operation: >-
+          {{ result.get('last_operation', '') if result is defined and result is mapping else '' }}
+        last_operation_at: >-
+          {{ result.get('last_operation_at', '') if result is defined and result is mapping else '' }}
+        last_error: >-
+          {{ result.get('last_error', '') if result is defined and result is mapping else '' }}
+        summary_json: >-
+          {% set summary = result.get('summary', {}) if result is defined and result is mapping else {} %}
+          {{ summary | tojson }}

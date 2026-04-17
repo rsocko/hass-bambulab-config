@@ -215,6 +215,7 @@ class TestFileInventory(unittest.TestCase):
         "print_history_filter_date_chip.yaml",
         "print_history_payload_diagnostics.yaml",
         "print_history_popup_archive_detail.yaml",
+        "print_history_popup_restore_workflow.yaml",
     ]
 
     EXPECTED_LEGACY_TEMPLATE_SENSORS = [
@@ -230,6 +231,9 @@ class TestFileInventory(unittest.TestCase):
         "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_filter_end_date.yaml",
         "input_text_print_history_filter_start_date.yaml",
+        "input_text_print_history_restore_source_archive_id.yaml",
+        "input_text_print_history_restore_target_archive_id.yaml",
+        "input_text_print_history_restore_upload_session_id.yaml",
         "input_text_print_history_search.yaml",
     ]
 
@@ -811,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=15", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=18", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -1046,6 +1050,9 @@ class TestCrossReferences(unittest.TestCase):
         "input_text.bambuddy_last_photo_upload_result",
         "input_text.bambuddy_tray_map_snapshot",
         "input_text.print_history_search",
+        "input_text.print_history_restore_source_archive_id",
+        "input_text.print_history_restore_target_archive_id",
+        "input_text.print_history_restore_upload_session_id",
         "input_text.secondary_camera_entity",
         "input_boolean.bambuddy_history_fetch_enabled",
         "input_boolean.capture_at_start",
@@ -1079,6 +1086,7 @@ class TestCrossReferences(unittest.TestCase):
         "sensor.bambuddy_print_history_browser_page_info",
         "sensor.print_history_payload_diagnostics",
         "sensor.print_history_popup_archive_detail",
+        "sensor.print_history_popup_restore_workflow",
         "sensor.bambuddy_last_print_name",
         "sensor.bambuddy_last_print_status",
         "sensor.bambuddy_last_print_duration",
@@ -1638,6 +1646,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=1", content)
 
 
 class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):

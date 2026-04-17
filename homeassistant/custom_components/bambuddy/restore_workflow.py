@@ -55,6 +55,18 @@ class RestoreWorkflowManager:
     def __init__(self) -> None:
         self._by_source_archive: dict[int, RestoreWorkflowState] = {}
 
+    def _get_or_create(self, *, entry_id: str, source_archive_id: int) -> RestoreWorkflowState:
+        state = self._by_source_archive.get(int(source_archive_id))
+        if state is None:
+            state = RestoreWorkflowState(
+                entry_id=entry_id,
+                source_archive_id=int(source_archive_id),
+            )
+            self._by_source_archive[state.source_archive_id] = state
+        else:
+            state.entry_id = entry_id
+        return state
+
     def set_upload_ready(
         self,
         *,
@@ -63,11 +75,7 @@ class RestoreWorkflowManager:
         upload_session_id: str,
         summary: dict[str, Any],
     ) -> RestoreWorkflowState:
-        state = self._by_source_archive.get(int(source_archive_id)) or RestoreWorkflowState(
-            entry_id=entry_id,
-            source_archive_id=int(source_archive_id),
-        )
-        state.entry_id = entry_id
+        state = self._get_or_create(entry_id=entry_id, source_archive_id=source_archive_id)
         state.upload_session_id = str(upload_session_id).strip()
         state.workflow_state = "replacement_upload_ready"
         state.last_operation = "stage_upload"
@@ -86,11 +94,7 @@ class RestoreWorkflowManager:
         upload_session_id: str,
         summary: dict[str, Any],
     ) -> RestoreWorkflowState:
-        state = self._by_source_archive.get(int(source_archive_id)) or RestoreWorkflowState(
-            entry_id=entry_id,
-            source_archive_id=int(source_archive_id),
-        )
-        state.entry_id = entry_id
+        state = self._get_or_create(entry_id=entry_id, source_archive_id=source_archive_id)
         state.target_archive_id = int(target_archive_id) if target_archive_id else None
         state.upload_session_id = str(upload_session_id).strip()
         state.workflow_state = "replacement_created"
@@ -109,17 +113,60 @@ class RestoreWorkflowManager:
         upload_session_id: str = "",
         message: str,
     ) -> RestoreWorkflowState:
-        state = self._by_source_archive.get(int(source_archive_id)) or RestoreWorkflowState(
-            entry_id=entry_id,
-            source_archive_id=int(source_archive_id),
-        )
-        state.entry_id = entry_id
+        state = self._get_or_create(entry_id=entry_id, source_archive_id=source_archive_id)
         if upload_session_id:
             state.upload_session_id = str(upload_session_id).strip()
         state.workflow_state = "failed"
         state.last_operation = "error"
         state.last_operation_at = self._now_iso()
         state.last_error = str(message).strip()
+        self._by_source_archive[state.source_archive_id] = state
+        return state
+
+    def update(
+        self,
+        *,
+        entry_id: str,
+        source_archive_id: int,
+        workflow_state: str,
+        last_operation: str,
+        target_archive_id: int | None = None,
+        upload_session_id: str | None = None,
+        last_error: str = "",
+        summary: dict[str, Any] | None = None,
+        plan_warning_count: int | None = None,
+        plan_updated_field_count: int | None = None,
+        verify_remaining_difference_count: int | None = None,
+        verify_blocking_difference_count: int | None = None,
+        verified: bool | None = None,
+        removable: bool | None = None,
+        enrichment_status: str | None = None,
+    ) -> RestoreWorkflowState:
+        state = self._get_or_create(entry_id=entry_id, source_archive_id=source_archive_id)
+        state.workflow_state = str(workflow_state).strip() or state.workflow_state
+        state.last_operation = str(last_operation).strip() or state.last_operation
+        state.last_operation_at = self._now_iso()
+        state.last_error = str(last_error or "").strip()
+        if target_archive_id is not None:
+            state.target_archive_id = int(target_archive_id) if int(target_archive_id) > 0 else None
+        if upload_session_id is not None:
+            state.upload_session_id = str(upload_session_id).strip()
+        if summary is not None:
+            state.summary = dict(summary)
+        if plan_warning_count is not None:
+            state.plan_warning_count = max(0, int(plan_warning_count))
+        if plan_updated_field_count is not None:
+            state.plan_updated_field_count = max(0, int(plan_updated_field_count))
+        if verify_remaining_difference_count is not None:
+            state.verify_remaining_difference_count = max(0, int(verify_remaining_difference_count))
+        if verify_blocking_difference_count is not None:
+            state.verify_blocking_difference_count = max(0, int(verify_blocking_difference_count))
+        if verified is not None:
+            state.verified = bool(verified)
+        if removable is not None:
+            state.removable = bool(removable)
+        if enrichment_status is not None:
+            state.enrichment_status = str(enrichment_status).strip()
         self._by_source_archive[state.source_archive_id] = state
         return state
 

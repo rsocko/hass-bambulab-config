@@ -227,7 +227,7 @@ class PrintHistoryBrowserManager:
         )
 
         await self._async_sync_options()
-    await self._async_sync_media_review_helper()
+        await self._async_sync_media_review_helper()
         self._set_status("ready" if self.archives else "refreshing", "Loaded local print history cache")
         self._notify_listeners()
         self.hass.async_create_task(self.async_refresh("startup"))

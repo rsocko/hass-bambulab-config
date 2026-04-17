@@ -594,3 +594,162 @@ create_print_history_archive_replacement_from_upload:
         number:
           min: 1
           mode: box
+
+plan_print_history_archive_restore:
+  name: Plan Print History Archive Restore
+  description: Call the Bambuddy runtime-repair sidecar in dry-run mode to preview a source-to-target restore plan.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+apply_print_history_archive_restore:
+  name: Apply Print History Archive Restore
+  description: Apply the planned source-to-target restore through the Bambuddy runtime-repair sidecar.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    audit_note:
+      name: Audit Note
+      required: false
+      selector:
+        text:
+
+verify_print_history_archive_restore:
+  name: Verify Print History Archive Restore
+  description: Verify a source-to-target restore pair through the Bambuddy runtime-repair sidecar without removing the original archive.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+finish_print_history_archive_restore:
+  name: Finish Print History Archive Restore
+  description: Refresh the replacement archive, optionally attempt re-enrichment, and move the restore workflow to verify-complete or pending-reenrich state.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    attempt_reenrich:
+      name: Attempt Re-Enrich
+      required: false
+      selector:
+        boolean:
+    retain_original:
+      name: Retain Original
+      required: false
+      selector:
+        boolean:
+
+remove_print_history_restored_source_archive:
+  name: Remove Print History Restored Source Archive
+  description: Remove the original source archive after a clean verify pass has marked the restore pair as removable.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+clear_print_history_archive_restore:
+  name: Clear Print History Archive Restore
+  description: Clear transient HA-managed restore workflow state and discard any staged upload session for the selected pair.
+  fields:
+    entry_id:
+      name: Entry ID
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box

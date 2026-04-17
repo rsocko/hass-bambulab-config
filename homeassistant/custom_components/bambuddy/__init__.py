@@ -36,6 +36,12 @@ from .const import (
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
     SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
+    SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE,
+    SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE,
+    SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE,
+    SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE,
+    SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE,
+    SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE,
     SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE,
     SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
@@ -43,6 +49,7 @@ from .const import (
     RESTORE_UPLOAD_DISCOVER_URL,
 )
 from .manager import PrintHistoryBrowserManager
+from .print_history.query import project_archive
 
 
 CONF_ENTRY_ID = "entry_id"
@@ -184,6 +191,28 @@ SERVICE_CREATE_REPLACEMENT_FROM_UPLOAD_SCHEMA = vol.Schema(
         vol.Optional(CONF_PRINTER_ID): vol.Coerce(int),
     }
 )
+SERVICE_RESTORE_OPERATION_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_SOURCE_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required(CONF_TARGET_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("field_groups"): [str],
+        vol.Optional("exclude_tags"): [str],
+        vol.Optional("include_tags"): [str],
+        vol.Optional("overrides"): dict,
+        vol.Optional("run_reenrich"): bool,
+        vol.Optional("audit_note"): str,
+        vol.Optional("attempt_reenrich"): bool,
+        vol.Optional("retain_original"): bool,
+    }
+)
+SERVICE_CLEAR_RESTORE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Optional(CONF_SOURCE_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional(CONF_TARGET_ARCHIVE_ID): vol.Coerce(int),
+    }
+)
 
 
 def _resolve_manager(hass: HomeAssistant, entry_id: str | None = None) -> tuple[str, PrintHistoryBrowserManager]:
@@ -241,6 +270,115 @@ def _extract_uploaded_archive_id(payload: dict[str, Any] | None) -> int | None:
         if normalized is not None:
             return normalized
     return None
+
+
+def _extract_restore_count(payload: dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return max(0, int(value))
+        normalized = _extract_archive_id(value)
+        if normalized is not None:
+            return normalized
+    return 0
+
+
+def _extract_restore_workflow_state(payload: dict[str, Any], default: str) -> str:
+    for key in ("workflow_state", "state", "status"):
+        value = str(payload.get(key, "")).strip()
+        if value:
+            return value
+    return default
+
+
+def _extract_enrichment_status(detail_response: dict[str, Any] | None) -> str:
+    if isinstance(detail_response, dict) and isinstance(detail_response.get("archive"), dict):
+        archive = detail_response.get("archive", {})
+    elif isinstance(detail_response, dict):
+        archive = detail_response
+    else:
+        archive = {}
+    if not isinstance(archive, dict):
+        return ""
+    return str(archive.get("enrichment_status", "")).strip()
+
+
+def _build_runtime_repair_client(
+    hass: HomeAssistant,
+    entry_id: str,
+    manager: PrintHistoryBrowserManager,
+) -> tuple[BambuddyRuntimeRepairClient | None, dict[str, Any] | None]:
+    runtime_repair_base_url = str(
+        manager.entry.options.get(
+            CONF_RUNTIME_REPAIR_BASE_URL,
+            manager.entry.data.get(CONF_RUNTIME_REPAIR_BASE_URL, ""),
+        )
+    ).strip().rstrip("/")
+    runtime_repair_token = str(
+        manager.entry.options.get(
+            CONF_RUNTIME_REPAIR_TOKEN,
+            manager.entry.data.get(CONF_RUNTIME_REPAIR_TOKEN, ""),
+        )
+    ).strip()
+    timeout_seconds = int(
+        manager.entry.options.get(
+            CONF_FETCH_TIMEOUT_SECONDS,
+            manager.entry.data.get(CONF_FETCH_TIMEOUT_SECONDS, 30),
+        )
+    )
+
+    if not runtime_repair_base_url:
+        return None, {
+            "success": False,
+            CONF_ENTRY_ID: entry_id,
+            "error": "runtime_repair_base_url_not_configured",
+            "message": "Bambuddy runtime repair base URL is not configured on the integration entry.",
+        }
+    if not runtime_repair_token:
+        return None, {
+            "success": False,
+            CONF_ENTRY_ID: entry_id,
+            "error": "runtime_repair_token_not_configured",
+            "message": "Bambuddy runtime repair token is not configured on the integration entry.",
+        }
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    return (
+        BambuddyRuntimeRepairClient(
+            session,
+            runtime_repair_base_url,
+            runtime_repair_token,
+            timeout_seconds,
+        ),
+        None,
+    )
+
+
+def _normalize_restore_request_payload(call_data: dict[str, Any], *, dry_run: bool) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        CONF_SOURCE_ARCHIVE_ID: int(call_data[CONF_SOURCE_ARCHIVE_ID]),
+        CONF_TARGET_ARCHIVE_ID: int(call_data[CONF_TARGET_ARCHIVE_ID]),
+        "dry_run": bool(dry_run),
+    }
+    if call_data.get("field_groups"):
+        payload["field_groups"] = [str(item).strip() for item in call_data.get("field_groups", []) if str(item).strip()]
+    if call_data.get("exclude_tags"):
+        payload["exclude_tags"] = [str(item).strip() for item in call_data.get("exclude_tags", []) if str(item).strip()]
+    if call_data.get("include_tags"):
+        payload["include_tags"] = [str(item).strip() for item in call_data.get("include_tags", []) if str(item).strip()]
+    if call_data.get("overrides"):
+        payload["overrides"] = dict(call_data.get("overrides", {}))
+    if call_data.get("run_reenrich") is not None:
+        payload["run_reenrich"] = bool(call_data.get("run_reenrich"))
+    return payload
+
+
+def _workflow_response(entry_id: str, workflow) -> dict[str, Any]:
+    response = workflow.to_response()
+    response[CONF_ENTRY_ID] = entry_id
+    return response
 
 
 class ReplacementArchiveDiscoverView(HomeAssistantView):
@@ -837,49 +975,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     async def async_handle_estimate_partial_usage(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
-        runtime_repair_base_url = str(
-            manager.entry.options.get(
-                CONF_RUNTIME_REPAIR_BASE_URL,
-                manager.entry.data.get(CONF_RUNTIME_REPAIR_BASE_URL, ""),
-            )
-        ).strip().rstrip("/")
-        runtime_repair_token = str(
-            manager.entry.options.get(
-                CONF_RUNTIME_REPAIR_TOKEN,
-                manager.entry.data.get(CONF_RUNTIME_REPAIR_TOKEN, ""),
-            )
-        ).strip()
-        timeout_seconds = int(
-            manager.entry.options.get(
-                CONF_FETCH_TIMEOUT_SECONDS,
-                manager.entry.data.get(CONF_FETCH_TIMEOUT_SECONDS, 30),
-            )
-        )
-
-        if not runtime_repair_base_url:
-            return {
-                "success": False,
-                "entry_id": entry_id,
-                "archive_id": int(call.data[CONF_ARCHIVE_ID]),
-                "error": "runtime_repair_base_url_not_configured",
-                "message": "Bambuddy runtime repair base URL is not configured on the integration entry.",
-            }
-        if not runtime_repair_token:
-            return {
-                "success": False,
-                "entry_id": entry_id,
-                "archive_id": int(call.data[CONF_ARCHIVE_ID]),
-                "error": "runtime_repair_token_not_configured",
-                "message": "Bambuddy runtime repair token is not configured on the integration entry.",
-            }
-
-        session = aiohttp_client.async_get_clientsession(hass)
-        client = BambuddyRuntimeRepairClient(
-            session,
-            runtime_repair_base_url,
-            runtime_repair_token,
-            timeout_seconds,
-        )
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response["archive_id"] = int(call.data[CONF_ARCHIVE_ID])
+            return error_response
 
         try:
             estimate = await client.async_estimate_partial_usage(
@@ -971,6 +1070,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 duration_ms=0.0,
                 details={CONF_UPLOAD_SESSION_ID: upload_session_id, "error": str(error)},
             )
+            manager.browser_revision += 1
             manager._notify_listeners()
             response = workflow.to_response()
             response[CONF_ENTRY_ID] = entry_id
@@ -979,8 +1079,21 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             return response
 
         target_archive_id = _extract_uploaded_archive_id(upload_response)
+        hydration_error = ""
         if target_archive_id is not None:
-            await manager.async_refresh_archive_detail(target_archive_id, operation="hydrate_replacement_archive")
+            try:
+                raw_target_archive = await client.async_fetch_archive_detail(target_archive_id)
+                projected_target_archive = project_archive(dict(raw_target_archive))
+                await hass.async_add_executor_job(manager.store.upsert_archive, projected_target_archive)
+                manager.archives = await hass.async_add_executor_job(manager.store.load_archives)
+                manager._recompute_query("hydrate_replacement_archive")
+            except Exception as error:  # pragma: no cover - best effort hydration after successful upload
+                hydration_error = str(error)
+                _LOGGER.warning(
+                    "Bambuddy replacement archive hydration failed for %s: %s",
+                    target_archive_id,
+                    error,
+                )
         workflow = manager.restore_workflow.set_replacement_created(
             entry_id=entry_id,
             source_archive_id=source_archive_id,
@@ -989,6 +1102,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             summary={
                 "upload": session.to_response(),
                 "upload_response": upload_response or {},
+                "hydration_error": hydration_error,
             },
         )
         manager.record_mutation(
@@ -1002,6 +1116,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             },
         )
         manager.restore_uploads.discard_session(upload_session_id)
+        manager.browser_revision += 1
         manager._notify_listeners()
 
         response = workflow.to_response()
@@ -1009,6 +1124,269 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response["success"] = True
         response["upload_response"] = upload_response or {}
         return response
+
+    async def async_handle_plan_restore(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        target_archive_id = int(call.data[CONF_TARGET_ARCHIVE_ID])
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response[CONF_SOURCE_ARCHIVE_ID] = source_archive_id
+            error_response[CONF_TARGET_ARCHIVE_ID] = target_archive_id
+            return error_response
+
+        payload = _normalize_restore_request_payload(call.data, dry_run=True)
+        try:
+            sidecar_response = await client.async_restore_from(payload)
+        except RuntimeError as error:
+            workflow = manager.restore_workflow.set_error(entry_id=entry_id, source_archive_id=source_archive_id, message=str(error))
+            manager.browser_revision += 1
+            manager._notify_listeners()
+            response = _workflow_response(entry_id, workflow)
+            response["success"] = False
+            response["message"] = str(error)
+            return response
+
+        workflow = manager.restore_workflow.update(
+            entry_id=entry_id,
+            source_archive_id=source_archive_id,
+            target_archive_id=target_archive_id,
+            workflow_state=_extract_restore_workflow_state(sidecar_response, "plan_ready"),
+            last_operation="plan",
+            summary={"plan": sidecar_response},
+            plan_warning_count=len(sidecar_response.get("warnings", [])) if isinstance(sidecar_response.get("warnings"), list) else 0,
+            plan_updated_field_count=len(sidecar_response.get("updated_fields", [])) if isinstance(sidecar_response.get("updated_fields"), list) else 0,
+        )
+        manager.record_mutation(operation="plan_archive_restore", archive_id=source_archive_id, duration_ms=0.0, details={CONF_TARGET_ARCHIVE_ID: target_archive_id})
+        manager.browser_revision += 1
+        manager._notify_listeners()
+        response = _workflow_response(entry_id, workflow)
+        response["success"] = True
+        response["plan"] = sidecar_response
+        return response
+
+    async def async_handle_apply_restore(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        target_archive_id = int(call.data[CONF_TARGET_ARCHIVE_ID])
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response[CONF_SOURCE_ARCHIVE_ID] = source_archive_id
+            error_response[CONF_TARGET_ARCHIVE_ID] = target_archive_id
+            return error_response
+
+        payload = _normalize_restore_request_payload(call.data, dry_run=False)
+        audit_note = str(call.data.get("audit_note", "")).strip()
+        if audit_note:
+            payload["audit_note"] = audit_note
+        try:
+            sidecar_response = await client.async_restore_from(payload)
+        except RuntimeError as error:
+            workflow = manager.restore_workflow.set_error(entry_id=entry_id, source_archive_id=source_archive_id, message=str(error))
+            manager.browser_revision += 1
+            manager._notify_listeners()
+            response = _workflow_response(entry_id, workflow)
+            response["success"] = False
+            response["message"] = str(error)
+            return response
+
+        workflow = manager.restore_workflow.update(
+            entry_id=entry_id,
+            source_archive_id=source_archive_id,
+            target_archive_id=target_archive_id,
+            workflow_state=_extract_restore_workflow_state(sidecar_response, "applied_pending_verify"),
+            last_operation="apply",
+            summary={"apply": sidecar_response},
+            plan_updated_field_count=len(sidecar_response.get("updated_fields", [])) if isinstance(sidecar_response.get("updated_fields"), list) else None,
+        )
+        manager.record_mutation(operation="apply_archive_restore", archive_id=source_archive_id, duration_ms=0.0, details={CONF_TARGET_ARCHIVE_ID: target_archive_id})
+        manager.browser_revision += 1
+        manager._notify_listeners()
+        response = _workflow_response(entry_id, workflow)
+        response["success"] = True
+        response["apply"] = sidecar_response
+        return response
+
+    async def async_handle_verify_restore(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        target_archive_id = int(call.data[CONF_TARGET_ARCHIVE_ID])
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response[CONF_SOURCE_ARCHIVE_ID] = source_archive_id
+            error_response[CONF_TARGET_ARCHIVE_ID] = target_archive_id
+            return error_response
+
+        payload = _normalize_restore_request_payload(call.data, dry_run=True)
+        payload["remove_original"] = False
+        try:
+            sidecar_response = await client.async_restore_verify(payload)
+        except RuntimeError as error:
+            workflow = manager.restore_workflow.set_error(entry_id=entry_id, source_archive_id=source_archive_id, message=str(error))
+            manager.browser_revision += 1
+            manager._notify_listeners()
+            response = _workflow_response(entry_id, workflow)
+            response["success"] = False
+            response["message"] = str(error)
+            return response
+
+        verified = bool(sidecar_response.get("verified", False))
+        removable = bool(sidecar_response.get("removable", verified))
+        blocking_count = _extract_restore_count(sidecar_response, "blocking_difference_count")
+        remaining_count = _extract_restore_count(sidecar_response, "remaining_difference_count")
+        workflow = manager.restore_workflow.update(
+            entry_id=entry_id,
+            source_archive_id=source_archive_id,
+            target_archive_id=target_archive_id,
+            workflow_state="remove_ready" if verified and removable else ("verified_blocked" if blocking_count else "verified_pending"),
+            last_operation="verify",
+            summary={"verify": sidecar_response},
+            verify_remaining_difference_count=remaining_count,
+            verify_blocking_difference_count=blocking_count,
+            verified=verified,
+            removable=removable,
+        )
+        manager.record_mutation(operation="verify_archive_restore", archive_id=source_archive_id, duration_ms=0.0, details={CONF_TARGET_ARCHIVE_ID: target_archive_id, "verified": verified})
+        manager.browser_revision += 1
+        manager._notify_listeners()
+        response = _workflow_response(entry_id, workflow)
+        response["success"] = True
+        response["verify"] = sidecar_response
+        return response
+
+    async def async_handle_finish_restore(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        target_archive_id = int(call.data[CONF_TARGET_ARCHIVE_ID])
+        attempt_reenrich = bool(call.data.get("attempt_reenrich", True))
+        retain_original = bool(call.data.get("retain_original", True))
+
+        target_detail = await hass.async_add_executor_job(manager.store.load_archive, target_archive_id)
+        if target_detail is None:
+            target_detail = await manager.async_refresh_archive_detail(target_archive_id, operation="finish_restore_refresh_target")
+        enrichment_status = _extract_enrichment_status(target_detail)
+        if attempt_reenrich and enrichment_status not in {"complete", "partial"}:
+            await hass.services.async_call(
+                "script",
+                "reenrich_print_history_archive",
+                {"archive_id": str(target_archive_id)},
+                blocking=False,
+            )
+            target_detail = await manager.async_refresh_archive_detail(target_archive_id, operation="finish_restore_refresh_target")
+            enrichment_status = _extract_enrichment_status(target_detail)
+
+        if enrichment_status not in {"complete", "partial"}:
+            workflow = manager.restore_workflow.update(
+                entry_id=entry_id,
+                source_archive_id=source_archive_id,
+                target_archive_id=target_archive_id,
+                workflow_state="finalize_pending_reenrich",
+                last_operation="finish",
+                enrichment_status=enrichment_status or "missing",
+                summary={"message": "Target archive enrichment is not complete. Run re-enrich before cleanup or keep the original archive."},
+            )
+            manager.browser_revision += 1
+            manager._notify_listeners()
+            response = _workflow_response(entry_id, workflow)
+            response["success"] = True
+            response["message"] = "Target archive enrichment is not complete. Run re-enrich before cleanup or keep the original archive."
+            return response
+
+        verify_response = await async_handle_verify_restore(
+            ServiceCall(
+                {
+                    CONF_ENTRY_ID: entry_id,
+                    CONF_SOURCE_ARCHIVE_ID: source_archive_id,
+                    CONF_TARGET_ARCHIVE_ID: target_archive_id,
+                    "field_groups": call.data.get("field_groups", []),
+                    "exclude_tags": call.data.get("exclude_tags", []),
+                    "include_tags": call.data.get("include_tags", []),
+                }
+            )
+        )
+        workflow = manager.restore_workflow.get(source_archive_id=source_archive_id)
+        if workflow is None:
+            raise HomeAssistantError("Restore workflow state was not found after verification")
+
+        if workflow.verified and retain_original:
+            workflow = manager.restore_workflow.update(
+                entry_id=entry_id,
+                source_archive_id=source_archive_id,
+                target_archive_id=target_archive_id,
+                workflow_state="completed_original_retained",
+                last_operation="finish",
+                enrichment_status=enrichment_status,
+                summary={"verify": verify_response.get("verify", {}), "message": "Restore verified; original archive retained."},
+                verified=True,
+                removable=False,
+            )
+            manager.browser_revision += 1
+            manager._notify_listeners()
+
+        response = _workflow_response(entry_id, workflow)
+        response["success"] = True
+        response["verify"] = verify_response.get("verify", {})
+        response["message"] = "Restore verified and original archive retained." if retain_original and workflow.verified else "Restore ready for original removal."
+        return response
+
+    async def async_handle_remove_restored_source(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        target_archive_id = int(call.data[CONF_TARGET_ARCHIVE_ID])
+        workflow = manager.restore_workflow.get(source_archive_id=source_archive_id, target_archive_id=target_archive_id)
+        if workflow is None or workflow.workflow_state != "remove_ready":
+            raise HomeAssistantError("Original removal is only allowed when the workflow state is remove_ready")
+
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response[CONF_SOURCE_ARCHIVE_ID] = source_archive_id
+            error_response[CONF_TARGET_ARCHIVE_ID] = target_archive_id
+            return error_response
+
+        payload = _normalize_restore_request_payload(call.data, dry_run=False)
+        payload["remove_original"] = True
+        try:
+            sidecar_response = await client.async_restore_verify(payload)
+        except RuntimeError as error:
+            workflow = manager.restore_workflow.set_error(entry_id=entry_id, source_archive_id=source_archive_id, message=str(error))
+            manager.browser_revision += 1
+            manager._notify_listeners()
+            response = _workflow_response(entry_id, workflow)
+            response["success"] = False
+            response["message"] = str(error)
+            return response
+
+        manager.restore_workflow.clear(source_archive_id=source_archive_id, target_archive_id=target_archive_id)
+        manager.record_mutation(operation="remove_restored_source_archive", archive_id=source_archive_id, duration_ms=0.0, details={CONF_TARGET_ARCHIVE_ID: target_archive_id})
+        manager.browser_revision += 1
+        manager._notify_listeners()
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            CONF_SOURCE_ARCHIVE_ID: source_archive_id,
+            CONF_TARGET_ARCHIVE_ID: target_archive_id,
+            "removed": bool(sidecar_response.get("source_removed", True)),
+            "verify": sidecar_response,
+        }
+
+    async def async_handle_clear_restore(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = _extract_archive_id(call.data.get(CONF_SOURCE_ARCHIVE_ID))
+        target_archive_id = _extract_archive_id(call.data.get(CONF_TARGET_ARCHIVE_ID))
+        workflow = manager.restore_workflow.get(source_archive_id=source_archive_id, target_archive_id=target_archive_id)
+        upload_session_id = workflow.upload_session_id if workflow is not None else ""
+        if upload_session_id:
+            manager.restore_uploads.discard_session(upload_session_id)
+        cleared = manager.restore_workflow.clear(source_archive_id=source_archive_id, target_archive_id=target_archive_id)
+        manager.browser_revision += 1
+        manager._notify_listeners()
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            CONF_SOURCE_ARCHIVE_ID: source_archive_id,
+            CONF_TARGET_ARCHIVE_ID: target_archive_id,
+            "cleared": cleared,
+        }
 
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_BROWSER):
         hass.services.async_register(
@@ -1119,6 +1497,54 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
             async_handle_create_replacement_from_upload,
             schema=SERVICE_CREATE_REPLACEMENT_FROM_UPLOAD_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE,
+            async_handle_plan_restore,
+            schema=SERVICE_RESTORE_OPERATION_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE,
+            async_handle_apply_restore,
+            schema=SERVICE_RESTORE_OPERATION_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE,
+            async_handle_verify_restore,
+            schema=SERVICE_RESTORE_OPERATION_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE,
+            async_handle_finish_restore,
+            schema=SERVICE_RESTORE_OPERATION_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE,
+            async_handle_remove_restored_source,
+            schema=SERVICE_RESTORE_OPERATION_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE,
+            async_handle_clear_restore,
+            schema=SERVICE_CLEAR_RESTORE_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     return True

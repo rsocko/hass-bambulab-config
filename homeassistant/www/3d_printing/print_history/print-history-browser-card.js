@@ -1055,7 +1055,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
       {
         type: "grid",
-        columns: archiveStatus === "printing" ? 3 : 4,
+        columns: archiveStatus === "printing" ? 4 : 5,
         square: false,
         cards: [
           ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
@@ -1074,6 +1074,63 @@ class PrintHistoryBrowserCard extends HTMLElement {
             "mdi:content-save-outline",
             "rgba(21,101,192,0.18)",
             { action: "call-service", service: "script.save_print_history_archive_popup_edits" }
+          ),
+          this._buildPopupActionButton(
+            "Repair",
+            "mdi:wrench-cog",
+            "rgba(239,108,0,0.18)",
+            {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.sequence",
+                data: {
+                  sequence: [
+                    {
+                      service: "input_text.set_value",
+                      data: {
+                        entity_id: "input_text.print_history_restore_source_archive_id",
+                        value: String(archiveId),
+                      },
+                    },
+                    {
+                      service: "input_text.set_value",
+                      data: {
+                        entity_id: "input_text.print_history_restore_target_archive_id",
+                        value: "",
+                      },
+                    },
+                    {
+                      service: "input_text.set_value",
+                      data: {
+                        entity_id: "input_text.print_history_restore_upload_session_id",
+                        value: "",
+                      },
+                    },
+                    {
+                      service: "bambuddy.clear_print_history_archive_restore",
+                      data: {
+                        source_archive_id: Number(archiveId),
+                      },
+                    },
+                    {
+                      service: "browser_mod.popup",
+                      data: {
+                        title: `Repair ${archiveName}`,
+                        size: "wide",
+                        content: {
+                          type: "custom:print-history-archive-restore-card",
+                          workflow_entity: "sensor.print_history_popup_restore_workflow",
+                          detail_entity: "sensor.print_history_popup_archive_detail",
+                          source_archive_helper: "input_text.print_history_restore_source_archive_id",
+                          target_archive_helper: "input_text.print_history_restore_target_archive_id",
+                          upload_session_helper: "input_text.print_history_restore_upload_session_id",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            }
           ),
           this._buildPopupActionButton(
             "Close",
