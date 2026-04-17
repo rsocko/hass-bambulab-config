@@ -61,6 +61,12 @@ Owns:
 - validating filename and size
 - staging the upload temporarily under HA control
 
+Important for large `.gcode.3mf` files:
+
+- the upload path must assume files may be materially larger than normal popup photo uploads
+- the upload path should stream or spool to disk rather than buffering the entire file in memory
+- the staged file should be passed forward by path/handle under HA control, not re-encoded into helper state or websocket payloads
+
 Does not own:
 
 - sidecar restore logic
@@ -159,6 +165,13 @@ Responsibilities:
 - hold staged files until replacement archive creation succeeds or the session expires
 - clean up expired sessions
 
+Large-file requirements:
+
+- use disk-backed staging in a temp directory, not in-memory byte storage
+- keep only compact metadata in workflow state: session ID, filename, size, and validation summary
+- make max upload size configurable rather than hardcoding a tiny photo-scale limit
+- fail early with a clear operator error if the upload exceeds the configured limit
+
 ### API extension
 
 Likely file to touch:
@@ -169,6 +182,11 @@ Needed client support:
 
 - multipart upload to Bambuddy `POST /api/v1/archives/upload`
 - existing runtime-repair sidecar calls remain separate
+
+Large-file expectation:
+
+- HA should forward the staged file to Bambuddy as multipart from disk/path-backed content where practical
+- do not base64-wrap the replacement file or embed it into JSON service payloads at any point
 
 ## Frontend
 
@@ -241,6 +259,7 @@ Home Assistant can accept a staged replacement upload and maintain transient res
 - HA can stage a replacement `.gcode.3mf`
 - HA can create a replacement archive from a staged session
 - workflow state is queryable by source/target pair
+- staging and forward-upload work without requiring the full file to live in helper state or a long-lived in-memory cache
 
 ## Phase 2: Restore Popup Entry And Pair Seeding
 
@@ -399,3 +418,19 @@ Operator can explicitly remove the original source archive after clean verify.
 - embedding full sidecar diff tables directly in helper-backed YAML cards
 - automatic removal of the original archive after apply
 - blending the restore state machine into the photo gallery card
+
+## Large-File Guardrails
+
+The first implementation should explicitly assume that replacement `.gcode.3mf` files may be large enough to stress normal Lovelace popup upload patterns.
+
+Required guardrails:
+
+1. use HTTP multipart upload to HA, not websocket/base64 transport
+2. spool incoming uploads to disk or temp-file storage as early as possible
+3. keep only session metadata in workflow state and helpers
+4. expose a configurable maximum upload size with a clear operator-facing error message
+5. clean up staged files promptly after replacement archive creation succeeds or the session expires
+
+Recommended later enhancement:
+
+- add progress reporting for upload and Bambuddy forward-transfer so operators can tell the difference between `uploading to HA` and `creating replacement archive in Bambuddy`

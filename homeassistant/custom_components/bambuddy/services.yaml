@@ -534,3 +534,63 @@ estimate_partial_usage:
       required: false
       selector:
         boolean:
+
+get_print_history_archive_restore_workflow:
+  name: Get Print History Archive Restore Workflow
+  description: Return the transient HA-managed replacement-upload and restore workflow state for one source or target archive.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      description: Original Bambuddy archive identifier being repaired.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    target_archive_id:
+      name: Target Archive ID
+      description: Optional replacement archive identifier if already created.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+
+create_print_history_archive_replacement_from_upload:
+  name: Create Print History Archive Replacement From Upload
+  description: Create a new Bambuddy replacement archive from a staged browser-upload session without moving the file through websocket or helper state.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    source_archive_id:
+      name: Source Archive ID
+      description: Original Bambuddy archive identifier being repaired.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    upload_session_id:
+      name: Upload Session ID
+      description: Session identifier returned by the multipart upload endpoint after the replacement `.gcode.3mf` file is staged on disk.
+      required: true
+      selector:
+        text:
+    printer_id:
+      name: Printer ID
+      description: Optional printer override. Defaults to the printer ID captured when the upload was staged.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box

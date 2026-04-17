@@ -81,6 +81,12 @@ Purpose:
 - validate it
 - create a short-lived upload session
 
+Transport expectation:
+
+- this endpoint exists specifically because the replacement file may be quite large
+- the browser should send multipart HTTP directly to HA
+- HA should spool the upload to temp storage rather than assuming it fits comfortably in popup-scale in-memory handling
+
 Multipart fields:
 
 - `entry_id`
@@ -106,9 +112,16 @@ Response shape:
 Validation rules for the first version:
 
 - require `.3mf` suffix
-- cap file size conservatively
+- cap file size with a configurable limit sized for realistic sliced `.gcode.3mf` uploads rather than photo uploads
 - reject malformed ZIPs
 - detect obvious source-project versus sliced-file signals only for warning text, not hard rejection
+
+Operational rules for large files:
+
+- do not relay the file through websocket or base64 transport
+- do not return any binary payload in the response; only return session metadata
+- do not store file bytes in helpers or the restore workflow summary entity
+- expire abandoned staged files automatically
 
 ## Proposed HA Services
 
@@ -154,6 +167,11 @@ Purpose:
 
 - create a replacement Bambuddy archive from a staged upload session
 - set the target archive ID into workflow state
+
+Large-file handling requirement:
+
+- this service should consume the staged file from HA-controlled temp storage and stream or forward it to Bambuddy's multipart upload path
+- it should not require the browser to resend the file after the discovery/upload-session step
 
 Inputs:
 
@@ -434,6 +452,17 @@ Build this contract in the following order:
 4. restore popup card with upload and create flow only
 5. plan/apply/verify services
 6. finish and remove-original services
+
+## Large-File Design Answer
+
+Yes, the intended architecture is to account for large replacement `.gcode.3mf` files, but the key requirement is architectural rather than cosmetic:
+
+- file transport must be multipart HTTP
+- staging must be temp-file or disk backed
+- workflow state must carry only metadata and session IDs
+- forward upload to Bambuddy must reuse the staged file rather than round-tripping the file through the popup again
+
+If an implementation instead tries to hold the full upload in helper state, websocket payloads, or long-lived in-memory structures, it would violate this design.
 
 ## Explicit Non-Goals For The First Slice
 

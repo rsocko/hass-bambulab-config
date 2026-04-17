@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from uuid import uuid4
 
-from aiohttp import ClientResponseError, ClientSession, ClientTimeout
+from aiohttp import ClientResponseError, ClientSession, ClientTimeout, FormData
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -190,6 +191,56 @@ class BambuddyApiClient:
                 response.raise_for_status()
             except ClientResponseError as error:
                 raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+    async def async_upload_archive_replacement(
+        self,
+        *,
+        printer_id: int,
+        file_path: Path,
+        file_name: str,
+        mime_type: str,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_printer_id = int(printer_id)
+        normalized_file_name = str(file_name or "").strip().replace("\r", "_").replace("\n", "_")
+        normalized_file_name = normalized_file_name.replace("\\", "/").split("/")[-1].replace('"', "")
+        normalized_mime_type = str(mime_type or "application/octet-stream").strip().replace("\r", "").replace("\n", "")
+        if normalized_printer_id <= 0:
+            raise RuntimeError("printer_id must be a positive integer")
+        if not normalized_file_name:
+            raise RuntimeError("Upload file_name is empty")
+        if not file_path.exists() or not file_path.is_file():
+            raise RuntimeError("Replacement upload file is missing")
+
+        form = FormData()
+        with file_path.open("rb") as handle:
+            form.add_field(
+                "file",
+                handle,
+                filename=normalized_file_name,
+                content_type=normalized_mime_type or "application/octet-stream",
+            )
+            async with self._session.post(
+                f"{self._base_url}/api/v1/archives/upload?{urlencode({'printer_id': normalized_printer_id})}",
+                headers={"X-API-Key": self._api_key},
+                data=form,
+                timeout=self._timeout,
+            ) as response:
+                try:
+                    response.raise_for_status()
+                except ClientResponseError as error:
+                    raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+                try:
+                    payload = await response.json()
+                except Exception:  # noqa: BLE001
+                    return None
+
+                return payload if isinstance(payload, dict) else None
 
     async def async_fetch_projects(self) -> list[dict[str, Any]]:
         if not self._base_url:

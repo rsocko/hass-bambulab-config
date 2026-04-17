@@ -7,7 +7,9 @@ from time import perf_counter
 from typing import Any
 
 import voluptuous as vol
+from aiohttp import web
 
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
@@ -17,6 +19,8 @@ from homeassistant.helpers import aiohttp_client
 from .api import BambuddyApiClient, BambuddyRuntimeRepairClient
 from .const import (
     DATA_MANAGER,
+    DATA_RESTORE_UPLOADS,
+    DATA_RESTORE_WORKFLOW,
     DOMAIN,
     PLATFORMS,
     SERVICE_APPEND_PRINT_HISTORY_EVENT,
@@ -28,18 +32,25 @@ from .const import (
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
+    SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
+    SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
     SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE,
     SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
+    RESTORE_UPLOAD_DISCOVER_URL,
 )
 from .manager import PrintHistoryBrowserManager
 
 
 CONF_ENTRY_ID = "entry_id"
 CONF_ARCHIVE_ID = "archive_id"
+CONF_SOURCE_ARCHIVE_ID = "source_archive_id"
+CONF_TARGET_ARCHIVE_ID = "target_archive_id"
+CONF_PRINTER_ID = "printer_id"
+CONF_UPLOAD_SESSION_ID = "upload_session_id"
 CONF_RELATED_ARCHIVE_ID = "related_archive_id"
 CONF_RELATION_TYPE = "relation_type"
 
@@ -49,6 +60,7 @@ _LOGGER = logging.getLogger(__name__)
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
+DATA_HTTP_VIEW_REGISTERED = f"{DOMAIN}_restore_upload_view_registered"
 
 
 def _strip_entry_id(payload: dict[str, Any]) -> dict[str, Any]:
@@ -157,10 +169,30 @@ SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA = vol.Schema(
         vol.Optional("keep_tracking_row", default=True): bool,
     }
 )
+SERVICE_GET_RESTORE_WORKFLOW_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Optional(CONF_SOURCE_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional(CONF_TARGET_ARCHIVE_ID): vol.Coerce(int),
+    }
+)
+SERVICE_CREATE_REPLACEMENT_FROM_UPLOAD_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_SOURCE_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required(CONF_UPLOAD_SESSION_ID): str,
+        vol.Optional(CONF_PRINTER_ID): vol.Coerce(int),
+    }
+)
 
 
 def _resolve_manager(hass: HomeAssistant, entry_id: str | None = None) -> tuple[str, PrintHistoryBrowserManager]:
-    managers = hass.data.get(DOMAIN, {})
+    all_data = hass.data.get(DOMAIN, {})
+    managers = {
+        candidate_entry_id: entry_data
+        for candidate_entry_id, entry_data in all_data.items()
+        if isinstance(entry_data, dict) and DATA_MANAGER in entry_data
+    }
     if entry_id:
         entry_data = managers.get(entry_id)
         if entry_data is None:
@@ -177,8 +209,174 @@ def _resolve_manager(hass: HomeAssistant, entry_id: str | None = None) -> tuple[
     return resolved_entry_id, entry_data[DATA_MANAGER]
 
 
+def _extract_archive_id(value: Any) -> int | None:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return None
+    return normalized if normalized > 0 else None
+
+
+def _extract_uploaded_archive_id(payload: dict[str, Any] | None) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+
+    candidates = [
+        payload.get("id"),
+        payload.get("archive_id"),
+        payload.get("target_archive_id"),
+    ]
+    archive_payload = payload.get("archive")
+    if isinstance(archive_payload, dict):
+        candidates.extend(
+            [
+                archive_payload.get("id"),
+                archive_payload.get("archive_id"),
+                archive_payload.get("target_archive_id"),
+            ]
+        )
+
+    for candidate in candidates:
+        normalized = _extract_archive_id(candidate)
+        if normalized is not None:
+            return normalized
+    return None
+
+
+class ReplacementArchiveDiscoverView(HomeAssistantView):
+    url = RESTORE_UPLOAD_DISCOVER_URL
+    name = "api:bambuddy:print-history:archive-repair:replacement:discover"
+    requires_auth = True
+
+    async def post(self, request: web.Request) -> web.Response:
+        hass = request.app["hass"]
+
+        try:
+            reader = await request.multipart()
+        except ValueError as error:
+            return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
+
+        fields: dict[str, Any] = {}
+        file_part = None
+        while True:
+            part = await reader.next()
+            if part is None:
+                break
+            if part.name == "file":
+                file_part = part
+                continue
+            fields[part.name] = await part.text()
+
+        entry_id_raw = str(fields.get(CONF_ENTRY_ID, "")).strip() or None
+        source_archive_id = _extract_archive_id(fields.get(CONF_SOURCE_ARCHIVE_ID))
+        printer_id = _extract_archive_id(fields.get(CONF_PRINTER_ID))
+
+        if source_archive_id is None:
+            return web.json_response(
+                {"success": False, "error": "source_archive_id_required", "message": "source_archive_id is required."},
+                status=400,
+            )
+        if printer_id is None:
+            return web.json_response(
+                {"success": False, "error": "printer_id_required", "message": "printer_id is required."},
+                status=400,
+            )
+        if file_part is None or not getattr(file_part, "filename", ""):
+            return web.json_response(
+                {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
+                status=400,
+            )
+
+        try:
+            resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+            if not await manager.async_ensure_archive_loaded(source_archive_id):
+                raise HomeAssistantError(f"Archive {source_archive_id} was not found in the Bambuddy local store")
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+        manager.restore_uploads.cleanup_expired()
+        session_id, file_path, normalized_file_name = manager.restore_uploads.prepare_session_file_path(file_part.filename)
+        size_bytes = 0
+        try:
+            with file_path.open("wb") as handle:
+                while True:
+                    chunk = await file_part.read_chunk(size=64 * 1024)
+                    if not chunk:
+                        break
+                    size_bytes += len(chunk)
+                    if size_bytes > manager.restore_uploads.max_upload_bytes:
+                        raise HomeAssistantError(
+                            f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
+                        )
+                    handle.write(chunk)
+
+            if size_bytes <= 0:
+                raise HomeAssistantError("Upload payload is empty")
+
+            session = manager.restore_uploads.finalize_session(
+                session_id=session_id,
+                entry_id=resolved_entry_id,
+                source_archive_id=source_archive_id,
+                printer_id=printer_id,
+                file_name=normalized_file_name,
+                content_type=str(file_part.headers.get("Content-Type", "application/octet-stream")),
+                size_bytes=size_bytes,
+                file_path=file_path,
+            )
+            workflow = manager.restore_workflow.set_upload_ready(
+                entry_id=resolved_entry_id,
+                source_archive_id=source_archive_id,
+                upload_session_id=session.session_id,
+                summary={"upload": session.to_response()},
+            )
+            manager.record_mutation(
+                operation="stage_replacement_upload",
+                archive_id=source_archive_id,
+                duration_ms=0.0,
+                details={
+                    CONF_UPLOAD_SESSION_ID: session.session_id,
+                    CONF_PRINTER_ID: printer_id,
+                    "filename": session.file_name,
+                    "size_bytes": session.size_bytes,
+                },
+            )
+            manager._notify_listeners()
+            return web.json_response(
+                {
+                    "success": True,
+                    CONF_ENTRY_ID: resolved_entry_id,
+                    "upload": session.to_response(),
+                    "workflow": workflow.to_response(),
+                }
+            )
+        except HomeAssistantError as error:
+            manager.restore_uploads.discard_session(session_id)
+            manager.restore_workflow.set_error(
+                entry_id=resolved_entry_id,
+                source_archive_id=source_archive_id,
+                message=str(error),
+            )
+            manager._notify_listeners()
+            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=400)
+        except OSError as error:
+            manager.restore_uploads.discard_session(session_id)
+            manager.restore_workflow.set_error(
+                entry_id=resolved_entry_id,
+                source_archive_id=source_archive_id,
+                message=f"Unable to stage uploaded file: {error}",
+            )
+            manager._notify_listeners()
+            return web.json_response(
+                {"success": False, "error": "upload_io_failed", "message": f"Unable to stage uploaded file: {error}"},
+                status=500,
+            )
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
+    if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
+        hass.http.register_view(ReplacementArchiveDiscoverView())
+        hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
     @websocket_api.websocket_command(
         {
@@ -709,6 +907,109 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             "estimate": estimate,
         }
 
+    async def async_handle_get_restore_workflow(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = _extract_archive_id(call.data.get(CONF_SOURCE_ARCHIVE_ID))
+        target_archive_id = _extract_archive_id(call.data.get(CONF_TARGET_ARCHIVE_ID))
+        workflow = manager.restore_workflow.get(
+            source_archive_id=source_archive_id,
+            target_archive_id=target_archive_id,
+        )
+        if workflow is None:
+            return {
+                "workflow_state": "idle",
+                CONF_ENTRY_ID: entry_id,
+                CONF_SOURCE_ARCHIVE_ID: source_archive_id,
+                CONF_TARGET_ARCHIVE_ID: target_archive_id,
+                CONF_UPLOAD_SESSION_ID: "",
+                "pair_key": f"restore:{source_archive_id or 'unknown'}:{target_archive_id or 'pending'}",
+            }
+        response = workflow.to_response()
+        response[CONF_ENTRY_ID] = entry_id
+        return response
+
+    async def async_handle_create_replacement_from_upload(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        source_archive_id = int(call.data[CONF_SOURCE_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(source_archive_id):
+            raise HomeAssistantError(f"Archive {source_archive_id} was not found in the Bambuddy local store")
+
+        upload_session_id = str(call.data[CONF_UPLOAD_SESSION_ID]).strip()
+        session = manager.restore_uploads.get_session(upload_session_id)
+        if session is None:
+            raise HomeAssistantError(f"Unknown or expired upload_session_id: {upload_session_id}")
+        if session.source_archive_id != source_archive_id:
+            raise HomeAssistantError("Upload session does not belong to the requested source archive")
+        if session.entry_id != entry_id:
+            raise HomeAssistantError("Upload session belongs to a different Bambuddy entry")
+
+        printer_id = int(call.data.get(CONF_PRINTER_ID, session.printer_id))
+        session_client = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyApiClient(
+            session_client,
+            manager.base_url,
+            manager.api_key,
+            manager.fetch_timeout_seconds,
+        )
+        try:
+            upload_response = await client.async_upload_archive_replacement(
+                printer_id=printer_id,
+                file_path=session.file_path,
+                file_name=session.file_name,
+                mime_type=session.content_type,
+            )
+        except RuntimeError as error:
+            workflow = manager.restore_workflow.set_error(
+                entry_id=entry_id,
+                source_archive_id=source_archive_id,
+                upload_session_id=upload_session_id,
+                message=str(error),
+            )
+            manager.record_mutation(
+                operation="create_replacement_archive_failed",
+                archive_id=source_archive_id,
+                duration_ms=0.0,
+                details={CONF_UPLOAD_SESSION_ID: upload_session_id, "error": str(error)},
+            )
+            manager._notify_listeners()
+            response = workflow.to_response()
+            response[CONF_ENTRY_ID] = entry_id
+            response["success"] = False
+            response["message"] = str(error)
+            return response
+
+        target_archive_id = _extract_uploaded_archive_id(upload_response)
+        if target_archive_id is not None:
+            await manager.async_refresh_archive_detail(target_archive_id, operation="hydrate_replacement_archive")
+        workflow = manager.restore_workflow.set_replacement_created(
+            entry_id=entry_id,
+            source_archive_id=source_archive_id,
+            target_archive_id=target_archive_id,
+            upload_session_id=upload_session_id,
+            summary={
+                "upload": session.to_response(),
+                "upload_response": upload_response or {},
+            },
+        )
+        manager.record_mutation(
+            operation="create_replacement_archive",
+            archive_id=source_archive_id,
+            duration_ms=0.0,
+            details={
+                CONF_UPLOAD_SESSION_ID: upload_session_id,
+                CONF_TARGET_ARCHIVE_ID: target_archive_id or 0,
+                CONF_PRINTER_ID: printer_id,
+            },
+        )
+        manager.restore_uploads.discard_session(upload_session_id)
+        manager._notify_listeners()
+
+        response = workflow.to_response()
+        response[CONF_ENTRY_ID] = entry_id
+        response["success"] = True
+        response["upload_response"] = upload_response or {}
+        return response
+
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_BROWSER):
         hass.services.async_register(
             DOMAIN,
@@ -770,7 +1071,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE,
             async_handle_set_media_review_state,
             schema=SERVICE_MEDIA_REVIEW_STATE_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+            supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW):
         hass.services.async_register(
@@ -778,7 +1079,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW,
             async_handle_dismiss_media_review,
             schema=SERVICE_DETAIL_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+            supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE):
         hass.services.async_register(
@@ -804,6 +1105,22 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             schema=SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
+            async_handle_get_restore_workflow,
+            schema=SERVICE_GET_RESTORE_WORKFLOW_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
+            async_handle_create_replacement_from_upload,
+            schema=SERVICE_CREATE_REPLACEMENT_FROM_UPLOAD_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
     return True
 
 
@@ -815,7 +1132,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     manager = PrintHistoryBrowserManager(hass, entry)
-    hass.data[DOMAIN][entry.entry_id] = {DATA_MANAGER: manager}
+    hass.data[DOMAIN][entry.entry_id] = {
+        DATA_MANAGER: manager,
+        DATA_RESTORE_UPLOADS: manager.restore_uploads,
+        DATA_RESTORE_WORKFLOW: manager.restore_workflow,
+    }
     _LOGGER.info("Setting up Bambuddy entry %s", entry.entry_id)
     await manager.async_initialize()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

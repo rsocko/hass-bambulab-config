@@ -21,8 +21,11 @@ from .const import (
     CONF_API_KEY,
     CONF_BASE_URL,
     CONF_FETCH_TIMEOUT_SECONDS,
+    CONF_RESTORE_UPLOAD_MAX_BYTES,
     CONF_SCAN_INTERVAL_SECONDS,
     DEFAULT_FETCH_TIMEOUT_SECONDS,
+    DEFAULT_RESTORE_UPLOAD_MAX_BYTES,
+    DEFAULT_RESTORE_UPLOAD_SESSION_TTL,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     EVENT_BAMBUDDY_WEBHOOK,
     OPTION_SET_HELPERS,
@@ -32,6 +35,8 @@ from .const import (
 )
 from .print_history.query import QueryResult, as_int, as_text, normalize_filter_date_value, normalize_status, option_sets, project_archive, query_archives
 from .print_history.store import PrintHistoryStore
+from .restore_uploads import ReplacementUploadManager
+from .restore_workflow import RestoreWorkflowManager
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,6 +103,12 @@ class PrintHistoryBrowserManager:
         self.hass = hass
         self.entry = entry
         self.store = PrintHistoryStore(Path(hass.config.path(".storage", STORE_FILENAME)))
+        self.restore_uploads = ReplacementUploadManager(
+            Path(hass.config.path(".storage", "bambuddy_restore_uploads", entry.entry_id)),
+            self.restore_upload_max_bytes,
+            DEFAULT_RESTORE_UPLOAD_SESSION_TTL,
+        )
+        self.restore_workflow = RestoreWorkflowManager()
         self.archives: list[dict[str, Any]] = []
         self.result = query_archives([], self._state_snapshot())
         self.activity_summary: dict[str, Any] = {"archive_count": 0, "active_day_count": 0, "latest_archive_id": 0}
@@ -196,6 +207,7 @@ class PrintHistoryBrowserManager:
         self._recent_operations: deque[dict[str, Any]] = deque(maxlen=RECENT_OPERATION_LIMIT)
 
     async def async_initialize(self) -> None:
+        self.restore_uploads.cleanup_expired()
         await self.hass.async_add_executor_job(self.store.initialize)
         _LOGGER.info("Initialized Bambuddy local store at %s", self.store._db_path)
         self.archives = await self.hass.async_add_executor_job(self.store.load_archives)
@@ -222,6 +234,7 @@ class PrintHistoryBrowserManager:
 
     async def async_shutdown(self) -> None:
         _LOGGER.debug("Shutting down Bambuddy print history browser manager")
+        self.restore_uploads.cleanup_expired()
         self._cancel_scheduled_refresh()
         self._cancel_scheduled_recompute()
         while self._unsubscribers:
@@ -265,6 +278,15 @@ class PrintHistoryBrowserManager:
             self.entry.options.get(
                 CONF_SCAN_INTERVAL_SECONDS,
                 self.entry.data.get(CONF_SCAN_INTERVAL_SECONDS, DEFAULT_SCAN_INTERVAL_SECONDS),
+            )
+        )
+
+    @property
+    def restore_upload_max_bytes(self) -> int:
+        return int(
+            self.entry.options.get(
+                CONF_RESTORE_UPLOAD_MAX_BYTES,
+                self.entry.data.get(CONF_RESTORE_UPLOAD_MAX_BYTES, DEFAULT_RESTORE_UPLOAD_MAX_BYTES),
             )
         )
 

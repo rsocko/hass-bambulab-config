@@ -14,12 +14,17 @@ CONF_RUNTIME_REPAIR_BASE_URL = "runtime_repair_base_url"
 CONF_RUNTIME_REPAIR_TOKEN = "runtime_repair_token"
 CONF_FETCH_TIMEOUT_SECONDS = "fetch_timeout_seconds"
 CONF_SCAN_INTERVAL_SECONDS = "scan_interval_seconds"
+CONF_RESTORE_UPLOAD_MAX_BYTES = "restore_upload_max_bytes"
 
 DEFAULT_FETCH_TIMEOUT_SECONDS = 30
 DEFAULT_SCAN_INTERVAL_SECONDS = 300
 DEFAULT_SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL_SECONDS)
+DEFAULT_RESTORE_UPLOAD_MAX_BYTES = 512 * 1024 * 1024
+DEFAULT_RESTORE_UPLOAD_SESSION_TTL = timedelta(minutes=30)
 
 DATA_MANAGER = "manager"
+DATA_RESTORE_UPLOADS = "restore_uploads"
+DATA_RESTORE_WORKFLOW = "restore_workflow"
 SERVICE_REFRESH_PRINT_HISTORY_BROWSER = "refresh_print_history_browser"
 SERVICE_QUERY_PRINT_HISTORY_BROWSER = "query_print_history_browser"
 SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL = "get_print_history_archive_detail"
@@ -32,7 +37,10 @@ SERVICE_SET_PRINT_HISTORY_REVIEW_STATE = "set_print_history_review_state"
 SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE = "set_print_history_repair_lineage"
 SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE = "delete_print_history_repair_lineage"
 SERVICE_ESTIMATE_PARTIAL_USAGE = "estimate_partial_usage"
+SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW = "get_print_history_archive_restore_workflow"
+SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD = "create_print_history_archive_replacement_from_upload"
 STORE_FILENAME = "bambuddy_print_history_browser.db"
+RESTORE_UPLOAD_DISCOVER_URL = "/api/bambuddy/print-history/archive-repair/replacement/discover"
 
 EVENT_BAMBUDDY_WEBHOOK = "bambuddy_webhook_event"
 REFRESH_WEBHOOK_EVENTS = {"print_complete", "print_failed", "print_started", "print_stopped"}
