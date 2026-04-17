@@ -81,12 +81,10 @@ def _basename(path: str) -> str:
     return normalized.rsplit("/", 1)[-1]
 
 
-def _resolve_uploaded_photo_path(archive: dict[str, Any] | None, requested_name: str) -> str:
+def _collect_archive_photo_paths(archive: dict[str, Any] | None) -> list[str]:
     if not isinstance(archive, dict):
-        return ""
+        return []
 
-    requested_path = str(requested_name or "").strip()
-    requested_basename = _basename(requested_path)
     candidates: list[str] = []
 
     photo_items = archive.get("photo_items")
@@ -103,12 +101,59 @@ def _resolve_uploaded_photo_path(archive: dict[str, Any] | None, requested_name:
             elif isinstance(item, dict):
                 candidates.append(str(item.get("path") or item.get("photo_path") or item.get("url") or "").strip())
 
+    seen: set[str] = set()
+    ordered: list[str] = []
     for candidate in candidates:
+        if candidate and candidate not in seen:
+            seen.add(candidate)
+            ordered.append(candidate)
+    return ordered
+
+
+def _resolve_uploaded_photo_path(
+    archive: dict[str, Any] | None,
+    requested_name: str,
+    *,
+    previous_archive: dict[str, Any] | None = None,
+    upload_response: dict[str, Any] | None = None,
+) -> str:
+    current_candidates = _collect_archive_photo_paths(archive)
+    previous_candidates = set(_collect_archive_photo_paths(previous_archive))
+    added_candidates = [candidate for candidate in current_candidates if candidate not in previous_candidates]
+    requested_path = str(requested_name or "").strip()
+    requested_basename = _basename(requested_path)
+
+    for candidate in added_candidates:
+        if requested_path and candidate == requested_path:
+            return candidate
+    for candidate in added_candidates:
+        if requested_basename and _basename(candidate) == requested_basename:
+            return candidate
+
+    if isinstance(upload_response, dict):
+        response_candidates = [
+            str(upload_response.get("path") or "").strip(),
+            str(upload_response.get("photo_path") or "").strip(),
+            str(upload_response.get("url") or "").strip(),
+            str(upload_response.get("file_path") or "").strip(),
+            str(upload_response.get("filename") or upload_response.get("file_name") or "").strip(),
+        ]
+        for candidate in response_candidates:
+            if candidate and candidate in current_candidates:
+                return candidate
+        response_basenames = {_basename(candidate) for candidate in response_candidates if candidate}
+        for candidate in current_candidates:
+            if _basename(candidate) in response_basenames:
+                return candidate
+
+    for candidate in current_candidates:
         if candidate and candidate == requested_path:
             return candidate
-    for candidate in candidates:
+    for candidate in current_candidates:
         if candidate and _basename(candidate) == requested_basename:
             return candidate
+    if added_candidates:
+        return added_candidates[-1]
     return requested_path
 
 
@@ -697,6 +742,7 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
                 status=404,
             )
 
+        archive_before_upload = manager.build_archive_detail_response(archive_id)
         upload_response: dict[str, Any] | None = None
         try:
             upload_response = await client.async_upload_archive_photo(
@@ -731,7 +777,12 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
                 status=500,
             )
 
-        uploaded_photo_path = _resolve_uploaded_photo_path(refreshed_archive, file_name)
+        uploaded_photo_path = _resolve_uploaded_photo_path(
+            refreshed_archive,
+            file_name,
+            previous_archive=archive_before_upload,
+            upload_response=upload_response,
+        )
         primary_photo_selection: dict[str, Any] | None = None
 
         if use_as_primary and uploaded_photo_path:
@@ -925,6 +976,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 manager.api_key,
                 manager.fetch_timeout_seconds,
             )
+            archive_before_upload = manager.build_archive_detail_response(archive_id)
             upload_response = await client.async_upload_archive_photo(
                 archive_id,
                 file_name=str(msg.get("file_name", "")),
@@ -945,6 +997,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             uploaded_photo_path = _resolve_uploaded_photo_path(
                 refreshed_archive,
                 str(msg.get("file_name", "")).strip(),
+                previous_archive=archive_before_upload,
+                upload_response=upload_response,
             )
 
             response = manager.build_archive_detail_response(archive_id)
