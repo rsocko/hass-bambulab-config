@@ -9,12 +9,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._loadToken = 0;
     this._loadedSignature = "";
     this._preview = null;
+    this._capture = null;
+    this._uploadInProgress = false;
+    this._rendererMode = "gcode";
     this._refreshButton = null;
     this._captureButton = null;
     this._cropButton = null;
+    this._downloadCaptureButton = null;
+    this._uploadCaptureButton = null;
+    this._uploadPrimaryCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
-    this._boundCaptureHandler = this._handleOpenCapturePage.bind(this, "capture");
+    this._boundCaptureHandler = this._handleCapture.bind(this);
     this._boundCropHandler = this._handleOpenCapturePage.bind(this, "crop");
+    this._boundDownloadCaptureHandler = this._downloadCapture.bind(this);
+    this._boundUploadCaptureHandler = this._handleUploadCapture.bind(this, false);
+    this._boundUploadPrimaryCaptureHandler = this._handleUploadCapture.bind(this, true);
   }
 
   setConfig(config) {
@@ -42,11 +51,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
   disconnectedCallback() {
     this._disposePreview(true);
+    this._revokeCapture();
     this._detachShellListeners();
   }
 
   getCardSize() {
-    return 14;
+    return 18;
   }
 
   _handleRefresh() {
@@ -66,6 +76,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._cropButton) {
       this._cropButton.removeEventListener("click", this._boundCropHandler);
       this._cropButton = null;
+    }
+    if (this._downloadCaptureButton) {
+      this._downloadCaptureButton.removeEventListener("click", this._boundDownloadCaptureHandler);
+      this._downloadCaptureButton = null;
+    }
+    if (this._uploadCaptureButton) {
+      this._uploadCaptureButton.removeEventListener("click", this._boundUploadCaptureHandler);
+      this._uploadCaptureButton = null;
+    }
+    if (this._uploadPrimaryCaptureButton) {
+      this._uploadPrimaryCaptureButton.removeEventListener("click", this._boundUploadPrimaryCaptureHandler);
+      this._uploadPrimaryCaptureButton = null;
     }
   }
 
@@ -97,7 +119,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<style>" +
       ":host{display:block;}" +
       "ha-card{padding:0;overflow:hidden;border-radius:24px;background:linear-gradient(180deg,#071019 0%,#09111b 100%);color:#f8fafc;}" +
-      ".shell{display:grid;grid-template-rows:auto auto 1fr auto;gap:14px;min-height:680px;padding:18px;}" +
+      ".shell{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:14px;min-height:720px;padding:18px;}" +
       ".panel{border:1px solid rgba(125,211,200,0.18);border-radius:20px;background:rgba(13,23,35,0.94);box-shadow:0 18px 50px rgba(0,0,0,0.22);backdrop-filter:blur(10px);}" +
       ".header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;}" +
       ".eyebrow{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;margin-bottom:6px;}" +
@@ -106,7 +128,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;}" +
       ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:600;cursor:pointer;}" +
       ".button.primary{background:rgba(125,211,200,0.14);border-color:rgba(125,211,200,0.28);}" +
-      ".button[aria-disabled='true']{opacity:0.45;pointer-events:none;}" +
+      ".button:disabled,.button[aria-disabled='true']{opacity:0.45;pointer-events:none;}" +
       ".chips{display:flex;flex-wrap:wrap;gap:10px;padding:0 20px 18px;}" +
       ".chip{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#f8fafc;font-size:0.84rem;font-weight:600;}" +
       ".chip.warn{color:#fde68a;border-color:rgba(245,158,11,0.34);background:rgba(245,158,11,0.12);}" +
@@ -116,13 +138,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".canvas{width:100%;height:100%;display:block;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
+      ".capture-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,0.95fr);gap:18px;padding:18px 20px;}" +
+      ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
+      ".capture-preview-wrap img{display:block;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
+      ".capture-empty{padding:22px;color:#9fb0c0;font-size:0.94rem;line-height:1.6;text-align:left;}" +
+      ".capture-meta{display:grid;align-content:start;gap:10px;}" +
+      ".capture-kicker{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;}" +
+      ".capture-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
+      ".capture-copy{color:#9fb0c0;font-size:0.94rem;line-height:1.55;}" +
+      ".capture-status{min-height:22px;font-size:0.9rem;color:#9fb0c0;}" +
+      ".capture-status.error{color:#fecaca;}" +
+      ".capture-status.success{color:#86efac;}" +
+      ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px;}" +
       ".fallback{display:none;padding:18px 20px 22px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(18,31,46,0.98);}" +
       ".fallback.visible{display:block;}" +
       ".fallback-title{margin:0 0 8px;font-size:0.96rem;font-weight:700;}" +
       ".fallback-copy{margin:0 0 12px;color:#9fb0c0;line-height:1.5;font-size:0.92rem;}" +
       ".fallback pre{margin:0;padding:14px;border-radius:14px;overflow:auto;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.06);color:#dbeafe;font-family:'Cascadia Code',Consolas,monospace;font-size:0.8rem;line-height:1.45;max-height:220px;}" +
       ".footnote{padding:0 4px;color:#9fb0c0;font-size:0.82rem;line-height:1.5;}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:560px;}.header{padding:16px;}.chips,.status,.fallback{padding-left:16px;padding-right:16px;}.stage{min-height:58vh;}}" +
+      "@media (max-width:900px){.capture-panel{grid-template-columns:1fr;}}" +
+      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.chips,.status,.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.stage{min-height:58vh;}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
@@ -135,7 +170,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</div>" +
       "<div class='toolbar'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
-      "<button id='crop-button' class='button' type='button'>Crop Capture</button>" +
+      "<button id='crop-button' class='button' type='button'>Open Crop Tool</button>" +
       "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
       "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div></div>" +
@@ -146,18 +181,38 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
       "</section>" +
+      "<section id='capture-panel' class='panel capture-panel'>" +
+      "<div class='capture-preview-wrap'>" +
+      "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
+      "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image without reopening the viewer in another tab.</div>" +
+      "</div>" +
+      "<div class='capture-meta'>" +
+      "<div class='capture-kicker'>Viewer Capture</div>" +
+      "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
+      "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
+      "<div id='capture-status' class='capture-status'></div>" +
+      "<div class='capture-actions'>" +
+      "<button id='download-capture-button' class='button' type='button' disabled>Download PNG</button>" +
+      "<button id='upload-capture-button' class='button' type='button' disabled>Upload to Archive</button>" +
+      "<button id='upload-primary-capture-button' class='button primary' type='button' disabled>Upload + Use In List View</button>" +
+      "</div>" +
+      "</div>" +
+      "</section>" +
       "<section id='fallback-panel' class='panel fallback'>" +
       "<p class='fallback-title'>Raw G-code Fallback</p>" +
       "<p id='fallback-copy' class='fallback-copy'></p>" +
       "<pre id='fallback-snippet'></pre>" +
       "</section>" +
-      "<div class='footnote'>This popup prioritizes the Bambuddy G-code preview path. Capture and crop tools open the standalone viewer page so the full image-export workflow only lives in one place.</div>" +
+      "<div class='footnote'>Capture runs directly inside this popup against the current canvas. The crop tool still opens the standalone viewer so the advanced crop workflow can stay isolated.</div>" +
       "</div>" +
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropButton = this.shadowRoot.getElementById("crop-button");
+    this._downloadCaptureButton = this.shadowRoot.getElementById("download-capture-button");
+    this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
+    this._uploadPrimaryCaptureButton = this.shadowRoot.getElementById("upload-primary-capture-button");
     if (this._refreshButton) {
       this._refreshButton.addEventListener("click", this._boundRefreshHandler);
     }
@@ -167,6 +222,16 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._cropButton) {
       this._cropButton.addEventListener("click", this._boundCropHandler);
     }
+    if (this._downloadCaptureButton) {
+      this._downloadCaptureButton.addEventListener("click", this._boundDownloadCaptureHandler);
+    }
+    if (this._uploadCaptureButton) {
+      this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
+    }
+    if (this._uploadPrimaryCaptureButton) {
+      this._uploadPrimaryCaptureButton.addEventListener("click", this._boundUploadPrimaryCaptureHandler);
+    }
+    this._updateCapturePanel();
   }
 
   _buildProxyUrl(path) {
@@ -195,6 +260,225 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (typeof window !== "undefined" && typeof window.open === "function") {
       window.open(targetUrl, "_blank", "noopener");
     }
+  }
+
+  _setCaptureStatus(message, tone) {
+    const node = this.shadowRoot && this.shadowRoot.getElementById("capture-status");
+    if (!node) {
+      return;
+    }
+    node.textContent = String(message || "").trim();
+    node.className = tone === "error"
+      ? "capture-status error"
+      : tone === "success"
+        ? "capture-status success"
+        : "capture-status";
+  }
+
+  _updateCapturePanel() {
+    const image = this.shadowRoot && this.shadowRoot.getElementById("capture-preview-image");
+    const empty = this.shadowRoot && this.shadowRoot.getElementById("capture-empty");
+    const title = this.shadowRoot && this.shadowRoot.getElementById("capture-title");
+    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-copy");
+    if (!image || !empty || !title || !copy) {
+      return;
+    }
+
+    if (this._capture && this._capture.objectUrl) {
+      image.src = this._capture.objectUrl;
+      image.hidden = false;
+      empty.hidden = true;
+      title.textContent = `${this._capture.width} x ${this._capture.height} PNG ready`;
+      copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} full-frame capture prepared from the current popup canvas.`;
+    } else {
+      image.removeAttribute("src");
+      image.hidden = true;
+      empty.hidden = false;
+      title.textContent = "No render captured yet";
+      copy.textContent = "Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.";
+    }
+
+    if (this._downloadCaptureButton) {
+      this._downloadCaptureButton.disabled = !this._capture;
+    }
+    if (this._uploadCaptureButton) {
+      this._uploadCaptureButton.disabled = !this._capture || this._uploadInProgress;
+    }
+    if (this._uploadPrimaryCaptureButton) {
+      this._uploadPrimaryCaptureButton.disabled = !this._capture || this._uploadInProgress;
+    }
+  }
+
+  _revokeCapture() {
+    if (this._capture && this._capture.objectUrl) {
+      URL.revokeObjectURL(this._capture.objectUrl);
+    }
+    this._capture = null;
+  }
+
+  _scaledDimensions(width, height, maxDimension) {
+    const safeWidth = Math.max(1, Number(width) || 1);
+    const safeHeight = Math.max(1, Number(height) || 1);
+    const scale = Math.min(1, maxDimension / Math.max(safeWidth, safeHeight));
+    return {
+      width: Math.max(1, Math.round(safeWidth * scale)),
+      height: Math.max(1, Math.round(safeHeight * scale)),
+    };
+  }
+
+  _canvasToBlob(canvas, mimeType, quality) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Canvas export returned no data"));
+          return;
+        }
+        resolve(blob);
+      }, mimeType, quality);
+    });
+  }
+
+  _blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Could not encode capture for upload"));
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const parts = result.split(",", 2);
+        resolve(parts.length === 2 ? parts[1] : result);
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  _buildCaptureFileName() {
+    const archiveId = String(this._config && this._config.archive_id ? this._config.archive_id : "archive").trim();
+    const rendererMode = String(this._rendererMode || "viewer").trim().toLowerCase();
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+    return `viewer-capture-${archiveId}-${rendererMode}-${timestamp}.png`;
+  }
+
+  async _captureCurrentView() {
+    const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("Viewer canvas is not available.");
+    }
+    const sourceWidth = canvas.width || canvas.clientWidth || 0;
+    const sourceHeight = canvas.height || canvas.clientHeight || 0;
+    if (sourceWidth <= 0 || sourceHeight <= 0) {
+      throw new Error("The viewer has not rendered a captureable frame yet.");
+    }
+
+    const dimensions = this._scaledDimensions(sourceWidth, sourceHeight, 2048);
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = dimensions.width;
+    exportCanvas.height = dimensions.height;
+    const context = exportCanvas.getContext("2d");
+    if (!context) {
+      throw new Error("Canvas rendering is unavailable for capture.");
+    }
+    context.drawImage(canvas, 0, 0, sourceWidth, sourceHeight, 0, 0, dimensions.width, dimensions.height);
+    const blob = await this._canvasToBlob(exportCanvas, "image/png");
+
+    this._revokeCapture();
+    this._capture = {
+      blob,
+      objectUrl: URL.createObjectURL(blob),
+      width: dimensions.width,
+      height: dimensions.height,
+      mimeType: "image/png",
+      fileName: this._buildCaptureFileName(),
+    };
+    this._updateCapturePanel();
+    this._setCaptureStatus("Captured the current popup view. Download it or upload it to the archive.", "success");
+  }
+
+  async _handleCapture() {
+    try {
+      await this._captureCurrentView();
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      this._setCaptureStatus(message || "Capture failed.", "error");
+    }
+  }
+
+  _downloadCapture() {
+    if (!this._capture || !this._capture.objectUrl) {
+      return;
+    }
+    const anchor = document.createElement("a");
+    anchor.href = this._capture.objectUrl;
+    anchor.download = this._capture.fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  _buildAuthHeaders(extraHeaders) {
+    const merged = Object.assign({}, extraHeaders || {});
+    const accessToken = this._hass && this._hass.auth && this._hass.auth.data
+      ? String(this._hass.auth.data.accessToken || "").trim()
+      : "";
+    if (accessToken) {
+      merged.Authorization = `Bearer ${accessToken}`;
+    }
+    return merged;
+  }
+
+  async _uploadCapture(useAsPrimary) {
+    if (!this._capture || !this._config || !this._config.archive_id) {
+      return;
+    }
+    this._uploadInProgress = true;
+    this._updateCapturePanel();
+    this._setCaptureStatus(useAsPrimary ? "Uploading capture and promoting it for list view..." : "Uploading capture to the archive...", "info");
+
+    try {
+      const response = await fetch(
+        this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(this._config.archive_id)}/capture-upload`),
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: this._buildAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            file_name: this._capture.fileName,
+            mime_type: this._capture.mimeType,
+            content_base64: await this._blobToBase64(this._capture.blob),
+            use_as_primary: !!useAsPrimary,
+          }),
+        }
+      );
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_error) {
+        payload = null;
+      }
+      if (!response.ok) {
+        throw new Error(payload && payload.message ? payload.message : `Request failed with HTTP ${response.status}`);
+      }
+      const uploadedPhotoPath = String(payload && payload.uploaded_photo_path ? payload.uploaded_photo_path : this._capture.fileName || "").trim();
+      if (uploadedPhotoPath) {
+        this._capture.fileName = uploadedPhotoPath;
+      }
+      this._setCaptureStatus(
+        useAsPrimary
+          ? "Capture uploaded and promoted for list view rendering."
+          : "Capture uploaded to the archive photo gallery.",
+        "success"
+      );
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      this._setCaptureStatus(message || "Capture upload failed.", "error");
+    } finally {
+      this._uploadInProgress = false;
+      this._updateCapturePanel();
+    }
+  }
+
+  async _handleUploadCapture(useAsPrimary) {
+    await this._uploadCapture(useAsPrimary);
   }
 
   _escapeHtml(value) {
@@ -413,7 +697,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
 
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
-  this._disposePreview();
+    this._disposePreview();
   this._hideFallback();
 
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
@@ -474,6 +758,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
           allowDragNDrop: false,
         });
         this._preview = preview;
+        this._rendererMode = "gcode";
         preview.processGCode(previewGcode);
         this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
       } catch (error) {

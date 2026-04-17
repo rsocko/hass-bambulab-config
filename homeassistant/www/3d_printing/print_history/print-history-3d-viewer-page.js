@@ -94,6 +94,72 @@ function normalizeColors(colors) {
   return colors.map(normalizeHex).filter(Boolean);
 }
 
+function extractFilamentColorsFromGcode(gcodeText) {
+  const match = String(gcodeText || "").match(/^\s*;\s*filament_colour\s*=\s*(.+)$/im);
+  if (!match || !match[1]) {
+    return [];
+  }
+  return normalizeColors(match[1].split(";"));
+}
+
+function resolvePreviewColors(capabilities, gcodeText) {
+  const gcodeColors = extractFilamentColorsFromGcode(gcodeText);
+  if (gcodeColors.length) {
+    return gcodeColors;
+  }
+  return normalizeColors(capabilities.filament_colors);
+}
+
+function normalizePreviewGcode(gcodeText, maxToolIndex) {
+  const source = String(gcodeText || "");
+  if (!source) {
+    return source;
+  }
+
+  const maxKnownTool = Number.isInteger(maxToolIndex) && maxToolIndex >= 0 ? maxToolIndex : null;
+  const lines = source.split("\n");
+  const toolPattern = /^T(\d+)\s*$/;
+  let currentTool = null;
+  let sawAnyTool = false;
+
+  const normalizedLines = lines.map((line) => {
+    const match = line.match(toolPattern);
+    if (!match) {
+      return line;
+    }
+
+    sawAnyTool = true;
+    const tool = Number(match[1]);
+    if (!Number.isFinite(tool)) {
+      return line;
+    }
+
+    let normalizedTool = tool;
+    if (maxKnownTool != null) {
+      if (tool >= 0 && tool <= maxKnownTool) {
+        normalizedTool = tool;
+      } else if (tool === 1000) {
+        normalizedTool = 0;
+      } else if (tool === 255 && currentTool != null) {
+        normalizedTool = currentTool;
+      } else if (currentTool != null) {
+        normalizedTool = currentTool;
+      } else {
+        normalizedTool = 0;
+      }
+    }
+
+    currentTool = normalizedTool;
+    return `T${normalizedTool}`;
+  });
+
+  if (!sawAnyTool && maxKnownTool != null) {
+    normalizedLines.unshift("T0");
+  }
+
+  return normalizedLines.join("\n");
+}
+
 function normalizeBuildVolume(buildVolume) {
   if (!buildVolume || typeof buildVolume !== "object") {
     return { x: 256, y: 256, z: 256 };
@@ -852,9 +918,6 @@ async function renderPreview(params) {
 
   setStatus("Checking Bambuddy archive capabilities...");
   const capabilities = await fetchJson(capabilitiesUrl);
-  const colors = normalizeColors(capabilities.filament_colors);
-  renderCapabilityChips(capabilities, colors);
-  renderOverlay(colors);
 
   if (!capabilities.has_gcode) {
     setStatus("This archive does not expose extracted G-code, so the preview cannot be rendered here.", true);
@@ -880,6 +943,11 @@ async function renderPreview(params) {
     throw new Error("Viewer canvas is not available.");
   }
 
+  const colors = resolvePreviewColors(capabilities, gcodeText);
+  const previewGcode = normalizePreviewGcode(gcodeText, colors.length ? colors.length - 1 : null);
+  renderCapabilityChips(capabilities, colors);
+  renderOverlay(colors);
+
   setStatus("Rendering G-code preview...");
   try {
     const GCodePreview = await import(CDN_MODULE_URL);
@@ -887,11 +955,12 @@ async function renderPreview(params) {
       canvas,
       buildVolume: normalizeBuildVolume(capabilities.build_volume),
       extrusionColor: colors.length ? colors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
+      disableGradient: true,
       backgroundColor: "#08101a",
       gridColor: "rgba(125, 211, 200, 0.18)",
       allowDragNDrop: false,
     });
-    preview.processGCode(gcodeText);
+    preview.processGCode(previewGcode);
     appState.rendererMode = "gcode";
     setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
   } catch (error) {
