@@ -33,6 +33,11 @@ capture_and_upload_snapshot:
              | default('', true) | string | trim }}
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') }}"
         snapshot_light: "{{ states('input_text.3dprinter_snapshot_light') }}"
+        normalized_stage: "{{ stage | default('', true) | string | lower | trim }}"
+        finish_capture_light_entity: light.magwled
+        finish_capture_delay_seconds: 2
+        finish_capture_restore_scene_id: >-
+          printer_led_magwled_photo_capture_{{ now().strftime('%Y%m%d_%H%M%S_%f') }}
 
     - variables:
         configured_cameras: >-
@@ -70,14 +75,34 @@ capture_and_upload_snapshot:
         has_capture_cameras: "{{ active_camera_count | int(0) > 0 }}"
         has_light: >-
           {{ snapshot_light not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+        finish_capture_uses_magwled: "{{ normalized_stage == 'finish' }}"
+        finish_capture_light_available: >-
+          {{ states(finish_capture_light_entity) not in ['unknown', 'unavailable', 'none', 'None'] }}
+        finish_capture_apply_magwled: >-
+          {{ finish_capture_uses_magwled and finish_capture_light_available }}
+        snapshot_light_is_finish_capture_light: >-
+          {{ has_light and snapshot_light == finish_capture_light_entity }}
+        use_snapshot_light_helper: >-
+          {{ has_light and not (finish_capture_apply_magwled and snapshot_light_is_finish_capture_light) }}
         printer_is_active: >-
           {{ states('sensor.ntk_ryansoffice_3dprinter_print_status') | string | lower | trim
              in ['running', 'prepare', 'pause', 'paused', 'printing', 'slicing', 'init'] }}
 
+    - if:
+        - condition: template
+          value_template: "{{ finish_capture_apply_magwled }}"
+      then:
+        - action: script.printer_led_magwled_photo_lighting
+          data:
+            action: activate
+            light_entity: "{{ finish_capture_light_entity }}"
+            restore_scene_id: "{{ finish_capture_restore_scene_id }}"
+            settle_delay_seconds: "{{ finish_capture_delay_seconds | int(2) }}"
+
     # --- Turn on snapshot light (if configured, reuses notifications helper) ---
     - if:
         - condition: template
-          value_template: "{{ has_light }}"
+          value_template: "{{ use_snapshot_light_helper }}"
       then:
         - action: light.turn_on
           target:
@@ -125,11 +150,21 @@ capture_and_upload_snapshot:
     # --- Turn off snapshot light ---
     - if:
         - condition: template
-          value_template: "{{ has_light }}"
+          value_template: "{{ use_snapshot_light_helper }}"
       then:
         - action: light.turn_off
           target:
             entity_id: "{{ snapshot_light }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ finish_capture_apply_magwled }}"
+      then:
+        - action: script.printer_led_magwled_photo_lighting
+          data:
+            action: restore
+            light_entity: "{{ finish_capture_light_entity }}"
+            restore_scene_id: "{{ finish_capture_restore_scene_id }}"
 
     - variables:
         had_archive_id: >-

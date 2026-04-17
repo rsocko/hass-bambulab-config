@@ -18,6 +18,7 @@ The `printer_led` package provides unified control over all LED lighting associa
 |---|---|---|
 | Loader | `printer_led_loader.yaml` | Registers helpers and scripts with HA |
 | Script | `scripts/reset_interior_light_to_white-script.yaml` | Resets MagWLED to 100% bright white |
+| Script | `scripts/printer_led_magwled_photo_lighting-script.yaml` | Snapshots MagWLED into a temporary scene, applies solid cool white for photos, then restores it |
 | Helper | `helpers/input_boolean_show_printer_controls.yaml` | Toggle to show/hide printer controls panel |
 | Automations | `automations/printer_led_automations.yaml` | 3 optional auto-reset automations (disabled by default) |
 
@@ -85,6 +86,7 @@ The `printer_led` package provides unified control over all LED lighting associa
 | `light.dig_quad_v3` | Light | DigQuad front progress LED |
 | `light.dig_quad_v3_segment_1` | Light | DigQuad front status segment |
 | `script.reset_interior_light_to_white` | Script | Reset MagWLED to white |
+| `script.printer_led_magwled_photo_lighting` | Script | Snapshot, apply, and restore MagWLED photo lighting |
 | `input_boolean.show_printer_controls` | Helper | Toggle controls panel visibility |
 
 ## Dependencies & Requirements

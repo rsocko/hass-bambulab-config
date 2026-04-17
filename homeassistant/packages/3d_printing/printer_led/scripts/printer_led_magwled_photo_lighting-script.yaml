@@ -1,0 +1,92 @@
+printer_led_magwled_photo_lighting:
+  alias: "Printer LED - MagWLED Photo Lighting"
+  description: >-
+    Snapshots MagWLED into a temporary scene, forces solid cool white for
+    photo capture, then restores the saved scene on request.
+  mode: queued
+  max: 10
+  fields:
+    action:
+      name: Action
+      description: activate or restore the temporary photo-lighting override.
+      required: true
+      selector:
+        select:
+          options:
+            - activate
+            - restore
+    restore_scene_id:
+      name: Restore Scene ID
+      description: Temporary scene_id used to snapshot and restore MagWLED.
+      required: true
+      selector:
+        text:
+    light_entity:
+      name: Light Entity
+      description: WLED light to override during photo capture.
+      required: false
+      selector:
+        entity:
+          domain: light
+    settle_delay_seconds:
+      name: Settle Delay Seconds
+      description: Delay before activating white photo lighting.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          mode: box
+  sequence:
+    - variables:
+        requested_action: "{{ action | default('activate', true) | string | lower | trim }}"
+        requested_light_entity: >-
+          {% if light_entity is defined and (light_entity | string | trim) | length > 0 %}
+            {{ light_entity | string | trim }}
+          {% else %}
+            light.magwled
+          {% endif %}
+        requested_scene_id: >-
+          {{ restore_scene_id | default('', true) | string | lower | trim
+             | replace(' ', '_') | replace('-', '_') }}
+        restore_scene_entity_id: "{{ 'scene.' ~ requested_scene_id }}"
+        settle_seconds: "{{ settle_delay_seconds | default(0, true) | int(0) }}"
+        light_available: >-
+          {{ states(requested_light_entity) not in ['unknown', 'unavailable', 'none', 'None'] }}
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ requested_action == 'activate' and light_available and requested_scene_id | length > 0 }}
+          sequence:
+            - action: scene.create
+              data:
+                scene_id: "{{ requested_scene_id }}"
+                snapshot_entities:
+                  - "{{ requested_light_entity }}"
+            - if:
+                - condition: template
+                  value_template: "{{ settle_seconds > 0 }}"
+              then:
+                - delay:
+                    seconds: "{{ settle_seconds }}"
+            - action: light.turn_on
+              target:
+                entity_id: "{{ requested_light_entity }}"
+              data:
+                brightness: 255
+                effect: Solid
+                rgbw_color: [0, 0, 0, 255]
+            - delay:
+                seconds: 1
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ requested_action == 'restore' and requested_scene_id | length > 0 }}
+          sequence:
+            - action: scene.turn_on
+              target:
+                entity_id: "{{ restore_scene_entity_id }}"
+      default:
+        - stop: No MagWLED photo-lighting action required

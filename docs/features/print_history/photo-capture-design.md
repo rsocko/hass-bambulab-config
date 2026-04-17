@@ -116,16 +116,18 @@ triggers:
 
 ```
 1. Check if stage is gated → skip if boolean is off
-2. Turn on snapshot light (if configured via input_text.3dprinter_snapshot_light)
-3. Wait 1 second for light to reach brightness
-4. Resolve the configured capture camera list (or built-in default)
-5. Capture each valid camera sequentially → save to /config/www/printer_snapshots/{task}_{stage}_{timestamp}[ _camN ].jpg
-6. Turn off snapshot light
-7. If input_text.bambuddy_current_archive_id is set:
+2. Finish-stage only: call the reusable printer LED photo-lighting script, which waits briefly for the WLED state machine to settle, snapshots live `light.magwled` state into a temporary scene, then forces MagWLED to solid cool white
+3. Turn on snapshot light (if configured via input_text.3dprinter_snapshot_light, excluding the finish-stage MagWLED override path)
+4. Wait 1 second for light to reach brightness
+5. Resolve the configured capture camera list (or built-in default)
+6. Capture each valid camera sequentially → save to /config/www/printer_snapshots/{task}_{stage}_{timestamp}[ _camN ].jpg
+7. Turn off snapshot light
+8. Finish-stage only: call the reusable printer LED photo-lighting script to restore the saved MagWLED scene
+9. If input_text.bambuddy_current_archive_id is set:
   → Hand off the saved file to the shipped multipart uploader (`shell_command` using Python stdlib)
-8. If archive_id is empty:
+10. If archive_id is empty:
   → Call script.resolve_current_archive_id first, then hand off if resolved
-9. Local copy always retained regardless of upload success
+11. Local copy always retained regardless of upload success
 ```
 
 ### Snapshot Light Integration
@@ -134,6 +136,16 @@ Reuses the existing pattern from `notifications/automations/print_complete_notif
 - Light entity: `input_text.3dprinter_snapshot_light`
 - Brightness: `input_number.3dprinter_snapshot_light_brightness`
 - These helpers belong to the `notifications` package; if not deployed, the light step is skipped (template check for empty/unavailable)
+
+### Finish-Stage MagWLED Override
+
+Successful completion photos now treat `light.magwled` as a dedicated capture light instead of depending on the generic snapshot-light helper.
+
+- The finish capture now uses `script.printer_led_magwled_photo_lighting`, owned by the `printer_led` package, so MagWLED photo-lighting behavior stays consistent across any future camera workflows.
+- The reusable script waits 2 seconds after the `print_complete` trigger so the WLED state machine can first settle into its normal completion state, including the green finish look.
+- It snapshots the live MagWLED state into a temporary HA scene, temporarily forces `light.magwled` to `Solid` with RGBW cool white for the camera capture, then restores the saved scene afterward.
+- This preserves the intended post-complete green appearance instead of leaving MagWLED white or turning it off.
+- If `input_text.3dprinter_snapshot_light` ever points to `light.magwled`, the generic helper path is automatically suppressed during finish capture so MagWLED is only controlled once.
 
 ### Local File Naming
 
