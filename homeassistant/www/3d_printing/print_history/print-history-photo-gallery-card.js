@@ -310,6 +310,75 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return String(active.filename || "").trim();
   }
 
+  _normalizePhotoList(photoValues) {
+    var seen = {};
+    return (Array.isArray(photoValues) ? photoValues : []).reduce(function (photos, value) {
+      var photoPath = String(value || "").trim();
+      if (!photoPath || seen[photoPath]) {
+        return photos;
+      }
+      seen[photoPath] = true;
+      photos.push(photoPath);
+      return photos;
+    }, []);
+  }
+
+  _buildLocalArchiveState(updatedArchive, options) {
+    var currentArchive = this._resolveArchive();
+    var nextArchive = Object.assign({}, currentArchive || {});
+    var normalizedOptions = options && typeof options === "object" ? options : {};
+    var removedPhotoPath = String(normalizedOptions.removePhotoPath || "").trim();
+    var appendedPhotoPaths = this._normalizePhotoList(normalizedOptions.appendPhotoPaths);
+
+    if (updatedArchive && typeof updatedArchive === "object") {
+      nextArchive = Object.assign(nextArchive, updatedArchive);
+    }
+
+    var photos = Array.isArray(updatedArchive && updatedArchive.photos)
+      ? updatedArchive.photos
+      : Array.isArray(nextArchive.photos)
+        ? nextArchive.photos
+        : [];
+    photos = this._normalizePhotoList(photos);
+
+    if (removedPhotoPath) {
+      photos = photos.filter(function (photoPath) {
+        return photoPath !== removedPhotoPath;
+      });
+      if (String(nextArchive.primary_photo_path || "").trim() === removedPhotoPath) {
+        nextArchive.primary_photo_path = "";
+      }
+      if (String(nextArchive.selected_primary_photo_path || "").trim() === removedPhotoPath) {
+        nextArchive.selected_primary_photo_path = "";
+        if (nextArchive.has_primary_photo_override == null) {
+          nextArchive.has_primary_photo_override = false;
+        }
+      }
+    }
+
+    if (appendedPhotoPaths.length) {
+      photos = this._normalizePhotoList(photos.concat(appendedPhotoPaths));
+    }
+
+    nextArchive.photos = photos;
+    return nextArchive;
+  }
+
+  _applyLocalArchiveState(updatedArchive, options) {
+    var nextArchive = this._buildLocalArchiveState(updatedArchive, options);
+    this._localArchiveOverride = nextArchive;
+    this._localPrimaryPhotoPath = nextArchive.primary_photo_path != null
+      ? String(nextArchive.primary_photo_path || "").trim()
+      : this._localPrimaryPhotoPath;
+    this._localSelectedPrimaryPhotoPath = nextArchive.selected_primary_photo_path != null
+      ? String(nextArchive.selected_primary_photo_path || "").trim()
+      : this._localSelectedPrimaryPhotoPath;
+    this._localHasPrimaryPhotoOverride = nextArchive.has_primary_photo_override != null
+      ? !!nextArchive.has_primary_photo_override
+      : this._localHasPrimaryPhotoOverride;
+    return nextArchive;
+  }
+
   async _applyPrimaryPhotoSelection(photoPath) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? archive.id : null;
@@ -339,17 +408,18 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var selection = response && response.primary_photo_selection && typeof response.primary_photo_selection === "object"
         ? response.primary_photo_selection
         : null;
+      var nextArchive = this._applyLocalArchiveState(updatedArchive);
       this._localPrimaryPhotoPath = normalizedPhotoPath;
       this._localSelectedPrimaryPhotoPath = normalizedPhotoPath;
       this._localHasPrimaryPhotoOverride = true;
-      if (updatedArchive && updatedArchive.primary_photo_path != null) {
-        this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
+      if (nextArchive.primary_photo_path != null) {
+        this._localPrimaryPhotoPath = String(nextArchive.primary_photo_path || "").trim();
       }
-      if (updatedArchive && updatedArchive.selected_primary_photo_path != null) {
-        this._localSelectedPrimaryPhotoPath = String(updatedArchive.selected_primary_photo_path || "").trim();
+      if (nextArchive.selected_primary_photo_path != null) {
+        this._localSelectedPrimaryPhotoPath = String(nextArchive.selected_primary_photo_path || "").trim();
       }
-      if (updatedArchive && updatedArchive.has_primary_photo_override != null) {
-        this._localHasPrimaryPhotoOverride = !!updatedArchive.has_primary_photo_override;
+      if (nextArchive.has_primary_photo_override != null) {
+        this._localHasPrimaryPhotoOverride = !!nextArchive.has_primary_photo_override;
       }
       if (selection && selection.photo_path != null) {
         this._localSelectedPrimaryPhotoPath = String(selection.photo_path || "").trim();
@@ -357,6 +427,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       if (selection && selection.cleared) {
         this._localPrimaryPhotoPath = "";
         this._localSelectedPrimaryPhotoPath = "";
+        this._localHasPrimaryPhotoOverride = false;
       }
       this._render();
     } catch (error) {
@@ -396,19 +467,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var updatedArchive = response && response.archive && typeof response.archive === "object"
         ? response.archive
         : null;
-      if (updatedArchive) {
-        this._localArchiveOverride = updatedArchive;
-        if (updatedArchive.primary_photo_path != null) {
-          this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
-        }
-        if (updatedArchive.selected_primary_photo_path != null) {
-          this._localSelectedPrimaryPhotoPath = String(updatedArchive.selected_primary_photo_path || "").trim();
-        }
-        if (updatedArchive.has_primary_photo_override != null) {
-          this._localHasPrimaryPhotoOverride = !!updatedArchive.has_primary_photo_override;
-        }
-      }
-      var images = this._buildImages(this._resolveArchive());
+      var nextArchive = this._applyLocalArchiveState(updatedArchive, { removePhotoPath: photoPath });
+      var images = this._buildImages(nextArchive);
       this._activeIndex = Math.max(0, Math.min(this._activeIndex, images.length - 1));
       this._setUploadStatus("Photo deleted.", "success", false);
     } catch (error) {
@@ -477,12 +537,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         var updatedArchive = response && response.archive && typeof response.archive === "object"
           ? response.archive
           : null;
-        if (updatedArchive) {
-          this._localArchiveOverride = updatedArchive;
-          var photoCount = Array.isArray(updatedArchive.photos) ? updatedArchive.photos.length : 0;
-          if (photoCount > 0) {
-            this._activeIndex = photoCount - 1 + (this._config && this._config.include_thumbnail ? 1 : 0);
-          }
+        var nextArchive = this._applyLocalArchiveState(updatedArchive, { appendPhotoPaths: [prepared.fileName] });
+        var photoCount = Array.isArray(nextArchive.photos) ? nextArchive.photos.length : 0;
+        if (photoCount > 0) {
+          this._activeIndex = photoCount - 1 + (this._config && this._config.include_thumbnail ? 1 : 0);
         }
         uploadedCount += 1;
       }
