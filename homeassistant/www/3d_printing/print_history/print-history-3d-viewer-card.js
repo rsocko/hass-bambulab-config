@@ -150,6 +150,72 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return colors.map(this._normalizeHex.bind(this)).filter(Boolean);
   }
 
+  _extractFilamentColorsFromGcode(gcodeText) {
+    const match = String(gcodeText || "").match(/^\s*;\s*filament_colour\s*=\s*(.+)$/im);
+    if (!match || !match[1]) {
+      return [];
+    }
+    return this._normalizeColors(match[1].split(";"));
+  }
+
+  _resolvePreviewColors(capabilities, gcodeText) {
+    const gcodeColors = this._extractFilamentColorsFromGcode(gcodeText);
+    if (gcodeColors.length) {
+      return gcodeColors;
+    }
+    return this._normalizeColors(capabilities.filament_colors);
+  }
+
+  _normalizePreviewGcode(gcodeText, maxToolIndex) {
+    const source = String(gcodeText || "");
+    if (!source) {
+      return source;
+    }
+
+    const maxKnownTool = Number.isInteger(maxToolIndex) && maxToolIndex >= 0 ? maxToolIndex : null;
+    const lines = source.split("\n");
+    const toolPattern = /^T(\d+)\s*$/;
+    let currentTool = null;
+    let sawAnyTool = false;
+
+    const normalizedLines = lines.map((line) => {
+      const match = line.match(toolPattern);
+      if (!match) {
+        return line;
+      }
+
+      sawAnyTool = true;
+      const tool = Number(match[1]);
+      if (!Number.isFinite(tool)) {
+        return line;
+      }
+
+      let normalizedTool = tool;
+      if (maxKnownTool != null) {
+        if (tool >= 0 && tool <= maxKnownTool) {
+          normalizedTool = tool;
+        } else if (tool === 1000) {
+          normalizedTool = 0;
+        } else if (tool === 255 && currentTool != null) {
+          normalizedTool = currentTool;
+        } else if (currentTool != null) {
+          normalizedTool = currentTool;
+        } else {
+          normalizedTool = 0;
+        }
+      }
+
+      currentTool = normalizedTool;
+      return `T${normalizedTool}`;
+    });
+
+    if (!sawAnyTool && maxKnownTool != null) {
+      normalizedLines.unshift("T0");
+    }
+
+    return normalizedLines.join("\n");
+  }
+
   _normalizeBuildVolume(buildVolume) {
     if (!buildVolume || typeof buildVolume !== "object") {
       return { x: 256, y: 256, z: 256 };
@@ -276,9 +342,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       const capabilities = viewerPayload && typeof viewerPayload.capabilities === "object"
         ? viewerPayload.capabilities
         : {};
-      const colors = this._normalizeColors(capabilities.filament_colors);
-      this._renderCapabilityChips(capabilities, colors);
-      this._renderOverlay(colors);
 
       if (!capabilities.has_gcode) {
         this._setStatus("This archive does not expose extracted G-code, so the preview cannot be rendered here.", true);
@@ -299,6 +362,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
         return;
       }
 
+      const colors = this._resolvePreviewColors(capabilities, gcodeText);
+      const previewGcode = this._normalizePreviewGcode(gcodeText, colors.length ? colors.length - 1 : null);
+      this._renderCapabilityChips(capabilities, colors);
+      this._renderOverlay(colors);
+
       const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
       if (!(canvas instanceof HTMLCanvasElement)) {
         throw new Error("Viewer canvas is not available.");
@@ -318,7 +386,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
         });
-        preview.processGCode(gcodeText);
+        preview.processGCode(previewGcode);
         this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
