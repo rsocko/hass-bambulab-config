@@ -8,6 +8,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._config = null;
     this._loadToken = 0;
     this._loadedSignature = "";
+    this._preview = null;
+    this._refreshButton = null;
+    this._boundRefreshHandler = this._handleRefresh.bind(this);
   }
 
   setConfig(config) {
@@ -33,8 +36,35 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._maybeLoad();
   }
 
+  disconnectedCallback() {
+    this._disposePreview(true);
+    this._detachShellListeners();
+  }
+
   getCardSize() {
     return 14;
+  }
+
+  _handleRefresh() {
+    this._loadedSignature = "";
+    this._maybeLoad();
+  }
+
+  _detachShellListeners() {
+    if (this._refreshButton) {
+      this._refreshButton.removeEventListener("click", this._boundRefreshHandler);
+      this._refreshButton = null;
+    }
+  }
+
+  _disposePreview(invalidateLoad = false) {
+    if (invalidateLoad) {
+      this._loadToken += 1;
+    }
+    if (this._preview && typeof this._preview.dispose === "function") {
+      this._preview.dispose();
+    }
+    this._preview = null;
   }
 
   _maybeLoad() {
@@ -50,6 +80,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _renderShell() {
+    this._detachShellListeners();
     this.shadowRoot.innerHTML = "" +
       "<style>" +
       ":host{display:block;}" +
@@ -110,12 +141,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</div>" +
       "</ha-card>";
 
-    const refreshButton = this.shadowRoot.getElementById("refresh-button");
-    if (refreshButton) {
-      refreshButton.addEventListener("click", () => {
-        this._loadedSignature = "";
-        this._maybeLoad();
-      });
+    this._refreshButton = this.shadowRoot.getElementById("refresh-button");
+    if (this._refreshButton) {
+      this._refreshButton.addEventListener("click", this._boundRefreshHandler);
     }
   }
 
@@ -316,6 +344,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
     snippet.textContent = String(gcodeText || "").split("\n").slice(0, 80).join("\n");
   }
 
+  _hideFallback() {
+    const panel = this.shadowRoot && this.shadowRoot.getElementById("fallback-panel");
+    const copy = this.shadowRoot && this.shadowRoot.getElementById("fallback-copy");
+    const snippet = this.shadowRoot && this.shadowRoot.getElementById("fallback-snippet");
+    if (!panel || !copy || !snippet) {
+      return;
+    }
+    panel.classList.remove("visible");
+    copy.textContent = "";
+    snippet.textContent = "";
+  }
+
   async _loadViewer() {
     const token = ++this._loadToken;
     const archiveId = this._config && this._config.archive_id ? this._config.archive_id : "";
@@ -329,6 +369,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
 
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
+  this._disposePreview();
+  this._hideFallback();
 
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
     this._setDownloadLink(gcodeUrl);
@@ -382,10 +424,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
           canvas,
           buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
           extrusionColor: colors.length ? colors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
+          disableGradient: true,
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
         });
+        this._preview = preview;
         preview.processGCode(previewGcode);
         this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
       } catch (error) {

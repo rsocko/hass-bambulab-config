@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=6", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=8", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1667,6 +1667,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
         self.assertIn('type: "bambuddy/print_history_archive_viewer"', script)
         self.assertIn('print-history-3d-viewer-card requires archive_id', script)
+        self.assertIn('disconnectedCallback()', script)
+        self.assertIn('this._disposePreview();', script)
+        self.assertIn('typeof this._preview.dispose === "function"', script)
         self.assertIn('if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {', script)
         self.assertIn('Download G-code', script)
         self.assertNotIn('Open Bambuddy', script)
@@ -1674,6 +1677,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
         self.assertIn('tool === 1000', script)
         self.assertIn('tool === 255 && currentTool != null', script)
+        self.assertIn('disableGradient: true', script)
+        self.assertIn('this._preview = preview;', script)
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
