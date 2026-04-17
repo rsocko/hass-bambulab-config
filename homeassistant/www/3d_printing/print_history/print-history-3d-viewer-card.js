@@ -18,7 +18,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       archive_id: String(config.archive_id).trim(),
       archive_name: String(config.archive_name || "").trim(),
       entry_id: String(config.entry_id || "").trim(),
-      bambuddy_base: String(config.bambuddy_base || "").trim().replace(/\/$/, ""),
     };
     this._loadedSignature = "";
     this._renderShell();
@@ -94,7 +93,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='toolbar'>" +
       "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
       "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
-      "<a id='archives-link' class='button primary' href='#' target='_blank' rel='noopener noreferrer'>Open Bambuddy</a>" +
       "</div></div>" +
       "<div id='capability-chips' class='chips'></div>" +
       "</section>" +
@@ -230,25 +228,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
     overlay.innerHTML = items.join("");
   }
 
-  _setArchiveLinks(gcodeUrl) {
+  _setDownloadLink(gcodeUrl) {
     const downloadLink = this.shadowRoot && this.shadowRoot.getElementById("download-link");
-    const archivesLink = this.shadowRoot && this.shadowRoot.getElementById("archives-link");
     const archiveName = this._config && this._config.archive_name ? this._config.archive_name : `archive-${this._config.archive_id}`;
 
     if (downloadLink) {
       downloadLink.href = gcodeUrl;
       downloadLink.download = `${archiveName}.gcode`;
-    }
-
-    if (archivesLink) {
-      if (this._config && this._config.bambuddy_base) {
-        const search = this._config.archive_name ? `?search=${encodeURIComponent(this._config.archive_name)}` : "";
-        archivesLink.href = `${this._config.bambuddy_base}/archives${search}`;
-        archivesLink.removeAttribute("aria-disabled");
-      } else {
-        archivesLink.href = "#";
-        archivesLink.setAttribute("aria-disabled", "true");
-      }
     }
   }
 
@@ -279,7 +265,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
 
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
-    this._setArchiveLinks(gcodeUrl);
+    this._setDownloadLink(gcodeUrl);
 
     try {
       this._setStatus("Checking Bambuddy archive capabilities...");
