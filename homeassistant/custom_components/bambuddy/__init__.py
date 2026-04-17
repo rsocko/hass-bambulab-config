@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, Supp
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import aiohttp_client
 
-from .api import BambuddyRuntimeRepairClient
+from .api import BambuddyApiClient, BambuddyRuntimeRepairClient
 from .const import (
     DATA_MANAGER,
     DOMAIN,
@@ -22,12 +22,15 @@ from .const import (
     SERVICE_APPEND_PRINT_HISTORY_EVENT,
     CONF_RUNTIME_REPAIR_BASE_URL,
     CONF_RUNTIME_REPAIR_TOKEN,
+    SERVICE_DELETE_PRINT_HISTORY_PHOTO,
+    SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW,
     CONF_FETCH_TIMEOUT_SECONDS,
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
+    SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE,
     SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
@@ -99,6 +102,27 @@ SERVICE_PRIMARY_PHOTO_SCHEMA = vol.Schema(
         vol.Optional(CONF_ENTRY_ID): str,
         vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
         vol.Optional("photo_path", default=""): str,
+    }
+)
+SERVICE_DELETE_PHOTO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("photo_path"): str,
+    }
+)
+SERVICE_MEDIA_REVIEW_STATE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("review_status"): str,
+        vol.Optional("requested_at"): str,
+        vol.Optional("started_at"): str,
+        vol.Optional("completed_at"): str,
+        vol.Optional("dismissed_at"): str,
+        vol.Optional("photo_count"): vol.Coerce(int),
+        vol.Optional("last_action"): str,
+        vol.Optional("review_note"): str,
     }
 )
 SERVICE_REVIEW_STATE_SCHEMA = vol.Schema(
@@ -414,6 +438,122 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_delete_photo(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        photo_path = str(call.data.get("photo_path", "")).strip()
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        if not photo_path:
+            raise HomeAssistantError("photo_path is required")
+
+        started = perf_counter()
+        session = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyApiClient(
+            session,
+            manager.base_url,
+            manager.api_key,
+            manager.fetch_timeout_seconds,
+        )
+        try:
+            await client.async_delete_archive_photo(archive_id, photo_path=photo_path)
+            response = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="delete_archive_photo",
+                extra_details={"photo_path": photo_path},
+            )
+        except RuntimeError as error:
+            raise HomeAssistantError(str(error)) from error
+
+        manager.record_mutation(
+            operation="delete_archive_photo",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={"photo_path": photo_path},
+        )
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
+    async def async_handle_set_media_review_state(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        started = perf_counter()
+        try:
+            media_review_state = await hass.async_add_executor_job(
+                lambda: manager.store.upsert_media_review_state(
+                    archive_id,
+                    review_status=str(call.data["review_status"]),
+                    requested_at=call.data.get("requested_at"),
+                    started_at=call.data.get("started_at"),
+                    completed_at=call.data.get("completed_at"),
+                    dismissed_at=call.data.get("dismissed_at"),
+                    photo_count=call.data.get("photo_count"),
+                    last_action=call.data.get("last_action"),
+                    review_note=call.data.get("review_note"),
+                )
+            )
+        except ValueError as error:
+            raise HomeAssistantError(str(error)) from error
+
+        manager.record_mutation(
+            operation="set_media_review_state",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "review_status": media_review_state.get("review_status", ""),
+                "last_action": media_review_state.get("last_action", ""),
+                "photo_count": media_review_state.get("photo_count", 0),
+            },
+        )
+        manager._notify_listeners()
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
+    async def async_handle_dismiss_media_review(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        started = perf_counter()
+        try:
+            media_review_state = await hass.async_add_executor_job(
+                lambda: manager.store.upsert_media_review_state(
+                    archive_id,
+                    review_status="dismissed",
+                    dismissed_at=call.data.get("dismissed_at"),
+                    last_action="dismissed",
+                    review_note=call.data.get("review_note"),
+                )
+            )
+        except ValueError as error:
+            raise HomeAssistantError(str(error)) from error
+
+        manager.record_mutation(
+            operation="dismiss_media_review",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "review_status": media_review_state.get("review_status", ""),
+                "last_action": media_review_state.get("last_action", ""),
+            },
+        )
+        manager._notify_listeners()
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
     async def async_handle_set_repair_lineage(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -612,6 +752,30 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
             async_handle_set_primary_photo,
             schema=SERVICE_PRIMARY_PHOTO_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_DELETE_PRINT_HISTORY_PHOTO):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DELETE_PRINT_HISTORY_PHOTO,
+            async_handle_delete_photo,
+            schema=SERVICE_DELETE_PHOTO_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE,
+            async_handle_set_media_review_state,
+            schema=SERVICE_MEDIA_REVIEW_STATE_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW,
+            async_handle_dismiss_media_review,
+            schema=SERVICE_DETAIL_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE):

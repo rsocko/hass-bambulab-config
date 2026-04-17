@@ -1,6 +1,5 @@
-# Photo Review Chip — conditional chip shown when photos need review.
-# Appears when input_select.bambuddy_photo_review_state is 'pending'.
-# Advanced review popup actions are Phase 2 advanced — chip just shows status.
+# Photo Review Chip — conditional chip shown when media review is pending.
+# Reuses the ordinary archive popup/gallery for the next pending archive.
 
 type: conditional
 conditions:
@@ -14,7 +13,47 @@ card:
   icon: mdi:image-check
   show_state: false
   tap_action:
-    action: more-info
+    action: fire-dom-event
+    browser_mod:
+      service: browser_mod.sequence
+      data:
+        sequence:
+          - service: input_text.set_value
+            data:
+              entity_id: input_text.print_history_popup_archive_id
+              value: >
+                [[[ 
+                  const status = states['sensor.bambuddy_print_history_browser_status'];
+                  const archive = status?.attributes?.media_review_next_archive_json || {};
+                  return String(archive?.id || '');
+                ]]]
+          - service: >
+              [[[ 
+                const status = states['sensor.bambuddy_print_history_browser_status'];
+                const archive = status?.attributes?.media_review_next_archive_json || {};
+                return archive?.is_favorite ? 'input_boolean.turn_on' : 'input_boolean.turn_off';
+              ]]]
+            data:
+              entity_id: input_boolean.print_history_popup_is_favorite
+          - service: browser_mod.popup
+            data:
+              title: >
+                [[[ 
+                  const status = states['sensor.bambuddy_print_history_browser_status'];
+                  const archive = status?.attributes?.media_review_next_archive_json || {};
+                  return archive?.name || archive?.project_name || 'Photos to Review';
+                ]]]
+              size: normal
+              content:
+                type: custom:button-card
+                template: print_history_archive_popup_content
+                variables:
+                  archive_json: >
+                    [[[ 
+                      const status = states['sensor.bambuddy_print_history_browser_status'];
+                      const archive = status?.attributes?.media_review_next_archive_json || {};
+                      return JSON.stringify(archive || {});
+                    ]]]
   styles:
     card:
       - background: "#1565C0"

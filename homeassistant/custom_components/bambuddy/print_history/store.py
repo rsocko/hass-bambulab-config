@@ -245,6 +245,19 @@ class PrintHistoryStore:
                 review_note TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS archive_media_review_state (
+                archive_id INTEGER PRIMARY KEY,
+                review_status TEXT NOT NULL DEFAULT 'idle',
+                requested_at TEXT NOT NULL DEFAULT '',
+                started_at TEXT NOT NULL DEFAULT '',
+                completed_at TEXT NOT NULL DEFAULT '',
+                dismissed_at TEXT NOT NULL DEFAULT '',
+                photo_count INTEGER NOT NULL DEFAULT 0,
+                last_action TEXT NOT NULL DEFAULT '',
+                review_note TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
             """
         )
         self._ensure_archive_columns(connection)
@@ -1315,6 +1328,34 @@ class PrintHistoryStore:
             "review_note": row[3],
         }
 
+    def load_media_review_state(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                """
+                SELECT review_status, requested_at, started_at, completed_at, dismissed_at, photo_count, last_action, review_note
+                FROM archive_media_review_state
+                WHERE archive_id = ?
+                """,
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "review_status": row[0],
+            "requested_at": row[1],
+            "started_at": row[2],
+            "completed_at": row[3],
+            "dismissed_at": row[4],
+            "photo_count": as_int(row[5]),
+            "last_action": row[6],
+            "review_note": row[7],
+        }
+
     def append_archive_event(
         self,
         archive_id: int,
@@ -1413,6 +1454,123 @@ class PrintHistoryStore:
                 ),
             )
 
+    def upsert_media_review_state(
+        self,
+        archive_id: int,
+        *,
+        review_status: str,
+        requested_at: str | None = None,
+        started_at: str | None = None,
+        completed_at: str | None = None,
+        dismissed_at: str | None = None,
+        photo_count: int | None = None,
+        last_action: str | None = None,
+        review_note: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+            existing = self.load_media_review_state(normalized_archive_id, connection=connection) or {}
+            next_state = {
+                "review_status": as_text(review_status).strip() or existing.get("review_status", "idle") or "idle",
+                "requested_at": existing.get("requested_at", ""),
+                "started_at": existing.get("started_at", ""),
+                "completed_at": existing.get("completed_at", ""),
+                "dismissed_at": existing.get("dismissed_at", ""),
+                "photo_count": int(existing.get("photo_count", 0) or 0),
+                "last_action": as_text(existing.get("last_action", "")).strip(),
+                "review_note": as_text(existing.get("review_note", "")),
+            }
+            if requested_at is not None:
+                next_state["requested_at"] = as_text(requested_at).strip()
+            if started_at is not None:
+                next_state["started_at"] = as_text(started_at).strip()
+            if completed_at is not None:
+                next_state["completed_at"] = as_text(completed_at).strip()
+            if dismissed_at is not None:
+                next_state["dismissed_at"] = as_text(dismissed_at).strip()
+            if photo_count is not None:
+                next_state["photo_count"] = max(0, as_int(photo_count))
+            if last_action is not None:
+                next_state["last_action"] = as_text(last_action).strip()
+            if review_note is not None:
+                next_state["review_note"] = as_text(review_note)
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO archive_media_review_state (
+                    archive_id, review_status, requested_at, started_at, completed_at, dismissed_at, photo_count, last_action, review_note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_archive_id,
+                    next_state["review_status"],
+                    next_state["requested_at"],
+                    next_state["started_at"],
+                    next_state["completed_at"],
+                    next_state["dismissed_at"],
+                    next_state["photo_count"],
+                    next_state["last_action"],
+                    next_state["review_note"],
+                ),
+            )
+        return {"archive_id": normalized_archive_id, **next_state}
+
+    def load_next_media_review_summary(
+        self,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                """
+                SELECT archive_id, review_status, requested_at, started_at, completed_at, dismissed_at, photo_count, last_action, review_note
+                FROM archive_media_review_state
+                WHERE review_status IN ('pending', 'reviewing')
+                ORDER BY CASE review_status WHEN 'pending' THEN 0 ELSE 1 END ASC,
+                         COALESCE(NULLIF(requested_at, ''), NULLIF(started_at, ''), NULLIF(completed_at, ''), NULLIF(dismissed_at, '')) DESC,
+                         archive_id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+            if row is None:
+                return None
+            archive_id = as_int(row[0])
+            archive = self.load_archive(archive_id, connection=active_connection)
+            if archive is None:
+                return None
+        media_review = {
+            "review_status": row[1],
+            "requested_at": row[2],
+            "started_at": row[3],
+            "completed_at": row[4],
+            "dismissed_at": row[5],
+            "photo_count": as_int(row[6]),
+            "last_action": row[7],
+            "review_note": row[8],
+        }
+        augmented_archive = dict(archive)
+        augmented_archive["media_review"] = media_review
+        return {
+            "archive_id": archive_id,
+            "review_status": media_review["review_status"],
+            "archive": augmented_archive,
+            "media_review": media_review,
+        }
+
+    def count_active_media_reviews(
+        self,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                "SELECT COUNT(*) FROM archive_media_review_state WHERE review_status IN ('pending', 'reviewing')"
+            ).fetchone()
+        return as_int(row[0]) if row else 0
+
     def load_sync_metadata(
         self,
         archive_id: int,
@@ -1463,6 +1621,63 @@ class PrintHistoryStore:
             }
             for row in rows
         ]
+
+    def load_media_review_summary(
+        self,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                """
+                SELECT archive_id, review_status, requested_at, started_at, completed_at, dismissed_at, photo_count, last_action, review_note
+                FROM archive_media_review_state
+                ORDER BY
+                    CASE review_status WHEN 'reviewing' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END,
+                    CASE
+                        WHEN review_status = 'reviewing' THEN COALESCE(NULLIF(started_at, ''), NULLIF(requested_at, ''), CAST(archive_id AS TEXT))
+                        ELSE COALESCE(NULLIF(requested_at, ''), NULLIF(started_at, ''), CAST(archive_id AS TEXT))
+                    END ASC,
+                    archive_id ASC
+                """
+            ).fetchall()
+
+            pending_count = 0
+            reviewing_count = 0
+            next_row = None
+            for row in rows:
+                status = as_text(row[1]).strip().lower()
+                if status == "pending":
+                    pending_count += 1
+                elif status == "reviewing":
+                    reviewing_count += 1
+                if next_row is None and status in {"pending", "reviewing"}:
+                    next_row = row
+
+            next_archive = None
+            next_state = None
+            if next_row is not None:
+                next_archive_id = as_int(next_row[0])
+                next_archive = self.load_archive(next_archive_id, connection=active_connection)
+                next_state = {
+                    "archive_id": next_archive_id,
+                    "review_status": next_row[1],
+                    "requested_at": next_row[2],
+                    "started_at": next_row[3],
+                    "completed_at": next_row[4],
+                    "dismissed_at": next_row[5],
+                    "photo_count": as_int(next_row[6]),
+                    "last_action": next_row[7],
+                    "review_note": next_row[8],
+                }
+
+        return {
+            "pending_count": pending_count,
+            "reviewing_count": reviewing_count,
+            "active_count": pending_count + reviewing_count,
+            "next_review": next_state,
+            "next_archive": next_archive,
+        }
 
     def upsert_repair_lineage(
         self,
@@ -1611,6 +1826,7 @@ class PrintHistoryStore:
             event_timeline_count = active_connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
             lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
+            media_review_count = active_connection.execute("SELECT COUNT(*) FROM archive_media_review_state").fetchone()[0]
             primary_photo_selection_count = active_connection.execute(
                 "SELECT COUNT(*) FROM archive_primary_photo_selection"
             ).fetchone()[0]
@@ -1625,6 +1841,7 @@ class PrintHistoryStore:
             "event_timeline_count": event_timeline_count,
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
+            "media_review_state_count": media_review_count,
             "primary_photo_selection_count": primary_photo_selection_count,
             "last_synced_at": last_synced_at or "",
             "connection_open_count": diagnostics.get("open_count", 0),
@@ -1652,6 +1869,7 @@ class PrintHistoryStore:
                 "event_timeline": self.load_archive_event_timeline(archive_id, connection=connection),
                 "note_payload_rows": self.load_note_payload_rows(archive_id, connection=connection),
                 "review_state": self.load_review_state(archive_id, connection=connection),
+                "media_review": self.load_media_review_state(archive_id, connection=connection),
                 "repair_lineage": self.load_repair_lineage(archive_id, connection=connection),
                 "sync": self.load_sync_metadata(archive_id, connection=connection),
                 "store": self.load_store_stats(connection=connection),

@@ -205,17 +205,35 @@ If no pending row exists, the chip should not render.
 
 Do not build a second dedicated review popup. Extend the existing archive popup and photo gallery.
 
+The media actions should be available during ordinary archive viewing as well, not only when the archive is in a pending review state. In practice that means:
+- the normal archive popup/gallery is the single place where photo actions live
+- the review chip is only an entry point into that same popup when an archive still needs review
+- a user browsing any past print can still delete, replace, or change the preferred preview photo from the gallery
+
+This reuse is intentional. It avoids training the user on two different media surfaces and keeps photo management discoverable on every archive, while the pending-review state only adds workflow urgency.
+
 Planned action set inside the current popup/gallery:
 - `Use In List View` — already supported by the gallery's primary-photo path
-- `Delete Photo` — new action
+- `Delete Photo` — new action, available from normal viewing and review entry, always protected by an explicit confirmation step
 - `Dismiss Review` — popup-level action
-- `Replace Photo` — later follow-on action
+- `Replace Photo` — later follow-on action, also available from normal viewing once implemented
+
+### Delete confirmation
+
+Deleting a photo is destructive and should always require confirmation before the service call is executed.
+
+Recommended behavior:
+1. user taps `Delete Photo` on the currently selected gallery image
+2. a confirmation dialog or lightweight confirmation popup summarizes the archive name and selected filename
+3. only after confirmation does the integration service run
+
+The confirmation requirement applies regardless of whether the archive was opened from the review chip or from normal browsing.
 
 ### Initial implementation slice
 
 The lowest-risk first slice is:
 1. chip opens archive popup instead of more-info
-2. popup/gallery adds `Delete Photo`
+2. popup/gallery adds `Delete Photo` for ordinary viewing and review-driven entry, with confirmation
 3. popup adds `Dismiss Review`
 4. primary-photo selection remains as-is
 

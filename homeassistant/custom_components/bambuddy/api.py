@@ -170,6 +170,27 @@ class BambuddyApiClient:
 
             return payload if isinstance(payload, dict) else None
 
+    async def async_delete_archive_photo(self, archive_id: int, *, photo_path: str) -> None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        normalized_photo_path = str(photo_path or "").strip().replace("\\", "/").split("/")[-1]
+        if not normalized_photo_path:
+            raise RuntimeError("Delete photo_path is empty")
+
+        async with self._session.delete(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/photos/{normalized_photo_path}",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
     async def async_fetch_projects(self) -> list[dict[str, Any]]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")

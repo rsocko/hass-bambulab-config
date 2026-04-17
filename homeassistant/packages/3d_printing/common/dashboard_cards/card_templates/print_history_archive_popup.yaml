@@ -137,6 +137,8 @@ print_history_archive_popup:
       const notesWereTrimmed = archiveNotes.length > editorNotesLimit;
       const tagsWereTrimmed = archiveTags.length > editorTagLimit;
       const isFavorite = !!archive?.is_favorite;
+      const mediaReviewArchiveId = states['sensor.bambuddy_print_history_browser_status']?.attributes?.media_review_next_review_json?.archive_id;
+      const showDismissMediaReview = String(mediaReviewArchiveId || '') === String(archiveId || '');
       const buttonCard = (name, icon, background, tapAction) => ({
         type: 'custom:button-card',
         name,
@@ -185,6 +187,18 @@ print_history_archive_popup:
             }
           }
         )]),
+        ...(showDismissMediaReview ? [buttonCard(
+          'Dismiss Review',
+          'mdi:check-circle-outline',
+          'rgba(251,192,45,0.18)',
+          {
+            action: 'call-service',
+            service: 'bambuddy.dismiss_print_history_media_review',
+            data: {
+              archive_id: Number(archiveId)
+            }
+          }
+        )] : []),
         {
           type: 'custom:button-card',
           template: 'print_history_archive_popup_favorite_button',

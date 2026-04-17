@@ -93,6 +93,7 @@ class BambuddyBrowserSensor(SensorEntity):
         backend = "custom_integration_local_store"
         if self.entity_description.key == ENTITY_STATUS:
             store_stats = self.manager.store.load_store_stats()
+            media_review_summary = self.manager.store.load_media_review_summary()
             limit_notice = self.manager.limit_notice
             attributes = {
                 "backend": backend,
@@ -125,6 +126,7 @@ class BambuddyBrowserSensor(SensorEntity):
                 "store_last_synced_at": store_stats.get("last_synced_at", ""),
                 "store_event_timeline_count": store_stats.get("event_timeline_count", 0),
                 "store_note_payload_row_count": store_stats.get("note_payload_row_count", 0),
+                "store_media_review_state_count": store_stats.get("media_review_state_count", 0),
                 "store_connection_open_count": store_stats.get("connection_open_count", 0),
                 "store_connection_open_error_count": store_stats.get("connection_open_error_count", 0),
                 "store_connection_current_open_count": store_stats.get("connection_current_open_count", 0),
@@ -162,6 +164,11 @@ class BambuddyBrowserSensor(SensorEntity):
                 "mutation_last_archive_id": self.manager.mutation_stats.get("last_archive_id", 0),
                 "mutation_last_duration_ms": self.manager.mutation_stats.get("last_duration_ms", 0.0),
                 "mutation_max_duration_ms": self.manager.mutation_stats.get("max_duration_ms", 0.0),
+                "media_review_pending_count": media_review_summary.get("pending_count", 0),
+                "media_review_reviewing_count": media_review_summary.get("reviewing_count", 0),
+                "media_review_active_count": media_review_summary.get("active_count", 0),
+                "media_review_next_review_json": media_review_summary.get("next_review") or {},
+                "media_review_next_archive_json": media_review_summary.get("next_archive") or {},
                 "project_options": list(self.manager.project_options),
                 "recent_operations": list(self.manager._recent_operations),
             }

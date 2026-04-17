@@ -288,6 +288,118 @@ set_print_history_primary_photo:
       selector:
         text:
 
+delete_print_history_photo:
+  name: Delete Print History Photo
+  description: Delete one archive photo in Bambuddy, then refresh the local print-history store detail snapshot.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    photo_path:
+      name: Photo Path
+      description: Archive photo filename/path to delete. The integration uses the basename when calling Bambuddy.
+      required: true
+      selector:
+        text:
+
+set_print_history_media_review_state:
+  name: Set Print History Media Review State
+  description: Create or update local photo-review workflow state for one archive in the Bambuddy store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    review_status:
+      name: Review Status
+      description: Local media review state such as pending, reviewing, completed, dismissed, or idle.
+      required: true
+      selector:
+        text:
+    requested_at:
+      name: Requested At
+      description: Optional ISO timestamp for when media review was requested.
+      required: false
+      selector:
+        text:
+    started_at:
+      name: Started At
+      description: Optional ISO timestamp for when review work began.
+      required: false
+      selector:
+        text:
+    completed_at:
+      name: Completed At
+      description: Optional ISO timestamp for when review was completed.
+      required: false
+      selector:
+        text:
+    dismissed_at:
+      name: Dismissed At
+      description: Optional ISO timestamp for when review was dismissed.
+      required: false
+      selector:
+        text:
+    photo_count:
+      name: Photo Count
+      description: Optional photo count snapshot for the archive at review time.
+      required: false
+      selector:
+        number:
+          min: 0
+          mode: box
+    last_action:
+      name: Last Action
+      description: Optional action label such as delete, upload, primary_photo, or dismissed.
+      required: false
+      selector:
+        text:
+    review_note:
+      name: Review Note
+      required: false
+      selector:
+        text:
+
+dismiss_print_history_media_review:
+  name: Dismiss Print History Media Review
+  description: Mark one archive's local media-review workflow as dismissed.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to dismiss.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
 set_print_history_repair_lineage:
   name: Set Print History Repair Lineage
   description: Create or update a local provenance relationship between two Bambuddy archives.

@@ -151,6 +151,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (action === "clear-primary-photo") {
       this._applyPrimaryPhotoSelection("");
+      return;
+    }
+    if (action === "delete-photo") {
+      this._deleteActivePhoto();
     }
   }
 
@@ -201,6 +205,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     if (action === "clear-primary-photo") {
       this._applyPrimaryPhotoSelection("");
+      return;
+    }
+    if (action === "delete-photo") {
+      this._deleteActivePhoto();
     }
   }
 
@@ -354,6 +362,58 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn("Failed to update Bambuddy primary photo", error);
+    }
+  }
+
+  async _deleteActivePhoto() {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    var photoPath = this._activePhotoPath();
+    if (!this._hass || archiveId == null || !photoPath || this._uploadInProgress) {
+      return;
+    }
+
+    if (!window.confirm("Delete this photo from the archive? This cannot be undone.")) {
+      return;
+    }
+
+    this._setUploadStatus("Deleting photo...", "info", true);
+    try {
+      var responseEnvelope = await this._hass.callService(
+        "bambuddy",
+        "delete_print_history_photo",
+        {
+          archive_id: archiveId,
+          photo_path: photoPath,
+        },
+        undefined,
+        true,
+        true
+      );
+      var response = responseEnvelope && responseEnvelope.response && typeof responseEnvelope.response === "object"
+        ? responseEnvelope.response
+        : responseEnvelope;
+      var updatedArchive = response && response.archive && typeof response.archive === "object"
+        ? response.archive
+        : null;
+      if (updatedArchive) {
+        this._localArchiveOverride = updatedArchive;
+        if (updatedArchive.primary_photo_path != null) {
+          this._localPrimaryPhotoPath = String(updatedArchive.primary_photo_path || "").trim();
+        }
+        if (updatedArchive.selected_primary_photo_path != null) {
+          this._localSelectedPrimaryPhotoPath = String(updatedArchive.selected_primary_photo_path || "").trim();
+        }
+        if (updatedArchive.has_primary_photo_override != null) {
+          this._localHasPrimaryPhotoOverride = !!updatedArchive.has_primary_photo_override;
+        }
+      }
+      var images = this._buildImages(this._resolveArchive());
+      this._activeIndex = Math.max(0, Math.min(this._activeIndex, images.length - 1));
+      this._setUploadStatus("Photo deleted.", "success", false);
+    } catch (error) {
+      var message = error && error.message ? error.message : "Photo delete failed";
+      this._setUploadStatus(message, "error", false);
     }
   }
 
@@ -685,6 +745,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return "";
   }
 
+  _buildDeleteAction(active, buttonClass) {
+    if (!active || active.kind !== "photo") {
+      return "";
+    }
+    var className = buttonClass || "action-button";
+    return '<button class="' + className + ' danger" type="button" data-action="delete-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>Delete Photo</button>';
+  }
+
   _findPreferredActiveIndex(images) {
     if (!Array.isArray(images) || !images.length) {
       return 0;
@@ -831,6 +899,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = this._images[this._activeIndex];
     var subtitle = this._subtitleForImages(this._images);
     var primaryAction = this._buildPrimaryAction(active, "button");
+    var deleteAction = this._buildDeleteAction(active, "button");
     var uploadAction = this._buildUploadAction("button");
     var uploadStatus = this._renderUploadStatus();
 
@@ -846,6 +915,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".actions{display:flex;align-items:center;gap:10px;}" +
       ".actions .button[disabled]{opacity:0.6;cursor:wait;}" +
       ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);}" +
+      ".button.danger{background:rgba(183,28,28,0.3);color:#ffcdd2;}" +
       ".upload-status{padding:10px 12px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif;}" +
       ".upload-status.info{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.88);}" +
       ".upload-status.success{background:rgba(46,125,50,0.2);color:#dcedc8;}" +
@@ -869,7 +939,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="shell" role="dialog" aria-modal="true" aria-label="' + this._escapeHtml(this._archiveName) + '">' +
       '<div class="header">' +
       '<div><div class="title">' + this._escapeHtml(this._archiveName) + '</div><div class="subtitle">' + this._escapeHtml(active.label) + ' \u00b7 ' + this._escapeHtml(subtitle) + '</div></div>' +
-      '<div class="actions">' + uploadAction + primaryAction + '<button class="button" type="button" data-action="collapse">Close</button></div>' +
+      '<div class="actions">' + uploadAction + primaryAction + deleteAction + '<button class="button" type="button" data-action="collapse">Close</button></div>' +
       '</div>' +
       uploadStatus +
       '<div class="stage">' +
@@ -918,11 +988,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       }, this);
 
     var primaryAction = this._buildPrimaryAction(active, "action-button");
+    var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
 
     var metaActions = this.shadowRoot.querySelector(".meta-actions");
     if (metaActions) {
-      metaActions.innerHTML = uploadAction + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
+      metaActions.innerHTML = uploadAction + primaryAction + deleteAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
     }
 
     var uploadStatus = this.shadowRoot.querySelector(".upload-status-host");
@@ -1023,6 +1094,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
     var subtitle = this._subtitleForImages(images);
     var primaryAction = this._buildPrimaryAction(active, "action-button");
+    var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
     var compact = !!this._config.compact;
     this._images = images;
@@ -1050,6 +1122,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);margin-top:4px;}" +
       ".expand{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(21,101,192,0.14);color:#bbdefb;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
       ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
+      ".action-button.danger{background:rgba(183,28,28,0.12);color:#b71c1c;}" +
       ".action-button[disabled]{opacity:0.6;cursor:wait;}" +
       ".upload-status-host{min-height:0;}" +
       ".upload-status{margin:2px 2px 0;padding:10px 12px;border-radius:14px;font-size:12px;font-weight:600;line-height:1.4;}" +
@@ -1081,7 +1154,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "</div>" +
       (compact ? "" : ('<div class="meta">' +
       '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
-      '<div class="meta-actions">' + uploadAction + primaryAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
+      '<div class="meta-actions">' + uploadAction + primaryAction + deleteAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
       "</div>")) +
       '<div class="upload-status-host">' + this._renderUploadStatus() + '</div>' +
       '<div class="thumbs">' + images.map(function (image, index) {
