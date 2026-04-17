@@ -6,6 +6,17 @@ Collapse the broader archive detection and recovery design into a single recomme
 
 This document defines the exact scope to implement first and the work to defer until later phases.
 
+## Implementation Status
+
+The original Phase 1 target described here is now mostly implemented in the active Variant 3 browser/store path:
+
+- archive-health source fields are retained in the local store and projected query contract
+- `missing_core_3mf`, `missing_thumbnail`, and `has_source_only` are derived in the active query layer
+- the browser exposes `Archive Issue` filtering and row-level issue emphasis
+- the archive popup shows a dedicated issue summary block for affected records
+
+The main remaining Phase 1 gap from this document is not the browser visibility itself. It is the optional dedicated exception-only surface, plus validation and cleanup of the surrounding recovery documents.
+
 Related documents:
 
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
@@ -119,7 +130,7 @@ Phase 1 is complete only when all of the following exist:
 
 1. incomplete archives are detectable in HA from archive detail data
 2. the main history table can visually distinguish incomplete rows
-3. a dedicated exception view exists in `print_history`
+3. a dedicated exception view exists in `print_history`, or the team explicitly accepts the current browser-plus-popup surfacing as the Phase 1 UX endpoint
 4. at least one known fallback archive validates the detection path
 5. normal archives do not produce false positives
 
@@ -172,4 +183,4 @@ Only after that should automatic recovery be considered.
 
 ## Recommendation
 
-Treat this document as the default build target for the first implementation pass. If a proposed change does not improve detection or visibility directly, it probably belongs in a later phase.
+Treat this document as the baseline record of what Phase 1 was meant to achieve. For current planning, use it to validate any remaining Phase 1 UX gaps and to keep later recovery work from pulling new behavior back into the detection-only slice.

@@ -1,6 +1,6 @@
 # Archive Detection And Recovery Execution Checklist
 
-> Design-to-build checklist. This document breaks the work into execution tasks but intentionally stops short of code implementation details.
+> Design-to-build checklist. Phase 1 items below should now be read as validation and cleanup checks against the shipped browser/store implementation, while Phase 2 and Phase 3 remain forward-looking recovery work.
 
 ## Purpose
 
@@ -18,13 +18,13 @@ Related documents:
 
 ### Data contract
 
-- [ ] confirm the additional trimmed archive fields to retain in history payload
-- [ ] confirm acceptable HA state size after adding those fields
-- [ ] finalize derived flag names for incomplete archive state
+- [x] confirm the additional trimmed archive fields to retain in history payload
+- [x] confirm acceptable HA state size after adding those fields
+- [x] finalize derived flag names for incomplete archive state
 
 ### HA commands and scripts
 
-- [ ] define `bambuddy_get_archive_detail` contract
+- [x] define `bambuddy_get_archive_detail` contract
 - [ ] define `check_archive_integrity` script contract
 - [ ] define `audit_recent_archive_exceptions` script contract
 - [ ] define `mark_archive_exception` script contract
@@ -32,7 +32,7 @@ Related documents:
 ### Event model
 
 - [ ] finalize `bambuddy_archive_exception` event schema
-- [ ] decide whether exception state remains event-only or gets persisted in a trigger-based sensor summary
+- [x] decide whether exception state remains event-only or gets persisted in a trigger-based sensor summary
 
 ### Detection triggers
 
@@ -44,8 +44,8 @@ Related documents:
 
 ### Main history table
 
-- [ ] define row-level exception marker placement
-- [ ] define severity states and text labels
+- [x] define row-level exception marker placement
+- [x] define severity states and text labels
 - [ ] define recovered-state rendering
 
 ### Exception card

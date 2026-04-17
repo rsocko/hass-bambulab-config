@@ -1,6 +1,6 @@
 # Archive Detection Implementation Plan
 
-> Design-only plan for Home Assistant-side detection and exception surfacing. This document does not define final YAML implementation details, only the intended contracts and rollout order.
+> Implementation-status note: the original Phase 1 detection and visibility slice described here is now partially shipped through the active Variant 3 browser/store path. This document should now be read as a split between shipped detection groundwork and still-pending recovery orchestration.
 
 ## Purpose
 
@@ -22,6 +22,11 @@ Related documents:
 ### Phase 1: Detection and visibility
 
 Goal: make incomplete Bambuddy archives visible and explainable in Home Assistant.
+
+Current status:
+
+- shipped in the active Variant 3 path: archive-health field projection, derived archive-error flags, archive-issue browser filter, row-level issue emphasis, and popup-level issue summaries
+- still open: a dedicated exception card or exception-only surface, plus any event-first exception automation model beyond the current browser/query path
 
 ### Phase 2: Manual recovery orchestration
 
@@ -75,9 +80,9 @@ Sidecar API and compose shape:
 
 ### Existing source
 
-`script.load_history_page` already trims archive responses for dashboard use.
+The active source of truth is now the Variant 3 custom integration and local store, not the older helper-driven `script.load_history_page` path.
 
-### Planned additions to trimmed row shape
+### Phase 1 shipped additions to trimmed row shape
 
 - `file_path`
 - `file_size`
@@ -85,13 +90,15 @@ Sidecar API and compose shape:
 - `source_3mf_path`
 - `extra_data.no_3mf_available`
 
-### Planned derived fields
+### Phase 1 shipped derived fields
 
-- `is_incomplete_archive`
 - `missing_core_3mf`
 - `missing_thumbnail`
 - `has_source_only`
-- `repair_state`
+
+Still deferred at this layer:
+
+- a generalized `repair_state` surfaced as part of a dedicated recovery workflow rather than the current browser issue flags
 
 ## Entity Plan
 
@@ -114,6 +121,10 @@ The upload command is included in the design now so the shape is clear, even tho
 1. `sensor.bambuddy_incomplete_archives_count`
 2. `sensor.bambuddy_last_incomplete_archive`
 3. trigger-based exception-state sensor storing the current exception set or recent exception summary
+
+Current shipped equivalent:
+
+- the browser status, filtered, page-archives, and popup detail contracts already surface per-archive issue state without a dedicated exception sensor family
 
 ### Helpers
 
@@ -154,6 +165,11 @@ Add row-level indicators for:
 - missing thumbnail only
 - repaired replacement available
 
+Current shipped equivalent:
+
+- issue emphasis is already present in the browser card via severity-colored left rails and compact issue chips
+- popup detail already includes an archive-issue summary block
+
 ### New exception card
 
 Show:
@@ -174,6 +190,8 @@ Add a compact chip for the top-level dashboard showing the count of active archi
 ### New HA-level event concept
 
 `bambuddy_archive_exception`
+
+This remains a valid extension, but it is not required for the shipped Phase 1 browser visibility path.
 
 Suggested payload:
 
@@ -269,4 +287,4 @@ Reference files:
 
 ## Recommendation
 
-Implement only Phase 1 first. Complete manual recovery design and workflow review before any automatic recovery behavior is enabled.
+Treat Phase 1 as mostly implemented in the current browser/store path, then use this document primarily for the remaining manual and automated recovery orchestration work. Complete manual recovery design and workflow review before any automatic recovery behavior is enabled.

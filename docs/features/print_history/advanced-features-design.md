@@ -10,12 +10,12 @@
 
 This document is intentionally ordered by implementation phase. Every candidate change is assigned to a specific phase, even if the implementation remains deferred.
 
-Status below reflects the current state of this repository as of 2026-04-04. `Partial` means some meaningful implementation or prerequisite UX/data plumbing exists, but the phase scope described below is not fully delivered yet.
+Status below reflects the current state of this repository as of 2026-04-16. `Partial` means some meaningful implementation or prerequisite UX/data plumbing exists, but the phase scope described below is not fully delivered yet.
 
 | Phase | Feature                                                             | Effort | Value                                           | Status      | Current repo state |
 | ----- | ------------------------------------------------------------------- | ------ | ----------------------------------------------- | ----------- | ------------------ |
 | 2.0   | Core enrichment extensions: timelapse auto-attach, tag audit sensor | Low    | High for timelapse attach, Medium for tag audit | Not started | Core archive enrichment exists, but neither timelapse auto-attach nor the tag audit sensor is implemented. |
-| 2.05  | Archive detection and recovery workflow                             | Medium | Very High                                       | Partial     | Recovery design docs and sidecar planning/work have started, but the HA-side detection and exception UX described here are not fully shipped. |
+| 2.05  | Archive detection and recovery workflow                             | Medium | Very High                                       | Partial     | Archive-error detection, browser filtering, row/popup issue surfacing, and local repair-sidecar groundwork are shipped, but dedicated recovery actions and orchestration are still not built. |
 | 2.1   | Favorites toggle                                                    | Low    | Medium                                          | Complete    | Favorites toggle is implemented with REST command, script, and dashboard actions. |
 | 2.2   | Compare on failure                                                  | Medium | Medium                                          | Not started | No compare-on-failure automation, similar-archive lookup, or compare-link notification flow is wired yet. |
 | 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            | Partial     | Duplicate metadata now flows into print-history browser filtering and card/popup visibility, but duplicate lookup, reprint tagging, notifications, and compare workflows are still not implemented. |
@@ -25,8 +25,8 @@ Status below reflects the current state of this repository as of 2026-04-04. `Pa
 | 2.7   | Rich print notifications                                            | Low    | Medium                                          | Partial     | Print started/completed notifications already exist, but they are still basic and do not use the richer Bambuddy archive data described here. |
 | 2.8   | Spool usage provenance                                              | Medium | Medium                                          | Partial     | Hidden enrichment payload already preserves per-archive spool/filament provenance, but there is no searchable provenance feature or dashboard surfacing yet. |
 | 2.9   | Timelapse lifecycle management                                      | Medium | High                                            | Not started | Photo capture/review exists separately, but no timelapse lifecycle commands, sensors, or review UI are implemented yet. |
-| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Not started | No archive rescan, capability diagnostics, or repair/admin tooling is implemented in HA yet. |
-| 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          | Complete    | Archive detail popup and edit/save flows for the initial field set are implemented. |
+| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Partial     | Archive-error state, review/repair-lineage storage, and partial-usage estimation groundwork exist, but no rescan, capability, or admin-repair UX is wired yet. |
+| 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          | Complete    | Archive detail popup and edit/save flows for the initial field set, including project assignment, are implemented. |
 | 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
 | 2.13  | Reprint from HA                                                     | High   | Medium                                          | Not started | No reprint action, AMS mapping UX, or safety confirmation flow is implemented yet. |
 | 2.14  | Search from HA                                                      | Medium | Low                                             | Partial     | HA-side local search/filtering exists in print history, but Bambuddy `/archives/search` integration is not wired yet. |
@@ -71,6 +71,22 @@ Detailed design is tracked in [archive-detection-recovery-design.md](archive-det
 - Detect fallback archives created with missing `.3mf` data.
 - Surface incomplete records directly in print history and exception views.
 - Optionally trigger an external recovery worker that re-pulls the `.3mf` from the printer and re-uploads it to Bambuddy as a new canonical archive.
+
+### Current implementation slice
+
+The first detection slice is already active in the Variant 3 browser path:
+
+- the local store persists archive-health fields such as `has_archive_error`, `missing_core_3mf`, `missing_thumbnail`, and `has_source_only`
+- the browser query layer and filter bar expose `Archive Issue` filtering for `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, and `Missing Thumbnail`
+- archive cards render compact issue emphasis and the popup renders an `Archive Issue` summary block
+- local repair-oriented primitives now exist in the integration for review state, repair lineage, and sidecar-backed partial-usage estimation
+
+Still deferred within Phase 2.05:
+
+- a dedicated exception card or exception-only dashboard surface
+- popup/browser recovery actions
+- HA-driven manual recovery orchestration
+- automated recovery behavior
 
 This is the best available path without changing Bambuddy itself, because current Bambuddy APIs can inspect, rescan, upload, and attach source files, but do not support in-place repair of a fallback archive whose main `file_path` was never created.
 
@@ -578,6 +594,20 @@ This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag st
 3. **Admin maintenance panel** — One protected dashboard section for `rescan-all` and `backfill-hashes` after upgrades or storage migrations.
 4. **Reprint preflight** — Show plate count and filament requirements before allowing a reprint action.
 
+### Current implementation slice
+
+This phase is no longer pure future work. The repo already has several supporting pieces in place:
+
+- archive-health derivation and surfacing from the active Variant 3 query/store path
+- local review and repair-lineage storage in the Bambuddy SQLite store
+- service contracts for `set_print_history_repair_lineage`, `delete_print_history_repair_lineage`, and sidecar-backed `estimate_partial_usage`
+
+Still deferred within Phase 2.10:
+
+- HA actions for `rescan`, `rescan-all`, `backfill-hashes`, and capability inspection
+- a dedicated admin maintenance panel
+- archive preflight UI for reprint workflows
+
 ### Implementation
 
 **Scripts**:
@@ -606,8 +636,8 @@ The phased interaction design for per-archive popup drilldown is tracked in [arc
 
 ### Summary
 
-- Phase 2.11 covers the initial popup rollout: each archive card opens a read-only detail popup, then adds editing for `print_name`, `notes`, `tags`, `is_favorite`, `status`, and `failure_reason` as the initial HA popup scope.
-- Bambuddy's broader archive update contract also supports fields such as `project_id`, `quantity`, `external_url`, and `cost`, but those remain intentionally deferred to later popup iterations.
+- Phase 2.11 covers the initial popup rollout: each archive card opens a read-only detail popup, then adds editing for `print_name`, `notes`, `tags`, `is_favorite`, `project_id`, `status`, and `failure_reason` as the current HA popup scope.
+- Bambuddy's broader archive update contract also supports fields such as `quantity`, `external_url`, and `cost`, but those remain intentionally deferred to later popup iterations.
 - Verified against Bambuddy source: the backend accepts any `failure_reason` string, and this package normalizes Bambuddy's raw cancelled-style values (`cancelled`, `aborted`, and legacy `stopped`) into one `Cancelled` popup option while still showing failure reason only for `failed` or `cancelled`.
 - Later popup action slots are reserved for issue `#744` and the related follow-on issues `#747`, `#748`, `#750`, `#755`, and `#783`.
 

@@ -1,6 +1,6 @@
 # Post-Print Photo Review Design
 
-> **Current status**: The archive popup and photo gallery are already shipped, and the gallery already supports the local `primary photo` override used by the print-history list and popup preview. What is still missing is the actual review workflow: delete, replace, dismiss, chip-to-popup handoff, and auto-dismiss lifecycle.
+> **Current status**: The archive popup and photo gallery are already shipped, and the shipped media-review slice now includes local `primary photo` override, phone-driven manual photo upload, delete photo, popup `Dismiss Review`, and persistent `archive_media_review_state` in the Variant 3 store. What remains open is the follow-on workflow work: replace, timeout/auto-dismiss lifecycle, and stronger chip-target and local-cleanup behavior.
 >
 > **Authoritative runtime model**: Do not revive the old `input_text` JSON manifest idea for this feature. The active print-history implementation is Variant 3, so photo review should read from the Bambuddy-backed archive detail plus the local SQLite store in `custom_components/bambuddy`.
 
@@ -36,6 +36,9 @@ That keeps the feature aligned with the current popup architecture and avoids in
 - `custom:print-history-browser-card` opens an archive-specific popup
 - the popup already includes the photo gallery card
 - the gallery already supports local primary-photo selection via `bambuddy.set_print_history_primary_photo`
+- the gallery now supports `Add Photo` mobile/desktop upload through the integration websocket path
+- the gallery now supports `Delete Photo` with confirmation through `bambuddy.delete_print_history_photo`
+- the popup now supports `Dismiss Review` through `bambuddy.dismiss_print_history_media_review`
 - `input_select.bambuddy_photo_review_state` is set to `pending` after terminal enrichment when photos were captured
 - `input_number.photo_review_timeout_hours` already exists as the review timeout control
 
@@ -45,6 +48,7 @@ The Variant 3 SQLite store already has the key media structures needed for revie
 
 - `archive_photos` — authoritative archive photo filenames and ordering as mirrored from Bambuddy
 - `archive_primary_photo_selection` — current local primary-photo override for list/popup rendering
+- `archive_media_review_state` — dedicated persistent per-archive media-review lifecycle state
 - `archive_review_state` — existing generic review metadata used for mismatch/duplicate workflows
 
 ### Important constraint
@@ -53,11 +57,11 @@ Do **not** overload `archive_review_state` for photo review unless there is a co
 
 Photo review is a distinct lifecycle with different actions, timeouts, and UI triggers. It should therefore use a dedicated media-review table rather than piggybacking on mismatch review fields.
 
-## Proposed Store-Backed Review Model
+## Store-Backed Review Model
 
-### New table
+### Current table
 
-Add a dedicated local table for per-archive photo-review lifecycle:
+The dedicated local table for per-archive photo-review lifecycle is now shipped:
 
 ```sql
 CREATE TABLE IF NOT EXISTS archive_media_review_state (
@@ -95,7 +99,7 @@ Keep the existing helpers, but narrow their role:
 - `input_select.bambuddy_photo_review_state` becomes a coarse UI signal for the view-level chip
 - `input_number.photo_review_timeout_hours` remains the user-configurable timeout
 
-The SQLite table becomes the authoritative per-archive state. The helper should be treated as a mirrored summary, not the source of truth.
+The SQLite table is now the authoritative per-archive state. The helper should be treated as a mirrored summary, not the source of truth.
 
 ## Trigger And Lifecycle
 
@@ -108,7 +112,7 @@ The current completion behavior is close to correct and should stay:
 3. if captured-photo count is greater than zero, the archive is marked for photo review
 4. the review chip appears on the print-history view
 
-The missing piece is persistence. Instead of only setting the helper, terminal enrichment should also upsert `archive_media_review_state` for the completed archive with:
+The persistence piece is now in place. In the shipped model, terminal enrichment also upserts `archive_media_review_state` for the completed archive with:
 - `review_status = pending`
 - `requested_at = now()`
 - `photo_count = current archive photo count` when available
@@ -116,7 +120,7 @@ The missing piece is persistence. Instead of only setting the helper, terminal e
 
 ### When review starts
 
-When the user taps the review chip or explicitly opens review from the popup, mark the row as `reviewing` with `started_at = now()`.
+The next follow-on slice should make review-start semantics more explicit. When the user taps the review chip or explicitly opens review from the popup, mark the row as `reviewing` with `started_at = now()`.
 
 ### When review ends
 
@@ -160,6 +164,9 @@ That means the review UI can be built on the existing popup/gallery path without
 | Operation | Current implementation | Role |
 |---|---|---|
 | Set preferred preview photo | `bambuddy.set_print_history_primary_photo` | Selects the photo used in list/popup preview rendering |
+| Delete photo | `bambuddy.delete_print_history_photo` | Deletes one photo, refreshes archive detail, and updates local store state |
+| Dismiss media review | `bambuddy.dismiss_print_history_media_review` | Marks one archive's local media-review workflow as dismissed |
+| Upload photo | `bambuddy/print_history_upload_photo` websocket path | Uploads one or more selected images and refreshes the local store snapshot |
 
 ### Not required for first review slice
 
@@ -170,14 +177,14 @@ That means the review UI can be built on the existing popup/gallery path without
 
 ## Service Architecture
 
-The next build should add media-review services to the Bambuddy custom component rather than implementing the workflow only in YAML scripts.
+The core service direction is now validated in the shipped integration. The remaining work should continue extending the Bambuddy custom component rather than falling back to YAML-only orchestration.
 
 ### Recommended new services
 
 | Service | Purpose |
 |---|---|
-| `bambuddy.delete_print_history_photo` | Delete a photo by filename, update local store rows, update media review state, recompute popup/query payloads |
-| `bambuddy.dismiss_print_history_media_review` | Mark the current archive review as dismissed or completed |
+| `bambuddy.delete_print_history_photo` | Shipped. Deletes a photo by filename, updates local store rows, updates media review state, and refreshes popup/query payloads |
+| `bambuddy.dismiss_print_history_media_review` | Shipped. Marks the current archive review as dismissed |
 | `bambuddy.replace_print_history_photo` | Orchestrate capture/upload/delete for one photo slot or one selected filename |
 | `bambuddy.start_print_history_media_review` | Optional convenience service to mark `reviewing` and return the target archive context |
 
@@ -192,7 +199,7 @@ The next build should add media-review services to the Bambuddy custom component
 
 ### Review entry point
 
-The review chip should stop opening more-info for `input_select.bambuddy_photo_review_state`.
+The shipped popup now has the required review actions, so the remaining UI work is to tighten how the chip chooses and opens the target archive.
 
 Instead, it should:
 1. resolve the newest archive whose `archive_media_review_state.review_status` is `pending` or `reviewing`
@@ -212,10 +219,11 @@ The media actions should be available during ordinary archive viewing as well, n
 
 This reuse is intentional. It avoids training the user on two different media surfaces and keeps photo management discoverable on every archive, while the pending-review state only adds workflow urgency.
 
-Planned action set inside the current popup/gallery:
+Current and planned action set inside the current popup/gallery:
 - `Use In List View` — already supported by the gallery's primary-photo path
-- `Delete Photo` — new action, available from normal viewing and review entry, always protected by an explicit confirmation step
-- `Dismiss Review` — popup-level action
+- `Add Photo` — already supported by the gallery upload flow
+- `Delete Photo` — already supported, available from normal viewing and review entry, and protected by an explicit confirmation step
+- `Dismiss Review` — already supported as a popup-level action
 - `Replace Photo` — later follow-on action, also available from normal viewing once implemented
 
 ### Delete confirmation
@@ -229,15 +237,15 @@ Recommended behavior:
 
 The confirmation requirement applies regardless of whether the archive was opened from the review chip or from normal browsing.
 
-### Initial implementation slice
+### Current implementation slice
 
-The lowest-risk first slice is:
-1. chip opens archive popup instead of more-info
-2. popup/gallery adds `Delete Photo` for ordinary viewing and review-driven entry, with confirmation
-3. popup adds `Dismiss Review`
-4. primary-photo selection remains as-is
+The lowest-risk first slice is already shipped:
+1. popup/gallery supports `Delete Photo` for ordinary viewing, with confirmation
+2. popup supports `Dismiss Review`
+3. primary-photo selection remains available
+4. manual phone/desktop upload is available from the gallery
 
-That is enough to ship a real review loop without waiting for replace orchestration.
+The next slice should focus on chip-target handoff, explicit `reviewing` transitions, and replace orchestration.
 
 ## Local File Cleanup
 
@@ -259,34 +267,37 @@ Already shipped:
 - archive popup
 - photo gallery inside popup
 - local primary-photo override
+- mobile/desktop `Add Photo` upload from the gallery
+- `Delete Photo` with confirmation
+- popup `Dismiss Review`
+- store-backed `archive_media_review_state`
 - coarse review helper and timeout helper
 - review state becomes `pending` after terminal enrichment when photos exist
 
 Still missing:
-- store-backed per-archive media review state
 - chip-to-popup handoff
-- delete photo action
-- dismiss review action
 - replace photo action
 - auto-dismiss automation over persistent review rows
+- explicit `reviewing` lifecycle transition on chip/popup entry
+- stronger local file-cleanup handling when a deleted Bambuddy photo still has a retained local snapshot path
 
 Optional later work:
 - Bambuddy cover-photo sync if live API validation proves it worthwhile
 
 ## Recommended Build Sequence
 
-1. **Normalize contracts** — update docs and command comments so delete uses `filename`, not `photo_id`, and treat local primary-photo selection as the current shipped photo-promote behavior.
-2. **Add store-backed media review state** — create `archive_media_review_state` and wire terminal enrichment plus lifecycle recompute into the custom integration.
-3. **Ship the first real review loop** — make the chip open the existing archive popup and add `Dismiss Review` plus review-state transitions.
-4. **Add delete photo** — integration service first, then popup/gallery button wired into the service.
-5. **Add replace photo** — only after delete/dismiss are stable, because replace spans capture, upload, store refresh, and optional old-photo cleanup.
-6. **Start timelapse review** — once basic photo review works, extend the same media-review model to timelapse scan, status, and preview.
+1. **Normalize contracts** — keep docs and service comments aligned with the shipped `filename`-based delete contract and the current local primary-photo behavior.
+2. **Finish chip-driven review handoff** — make the review chip consistently resolve and open the next pending archive from `archive_media_review_state`.
+3. **Add explicit review-start transitions** — mark rows `reviewing` when the chip or popup begins operator review.
+4. **Add replace photo** — only after chip/dismiss/delete semantics are stable, because replace spans capture, upload, store refresh, and optional old-photo cleanup.
+5. **Add timeout and next-print auto-dismiss** — operate on persistent review rows and keep the coarse helper mirrored from store state.
+6. **Start timelapse review** — once photo review follow-on behavior is stable, extend the same media-review model to timelapse scan, status, and preview.
 
 ## Open Items
 
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
-| 1 | Should `archive_media_review_state` stay separate from `archive_review_state`? | Affects schema clarity and future workflow coupling | Yes — decide before implementation |
+| 1 | Should `archive_media_review_state` stay separate from `archive_review_state` long-term? | Affects schema clarity and future workflow coupling | No for current implementation; keep separate unless later workflows prove otherwise |
 | 2 | How should the chip resolve the target archive when several reviews are pending? | Affects popup entry behavior | Yes |
 | 3 | Can replace safely map a newly captured local file back to one logical reviewed photo slot? | Affects replace UX and deletion safety | No for delete/dismiss first slice |
 | 4 | Is Bambuddy `cover_photo_id` worth implementing if local primary-photo override already solves the HA UX? | Affects scope and whether `rest_command.bambuddy_set_archive_cover` is retained | No |

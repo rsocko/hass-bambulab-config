@@ -18,6 +18,25 @@ The intent is:
 - prefer integration services and detail hydration over card-local parsing for new provenance features
 - treat Variant 4 as a later execution boundary, not a reason to delay Variant 3 schema work
 
+## Current Status Snapshot
+
+This roadmap is no longer entirely prospective.
+
+Already shipped in the active Variant 3 store and service layer:
+
+- `archive_event_timeline`
+- `archive_review_state`
+- `archive_media_review_state`
+- `archive_repair_lineage`
+- integration service paths that mutate local review, media-review, repair-lineage, and event-timeline state
+
+Still pending from the broader roadmap:
+
+- `archive_metric_summary`
+- `archive_spool_snapshots`
+- `archive_artifact_metadata`
+- a broader `archive_lineage` model beyond the currently shipped repair-lineage and compact duplicate slice
+
 ## Workstream Summary
 
 | Workstream | Goal | Primary motivation | Existing issue alignment |
@@ -55,6 +74,12 @@ Without this step, later features will continue to hide important state in:
 - add `archive_lineage`
 - add migration and backfill logic in the current Variant 3 store
 
+### Current implementation status
+
+- `archive_event_timeline` is already shipped
+- `archive_review_state`, `archive_media_review_state`, and `archive_repair_lineage` are already shipped as adjacent local-store primitives
+- the remaining work in Phase A is the broader metric, artifact, spool-snapshot, and generalized-lineage schema rather than the initial migration foundation itself
+
 ### Repo touchpoints
 
 - `homeassistant/custom_components/bambuddy/print_history/store.py`
@@ -71,6 +96,8 @@ Without this step, later features will continue to hide important state in:
 - new tables exist behind migrations
 - existing browser behavior still runs from the current page/detail contracts
 - no new Layer 1 UI-only fields were introduced
+
+For current planning, treat the remaining Phase A exit criteria as centered on `archive_metric_summary`, `archive_spool_snapshots`, `archive_artifact_metadata`, and a broader `archive_lineage` table.
 
 ## Phase B: Event Timeline Capture
 
@@ -109,6 +136,16 @@ Persist intermediate event rows for each archive while leaving start and termina
 - archive detail hydration can include timeline rows
 - review flows can see the sequence of archive lifecycle events without re-parsing logs or notes
 - popup timeline UI can render intermediate event dots from persisted rows without expanding the Layer 1 browser payload
+
+### Current implementation status
+
+The core storage and mutation slice for Phase B is already present:
+
+- `archive_event_timeline` exists in the Variant 3 store
+- local append paths are exposed through the integration service layer
+- popup detail hydration already has the structural path needed to consume durable timeline rows
+
+The remaining work is to expand event capture coverage and complete the final popup timeline presentation against the persisted rows.
 
 ## Phase C: Artifact Extraction At Print Start
 
