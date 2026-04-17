@@ -815,8 +815,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=18", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=23", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=26", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -1646,7 +1648,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=2", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=23", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

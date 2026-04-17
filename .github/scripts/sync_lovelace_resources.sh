@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # sync_lovelace_resources.sh
 #
-# Ensures Lovelace resources declared in _resources.yaml are registered in
-# Home Assistant's Lovelace storage (UI-managed resources).
+# Ensures repo-owned Lovelace resources declared in _resources.yaml are
+# registered in Home Assistant's Lovelace storage (UI-managed resources).
 #
 # HA uses storage mode for Lovelace resources by default — YAML package
 # definitions under lovelace.resources are silently ignored.  This script
@@ -21,18 +21,32 @@
 #
 # The script:
 #   1. Parses url/type pairs from the manifest (no YAML library needed).
-#   2. SSHes into HA and fetches existing Lovelace resources via the API.
-#   3. Creates any resources present in the manifest but missing from storage.
-#   4. Reports created/skipped counts.
+#   2. Filters to repo-owned resource prefixes only (defaults to /local/3d_printing/).
+#   3. SSHes into HA and fetches existing Lovelace resources via the API.
+#   4. Creates missing resources and updates managed resources when only the versioned URL changed.
+#   5. Reports created/updated/skipped counts.
 
 set -euo pipefail
 
 DRY_RUN=false
-if [[ "${1:-}" == "--dry-run" ]]; then
-  DRY_RUN=true
-fi
+STRICT=false
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=true
+      ;;
+    --strict)
+      STRICT=true
+      ;;
+    *)
+      echo "Unknown argument: $arg"
+      exit 1
+      ;;
+  esac
+done
 
 MANIFEST="${RESOURCES_MANIFEST:-./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml}"
+MANAGED_PREFIXES_RAW="${MANAGED_RESOURCE_PREFIXES:-/local/3d_printing/}"
 
 if [ ! -f "$MANIFEST" ]; then
   echo "Resource manifest not found: $MANIFEST"
@@ -43,16 +57,47 @@ fi
 # 1. Parse the YAML manifest into url|type pairs.
 # ---------------------------------------------------------------------------
 declare -a DESIRED_RESOURCES=()
+declare -a IGNORED_RESOURCES=()
+declare -a MANAGED_PREFIXES=()
 current_url=""
 current_type=""
+
+IFS=',' read -ra MANAGED_PREFIXES <<< "$MANAGED_PREFIXES_RAW"
+
+is_managed_resource() {
+  local url="$1"
+  local prefix
+
+  for prefix in "${MANAGED_PREFIXES[@]}"; do
+    prefix="$(echo "$prefix" | xargs)"
+    [ -z "$prefix" ] && continue
+    case "$url" in
+      "$prefix"*)
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+append_manifest_resource() {
+  if [ -z "$current_url" ] || [ -z "$current_type" ]; then
+    return 0
+  fi
+
+  if is_managed_resource "$current_url"; then
+    DESIRED_RESOURCES+=("${current_url}|${current_type}")
+  else
+    IGNORED_RESOURCES+=("${current_url}|${current_type}")
+  fi
+}
 
 while IFS= read -r line; do
   [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
 
   if [[ "$line" =~ ^-[[:space:]]+url:[[:space:]]*(.*) ]]; then
-    if [ -n "$current_url" ] && [ -n "$current_type" ]; then
-      DESIRED_RESOURCES+=("${current_url}|${current_type}")
-    fi
+    append_manifest_resource
     current_url="${BASH_REMATCH[1]}"
     current_type=""
   elif [[ "$line" =~ ^[[:space:]]+type:[[:space:]]*(.*) ]]; then
@@ -60,20 +105,26 @@ while IFS= read -r line; do
   fi
 done < "$MANIFEST"
 
-if [ -n "$current_url" ] && [ -n "$current_type" ]; then
-  DESIRED_RESOURCES+=("${current_url}|${current_type}")
-fi
+append_manifest_resource
 
 if [ "${#DESIRED_RESOURCES[@]}" -eq 0 ]; then
-  echo "No resources found in manifest: $MANIFEST"
+  echo "No managed resources found in manifest: $MANIFEST"
   exit 0
 fi
 
-echo "Manifest declares ${#DESIRED_RESOURCES[@]} resource(s):"
+echo "Managed resource prefixes: $MANAGED_PREFIXES_RAW"
+echo "Manifest declares ${#DESIRED_RESOURCES[@]} managed resource(s):"
 for entry in "${DESIRED_RESOURCES[@]}"; do
   IFS='|' read -r url res_type <<< "$entry"
   echo "  - $url ($res_type)"
 done
+if [ "${#IGNORED_RESOURCES[@]}" -gt 0 ]; then
+  echo "Ignoring ${#IGNORED_RESOURCES[@]} unmanaged manifest resource(s):"
+  for entry in "${IGNORED_RESOURCES[@]}"; do
+    IFS='|' read -r url res_type <<< "$entry"
+    echo "  - $url ($res_type)"
+  done
+fi
 
 # ---------------------------------------------------------------------------
 # 2. Serialize desired resources for the remote script.
@@ -96,12 +147,13 @@ fi
 SUPERVISOR_TOKEN_INPUT="${HA_SUPERVISOR_TOKEN:-}"
 
 set +e
-SYNC_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$SUPERVISOR_TOKEN_INPUT\" \"$DESIRED_SERIALIZED\" \"$DRY_RUN\"" <<'REMOTE_SYNC'
+SYNC_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$SUPERVISOR_TOKEN_INPUT\" \"$DESIRED_SERIALIZED\" \"$DRY_RUN\" \"$STRICT\"" <<'REMOTE_SYNC'
 set -euo pipefail
 
 input_token="${1:-}"
 desired_input="${2:-}"
 dry_run="${3:-false}"
+strict="${4:-false}"
 
 # Resolve Supervisor token
 if [ -n "$input_token" ]; then
@@ -239,6 +291,10 @@ done
 
 if [ "$dry_run" = "true" ]; then
   echo "Dry-run summary: $created would be created, $updated would be updated, $skipped already registered."
+  if [ "$strict" = "true" ] && [ $((created + updated + failed)) -gt 0 ]; then
+    echo "Strict drift check failed: Lovelace storage does not match the managed manifest."
+    exit 2
+  fi
 else
   echo "Resource sync complete: $created created, $updated updated, $skipped already registered, $failed failed."
   if [ "${#created_urls[@]}" -gt 0 ]; then
