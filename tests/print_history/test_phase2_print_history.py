@@ -1646,7 +1646,14 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=2", content)
+
+    def test_archive_restore_card_registration_is_guarded(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-restore-card.js"
+        ).read_text("utf-8")
+        self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
+        self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 
 
 class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):

@@ -330,4 +330,6 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
   }
 }
 
-customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);
+if (!customElements.get("print-history-archive-restore-card")) {
+  customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);
+}
