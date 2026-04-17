@@ -79,7 +79,7 @@ printer_led_magwled_photo_lighting:
                 effect: Solid
                 rgbw_color: [0, 0, 0, 255]
             - delay:
-                seconds: 1
+                seconds: 3
         - conditions:
             - condition: template
               value_template: >-
