@@ -605,20 +605,6 @@
                 archive_id: "{{ archive_id }}"
                 tags: "{{ merged_tags }}"
                 notes: "{{ merged_notes }}"
-        - action: bambuddy.append_print_history_event
-          data:
-            archive_id: "{{ archive_id | int(0) }}"
-            event_type: enrichment_applied
-            event_source: ha_automation
-            event_status: "{{ effective_payload_status_label | lower | trim }}"
-            payload:
-              trigger_id: "{{ trigger_id }}"
-              source: "{{ effective_payload_source | string }}"
-              rows: "{{ candidate_filament_rows | int(0) if candidate_filament_rows is defined else 0 }}"
-              terminal: "{{ is_terminal_trigger }}"
-            event_key: >-
-              enrichment:{{ archive_id }}:{{ trigger_id }}:{{ effective_payload_status_label | lower | trim }}:{{ effective_payload_source | default('unknown', true) | string | trim }}:{{ is_terminal_trigger }}
-          response_variable: append_event_result
 
     - if:
         - condition: template
