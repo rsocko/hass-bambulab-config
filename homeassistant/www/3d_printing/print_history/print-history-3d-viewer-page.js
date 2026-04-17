@@ -392,7 +392,6 @@ function updateCapturePanel() {
 
   setButtonDisabled("download-capture-button", !appState.capture);
   setButtonDisabled("upload-capture-button", !appState.capture || appState.uploadInProgress);
-  setButtonDisabled("upload-primary-capture-button", !appState.capture || appState.uploadInProgress);
 }
 
 function revokeCapture() {
@@ -859,13 +858,13 @@ function buildAuthHeaders() {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
-async function uploadCapture(useAsPrimary) {
+async function uploadCapture() {
   if (!appState.capture || !appState.params || !appState.params.archiveId) {
     return;
   }
   appState.uploadInProgress = true;
   updateCapturePanel();
-  setCaptureStatus(useAsPrimary ? "Uploading capture and promoting it for list view..." : "Uploading capture to the archive...", "info");
+  setCaptureStatus("Uploading capture to the archive...", "info");
 
   try {
     const endpoint = buildProxyUrl(
@@ -880,19 +879,13 @@ async function uploadCapture(useAsPrimary) {
         file_name: appState.capture.fileName,
         mime_type: appState.capture.mimeType,
         content_base64: await blobToBase64(appState.capture.blob),
-        use_as_primary: !!useAsPrimary,
       }),
     });
     const uploadedPhotoPath = String(response.uploaded_photo_path || appState.capture.fileName || "").trim();
     if (uploadedPhotoPath) {
       appState.capture.fileName = uploadedPhotoPath;
     }
-    setCaptureStatus(
-      useAsPrimary
-        ? "Capture uploaded and promoted for list view rendering."
-        : "Capture uploaded to the archive photo gallery.",
-      "success"
-    );
+    setCaptureStatus("Capture uploaded to the archive photo gallery.", "success");
   } catch (error) {
     setCaptureStatus(error && error.message ? error.message : "Capture upload failed.", "error");
   } finally {
@@ -987,7 +980,6 @@ async function bootstrap() {
   const cropLayer = document.getElementById("crop-layer");
   const downloadCaptureButton = document.getElementById("download-capture-button");
   const uploadCaptureButton = document.getElementById("upload-capture-button");
-  const uploadPrimaryCaptureButton = document.getElementById("upload-primary-capture-button");
   if (refreshButton) {
     refreshButton.addEventListener("click", () => window.location.reload());
   }
@@ -1044,10 +1036,7 @@ async function bootstrap() {
     downloadCaptureButton.addEventListener("click", () => downloadCapture());
   }
   if (uploadCaptureButton) {
-    uploadCaptureButton.addEventListener("click", async () => uploadCapture(false));
-  }
-  if (uploadPrimaryCaptureButton) {
-    uploadPrimaryCaptureButton.addEventListener("click", async () => uploadCapture(true));
+    uploadCaptureButton.addEventListener("click", async () => uploadCapture());
   }
 
   try {

@@ -693,7 +693,6 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
         file_name = str((payload or {}).get("file_name", "")).strip()
         mime_type = str((payload or {}).get("mime_type", "")).strip().lower()
         content_base64 = str((payload or {}).get("content_base64", "")).strip()
-        use_as_primary = bool((payload or {}).get("use_as_primary", False))
 
         if not file_name:
             return web.json_response(
@@ -758,7 +757,6 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
                     "file_name": file_name,
                     "mime_type": mime_type,
                     "byte_count": len(content),
-                    "use_as_primary": use_as_primary,
                 },
             )
         except RuntimeError as error:
@@ -783,29 +781,6 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
             previous_archive=archive_before_upload,
             upload_response=upload_response,
         )
-        primary_photo_selection: dict[str, Any] | None = None
-
-        if use_as_primary and uploaded_photo_path:
-            try:
-                primary_photo_selection = await hass.async_add_executor_job(
-                    lambda: manager.store.set_primary_photo(archive_id, photo_path=uploaded_photo_path)
-                )
-            except ValueError as error:
-                return web.json_response(
-                    {"success": False, "error": "primary_photo_failed", "message": str(error)},
-                    status=400,
-                )
-            query_changed = manager._recompute_query("upload_archive_viewer_capture_primary_photo")
-            if query_changed:
-                manager.browser_revision += 1
-            manager.record_mutation(
-                operation="upload_archive_viewer_capture_primary_photo",
-                archive_id=archive_id,
-                duration_ms=0.0,
-                details={"photo_path": uploaded_photo_path},
-            )
-            manager._notify_listeners()
-
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
             return web.json_response(
@@ -823,13 +798,10 @@ class ArchiveViewerCaptureUploadView(HomeAssistantView):
             "file_name": file_name,
             "mime_type": mime_type,
             "byte_count": len(content),
-            "use_as_primary": use_as_primary,
         }
         response["uploaded_photo_path"] = uploaded_photo_path
         if upload_response:
             response["upload_response"] = upload_response
-        if primary_photo_selection is not None:
-            response["primary_photo_selection"] = primary_photo_selection
         return web.json_response(response)
 
 

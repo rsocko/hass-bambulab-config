@@ -17,13 +17,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._cropButton = null;
     this._downloadCaptureButton = null;
     this._uploadCaptureButton = null;
-    this._uploadPrimaryCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
     this._boundCropHandler = this._handleOpenCapturePage.bind(this, "crop");
     this._boundDownloadCaptureHandler = this._downloadCapture.bind(this);
-    this._boundUploadCaptureHandler = this._handleUploadCapture.bind(this, false);
-    this._boundUploadPrimaryCaptureHandler = this._handleUploadCapture.bind(this, true);
+    this._boundUploadCaptureHandler = this._handleUploadCapture.bind(this);
   }
 
   setConfig(config) {
@@ -84,10 +82,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.removeEventListener("click", this._boundUploadCaptureHandler);
       this._uploadCaptureButton = null;
-    }
-    if (this._uploadPrimaryCaptureButton) {
-      this._uploadPrimaryCaptureButton.removeEventListener("click", this._boundUploadPrimaryCaptureHandler);
-      this._uploadPrimaryCaptureButton = null;
     }
   }
 
@@ -194,7 +188,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='capture-actions'>" +
       "<button id='download-capture-button' class='button' type='button' disabled>Download PNG</button>" +
       "<button id='upload-capture-button' class='button' type='button' disabled>Upload to Archive</button>" +
-      "<button id='upload-primary-capture-button' class='button primary' type='button' disabled>Upload + Use In List View</button>" +
       "</div>" +
       "</div>" +
       "</section>" +
@@ -212,7 +205,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._cropButton = this.shadowRoot.getElementById("crop-button");
     this._downloadCaptureButton = this.shadowRoot.getElementById("download-capture-button");
     this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
-    this._uploadPrimaryCaptureButton = this.shadowRoot.getElementById("upload-primary-capture-button");
     if (this._refreshButton) {
       this._refreshButton.addEventListener("click", this._boundRefreshHandler);
     }
@@ -227,9 +219,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
-    }
-    if (this._uploadPrimaryCaptureButton) {
-      this._uploadPrimaryCaptureButton.addEventListener("click", this._boundUploadPrimaryCaptureHandler);
     }
     this._updateCapturePanel();
   }
@@ -303,9 +292,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.disabled = !this._capture || this._uploadInProgress;
-    }
-    if (this._uploadPrimaryCaptureButton) {
-      this._uploadPrimaryCaptureButton.disabled = !this._capture || this._uploadInProgress;
     }
   }
 
@@ -415,13 +401,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
     anchor.remove();
   }
 
-  async _uploadCapture(useAsPrimary) {
+  async _uploadCapture() {
     if (!this._capture || !this._config || !this._config.archive_id) {
       return;
     }
     this._uploadInProgress = true;
     this._updateCapturePanel();
-    this._setCaptureStatus(useAsPrimary ? "Uploading capture and promoting it for list view..." : "Uploading capture to the archive...", "info");
+    this._setCaptureStatus("Uploading capture to the archive...", "info");
 
     try {
       const payload = await this._hass.callWS({
@@ -436,26 +422,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       if (uploadedPhotoPath) {
         this._capture.fileName = uploadedPhotoPath;
       }
-      if (useAsPrimary && uploadedPhotoPath) {
-        await this._hass.callService(
-          "bambuddy",
-          "set_print_history_primary_photo",
-          {
-            archive_id: Number(this._config.archive_id),
-            entry_id: this._config.entry_id || undefined,
-            photo_path: uploadedPhotoPath,
-          },
-          undefined,
-          true,
-          true
-        );
-      }
-      this._setCaptureStatus(
-        useAsPrimary
-          ? "Capture uploaded and promoted for list view rendering."
-          : "Capture uploaded to the archive photo gallery.",
-        "success"
-      );
+      this._setCaptureStatus("Capture uploaded to the archive photo gallery.", "success");
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
       this._setCaptureStatus(message || "Capture upload failed.", "error");
@@ -465,8 +432,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
   }
 
-  async _handleUploadCapture(useAsPrimary) {
-    await this._uploadCapture(useAsPrimary);
+  async _handleUploadCapture() {
+    await this._uploadCapture();
   }
 
   _escapeHtml(value) {
