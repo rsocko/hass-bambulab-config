@@ -97,6 +97,7 @@ class BambuddyBrowserSensor(SensorEntity):
             limit_notice = self.manager.limit_notice
             attributes = {
                 "backend": backend,
+                "entry_id": self.manager.entry.entry_id,
                 "browser_revision": self.manager.browser_revision,
                 "message": self.manager.status_message,
                 "archive_count": len(self.manager.archives),

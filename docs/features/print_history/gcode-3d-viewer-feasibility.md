@@ -1,5 +1,22 @@
 # GCode & 3D Model Viewing in Home Assistant — Feasibility Analysis
 
+## Current Repository Status
+
+Issue `#747` is now implemented with a Home Assistant popup that prioritizes the Bambuddy G-code preview path.
+
+- The print-history list view now exposes a direct `3D View` launcher per archive.
+- The archive detail popup also exposes a `3D View` action button.
+- The popup loads a HA-served viewer page at `homeassistant/www/3d_printing/print_history/print-history-3d-viewer.html`.
+- That viewer fetches archive capabilities and G-code through HA-authenticated proxy endpoints in the `bambuddy` custom integration instead of calling Bambuddy cross-origin from the browser.
+- Interactive rendering currently targets the G-code preview path first, with a raw G-code fallback if the browser cannot load the preview library.
+
+What is still intentionally not implemented:
+
+- direct iframe reuse of Bambuddy's own `ModelViewerModal` or archive modal state
+- per-archive deep-linking into the upstream Bambuddy viewer UI
+
+That limitation remains because Bambuddy's viewer is modal state inside the archives page rather than a route-addressable frontend URL.
+
 ## What Bambuddy Does
 
 Bambuddy provides two distinct 3D viewing modes in its React frontend:

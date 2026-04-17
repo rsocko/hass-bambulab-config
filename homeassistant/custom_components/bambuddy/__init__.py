@@ -18,6 +18,8 @@ from homeassistant.helpers import aiohttp_client
 
 from .api import BambuddyApiClient, BambuddyRuntimeRepairClient
 from .const import (
+    ARCHIVE_VIEWER_CAPABILITIES_URL,
+    ARCHIVE_VIEWER_GCODE_URL,
     DATA_MANAGER,
     DATA_RESTORE_UPLOADS,
     DATA_RESTORE_WORKFLOW,
@@ -510,10 +512,86 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
             )
 
 
+async def _resolve_archive_viewer_request(
+    request: web.Request,
+) -> tuple[HomeAssistant, str, int, PrintHistoryBrowserManager, BambuddyApiClient] | web.Response:
+    hass = request.app["hass"]
+    entry_id_raw = str(request.query.get(CONF_ENTRY_ID, "")).strip() or None
+    archive_id = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID))
+    if archive_id is None:
+        return web.json_response(
+            {"success": False, "error": "archive_id_required", "message": "archive_id must be a positive integer."},
+            status=400,
+        )
+
+    try:
+        resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+    except HomeAssistantError as error:
+        return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+    return hass, resolved_entry_id, archive_id, manager, client
+
+
+class ArchiveViewerCapabilitiesView(HomeAssistantView):
+    url = ARCHIVE_VIEWER_CAPABILITIES_URL
+    name = "api:bambuddy:print-history:archive-viewer:capabilities"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        resolved = await _resolve_archive_viewer_request(request)
+        if isinstance(resolved, web.Response):
+            return resolved
+
+        _hass, entry_id, archive_id, _manager, client = resolved
+        try:
+            payload = await client.async_fetch_archive_capabilities(archive_id)
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "capabilities_fetch_failed", "message": str(error)},
+                status=502,
+            )
+
+        response_payload = dict(payload)
+        response_payload[CONF_ENTRY_ID] = entry_id
+        response_payload[CONF_ARCHIVE_ID] = archive_id
+        return web.json_response(response_payload)
+
+
+class ArchiveViewerGcodeView(HomeAssistantView):
+    url = ARCHIVE_VIEWER_GCODE_URL
+    name = "api:bambuddy:print-history:archive-viewer:gcode"
+    requires_auth = True
+
+    async def get(self, request: web.Request) -> web.Response:
+        resolved = await _resolve_archive_viewer_request(request)
+        if isinstance(resolved, web.Response):
+            return resolved
+
+        _hass, _entry_id, archive_id, _manager, client = resolved
+        try:
+            gcode = await client.async_fetch_archive_gcode(archive_id)
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "gcode_fetch_failed", "message": str(error)},
+                status=502,
+            )
+
+        return web.Response(text=gcode, content_type="text/plain", charset="utf-8")
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
         hass.http.register_view(ReplacementArchiveDiscoverView())
+        hass.http.register_view(ArchiveViewerCapabilitiesView())
+        hass.http.register_view(ArchiveViewerGcodeView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
     @websocket_api.websocket_command(

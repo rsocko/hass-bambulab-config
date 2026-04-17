@@ -96,6 +96,45 @@ class BambuddyApiClient:
                 raise RuntimeError("Bambuddy archive detail response was not a JSON object")
             return payload
 
+    async def async_fetch_archive_capabilities(self, archive_id: int) -> dict[str, Any]:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{int(archive_id)}/capabilities",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            payload = await response.json()
+            if not isinstance(payload, dict):
+                raise RuntimeError("Bambuddy archive capabilities response was not a JSON object")
+            return payload
+
+    async def async_fetch_archive_gcode(self, archive_id: int) -> str:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{int(archive_id)}/gcode",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            return await response.text()
+
     async def async_fetch_archive_stats(self) -> dict[str, Any]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")

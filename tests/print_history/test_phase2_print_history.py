@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=23", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=26", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
@@ -1648,14 +1648,29 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=23", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-restore-card.js"
         ).read_text("utf-8")
+        self.assertIn('this._hass.callService("bambuddy", service, data, undefined, true);', content)
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
+
+    def test_archive_viewer_page_uses_local_module_and_proxy_endpoints(self):
+        html = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer.html"
+        ).read_text("utf-8")
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-page.js"
+        ).read_text("utf-8")
+
+        self.assertIn('/local/3d_printing/print_history/print-history-3d-viewer-page.js?v=1', html)
+        self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
+        self.assertIn('/api/bambuddy/print-history/archive-viewer/', script)
+        self.assertIn('preview.processGCode(gcodeText);', script)
+        self.assertIn('showFallback(', script)
 
 
 class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
@@ -1680,6 +1695,26 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("role-emblem", content)
         self.assertIn("Dup of #", content)
         self.assertIn("Source ·", content)
+
+    def test_browser_card_exposes_direct_3d_view_actions(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('data-action="viewer"', content)
+        self.assertIn('mdi:cube-scan', content)
+        self.assertIn('_buildArchiveViewerUrl(archive)', content)
+        self.assertIn('type: "iframe"', content)
+        self.assertIn('/local/3d_printing/print_history/print-history-3d-viewer.html?', content)
+
+    def test_browser_card_popup_action_row_includes_3d_view_button(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('"3D View"', content)
+        self.assertIn('title: "3D View · " + archiveName', content)
+        self.assertIn('aspect_ratio: "16:10"', content)
 
     def test_popup_content_renders_duplicate_summary_from_projected_metadata(self):
         content = (

@@ -92,7 +92,11 @@ def _install_homeassistant_stubs() -> None:
             pass
 
         class Response:
-            pass
+            def __init__(self, text=None, content_type=None, charset=None, status=200):
+                self.text = text
+                self.content_type = content_type
+                self.charset = charset
+                self.status = status
 
         @staticmethod
         def json_response(payload, status=200):
@@ -268,6 +272,20 @@ class FakeApiClient:
             if int(item.get("id", 0)) == int(archive_id):
                 return dict(item)
         raise RuntimeError("Bambuddy returned HTTP 404")
+
+    async def async_fetch_archive_capabilities(self, archive_id: int) -> dict[str, object]:
+        archive = await self.async_fetch_archive_detail(archive_id)
+        return {
+            "has_model": bool(archive.get("file_path") or archive.get("source_3mf_path")),
+            "has_gcode": True,
+            "has_source": bool(archive.get("source_3mf_path")),
+            "build_volume": {"x": 256, "y": 256, "z": 256},
+            "filament_colors": ["#112233", "#FFFFFF"],
+        }
+
+    async def async_fetch_archive_gcode(self, archive_id: int) -> str:
+        await self.async_fetch_archive_detail(archive_id)
+        return "G0 X0 Y0 Z0.2\nG1 X42 Y42 E10"
 
     async def async_fetch_projects(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.projects]
@@ -634,6 +652,10 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
+    view_urls = {getattr(view, "url", "") for view in hass.http.views}
+    assert const_module.RESTORE_UPLOAD_DISCOVER_URL in view_urls
+    assert const_module.ARCHIVE_VIEWER_CAPABILITIES_URL in view_urls
+    assert const_module.ARCHIVE_VIEWER_GCODE_URL in view_urls
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
@@ -758,6 +780,67 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
     assert manager.mutation_stats["count"] == 6
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
+
+
+def test_variant3_archive_viewer_proxy_views_return_capabilities_and_gcode(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    capabilities_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.ARCHIVE_VIEWER_CAPABILITIES_URL)
+    gcode_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.ARCHIVE_VIEWER_GCODE_URL)
+
+    original_api_client = init_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+
+    try:
+        capabilities_response = asyncio.run(
+            capabilities_view.get(
+                SimpleNamespace(
+                    app={"hass": hass},
+                    query={},
+                    match_info={"archive_id": "101"},
+                )
+            )
+        )
+        gcode_response = asyncio.run(
+            gcode_view.get(
+                SimpleNamespace(
+                    app={"hass": hass},
+                    query={},
+                    match_info={"archive_id": "101"},
+                )
+            )
+        )
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+
+    assert capabilities_response["status"] == 200
+    assert capabilities_response["payload"]["archive_id"] == 101
+    assert capabilities_response["payload"]["entry_id"] == "entry-1"
+    assert capabilities_response["payload"]["has_gcode"] is True
+    assert gcode_response.status == 200
+    assert gcode_response.content_type == "text/plain"
+    assert "G1 X42 Y42 E10" in gcode_response.text
 
 
 def test_variant3_restore_workflow_services_manage_upload_plan_verify_and_clear(tmp_path: Path) -> None:
