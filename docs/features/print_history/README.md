@@ -42,6 +42,8 @@ For fallback-archive canonical timestamp repair and adjacent orchestration desig
 - `archive-runtime-repair-deployment-options.md`
 - `archive-runtime-repair-script-and-n8n-flow.md`
 - `archive-runtime-ha-contract.md`
+- `archive-runtime-restore-implementation-plan.md`
+- `archive-runtime-restore-ha-service-and-popup-contract.md`
 - `archive-runtime-restore-ha-ux-design.md`
 - `archive-runtime-sidecar-api-and-compose.md`
 - `archive-historical-backfill-from-sd-card.md`
@@ -433,6 +435,8 @@ For detailed design of the two major subsystems, see:
 - **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
 - **[archive-runtime-restore-ha-ux-design.md](archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
+- **[archive-runtime-restore-implementation-plan.md](archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
+- **[archive-runtime-restore-ha-service-and-popup-contract.md](archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
 - **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only

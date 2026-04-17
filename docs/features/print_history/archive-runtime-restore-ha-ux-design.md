@@ -42,6 +42,11 @@ Current state:
 
 That means the current restore flow is sidecar-first and operator-run, with Home Assistant still needing an explicit UX and service contract.
 
+This document adds the missing HA-side design for two related gaps:
+
+- browser-initiated replacement archive creation from an uploaded sliced `.gcode.3mf`
+- finalization behavior when restore has merged metadata but re-enrich cannot be triggered automatically through the runtime-repair sidecar
+
 ## Why A Separate HA Workflow Is Worth Adding
 
 Yes, it makes sense to add Home Assistant functionality for restore, but only as an advanced, explicitly guarded workflow.
@@ -149,6 +154,45 @@ The most common starting point is expected to be one of these:
 - user opens the recovered target archive and chooses the original source archive
 - Home Assistant pre-populates the likely counterpart when lineage tags or notes already identify the pair
 
+## Browser-Initiated Replacement Upload
+
+The restore workflow needs an HA-native intake path for the case where the operator already has the correct replacement file on their desktop or phone.
+
+This path is specifically for a replacement sliced `.gcode.3mf` or other file intended to become the canonical Bambuddy archive payload.
+
+It is not the same as the source-project `.3mf` import flow documented in [source-3mf-import-design.md](source-3mf-import-design.md), which is intentionally scoped to image and limited metadata import.
+
+### Recommended entry point
+
+From the archive popup for the broken or superseded archive, expose an admin-only action:
+
+- `Repair From Replacement 3MF`
+
+That action should open a repair subflow with three stages before restore planning begins:
+
+1. upload the replacement file to HA
+2. inspect the staged file summary and confirm that it should become a new Bambuddy archive
+3. create the replacement archive in Bambuddy and capture the returned `target_archive_id`
+
+### Recommended upload flow
+
+1. User opens the popup for the source archive.
+2. User chooses `Repair From Replacement 3MF`.
+3. Browser uploads the file to HA through a dedicated multipart endpoint.
+4. HA validates the upload and creates a short-lived repair-upload session.
+5. HA returns a summary showing filename, size, likely file kind, and any validation warnings.
+6. User confirms `Create Replacement Archive`.
+7. HA uploads the staged file to Bambuddy with `POST /api/v1/archives/upload?printer_id=...`.
+8. HA records the newly created archive ID as the target archive and immediately seeds the restore pair.
+9. The workflow transitions into the normal `plan -> apply -> verify -> finalize` flow.
+
+### Why HA should own this handoff
+
+- the operator is already in the archive popup
+- the browser can upload directly to HA without exposing Bambuddy credentials
+- HA can keep the staged upload session, created target archive ID, and restore pair selection in one place
+- the sidecar should stay focused on merge and verification policy, not raw browser file intake
+
 ## Recommended UI Surfaces By Phase
 
 ### Phase 1
@@ -186,6 +230,7 @@ The contract below is the recommended Home Assistant-side layer on top of the ex
 Near term, the simplest viable implementation is:
 
 - Home Assistant script layer
+- dedicated HTTP multipart upload view for replacement-file intake
 - `rest_command` calls to the sidecar
 - custom integration or event-backed workflow state for transient results
 - popup UI that reads workflow state and presents the next legal action
@@ -215,9 +260,64 @@ restore:{source_archive_id}:{target_archive_id}
 
 This gives the UI a stable way to refresh, compare, and clear transient results without confusing one candidate pair with another.
 
+## Required Browser Upload Endpoint
+
+The replacement-file intake cannot start as a normal script service because the browser needs to send a binary file.
+
+Recommended endpoint:
+
+```text
+POST /api/bambuddy/print-history/archive-repair/replacement/discover
+```
+
+Recommended multipart fields:
+
+- `source_archive_id`
+- `printer_id`
+- `file`
+
+Recommended response summary:
+
+- `upload_session_id`
+- `source_archive_id`
+- `filename`
+- `size_bytes`
+- `file_kind`
+- `warnings`
+- `ready_to_create_replacement`
+
+The response does not need to fully parse the file like the source-project import design. It only needs to validate that the staged upload is plausible as a replacement archive input and hold it long enough for the operator to confirm creation.
+
 ## Proposed Home Assistant Services Or Scripts
 
 These names define the recommended contract even if the first implementation uses scripts.
+
+### 0. `bambuddy.create_archive_replacement_from_upload`
+
+Purpose:
+
+- take a previously staged browser upload session
+- create a new Bambuddy archive through `POST /api/v1/archives/upload`
+- capture the returned replacement archive ID
+- initialize the restore workflow pair automatically
+
+Inputs:
+
+- `source_archive_id`
+- `upload_session_id`
+- `printer_id`
+- optional `recovery_source`
+- optional `run_reenrich`
+
+Required behavior:
+
+- reject expired or missing upload sessions
+- reject creation if the staged upload failed validation
+- call Bambuddy upload using HA-held credentials, not browser-held credentials
+- store the returned `target_archive_id`
+- set workflow state to `replacement_created`
+- prefill the pair for subsequent plan/apply/verify actions
+- refresh active archive detail and print-history browser state after success
 
 ### 1. `bambuddy.plan_archive_restore`
 
@@ -378,27 +478,35 @@ Home Assistant should track the restore workflow as an explicit state machine.
 Recommended states:
 
 - `idle`
+- `replacement_upload_ready`
+- `replacement_created`
 - `pair_selected`
 - `plan_ready`
 - `apply_in_progress`
 - `applied_pending_verify`
+- `finalize_pending_reenrich`
 - `verify_ready`
 - `verified_clean`
 - `verified_blocked`
 - `remove_ready`
+- `completed_original_retained`
 - `removed`
 - `failed`
 
 Suggested state transitions:
 
-1. pair chosen -> `pair_selected`
-2. dry-run plan succeeds -> `plan_ready`
-3. apply starts -> `apply_in_progress`
-4. apply succeeds -> `applied_pending_verify`
-5. verify succeeds and clean -> `verified_clean`
-6. verify succeeds but not clean -> `verified_blocked`
-7. removal allowed -> `remove_ready`
-8. remove-original succeeds -> `removed`
+1. replacement upload validated -> `replacement_upload_ready`
+2. replacement archive created -> `replacement_created`
+3. pair chosen or auto-seeded -> `pair_selected`
+4. dry-run plan succeeds -> `plan_ready`
+5. apply starts -> `apply_in_progress`
+6. apply succeeds -> `applied_pending_verify`
+7. target enrichment incomplete and no automatic re-enrich confirmation -> `finalize_pending_reenrich`
+8. verify succeeds and clean -> `verified_clean`
+9. verify succeeds but not clean -> `verified_blocked`
+10. removal allowed -> `remove_ready`
+11. operator keeps original after successful restore -> `completed_original_retained`
+12. remove-original succeeds -> `removed`
 
 ## Recommended Data Exposed To The UI
 
@@ -489,9 +597,13 @@ Actions vary by workflow state.
 
 Recommended action set:
 
+- `Upload Replacement 3MF`
+- `Create Replacement Archive`
 - `Review Pair`
 - `Plan Restore`
 - `Apply Restore`
+- `Run Re-enrich`
+- `Finish Repair`
 - `Verify`
 - `Remove Original`
 - `Clear`
@@ -503,6 +615,14 @@ Recommended action set:
 Visible when:
 
 - pair is selected
+- workflow is not currently in progress
+
+### `Create Replacement Archive`
+
+Visible when:
+
+- a valid staged upload session exists for the current source archive
+- no replacement target has been created yet
 - workflow is not currently in progress
 
 ### `Apply Restore`
@@ -517,6 +637,26 @@ Visible when:
 Visible when:
 
 - apply completed successfully
+
+### `Run Re-enrich`
+
+Visible when:
+
+- apply completed successfully
+- target archive enrichment is missing or partial
+- the workflow is waiting on enrichment before cleanup
+
+### `Finish Repair`
+
+Visible when:
+
+- apply completed successfully
+- workflow is not currently in progress
+
+Meaning:
+
+- this is the HA orchestration step that decides whether the repair can be considered complete
+- it may run re-enrich, run verify, stop with a pending-enrichment message, mark the repair complete while retaining the original, or proceed to guarded original removal depending on current state and operator choice
 
 ### `Remove Original`
 
@@ -552,9 +692,40 @@ The first shipped apply flow should require an existing dry-run plan for the sam
 
 Do not surface `Remove Original` until verification is clean.
 
+### 4a. Require enrichment clarity before cleanup
+
+If the target archive is still missing or partial from an enrichment perspective, the HA flow should not silently delete the original just because restore-from apply succeeded.
+
+Default policy:
+
+- if `run_reenrich` was requested and the sidecar confirms it triggered HA successfully, wait for refresh and verify again
+- if `run_reenrich` was requested but the sidecar reports that HA callback is not configured, move the workflow to `finalize_pending_reenrich`
+- in `finalize_pending_reenrich`, expose explicit operator choices rather than implicit cleanup
+
+Recommended operator choices in that state:
+
+- `Run Re-enrich` now through the normal HA script path
+- `Verify` again after enrichment completes
+- `Finish Repair And Keep Original` if the operator wants the merge preserved but does not want cleanup yet
+- `Remove Original Anyway` only as an explicit advanced override, and only if the lower-level sidecar call intentionally uses `force_remove_without_reenrich`
+
 ### 5. Always refresh the browser after mutation
 
 After apply, verify, or remove, the UI should refresh the print-history browser and active archive detail surfaces.
+
+### 5a. Finish-repair is an HA orchestration step, not a new merge mode
+
+`Finish Repair` should not perform a second metadata merge.
+
+Its job is to:
+
+1. check whether enrichment is complete on the target archive
+2. optionally invoke or re-invoke re-enrich
+3. run verify for the current pair
+4. if verification is clean, either:
+  - mark the workflow complete with the original retained, or
+  - call guarded original removal
+5. clear transient workflow state only after the chosen completion path succeeds
 
 ### 6. Preserve the sidecar as the write boundary
 
@@ -655,6 +826,29 @@ Home Assistant should never directly mutate the Bambuddy database for restore be
 
 - operator can complete the full sidecar-supported restore lifecycle from Home Assistant without leaving the popup flow
 
+## Recommended Finalization Policy
+
+For the browser-initiated replacement-file workflow, the default completion path should be:
+
+1. upload replacement `.gcode.3mf` to HA
+2. create replacement archive in Bambuddy
+3. plan restore
+4. apply restore
+5. re-enrich target archive
+6. verify the source-target pair
+7. only then offer original removal
+
+If automatic re-enrich is unavailable because the runtime-repair sidecar is not configured with HA callback credentials, the workflow should still remain manageable from HA:
+
+- HA should expose a manual `Run Re-enrich` action against the target archive
+- HA should keep the pair in `finalize_pending_reenrich` until enrichment becomes acceptable or the operator explicitly chooses to retain the original
+- the default safe outcome in that condition is `completed_original_retained`, not silent deletion
+
+This gives the workflow a clean two-step operator story when needed:
+
+1. create and merge the replacement archive
+2. finish repair after enrichment and verification are complete
+
 ## Phase 6: Admin Restore Operations View
 
 ### Scope
@@ -688,7 +882,7 @@ This sequence intentionally delays destructive cleanup until the operator-review
 ## Open Questions
 
 1. Should pair detection and prefill rely only on lineage tags/notes, or should the custom integration also expose explicit candidate-pair discovery?
-2. Should `run_reenrich` be surfaced in the first HA workflow, or left out until the base restore path is stable?
+2. Should the replacement-upload intake do light file classification only, or also inspect enough metadata to warn when the upload appears to be a source-project `.3mf` instead of a sliced replacement?
 3. Should the initial implementation live entirely in scripts plus `rest_command`, or should it wait for a proper `bambuddy` integration service layer?
 4. Should the maintenance view eventually include a small restore-operation history store, or is the popup-oriented transient model sufficient?
 

@@ -175,6 +175,16 @@ An archive should be flagged as incomplete when any of the following is true:
 3. If the `.3mf` is recovered, upload it to Bambuddy using `POST /archives/upload?printer_id=...`
 4. Tag the old fallback archive and the new recovered archive to link them logically
 
+An equivalent operator-driven entry path should also exist from the Home Assistant browser for cases where the user already has the correct replacement sliced `.gcode.3mf` locally.
+
+Recommended HA browser flow:
+
+1. user opens the broken archive popup in HA
+2. user uploads the replacement `.gcode.3mf` to HA through a dedicated multipart repair endpoint
+3. HA creates a new Bambuddy replacement archive via `POST /archives/upload`
+4. HA seeds the source-target pair into the restore workflow
+5. HA runs the normal restore plan/apply/verify/finalize sequence from that point forward
+
 ### Why this works
 
 - `POST /archives/upload` is a real archive creation path backed by `ArchiveService.archive_print()`
@@ -362,6 +372,9 @@ Implementation notes:
 - keep the recovery block machine-parseable and versioned
 - mirror only the fields that would otherwise be lost or misleading after replacement creation
 - do not duplicate large `extra_data` payloads into notes
+- treat restore merge and cleanup as distinct phases rather than one implicit success state
+- if the replacement archive still needs re-enrich and the runtime-repair sidecar cannot call back into HA automatically, pause in a visible `finish repair` state rather than deleting the original archive immediately
+- in that state, HA should let the operator run manual re-enrich, re-verify, then either remove the original or keep it intentionally
 
 ### Optional operator cleanup path
 
