@@ -10,7 +10,10 @@ card:
   type: custom:button-card
   template: print_history_archive_popup
   entity: input_select.bambuddy_photo_review_state
-  name: "📸 Photos to Review"
+  name: >
+    [[[ 
+      return entity?.state === 'reviewing' ? 'Resume Photo Review' : 'Photos to Review';
+    ]]]
   icon: mdi:image-check
   show_state: false
   variables:
@@ -20,14 +23,23 @@ card:
         const archive = status?.attributes?.media_review_next_archive_json || {};
         return JSON.stringify(archive || {});
       ]]]
+    mark_media_review_on_open: true
   styles:
     card:
-      - background: "#1565C0"
+      - background: >
+          [[[ 
+            return entity?.state === 'reviewing' ? 'rgba(97, 97, 97, 0.92)' : '#1565C0';
+          ]]]
       - color: "#FFFFFF"
       - border-radius: 20px
       - padding: 6px 16px
       - height: 40px
-      - box-shadow: "0 2px 6px rgba(0,0,0,0.3)"
+      - box-shadow: >
+          [[[ 
+            return entity?.state === 'reviewing'
+              ? '0 1px 4px rgba(0,0,0,0.22)'
+              : '0 2px 6px rgba(0,0,0,0.3)';
+          ]]]
     name:
       - font-size: 13px
       - font-weight: 500

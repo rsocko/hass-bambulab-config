@@ -101,6 +101,11 @@ print_history_archive_popup:
         return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '';
       };
       const archiveStatus = normalizeStatusOption(archive?.status);
+      const markMediaReviewOnOpen = (() => {
+        const raw = variables?.mark_media_review_on_open;
+        if (raw === true) return true;
+        return String(raw || '').trim().toLowerCase() === 'true';
+      })();
       const fixedStatusOptions = ['completed', 'failed', 'cancelled', 'printing'];
       const statusOptions = fixedStatusOptions.map((status) => formatStatusOption(status));
       const archiveStatusOption = formatStatusOption(archiveStatus);
@@ -187,18 +192,6 @@ print_history_archive_popup:
             }
           }
         )]),
-        ...(showDismissMediaReview ? [buttonCard(
-          'Dismiss Review',
-          'mdi:check-circle-outline',
-          'rgba(251,192,45,0.18)',
-          {
-            action: 'call-service',
-            service: 'bambuddy.dismiss_print_history_media_review',
-            data: {
-              archive_id: Number(archiveId)
-            }
-          }
-        )] : []),
         {
           type: 'custom:button-card',
           template: 'print_history_archive_popup_favorite_button',
@@ -311,6 +304,49 @@ print_history_archive_popup:
           type: 'markdown',
           content: `${printNameWasTrimmed ? '- Print name was trimmed to the first 255 characters for editing.\n' : ''}${tagsWereTrimmed ? '- Tags were trimmed to the first 255 characters for editing.\n' : ''}${notesWereTrimmed ? '- Notes were trimmed to the first 255 characters for editing.\n' : ''}${hasCustomFailureReason ? '- A non-standard failure reason was preserved as an extra dropdown option because Bambuddy\'s API accepts arbitrary strings even though its UI uses a fixed list.\n' : ''}${(printNameWasTrimmed || tagsWereTrimmed || notesWereTrimmed) ? 'Home Assistant input_text helpers currently cap inline edits at 255 characters.' : ''}`
         }] : []),
+        ...(showDismissMediaReview ? [{
+          type: 'custom:button-card',
+          name: 'Dismiss Review',
+          icon: 'mdi:check-circle-outline',
+          show_name: true,
+          show_icon: true,
+          show_state: false,
+          tap_action: {
+            action: 'call-service',
+            service: 'bambuddy.dismiss_print_history_media_review',
+            data: {
+              archive_id: Number(archiveId)
+            }
+          },
+          hold_action: { action: 'none' },
+          styles: {
+            card: [
+              { padding: '12px 14px' },
+              { 'border-radius': '16px' },
+              { 'box-shadow': 'none' },
+              { border: '1px solid rgba(251,192,45,0.28)' },
+              { background: 'rgba(251,192,45,0.12)' }
+            ],
+            grid: [
+              { 'grid-template-areas': '"i n"' },
+              { 'grid-template-columns': '20px 1fr' },
+              { 'align-items': 'center' },
+              { gap: '10px' }
+            ],
+            icon: [
+              { width: '20px' },
+              { height: '20px' },
+              { color: '#FBC02D' }
+            ],
+            name: [
+              { 'font-size': '13px' },
+              { 'font-weight': '600' },
+              { color: 'var(--primary-text-color)' },
+              { 'text-align': 'left' },
+              { 'justify-self': 'start' }
+            ]
+          }
+        }] : []),
         {
           type: 'grid',
           columns: archiveStatus === 'printing' ? 3 : 4,
@@ -325,6 +361,14 @@ print_history_archive_popup:
           service: 'browser_mod.sequence',
           data: {
             sequence: [
+              ...(markMediaReviewOnOpen ? [{
+                service: 'bambuddy.set_print_history_media_review_state',
+                data: {
+                  archive_id: Number(archiveId),
+                  review_status: 'reviewing',
+                  last_action: 'opened_from_review_chip'
+                }
+              }] : []),
               {
                 service: 'input_text.set_value',
                 data: {
