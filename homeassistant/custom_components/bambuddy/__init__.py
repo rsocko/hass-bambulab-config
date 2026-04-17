@@ -1545,7 +1545,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE,
             async_handle_clear_restore,
             schema=SERVICE_CLEAR_RESTORE_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+            supports_response=SupportsResponse.OPTIONAL,
         )
     return True
 
