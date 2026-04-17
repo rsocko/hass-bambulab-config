@@ -68,6 +68,7 @@ _LOGGER = logging.getLogger(__name__)
 
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
+WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
 DATA_HTTP_VIEW_REGISTERED = f"{DOMAIN}_restore_upload_view_registered"
 
@@ -639,6 +640,51 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection.send_result(msg["id"], response)
 
     websocket_api.async_register_command(hass, websocket_handle_query)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+            vol.Optional("include_gcode"): bool,
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_archive_viewer(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            archive_id = int(msg[CONF_ARCHIVE_ID])
+
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            capabilities = await client.async_fetch_archive_capabilities(archive_id)
+            response: dict[str, Any] = {
+                CONF_ENTRY_ID: entry_id,
+                CONF_ARCHIVE_ID: archive_id,
+                "capabilities": capabilities,
+            }
+
+            if bool(msg.get("include_gcode", True)) and bool(capabilities.get("has_gcode")):
+                response["gcode"] = await client.async_fetch_archive_gcode(archive_id)
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "archive_viewer_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "archive_viewer_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_archive_viewer)
 
     @websocket_api.websocket_command(
         {

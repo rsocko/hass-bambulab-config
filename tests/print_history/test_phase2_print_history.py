@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=4", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1665,10 +1665,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
-        self.assertIn('/api/bambuddy/print-history/archive-viewer/', script)
+        self.assertIn('type: "bambuddy/print_history_archive_viewer"', script)
         self.assertIn('print-history-3d-viewer-card requires archive_id', script)
-        self.assertIn('const accessToken = this._hass?.auth?.data?.accessToken;', script)
-        self.assertIn('headers.Authorization = `Bearer ${accessToken}`;', script)
         self.assertIn('if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {', script)
         self.assertIn('preview.processGCode(gcodeText);', script)
         self.assertIn('_showFallback(', script)

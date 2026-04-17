@@ -166,49 +166,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
     };
   }
 
-  _requestOptions() {
-    const headers = {};
-    const accessToken = this._hass?.auth?.data?.accessToken;
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
-    }
-    return {
-      headers,
-      credentials: "same-origin",
-    };
-  }
-
-  async _fetchJson(url) {
-    const response = await fetch(url, this._requestOptions());
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch (_error) {
-      payload = null;
-    }
-    if (!response.ok) {
-      const message = payload && payload.message ? payload.message : `Request failed with HTTP ${response.status}`;
-      throw new Error(message);
-    }
-    return payload || {};
-  }
-
-  async _fetchText(url) {
-    const response = await fetch(url, this._requestOptions());
-    const text = await response.text();
-    if (!response.ok) {
-      let message = `Request failed with HTTP ${response.status}`;
-      try {
-        const payload = JSON.parse(text || "{}");
-        if (payload && payload.message) {
-          message = payload.message;
-        }
-      } catch (_error) {
-        message = text || message;
-      }
-      throw new Error(message);
-    }
-    return text;
+  async _fetchViewerPayload() {
+    return this._hass.callWS({
+      type: "bambuddy/print_history_archive_viewer",
+      archive_id: Number(this._config.archive_id),
+      entry_id: this._config.entry_id || undefined,
+      include_gcode: true,
+    });
   }
 
   _setStatus(message, isError = false) {
@@ -314,16 +278,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
 
-    const capabilitiesUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/capabilities`);
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
     this._setArchiveLinks(gcodeUrl);
 
     try {
       this._setStatus("Checking Bambuddy archive capabilities...");
-      const capabilities = await this._fetchJson(capabilitiesUrl);
+      const viewerPayload = await this._fetchViewerPayload();
       if (token !== this._loadToken) {
         return;
       }
+      const capabilities = viewerPayload && typeof viewerPayload.capabilities === "object"
+        ? viewerPayload.capabilities
+        : {};
       const colors = this._normalizeColors(capabilities.filament_colors);
       this._renderCapabilityChips(capabilities, colors);
       this._renderOverlay(colors);
@@ -340,10 +306,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
 
       this._setStatus("Downloading G-code from Bambuddy...");
-      const gcodeText = await this._fetchText(gcodeUrl);
-      if (token !== this._loadToken) {
-        return;
-      }
+      const gcodeText = viewerPayload && typeof viewerPayload.gcode === "string" ? viewerPayload.gcode : "";
       if (!String(gcodeText || "").trim()) {
         this._setStatus("Bambuddy returned an empty G-code payload for this archive.", true);
         this._showFallback("The archive G-code payload was empty.", "");
