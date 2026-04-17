@@ -47,9 +47,7 @@ SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE = "remove_print_history_res
 SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE = "clear_print_history_archive_restore"
 STORE_FILENAME = "bambuddy_print_history_browser.db"
 RESTORE_UPLOAD_DISCOVER_URL = "/api/bambuddy/print-history/archive-repair/replacement/discover"
-ARCHIVE_VIEWER_CAPABILITIES_URL = "/api/bambuddy/print-history/archive-viewer/{archive_id}/capabilities"
 ARCHIVE_VIEWER_GCODE_URL = "/api/bambuddy/print-history/archive-viewer/{archive_id}/gcode"
-ARCHIVE_VIEWER_CAPTURE_UPLOAD_URL = "/api/bambuddy/print-history/archive-viewer/{archive_id}/capture-upload"
 
 EVENT_BAMBUDDY_WEBHOOK = "bambuddy_webhook_event"
 REFRESH_WEBHOOK_EVENTS = {"print_complete", "print_failed", "print_started", "print_stopped"}

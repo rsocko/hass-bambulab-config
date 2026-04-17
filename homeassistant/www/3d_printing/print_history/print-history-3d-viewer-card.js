@@ -1,4 +1,10 @@
 const PRINT_HISTORY_VIEWER_CDN_MODULE_URL = "https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm";
+const CROP_PRESETS = {
+  free: null,
+  square: 1,
+  landscape4x3: 4 / 3,
+  landscape16x9: 16 / 9,
+};
 
 class PrintHistory3dViewerCard extends HTMLElement {
   constructor() {
@@ -12,14 +18,30 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._capture = null;
     this._uploadInProgress = false;
     this._rendererMode = "gcode";
+    this._cropMode = false;
+    this._cropAspectPreset = "square";
+    this._cropRect = null;
+    this._cropDrag = null;
+    this._globalListenersAttached = false;
     this._refreshButton = null;
     this._captureButton = null;
-    this._cropButton = null;
+    this._cropToggleButton = null;
+    this._cropAspectSelect = null;
+    this._resetCropButton = null;
+    this._cancelCropButton = null;
+    this._cropLayer = null;
     this._downloadCaptureButton = null;
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
-    this._boundCropHandler = this._handleOpenCapturePage.bind(this, "crop");
+    this._boundCropToggleHandler = this._handleCropToggle.bind(this);
+    this._boundCropAspectChangeHandler = this._handleCropAspectChange.bind(this);
+    this._boundResetCropHandler = this._handleResetCrop.bind(this);
+    this._boundCancelCropHandler = this._handleCancelCrop.bind(this);
+    this._boundCropPointerDownHandler = this._handleCropPointerDown.bind(this);
+    this._boundWindowPointerMoveHandler = this._handleWindowPointerMove.bind(this);
+    this._boundWindowPointerUpHandler = this._handleWindowPointerUp.bind(this);
+    this._boundWindowResizeHandler = this._handleWindowResize.bind(this);
     this._boundDownloadCaptureHandler = this._downloadCapture.bind(this);
     this._boundUploadCaptureHandler = this._handleUploadCapture.bind(this);
   }
@@ -44,6 +66,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   connectedCallback() {
+    this._attachGlobalListeners();
     this._maybeLoad();
   }
 
@@ -51,6 +74,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._disposePreview(true);
     this._revokeCapture();
     this._detachShellListeners();
+    this._detachGlobalListeners();
   }
 
   getCardSize() {
@@ -71,9 +95,25 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._captureButton.removeEventListener("click", this._boundCaptureHandler);
       this._captureButton = null;
     }
-    if (this._cropButton) {
-      this._cropButton.removeEventListener("click", this._boundCropHandler);
-      this._cropButton = null;
+    if (this._cropToggleButton) {
+      this._cropToggleButton.removeEventListener("click", this._boundCropToggleHandler);
+      this._cropToggleButton = null;
+    }
+    if (this._cropAspectSelect) {
+      this._cropAspectSelect.removeEventListener("change", this._boundCropAspectChangeHandler);
+      this._cropAspectSelect = null;
+    }
+    if (this._resetCropButton) {
+      this._resetCropButton.removeEventListener("click", this._boundResetCropHandler);
+      this._resetCropButton = null;
+    }
+    if (this._cancelCropButton) {
+      this._cancelCropButton.removeEventListener("click", this._boundCancelCropHandler);
+      this._cancelCropButton = null;
+    }
+    if (this._cropLayer) {
+      this._cropLayer.removeEventListener("pointerdown", this._boundCropPointerDownHandler);
+      this._cropLayer = null;
     }
     if (this._downloadCaptureButton) {
       this._downloadCaptureButton.removeEventListener("click", this._boundDownloadCaptureHandler);
@@ -83,6 +123,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._uploadCaptureButton.removeEventListener("click", this._boundUploadCaptureHandler);
       this._uploadCaptureButton = null;
     }
+  }
+
+  _attachGlobalListeners() {
+    if (this._globalListenersAttached || typeof window === "undefined") {
+      return;
+    }
+    window.addEventListener("pointermove", this._boundWindowPointerMoveHandler);
+    window.addEventListener("pointerup", this._boundWindowPointerUpHandler);
+    window.addEventListener("resize", this._boundWindowResizeHandler);
+    this._globalListenersAttached = true;
+  }
+
+  _detachGlobalListeners() {
+    if (!this._globalListenersAttached || typeof window === "undefined") {
+      return;
+    }
+    window.removeEventListener("pointermove", this._boundWindowPointerMoveHandler);
+    window.removeEventListener("pointerup", this._boundWindowPointerUpHandler);
+    window.removeEventListener("resize", this._boundWindowResizeHandler);
+    this._globalListenersAttached = false;
   }
 
   _disposePreview(invalidateLoad = false) {
@@ -132,6 +192,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".canvas{width:100%;height:100%;display:block;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
+      ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
+      ".crop-layer.active{pointer-events:auto;opacity:1;}" +
+      ".crop-mask{position:absolute;background:rgba(3,8,14,0.6);backdrop-filter:blur(1px);}" +
+      ".crop-box{position:absolute;border:2px solid rgba(125,211,200,0.96);border-radius:18px;box-shadow:0 0 0 9999px rgba(3,8,14,0.24),inset 0 0 0 1px rgba(255,255,255,0.18);cursor:move;touch-action:none;display:none;overflow:hidden;background:linear-gradient(180deg,rgba(125,211,200,0.06),rgba(125,211,200,0.02));}" +
+      ".crop-layer.active .crop-box{display:block;}" +
+      ".crop-grid{position:absolute;inset:0;background-image:linear-gradient(to right,transparent 33.333%,rgba(255,255,255,0.18) 33.333%,rgba(255,255,255,0.18) calc(33.333% + 1px),transparent calc(33.333% + 1px),transparent 66.666%,rgba(255,255,255,0.18) 66.666%,rgba(255,255,255,0.18) calc(66.666% + 1px),transparent calc(66.666% + 1px)),linear-gradient(to bottom,transparent 33.333%,rgba(255,255,255,0.18) 33.333%,rgba(255,255,255,0.18) calc(33.333% + 1px),transparent calc(33.333% + 1px),transparent 66.666%,rgba(255,255,255,0.18) 66.666%,rgba(255,255,255,0.18) calc(66.666% + 1px),transparent calc(66.666% + 1px));}" +
+      ".crop-handle{position:absolute;width:22px;height:22px;border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:rgba(125,211,200,0.94);box-shadow:0 4px 16px rgba(0,0,0,0.24);touch-action:none;}" +
+      ".crop-handle.nw{left:-11px;top:-11px;cursor:nwse-resize;}" +
+      ".crop-handle.ne{right:-11px;top:-11px;cursor:nesw-resize;}" +
+      ".crop-handle.sw{left:-11px;bottom:-11px;cursor:nesw-resize;}" +
+      ".crop-handle.se{right:-11px;bottom:-11px;cursor:nwse-resize;}" +
       ".capture-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,0.95fr);gap:18px;padding:18px 20px;}" +
       ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
       ".capture-preview-wrap img{display:block;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
@@ -143,6 +214,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-status{min-height:22px;font-size:0.9rem;color:#9fb0c0;}" +
       ".capture-status.error{color:#fecaca;}" +
       ".capture-status.success{color:#86efac;}" +
+      ".capture-controls{display:none;gap:10px;flex-wrap:wrap;align-items:center;}" +
+      ".capture-controls.visible{display:flex;}" +
+      ".capture-controls select{appearance:none;min-height:40px;padding:0 38px 0 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);color:#f8fafc;font-size:0.92rem;font-weight:600;}" +
+      ".capture-note{color:#9fb0c0;font-size:0.84rem;line-height:1.5;}" +
       ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px;}" +
       ".fallback{display:none;padding:18px 20px 22px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(18,31,46,0.98);}" +
       ".fallback.visible{display:block;}" +
@@ -164,16 +239,28 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</div>" +
       "<div class='toolbar'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
-      "<button id='crop-button' class='button' type='button'>Open Crop Tool</button>" +
+      "<button id='crop-toggle-button' class='button' type='button'>Crop Capture</button>" +
       "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
       "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div></div>" +
       "<div id='capability-chips' class='chips'></div>" +
       "</section>" +
       "<section id='viewer-status' class='panel status'>Checking archive capabilities...</section>" +
-      "<section class='panel stage'>" +
+      "<section id='viewer-stage' class='panel stage'>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
+      "<div id='crop-layer' class='crop-layer' aria-hidden='true'>" +
+      "<div id='crop-mask-top' class='crop-mask'></div>" +
+      "<div id='crop-mask-left' class='crop-mask'></div>" +
+      "<div id='crop-mask-right' class='crop-mask'></div>" +
+      "<div id='crop-mask-bottom' class='crop-mask'></div>" +
+      "<div id='crop-box' class='crop-box'>" +
+      "<div class='crop-grid'></div>" +
+      "<div class='crop-handle nw' data-handle='nw'></div>" +
+      "<div class='crop-handle ne' data-handle='ne'></div>" +
+      "<div class='crop-handle sw' data-handle='sw'></div>" +
+      "<div class='crop-handle se' data-handle='se'></div>" +
+      "</div></div>" +
       "</section>" +
       "<section id='capture-panel' class='panel capture-panel'>" +
       "<div class='capture-preview-wrap'>" +
@@ -185,6 +272,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
       "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
       "<div id='capture-status' class='capture-status'></div>" +
+      "<div id='capture-controls' class='capture-controls'>" +
+      "<select id='crop-aspect-select' aria-label='Crop aspect preset'>" +
+      "<option value='square'>Square</option>" +
+      "<option value='free'>Freeform</option>" +
+      "<option value='landscape4x3'>Landscape 4:3</option>" +
+      "<option value='landscape16x9'>Landscape 16:9</option>" +
+      "</select>" +
+      "<button id='reset-crop-button' class='button' type='button'>Reset Crop</button>" +
+      "<button id='cancel-crop-button' class='button' type='button'>Cancel Crop</button>" +
+      "</div>" +
+      "<div id='capture-note' class='capture-note'>Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.</div>" +
       "<div class='capture-actions'>" +
       "<button id='download-capture-button' class='button' type='button' disabled>Download PNG</button>" +
       "<button id='upload-capture-button' class='button' type='button' disabled>Upload to Archive</button>" +
@@ -196,13 +294,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<p id='fallback-copy' class='fallback-copy'></p>" +
       "<pre id='fallback-snippet'></pre>" +
       "</section>" +
-      "<div class='footnote'>Capture runs directly inside this popup against the current canvas. The crop tool still opens the standalone viewer so the advanced crop workflow can stay isolated.</div>" +
+      "<div class='footnote'>Capture and crop both run directly inside this popup against the current canvas, so the saved image matches the preview you are already framing.</div>" +
       "</div>" +
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
-    this._cropButton = this.shadowRoot.getElementById("crop-button");
+    this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
+    this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
+    this._resetCropButton = this.shadowRoot.getElementById("reset-crop-button");
+    this._cancelCropButton = this.shadowRoot.getElementById("cancel-crop-button");
+    this._cropLayer = this.shadowRoot.getElementById("crop-layer");
     this._downloadCaptureButton = this.shadowRoot.getElementById("download-capture-button");
     this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
     if (this._refreshButton) {
@@ -211,8 +313,20 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
     }
-    if (this._cropButton) {
-      this._cropButton.addEventListener("click", this._boundCropHandler);
+    if (this._cropToggleButton) {
+      this._cropToggleButton.addEventListener("click", this._boundCropToggleHandler);
+    }
+    if (this._cropAspectSelect) {
+      this._cropAspectSelect.addEventListener("change", this._boundCropAspectChangeHandler);
+    }
+    if (this._resetCropButton) {
+      this._resetCropButton.addEventListener("click", this._boundResetCropHandler);
+    }
+    if (this._cancelCropButton) {
+      this._cancelCropButton.addEventListener("click", this._boundCancelCropHandler);
+    }
+    if (this._cropLayer) {
+      this._cropLayer.addEventListener("pointerdown", this._boundCropPointerDownHandler);
     }
     if (this._downloadCaptureButton) {
       this._downloadCaptureButton.addEventListener("click", this._boundDownloadCaptureHandler);
@@ -227,28 +341,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const entryId = this._config && this._config.entry_id ? this._config.entry_id : "";
     const suffix = entryId ? `?entry_id=${encodeURIComponent(entryId)}` : "";
     return `${path}${suffix}`;
-  }
-
-  _viewerPageUrl(mode) {
-    const params = new URLSearchParams();
-    params.set("archive_id", String(this._config.archive_id || ""));
-    if (this._config.archive_name) {
-      params.set("archive_name", this._config.archive_name);
-    }
-    if (this._config.entry_id) {
-      params.set("entry_id", this._config.entry_id);
-    }
-    if (mode === "crop") {
-      params.set("capture_mode", "crop");
-    }
-    return `/local/3d_printing/print_history/print-history-3d-viewer.html?${params.toString()}`;
-  }
-
-  _handleOpenCapturePage(mode) {
-    const targetUrl = this._viewerPageUrl(mode);
-    if (typeof window !== "undefined" && typeof window.open === "function") {
-      window.open(targetUrl, "_blank", "noopener");
-    }
   }
 
   _setCaptureStatus(message, tone) {
@@ -269,7 +361,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const empty = this.shadowRoot && this.shadowRoot.getElementById("capture-empty");
     const title = this.shadowRoot && this.shadowRoot.getElementById("capture-title");
     const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-copy");
-    if (!image || !empty || !title || !copy) {
+    const controls = this.shadowRoot && this.shadowRoot.getElementById("capture-controls");
+    const note = this.shadowRoot && this.shadowRoot.getElementById("capture-note");
+    if (!image || !empty || !title || !copy || !note) {
       return;
     }
 
@@ -278,13 +372,29 @@ class PrintHistory3dViewerCard extends HTMLElement {
       image.hidden = false;
       empty.hidden = true;
       title.textContent = `${this._capture.width} x ${this._capture.height} PNG ready`;
-      copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} full-frame capture prepared from the current popup canvas.`;
+      copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} ${this._capture.cropLabel || "viewer capture"} prepared from the current popup canvas.`;
     } else {
       image.removeAttribute("src");
       image.hidden = true;
       empty.hidden = false;
       title.textContent = "No render captured yet";
-      copy.textContent = "Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.";
+      copy.textContent = this._cropMode
+        ? `Adjust the ${this._cropPresetLabel().toLowerCase()} and then capture it. Square is the thumbnail-like default, while landscape presets are better for wide card framing.`
+        : "Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.";
+    }
+
+    if (controls) {
+      controls.classList.toggle("visible", this._cropMode);
+    }
+    note.textContent = this._cropMode
+      ? "Square stays closest to the stock thumbnail behavior. Landscape presets usually frame better for the list card and camera-style previews."
+      : "Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.";
+
+    if (this._captureButton) {
+      this._captureButton.textContent = "Capture View";
+    }
+    if (this._cropToggleButton) {
+      this._cropToggleButton.textContent = this._cropMode ? "Capture Crop" : "Crop Capture";
     }
 
     if (this._downloadCaptureButton) {
@@ -293,6 +403,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.disabled = !this._capture || this._uploadInProgress;
     }
+    this._updateCropOverlay();
   }
 
   _revokeCapture() {
@@ -345,6 +456,364 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return `viewer-capture-${archiveId}-${rendererMode}-${timestamp}.png`;
   }
 
+  _getStageElement() {
+    const stage = this.shadowRoot && this.shadowRoot.getElementById("viewer-stage");
+    return stage instanceof HTMLElement ? stage : null;
+  }
+
+  _getStageMetrics() {
+    const stage = this._getStageElement();
+    if (!stage) {
+      return null;
+    }
+    const rect = stage.getBoundingClientRect();
+    const width = Math.max(1, stage.clientWidth || Math.round(rect.width) || 1);
+    const height = Math.max(1, stage.clientHeight || Math.round(rect.height) || 1);
+    return { width, height, rect };
+  }
+
+  _getCropAspectRatio() {
+    return Object.prototype.hasOwnProperty.call(CROP_PRESETS, this._cropAspectPreset)
+      ? CROP_PRESETS[this._cropAspectPreset]
+      : CROP_PRESETS.square;
+  }
+
+  _cropPresetLabel() {
+    switch (this._cropAspectPreset) {
+      case "free":
+        return "Freeform crop";
+      case "landscape4x3":
+        return "Landscape 4:3 crop";
+      case "landscape16x9":
+        return "Landscape 16:9 crop";
+      default:
+        return "Square crop";
+    }
+  }
+
+  _buildDefaultCropRect(width, height) {
+    const safeWidth = Math.max(1, Number(width) || 1);
+    const safeHeight = Math.max(1, Number(height) || 1);
+    const maxWidth = safeWidth * 0.78;
+    const maxHeight = safeHeight * 0.78;
+    const ratio = this._getCropAspectRatio();
+    let cropWidth = maxWidth;
+    let cropHeight = maxHeight;
+
+    if (ratio) {
+      cropHeight = cropWidth / ratio;
+      if (cropHeight > maxHeight) {
+        cropHeight = maxHeight;
+        cropWidth = cropHeight * ratio;
+      }
+    }
+
+    return {
+      x: Math.round((safeWidth - cropWidth) / 2),
+      y: Math.round((safeHeight - cropHeight) / 2),
+      width: Math.round(cropWidth),
+      height: Math.round(cropHeight),
+    };
+  }
+
+  _clampCropRect(rect, stageWidth, stageHeight) {
+    const minSize = 48;
+    const safeWidth = Math.max(1, Number(stageWidth) || 1);
+    const safeHeight = Math.max(1, Number(stageHeight) || 1);
+    const ratio = this._getCropAspectRatio();
+    let width = Math.max(minSize, Math.min(Number(rect.width) || minSize, safeWidth));
+    let height = Math.max(minSize, Math.min(Number(rect.height) || minSize, safeHeight));
+
+    if (ratio) {
+      height = width / ratio;
+      if (height > safeHeight) {
+        height = safeHeight;
+        width = height * ratio;
+      }
+      if (height < minSize) {
+        height = minSize;
+        width = height * ratio;
+      }
+      if (width < minSize) {
+        width = minSize;
+        height = width / ratio;
+      }
+      if (width > safeWidth) {
+        width = safeWidth;
+        height = width / ratio;
+      }
+    }
+
+    let x = Number(rect.x) || 0;
+    let y = Number(rect.y) || 0;
+    x = Math.min(Math.max(0, x), Math.max(0, safeWidth - width));
+    y = Math.min(Math.max(0, y), Math.max(0, safeHeight - height));
+    return {
+      x: Math.round(x),
+      y: Math.round(y),
+      width: Math.round(width),
+      height: Math.round(height),
+    };
+  }
+
+  _ensureCropRect(reset) {
+    const metrics = this._getStageMetrics();
+    if (!metrics) {
+      return null;
+    }
+    if (!this._cropRect || reset) {
+      this._cropRect = this._clampCropRect(this._buildDefaultCropRect(metrics.width, metrics.height), metrics.width, metrics.height);
+      return this._cropRect;
+    }
+    this._cropRect = this._clampCropRect(this._cropRect, metrics.width, metrics.height);
+    return this._cropRect;
+  }
+
+  _updateCropOverlay() {
+    const layer = this.shadowRoot && this.shadowRoot.getElementById("crop-layer");
+    const box = this.shadowRoot && this.shadowRoot.getElementById("crop-box");
+    const maskTop = this.shadowRoot && this.shadowRoot.getElementById("crop-mask-top");
+    const maskLeft = this.shadowRoot && this.shadowRoot.getElementById("crop-mask-left");
+    const maskRight = this.shadowRoot && this.shadowRoot.getElementById("crop-mask-right");
+    const maskBottom = this.shadowRoot && this.shadowRoot.getElementById("crop-mask-bottom");
+    if (!layer || !box || !maskTop || !maskLeft || !maskRight || !maskBottom) {
+      return;
+    }
+
+    layer.classList.toggle("active", this._cropMode);
+    layer.setAttribute("aria-hidden", this._cropMode ? "false" : "true");
+    if (this._cropAspectSelect) {
+      this._cropAspectSelect.value = this._cropAspectPreset;
+    }
+    if (!this._cropMode) {
+      return;
+    }
+
+    const metrics = this._getStageMetrics();
+    const rect = this._ensureCropRect(false);
+    if (!metrics || !rect) {
+      return;
+    }
+
+    box.style.left = `${rect.x}px`;
+    box.style.top = `${rect.y}px`;
+    box.style.width = `${rect.width}px`;
+    box.style.height = `${rect.height}px`;
+
+    maskTop.style.left = "0px";
+    maskTop.style.top = "0px";
+    maskTop.style.width = `${metrics.width}px`;
+    maskTop.style.height = `${rect.y}px`;
+
+    maskLeft.style.left = "0px";
+    maskLeft.style.top = `${rect.y}px`;
+    maskLeft.style.width = `${rect.x}px`;
+    maskLeft.style.height = `${rect.height}px`;
+
+    maskRight.style.left = `${rect.x + rect.width}px`;
+    maskRight.style.top = `${rect.y}px`;
+    maskRight.style.width = `${Math.max(0, metrics.width - rect.x - rect.width)}px`;
+    maskRight.style.height = `${rect.height}px`;
+
+    maskBottom.style.left = "0px";
+    maskBottom.style.top = `${rect.y + rect.height}px`;
+    maskBottom.style.width = `${metrics.width}px`;
+    maskBottom.style.height = `${Math.max(0, metrics.height - rect.y - rect.height)}px`;
+  }
+
+  _setCropMode(enabled) {
+    this._cropMode = !!enabled;
+    this._cropDrag = null;
+    if (this._cropMode) {
+      this._ensureCropRect(!this._cropRect);
+      this._setCaptureStatus("Crop mode is active. Square is the thumbnail-like default; switch to a landscape preset if you want wider framing.", "info");
+    }
+    this._updateCapturePanel();
+  }
+
+  _buildCornerRect(anchorX, anchorY, pointerX, pointerY, handle, stageWidth, stageHeight) {
+    const minSize = 48;
+    const ratio = this._getCropAspectRatio();
+    let width = Math.max(minSize, Math.abs(pointerX - anchorX));
+    let height = Math.max(minSize, Math.abs(pointerY - anchorY));
+
+    if (ratio) {
+      if (width / height > ratio) {
+        height = width / ratio;
+      } else {
+        width = height * ratio;
+      }
+    }
+
+    const x = handle.indexOf("w") >= 0 ? anchorX - width : anchorX;
+    const y = handle.indexOf("n") >= 0 ? anchorY - height : anchorY;
+    return this._clampCropRect({ x, y, width, height }, stageWidth, stageHeight);
+  }
+
+  _pointerPosition(event) {
+    const stage = this._getStageElement();
+    if (!stage) {
+      return null;
+    }
+    const rect = stage.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  }
+
+  _handleCropPointerDown(event) {
+    if (!this._cropMode) {
+      return;
+    }
+    const metrics = this._getStageMetrics();
+    const rect = this._ensureCropRect(false);
+    if (!metrics || !rect) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const position = this._pointerPosition(event);
+    if (!position) {
+      return;
+    }
+
+    const handle = target.dataset && target.dataset.handle ? String(target.dataset.handle) : "";
+    if (handle) {
+      let anchorX = rect.x;
+      let anchorY = rect.y;
+      if (handle === "nw") {
+        anchorX = rect.x + rect.width;
+        anchorY = rect.y + rect.height;
+      } else if (handle === "ne") {
+        anchorX = rect.x;
+        anchorY = rect.y + rect.height;
+      } else if (handle === "sw") {
+        anchorX = rect.x + rect.width;
+        anchorY = rect.y;
+      } else if (handle === "se") {
+        anchorX = rect.x;
+        anchorY = rect.y;
+      }
+      this._cropDrag = {
+        type: "resize",
+        handle,
+        anchorX,
+        anchorY,
+        stageWidth: metrics.width,
+        stageHeight: metrics.height,
+      };
+    } else if (target.id === "crop-box" || target.closest("#crop-box")) {
+      this._cropDrag = {
+        type: "move",
+        startX: position.x,
+        startY: position.y,
+        originX: rect.x,
+        originY: rect.y,
+        width: rect.width,
+        height: rect.height,
+        stageWidth: metrics.width,
+        stageHeight: metrics.height,
+      };
+    }
+
+    if (this._cropDrag) {
+      event.preventDefault();
+    }
+  }
+
+  _handleWindowPointerMove(event) {
+    if (!this._cropDrag || !this._cropMode) {
+      return;
+    }
+    const position = this._pointerPosition(event);
+    if (!position) {
+      return;
+    }
+
+    if (this._cropDrag.type === "move") {
+      const nextX = this._cropDrag.originX + (position.x - this._cropDrag.startX);
+      const nextY = this._cropDrag.originY + (position.y - this._cropDrag.startY);
+      this._cropRect = this._clampCropRect(
+        {
+          x: nextX,
+          y: nextY,
+          width: this._cropDrag.width,
+          height: this._cropDrag.height,
+        },
+        this._cropDrag.stageWidth,
+        this._cropDrag.stageHeight
+      );
+    } else if (this._cropDrag.type === "resize") {
+      this._cropRect = this._buildCornerRect(
+        this._cropDrag.anchorX,
+        this._cropDrag.anchorY,
+        position.x,
+        position.y,
+        this._cropDrag.handle,
+        this._cropDrag.stageWidth,
+        this._cropDrag.stageHeight
+      );
+    }
+
+    this._updateCropOverlay();
+  }
+
+  _handleWindowPointerUp() {
+    if (!this._cropDrag) {
+      return;
+    }
+    this._cropDrag = null;
+  }
+
+  _handleWindowResize() {
+    if (!this._cropMode) {
+      return;
+    }
+    this._ensureCropRect(false);
+    this._updateCropOverlay();
+  }
+
+  _handleCropAspectChange(event) {
+    const target = event.target;
+    this._cropAspectPreset = Object.prototype.hasOwnProperty.call(CROP_PRESETS, target && target.value ? String(target.value) : "")
+      ? String(target.value)
+      : "square";
+    if (this._cropMode) {
+      this._ensureCropRect(true);
+      this._updateCropOverlay();
+    }
+    this._updateCapturePanel();
+  }
+
+  _handleResetCrop() {
+    if (!this._cropMode) {
+      return;
+    }
+    this._ensureCropRect(true);
+    this._updateCropOverlay();
+    this._setCaptureStatus(`Reset to ${this._cropPresetLabel().toLowerCase()}.`, "info");
+  }
+
+  _handleCancelCrop() {
+    this._setCropMode(false);
+  }
+
+  async _handleCropToggle() {
+    try {
+      if (!this._cropMode) {
+        this._setCropMode(true);
+        return;
+      }
+      await this._captureCurrentView();
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      this._setCaptureStatus(message || "Crop capture failed.", "error");
+    }
+  }
+
   async _captureCurrentView() {
     const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
     if (!(canvas instanceof HTMLCanvasElement)) {
@@ -356,7 +825,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
       throw new Error("The viewer has not rendered a captureable frame yet.");
     }
 
-    const dimensions = this._scaledDimensions(sourceWidth, sourceHeight, 2048);
+    const metrics = this._getStageMetrics();
+    const cropRect = this._cropMode ? this._ensureCropRect(false) : null;
+    const sourceX = cropRect && metrics ? Math.max(0, Math.round((cropRect.x / metrics.width) * sourceWidth)) : 0;
+    const sourceY = cropRect && metrics ? Math.max(0, Math.round((cropRect.y / metrics.height) * sourceHeight)) : 0;
+    const sourceCropWidth = cropRect && metrics ? Math.max(1, Math.round((cropRect.width / metrics.width) * sourceWidth)) : sourceWidth;
+    const sourceCropHeight = cropRect && metrics ? Math.max(1, Math.round((cropRect.height / metrics.height) * sourceHeight)) : sourceHeight;
+    const dimensions = this._scaledDimensions(sourceCropWidth, sourceCropHeight, 2048);
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = dimensions.width;
     exportCanvas.height = dimensions.height;
@@ -364,8 +839,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (!context) {
       throw new Error("Canvas rendering is unavailable for capture.");
     }
-    context.drawImage(canvas, 0, 0, sourceWidth, sourceHeight, 0, 0, dimensions.width, dimensions.height);
+    context.drawImage(
+      canvas,
+      sourceX,
+      sourceY,
+      sourceCropWidth,
+      sourceCropHeight,
+      0,
+      0,
+      dimensions.width,
+      dimensions.height
+    );
     const blob = await this._canvasToBlob(exportCanvas, "image/png");
+    const cropLabel = cropRect ? this._cropPresetLabel() : "Full-frame capture";
 
     this._revokeCapture();
     this._capture = {
@@ -375,13 +861,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       height: dimensions.height,
       mimeType: "image/png",
       fileName: this._buildCaptureFileName(),
+      cropLabel,
     };
     this._updateCapturePanel();
-    this._setCaptureStatus("Captured the current popup view. Download it or upload it to the archive.", "success");
+    this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}. Download it or upload it to the archive.`, "success");
   }
 
   async _handleCapture() {
     try {
+      if (this._cropMode) {
+        this._setCropMode(false);
+      }
       await this._captureCurrentView();
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
@@ -653,7 +1143,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
     this._disposePreview();
-  this._hideFallback();
+    this._hideFallback();
 
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
     this._setDownloadLink(gcodeUrl);

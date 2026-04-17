@@ -18,8 +18,6 @@ from homeassistant.helpers import aiohttp_client
 
 from .api import BambuddyApiClient, BambuddyRuntimeRepairClient
 from .const import (
-    ARCHIVE_VIEWER_CAPTURE_UPLOAD_URL,
-    ARCHIVE_VIEWER_CAPABILITIES_URL,
     ARCHIVE_VIEWER_GCODE_URL,
     DATA_MANAGER,
     DATA_RESTORE_UPLOADS,
@@ -624,31 +622,6 @@ async def _resolve_archive_viewer_request(
     return hass, resolved_entry_id, archive_id, manager, client
 
 
-class ArchiveViewerCapabilitiesView(HomeAssistantView):
-    url = ARCHIVE_VIEWER_CAPABILITIES_URL
-    name = "api:bambuddy:print-history:archive-viewer:capabilities"
-    requires_auth = True
-
-    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
-        resolved = await _resolve_archive_viewer_request(request)
-        if isinstance(resolved, web.Response):
-            return resolved
-
-        _hass, entry_id, archive_id, _manager, client = resolved
-        try:
-            payload = await client.async_fetch_archive_capabilities(archive_id)
-        except RuntimeError as error:
-            return web.json_response(
-                {"success": False, "error": "capabilities_fetch_failed", "message": str(error)},
-                status=502,
-            )
-
-        response_payload = dict(payload)
-        response_payload[CONF_ENTRY_ID] = entry_id
-        response_payload[CONF_ARCHIVE_ID] = archive_id
-        return web.json_response(response_payload)
-
-
 class ArchiveViewerGcodeView(HomeAssistantView):
     url = ARCHIVE_VIEWER_GCODE_URL
     name = "api:bambuddy:print-history:archive-viewer:gcode"
@@ -671,147 +644,11 @@ class ArchiveViewerGcodeView(HomeAssistantView):
         return web.Response(text=gcode, content_type="text/plain", charset="utf-8")
 
 
-class ArchiveViewerCaptureUploadView(HomeAssistantView):
-    url = ARCHIVE_VIEWER_CAPTURE_UPLOAD_URL
-    name = "api:bambuddy:print-history:archive-viewer:capture-upload"
-    requires_auth = True
-
-    async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
-        resolved = await _resolve_archive_viewer_request(request)
-        if isinstance(resolved, web.Response):
-            return resolved
-
-        hass, entry_id, archive_id, manager, client = resolved
-        try:
-            payload = await request.json()
-        except ValueError:
-            return web.json_response(
-                {"success": False, "error": "invalid_json", "message": "Request body must be valid JSON."},
-                status=400,
-            )
-
-        file_name = str((payload or {}).get("file_name", "")).strip()
-        mime_type = str((payload or {}).get("mime_type", "")).strip().lower()
-        content_base64 = str((payload or {}).get("content_base64", "")).strip()
-
-        if not file_name:
-            return web.json_response(
-                {"success": False, "error": "file_name_required", "message": "file_name is required."},
-                status=400,
-            )
-        if mime_type not in {"image/png", "image/jpeg", "image/webp"}:
-            return web.json_response(
-                {
-                    "success": False,
-                    "error": "unsupported_mime_type",
-                    "message": "Capture upload only supports PNG, JPEG, or WebP images.",
-                },
-                status=400,
-            )
-
-        try:
-            content = base64.b64decode(content_base64, validate=True)
-        except (ValueError, binascii.Error):
-            return web.json_response(
-                {"success": False, "error": "invalid_base64", "message": "content_base64 is not valid base64."},
-                status=400,
-            )
-        if not content:
-            return web.json_response(
-                {"success": False, "error": "empty_payload", "message": "Capture payload is empty."},
-                status=400,
-            )
-        if len(content) > MAX_MANUAL_PHOTO_UPLOAD_BYTES:
-            return web.json_response(
-                {
-                    "success": False,
-                    "error": "payload_too_large",
-                    "message": f"Capture payload exceeds the {MAX_MANUAL_PHOTO_UPLOAD_BYTES // (1024 * 1024)}MB limit.",
-                },
-                status=400,
-            )
-
-        if not await manager.async_ensure_archive_loaded(archive_id):
-            return web.json_response(
-                {
-                    "success": False,
-                    "error": "archive_not_found",
-                    "message": f"Archive {archive_id} was not found in the Bambuddy local store.",
-                },
-                status=404,
-            )
-
-        archive_before_upload = manager.build_archive_detail_response(archive_id)
-        upload_response: dict[str, Any] | None = None
-        try:
-            upload_response = await client.async_upload_archive_photo(
-                archive_id,
-                file_name=file_name,
-                mime_type=mime_type,
-                content=content,
-            )
-            refreshed_archive = await manager.async_refresh_archive_detail(
-                archive_id,
-                operation="upload_archive_viewer_capture",
-                extra_details={
-                    "file_name": file_name,
-                    "mime_type": mime_type,
-                    "byte_count": len(content),
-                },
-            )
-        except RuntimeError as error:
-            return web.json_response(
-                {"success": False, "error": "upload_failed", "message": str(error)},
-                status=502,
-            )
-
-        if refreshed_archive is None:
-            return web.json_response(
-                {
-                    "success": False,
-                    "error": "archive_refresh_failed",
-                    "message": f"Archive {archive_id} could not be refreshed after upload.",
-                },
-                status=500,
-            )
-
-        uploaded_photo_path = _resolve_uploaded_photo_path(
-            refreshed_archive,
-            file_name,
-            previous_archive=archive_before_upload,
-            upload_response=upload_response,
-        )
-        response = manager.build_archive_detail_response(archive_id)
-        if response is None:
-            return web.json_response(
-                {
-                    "success": False,
-                    "error": "archive_not_found",
-                    "message": f"Archive {archive_id} was not found in the Bambuddy local store.",
-                },
-                status=404,
-            )
-
-        response[CONF_ENTRY_ID] = entry_id
-        response[CONF_ARCHIVE_ID] = archive_id
-        response["upload"] = {
-            "file_name": file_name,
-            "mime_type": mime_type,
-            "byte_count": len(content),
-        }
-        response["uploaded_photo_path"] = uploaded_photo_path
-        if upload_response:
-            response["upload_response"] = upload_response
-        return web.json_response(response)
-
-
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
         hass.http.register_view(ReplacementArchiveDiscoverView())
-        hass.http.register_view(ArchiveViewerCapabilitiesView())
         hass.http.register_view(ArchiveViewerGcodeView())
-        hass.http.register_view(ArchiveViewerCaptureUploadView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
     @websocket_api.websocket_command(

@@ -6,9 +6,10 @@ Issue `#747` is now implemented with a Home Assistant popup that prioritizes the
 
 - The print-history list view now exposes a direct `3D View` launcher per archive.
 - The archive detail popup also exposes a `3D View` action button.
-- The popup loads a HA-served viewer page at `homeassistant/www/3d_printing/print_history/print-history-3d-viewer.html`.
-- That viewer fetches archive capabilities and G-code through HA-authenticated proxy endpoints in the `bambuddy` custom integration instead of calling Bambuddy cross-origin from the browser.
+- The popup now renders directly through `homeassistant/www/3d_printing/print_history/print-history-3d-viewer-card.js`.
+- The popup card fetches archive capabilities and G-code through the `bambuddy/print_history_archive_viewer` websocket command and only uses an HA-authenticated HTTP endpoint for raw G-code download.
 - Interactive rendering currently targets the G-code preview path first, with a raw G-code fallback if the browser cannot load the preview library.
+- The earlier standalone viewer page prototype was removed after crop and capture were consolidated back into the popup card.
 
 What is still intentionally not implemented:
 
@@ -153,6 +154,8 @@ Custom Card (TypeScript/Lit)
 
 ### Option D: Standalone HTML Page + Popup
 
+Status: retired. This was evaluated and briefly implemented, but the final repository design moved capture and crop back into the popup card to avoid auth drift, duplicate rendering paths, and a second viewer surface.
+
 Create a static HTML page (served from HA's `www/` folder) that loads `gcode-preview` from CDN and fetches gcode from Bambuddy's API.
 
 ```html
@@ -198,7 +201,7 @@ tap_action:
 | **A: Iframe** | None | High | **Primary approach** — try this first |
 | **B: Thumbnails** | Minimal | Medium | **Always include** — dashboard card images |
 | C: Custom card | High | Highest | Only if iframe doesn't work |
-| D: Standalone HTML | Medium | Medium | Fallback if iframe has auth issues |
+| D: Standalone HTML | Medium | Medium | Retired prototype |
 
 **Start with B (thumbnails) for dashboard cards** — use `/archives/{id}/thumbnail` in picture cards. This works immediately with no auth issues.
 
@@ -217,7 +220,7 @@ tap_action:
 ### Phase 2.1 (enhanced viewing)
 - Test iframe embed of Bambuddy archive page
 - If iframe works: add `browser_mod` popup action to archive cards
-- If iframe blocked: evaluate Option D (standalone HTML page)
+- If iframe blocked: keep the existing popup-card rendering path rather than reintroducing a standalone page
 
 ### Future
 - Custom Lovelace card only if there's demand for native HA 3D viewing

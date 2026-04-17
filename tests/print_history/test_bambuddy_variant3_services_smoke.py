@@ -654,7 +654,6 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
     view_urls = {getattr(view, "url", "") for view in hass.http.views}
     assert const_module.RESTORE_UPLOAD_DISCOVER_URL in view_urls
-    assert const_module.ARCHIVE_VIEWER_CAPABILITIES_URL in view_urls
     assert const_module.ARCHIVE_VIEWER_GCODE_URL in view_urls
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
@@ -782,7 +781,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
 
 
-def test_variant3_archive_viewer_proxy_views_return_capabilities_and_gcode(tmp_path: Path) -> None:
+def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> None:
     const_module, query_module, manager_module, init_module = _import_component_modules()
 
     hass = FakeHass(tmp_path, _default_state_map())
@@ -805,7 +804,6 @@ def test_variant3_archive_viewer_proxy_views_return_capabilities_and_gcode(tmp_p
 
     asyncio.run(init_module.async_setup(hass, {}))
 
-    capabilities_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.ARCHIVE_VIEWER_CAPABILITIES_URL)
     gcode_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.ARCHIVE_VIEWER_GCODE_URL)
 
     original_api_client = init_module.BambuddyApiClient
@@ -813,15 +811,6 @@ def test_variant3_archive_viewer_proxy_views_return_capabilities_and_gcode(tmp_p
     FakeApiClient.archives = manager.archives
 
     try:
-        capabilities_response = asyncio.run(
-            capabilities_view.get(
-                SimpleNamespace(
-                    app={"hass": hass},
-                    query={},
-                    match_info={"archive_id": "101"},
-                )
-            )
-        )
         gcode_response = asyncio.run(
             gcode_view.get(
                 SimpleNamespace(
@@ -834,10 +823,6 @@ def test_variant3_archive_viewer_proxy_views_return_capabilities_and_gcode(tmp_p
     finally:
         init_module.BambuddyApiClient = original_api_client
 
-    assert capabilities_response["status"] == 200
-    assert capabilities_response["payload"]["archive_id"] == 101
-    assert capabilities_response["payload"]["entry_id"] == "entry-1"
-    assert capabilities_response["payload"]["has_gcode"] is True
     assert gcode_response.status == 200
     assert gcode_response.content_type == "text/plain"
     assert "G1 X42 Y42 E10" in gcode_response.text
