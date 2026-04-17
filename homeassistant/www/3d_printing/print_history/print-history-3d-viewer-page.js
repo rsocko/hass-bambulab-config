@@ -109,7 +109,10 @@ function normalizeBuildVolume(buildVolume) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    headers: buildAuthHeaders(),
+  });
   let payload = null;
   try {
     payload = await response.json();
@@ -124,7 +127,10 @@ async function fetchJson(url) {
 }
 
 async function fetchText(url) {
-  const response = await fetch(url, { credentials: "same-origin" });
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    headers: buildAuthHeaders(),
+  });
   const text = await response.text();
   if (!response.ok) {
     let message = `Request failed with HTTP ${response.status}`;
@@ -142,7 +148,8 @@ async function fetchText(url) {
 }
 
 async function fetchJsonWithBody(url, options) {
-  const response = await fetch(url, options);
+  const mergedHeaders = Object.assign({}, buildAuthHeaders(), options && options.headers ? options.headers : {});
+  const response = await fetch(url, Object.assign({}, options || {}, { headers: mergedHeaders }));
   let payload = null;
   try {
     payload = await response.json();
@@ -741,6 +748,21 @@ function downloadCapture() {
 }
 
 function resolveAccessToken() {
+  try {
+    const rawTokens = localStorage.getItem("hassTokens");
+    if (rawTokens) {
+      const parsedTokens = JSON.parse(rawTokens);
+      const accessToken = parsedTokens && parsedTokens.access_token
+        ? String(parsedTokens.access_token).trim()
+        : "";
+      if (accessToken) {
+        return accessToken;
+      }
+    }
+  } catch (_error) {
+    // Ignore malformed localStorage token payloads and try other contexts.
+  }
+
   const candidates = [window, window.parent, window.top];
   const visited = [];
   for (let index = 0; index < candidates.length; index += 1) {
@@ -766,6 +788,11 @@ function resolveAccessToken() {
   return "";
 }
 
+function buildAuthHeaders() {
+  const accessToken = resolveAccessToken();
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
 async function uploadCapture(useAsPrimary) {
   if (!appState.capture || !appState.params || !appState.params.archiveId) {
     return;
@@ -779,14 +806,9 @@ async function uploadCapture(useAsPrimary) {
       `/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(appState.params.archiveId)}/capture-upload`,
       appState.params.entryId
     );
-    const accessToken = resolveAccessToken();
-    const headers = { "Content-Type": "application/json" };
-    if (accessToken) {
-      headers.Authorization = `Bearer ${accessToken}`;
-    }
     const response = await fetchJsonWithBody(endpoint, {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({
         file_name: appState.capture.fileName,
