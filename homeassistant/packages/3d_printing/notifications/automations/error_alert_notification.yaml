@@ -169,6 +169,11 @@
           Sent {{ worst_severity }} notification — {{ error_count }} {{ source_label }}
           error{{ 's' if error_count | int > 1 }}.
 
+    - action: shell_command.cleanup_printer_snapshots
+      data:
+        retention_days: "{{ states('input_number.3dprinter_snapshot_retention_days') | int(7) }}"
+        max_files: "{{ states('input_number.3dprinter_snapshot_keep_max') | int(150) }}"
+
     # ── TTS announcement ──────────────────────────────────────────
     # Critical/serious: always announce. Medium/minor: respect quiet hours.
     - if:
@@ -209,6 +214,7 @@
               {% endif %}
             options:
               volume_level: "{{ states('input_number.3dprinter_tts_volume') | float / 100 }}"
+
 
     # ── WLED severity-driven overlay (front-door segments 0+1) ────
     # Override progress bar segments with severity color.

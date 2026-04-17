@@ -104,6 +104,11 @@
         name: Print Notification
         message: "Sent completion notification for {{ task_name }}. Weight: {{ print_weight }}g"
 
+    - action: shell_command.cleanup_printer_snapshots
+      data:
+        retention_days: "{{ states('input_number.3dprinter_snapshot_retention_days') | int(7) }}"
+        max_files: "{{ states('input_number.3dprinter_snapshot_keep_max') | int(150) }}"
+
     # TTS announcement if enabled and not in quiet hours
     - if:
         - condition: state

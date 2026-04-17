@@ -1,0 +1,4 @@
+# Prune local notification snapshots by age and count.
+# Bambuddy is the canonical archive store; these files are short-lived local copies.
+cleanup_printer_snapshots: >-
+  python3 -c 'from pathlib import Path; import time; root=Path("/config/www/printer_snapshots"); retention_days=max(1,int(float(r"""{{ retention_days | default(7) }}"""))); max_files=max(1,int(float(r"""{{ max_files | default(150) }}"""))); cutoff=time.time()-(retention_days*86400); root.mkdir(parents=True, exist_ok=True); files=sorted((path for path in root.iterdir() if path.is_file()), key=lambda path: path.stat().st_mtime, reverse=True); [path.unlink(missing_ok=True) for index, path in enumerate(files) if path.stat().st_mtime < cutoff or index >= max_files]'

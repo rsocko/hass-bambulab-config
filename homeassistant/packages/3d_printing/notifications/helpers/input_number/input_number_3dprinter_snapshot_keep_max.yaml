@@ -1,0 +1,7 @@
+3dprinter_snapshot_keep_max:
+  name: Snapshot Keep Max
+  min: 25
+  max: 1000
+  step: 25
+  initial: 150
+  icon: mdi:image-multiple

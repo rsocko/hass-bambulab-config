@@ -603,15 +603,33 @@ def _invoke_home_assistant_reenrich(archive_id: int) -> tuple[bool, str | None]:
 def _bambuddy_api_base_url() -> str:
     value = _optional_bambuddy_api_base_url()
     if not value:
-        raise ValueError("BAMBUDDY_API_BASE_URL is required for photo migration")
+        raise ValueError("BAMBUDDY_API_BASE_URL is required for Bambuddy media cleanup operations")
     return value
 
 
 def _bambuddy_api_key() -> str:
     value = _optional_bambuddy_api_key()
     if not value:
-        raise ValueError("BAMBUDDY_API_KEY is required for photo migration")
+        raise ValueError("BAMBUDDY_API_KEY is required for Bambuddy media cleanup operations")
     return value
+
+
+def _delete_archive_via_api(archive_id: int) -> None:
+    request = urllib.request.Request(
+        url=f"{_bambuddy_api_base_url()}/api/v1/archives/{int(archive_id)}",
+        method="DELETE",
+        headers={"X-API-Key": _bambuddy_api_key()},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        status = getattr(response, "status", 200)
+        if not (200 <= status < 300):
+            raise ValueError(f"Archive delete failed with HTTP {status} for archive {archive_id}")
+
+
+def _ensure_original_archive_removal_ready(request: RestoreVerifyRequest) -> None:
+    if request.remove_original and not request.dry_run:
+        _bambuddy_api_base_url()
+        _bambuddy_api_key()
 
 
 def _photo_file_name(source_photo: Mapping[str, Any]) -> str:
@@ -713,12 +731,6 @@ def _is_non_blocking_difference(action: RestoreFieldAction) -> bool:
         RestoreAction.SKIP_MISSING_SOURCE,
         RestoreAction.SKIP_DISALLOWED,
     }
-
-
-def _delete_archive_row(connection: sqlite3.Connection, archive_id: int) -> None:
-    deleted = connection.execute("DELETE FROM print_archives WHERE id = ?", (archive_id,))
-    if deleted.rowcount == 0:
-        raise ValueError(f"Archive ID {archive_id} not found for deletion")
 
 
 def _finalize_restored_target_archive(
@@ -1065,6 +1077,7 @@ def restore_archive_from_source(db_path: Path, request: RestoreFromRequest) -> R
 
 def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> RestoreVerifyResponse:
     ensure_database_exists(db_path)
+    _ensure_original_archive_removal_ready(request)
 
     verification_request = RestoreFromRequest(
         source_archive_id=request.source_archive_id,
@@ -1119,9 +1132,12 @@ def restore_verify_after_merge(db_path: Path, request: RestoreVerifyRequest) -> 
                 warnings.append(
                     "removed transient recovery tags from target archive during completion: " + ", ".join(removed_tags)
                 )
-            _delete_archive_row(connection, request.source_archive_id)
             connection.commit()
-            source_removed = True
+            try:
+                _delete_archive_via_api(request.source_archive_id)
+                source_removed = True
+            except Exception as exc:
+                warnings.append(f"failed to remove original archive via Bambuddy API: {exc}")
 
         return RestoreVerifyResponse(
             source_archive_id=request.source_archive_id,

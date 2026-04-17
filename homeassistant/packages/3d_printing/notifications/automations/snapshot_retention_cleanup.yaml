@@ -1,0 +1,20 @@
+# Docs: docs/features/notifications/README.md
+- alias: Printer Notifications - Snapshot Retention Cleanup
+  id: printer_notifications_snapshot_retention_cleanup
+  description: >-
+    Prunes local /config/www/printer_snapshots files using bounded retention.
+    Bambuddy remains the archive source of truth; local notification snapshots
+    are kept only for short-lived notification and dashboard access.
+  triggers:
+    - trigger: time
+      at: "03:30:00"
+    - trigger: homeassistant
+      event: start
+
+  actions:
+    - action: shell_command.cleanup_printer_snapshots
+      data:
+        retention_days: "{{ states('input_number.3dprinter_snapshot_retention_days') | int(7) }}"
+        max_files: "{{ states('input_number.3dprinter_snapshot_keep_max') | int(150) }}"
+
+  mode: single

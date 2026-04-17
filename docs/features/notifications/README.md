@@ -47,9 +47,10 @@ The notifications loader (`notifications_loader.yaml`) registers:
 
 | Domain | Source | Count |
 |---|---|---|
-| `automation` | `automations/` | 3 automations |
+| `automation` | `automations/` | 4 automations |
+| `shell_command` | `shell_commands/` | 1 command |
 | `input_boolean` | `helpers/input_boolean/` | 3 toggles |
-| `input_number` | `helpers/input_number/` | 2 sliders |
+| `input_number` | `helpers/input_number/` | 4 sliders |
 | `input_text` | `helpers/input_text/` | 5 text inputs |
 | `input_datetime` | `helpers/input_datetime/` | 2 time pickers |
 
@@ -60,15 +61,20 @@ notifications/
 ├── notifications_loader.yaml              # Feature loader (registered in _feature_loaders.yaml)
 ├── automations/
 │   ├── print_complete_notification.yaml   # Print finished → snapshot + notification
+│   ├── snapshot_retention_cleanup.yaml    # Scheduled prune for local snapshot copies
 │   ├── print_fault_notification.yaml      # Print error → critical alert + persistent notification
 │   └── print_started_notification.yaml    # Print started → passive notification
+├── shell_commands/
+│   └── cleanup_printer_snapshots.yaml     # Age + count retention for local snapshot copies
 ├── helpers/
 │   ├── input_boolean/
 │   │   ├── input_boolean_3dprinter_notifications_enabled.yaml
 │   │   ├── input_boolean_3dprinter_tts_enabled.yaml
 │   │   └── input_boolean_3dprinter_critical_notifications.yaml
 │   ├── input_number/
+│   │   ├── input_number_3dprinter_snapshot_keep_max.yaml
 │   │   ├── input_number_3dprinter_snapshot_light_brightness.yaml
+│   │   ├── input_number_3dprinter_snapshot_retention_days.yaml
 │   │   └── input_number_3dprinter_tts_volume.yaml
 │   ├── input_text/
 │   │   ├── input_text_3dprinter_notification_service.yaml
@@ -122,7 +128,18 @@ That's it for a basic setup — you will now receive mobile notifications with c
 
 The automation will turn the light on, wait 1 second, capture the snapshot, wait 1 second, then turn the light off.
 
-### 6. (Optional) Configure TTS Announcements
+### 6. Snapshot Retention
+
+Local notification snapshots are not the system of record. Bambuddy remains the archive source, so this package now prunes `/config/www/printer_snapshots/` automatically.
+
+| Helper | Default | Purpose |
+|---|---|---|
+| `input_number.3dprinter_snapshot_retention_days` | `7` | Delete snapshots older than this age |
+| `input_number.3dprinter_snapshot_keep_max` | `150` | Keep only the newest N snapshots even if they are newer than the age limit |
+
+Cleanup runs at Home Assistant startup, nightly at `03:30`, and after snapshot-producing notifications.
+
+### 7. (Optional) Configure TTS Announcements
 
 | Helper | Set To | Example |
 |---|---|---|
@@ -152,6 +169,7 @@ The automation will turn the light on, wait 1 second, capture the snapshot, wait
 | **Priority** | Active (normal) or Critical (if `3dprinter_critical_notifications` is on) |
 | **Notification** | Mobile push with camera snapshot image |
 | **Snapshot** | Saved to `/config/www/printer_snapshots/YYYYMMDD_HHMMSS_TaskName.jpg` |
+| **Snapshot Retention** | Pruned automatically by age and max-count |
 | **Snapshot Light** | Turns on/off around capture if configured |
 | **TTS** | Announces if enabled and outside quiet hours |
 | **Custom Message** | Uses `3dprinter_success_message` template |
@@ -187,6 +205,8 @@ The automation will turn the light on, wait 1 second, capture the snapshot, wait
 | Entity | Default | Range | Purpose |
 |---|---|---|---|
 | `3dprinter_snapshot_light_brightness` | `100` | 1–100% | Brightness for the snapshot light |
+| `3dprinter_snapshot_keep_max` | `150` | 25–1000 | Maximum number of local notification snapshots to retain |
+| `3dprinter_snapshot_retention_days` | `7` | 1–365 days | Maximum age for local notification snapshots |
 | `3dprinter_tts_volume` | `50` | 0–100% | Volume for TTS announcements |
 
 ### Text (`input_text`)
@@ -237,6 +257,11 @@ The automations currently use hardcoded entity IDs for one printer (`ntk_ryansof
 - Ensure `/config/www/printer_snapshots/` exists and is writable
 - Confirm the camera entity (`camera.ntk_ryansoffice_3dprinter_camera`) is available
 - Check automation traces for errors
+
+**Snapshots growing too large**
+- Lower `input_number.3dprinter_snapshot_retention_days`
+- Lower `input_number.3dprinter_snapshot_keep_max`
+- Run `shell_command.cleanup_printer_snapshots` manually from Developer Tools if you want an immediate sweep
 
 **TTS not speaking**
 - Verify `input_boolean.3dprinter_tts_enabled` is `on`

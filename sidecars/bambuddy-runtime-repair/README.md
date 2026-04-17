@@ -51,8 +51,8 @@ Default workflow registry:
 
 - `BAMBUDDY_DB_PATH`
 - `REPAIR_API_TOKEN`
-- `BAMBUDDY_API_BASE_URL` when using restore photo migration
-- `BAMBUDDY_API_KEY` when using restore photo migration
+- `BAMBUDDY_API_BASE_URL` when using restore photo migration or Bambuddy-side archive removal
+- `BAMBUDDY_API_KEY` when using restore photo migration or Bambuddy-side archive removal
 - `HOME_ASSISTANT_BASE_URL` when using optional post-restore re-enrich
 - `HOME_ASSISTANT_TOKEN` when using optional post-restore re-enrich
 - optional `LOG_LEVEL`
@@ -217,6 +217,13 @@ Current restore behavior for photo attachments:
 - existing target photo attachments are preserved; only source-only photos are uploaded
 - photo equivalence prefers content hash from local files or Bambuddy photo downloads, then falls back to path and role
 - photo migration requires a reachable Bambuddy API base URL and API key in the sidecar environment
+
+Current source-removal behavior after verify:
+
+- when `remove_original=true` and verify allows removal, the sidecar now calls Bambuddy `DELETE /api/v1/archives/{id}` instead of deleting the SQLite row directly
+- this preserves Bambuddy's own archive cleanup behavior for normal archive directories and avoids bypassing backend file-deletion logic
+- remove-original requests now fail closed before target-finalization work starts if `BAMBUDDY_API_BASE_URL` or `BAMBUDDY_API_KEY` is missing
+- if the Bambuddy API delete fails, the verify response reports `source_removed=false` and returns a warning
 
 Current restore behavior for archive `extra_data` and re-enrich:
 

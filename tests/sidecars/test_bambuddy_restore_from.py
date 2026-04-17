@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -626,8 +627,12 @@ def test_restore_verify_after_merge_blocks_remove_when_enrichment_incomplete(tmp
     assert delete_response.source_removed is False
 
 
-def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(tmp_path: Path) -> None:
+def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(tmp_path: Path, monkeypatch) -> None:
     db_path = _create_test_db(tmp_path)
+    deleted_archive_ids: list[int] = []
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://bambuddy.test")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "test-key")
+    monkeypatch.setattr(repair_module, "_delete_archive_via_api", lambda archive_id: deleted_archive_ids.append(int(archive_id)))
 
     connection = sqlite3.connect(db_path)
     try:
@@ -679,9 +684,12 @@ def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(
     assert delete_response.enrichment_ready is False
     assert delete_response.removable is True
     assert delete_response.source_removed is True
+    assert deleted_archive_ids == [191]
 
     connection = sqlite3.connect(db_path)
     try:
+        row = connection.execute("SELECT id FROM print_archives WHERE id = 191").fetchone()
+        assert row is not None
         target = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
         assert target is not None
         assert target[0] == "f:14,s:10,Hueforge"
@@ -691,8 +699,12 @@ def test_restore_verify_after_merge_can_force_remove_when_enrichment_incomplete(
         connection.close()
 
 
-def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(tmp_path: Path) -> None:
+def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(tmp_path: Path, monkeypatch) -> None:
     db_path = _create_test_db(tmp_path)
+    deleted_archive_ids: list[int] = []
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://bambuddy.test")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "test-key")
+    monkeypatch.setattr(repair_module, "_delete_archive_via_api", lambda archive_id: deleted_archive_ids.append(int(archive_id)))
 
     connection = sqlite3.connect(db_path)
     try:
@@ -757,11 +769,12 @@ def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(t
     )
     assert delete_response.verified is True
     assert delete_response.source_removed is True
+    assert deleted_archive_ids == [191]
 
     connection = sqlite3.connect(db_path)
     try:
         row = connection.execute("SELECT id FROM print_archives WHERE id = 191").fetchone()
-        assert row is None
+        assert row is not None
         target = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
         assert target is not None
         assert target[0] == "f:14,s:10,Hueforge"
@@ -769,6 +782,110 @@ def test_restore_verify_after_merge_can_remove_source_when_enrichment_complete(t
         assert '"restored_target_archive_id":200' in target[1]
         assert '"recovery_source":"sd_cache_3mf"' in target[1]
         assert '+>{"s":"c","src":"afs","F":[{"n":"Black","w":33.3,"t":"A1","s":10,"f":14,"h":"#000000"}]}' in target[1]
+    finally:
+        connection.close()
+
+
+def test_restore_verify_after_merge_reports_api_delete_failure_and_keeps_source_flag_false(
+    tmp_path: Path, monkeypatch
+) -> None:
+    db_path = _create_test_db(tmp_path)
+    monkeypatch.setenv("BAMBUDDY_API_BASE_URL", "http://bambuddy.test")
+    monkeypatch.setenv("BAMBUDDY_API_KEY", "test-key")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            UPDATE print_archives
+            SET started_at = ?, completed_at = ?, created_at = ?, status = ?, is_favorite = ?,
+                tags = ?, notes = ?, extra_data = ?
+            WHERE id = ?
+            """,
+            (
+                "2026-04-02T16:37:22.828591",
+                "2026-04-02T23:58:56.496148",
+                "2026-04-02T16:37:22",
+                "completed",
+                1,
+                "repair:recovered,recovered_from:191,recovery_source:sd_cache_3mf,f:14,s:10,Hueforge",
+                "[RECOVERY_AUDIT_V1]\n{\"recovered_from_archive_id\":191}\n\n+>{\"s\":\"c\",\"src\":\"afs\",\"F\":[{\"n\":\"Black\",\"w\":33.3,\"t\":\"A1\",\"s\":10,\"f\":14,\"h\":\"#000000\"}]}",
+                '{"print_time_seconds":22671,"designer":"Canadian Gamer","no_3mf_available":true,"_print_data":{"subtask_name":"200x200 - AMS Ready - Slice & Print"}}',
+                200,
+            ),
+        )
+        connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (200,))
+        connection.executemany(
+            "INSERT INTO archive_photos (archive_id, photo_index, photo_path, photo_role) VALUES (?, ?, ?, ?)",
+            [
+                (200, 0, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-finish.jpg", "finish"),
+                (200, 1, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-source-finish-copy.jpg", "finish"),
+                (200, 2, "archive/1/20260404_174530_200x200 - AMS Ready - Slice & Print/photo-error-copy.jpg", "error"),
+            ],
+        )
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-source-finish-copy.jpg").write_bytes(b"source-finish")
+        (tmp_path / "archive" / "1" / "20260404_174530_200x200 - AMS Ready - Slice & Print" / "photo-error-copy.jpg").write_bytes(b"source-error")
+        connection.commit()
+    finally:
+        connection.close()
+
+    monkeypatch.setattr(
+        repair_module,
+        "_delete_archive_via_api",
+        lambda archive_id: (_ for _ in ()).throw(ValueError(f"HTTP 500 deleting {archive_id}")),
+    )
+
+    delete_response = restore_verify_after_merge(
+        db_path,
+        RestoreVerifyRequest(
+            source_archive_id=191,
+            target_archive_id=200,
+            remove_original=True,
+            dry_run=False,
+        ),
+    )
+
+    assert delete_response.verified is True
+    assert delete_response.source_removed is False
+    assert any("failed to remove original archive via Bambuddy API" in warning for warning in delete_response.warnings)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        row = connection.execute("SELECT id FROM print_archives WHERE id = 191").fetchone()
+        assert row is not None
+    finally:
+        connection.close()
+
+
+def test_restore_verify_after_merge_rejects_remove_original_when_bambuddy_delete_config_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    db_path = _create_test_db(tmp_path)
+    monkeypatch.delenv("BAMBUDDY_API_BASE_URL", raising=False)
+    monkeypatch.delenv("BAMBUDDY_API_KEY", raising=False)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        before = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
+        assert before is not None
+    finally:
+        connection.close()
+
+    with pytest.raises(ValueError, match="BAMBUDDY_API_BASE_URL is required for Bambuddy media cleanup operations"):
+        restore_verify_after_merge(
+            db_path,
+            RestoreVerifyRequest(
+                source_archive_id=191,
+                target_archive_id=200,
+                remove_original=True,
+                dry_run=False,
+            ),
+        )
+
+    connection = sqlite3.connect(db_path)
+    try:
+        after = connection.execute("SELECT tags, notes FROM print_archives WHERE id = 200").fetchone()
+        assert after == before
     finally:
         connection.close()
 

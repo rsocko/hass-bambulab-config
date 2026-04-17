@@ -1,0 +1,8 @@
+3dprinter_snapshot_retention_days:
+  name: Snapshot Retention Days
+  min: 1
+  max: 365
+  step: 1
+  initial: 7
+  unit_of_measurement: d
+  icon: mdi:calendar-clock
