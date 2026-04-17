@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=10", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=11", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1683,7 +1683,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('capture_mode', script)
         self.assertIn('this._boundCaptureHandler = this._handleCapture.bind(this);', script)
         self.assertIn('this._capture = {', script)
-        self.assertIn('/capture-upload', script)
+        self.assertIn('type: "bambuddy/print_history_upload_photo"', script)
+        self.assertIn('set_print_history_primary_photo', script)
+        self.assertIn('this._hass.callService(', script)
         self.assertIn('window.open(targetUrl, "_blank", "noopener")', script)
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
         self.assertIn('tool === 1000', script)
@@ -1730,6 +1732,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('captureMode: String(params.get("capture_mode") || "").trim().toLowerCase()', script)
         self.assertIn('/capture-upload', script)
         self.assertIn('class ArchiveViewerCaptureUploadView(HomeAssistantView):', integration)
+        self.assertIn('response["uploaded_photo_path"] = uploaded_photo_path', integration)
         self.assertIn('upload_archive_viewer_capture', integration)
         self.assertIn('ARCHIVE_VIEWER_CAPTURE_UPLOAD_URL', consts)
 

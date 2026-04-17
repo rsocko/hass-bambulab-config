@@ -942,12 +942,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
             if refreshed_archive is None:
                 raise HomeAssistantError(f"Archive {archive_id} could not be refreshed after upload")
+            uploaded_photo_path = _resolve_uploaded_photo_path(
+                refreshed_archive,
+                str(msg.get("file_name", "")).strip(),
+            )
 
             response = manager.build_archive_detail_response(archive_id)
             if response is None:
                 raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
             response[CONF_ENTRY_ID] = entry_id
             response[CONF_ARCHIVE_ID] = archive_id
+            response["uploaded_photo_path"] = uploaded_photo_path
             response["upload"] = {
                 "file_name": str(msg.get("file_name", "")).strip(),
                 "mime_type": mime_type,

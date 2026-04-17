@@ -415,17 +415,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     anchor.remove();
   }
 
-  _buildAuthHeaders(extraHeaders) {
-    const merged = Object.assign({}, extraHeaders || {});
-    const accessToken = this._hass && this._hass.auth && this._hass.auth.data
-      ? String(this._hass.auth.data.accessToken || "").trim()
-      : "";
-    if (accessToken) {
-      merged.Authorization = `Bearer ${accessToken}`;
-    }
-    return merged;
-  }
-
   async _uploadCapture(useAsPrimary) {
     if (!this._capture || !this._config || !this._config.archive_id) {
       return;
@@ -435,32 +424,30 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setCaptureStatus(useAsPrimary ? "Uploading capture and promoting it for list view..." : "Uploading capture to the archive...", "info");
 
     try {
-      const response = await fetch(
-        this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(this._config.archive_id)}/capture-upload`),
-        {
-          method: "POST",
-          credentials: "same-origin",
-          headers: this._buildAuthHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({
-            file_name: this._capture.fileName,
-            mime_type: this._capture.mimeType,
-            content_base64: await this._blobToBase64(this._capture.blob),
-            use_as_primary: !!useAsPrimary,
-          }),
-        }
-      );
-      let payload = null;
-      try {
-        payload = await response.json();
-      } catch (_error) {
-        payload = null;
-      }
-      if (!response.ok) {
-        throw new Error(payload && payload.message ? payload.message : `Request failed with HTTP ${response.status}`);
-      }
+      const payload = await this._hass.callWS({
+        type: "bambuddy/print_history_upload_photo",
+        archive_id: Number(this._config.archive_id),
+        entry_id: this._config.entry_id || undefined,
+        file_name: this._capture.fileName,
+        mime_type: this._capture.mimeType,
+        content_base64: await this._blobToBase64(this._capture.blob),
+      });
       const uploadedPhotoPath = String(payload && payload.uploaded_photo_path ? payload.uploaded_photo_path : this._capture.fileName || "").trim();
       if (uploadedPhotoPath) {
         this._capture.fileName = uploadedPhotoPath;
+      }
+      if (useAsPrimary && uploadedPhotoPath) {
+        await this._hass.callService(
+          "bambuddy",
+          "set_print_history_primary_photo",
+          {
+            archive_id: Number(this._config.archive_id),
+            entry_id: this._config.entry_id || undefined,
+            photo_path: uploadedPhotoPath,
+          },
+          undefined,
+          true
+        );
       }
       this._setCaptureStatus(
         useAsPrimary
