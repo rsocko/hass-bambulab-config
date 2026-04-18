@@ -121,10 +121,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
       ".grid.list{grid-template-columns:1fr;}" +
       ".grid.loading{pointer-events:none;}" +
-      ".card{position:relative;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:hidden;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;}" +
+      ".card{position:relative;z-index:0;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:visible;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease, z-index .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
       ".card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;opacity:0;transition:opacity .16s ease, background .16s ease;pointer-events:none;}" +
-      ".card:hover,.card:focus-visible,.card:focus-within{border-color:color-mix(in srgb, var(--secondary-text-color) 22%, var(--divider-color));box-shadow:0 0 0 1px rgba(255,255,255,0.05), 0 10px 22px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 86%, rgba(148,163,184,0.18)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(148,163,184,0.10)));}" +
+      ".card:hover,.card:focus-visible,.card:focus-within{z-index:3;border-color:color-mix(in srgb, var(--secondary-text-color) 22%, var(--divider-color));box-shadow:0 0 0 1px rgba(255,255,255,0.05), 0 10px 22px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 86%, rgba(148,163,184,0.18)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(148,163,184,0.10)));}" +
       ".card:hover::before,.card:focus-visible::before,.card:focus-within::before{opacity:1;}" +
       ".card:active{box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 6px 14px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 82%, rgba(148,163,184,0.20)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 90%, rgba(148,163,184,0.12)));}" +
       ".card:focus-visible{outline:none;}" +
@@ -217,6 +217,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".tag-project-row .tags{min-width:0;}" +
       ".tag-project-row .project-chip{justify-self:end;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
+      ".interactive-chip{appearance:none;-webkit-appearance:none;border:none;cursor:pointer;font:inherit;text-align:left;position:relative;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,filter .16s ease,color .16s ease;}" +
+      ".interactive-chip:hover,.interactive-chip:focus-visible{transform:translateY(-1px);filter:saturate(1.04);box-shadow:inset 0 0 0 1px var(--interactive-chip-border, rgba(255,255,255,0.55)),0 0 0 1px rgba(255,255,255,0.12),0 8px 18px rgba(15,23,42,0.12);}" +
+      ".interactive-chip:focus-visible{outline:none;}" +
+      ".interactive-chip:active{transform:translateY(0);}" +
       ".status-chip{color:#fff;font-weight:700;}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
       ".chip.icon-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;flex:0 0 auto;line-height:0;}" +
@@ -263,11 +267,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".skeleton-metric .skeleton-text:first-child{width:58%;}" +
       ".skeleton-metric .skeleton-text:last-child{width:72%;height:16px;}" +
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
-      ".dot-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;}" +
+      ".dot-button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;}" +
       ".dot-button:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25),0 0 0 2px var(--primary-color, var(--accent-color, #03a9f4));}" +
+      ".dot-button.tooltip-active,.dot-button:hover,.dot-button:focus-visible{z-index:4;}" +
       ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:999px;padding:3px 8px;font-size:11px;line-height:1.2;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
       ".dot-button.tooltip-active .dot-tooltip,.dot-button:hover .dot-tooltip,.dot-button:focus-visible .dot-tooltip{opacity:1;transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(0);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;background:var(--tag-background, rgba(148,163,184,0.16));box-shadow:inset 0 0 0 1px var(--tag-border-color, rgba(148,163,184,0.42)),0 0 0 1px transparent;color:var(--primary-text-color);transition:background .16s ease,box-shadow .16s ease;}" +
+      ".tag.interactive-chip:hover,.tag.interactive-chip:focus-visible{background:color-mix(in srgb, var(--tag-background, rgba(148,163,184,0.16)) 88%, rgba(255,255,255,0.10));}" +
       ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;}" +
       ".icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}" +
       ".icon-action:active{transform:translateY(0);}" +
@@ -1434,7 +1440,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _renderTagChip(tag) {
     var style = this._tagStyle(tag);
-    return '<span class="tag" style="background:' + this._escapeAttribute(style.background) + ';box-shadow:inset 0 0 0 1px ' + this._escapeAttribute(style.border) + ',0 0 0 1px ' + this._escapeAttribute(style.glow) + ';">' + this._escapeHtml(tag) + '</span>';
+    var tooltip = this._buildFilterActionTooltip('Tag: ' + String(tag || ''), 'Click to add this tag to filters');
+    return '<button class="tag interactive-chip" type="button" data-action="apply-filter" data-filter-action="tag_add" data-filter-value="' + this._escapeAttribute(tag) + '" title="' + this._escapeAttribute(tooltip) + '" aria-label="' + this._escapeAttribute('Tag ' + String(tag || '') + '. Click to add this tag to filters.') + '" style="background:' + this._escapeAttribute(style.background) + ';box-shadow:inset 0 0 0 1px ' + this._escapeAttribute(style.border) + ',0 0 0 1px ' + this._escapeAttribute(style.glow) + ';--interactive-chip-border:' + this._escapeAttribute(style.border) + ';">' + this._escapeHtml(tag) + '</button>';
+  }
+
+  _buildFilterActionTooltip(primaryLabel, actionHint) {
+    var primary = String(primaryLabel || '').trim();
+    var hint = String(actionHint || '').trim();
+    return [primary, hint].filter(Boolean).join('\n');
   }
 
   _statusEntityAttributes() {
@@ -1534,6 +1547,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     if (action === "favorite") {
       await this._toggleFavorite(archive);
+      return;
+    }
+
+    if (action === "apply-filter") {
+      await this._applyCardFilterAction(actionNode);
       return;
     }
 
@@ -1730,6 +1748,23 @@ class PrintHistoryBrowserCard extends HTMLElement {
     });
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
+  }
+
+  async _applyCardFilterAction(actionNode) {
+    if (!actionNode || !this._hass) {
+      return;
+    }
+
+    var filterAction = String(actionNode.getAttribute("data-filter-action") || "").trim().toLowerCase();
+    var filterValue = String(actionNode.getAttribute("data-filter-value") || "").trim();
+    if (!filterAction || !filterValue) {
+      return;
+    }
+
+    await this._hass.callService("script", "apply_print_history_card_filter_action", {
+      action: filterAction,
+      value: filterValue,
+    });
   }
 
   _buildPopupActionButton(name, icon, background, tapAction) {

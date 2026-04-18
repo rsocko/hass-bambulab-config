@@ -815,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
@@ -832,6 +832,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('class="card-shell media"', content)
         self.assertIn('class="card-shell list"', content)
         self.assertIn('class="card-shell compact"', content)
+        self.assertIn('.card{position:relative;z-index:0;', content)
+        self.assertIn('.card:hover,.card:focus-visible,.card:focus-within{z-index:3;', content)
+        self.assertIn('.dot-button.tooltip-active,.dot-button:hover,.dot-button:focus-visible{z-index:4;}', content)
 
     def test_heatmap_card_renders_loading_skeleton_during_query(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -1858,8 +1861,22 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+
+    def test_browser_card_tag_chips_use_shared_filter_action_path(self):
+        browser_card_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
+
+        self.assertIn("apply_print_history_card_filter_action:", action_script_content)
+        self.assertIn("action_key == 'tag_add'", action_script_content)
+        self.assertIn('data-action="apply-filter"', browser_card_content)
+        self.assertIn('data-filter-action="tag_add"', browser_card_content)
+        self.assertIn("Click to add this tag to filters", browser_card_content)
+        self.assertIn(".interactive-chip:hover,.interactive-chip:focus-visible", browser_card_content)
+        self.assertIn('await this._applyCardFilterAction(actionNode);', browser_card_content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
