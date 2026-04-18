@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `Detail` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `List` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
 
 Manual phone-photo upload is documented in `manual-photo-upload.md`.
 
@@ -242,7 +242,7 @@ homeassistant/packages/3d_printing/print_history/
 ├── dashboard_cards/
 │   ├── print_history_activity_panel.yaml          # wrapper: separator-bar controls and heatmap
 │   ├── print_history_activity_heatmap.yaml        # GitHub-style heatmap card config
-│   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / Detail)
+│   ├── print_history.yaml                         # responsive archive renderer (Compact / Media / List)
 │   ├── print_history_browser.yaml                 # browser header: search, filters, matches, settings, color chips
 │   ├── print_history_top_controls.yaml            # top/bottom control strip: page nav, page size, layout, refresh
 │   └── photo_review_chip.yaml                     # conditional review-status chip; remaining work is smarter chip → popup targeting
@@ -337,7 +337,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_select.print_history_popup_*` | input_select | Helper-backed popup edit state for archive status and failure reason | — |
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | Favorites-only toggle in the browser header | — |
 | `input_select.print_history_sort` | input_select | Browser sort mode | — |
-| `input_select.print_history_card_variant` | input_select | Compact / Media / Detail renderer selection | — |
+| `input_select.print_history_card_variant` | input_select | Compact / Media / List renderer selection | — |
 
 ### Scripts
 
@@ -405,7 +405,7 @@ Implemented now:
 - GitHub-style activity heatmap with count, weight, dominant-color, and outcome-mix modes, plus a separator chevron to collapse or expand the heatmap body
 - Day drill-in cards that can follow the active browser filters or ignore them
 - Repeated top/bottom control strip with page navigation, page-size slider, layout toggles, and refresh
-- Archive grid renderer with `Compact`, `Media`, and `Detail` variants
+- Archive grid renderer with `Compact`, `Media`, and `List` variants
 - Popup edit/save flows for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`
 - Store-backed media review primitives plus popup/gallery actions for primary-photo selection, photo upload, photo delete, and dismiss review
 - Archive-issue detection and browser/popup surfacing for missing core 3MF, source-only, and missing-thumbnail states
@@ -480,7 +480,7 @@ For detailed design of the two major subsystems, see:
 
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
-- **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/detail card layouts.
+- **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
 - **Configurable browser instrumentation** — See [browser-instrumentation.md](browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
 - **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
 - **Photo review actions** — See [photo-review-design.md](photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
@@ -495,7 +495,7 @@ The Print History view now includes the configurable browser described in the fi
 1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
 2. **Always-visible browser header** — Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
 3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
-4. **Archive card variants** — the history renderer switches between compact, media, and detail cards while keeping a two-column desktop layout and a single-column mobile fallback.
+4. **Archive card variants** — the history renderer switches between compact, media, and list cards while keeping a two-column desktop layout and a single-column mobile fallback.
 5. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
 
 ### Debug Instrumentation
@@ -558,11 +558,11 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
-│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  Detail  🔄  ▶ ⏭            │ │
+│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  List  🔄  ▶ ⏭            │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Print Records ───────────────────────────────────────────────────────┐ │
-│  │ Compact / Media / Detail card mode                                   │ │
+│  │ Compact / Media / List card mode                                     │ │
 │  │ ┌───────────────────────────────────────────────────────────────────┐ │ │
 │  │ │ [thumb] Benchy                                            ✅      │ │ │
 │  │ │ Mar 27 · 2.3h · PLA · 44.8g                                      │ │ │
@@ -575,7 +575,7 @@ The dashboard is organized around **a single browser-first surface**. Settings r
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                             │
 │  ┌─ Control Strip ───────────────────────────────────────────────────────┐ │
-│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  Detail  🔄  ▶ ⏭            │ │
+│  │ ⏮ ◀  1 of 3  Prints/Page  Compact  Media  List  🔄  ▶ ⏭            │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -606,7 +606,7 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused and also scales better on mobile.
 
-3. **Archive card variants are a first-class view choice** — The page should support at least three presentation modes: compact list, media-first card, and detail card. This allows the same data layer to support quick scanning and richer visual review.
+3. **Archive card variants are a first-class view choice** — The page should support at least three presentation modes: compact card, media-first card, and list card. This allows the same data layer to support quick scanning and richer visual review.
 
 4. **Workflow state stays out of settings UI** — Archive ID, review state, and similar runtime internals should support automations and review flows, but they should not appear as editable settings.
 

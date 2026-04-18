@@ -13,7 +13,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 - each visible archive is now its own interactive card inside `custom:print-history-browser-card` and opens an archive-specific `browser_mod.popup`
 - the active implementation is the custom browser card resource plus helper-backed popup content:
 	1. `custom:print-history-browser-card` queries Bambuddy directly over websocket with `bambuddy/print_history_query`
-	2. the card renders the `Compact`, `Media`, and `Detail` variants directly in JavaScript
+	2. the card renders the `Compact`, `Media`, and `List` variants directly in JavaScript
 	3. card clicks run a `browser_mod.sequence` flow that populates popup helpers and opens the popup
 	4. popup content is composed from the photo gallery card, a popup-summary button-card template, a shared tabbed filament-breakdown card, the tag editor card, and helper-backed edit rows
 - the active popup is reusable and driven from the browser card rather than duplicated in each layout variant
@@ -21,7 +21,7 @@ This document covers the Home Assistant interaction model and rollout sequence f
 ### Phase tracking as of the live implementation
 
 - Phase 0 remains deferred, and that is still accurate: the live archive popup/card templates are still owned by `common/dashboard_cards/card_templates`, and `button_card_templates` are still loaded from the shared dashboard definition under `common/dashboards/3d_printing.yaml`
-- Phase 1 is shipped for all three archive card variants: `Compact`, `Media`, and `Detail`
+- Phase 1 is shipped for all three archive card variants: `Compact`, `Media`, and `List`
 - Phase 2 now covers the initial operator-edit slice: favorites can be toggled from both the cards and the popup, and the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `status`, and `failure_reason` within Home Assistant's current helper limits
 
 ### Not shipped yet
@@ -234,14 +234,14 @@ Implemented, with ongoing layout refinement.
 
 What is live now:
 
-- per-archive tap targets in `Compact`, `Media`, and `Detail`
+- per-archive tap targets in `Compact`, `Media`, and `List`
 - read-only popup content rendered from the projected archive payload already present on the page
 - thumbnail, status, timestamps, duration, filament used, cost, object count, material, layer height, nozzle, total layers, printer, designer, tags, notes, and failure reason
 
 What is still being tuned inside Phase 1:
 
 - responsive column counts for `Compact` and `Media`
-- full-width behavior for `Detail`
+- full-width behavior for `List`
 - card density and visual polish compared with the earlier single-renderer layout
 
 ## Recommended Next Stage
@@ -348,7 +348,7 @@ Future issue-specific actions should attach to the archive popup through one of 
 
 This is the next popup/card addition that most directly supports restore and historical-import workflows.
 
-### Card-level behavior for `Compact`, `Media`, and `Detail`
+### Card-level behavior for `Compact`, `Media`, and `List`
 
 Each archive card variant should keep the current layout, but add a small secondary origin badge only when the archive is not a plain native Bambuddy capture.
 
@@ -417,7 +417,7 @@ Do not add future issue actions directly to the archive card face unless the act
 
 - per-archive cards should remain driven by `sensor.bambuddy_print_history_browser_page_archives`
 - card visuals can continue using button-card HTML/CSS for layout richness
-- the archive grid wrapper should remain responsive across `Compact`, `Media`, and `Detail`
+- the archive grid wrapper should remain responsive across `Compact`, `Media`, and `List`
 - the archive list interaction still belongs in the browser card, but shared visualizations can justify their own frontend resource when that removes duplicated rendering logic across popup and dashboard surfaces
 - the current justified exception is `custom:print-filament-breakdown-card`, which is shared by the live print-weight/cost tabs and the archive popup
 

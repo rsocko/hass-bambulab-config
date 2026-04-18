@@ -1345,7 +1345,7 @@ The Print History view now uses an always-visible header modeled after the Filam
 │ [ Search Prints........................ ] [Matches] [Open Bambuddy] [⚙]     │
 │ [Status] [Archive Issue] [Material] [Printer] [Date]                       │
 │ [Designer] [Project] [Layer Height] [Tag] [Favorites Only] [Sort]          │
-│ [Items Per Page Slider] [Compact] [Media] [Detail] [Refresh]               │
+│ [Items Per Page Slider] [Compact] [Media] [List] [Refresh]                 │
 │ [Clear Active Filter Chips] [Clear Filters] [Refresh]                      │
 │ Color Filters: All Colors or #FFFFFF • #000000                             │
 │ [●] [●] [●] [●] [●] ... multi-select color chips                           │
@@ -1364,7 +1364,7 @@ The Print History view now uses an always-visible header modeled after the Filam
 | `Archive Issue` | Scope the browser to archive health states that need correction | Current options: `Any Error`, `Missing Core 3MF`, `Source 3MF Only`, `Missing Thumbnail` |
 | Tag filter | Exact-match archive tag selector | `All` does not exclude untagged archives |
 | `Favorites Only` | Toggle favorites-only filtering | Boolean button rather than a dropdown |
-| Layout toggles | Switch between `Compact`, `Media`, and `Detail` | Only one is active at a time |
+| Layout toggles | Switch between `Compact`, `Media`, and `List` | Only one is active at a time |
 | Items-per-page slider | Adjust page density without opening a popup | Mirrors the Filament Catalog threshold-slider pattern |
 | `Clear` / `Refresh` | Reset active filters or refresh the cache | `Clear` is visually accented whenever any filter is active |
 | Tag clear chip | Reset only the selected tag filter | Appears beside the other clear-action chips when a tag is active |
@@ -1388,7 +1388,115 @@ The same filtered dataset is renderable in three presentation modes, but all thr
 |---------|----------|------------------------|
 | `Compact` | Fast scanning, desktop/mobile browsing | Smaller hero image with compact KPI blocks and chips |
 | `Media` | Visual browsing, choosing best print/photo | Large photo-first card with emphasis on image and result |
-| `Detail` | Desktop inspection, troubleshooting, comparing runs | Richer metadata, tags, and failure details surfaced inline |
+| `List` | Desktop inspection, troubleshooting, comparing runs | Richer metadata, tags, and failure details surfaced inline |
+
+#### Variant Field Inventory
+
+##### Compact Card
+
+Current Home Assistant display:
+
+- Thumbnail image
+- `3D Viewer` icon button
+- Favorite icon button
+- Print title
+- Date/time
+- Status chip with color
+- Archive ID chip
+- Printer chip
+- Enrichment status chip with color
+- Duration KPI
+- Filament weight KPI
+- Cost KPI
+- Filament color dots with hover state
+- Tag chips with color
+- Project chip with project color
+- Photo-count action that opens directly into the fullscreen photo view
+- Notes icon with hover text when notes exist
+
+Possible future consideration fields from Bambuddy parity or adjacent UX ideas:
+
+- File stored/source indicator such as `G-code` vs `3MF source`
+- Actual-vs-estimated duration delta or percentage
+- File size
+- Additional quick actions such as `Print`, `Schedule`, `Open Slicer`, `Open MakerWorld`, `Download`, and `Delete`
+- Explicit add/remove favorite affordance parity with Bambuddy action menus
+- Overflow action menu for secondary archive operations
+
+Implementation guidance:
+
+- Keep compact focused on fast scan value. Any future additions should preserve the current density target and avoid pushing view-specific labels or tooltip wording down into Layer 1.
+- Prefer adding new display-only metadata through Layer 2 enrichment/projection and final wording through Layer 3 card rendering.
+
+##### Media Card
+
+Current Home Assistant display:
+
+- Larger thumbnail/cover image
+- `3D Viewer` icon button
+- Favorite icon button
+- Status chip with color
+- Print title
+- Date/time
+- Archive ID chip
+- Printer chip
+- Enrichment status chip with color
+- Duration KPI
+- Filament KPI
+- Cost KPI
+- Filament color dots with hover state
+- Tag chips with color
+
+Possible future consideration fields:
+
+- Project chip when we want media view to carry more organizational context without sacrificing the photo-first layout
+- Photo-count affordance when multi-image browsing needs to be more explicit from the card surface
+- File stored/source indicator
+- Actual-vs-estimated duration delta or percentage
+- File size
+- Secondary action row or overflow menu for `Print`, `Schedule`, `Open Slicer`, `Open MakerWorld`, `Download`, and `Delete`
+
+Implementation guidance:
+
+- Media should remain the most visually biased variant. Extra metadata should only be added if it does not materially compete with the larger image region.
+
+##### List Card
+
+Current Home Assistant display:
+
+- Thumbnail image
+- `3D Viewer` icon button
+- Favorite icon button
+- Print title
+- Status chip with color
+- Date/time
+- Archive ID chip
+- Printer chip
+- Enrichment status chip with color
+- Combined material/layer-height/designer summary chip using dot separators
+- Printer chip with label and name
+- Material chip
+- Layer-height chip
+- Nozzle-size chip
+- Object-count chip
+- Designer chip with label
+- Duration KPI block
+- Filament KPI block
+- Cost KPI block
+- Object-count KPI block
+- Filament color circles with hover state
+- Tag chips with color
+
+Possible future consideration fields from Bambuddy list-view parity:
+
+- Printer type such as `P1S`
+- File size
+- Additional action set such as `Print`, `Open Slicer`, `Download`, `Edit`, `Delete`, plus an overflow action menu
+
+Implementation guidance:
+
+- This is the best candidate for higher-density archive metadata because users choose it for inspection rather than rapid scan.
+- If future list-card fields require new joins or display labels, keep the underlying archive projection lean and do the UX shaping in Layer 2 or Layer 3.
 
 #### Variant Rules
 
@@ -1398,6 +1506,7 @@ The same filtered dataset is renderable in three presentation modes, but all thr
 - Every variant should render inside the same two-column desktop grid and collapse to one column on narrow/mobile screens.
 - Cards should use the full page width of a `panel: true` Lovelace view rather than a constrained section column.
 - When `has_archive_error` is true, add a compact issue chip plus a severity-colored left rail so archive-health problems remain obvious even in dense browsing modes.
+- Future parity work should favor cross-variant concepts first, such as file-source indicators, file size, duration delta, and action-menu patterns, before introducing one-off variant-only metadata.
 
 ### Archive Detail Popup
 
@@ -1799,7 +1908,7 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 │ └───────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
 │ ┌──────────── Top Control Strip ───────────────────────────────────┐ │
-│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  Detail  🔄  ▶ ⏭     │ │
+│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  List  🔄  ▶ ⏭       │ │
 │ └───────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
 │ ┌─────────────────────── Print History Browser ───────────────────┐ │
@@ -1809,14 +1918,14 @@ This pseudocode shows the structure. Each output attribute (`page_json`, `filter
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ [Compact row] Darth Vader Saber P2 · PLA · 69.3g · ✅         │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
-│ │ [Detail card] Magnetic Frame P12                               │ │
+│ │ [List card] Magnetic Frame P12                                 │ │
 │ │ Mar 28 · 1.8h · 0.08mm · tags · designer · failure detail      │ │
 │ ├─────────────────────────────────────────────────────────────────┤ │
 │ │ ...                                                             │ │
 │ └─────────────────────────────────────────────────────────────────┘ │
 │                                                                      │
 │ ┌─────────── Repeated Bottom Control Strip ───────────────────────┐ │
-│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  Detail  🔄  ▶ ⏭     │ │
+│ │ ⏮ ◀  1 of 5  Prints / Page  Compact  Media  List  🔄  ▶ ⏭       │ │
 │ └───────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -1841,7 +1950,7 @@ type: custom:config-template-card
 card:
   - page navigation
   - page-size slider
-  - Compact / Media / Detail toggles
+  - Compact / Media / List toggles
   - refresh action
 ```
 

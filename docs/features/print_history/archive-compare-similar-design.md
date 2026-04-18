@@ -17,7 +17,7 @@ It covers:
 
 Already shipped in Home Assistant:
 
-- archive browser card with `Compact`, `Media`, and `Detail` variants
+- archive browser card with `Compact`, `Media`, and `List` variants
 - per-archive popup launch from `custom:print-history-browser-card`
 - popup edit actions for `print_name`, `tags`, `notes`, `status`, and `failure_reason`
 - popup `Re-Enrich` action

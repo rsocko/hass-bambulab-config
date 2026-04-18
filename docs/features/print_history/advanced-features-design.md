@@ -272,7 +272,7 @@ The first shipped slice for issue `#737` is intentionally browser-focused:
 
 - the Variant 3 browser projection now carries compact duplicate metadata fields (`duplicate_count`, `duplicate_sequence`, `original_archive_id`)
 - the browser query layer supports `All`, `Originals Only`, and `Duplicates Only`
-- `Compact`, `Media`, and `Detail` cards now show compact duplicate chips when relevant
+- `Compact`, `Media`, and `List` cards now show compact duplicate chips when relevant
 - the archive popup now shows a read-only duplicate summary
 
 Still deferred within Phase 2.3:

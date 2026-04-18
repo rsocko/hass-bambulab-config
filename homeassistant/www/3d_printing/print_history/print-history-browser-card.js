@@ -448,10 +448,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _variant() {
     var value = String(this._stateValue(this._config.variant_entity) || "Compact");
-    if (value === "Detail" || value === "List") {
-      return "List";
-    }
-    return ["Compact", "Media"].indexOf(value) >= 0 ? value : "Compact";
+    return ["Compact", "Media", "List"].indexOf(value) >= 0 ? value : "Compact";
   }
 
   _showImages() {

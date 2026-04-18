@@ -86,7 +86,7 @@ Current rendering rules:
 - project compact duplicate fields
 - store them in Variant 3
 - add browser filter support
-- render duplicate chips on `Compact`, `Media`, and `Detail`
+- render duplicate chips on `Compact`, `Media`, and `List`
 - render a popup read-only duplicate summary
 
 ### Phase 2
