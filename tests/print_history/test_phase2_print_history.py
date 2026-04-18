@@ -248,7 +248,6 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
         "input_boolean_print_history_show_activity_heatmap.yaml",
-        "input_boolean_print_history_viewer_render_animated.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [
@@ -1670,7 +1669,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=18", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=27", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
@@ -1687,7 +1686,6 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
-        self.assertIn('const DEFAULT_RENDER_ANIMATED_ENTITY = "input_boolean.print_history_viewer_render_animated";', script)
         self.assertIn('type: "bambuddy/print_history_archive_viewer"', script)
         self.assertIn('print-history-3d-viewer-card requires archive_id', script)
         self.assertIn('disconnectedCallback()', script)
@@ -1697,6 +1695,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('Capture View', script)
         self.assertIn('Crop View', script)
         self.assertIn('Capture Crop', script)
+        self.assertIn('Animate', script)
+        self.assertIn('Animated', script)
         self.assertIn('Hide Cube', script)
         self.assertIn('Hide Grid', script)
         self.assertIn('Show Cube', script)
@@ -1715,11 +1715,17 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("Capture workspace", script)
         self.assertIn("Capture ready to use", script)
         self.assertIn("Crop mode is active", script)
-        self.assertIn('render_animated_entity', script)
-        self.assertIn('renderAnimated: this._renderAnimatedEnabled()', script)
+        self.assertIn('this._renderAnimated = false;', script)
+        self.assertIn('this._animateButton = null;', script)
+        self.assertIn('this._boundAnimateHandler = this._handleAnimate.bind(this);', script)
+        self.assertIn('_updateAnimateButton()', script)
+        self.assertIn('_handleAnimate()', script)
+        self.assertIn('this._loadedSignature = "";', script)
+        self.assertIn('renderAnimated: this._renderAnimated', script)
         self.assertIn('RenderAnimated: renderAnimated', script)
         self.assertIn('preview.sceneManager.renderAnimated()', script)
-        self.assertIn('Render Animated', script)
+        self.assertIn('Animated Preview', script)
+        self.assertIn('Static Preview', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
@@ -1752,15 +1758,6 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
-
-    def test_print_history_settings_popup_includes_viewer_animation_toggle(self):
-        content = (
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "dashboard_cards" / "print_history_browser.yaml"
-        ).read_text("utf-8")
-
-        self.assertIn("title: Print History Settings", content)
-        self.assertIn("entity: input_boolean.print_history_viewer_render_animated", content)
-        self.assertIn("name: Animate 3D Viewer Render", content)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (

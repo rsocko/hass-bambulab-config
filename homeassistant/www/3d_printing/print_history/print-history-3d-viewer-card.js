@@ -1,5 +1,4 @@
 const PRINT_HISTORY_VIEWER_CDN_MODULE_URL = "https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm";
-const DEFAULT_RENDER_ANIMATED_ENTITY = "input_boolean.print_history_viewer_render_animated";
 const CROP_PRESETS = {
   free: null,
   square: 1,
@@ -19,6 +18,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._capture = null;
     this._uploadInProgress = false;
     this._rendererMode = "gcode";
+    this._renderAnimated = false;
     this._showBuildVolumeCube = true;
     this._showBuildVolumeGrid = true;
     this._buildVolumeConfig = null;
@@ -28,6 +28,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._cropDrag = null;
     this._globalListenersAttached = false;
     this._refreshButton = null;
+    this._animateButton = null;
     this._buildCubeToggleButton = null;
     this._buildGridToggleButton = null;
     this._captureButton = null;
@@ -40,6 +41,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._downloadCaptureButton = null;
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
+    this._boundAnimateHandler = this._handleAnimate.bind(this);
     this._boundBuildCubeToggleHandler = this._handleBuildCubeToggle.bind(this);
     this._boundBuildGridToggleHandler = this._handleBuildGridToggle.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
@@ -63,8 +65,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       archive_id: String(config.archive_id).trim(),
       archive_name: String(config.archive_name || "").trim(),
       entry_id: String(config.entry_id || "").trim(),
-      render_animated_entity: String(config.render_animated_entity || DEFAULT_RENDER_ANIMATED_ENTITY).trim() || DEFAULT_RENDER_ANIMATED_ENTITY,
     };
+    this._renderAnimated = false;
     this._loadedSignature = "";
     this._renderShell();
     this._maybeLoad();
@@ -100,6 +102,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._refreshButton) {
       this._refreshButton.removeEventListener("click", this._boundRefreshHandler);
       this._refreshButton = null;
+    }
+    if (this._animateButton) {
+      this._animateButton.removeEventListener("click", this._boundAnimateHandler);
+      this._animateButton = null;
     }
     if (this._buildCubeToggleButton) {
       this._buildCubeToggleButton.removeEventListener("click", this._boundBuildCubeToggleHandler);
@@ -179,7 +185,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     const signature = JSON.stringify({
       config: this._config,
-      renderAnimated: this._renderAnimatedEnabled(),
+      renderAnimated: this._renderAnimated,
     });
     if (signature === this._loadedSignature) {
       return;
@@ -310,6 +316,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<section id='viewer-stage' class='panel stage stage-panel'>" +
       "<div class='stage-toolbar'>" +
       "<button id='refresh-button' class='button ghost' type='button'>Refresh</button>" +
+      "<button id='animate-button' class='button ghost' type='button' aria-pressed='false'>Animate</button>" +
       "<button id='build-cube-toggle-button' class='button ghost' type='button' aria-pressed='true'>Hide Cube</button>" +
       "<button id='build-grid-toggle-button' class='button ghost' type='button' aria-pressed='true'>Hide Grid</button>" +
       "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
@@ -389,8 +396,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
-  this._buildCubeToggleButton = this.shadowRoot.getElementById("build-cube-toggle-button");
-  this._buildGridToggleButton = this.shadowRoot.getElementById("build-grid-toggle-button");
+    this._animateButton = this.shadowRoot.getElementById("animate-button");
+    this._buildCubeToggleButton = this.shadowRoot.getElementById("build-cube-toggle-button");
+    this._buildGridToggleButton = this.shadowRoot.getElementById("build-grid-toggle-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -402,6 +410,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
     if (this._refreshButton) {
       this._refreshButton.addEventListener("click", this._boundRefreshHandler);
+    }
+    if (this._animateButton) {
+      this._animateButton.addEventListener("click", this._boundAnimateHandler);
     }
     if (this._buildCubeToggleButton) {
       this._buildCubeToggleButton.addEventListener("click", this._boundBuildCubeToggleHandler);
@@ -433,8 +444,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
     }
+    this._updateAnimateButton();
     this._updateBuildVolumeToggleButtons();
     this._updateCapturePanel();
+  }
+
+  _updateAnimateButton() {
+    if (!this._animateButton) {
+      return;
+    }
+    this._animateButton.textContent = this._renderAnimated ? "Animated" : "Animate";
+    this._animateButton.setAttribute("aria-pressed", this._renderAnimated ? "true" : "false");
+    this._animateButton.disabled = this._renderAnimated;
+    this._animateButton.className = this._renderAnimated ? "button toggle-on" : "button ghost";
   }
 
   _updateBuildVolumeToggleButtons() {
@@ -491,6 +513,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._preview && typeof this._preview.render === "function") {
       this._preview.render();
     }
+  }
+
+  _handleAnimate() {
+    if (this._renderAnimated) {
+      return;
+    }
+    this._renderAnimated = true;
+    this._updateAnimateButton();
+    this._setStageStatus("Animating preview", "Redrawing the toolpath with animated path build enabled.");
+    this._setStatus("Redrawing G-code preview with animated path build...");
+    this._loadedSignature = "";
+    this._maybeLoad();
   }
 
   _applyBuildVolumeVisibility() {
@@ -1372,15 +1406,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     });
   }
 
-  _renderAnimatedEnabled() {
-    if (!this._hass || !this._hass.states || !this._config) {
-      return false;
-    }
-    const entityId = String(this._config.render_animated_entity || DEFAULT_RENDER_ANIMATED_ENTITY).trim() || DEFAULT_RENDER_ANIMATED_ENTITY;
-    const entity = this._hass.states[entityId];
-    return !!(entity && entity.state === "on");
-  }
-
   _setStatus(message, isError = false) {
     const status = this.shadowRoot && this.shadowRoot.getElementById("viewer-footnote");
     if (!status) {
@@ -1407,12 +1432,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
     const buildVolume = this._normalizeBuildVolume(capabilities.build_volume);
-    const renderAnimated = this._renderAnimatedEnabled();
+    const renderAnimated = this._renderAnimated;
     const chipMarkup = [
       `<span class='chip${capabilities.has_gcode ? "" : " warn"}'>G-code ${capabilities.has_gcode ? "Available" : "Unavailable"}</span>`,
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
-      `<span class='chip'>${renderAnimated ? "Render Animated" : "Render Static"}</span>`,
+      `<span class='chip'>${renderAnimated ? "Animated Preview" : "Static Preview"}</span>`,
     ];
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
@@ -1476,7 +1501,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const token = ++this._loadToken;
     const archiveId = this._config && this._config.archive_id ? this._config.archive_id : "";
     const archiveTitle = this._config && this._config.archive_name ? this._config.archive_name : `Archive ${archiveId}`;
-    const renderAnimated = this._renderAnimatedEnabled();
+    const renderAnimated = this._renderAnimated;
 
     if (!archiveId) {
       this._setStageStatus("Viewer unavailable", "This popup cannot render because the archive ID is missing.", "error");
@@ -1567,6 +1592,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
             preview.sceneManager.renderAnimated();
           }
         }
+        this._updateAnimateButton();
         this._applyBuildVolumeVisibility();
         this._setStageStatus("", "", "hidden");
         this._setStatus(
