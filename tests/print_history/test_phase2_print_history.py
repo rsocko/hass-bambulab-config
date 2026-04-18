@@ -1516,10 +1516,10 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
     def test_popup_content_derives_partial_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
-            self.assertIn("if (enrichmentStatusRaw === 'unavailable' && !hasEnrichmentData) return 'unavailable';", content)
-            self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partial';", content)
-            self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'near complete';", content)
-            self.assertIn("return 'complete';", content)
+        self.assertIn("if (enrichmentStatusRaw === 'unavailable' && !hasEnrichmentData) return 'unavailable';", content)
+        self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partial';", content)
+        self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'near complete';", content)
+        self.assertIn("return 'complete';", content)
 
     def test_browser_card_hides_thumbnail_when_archive_has_no_thumbnail_path(self):
         content = (

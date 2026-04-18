@@ -419,6 +419,7 @@ def enrichment_status(payload: dict[str, Any]) -> str:
     status_code = as_text(payload.get("s")).strip().lower()
     return {
         "c": "complete",
+        "n": "near complete",
         "p": "partial",
         "u": "unavailable",
     }.get(status_code, "not defined")

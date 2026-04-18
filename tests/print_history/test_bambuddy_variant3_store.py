@@ -695,6 +695,67 @@ def test_variant3_option_sets_include_duplicate_filter() -> None:
     assert options["input_select.print_history_filter_duplicates"] == ["All", "Originals Only", "Duplicates Only"]
 
 
+def test_variant3_project_archive_maps_near_complete_status_code() -> None:
+    archive = project_archive(
+        {
+            "id": 401,
+            "printer_id": 1,
+            "print_name": "Near Complete Contract",
+            "status": "completed",
+            "notes": "+>{\"s\":\"n\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":\"A1\",\"f\":34,\"h\":\"#112233\"}]}",
+            "extra_data": {},
+        }
+    )
+
+    assert archive["enrichment_status"] == "near complete"
+
+
+def test_variant3_query_filters_near_complete_enrichment_status() -> None:
+    archives = [
+        project_archive(
+            {
+                "id": 402,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Filament Known But Spool Missing",
+                "status": "completed",
+                "started_at": "2026-04-10T10:00:00Z",
+                "completed_at": "2026-04-10T11:00:00Z",
+                "created_at": "2026-04-10T10:00:00Z",
+                "filament_type": "PLA",
+                "filament_color": "#112233",
+                "notes": "+>{\"s\":\"n\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":\"A1\",\"f\":34,\"h\":\"#112233\"}]}",
+                "extra_data": {},
+            }
+        )
+    ]
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "Near Complete",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 10, tzinfo=timezone.utc))
+
+    assert result.filtered_count == 1
+    assert result.page_items[0]["id"] == 402
+
+
 def test_variant3_store_migrates_legacy_schema_before_refresh(tmp_path: Path) -> None:
     db_path = tmp_path / "print_history.db"
     with sqlite3.connect(db_path) as connection:

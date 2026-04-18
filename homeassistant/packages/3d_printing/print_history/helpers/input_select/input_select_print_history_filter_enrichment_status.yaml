@@ -4,6 +4,7 @@ print_history_filter_enrichment_status:
   options:
     - All
     - Complete
+    - Near Complete
     - Partial
     - Unavailable
     - Not Defined

@@ -692,14 +692,14 @@ reenrich_print_history_archive:
                       {% if row.f is none %}
                         {% set ns.missing_filament = true %}
                       {% endif %}
-                      {% if row.s is none or row.h is none %}
+                      {% if row.s is none %}
                         {% set ns.missing_spool = true %}
                       {% endif %}
                     {% endfor %}
                     {% if ns.missing_filament %}
-                      u
-                    {% elif ns.missing_spool or (candidate_ambiguity_rows | count > 0) %}
                       p
+                    {% elif ns.missing_spool or (candidate_ambiguity_rows | count > 0) %}
+                      n
                     {% else %}
                       c
                     {% endif %}
@@ -724,8 +724,8 @@ reenrich_print_history_archive:
                   {% else %}
                     {{ '' }}
                   {% endif %}
-                candidate_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(candidate_payload_status, candidate_payload_status) }}"
-                existing_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
+                candidate_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(candidate_payload_status, candidate_payload_status) }}"
+                existing_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
                 candidate_resolved_rows: >-
                   {% set ns = namespace(count=0) %}
                   {% for row in candidate_filaments %}
@@ -745,10 +745,10 @@ reenrich_print_history_archive:
                 candidate_filament_rows: "{{ candidate_filaments | count }}"
                 existing_filament_rows: "{{ existing_filaments | count }}"
                 candidate_payload_rank: >-
-                  {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
+                  {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(candidate_payload_status, -1) }}
                 existing_payload_rank: >-
-                  {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
+                  {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(existing_payload_status, -1) }}
                 candidate_detail_score: >-
                   {{
