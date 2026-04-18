@@ -20,7 +20,6 @@
         - input_select.print_history_filter_layer_height
         - input_select.print_history_filter_tag
         - input_select.print_history_sort
-        - input_select.print_history_card_variant
         - input_text.print_history_search
         - input_text.print_history_filter_colors
         - input_text.print_history_activity_selected_date
