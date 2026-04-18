@@ -763,7 +763,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       images.push({
         key: "thumbnail",
         label: "Thumbnail",
-        src: baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/thumbnail",
+        src: this._withArchiveMediaCacheKey(
+          baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/thumbnail",
+          archive
+        ),
         kind: "thumbnail",
         isPrimary: !primaryPhotoPath,
         hasPrimaryOverride: hasPrimaryOverride,
@@ -782,14 +785,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       images.push({
         key: value,
         label: "Photo " + String(index + 1),
-        src: baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(value),
+        src: this._withArchiveMediaCacheKey(
+          baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(value),
+          archive
+        ),
         kind: "photo",
         filename: value,
         isPrimary: value === primaryPhotoPath,
         hasPrimaryOverride: hasPrimaryOverride,
         hasPhotoPrimary: hasPhotoPrimary,
       });
-    });
+    }.bind(this));
 
     return images;
   }
@@ -1113,6 +1119,30 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       selected_primary_photo_path: archive.selected_primary_photo_path || "",
       photos: Array.isArray(archive.photos) ? archive.photos : [],
     });
+  }
+
+  _archiveMediaCacheKey(archive) {
+    if (!archive || typeof archive !== "object") {
+      return "";
+    }
+
+    return JSON.stringify({
+      key: this._archiveKey(archive),
+      source_updated_at: archive.source_updated_at || archive.updated_at || archive.completed_at || archive.created_at || "",
+      has_primary_photo_override: !!archive.has_primary_photo_override,
+    });
+  }
+
+  _withArchiveMediaCacheKey(url, archive) {
+    var normalizedUrl = String(url || "").trim();
+    if (!normalizedUrl) {
+      return "";
+    }
+    var cacheKey = this._archiveMediaCacheKey(archive);
+    if (!cacheKey) {
+      return normalizedUrl;
+    }
+    return normalizedUrl + (normalizedUrl.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(cacheKey);
   }
 
   _render() {

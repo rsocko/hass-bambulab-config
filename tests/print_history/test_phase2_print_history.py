@@ -815,9 +815,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=27", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=26", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=27", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -1489,6 +1489,21 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("archive.thumbnail_path", content)
         self.assertIn("String(archive.thumbnail_path || \"\").trim()", content)
 
+    def test_media_cards_cache_bust_thumbnail_and_photo_urls_after_archive_media_changes(self):
+        browser_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        gallery_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_archiveMediaCacheKey(archive)", browser_content)
+        self.assertIn("_withArchiveMediaCacheKey", browser_content)
+        self.assertIn(' + "v=" + encodeURIComponent(cacheKey)', browser_content)
+        self.assertIn("_archiveMediaCacheKey(archive)", gallery_content)
+        self.assertIn("_withArchiveMediaCacheKey", gallery_content)
+        self.assertIn(' + "v=" + encodeURIComponent(cacheKey)', gallery_content)
+
     def test_popup_content_surfaces_enrichment_reason_and_source(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
@@ -1670,7 +1685,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=27", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

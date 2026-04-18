@@ -882,6 +882,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     ].filter(Boolean);
     var status = this._normalizeStatus(archive.status);
     var archiveError = this._normalizeArchiveError(archive);
+    var card = this;
 
     return {
       id: archive.id,
@@ -931,13 +932,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archiveErrorSummary: archiveError.summary,
       failureReason: archive.failure_reason ? String(archive.failure_reason) : "",
       thumbnailUrl: function (baseUrl) {
-        var primaryPhotoPath = String(archive.primary_photo_path || "").trim();
-        if (baseUrl && archive.id != null && primaryPhotoPath) {
-          return baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/photos/" + encodeURIComponent(primaryPhotoPath);
-        }
-        return baseUrl && archive.id != null && String(archive.thumbnail_path || "").trim()
-          ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
-          : "";
+        return card._mediaPreferredImageUrl(archive, baseUrl);
       },
     };
   }
@@ -1078,11 +1073,48 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }).filter(Boolean);
   }
 
+  _archiveMediaCacheKey(archive) {
+    if (!archive || typeof archive !== "object") {
+      return "";
+    }
+    return JSON.stringify({
+      id: archive.id != null ? String(archive.id) : "",
+      source_updated_at: archive.source_updated_at || archive.updated_at || archive.completed_at || archive.created_at || "",
+      thumbnail_path: archive.thumbnail_path || "",
+      primary_photo_path: archive.primary_photo_path || "",
+      selected_primary_photo_path: archive.selected_primary_photo_path || "",
+      has_primary_photo_override: !!archive.has_primary_photo_override,
+      photos: this._archivePhotoPaths(archive),
+    });
+  }
+
+  _withArchiveMediaCacheKey(url, archive) {
+    var normalizedUrl = String(url || "").trim();
+    if (!normalizedUrl) {
+      return "";
+    }
+    var cacheKey = this._archiveMediaCacheKey(archive);
+    if (!cacheKey) {
+      return normalizedUrl;
+    }
+    return normalizedUrl + (normalizedUrl.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(cacheKey);
+  }
+
   _archivePhotoUrl(archiveId, photoPath, baseUrl) {
     if (!baseUrl || archiveId == null || !photoPath) {
       return "";
     }
     return baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(String(photoPath));
+  }
+
+  _archiveThumbnailUrl(archive, baseUrl) {
+    if (!baseUrl || !archive || archive.id == null || !String(archive.thumbnail_path || "").trim()) {
+      return "";
+    }
+    return this._withArchiveMediaCacheKey(
+      baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail",
+      archive
+    );
   }
 
   _mediaImageUrls(archive, baseUrl) {
@@ -1097,11 +1129,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       urls.push(normalized);
     };
 
-    addUrl(baseUrl && archive && archive.id != null && String(archive.thumbnail_path || "").trim()
-      ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
-      : "");
+    addUrl(this._archiveThumbnailUrl(archive, baseUrl));
     this._archivePhotoPaths(archive).forEach(function (photoPath) {
-      addUrl(this._archivePhotoUrl(archive && archive.id, photoPath, baseUrl));
+      addUrl(this._withArchiveMediaCacheKey(this._archivePhotoUrl(archive && archive.id, photoPath, baseUrl), archive));
     }.bind(this));
 
     return urls;
@@ -1110,11 +1140,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _mediaPreferredImageUrl(archive, baseUrl) {
     var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
     if (primaryPhotoPath) {
-      return this._archivePhotoUrl(archive && archive.id, primaryPhotoPath, baseUrl);
+      return this._withArchiveMediaCacheKey(this._archivePhotoUrl(archive && archive.id, primaryPhotoPath, baseUrl), archive);
     }
-    return baseUrl && archive && archive.id != null && String(archive.thumbnail_path || "").trim()
-      ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
-      : "";
+    return this._archiveThumbnailUrl(archive, baseUrl);
   }
 
   _mediaPreferredGalleryIndex(archive, imageUrls, baseUrl) {
