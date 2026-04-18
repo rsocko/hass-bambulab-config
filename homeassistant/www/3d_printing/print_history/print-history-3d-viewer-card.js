@@ -30,6 +30,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._resetCropButton = null;
     this._cancelCropButton = null;
     this._cropLayer = null;
+    this._capturePanel = null;
     this._downloadCaptureButton = null;
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
@@ -173,7 +174,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<style>" +
       ":host{display:block;}" +
       "ha-card{padding:0;overflow:hidden;border-radius:24px;background:linear-gradient(180deg,#071019 0%,#09111b 100%);color:#f8fafc;}" +
-      ".shell{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:14px;min-height:720px;padding:18px;}" +
+      ".shell{display:grid;grid-template-rows:auto auto auto auto;gap:14px;min-height:720px;padding:18px;}" +
       ".panel{border:1px solid rgba(125,211,200,0.18);border-radius:20px;background:rgba(13,23,35,0.94);box-shadow:0 18px 50px rgba(0,0,0,0.22);backdrop-filter:blur(10px);}" +
       ".header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;}" +
       ".eyebrow{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;margin-bottom:6px;}" +
@@ -188,7 +189,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".chip.warn{color:#fde68a;border-color:rgba(245,158,11,0.34);background:rgba(245,158,11,0.12);}" +
       ".status{padding:16px 20px;color:#9fb0c0;font-size:0.95rem;line-height:1.5;}" +
       ".status.error{color:#fecaca;}" +
+      ".viewer-workbench{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:start;}" +
       ".stage{position:relative;min-height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
+      ".stage-panel{grid-area:stage;}" +
       ".canvas{width:100%;height:100%;display:block;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
@@ -203,7 +206,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".crop-handle.ne{right:-11px;top:-11px;cursor:nesw-resize;}" +
       ".crop-handle.sw{left:-11px;bottom:-11px;cursor:nesw-resize;}" +
       ".crop-handle.se{right:-11px;bottom:-11px;cursor:nwse-resize;}" +
-      ".capture-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(280px,0.95fr);gap:18px;padding:18px 20px;}" +
+      ".capture-panel{grid-area:capture;display:grid;grid-template-rows:auto auto 1fr;gap:14px;padding:18px 20px;position:sticky;top:18px;}" +
+      ".capture-panel.idle{border-color:rgba(255,255,255,0.08);}" +
+      ".capture-panel.crop-active{border-color:rgba(245,158,11,0.34);box-shadow:0 18px 50px rgba(245,158,11,0.12);}" +
+      ".capture-panel.capture-ready{border-color:rgba(125,211,200,0.34);box-shadow:0 22px 56px rgba(125,211,200,0.16);}" +
+      ".capture-hero{display:grid;gap:12px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(18,31,46,0.98),rgba(11,20,31,0.98));}" +
+      ".capture-hero.status-crop{border-color:rgba(245,158,11,0.26);background:linear-gradient(180deg,rgba(66,43,11,0.44),rgba(27,21,10,0.7));}" +
+      ".capture-hero.status-ready{border-color:rgba(125,211,200,0.28);background:linear-gradient(180deg,rgba(15,50,47,0.6),rgba(9,22,26,0.96));animation:capturePulse 1.3s ease-out 1;}" +
+      ".capture-hero.status-upload{border-color:rgba(56,189,248,0.28);background:linear-gradient(180deg,rgba(10,39,54,0.6),rgba(9,22,31,0.96));}" +
+      ".capture-hero.status-error{border-color:rgba(248,113,113,0.28);background:linear-gradient(180deg,rgba(59,17,17,0.62),rgba(28,12,12,0.96));}" +
+      ".capture-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}" +
+      ".capture-chip{display:inline-flex;align-items:center;gap:8px;min-height:28px;padding:0 12px;border-radius:999px;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);}" +
+      ".capture-chip::before{content:'';width:9px;height:9px;border-radius:999px;background:currentColor;box-shadow:0 0 0 4px rgba(255,255,255,0.06);}" +
+      ".capture-chip.idle{color:#cbd5e1;}" +
+      ".capture-chip.crop{color:#fde68a;}" +
+      ".capture-chip.ready{color:#7dd3c8;}" +
+      ".capture-chip.error{color:#fca5a5;}" +
+      ".capture-chip.upload{color:#7dd3fc;}" +
+      ".capture-hero-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
+      ".capture-hero-copy{color:#d3deeb;font-size:0.92rem;line-height:1.55;}" +
+      ".capture-preview-stack{display:grid;gap:14px;}" +
       ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
       ".capture-preview-wrap img{display:block;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
       ".capture-empty{padding:22px;color:#9fb0c0;font-size:0.94rem;line-height:1.6;text-align:left;}" +
@@ -225,8 +247,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".fallback-copy{margin:0 0 12px;color:#9fb0c0;line-height:1.5;font-size:0.92rem;}" +
       ".fallback pre{margin:0;padding:14px;border-radius:14px;overflow:auto;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.06);color:#dbeafe;font-family:'Cascadia Code',Consolas,monospace;font-size:0.8rem;line-height:1.45;max-height:220px;}" +
       ".footnote{padding:0 4px;color:#9fb0c0;font-size:0.82rem;line-height:1.5;}" +
-      "@media (max-width:900px){.capture-panel{grid-template-columns:1fr;}}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.chips,.status,.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.stage{min-height:58vh;}}" +
+      "@keyframes capturePulse{0%{transform:translateY(0);box-shadow:0 0 0 0 rgba(125,211,200,0);}35%{transform:translateY(-2px);box-shadow:0 14px 38px rgba(125,211,200,0.2);}100%{transform:translateY(0);box-shadow:0 22px 56px rgba(125,211,200,0.16);}}" +
+      "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
+      "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;}}" +
+      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.chips,.status,.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
@@ -246,7 +270,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='capability-chips' class='chips'></div>" +
       "</section>" +
       "<section id='viewer-status' class='panel status'>Checking archive capabilities...</section>" +
-      "<section id='viewer-stage' class='panel stage'>" +
+      "<section class='viewer-workbench'>" +
+      "<section id='viewer-stage' class='panel stage stage-panel'>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
       "<div id='crop-layer' class='crop-layer' aria-hidden='true'>" +
@@ -262,13 +287,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='crop-handle se' data-handle='se'></div>" +
       "</div></div>" +
       "</section>" +
-      "<section id='capture-panel' class='panel capture-panel'>" +
+      "<section id='capture-panel' class='panel capture-panel idle'>" +
+      "<div id='capture-hero' class='capture-hero'>" +
+      "<div class='capture-hero-top'>" +
+      "<span id='capture-chip' class='capture-chip idle'>Waiting</span>" +
+      "<span class='capture-kicker'>Viewer Capture</span>" +
+      "</div>" +
+      "<div id='capture-hero-title' class='capture-hero-title'>Capture workspace</div>" +
+      "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
+      "</div>" +
+      "<div class='capture-preview-stack'>" +
       "<div class='capture-preview-wrap'>" +
       "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
       "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image without reopening the viewer in another tab.</div>" +
       "</div>" +
       "<div class='capture-meta'>" +
-      "<div class='capture-kicker'>Viewer Capture</div>" +
       "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
       "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
       "<div id='capture-status' class='capture-status'></div>" +
@@ -288,6 +321,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<button id='upload-capture-button' class='button' type='button' disabled>Upload to Archive</button>" +
       "</div>" +
       "</div>" +
+      "</div>" +
+      "</section>" +
       "</section>" +
       "<section id='fallback-panel' class='panel fallback'>" +
       "<p class='fallback-title'>Raw G-code Fallback</p>" +
@@ -305,6 +340,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._resetCropButton = this.shadowRoot.getElementById("reset-crop-button");
     this._cancelCropButton = this.shadowRoot.getElementById("cancel-crop-button");
     this._cropLayer = this.shadowRoot.getElementById("crop-layer");
+    this._capturePanel = this.shadowRoot.getElementById("capture-panel");
     this._downloadCaptureButton = this.shadowRoot.getElementById("download-capture-button");
     this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
     if (this._refreshButton) {
@@ -356,6 +392,68 @@ class PrintHistory3dViewerCard extends HTMLElement {
         : "capture-status";
   }
 
+  _focusCapturePanel(mode) {
+    if (!this._capturePanel || typeof this._capturePanel.scrollIntoView !== "function") {
+      return;
+    }
+    const shouldScroll = mode === "capture" || mode === "crop" || mode === "upload";
+    if (!shouldScroll) {
+      return;
+    }
+    try {
+      this._capturePanel.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    } catch (_error) {
+      this._capturePanel.scrollIntoView();
+    }
+  }
+
+  _updateCaptureHero() {
+    const hero = this.shadowRoot && this.shadowRoot.getElementById("capture-hero");
+    const chip = this.shadowRoot && this.shadowRoot.getElementById("capture-chip");
+    const title = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-title");
+    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-copy");
+    if (!hero || !chip || !title || !copy || !this._capturePanel) {
+      return;
+    }
+
+    let panelState = "idle";
+    let heroState = "status-idle";
+    let chipState = "idle";
+    let chipLabel = "Waiting";
+    let heroTitle = "Capture workspace";
+    let heroCopy = "Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.";
+
+    if (this._uploadInProgress) {
+      panelState = "capture-ready";
+      heroState = "status-upload";
+      chipState = "upload";
+      chipLabel = "Uploading";
+      heroTitle = "Uploading your viewer capture";
+      heroCopy = "The current PNG is being added to the archive photo gallery. Leave the popup open until the upload finishes.";
+    } else if (this._capture) {
+      panelState = "capture-ready";
+      heroState = "status-ready";
+      chipState = "ready";
+      chipLabel = "Ready";
+      heroTitle = "Capture ready to use";
+      heroCopy = "Your latest viewer render is ready. Download the PNG or upload it straight into the archive from this panel.";
+    } else if (this._cropMode) {
+      panelState = "crop-active";
+      heroState = "status-crop";
+      chipState = "crop";
+      chipLabel = "Crop mode";
+      heroTitle = "Crop mode is active";
+      heroCopy = "Drag the frame on the renderer, adjust the preset here, then press Capture Crop to create the image.";
+    }
+
+    this._capturePanel.className = `panel capture-panel ${panelState}`;
+    hero.className = `capture-hero ${heroState}`;
+    chip.className = `capture-chip ${chipState}`;
+    chip.textContent = chipLabel;
+    title.textContent = heroTitle;
+    copy.textContent = heroCopy;
+  }
+
   _updateCapturePanel() {
     const image = this.shadowRoot && this.shadowRoot.getElementById("capture-preview-image");
     const empty = this.shadowRoot && this.shadowRoot.getElementById("capture-empty");
@@ -403,6 +501,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.disabled = !this._capture || this._uploadInProgress;
     }
+    this._updateCaptureHero();
     this._updateCropOverlay();
   }
 
@@ -627,6 +726,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._cropMode) {
       this._ensureCropRect(!this._cropRect);
       this._setCaptureStatus("Crop mode is active. Square is the thumbnail-like default; switch to a landscape preset if you want wider framing.", "info");
+      this._focusCapturePanel("crop");
     }
     this._updateCapturePanel();
   }
@@ -865,6 +965,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     };
     this._updateCapturePanel();
     this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}. Download it or upload it to the archive.`, "success");
+    this._focusCapturePanel("capture");
   }
 
   async _handleCapture() {
@@ -898,6 +999,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadInProgress = true;
     this._updateCapturePanel();
     this._setCaptureStatus("Uploading capture to the archive...", "info");
+    this._focusCapturePanel("upload");
 
     try {
       const payload = await this._hass.callWS({
