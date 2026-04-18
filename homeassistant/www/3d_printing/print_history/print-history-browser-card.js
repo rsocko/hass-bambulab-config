@@ -134,9 +134,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".chip-row.compact-secondary{gap:6px;}" +
-      ".chip-row.compact-status-line{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:8px;row-gap:4px;}" +
+      ".chip-row.compact-status-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:6px 8px;min-width:0;}" +
       ".chip-row.compact-meta-line{justify-content:flex-start;align-items:center;gap:8px;}" +
-      ".compact-date{font-size:12px;color:var(--secondary-text-color);font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
+      ".compact-date{font-size:12px;color:var(--secondary-text-color);font-weight:600;line-height:1.2;white-space:nowrap;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;}" +
       ".color-enrichment-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:8px;}" +
       ".color-enrichment-row .dots{min-width:0;}" +
       ".tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;min-width:0;}" +
@@ -148,9 +148,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip.icon-chip{position:relative;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;justify-content:center;flex:0 0 auto;}" +
       ".chip.icon-chip ha-icon{width:16px;height:16px;}" +
       ".icon-chip-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#1565C0;color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;}" +
-      ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:5px 12px;gap:6px;min-height:30px;font-size:11px;max-width:min(100%,280px);line-height:1.1;}" +
-      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));width:13px;height:13px;flex:0 0 auto;}" +
-      ".project-chip span{display:inline-flex;align-items:center;min-width:0;overflow-wrap:anywhere;word-break:break-word;}" +
+      ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:3px 8px;gap:4px;min-height:24px;height:24px;font-size:10px;max-width:min(100%,180px);line-height:1;box-sizing:border-box;overflow:hidden;}" +
+      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));width:11px;height:11px;min-width:11px;flex:0 0 11px;}" +
+      ".project-chip span{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
       ".metrics{display:grid;gap:10px;}" +
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
       ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
@@ -170,7 +170,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
       "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}}" +
-      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.chip-row.compact-status-line{grid-template-columns:minmax(0,1fr);}}" +
+      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}}" +
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
@@ -435,8 +435,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
-      statusChip +
       '<span class="compact-date">' + this._escapeHtml(normalized.startedLabel) + '</span>' +
+      statusChip +
       '</div>' +
       primaryChipRow +
       '</div>';
