@@ -1835,6 +1835,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('_singleArchiveFallbackColor()', script)
         self.assertIn('const archiveFallbackColor = this._singleArchiveFallbackColor();', script)
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
+        self.assertIn('if (toolId === 1000 || toolId === 255) {', script)
         self.assertIn('tool === 1000', script)
         self.assertIn('tool === 255 && currentTool != null', script)
         self.assertIn('disableGradient: true', script)

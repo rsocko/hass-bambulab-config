@@ -1211,6 +1211,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       if (!Number.isFinite(toolId) || seen[String(toolId)]) {
         continue;
       }
+      if (toolId === 1000 || toolId === 255) {
+        continue;
+      }
       seen[String(toolId)] = true;
       toolIds.push(toolId);
     }
