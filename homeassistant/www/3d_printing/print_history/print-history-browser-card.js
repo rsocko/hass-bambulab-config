@@ -222,6 +222,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".interactive-chip:focus-visible{outline:none;}" +
       ".interactive-chip:active{transform:translateY(0);}" +
       ".status-chip{color:#fff;font-weight:700;}" +
+      ".status-chip.interactive-chip:hover,.status-chip.interactive-chip:focus-visible{background:color-mix(in srgb, var(--status-chip-background, #546E7A) 84%, rgba(255,255,255,0.12));}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
       ".chip.icon-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;flex:0 0 auto;line-height:0;}" +
       ".chip.icon-chip ha-icon{--mdc-icon-size:15px;width:15px;height:15px;min-width:15px;min-height:15px;display:block;}" +
@@ -590,7 +591,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var tags = normalized.userTags.slice(0, variant === "Media" || variant === "List" ? 4 : 6);
     var hiddenTagCount = Math.max(0, normalized.userTags.length - tags.length);
     var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
-    var statusChip = '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
+    var statusChip = normalized.statusFilterValue
+      ? '<button class="chip status-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="status_set" data-filter-value="' + this._escapeAttribute(normalized.statusFilterValue) + '" style="background:' + this._escapeAttribute(normalized.statusColor) + ';--status-chip-background:' + this._escapeAttribute(normalized.statusColor) + ';--interactive-chip-border:rgba(255,255,255,0.68);">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</button>'
+      : '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
     var projectChip = normalized.projectLabel
       ? '<button class="chip project-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="project_set" data-filter-value="' + this._escapeAttribute(normalized.projectLabel) + '" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';--interactive-chip-border:' + this._escapeAttribute(normalized.projectColor) + ';" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Project: ' + normalized.projectLabel, 'Click to filter by this project')) + '" aria-label="' + this._escapeAttribute('Project ' + normalized.projectLabel + '. Click to filter by this project.') + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></button>'
       : '';
@@ -939,6 +942,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       printName: archive.print_name ? String(archive.print_name) : "Unnamed",
       startedLabel: this._formatDate(archive.started_at || archive.created_at),
       statusLabel: status === "completed" ? "Completed" : status === "archived" ? "Archived" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : status === "printing" ? "Printing" : "Unknown",
+      statusFilterValue: status === "completed" ? "Completed" : status === "archived" ? "Archived" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : status === "printing" ? "Printing" : "",
       statusColor: status === "completed" ? "#2E7D32" : status === "archived" ? "#546E7A" : status === "failed" ? "#C62828" : status === "cancelled" ? "#EF6C00" : status === "printing" ? "#1565C0" : "#546E7A",
       statusIcon: status === "completed" ? "✅" : status === "archived" ? "📦" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
       enrichmentLabel: enrichmentStatus === "mostly complete" ? "Mostly Complete" : enrichmentStatus === "partially complete" ? "Partially Complete" : enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
