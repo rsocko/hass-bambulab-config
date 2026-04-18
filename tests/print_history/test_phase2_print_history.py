@@ -1594,6 +1594,18 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
         self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.src || '').trim();", content)
 
+    def test_popup_content_surfaces_match_evidence_and_archive_source_json(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        self.assertIn("const describeFilamentMatchMethod = (value) => {", content)
+        self.assertIn("const describeProvenanceMarker = (value) => {", content)
+        self.assertIn("const archivedFilamentSlots = Array.isArray(archiveExtraData?.filament_slots) && archiveExtraData.filament_slots.length", content)
+        self.assertIn("const archivedRawAms = Array.isArray(archiveExtraData?._print_data?.raw_data?.ams)", content)
+        self.assertIn("Match Evidence", content)
+        self.assertIn("Archive Source Evidence", content)
+        self.assertIn("Archived filament_slots[] JSON", content)
+        self.assertIn("Archived raw_data.ams[] JSON", content)
+        self.assertIn("The compact payload preserves ambiguity markers <strong>am</strong>, filament-family markers <strong>fm</strong>, and time-window provenance <strong>pm</strong>.", content)
+
     def test_archive_enrichment_ui_uses_candidate_match_wording_for_ambiguity_codes(self):
         popup_content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         browser_card = (
@@ -2395,6 +2407,14 @@ class TestDocumentation(unittest.TestCase):
 
     def test_archive_enrichment_design_exists(self):
         self.assertTrue((DOCS_HIST / "planning" / "archive-enrichment.md").exists())
+
+    def test_archive_enrichment_doc_includes_manual_reenrich_flowchart_and_ui_transparency(self):
+        content = (DOCS_HIST / "planning" / "archive-enrichment.md").read_text("utf-8")
+        self.assertIn("## Manual Re-Enrich Decision Flow", content)
+        self.assertIn("```mermaid", content)
+        self.assertIn("flowchart TD", content)
+        self.assertIn("## UI Transparency", content)
+        self.assertIn("The compact `+>` payload does **not** persist every clean success branch.", content)
 
     def test_bambuddy_common_readme_exists(self):
         self.assertTrue((DOCS_COMMON / "README.md").exists())

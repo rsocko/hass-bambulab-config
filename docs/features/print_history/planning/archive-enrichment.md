@@ -296,6 +296,144 @@ This is intended for targeted recovery sets such as archives with missing hidden
 - larger Spoolman inventories will increase template work inside the script because the candidate catalog is normalized once per manual run before slot matching begins
 - if manual re-enrich becomes frequent or inventory growth makes the call noticeably slow, the next adjustment should be a narrower lookup path or a cached HA-side recovery index rather than pushing this full archived-spool fetch into the automatic enrichment flow
 
+## Manual Re-Enrich Decision Flow
+
+The shipped manual re-enrich script has two major phases:
+
+1. reconstruct archive-side candidate rows from Bambuddy archive detail
+2. resolve each candidate row against Spoolman spools and filament families without guessing through ambiguity
+
+The most important constraint is still the same: `filament_slots[].slot_id` is not treated as an AMS tray identity key. The script only trusts normalized archived metadata such as color, material/type, archived tray UUID, archived profile hints, spool lifecycle dates, and current Spoolman records.
+
+```mermaid
+flowchart TD
+    A[Load archive detail and split existing user notes/tags] --> B[Build archived tray candidates from extra_data._print_data.raw_data.ams[]]
+    B --> C{Archived filament_slots[] with used_g > 0?}
+    C -->|Yes| D[Build one archive_slot_row per contributing slot]
+    C -->|No| E{Archive-level fallback safe?\nSingle color + positive weight + type present}
+    E -->|Yes| F[Build one at1 fallback row from archive total]
+    E -->|No| G[No candidate rows -> unavailable payload with reason]
+    D --> H[For each row: prefer archived tray UUID if unique tray match exists]
+    F --> H
+    H --> I{Unique archived tray by normalized type+color?}
+    I -->|No, multiple| J[Carry archive ambiguity a_tc or a_fb]
+    I -->|Yes| K[Carry tray label, profile hint, vendor hint, tray UUID]
+    J --> L[Normalize full Spoolman catalog with archived + active spools]
+    K --> L
+    L --> M{Valid archived tray UUID present?}
+    M -->|Yes| N[Try exact Spoolman UUID match]
+    M -->|No| O[Skip UUID tier]
+    N --> P{Exactly one spool?}
+    P -->|Yes| Q[Resolved by uuid]
+    P -->|Multiple| R[Set s_uuid ambiguity]
+    P -->|None| O
+    O --> S[Build color candidate pool: exact color -> multicolor first hex -> multicolor any hex]
+    S --> T[Apply archive time-scope pruning if it shrinks the candidate set]
+    T --> U[Try filament-family narrowing: color-only, color+material, color+type-meta, or both]
+    U --> V{Single filament family ID?}
+    V -->|Yes| W[Expand to full spool family for that filament]
+    V -->|No| X[Keep narrowed candidate pool]
+    W --> Y[Drop spools that ended before print start]
+    X --> Y
+    Y --> Z{Single active-at-print-start spool?}
+    Z -->|Yes| AA[Resolved by temporal provenance pm=t_hist]
+    Z -->|No| AB[Try location preference using archived tray family]
+    AB --> AC{Single spool in same AMS/External family?}
+    AC -->|Yes| AD[Resolved by location preference]
+    AC -->|No| AE[Try strict archive time-window fallback]
+    AE --> AF{Single spool in archive window?}
+    AF -->|Yes| AG[Resolved by temporal provenance pm=t_hist]
+    AF -->|Multiple| AH[Set s_tw ambiguity]
+    AF -->|None or still multiple| AI{One candidate left?}
+    AI -->|Yes| AJ[Resolved by clean family/color path]
+    AI -->|No| AK[Carry s_tc or archive ambiguity]
+    Q --> AL[Emit row with spool + filament IDs]
+    AA --> AL
+    AD --> AL
+    AG --> AL
+    AJ --> AL
+    R --> AM[Emit row with ambiguity and best defensible filament identity]
+    AH --> AM
+    AK --> AM
+    G --> AN[Score candidate vs existing payload]
+    AL --> AN
+    AM --> AN
+    AN --> AO{Existing payload strictly richer and not just heuristic?}
+    AO -->|Yes| AP[Preserve existing payload, refresh cost only if defensible]
+    AO -->|No| AQ[Write rebuilt payload, tags, and cost when weighted rows exist]
+```
+
+### Branches and conditions
+
+#### Phase 1: archive-side source reconstruction
+
+- `archive_slot_rows` first tries `extra_data.filament_slots[]`, then falls back to top-level `filament_slots[]`.
+- Only rows with `used_g > 0` become candidate slot rows.
+- Archived AMS tray candidates come from `extra_data._print_data.raw_data.ams[].tray[]`.
+- Tray matching is based on exact normalized `type + color` only.
+- If exactly one archived tray matches, the row inherits `tray`, `tray_uuid`, `profile_name`, and `vendor_hint`.
+- If multiple archived trays match the same normalized `type + color`, the row keeps `am: a_tc`.
+- If there are no slot rows at all, the script can fall back to one archive-total row only when archive weight is positive, archive type is present, and the archive has exactly one normalized color. That row gets `src: at1`.
+- If archive-total fallback still hits multiple archived trays, the row keeps `am: a_fb`.
+
+#### Phase 2: Spoolman matching
+
+- If the archived tray produced a non-zero UUID, UUID matching runs first against unsealed Spoolman spools.
+- If UUID produces multiple spools, the script stops treating UUID as decisive and records `am: s_uuid`.
+- When UUID is absent or non-unique, the script builds a color-based candidate pool in this order:
+  `exact single-color` -> `multi-color first hex` -> `multi-color any hex`.
+- Vendor mode is conservative:
+  Bambu-only matching is used only when the archive evidence actually implies Bambu (`tray_uuid`, Bambu profile name, or explicit vendor hint). Otherwise the search stays vendor-agnostic.
+- The script then tries to identify a single filament family ID by narrowing the candidate pool with:
+  `c` color only,
+  `cm` color + material,
+  `ct` color + archived profile/type metadata,
+  `cmt` color + material + archived profile/type metadata.
+- If one filament family is identified, the matcher expands back out to the full spool family for that filament so archived or replaced spools remain eligible.
+
+#### Phase 3: spool disambiguation after filament family recovery
+
+- First remove spools that had clearly ended before the print started.
+- Then prefer a single spool that was active at print start when lifecycle evidence is strong enough.
+- Then prefer a single spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`).
+- Then try a stricter archive window fallback using `date_opened`, `first_used`, `last_used`, and archived timestamps.
+- If the final selection comes from lifecycle overlap rather than exact UUID/direct metadata, the row keeps `pm: t_hist`.
+- If more than one spool still survives the final strict archive window, the row keeps `am: s_tw`.
+- If multiple candidates remain without a stronger ambiguity marker, the row keeps `am: s_tc`.
+
+#### Phase 4: payload preservation and writeback
+
+- The script computes a detail score from status rank, resolved-row count, and total row count.
+- Existing payload wins only when it is strictly better.
+- A new candidate is allowed to replace an older payload when the older one depended on heuristic `fm` recovery and the new run now marks the row ambiguous or unresolved.
+- Cost is recomputed from the effective payload, not blindly copied from Bambuddy.
+
+## UI Transparency
+
+The popup UI now exposes two separate transparency layers for manual re-enrich:
+
+- a **Match Evidence** section that explains the stored row markers
+- an **Archive Source Evidence** section that shows the actual archive-detail fragments used by the script
+
+### What the popup can explain clearly today
+
+- whether the archive was rebuilt from archived slot rows (`src: afs`) or the archive-level fallback (`src: at1`)
+- whether a row stayed ambiguous (`am`)
+- whether filament identity came from color-only or stronger material/profile narrowing (`fm`)
+- whether the final spool was chosen from archive-window lifecycle evidence (`pm: t_hist`)
+- whether the source archive actually contained `filament_slots[]`, archived AMS tray rows, and non-zero tray UUIDs
+
+### What the popup still cannot prove perfectly
+
+The compact `+>` payload does **not** persist every clean success branch. For example, a row may resolve successfully, but the stored payload does not currently say whether that final clean success came from:
+
+- direct UUID match
+- same-location spool preference
+- exact single surviving spool family candidate
+- a clean color/material/profile narrowing path that no longer needed an ambiguity marker
+
+That is why the popup now shows the raw archive-source fragments alongside the stored markers. The evidence is visible, but the exact internal branch is not fully serialized yet.
+
 ## Current Completeness
 
 Shipped now:
