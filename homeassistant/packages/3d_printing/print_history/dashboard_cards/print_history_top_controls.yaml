@@ -56,7 +56,7 @@ card:
       const nextSelector = byIcon('mdi:chevron-right');
       return `
         ha-card {
-          overflow: hidden !important;
+          overflow: visible !important;
           min-height: 60px !important;
         }
         .card-content.large,

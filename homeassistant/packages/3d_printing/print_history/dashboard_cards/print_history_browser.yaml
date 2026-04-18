@@ -355,7 +355,7 @@ cards:
             .: |
               ha-card {
                 border-radius: 999px !important;
-                overflow: hidden !important;
+                overflow: visible !important;
                 padding: 6px 10px !important;
               }
               #states {

@@ -1881,10 +1881,11 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("JSON.stringify(colorsState?.attributes?.[this._config.tooltips_attribute] || \"\")", content)
         self.assertIn("_availableTooltips()", content)
         self.assertIn("tooltips.get(color.toLowerCase()) || this._formatColorLabel(color)", content)
-        self.assertIn('title="${safeTooltip}"', content)
+        self.assertIn('data-tooltip="${safeTooltip}"', content)
         self.assertIn("_updateTooltipPosition(button)", content)
         self.assertIn('window.addEventListener("resize", this._boundWindowLayoutHandler);', content)
-        self.assertIn('translateX(calc(-50% + var(--tooltip-shift, 0px)))', content)
+        self.assertIn('position: fixed;', content)
+        self.assertIn('tooltip.style.left = `${Math.round(clampedLeft)}px`;', content)
         self.assertIn('max-width: min(320px, calc(100vw - 16px));', content)
 
     def test_browser_card_filament_swatches_use_clamped_custom_tooltips(self):

@@ -7,6 +7,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     this._signature = "";
     this._busyColor = "";
     this._activeTooltipColor = "";
+    this._activeTooltipText = "";
     this._boundWindowLayoutHandler = this._handleWindowLayout.bind(this);
   }
 
@@ -169,6 +170,8 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     const activeButton = this.shadowRoot?.querySelector(`.swatch[data-color="${this._activeTooltipColor}"]`);
     if (activeButton) {
       this._updateTooltipPosition(activeButton);
+    } else {
+      this._hideTooltipOverlay();
     }
   }
 
@@ -178,57 +181,62 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     }
 
     if (!active) {
-      button.style.removeProperty("--tooltip-shift");
-      button.removeAttribute("data-tooltip-edge");
       if ((button.dataset.color || "") === this._activeTooltipColor) {
         this._activeTooltipColor = "";
+        this._activeTooltipText = "";
       }
+      this._hideTooltipOverlay();
       return;
     }
 
     this._activeTooltipColor = button.dataset.color || "";
+    this._activeTooltipText = button.dataset.tooltip || "";
     this._updateTooltipPosition(button);
   }
 
   _updateTooltipPosition(button) {
-    const tooltip = button?.querySelector?.(".tooltip");
+    const tooltip = this.shadowRoot?.querySelector(".tooltip-overlay");
     if (!tooltip) {
       return;
     }
 
     const minViewportPadding = 8;
-    const previousVisibility = tooltip.style.visibility;
-    const previousOpacity = tooltip.style.opacity;
+    const buttonRect = button.getBoundingClientRect();
+    tooltip.textContent = button.dataset.tooltip || this._activeTooltipText || "";
     tooltip.style.visibility = "hidden";
     tooltip.style.opacity = "1";
+    tooltip.style.left = "0px";
+    tooltip.style.top = "0px";
 
     const tooltipRect = tooltip.getBoundingClientRect();
-    const buttonRect = button.getBoundingClientRect();
-
-    tooltip.style.visibility = previousVisibility;
-    tooltip.style.opacity = previousOpacity;
 
     if (!tooltipRect.width || !buttonRect.width) {
-      button.style.removeProperty("--tooltip-shift");
-      button.removeAttribute("data-tooltip-edge");
+      this._hideTooltipOverlay();
       return;
     }
 
     const centeredLeft = buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2);
-    const centeredRight = centeredLeft + tooltipRect.width;
-    let shift = 0;
-    let edge = "center";
+    const clampedLeft = Math.min(
+      window.innerWidth - minViewportPadding - tooltipRect.width,
+      Math.max(minViewportPadding, centeredLeft)
+    );
+    const tooltipTop = Math.max(minViewportPadding, buttonRect.top - tooltipRect.height - 8);
 
-    if (centeredLeft < minViewportPadding) {
-      shift = minViewportPadding - centeredLeft;
-      edge = "start";
-    } else if (centeredRight > window.innerWidth - minViewportPadding) {
-      shift = (window.innerWidth - minViewportPadding) - centeredRight;
-      edge = "end";
+    tooltip.style.left = `${Math.round(clampedLeft)}px`;
+    tooltip.style.top = `${Math.round(tooltipTop)}px`;
+    tooltip.style.visibility = "visible";
+    tooltip.style.opacity = "1";
+    tooltip.classList.add("active");
+  }
+
+  _hideTooltipOverlay() {
+    const tooltip = this.shadowRoot?.querySelector(".tooltip-overlay");
+    if (!tooltip) {
+      return;
     }
-
-    button.style.setProperty("--tooltip-shift", `${Math.round(shift)}px`);
-    button.setAttribute("data-tooltip-edge", edge);
+    tooltip.classList.remove("active");
+    tooltip.style.opacity = "0";
+    tooltip.style.visibility = "hidden";
   }
 
   _render() {
@@ -263,15 +271,14 @@ class PrintHistoryColorFilterCard extends HTMLElement {
             class="swatch ${isSelected ? "selected" : ""} ${isBusy ? "busy" : ""}"
             type="button"
             data-color="${safeColor}"
+            data-tooltip="${safeTooltip}"
             aria-label="Toggle color ${safeTooltip} filter"
             aria-pressed="${isSelected ? "true" : "false"}"
-            title="${safeTooltip}"
             style="width:${slotSize}px;height:${slotSize}px;"
           >
             <span class="ring" style="width:${ringSize}px;height:${ringSize}px;border:${border};">
               <span class="fill" style="width:${fillSize}px;height:${fillSize}px;background:${safeColor};"></span>
             </span>
-            <span class="tooltip" role="tooltip">${safeTooltip}</span>
           </button>`;
       })
       .join("");
@@ -287,6 +294,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           border: none;
           box-shadow: none;
           padding: 0;
+          overflow: visible;
         }
 
         .wrap {
@@ -294,6 +302,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           flex-wrap: wrap;
           align-items: center;
           gap: ${gap}px;
+          overflow: visible;
         }
 
         .swatch {
@@ -324,11 +333,10 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           display: block;
         }
 
-        .tooltip {
-          position: absolute;
-          left: 50%;
-          bottom: calc(100% + 6px);
-          transform: translateX(calc(-50% + var(--tooltip-shift, 0px))) translateY(4px);
+        .tooltip-overlay {
+          position: fixed;
+          left: 0;
+          top: 0;
           background: rgba(17, 24, 39, 0.94);
           color: #f9fafb;
           border-radius: 999px;
@@ -338,21 +346,20 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           white-space: nowrap;
           pointer-events: none;
           opacity: 0;
-          transition: opacity 0.12s ease, transform 0.12s ease;
-          z-index: 2;
+          visibility: hidden;
+          transition: opacity 0.12s ease;
+          z-index: 999;
           max-width: min(320px, calc(100vw - 16px));
           overflow-wrap: anywhere;
           text-align: center;
         }
 
-        .swatch:hover .ring {
-          filter: brightness(1.05);
+        .tooltip-overlay.active {
+          visibility: visible;
         }
 
-        .swatch:hover .tooltip,
-        .swatch:focus-visible .tooltip {
-          opacity: 1;
-          transform: translateX(calc(-50% + var(--tooltip-shift, 0px))) translateY(0);
+        .swatch:hover .ring {
+          filter: brightness(1.05);
         }
 
         .swatch:active .ring,
@@ -372,6 +379,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="wrap">${swatches}</div>
+        <div class="tooltip-overlay" role="tooltip"></div>
       </ha-card>
     `;
 
