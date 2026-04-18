@@ -139,7 +139,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".media-gallery-status{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.10);color:#fff;font-size:11px;font-weight:700;line-height:1.1;backdrop-filter:blur(8px);z-index:2;pointer-events:none;}" +
       ".media-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:16px;row-gap:8px;}" +
       ".media-title-wrap{min-width:0;}" +
-      ".media-status-stack{display:grid;justify-items:end;align-content:start;gap:6px;}" +
+      ".media-status-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0;}" +
       ".media-date{font-size:12px;font-weight:600;white-space:nowrap;}" +
       ".chip-row.media-meta-line{align-items:center;gap:8px;}" +
       ".card-shell.compact .thumb{height:136px;}" +
@@ -195,12 +195,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
       ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
+      ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.viewer:active{transform:translateY(0);}" +
       ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
-      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-stack{justify-items:start;}}" +
+      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line{justify-content:flex-start;}}" +
       "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}}" +
       "</style>" +
       "<ha-card>" +
@@ -441,9 +443,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
+    var mediaObjectsChip = normalized.mediaObjectsLabel ? '<span class="chip"><ha-icon icon="mdi:cube-outline"></ha-icon>' + this._escapeHtml(normalized.mediaObjectsLabel) + '</span>' : '';
     var mediaImageUrls = variant === 'Media' ? this._mediaImageUrls(archive, baseUrl) : [];
     var mediaGalleryCount = mediaImageUrls.length;
-    var mediaGalleryIndex = mediaGalleryCount > 0 ? this._mediaGalleryIndex(archive && archive.id, mediaGalleryCount) : 0;
+    var mediaGalleryIndex = mediaGalleryCount > 0
+      ? (Object.prototype.hasOwnProperty.call(this._mediaGalleryIndices, String(archive && archive.id || ""))
+        ? this._mediaGalleryIndex(archive && archive.id, mediaGalleryCount)
+        : this._mediaPreferredGalleryIndex(archive, mediaImageUrls, baseUrl))
+      : 0;
     var mediaCurrentImageUrl = mediaGalleryCount > 0 ? mediaImageUrls[mediaGalleryIndex] : '';
     var mediaPlaceholderLabel = this._showImages()
       ? 'No preview image available'
@@ -521,15 +528,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
             '<div class="media-title-wrap">' +
               '<div class="name">' + this._escapeHtml(normalized.printName) + noteInline + '</div>' +
             '</div>' +
-            '<div class="media-status-stack">' +
-              statusChip +
+            '<div class="media-status-line">' +
               '<div class="subtle media-date">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
+              statusChip +
             '</div>' +
           '</div>' +
           '<div class="chip-row media-meta-line">' +
             (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
             (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
             mediaMetaChip +
+            mediaObjectsChip +
             (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
           '</div>' +
           '<div class="metrics ' + metricsClass + '">' +
@@ -688,6 +696,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archive.layer_height ? String(archive.layer_height) + "mm" : "",
       archive.nozzle_diameter ? String(archive.nozzle_diameter) + "mm nozzle" : "",
     ].filter(Boolean).join(" · ");
+    var mediaObjectsLabel = Number(archive.object_count || 0) > 1
+      ? String(archive.object_count) + " objects"
+      : "";
     var printerLabel = archive.printer_name ? String(archive.printer_name) : (archive.printer_id != null && archive.printer_id !== "" ? ("Printer " + String(archive.printer_id)) : "");
     var duplicateSummary = this._duplicateSummary(archive);
     var facts = [
@@ -731,6 +742,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       roleEmblemClass: duplicateSummary.roleEmblemClass,
       metadata: metadata,
       mediaMetaLabel: mediaMetaLabel,
+      mediaObjectsLabel: mediaObjectsLabel,
       facts: facts,
       filamentChips: filamentChips,
       projectLabel: archive.project_name ? String(archive.project_name).trim() : "",
@@ -914,21 +926,42 @@ class PrintHistoryBrowserCard extends HTMLElement {
       urls.push(normalized);
     };
 
-    addUrl(this._archivePhotoUrl(archive && archive.id, archive && archive.primary_photo_path, baseUrl));
-    this._archivePhotoPaths(archive).forEach(function (photoPath) {
-      addUrl(this._archivePhotoUrl(archive && archive.id, photoPath, baseUrl));
-    }.bind(this));
     addUrl(baseUrl && archive && archive.id != null && String(archive.thumbnail_path || "").trim()
       ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
       : "");
+    this._archivePhotoPaths(archive).forEach(function (photoPath) {
+      addUrl(this._archivePhotoUrl(archive && archive.id, photoPath, baseUrl));
+    }.bind(this));
 
     return urls;
+  }
+
+  _mediaPreferredImageUrl(archive, baseUrl) {
+    var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
+    if (primaryPhotoPath) {
+      return this._archivePhotoUrl(archive && archive.id, primaryPhotoPath, baseUrl);
+    }
+    return baseUrl && archive && archive.id != null && String(archive.thumbnail_path || "").trim()
+      ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
+      : "";
+  }
+
+  _mediaPreferredGalleryIndex(archive, imageUrls, baseUrl) {
+    if (!Array.isArray(imageUrls) || !imageUrls.length) {
+      return 0;
+    }
+    var preferredUrl = this._mediaPreferredImageUrl(archive, baseUrl);
+    var preferredIndex = preferredUrl ? imageUrls.indexOf(preferredUrl) : -1;
+    return preferredIndex >= 0 ? preferredIndex : 0;
   }
 
   _mediaGalleryIndex(archiveId, imageCount) {
     var key = String(archiveId || "");
     var count = Math.max(0, Number(imageCount) || 0);
     if (!key || count <= 0) {
+      return 0;
+    }
+    if (!Object.prototype.hasOwnProperty.call(this._mediaGalleryIndices, key)) {
       return 0;
     }
     var current = Number(this._mediaGalleryIndices[key] || 0);
