@@ -635,10 +635,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var listPlaceholderLabel = showImages
       ? 'No preview image available'
       : 'Images hidden';
+    var printerChip = normalized.printerFilterValue
+      ? '<button class="chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="printer_set" data-filter-value="' + this._escapeAttribute(normalized.printerFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Printer: ' + normalized.printerLabel, 'Click to filter by this printer')) + '" aria-label="' + this._escapeAttribute('Printer ' + normalized.printerLabel + '. Click to filter by this printer.') + '">' + this._escapeHtml(normalized.printerLabel) + '</button>'
+      : (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '');
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
-        + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
+        + printerChip
         + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
         + '</div>'
       : '';
@@ -720,7 +723,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
           '</div>' +
           '<div class="chip-row media-meta-line">' +
             (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
-            (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+            printerChip +
             mediaMetaChip +
             mediaObjectsChip +
             (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
@@ -756,7 +759,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
           '</div>' +
           '<div class="chip-row list-meta-line">' +
             (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
-            (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+            printerChip +
             (mediaMetaChip ? mediaMetaChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
             (mediaObjectsChip ? mediaObjectsChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
             (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
@@ -963,6 +966,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archiveIdLabel: archive.id != null && archive.id !== "" ? ("Archive #" + archive.id) : "Archive unavailable",
       compactArchiveIdLabel: archive.id != null && archive.id !== "" ? ("#" + archive.id) : "",
       printerLabel: printerLabel,
+      printerFilterValue: this._resolvePrinterFilterValue(archive.printer_id, archive.printer_name),
       duplicateChipLabel: duplicateSummary.chipLabel,
       duplicateChipColor: duplicateSummary.chipColor,
       duplicateTooltip: duplicateSummary.tooltip,
@@ -1516,6 +1520,41 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _popupProjectCatalog() {
     var attributes = this._statusEntityAttributes();
     return Array.isArray(attributes.project_options) ? attributes.project_options : [];
+  }
+
+  _printerFilterOptions() {
+    var state = this._hass && this._hass.states ? this._hass.states["input_select.print_history_filter_printer"] : null;
+    return state && state.attributes && Array.isArray(state.attributes.options) ? state.attributes.options : [];
+  }
+
+  _resolvePrinterFilterValue(printerId, printerName) {
+    var printerIdText = printerId == null ? "" : String(printerId).trim();
+    var printerNameText = printerName == null ? "" : String(printerName).trim();
+    var options = this._printerFilterOptions();
+
+    for (var index = 0; index < options.length; index += 1) {
+      var option = String(options[index] || "").trim();
+      if (!option || option === "All") {
+        continue;
+      }
+      if (printerIdText && option === printerIdText) {
+        return option;
+      }
+      if (printerNameText && option === printerNameText) {
+        return option;
+      }
+      if (printerIdText && printerNameText && option === (printerNameText + " (" + printerIdText + ")")) {
+        return option;
+      }
+    }
+
+    if (printerNameText) {
+      return printerNameText;
+    }
+    if (printerIdText) {
+      return printerIdText;
+    }
+    return "";
   }
 
   _popupProjectLabel(projectId, projectName) {
