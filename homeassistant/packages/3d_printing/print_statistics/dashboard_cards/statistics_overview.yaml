@@ -1,0 +1,272 @@
+type: vertical-stack
+cards:
+  - type: markdown
+    content: |
+      ## Print Statistics
+      Aggregate Bambuddy statistics surfaced in Home Assistant with native KPI cards and reusable charts.
+
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_prints_this_week
+        name: This Week
+        icon: mdi:calendar-week
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 24px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_prints_this_month
+        name: This Month
+        icon: mdi:calendar-month
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 24px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_statistics
+        name: All Time
+        icon: mdi:counter
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 24px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_success_rate
+        name: Success Rate
+        icon: mdi:check-circle-outline
+        show_state: true
+        color_type: card
+        color: >-
+          [[[ 
+            const rate = parseFloat(entity.state || '0');
+            if (rate >= 95) return '#1B5E20';
+            if (rate >= 85) return '#E65100';
+            return '#B71C1C';
+          ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_filament_used
+        name: Filament Used
+        icon: mdi:weight-kilogram
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_print_time
+        name: Print Hours
+        icon: mdi:timer-sand
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_print_cost
+        name: Print Cost
+        icon: mdi:currency-usd
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_energy_cost
+        name: Energy Cost
+        icon: mdi:cash
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_average_time_accuracy
+        name: Time Accuracy
+        icon: mdi:target
+        show_state: true
+        color_type: card
+        color: >-
+          [[[ 
+            const rate = parseFloat(entity.state || '0');
+            if (rate >= 98) return '#2E7D32';
+            if (rate >= 90) return '#1565C0';
+            return '#6A1B9A';
+          ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 22px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+
+  - type: custom:button-card
+    entity: sensor.bambuddy_statistics
+    name: Print Outcomes
+    icon: mdi:chart-donut
+    show_state: false
+    custom_fields:
+      outcome_bar: |
+        [[[ 
+          const attrs = entity.attributes || {};
+          const total = Number(attrs.total_prints || 0) || 1;
+          const success = Number(attrs.successful_prints || 0);
+          const failed = Number(attrs.failed_prints || 0);
+          const stopped = Number(attrs.stopped_prints || 0);
+          const sp = (success / total * 100).toFixed(1);
+          const fp = (failed / total * 100).toFixed(1);
+          const tp = (stopped / total * 100).toFixed(1);
+          return `
+            <div style="padding:4px 0 8px">
+              <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:8px">
+                <div style="width:${sp}%;background:#2E7D32" title="Successful: ${success}"></div>
+                <div style="width:${fp}%;background:#C62828" title="Failed: ${failed}"></div>
+                <div style="width:${tp}%;background:#6D4C41" title="Stopped: ${stopped}"></div>
+              </div>
+              <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap">
+                <span>Successful: ${success} (${sp}%)</span>
+                <span>Failed: ${failed} (${fp}%)</span>
+                <span>Stopped: ${stopped} (${tp}%)</span>
+              </div>
+            </div>`;
+        ]]]
+    styles:
+      card:
+        - border-radius: 12px
+        - padding: 12px 16px
+      name:
+        - font-size: 14px
+        - font-weight: 600
+        - text-align: left
+      custom_fields:
+        outcome_bar:
+          - width: 100%
+
+  - type: horizontal-stack
+    cards:
+      - type: custom:button-card
+        entity: sensor.bambuddy_top_failure_reason
+        name: Top Failure Reason
+        icon: mdi:alert-octagon-outline
+        show_state: true
+        show_label: true
+        label: >-
+          [[[ 
+            const count = entity.attributes?.count ?? 0;
+            return count > 0 ? `${count} failures` : 'No recent failures';
+          ]]]
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 18px
+            - font-weight: 700
+          label:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        entity: sensor.bambuddy_total_energy_used
+        name: Energy Used
+        icon: mdi:lightning-bolt
+        show_state: true
+        styles:
+          card:
+            - border-radius: 12px
+            - padding: 12px
+          state:
+            - font-size: 18px
+            - font-weight: 700
+          name:
+            - font-size: 12px
+            - color: var(--secondary-text-color)
+
+      - type: custom:button-card
+        name: Open Bambuddy Stats
+        icon: mdi:open-in-new
+        tap_action:
+          action: url
+          url_path: "[[[ return states['input_text.bambuddy_api_base_url'].state + '/stats'; ]]]"
+        styles:
+          card:
+            - border-radius: 12px
+            - background: '#1565C0'
+            - color: white
+          name:
+            - color: white
+            - font-size: 12px
+          icon:
+            - color: white

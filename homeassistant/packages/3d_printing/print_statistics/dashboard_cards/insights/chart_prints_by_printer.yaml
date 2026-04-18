@@ -1,0 +1,9 @@
+type: custom:apex-direct-bar-card
+title: Prints by Printer
+height: 300
+value_name: prints
+source_entity: sensor.bambuddy_statistics_metrics
+source_attribute: prints_by_printer_json
+max_items: 8
+horizontal: false
+default_color: '#42A5F5'

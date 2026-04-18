@@ -1,0 +1,155 @@
+- trigger:
+    - platform: state
+      entity_id:
+        - sensor.bambuddy_statistics
+        - sensor.bambuddy_statistics_this_week
+        - sensor.bambuddy_statistics_this_month
+        - sensor.bambuddy_failure_analysis
+  sensor:
+    - name: Bambuddy Print Success Rate
+      unique_id: bambuddy_success_rate
+      unit_of_measurement: "%"
+      icon: mdi:percent
+      state: >-
+        {% set total = state_attr('sensor.bambuddy_statistics', 'total_prints') | int(0) %}
+        {% set success = state_attr('sensor.bambuddy_statistics', 'successful_prints') | int(0) %}
+        {{ ((success / total) * 100) | round(1) if total > 0 else 0 }}
+
+    - name: Bambuddy Total Print Time
+      unique_id: bambuddy_total_print_time
+      unit_of_measurement: "h"
+      icon: mdi:timer-sand
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_print_time_hours') | default(0) | float(0) | round(1) }}
+
+    - name: Bambuddy Total Filament Used
+      unique_id: bambuddy_total_filament_used
+      unit_of_measurement: "kg"
+      icon: mdi:weight-kilogram
+      state: >-
+        {{ ((state_attr('sensor.bambuddy_statistics', 'total_filament_grams') | default(0) | float(0)) / 1000) | round(1) }}
+
+    - name: Bambuddy Total Print Cost
+      unique_id: bambuddy_total_print_cost
+      unit_of_measurement: "$"
+      icon: mdi:currency-usd
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_cost') | default(0) | float(0) | round(2) }}
+
+    - name: Bambuddy Total Energy Used
+      unique_id: bambuddy_total_energy_used
+      unit_of_measurement: "kWh"
+      icon: mdi:lightning-bolt
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_energy_kwh') | default(0) | float(0) | round(1) }}
+
+    - name: Bambuddy Total Energy Cost
+      unique_id: bambuddy_total_energy_cost
+      unit_of_measurement: "$"
+      icon: mdi:cash
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_energy_cost') | default(0) | float(0) | round(2) }}
+
+    - name: Bambuddy Average Time Accuracy
+      unique_id: bambuddy_average_time_accuracy
+      unit_of_measurement: "%"
+      icon: mdi:target
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'average_time_accuracy') | default(0) | float(0) | round(1) }}
+
+    - name: Bambuddy Prints This Week
+      unique_id: bambuddy_prints_this_week
+      unit_of_measurement: "prints"
+      icon: mdi:calendar-week
+      state: >-
+        {{ states('sensor.bambuddy_statistics_this_week') | int(0) }}
+
+    - name: Bambuddy Prints This Month
+      unique_id: bambuddy_prints_this_month
+      unit_of_measurement: "prints"
+      icon: mdi:calendar-month
+      state: >-
+        {{ states('sensor.bambuddy_statistics_this_month') | int(0) }}
+
+    - name: Bambuddy Top Failure Reason
+      unique_id: bambuddy_top_failure_reason
+      icon: mdi:alert-octagon-outline
+      state: >-
+        {% set reasons = state_attr('sensor.bambuddy_failure_analysis', 'failures_by_reason') %}
+        {% if reasons is mapping and reasons %}
+          {% set ns = namespace(name='None', count=-1) %}
+          {% for key, value in reasons.items() %}
+            {% set count = value | int(0) %}
+            {% if count > ns.count %}
+              {% set ns.name = key | string | replace('_', ' ') | title %}
+              {% set ns.count = count %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.name }}
+        {% else %}
+          None
+        {% endif %}
+      attributes:
+        count: >-
+          {% set reasons = state_attr('sensor.bambuddy_failure_analysis', 'failures_by_reason') %}
+          {% if reasons is mapping and reasons %}
+            {% set ns = namespace(count=-1) %}
+            {% for _, value in reasons.items() %}
+              {% set count = value | int(0) %}
+              {% if count > ns.count %}
+                {% set ns.count = count %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.count if ns.count >= 0 else 0 }}
+          {% else %}
+            0
+          {% endif %}
+
+    - name: Bambuddy Statistics Metrics
+      unique_id: bambuddy_statistics_metrics
+      icon: mdi:chart-bar-stacked
+      state: >-
+        {{ state_attr('sensor.bambuddy_statistics', 'total_prints') | int(0) }}
+      attributes:
+        outcome_counts_json: >-
+          {% set success = state_attr('sensor.bambuddy_statistics', 'successful_prints') | int(0) %}
+          {% set failed = state_attr('sensor.bambuddy_statistics', 'failed_prints') | int(0) %}
+          {% set stopped = state_attr('sensor.bambuddy_statistics', 'stopped_prints') | int(0) %}
+          {{ {
+            'Successful': success,
+            'Failed': failed,
+            'Stopped': stopped
+          } | tojson }}
+        prints_by_filament_type_json: >-
+          {% set raw = state_attr('sensor.bambuddy_statistics', 'prints_by_filament_type') %}
+          {{ (raw if raw is mapping else {}) | tojson }}
+        prints_by_printer_json: >-
+          {% set raw = state_attr('sensor.bambuddy_statistics', 'prints_by_printer') %}
+          {% set ns = namespace(mapped={}) %}
+          {% if raw is mapping %}
+            {% for key, value in raw.items() %}
+              {% set label = 'Printer ' ~ (key | string) %}
+              {% set ns.mapped = ns.mapped | combine({label: value | int(0)}) %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.mapped | tojson }}
+        time_accuracy_by_printer_json: >-
+          {% set raw = state_attr('sensor.bambuddy_statistics', 'time_accuracy_by_printer') %}
+          {% set ns = namespace(mapped={}) %}
+          {% if raw is mapping %}
+            {% for key, value in raw.items() %}
+              {% set label = 'Printer ' ~ (key | string) %}
+              {% set ns.mapped = ns.mapped | combine({label: value | float(0)}) %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.mapped | tojson }}
+        failure_reasons_json: >-
+          {% set raw = state_attr('sensor.bambuddy_failure_analysis', 'failures_by_reason') %}
+          {% set ns = namespace(mapped={}) %}
+          {% if raw is mapping %}
+            {% for key, value in raw.items() %}
+              {% set label = key | string | replace('_', ' ') | title %}
+              {% set ns.mapped = ns.mapped | combine({label: value | int(0)}) %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.mapped | tojson }}

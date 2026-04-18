@@ -1,0 +1,23 @@
+type: custom:apex-direct-bar-card
+title: Prints by Material
+chart_type: donut
+height: 300
+value_name: prints
+source_entity: sensor.bambuddy_statistics_metrics
+source_attribute: prints_by_filament_type_json
+max_items: 10
+group_small_into_other: true
+other_label: Other
+other_color: '#90A4AE'
+legend_position: right
+legend_show: true
+legend_font_size: 13px
+legend_max_width: 250
+default_color: '#42A5F5'
+color_map:
+  PLA: '#42A5F5'
+  PETG: '#66BB6A'
+  TPU: '#26A69A'
+  ABS: '#FFA726'
+  ASA: '#FFB74D'
+  Unknown: '#90A4AE'

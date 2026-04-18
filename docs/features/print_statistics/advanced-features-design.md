@@ -3,6 +3,26 @@
 > Based on full archive API catalog: [bambuddy-archive-api-catalog.md](../bambuddy_common/bambuddy-archive-api-catalog.md)
 > Cross-references archive sample data fields not used by core statistics.
 
+## Current Implementation Snapshot
+
+The first production slice of `print_statistics` is now shipped.
+
+Already implemented in the live package:
+- corrected aggregate stats sensor via `/api/v1/archives/stats`
+- week and month windowed stats sensors
+- failure-analysis REST sensor via `/api/v1/archives/analysis/failures`
+- base KPI sensors for success rate, print time, filament used, print cost, energy, and time accuracy
+- first-slice Statistics dashboard view with KPI overview plus charts for prints by material, prints by printer, failure reasons, and time accuracy by printer
+- webhook-triggered refresh automation for terminal print events
+
+This document should now be read as the follow-on backlog after that shipped baseline, not as a description of an entirely unimplemented package.
+
+## Recommended Next Sequence
+
+1. Add Phase B dashboard expansions that fit today’s data contracts: trend charts, color or material distribution follow-ons, and richer printer workload views.
+2. Keep metadata-dependent analytics behind the Variant 3 roadmap work in `archive_metric_summary` and `archive_spool_snapshots`.
+3. Add rolling-window anomaly sensors only after the current dashboard slice is stable and the operational metrics are verified against Bambuddy.
+
 ---
 
 ## Phase 3.1: Failure Analysis Dashboard

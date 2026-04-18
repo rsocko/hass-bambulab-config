@@ -1,0 +1,9 @@
+type: custom:apex-direct-bar-card
+title: Failure Reasons
+height: 300
+value_name: failures
+source_entity: sensor.bambuddy_statistics_metrics
+source_attribute: failure_reasons_json
+max_items: 8
+horizontal: true
+default_color: '#C62828'

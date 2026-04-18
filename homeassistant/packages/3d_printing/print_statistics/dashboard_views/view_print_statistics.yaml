@@ -1,0 +1,14 @@
+# Print Statistics View — Bambuddy aggregate reporting surfaced in HA.
+#
+# Layout: KPI-first overview with a first slice of reusable charts.
+#
+# See docs/features/print_statistics/README.md for package scope.
+title: Statistics
+path: statistics
+icon: mdi:chart-box-outline
+panel: true
+cards:
+  - type: vertical-stack
+    cards:
+      - !include ../dashboard_cards/statistics_overview.yaml
+      - !include ../dashboard_cards/statistics_insights.yaml

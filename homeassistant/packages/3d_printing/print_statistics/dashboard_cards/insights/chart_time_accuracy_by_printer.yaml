@@ -1,0 +1,10 @@
+type: custom:apex-direct-bar-card
+title: Time Accuracy by Printer
+height: 300
+value_name: '%'
+value_decimals: 1
+source_entity: sensor.bambuddy_statistics_metrics
+source_attribute: time_accuracy_by_printer_json
+max_items: 8
+horizontal: false
+default_color: '#7E57C2'

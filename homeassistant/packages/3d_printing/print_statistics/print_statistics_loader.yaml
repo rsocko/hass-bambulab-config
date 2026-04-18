@@ -1,0 +1,10 @@
+# Print Statistics — Bambuddy aggregate metrics and dashboard surface.
+# Docs: docs/features/print_statistics/README.md
+
+automation: !include_dir_merge_list automations
+sensor: !include_dir_merge_list rest_sensors
+template: !include_dir_merge_list template_sensors
+recorder:
+  exclude:
+    entities:
+      - sensor.bambuddy_statistics_metrics

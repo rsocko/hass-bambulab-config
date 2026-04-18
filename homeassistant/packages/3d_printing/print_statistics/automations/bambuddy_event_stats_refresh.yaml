@@ -1,0 +1,31 @@
+- alias: "Bambuddy - Refresh Statistics On Terminal Events"
+  id: bambuddy_event_stats_refresh
+  description: >
+    Refresh Bambuddy statistics and failure analysis when terminal print events
+    arrive through the normalized Bambuddy webhook event bus.
+
+  triggers:
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_complete"
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_failed"
+    - trigger: event
+      event_type: bambuddy_webhook_event
+      event_data:
+        event: "print_stopped"
+
+  actions:
+    - action: homeassistant.update_entity
+      target:
+        entity_id:
+          - sensor.bambuddy_statistics
+          - sensor.bambuddy_statistics_this_week
+          - sensor.bambuddy_statistics_this_month
+          - sensor.bambuddy_failure_analysis
+
+  mode: queued
+  max: 5

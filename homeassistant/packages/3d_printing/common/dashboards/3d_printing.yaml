@@ -6,4 +6,5 @@ views:
   - !include ../dashboard_views/view_filament_tags.yaml
   - !include ../../filament_catalog/dashboard_views/view_filament_catalog.yaml
   - !include ../../print_history/dashboard_views/view_print_history.yaml
+  - !include ../../print_statistics/dashboard_views/view_print_statistics.yaml
   - !include ../dashboard_views/view_deploy_validation.yaml

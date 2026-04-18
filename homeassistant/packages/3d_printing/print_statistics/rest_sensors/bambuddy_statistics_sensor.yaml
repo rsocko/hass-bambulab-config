@@ -1,0 +1,94 @@
+- platform: rest
+  name: "Bambuddy Statistics"
+  unique_id: bambuddy_statistics
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/stats
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total_prints | default(0) }}
+  json_attributes:
+    - total_prints
+    - successful_prints
+    - failed_prints
+    - stopped_prints
+    - total_print_time_hours
+    - total_filament_grams
+    - total_cost
+    - prints_by_filament_type
+    - prints_by_printer
+    - average_time_accuracy
+    - time_accuracy_by_printer
+    - total_energy_kwh
+    - total_energy_cost
+  scan_interval: 600
+  icon: mdi:chart-box-outline
+
+- platform: rest
+  name: "Bambuddy Statistics This Week"
+  unique_id: bambuddy_statistics_this_week
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/stats?date_from={{ (now().date() - timedelta(days=now().weekday())).isoformat() }}
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total_prints | default(0) }}
+  json_attributes:
+    - total_prints
+    - successful_prints
+    - failed_prints
+    - stopped_prints
+    - total_print_time_hours
+    - total_filament_grams
+    - total_cost
+  scan_interval: 900
+  icon: mdi:calendar-week
+
+- platform: rest
+  name: "Bambuddy Statistics This Month"
+  unique_id: bambuddy_statistics_this_month
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/stats?date_from={{ now().replace(day=1).date().isoformat() }}
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ value_json.total_prints | default(0) }}
+  json_attributes:
+    - total_prints
+    - successful_prints
+    - failed_prints
+    - stopped_prints
+    - total_print_time_hours
+    - total_filament_grams
+    - total_cost
+  scan_interval: 1800
+  icon: mdi:calendar-month
+
+- platform: rest
+  name: "Bambuddy Failure Analysis"
+  unique_id: bambuddy_failure_analysis
+  resource_template: >-
+    {{ states('input_text.bambuddy_api_base_url') }}/api/v1/archives/analysis/failures
+  headers:
+    X-API-Key: !secret bambuddy_api_key
+    Content-Type: application/json
+  method: GET
+  value_template: >-
+    {{ ((value_json.failure_rate | default(0) | float(0)) * 100) | round(1) }}
+  json_attributes:
+    - total_prints
+    - failed_prints
+    - failure_rate
+    - failures_by_reason
+    - failures_by_filament
+    - failures_by_printer
+    - failures_by_hour
+    - weekly_trend
+  scan_interval: 1800
+  icon: mdi:alert-circle-outline
