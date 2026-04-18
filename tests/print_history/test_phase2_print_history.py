@@ -1637,6 +1637,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
 
+        self.assertIn("const timelineStartPosition = 12;", content)
+        self.assertIn("const timelineEndPosition = 88;", content)
         self.assertIn("if (normalized.timeMs < rawTimelineStartTime) {", content)
         self.assertIn("if (normalized.timeMs > rawTimelineEndTime) {", content)
         self.assertNotIn("const clampedMs = Math.min(rawTimelineEndTime, Math.max(rawTimelineStartTime, eventTimeMs));", content)
@@ -1654,6 +1656,10 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("before print start", content)
         self.assertIn("after ${endTimelineLabel.toLowerCase()}", content)
         self.assertIn("events.length === 1 ? events[0].color : '#78909C'", content)
+        self.assertNotIn("left:-26px", content)
+        self.assertNotIn("right:-26px", content)
+        self.assertIn("left:${timelineOverflowBeforePosition}%", content)
+        self.assertIn("left:${timelineEndPosition}%", content)
 
     def test_popup_timeline_uses_shared_custom_tooltip_markup_for_anchors_and_events(self):
         content = (
@@ -1684,12 +1690,23 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn("const timelineTooltipClassForPosition = (position) => {", content)
-        self.assertIn("if (position <= 12) return 'print-history-popup-timeline-tooltip--edge-left';", content)
-        self.assertIn("if (position >= 88) return 'print-history-popup-timeline-tooltip--edge-right';", content)
+        self.assertIn("if (position <= (timelineStartPosition + 4)) return 'print-history-popup-timeline-tooltip--edge-left';", content)
+        self.assertIn("if (position >= (timelineEndPosition - 4)) return 'print-history-popup-timeline-tooltip--edge-right';", content)
         self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-left'", content)
         self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-right'", content)
         self.assertIn(".print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}", content)
         self.assertIn(".print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}", content)
+
+    def test_popup_timeline_insets_start_end_anchors_to_reserve_overflow_space(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const timelineOverflowBeforePosition = 2;", content)
+        self.assertIn("const timelineOverflowAfterPosition = 98;", content)
+        self.assertIn("wrapStyle: `position:absolute;left:${timelineStartPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`", content)
+        self.assertIn("wrapStyle: `position:absolute;left:${timelineEndPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`", content)
+        self.assertIn("<span style=\"position:absolute;left:${timelineStartPosition}%;right:${100 - timelineEndPosition}%;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);\"></span>", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")

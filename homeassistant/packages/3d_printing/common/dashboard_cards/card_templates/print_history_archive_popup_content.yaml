@@ -359,6 +359,10 @@ print_history_archive_popup_content:
           { color: timelineColorForKey('enrichment'), label: 'Enrichment applied' },
           { color: timelineColorForKey('repair'), label: 'Repair applied' }
         ];
+        const timelineStartPosition = 12;
+        const timelineEndPosition = 88;
+        const timelineOverflowBeforePosition = 2;
+        const timelineOverflowAfterPosition = 98;
         const buildTimelineTooltipMarkup = (lines, options = {}) => {
           const normalizedLines = Array.isArray(lines)
             ? lines.map((line) => String(line || '').trim()).filter(Boolean)
@@ -368,8 +372,8 @@ print_history_archive_popup_content:
           return `<span class="print-history-popup-timeline-tooltip${tooltipClass}">${normalizedLines.map((line) => `<span class="print-history-popup-timeline-tooltip-line">${escapeHtml(line)}</span>`).join('')}</span>`;
         };
         const timelineTooltipClassForPosition = (position) => {
-          if (position <= 12) return 'print-history-popup-timeline-tooltip--edge-left';
-          if (position >= 88) return 'print-history-popup-timeline-tooltip--edge-right';
+          if (position <= (timelineStartPosition + 4)) return 'print-history-popup-timeline-tooltip--edge-left';
+          if (position >= (timelineEndPosition - 4)) return 'print-history-popup-timeline-tooltip--edge-right';
           return '';
         };
         const timelineLegendMarkup = [
@@ -402,8 +406,8 @@ print_history_archive_popup_content:
           if (rawTimelineStartTime === null || rawTimelineEndTime === null || rawTimelineEndTime <= rawTimelineStartTime) {
             return { inRange: [], beforeStart: [], afterEnd: [] };
           }
-          const trackMin = 6;
-          const trackMax = 94;
+          const trackMin = timelineStartPosition;
+          const trackMax = timelineEndPosition;
           const minGap = 4;
           const beforeStart = [];
           const afterEnd = [];
@@ -482,9 +486,9 @@ print_history_archive_popup_content:
           const ringColor = rgbaFromHex(color, 0.22, 'rgba(255,255,255,0.12)');
           const lineColor = rgbaFromHex(color, 0.55, 'rgba(255,255,255,0.26)');
           if (side === 'before') {
-            return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;left:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;left:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;left:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-left' })}</span>`;
+            return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;left:${timelineOverflowBeforePosition}%;top:50%;width:${timelineStartPosition - timelineOverflowBeforePosition}%;height:12px;transform:translateY(-50%);"><span style="position:absolute;left:8px;right:6px;top:50%;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;left:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-left' })}</span>`;
           }
-          return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;right:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;right:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;right:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-right' })}</span>`;
+          return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;left:${timelineEndPosition}%;top:50%;width:${timelineOverflowAfterPosition - timelineEndPosition}%;height:12px;transform:translateY(-50%);"><span style="position:absolute;left:6px;right:8px;top:50%;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;right:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-right' })}</span>`;
         };
         const beforeOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.beforeStart, 'before');
         const afterOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.afterEnd, 'after');
@@ -494,14 +498,14 @@ print_history_archive_popup_content:
           label: startTimelineTitle,
           tooltipLines: ['Print started', formatTimelineDate(archive?.started_at || archive?.created_at)],
           tooltipClass: 'print-history-popup-timeline-tooltip--edge-left',
-          wrapStyle: 'position:absolute;left:0;top:50%;width:10px;height:10px;transform:translateY(-50%);',
+          wrapStyle: `position:absolute;left:${timelineStartPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};box-shadow:0 0 0 4px rgba(21,101,192,0.12);`
         });
         const endTimelineMarkup = buildTimelinePointMarkup({
           label: endTimelineTitle,
           tooltipLines: [endTimelineLabel, formatTimelineDate(archive?.completed_at)],
           tooltipClass: 'print-history-popup-timeline-tooltip--edge-right',
-          wrapStyle: 'position:absolute;right:0;top:50%;width:10px;height:10px;transform:translateY(-50%);',
+          wrapStyle: `position:absolute;left:${timelineEndPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};box-shadow:0 0 0 4px rgba(255,255,255,0.08);`
         });
         const archiveError = buildArchiveErrorState(archive);
@@ -779,7 +783,7 @@ print_history_archive_popup_content:
                 </div>
                 <div class="print-history-popup-timeline-main">
                   <div class="print-history-popup-timeline-track">
-                    <span style="position:absolute;left:4px;right:4px;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
+                    <span style="position:absolute;left:${timelineStartPosition}%;right:${100 - timelineEndPosition}%;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);"></span>
                     ${beforeOverflowMarkup}
                     ${startTimelineMarkup}
                     ${timelineDotMarkup}
