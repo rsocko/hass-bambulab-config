@@ -1453,6 +1453,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var archiveId = archive.id;
     var archiveName = archive.print_name || ("Archive " + archiveId);
+      var popupTitle = archiveName + " · #" + archiveId;
     var archiveInfo = this._splitArchiveNotes(archive.notes);
     var archiveUserTags = this._userTags(archive.tags);
     var archiveStatus = this._normalizeStatus(archive.status || "completed");
@@ -1755,7 +1756,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         {
           service: "browser_mod.popup",
           data: {
-            title: archiveName,
+              title: popupTitle,
             size: "normal",
             content: {
               type: "vertical-stack",
