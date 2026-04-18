@@ -57,6 +57,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._config = {
       archive_id: String(config.archive_id).trim(),
       archive_name: String(config.archive_name || "").trim(),
+      archive: this._parseArchiveConfig(config.archive_json || config.archive || null),
       entry_id: String(config.entry_id || "").trim(),
     };
     this._renderAnimated = false;
@@ -1154,6 +1155,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
       .replace(/'/g, "&#39;");
   }
 
+  _parseArchiveConfig(value) {
+    if (!value) {
+      return null;
+    }
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (_error) {
+        return null;
+      }
+    }
+    return value && typeof value === "object" ? value : null;
+  }
+
   _normalizeHex(value) {
     const raw = String(value || "").trim().replace(/^#/, "").replace(/"/g, "");
     if (!raw) {
@@ -1170,6 +1186,76 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return colors.map(this._normalizeHex.bind(this)).filter(Boolean);
   }
 
+  _normalizeArchiveColorList(value) {
+    if (Array.isArray(value)) {
+      return this._normalizeColors(value);
+    }
+    return String(value || "")
+      .split(",")
+      .map(this._normalizeHex.bind(this))
+      .filter(Boolean);
+  }
+
+  _extractToolIdsFromGcode(gcodeText) {
+    const lines = String(gcodeText || "").split("\n");
+    const toolPattern = /^T(\d+)\s*$/;
+    const toolIds = [];
+    const seen = {};
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const match = lines[index].match(toolPattern);
+      if (!match) {
+        continue;
+      }
+      const toolId = Number(match[1]);
+      if (!Number.isFinite(toolId) || seen[String(toolId)]) {
+        continue;
+      }
+      seen[String(toolId)] = true;
+      toolIds.push(toolId);
+    }
+
+    return toolIds;
+  }
+
+  _singleArchiveFallbackColor() {
+    const archive = this._config && this._config.archive && typeof this._config.archive === "object"
+      ? this._config.archive
+      : null;
+    if (!archive) {
+      return "";
+    }
+
+    const slots = Array.isArray(archive.filament_slots) ? archive.filament_slots : [];
+    const usedSlotColors = slots.reduce((colors, slot) => {
+      if (!slot || typeof slot !== "object") {
+        return colors;
+      }
+      const color = this._normalizeHex(slot.color || slot.hex || slot.h);
+      const usedGrams = Number(slot.used_grams != null ? slot.used_grams : slot.used_g);
+      if (color && Number.isFinite(usedGrams) && usedGrams > 0) {
+        colors.push(color);
+      }
+      return colors;
+    }, []);
+
+    const distinctUsedSlotColors = Array.from(new Set(usedSlotColors));
+    if (distinctUsedSlotColors.length === 1) {
+      return distinctUsedSlotColors[0];
+    }
+
+    const slotColors = slots
+      .map((slot) => (slot && typeof slot === "object" ? this._normalizeHex(slot.color || slot.hex || slot.h) : ""))
+      .filter(Boolean);
+    const distinctSlotColors = Array.from(new Set(slotColors));
+    if (distinctSlotColors.length === 1) {
+      return distinctSlotColors[0];
+    }
+
+    const archiveColors = this._normalizeArchiveColorList(archive.filament_color);
+    return archiveColors.length === 1 ? archiveColors[0] : "";
+  }
+
   _extractFilamentColorsFromGcode(gcodeText) {
     const match = String(gcodeText || "").match(/^\s*;\s*filament_colour\s*=\s*(.+)$/im);
     if (!match || !match[1]) {
@@ -1179,9 +1265,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _resolvePreviewColors(capabilities, gcodeText) {
+    const toolIds = this._extractToolIdsFromGcode(gcodeText);
+    if (!toolIds.length) {
+      const archiveFallbackColor = this._singleArchiveFallbackColor();
+      if (archiveFallbackColor) {
+        return [archiveFallbackColor];
+      }
+    }
+
     const gcodeColors = this._extractFilamentColorsFromGcode(gcodeText);
     if (gcodeColors.length) {
       return gcodeColors;
+    }
+    const archiveColors = this._normalizeArchiveColorList(this._config && this._config.archive ? this._config.archive.filament_color : "");
+    if (archiveColors.length) {
+      return archiveColors;
     }
     return this._normalizeColors(capabilities.filament_colors);
   }
