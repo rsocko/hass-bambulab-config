@@ -2197,6 +2197,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("_updateDotTooltipPosition(dotNode)", content)
         self.assertIn('window.addEventListener("resize", this._boundTooltipLayoutHandler);', content)
         self.assertIn('translateX(calc(-50% + var(--dot-tooltip-shift, 0px)))', content)
+        self.assertIn('width:max-content;', content)
+        self.assertIn('min-width:min(180px, calc(100vw - 16px));', content)
         self.assertIn('max-width:min(320px, calc(100vw - 16px));', content)
 
     def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
