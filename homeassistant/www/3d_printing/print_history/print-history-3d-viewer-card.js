@@ -181,9 +181,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "h1{margin:0;font-size:clamp(1.05rem,1.3vw + 0.8rem,1.55rem);line-height:1.2;}" +
       ".header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;}" +
       ".subtitle{color:#9fb0c0;font-size:0.9rem;font-weight:600;}" +
-      ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:600;cursor:pointer;}" +
-      ".button.primary{background:rgba(125,211,200,0.14);border-color:rgba(125,211,200,0.28);}" +
-      ".button:disabled,.button[aria-disabled='true']{opacity:0.45;pointer-events:none;}" +
+      ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:700;letter-spacing:0.01em;cursor:pointer;transition:transform 0.16s ease,box-shadow 0.16s ease,border-color 0.16s ease,background 0.16s ease,color 0.16s ease;}" +
+      ".button:hover,.button:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 14px 28px rgba(4,12,20,0.28);transform:translateY(-1px);outline:none;}" +
+      ".button:active{transform:translateY(0);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 8px 18px rgba(4,12,20,0.22);}" +
+      ".button.primary{border-color:rgba(125,211,200,0.36);background:linear-gradient(180deg,rgba(27,92,87,0.98),rgba(10,44,48,0.98));color:#ecfeff;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 14px 30px rgba(13,86,82,0.24);}" +
+      ".button.primary:hover,.button.primary:focus-visible{border-color:rgba(153,246,228,0.52);background:linear-gradient(180deg,rgba(39,118,111,0.98),rgba(14,56,59,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.16),0 18px 34px rgba(13,86,82,0.3);}" +
+      ".button.ghost{border-color:rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(19,28,40,0.92),rgba(9,16,26,0.96));color:#dbe7f3;}" +
+      ".button.ghost:hover,.button.ghost:focus-visible{border-color:rgba(125,211,200,0.36);color:#f8fafc;}" +
+      ".button:disabled,.button[aria-disabled='true']{opacity:0.45;pointer-events:none;box-shadow:none;transform:none;}" +
       ".chips{display:flex;flex-wrap:wrap;gap:8px;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#f8fafc;font-size:0.76rem;font-weight:700;letter-spacing:0.01em;}" +
       ".chip.warn{color:#fde68a;border-color:rgba(245,158,11,0.34);background:rgba(245,158,11,0.12);}" +
@@ -192,7 +197,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".stage-panel{grid-area:stage;align-self:stretch;}" +
       ".canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}" +
       ".stage-toolbar{position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:10px;z-index:4;}" +
-      ".stage-toolbar .button{min-height:36px;padding:0 12px;background:rgba(6,12,20,0.74);backdrop-filter:blur(8px);}" +
+      ".stage-toolbar .button{min-height:38px;padding:0 14px;backdrop-filter:blur(8px);}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -233,6 +238,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-empty{padding:22px;color:#9fb0c0;font-size:0.94rem;line-height:1.6;text-align:left;}" +
       ".capture-meta{display:grid;align-content:start;gap:10px;}" +
       ".capture-kicker{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;}" +
+      ".capture-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}" +
       ".capture-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
       ".capture-copy{color:#9fb0c0;font-size:0.94rem;line-height:1.55;}" +
       ".capture-status{min-height:22px;font-size:0.9rem;color:#9fb0c0;}" +
@@ -240,9 +246,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-status.success{color:#86efac;}" +
       ".capture-controls{display:none;gap:10px;flex-wrap:wrap;align-items:center;}" +
       ".capture-controls.visible{display:flex;}" +
-      ".capture-controls select{appearance:none;min-height:40px;padding:0 38px 0 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);color:#f8fafc;font-size:0.92rem;font-weight:600;}" +
+      ".capture-controls select{appearance:none;min-height:42px;padding:0 42px 0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;font-size:0.92rem;font-weight:700;}" +
+      ".capture-controls select:hover,.capture-controls select:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));outline:none;}" +
       ".capture-note{color:#9fb0c0;font-size:0.84rem;line-height:1.5;}" +
-      ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;padding-top:4px;}" +
+      ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;flex:0 0 auto;}" +
       ".fallback{display:none;padding:18px 20px 22px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(18,31,46,0.98);}" +
       ".fallback.visible{display:block;}" +
       ".fallback-title{margin:0 0 8px;font-size:0.96rem;font-weight:700;}" +
@@ -253,7 +260,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "@keyframes capturePulse{0%{transform:translateY(0);box-shadow:0 0 0 0 rgba(125,211,200,0);}35%{transform:translateY(-2px);box-shadow:0 14px 38px rgba(125,211,200,0.2);}100%{transform:translateY(0);box-shadow:0 22px 56px rgba(125,211,200,0.16);}}" +
       "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
       "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;}}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}}" +
+      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
@@ -271,8 +278,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<section class='viewer-workbench'>" +
       "<section id='viewer-stage' class='panel stage stage-panel'>" +
       "<div class='stage-toolbar'>" +
-      "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
-      "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
+      "<button id='refresh-button' class='button ghost' type='button'>Refresh</button>" +
+      "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
@@ -299,7 +306,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
       "<div class='capture-primary-actions'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
-      "<button id='crop-toggle-button' class='button' type='button'>Crop Capture</button>" +
+      "<button id='crop-toggle-button' class='button ghost' type='button'>Crop View</button>" +
       "</div>" +
       "</div>" +
       "<div class='capture-preview-stack'>" +
@@ -308,7 +315,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image.</div>" +
       "</div>" +
       "<div class='capture-meta'>" +
+      "<div class='capture-title-row'>" +
       "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
+      "<div class='capture-actions'>" +
+      "<button id='download-capture-button' class='button primary' type='button' disabled>Download PNG</button>" +
+      "<button id='upload-capture-button' class='button primary' type='button' disabled>Upload to Archive</button>" +
+      "</div>" +
+      "</div>" +
       "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
       "<div id='capture-status' class='capture-status'></div>" +
       "<div id='capture-controls' class='capture-controls'>" +
@@ -318,14 +331,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<option value='landscape4x3'>Landscape 4:3</option>" +
       "<option value='landscape16x9'>Landscape 16:9</option>" +
       "</select>" +
-      "<button id='reset-crop-button' class='button' type='button'>Reset Crop</button>" +
-      "<button id='cancel-crop-button' class='button' type='button'>Cancel Crop</button>" +
+      "<button id='reset-crop-button' class='button ghost' type='button'>Reset Crop</button>" +
+      "<button id='cancel-crop-button' class='button ghost' type='button'>Cancel Crop</button>" +
       "</div>" +
       "<div id='capture-note' class='capture-note'>Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.</div>" +
-      "<div class='capture-actions'>" +
-      "<button id='download-capture-button' class='button' type='button' disabled>Download PNG</button>" +
-      "<button id='upload-capture-button' class='button' type='button' disabled>Upload to Archive</button>" +
-      "</div>" +
       "</div>" +
       "</div>" +
       "</section>" +
@@ -501,7 +510,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._captureButton.textContent = "Capture View";
     }
     if (this._cropToggleButton) {
-      this._cropToggleButton.textContent = this._cropMode ? "Capture Crop" : "Crop Capture";
+      this._cropToggleButton.textContent = this._cropMode ? "Capture Crop" : "Crop View";
     }
 
     if (this._downloadCaptureButton) {
