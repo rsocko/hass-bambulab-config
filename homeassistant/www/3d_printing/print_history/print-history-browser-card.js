@@ -120,6 +120,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
       ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
       ".grid.list{grid-template-columns:1fr;}" +
+      ".grid.loading{pointer-events:none;}" +
       ".card{position:relative;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:hidden;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
       ".card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;opacity:0;transition:opacity .16s ease, background .16s ease;pointer-events:none;}" +
@@ -233,6 +234,32 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".metric-value{font-size:15px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;}" +
       ".card-shell.list .metric-label{margin-bottom:0;white-space:nowrap;}" +
       ".card-shell.list .metric-value{font-size:14px;text-align:right;}" +
+      "@keyframes printHistoryShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}" +
+      ".skeleton-card{cursor:default;}" +
+      ".skeleton-card:hover,.skeleton-card:focus-visible,.skeleton-card:focus-within,.skeleton-card:active{border-color:color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));box-shadow:none;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));}" +
+      ".skeleton-card::before,.skeleton-card::after{display:none;}" +
+      ".skeleton{position:relative;overflow:hidden;border-radius:14px;background:rgba(148,163,184,0.16);}" +
+      ".skeleton::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.18), rgba(255,255,255,0));background-size:200% 100%;animation:printHistoryShimmer 1.35s ease-in-out infinite;}" +
+      ".skeleton-pill{height:28px;border-radius:999px;}" +
+      ".skeleton-dot{width:14px;height:14px;border-radius:999px;}" +
+      ".skeleton-text{height:12px;}" +
+      ".skeleton-text.title{height:22px;width:78%;}" +
+      ".skeleton-text.subtitle{width:44%;}" +
+      ".skeleton-text.medium{width:58%;}" +
+      ".skeleton-text.long{width:100%;}" +
+      ".skeleton-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}" +
+      ".skeleton-icon{width:30px;height:30px;border-radius:999px;}" +
+      ".skeleton-thumb{width:100%;height:132px;border-radius:16px;}" +
+      ".skeleton-thumb.media{height:228px;}" +
+      ".skeleton-thumb.list{height:116px;}" +
+      ".skeleton-detail-stack{display:grid;gap:10px;}" +
+      ".skeleton-chip-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
+      ".skeleton-metrics{display:grid;gap:10px;}" +
+      ".skeleton-metrics.compact,.skeleton-metrics.media,.skeleton-metrics.list{grid-template-columns:repeat(3,minmax(0,1fr));}" +
+      ".skeleton-metric{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,0.04);display:grid;gap:8px;}" +
+      ".card-shell.list .skeleton-metric{padding:8px 10px;border-radius:14px;}" +
+      ".skeleton-metric .skeleton-text:first-child{width:58%;}" +
+      ".skeleton-metric .skeleton-text:last-child{width:72%;height:16px;}" +
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
       ".dot-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;}" +
       ".dot-button:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25),0 0 0 2px var(--primary-color, var(--accent-color, #03a9f4));}" +
@@ -444,8 +471,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
 
     if (this._loading) {
-      body.className = "status";
-      body.textContent = "Loading print history…";
+      var loadingVariant = this._variant();
+      body.className = "grid " + loadingVariant.toLowerCase() + " loading";
+      body.innerHTML = this._renderSkeletonGrid(loadingVariant);
       return;
     }
 
@@ -466,6 +494,72 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var variantClass = variant.toLowerCase();
     body.className = "grid " + variantClass;
     body.innerHTML = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
+  }
+
+  _renderSkeletonGrid(variant) {
+    var count = this._skeletonCardCount();
+    var cards = [];
+    for (var index = 0; index < count; index += 1) {
+      cards.push(this._renderSkeletonCard(variant));
+    }
+    return cards.join("");
+  }
+
+  _skeletonCardCount() {
+    var configured = Math.max(1, Number(this._stateValue(this._config.page_size_entity) || 0));
+    return configured || 6;
+  }
+
+  _renderSkeletonCard(variant) {
+    if (variant === "Media") {
+      return '' +
+        '<article class="card skeleton-card" aria-hidden="true">' +
+          '<div class="card-shell media">' +
+            '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="skeleton skeleton-thumb media"></div><div class="media-thumb-overlay"><span class="skeleton skeleton-pill" style="width:64px;"></span><div class="skeleton-actions"><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span></div></div></div></div>' +
+            '<div class="content">' +
+              '<div class="skeleton skeleton-pill" style="width:110px;"></div>' +
+              '<div class="header media-header"><div class="media-title-wrap"><div class="skeleton skeleton-text title"></div></div><div class="media-status-line"><div class="skeleton skeleton-text subtitle"></div><div class="skeleton skeleton-pill" style="width:106px;"></div></div></div>' +
+              '<div class="chip-row media-meta-line"><span class="skeleton skeleton-pill" style="width:126px;"></span><span class="skeleton skeleton-pill" style="width:84px;"></span><span class="skeleton skeleton-pill" style="width:114px;"></span></div>' +
+              '<div class="skeleton-metrics media">' + this._renderSkeletonMetric() + this._renderSkeletonMetric() + this._renderSkeletonMetric() + '</div>' +
+              '<div class="color-enrichment-row"><div class="skeleton-chip-group"><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span></div><span class="skeleton skeleton-pill" style="width:134px;"></span></div>' +
+              '<div class="tag-project-row"><div class="skeleton-chip-group"><span class="skeleton skeleton-pill" style="width:74px;"></span><span class="skeleton skeleton-pill" style="width:92px;"></span><span class="skeleton skeleton-pill" style="width:68px;"></span></div><span class="skeleton skeleton-pill" style="width:88px;"></span></div>' +
+              '<div class="skeleton-detail-stack"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div></div>' +
+            '</div>' +
+          '</div>' +
+        '</article>';
+    }
+
+    if (variant === "List") {
+      return '' +
+        '<article class="card skeleton-card" aria-hidden="true">' +
+          '<div class="card-shell list">' +
+            '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="skeleton skeleton-thumb list"></div></div></div>' +
+            '<div class="content list-content">' +
+              '<div class="skeleton skeleton-pill" style="width:104px;"></div>' +
+              '<div class="list-header"><div class="list-title-wrap"><div class="skeleton skeleton-text title"></div></div><div class="list-header-actions"><span class="skeleton skeleton-pill" style="width:58px;"></span><div class="skeleton-actions"><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span></div></div></div>' +
+              '<div class="list-subheader"><div class="skeleton skeleton-text subtitle"></div><div class="list-status-line"><span class="skeleton skeleton-pill" style="width:108px;"></span></div></div>' +
+              '<div class="chip-row list-meta-line"><span class="skeleton skeleton-pill" style="width:120px;"></span><span class="skeleton skeleton-pill" style="width:84px;"></span><span class="skeleton skeleton-pill" style="width:108px;"></span></div>' +
+              '<div class="skeleton-metrics list">' + this._renderSkeletonMetric() + this._renderSkeletonMetric() + this._renderSkeletonMetric() + '</div>' +
+              '<div class="list-bottom-row list-row-mobile-hide"><div class="skeleton-chip-group"><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span></div><span class="skeleton skeleton-pill" style="width:134px;"></span><div class="list-inline-tag-project"><div class="skeleton-chip-group"><span class="skeleton skeleton-pill" style="width:74px;"></span><span class="skeleton skeleton-pill" style="width:92px;"></span></div><span class="skeleton skeleton-pill" style="width:84px;"></span></div></div>' +
+              '<div class="skeleton-detail-stack"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div></div>' +
+            '</div>' +
+          '</div>' +
+        '</article>';
+    }
+
+    return '' +
+      '<article class="card skeleton-card" aria-hidden="true">' +
+        '<div class="card-shell compact">' +
+          '<div class="thumb-wrap"><div class="skeleton skeleton-thumb"></div></div>' +
+          '<div class="content compact-summary"><div class="content-top compact"><span class="skeleton skeleton-pill" style="width:54px;"></span><div class="skeleton-actions"><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span><span class="skeleton skeleton-icon"></span></div></div><div class="chip-row compact-status-line"><span class="skeleton skeleton-text subtitle"></span><span class="skeleton skeleton-pill" style="width:108px;"></span></div><div class="skeleton-chip-group"><span class="skeleton skeleton-pill" style="width:118px;"></span><span class="skeleton skeleton-pill" style="width:82px;"></span></div></div>' +
+          '<div class="content compact-name"><div class="skeleton skeleton-pill" style="width:92px;"></div><div class="skeleton skeleton-text title"></div></div>' +
+          '<div class="content compact-details"><div class="skeleton-metrics compact">' + this._renderSkeletonMetric() + this._renderSkeletonMetric() + this._renderSkeletonMetric() + '</div><div class="color-enrichment-row"><div class="skeleton-chip-group"><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span><span class="skeleton skeleton-dot"></span></div><span class="skeleton skeleton-pill" style="width:134px;"></span></div><div class="tag-project-row"><div class="skeleton-chip-group"><span class="skeleton skeleton-pill" style="width:72px;"></span><span class="skeleton skeleton-pill" style="width:94px;"></span><span class="skeleton skeleton-pill" style="width:66px;"></span></div><span class="skeleton skeleton-pill" style="width:82px;"></span></div><div class="skeleton-detail-stack"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div></div></div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  _renderSkeletonMetric() {
+    return '<div class="skeleton-metric"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text"></div></div>';
   }
 
   _renderArchiveCard(variant, archive) {

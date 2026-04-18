@@ -248,6 +248,7 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
         "input_boolean_print_history_show_activity_heatmap.yaml",
+        "input_boolean_print_history_viewer_render_animated.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [
@@ -815,10 +816,30 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=27", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=26", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
+
+    def test_browser_card_renders_variant_skeletons_while_loading(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+        self.assertIn('body.className = "grid " + loadingVariant.toLowerCase() + " loading";', content)
+        self.assertIn('body.innerHTML = this._renderSkeletonGrid(loadingVariant);', content)
+        self.assertIn('var configured = Math.max(1, Number(this._stateValue(this._config.page_size_entity) || 0));', content)
+
+    def test_browser_card_defines_skeleton_shells_for_all_variants(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+        self.assertIn('@keyframes printHistoryShimmer', content)
+        self.assertIn('class="card-shell media"', content)
+        self.assertIn('class="card-shell list"', content)
+        self.assertIn('class="card-shell compact"', content)
+
+    def test_heatmap_card_renders_loading_skeleton_during_query(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('self._loading = true;', content)
+        self.assertIn('self._renderLoadingState();', content)
+        self.assertIn('class="loading-shell"', content)
+        self.assertIn('@keyframes printHistoryHeatmapShimmer', content)
 
     def test_heatmap_card_normalizes_cancelled_statuses(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -1650,7 +1671,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=18", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=26", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=27", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1666,6 +1687,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm', script)
+        self.assertIn('const DEFAULT_RENDER_ANIMATED_ENTITY = "input_boolean.print_history_viewer_render_animated";', script)
         self.assertIn('type: "bambuddy/print_history_archive_viewer"', script)
         self.assertIn('print-history-3d-viewer-card requires archive_id', script)
         self.assertIn('disconnectedCallback()', script)
@@ -1693,6 +1715,11 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("Capture workspace", script)
         self.assertIn("Capture ready to use", script)
         self.assertIn("Crop mode is active", script)
+        self.assertIn('render_animated_entity', script)
+        self.assertIn('renderAnimated: this._renderAnimatedEnabled()', script)
+        self.assertIn('RenderAnimated: renderAnimated', script)
+        self.assertIn('preview.sceneManager.renderAnimated()', script)
+        self.assertIn('Render Animated', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
@@ -1725,6 +1752,15 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
+
+    def test_print_history_settings_popup_includes_viewer_animation_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "dashboard_cards" / "print_history_browser.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("title: Print History Settings", content)
+        self.assertIn("entity: input_boolean.print_history_viewer_render_animated", content)
+        self.assertIn("name: Animate 3D Viewer Render", content)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (

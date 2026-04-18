@@ -24,6 +24,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queryResponse = { activity_rows: [] };
     this._queryToken = 0;
     this._renderTimer = null;
+    this._loading = false;
     this._debugStats = {
       scheduledRenders: 0,
       executedRenders: 0,
@@ -162,6 +163,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "ha-card{padding:6px 16px 10px;}" +
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
       ".chart-wrap{position:relative;min-height:var(--chart-min-height,300px);}" +
+      ".chart-wrap.loading{overflow:hidden;}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
       ".month-spacer{height:14px;}" +
@@ -201,6 +203,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".color-dots{display:flex;flex-wrap:wrap;gap:6px;}" +
       ".color-dot{width:12px;height:12px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.32);}" +
       ".error{color:var(--error-color);font-size:.9rem;line-height:1.4;padding:12px 0;}" +
+      "@keyframes printHistoryHeatmapShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}" +
+      ".loading-shell{display:grid;gap:10px;}" +
+      ".loading-month-row{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:end;}" +
+      ".loading-month-labels{display:grid;grid-template-columns:repeat(var(--week-count,53), minmax(var(--cell-size,10px),1fr));column-gap:4px;align-items:center;min-height:14px;}" +
+      ".loading-grid{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
+      ".loading-day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:2px;}" +
+      ".loading-cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
+      ".loading-row{display:grid;grid-template-columns:repeat(var(--week-count,53), minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
+      ".loading-swatch-row{display:flex;justify-content:flex-end;align-items:center;gap:6px;min-height:18px;}" +
+      ".loading-summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
+      ".loading-pill,.loading-text,.loading-cell,.loading-swatch{position:relative;overflow:hidden;background:rgba(148,163,184,0.16);}" +
+      ".loading-pill::after,.loading-text::after,.loading-cell::after,.loading-swatch::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.18), rgba(255,255,255,0));background-size:200% 100%;animation:printHistoryHeatmapShimmer 1.35s ease-in-out infinite;}" +
+      ".loading-pill{height:30px;border-radius:999px;}" +
+      ".loading-text{height:11px;border-radius:999px;align-self:center;}" +
+      ".loading-cell{height:var(--cell-size,18px);border-radius:4px;}" +
+      ".loading-swatch{width:14px;height:14px;border-radius:4px;}" +
       "</style>" +
       "<ha-card>" +
       (this._config.hide_title ? "" : ('<div class="title">' + this._escapeHtml(this._config.title) + "</div>")) +
@@ -290,6 +308,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       self._debugStats.coalescedRenders += 1;
       clearTimeout(self._renderTimer);
     }
+    self._loading = true;
+    self._renderLoadingState();
     self._renderTimer = setTimeout(function () {
       self._renderTimer = null;
       if (self._renderQueued) {
@@ -330,6 +350,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (this._detailsContainer) {
         this._detailsContainer.innerHTML = "";
       }
+      this._loading = false;
       return;
     }
 
@@ -340,45 +361,102 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    await this._ensureDirectQueryData();
+    try {
+      await this._ensureDirectQueryData();
 
-    var archives = this._getScopedArchives();
-    var grouped = this._groupArchivesByDate(archives);
-    var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
-    var layout = this._buildChartLayout(dataset.weekKeys.length);
+      var archives = this._getScopedArchives();
+      var grouped = this._groupArchivesByDate(archives);
+      var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
+      var layout = this._buildChartLayout(dataset.weekKeys.length);
 
-    this._applyChartLayout(layout);
+      this._applyChartLayout(layout);
 
-    this._renderLegend(dataset);
-    this._renderSummary(archives, grouped, dataset);
-    this._renderDetails(grouped);
+      this._renderLegend(dataset);
+      this._renderSummary(archives, grouped, dataset);
+      this._renderDetails(grouped);
 
-    if (!dataset.hasAnyPastCells) {
-      this._destroyChart();
-      this._chartContainer.innerHTML = '<div class="details-empty">No print history data is available for the current scope. Refresh the archive cache or relax the filters.</div>';
+      if (!dataset.hasAnyPastCells) {
+        this._destroyChart();
+        this._chartContainer.classList.remove("loading");
+        this._chartContainer.innerHTML = '<div class="details-empty">No print history data is available for the current scope. Refresh the archive cache or relax the filters.</div>';
+        return;
+      }
+
+      var ApexChartsCtor = await this._ensureApexCharts();
+      if (!ApexChartsCtor) {
+        this._renderHeatmap(dataset);
+        return;
+      }
+
+      this._clearError();
+
+      var options = this._buildChartOptions(dataset, layout);
+
+      if (this._chart) {
+        this._destroyChart();
+      }
+
+      this._chartContainer.innerHTML = "";
+      this._chart = new ApexChartsCtor(this._chartContainer, options);
+      await this._chart.render();
+      await this._ensureChartVisible(dataset);
+      await this._applySelectedVisualState(dataset);
+      this._recordDebug(renderStarted, dataset);
+    } finally {
+      this._loading = false;
+    }
+  }
+
+  _renderLoadingState() {
+    if (!this._chartContainer || !this._config || !this._isVisible()) {
       return;
     }
 
-    var ApexChartsCtor = await this._ensureApexCharts();
-    if (!ApexChartsCtor) {
-      this._renderHeatmap(dataset);
-      return;
+    var weekCount = this._resolveVisibleWeeks();
+    var monthLabels = [];
+    var dayLabels = [];
+    var rows = [];
+    var swatches = [];
+    var chips = [];
+    var index = 0;
+
+    for (index = 0; index < 5; index += 1) {
+      monthLabels.push('<span class="loading-text" style="width:' + String(index === 4 ? 48 : 34) + 'px;"></span>');
+    }
+    for (index = 0; index < 7; index += 1) {
+      dayLabels.push('<span class="loading-text" style="width:' + String(index % 2 === 0 ? 22 : 16) + 'px;"></span>');
+    }
+    for (var row = 0; row < 7; row += 1) {
+      var cells = [];
+      for (var col = 0; col < weekCount; col += 1) {
+        cells.push('<span class="loading-cell"></span>');
+      }
+      rows.push('<div class="loading-row">' + cells.join('') + '</div>');
+    }
+    for (index = 0; index < 5; index += 1) {
+      swatches.push('<span class="loading-swatch"></span>');
+    }
+    for (index = 0; index < 3; index += 1) {
+      chips.push('<span class="loading-pill" style="width:' + String(index === 1 ? 132 : 104) + 'px;"></span>');
     }
 
-    this._clearError();
-
-  var options = this._buildChartOptions(dataset, layout);
-
-    if (this._chart) {
-      this._destroyChart();
+    this._destroyChart();
+    this._chartContainer.classList.add("loading");
+    this._chartContainer.innerHTML = '' +
+      '<div class="loading-shell" style="--week-count:' + this._escapeHtml(String(weekCount || 53)) + '">' +
+        '<div class="loading-month-row"><span></span><div class="loading-month-labels">' + monthLabels.join('') + '</div></div>' +
+        '<div class="loading-grid"><div class="loading-day-labels">' + dayLabels.join('') + '</div><div class="loading-cells">' + rows.join('') + '</div></div>' +
+      '</div>';
+    if (this._legendContainer) {
+      this._legendContainer.classList.remove("hidden");
+      this._legendContainer.innerHTML = '<div class="loading-swatch-row">' + swatches.join('') + '</div>';
     }
-
-    this._chartContainer.innerHTML = "";
-    this._chart = new ApexChartsCtor(this._chartContainer, options);
-    await this._chart.render();
-    await this._ensureChartVisible(dataset);
-    await this._applySelectedVisualState(dataset);
-    this._recordDebug(renderStarted, dataset);
+    if (this._summaryContainer && !this._config.hide_summary) {
+      this._summaryContainer.innerHTML = '<div class="loading-summary">' + chips.join('') + '</div>';
+    }
+    if (this._detailsContainer) {
+      this._detailsContainer.innerHTML = "";
+    }
   }
 
   _destroyChart() {
@@ -422,6 +500,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (!this._chartContainer) {
       return;
     }
+    this._chartContainer.classList.remove("loading");
     var errorNode = this._chartContainer.querySelector(".error");
     if (errorNode) {
       this._chartContainer.innerHTML = "";
@@ -1414,6 +1493,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    this._chartContainer.classList.remove("loading");
+
     var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
     var monthLabels = this._buildMonthLabels(dataset.weekKeys);
     var dayLabels = Array.isArray(this._config.day_labels) ? this._config.day_labels : [];
@@ -2373,6 +2454,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _showError(message) {
     this._destroyChart();
     if (this._chartContainer) {
+      this._chartContainer.classList.remove("loading");
       this._chartContainer.innerHTML = '<div class="error">' + this._escapeHtml(message) + "</div>";
     }
   }
