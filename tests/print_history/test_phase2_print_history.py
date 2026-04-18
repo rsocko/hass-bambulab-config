@@ -1083,7 +1083,7 @@ class TestHelpers(unittest.TestCase):
         )
         self.assertEqual(
             enrichment_filter_options,
-            ["All", "Complete", "Near Complete", "Partial", "Unavailable", "Not Defined"],
+            ["All", "Complete", "Near Complete", "Mostly Complete", "Partially Complete", "Unavailable", "Not Defined"],
         )
         self.assertIn("Cancelled", popup_options)
         self.assertNotIn("Aborted", popup_options)
@@ -1523,28 +1523,22 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(">Enrichment<", content)
         self.assertNotIn(">Tags<", content)
 
-    def test_popup_content_derives_partial_status_and_review_badges(self):
+    def test_popup_content_derives_enrichment_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
-        self.assertIn("if (enrichmentStatusRaw === 'unavailable' && !hasEnrichmentData) return 'unavailable';", content)
-        self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partial';", content)
-        self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'near complete';", content)
+        self.assertIn("if (!hasEnrichmentData) return enrichmentStatusRaw === 'unavailable' ? 'unavailable' : 'unavailable';", content)
+        self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partially complete';", content)
+        self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'mostly complete';", content)
+        self.assertIn("if (enrichmentRows.some((item) => item?.t === null || item?.t === undefined || String(item?.t || '').trim() === '')) return 'near complete';", content)
         self.assertIn("return 'complete';", content)
 
-    def test_browser_card_enrichment_status_logic_matches_popup_contract(self):
-        content = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
-        ).read_text("utf-8")
-        self.assertIn('n: "near complete"', content)
-        self.assertIn('"near complete": "near complete"', content)
-        self.assertIn('if (mapped === "complete" || mapped === "near complete" || mapped === "partial") {', content)
-        self.assertIn('if (mapped === "unavailable") {', content)
-        self.assertIn('return "unavailable";', content)
-        self.assertIn('return !this._hasResolvedEntityId(item && item.f);', content)
-        self.assertIn('return "partial";', content)
-        self.assertIn('return !this._hasResolvedEntityId(item && item.s);', content)
-        self.assertIn('return "near complete";', content)
-        self.assertIn('return "complete";', content)
+    def test_browser_card_enrichment_chip_includes_status_tooltips(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+        self.assertIn("title=\"' + enrichmentChipTitle + '\"", content)
+        self.assertIn('"near complete": "May be missing Tray information"', content)
+        self.assertIn('"mostly complete": "Missing Spool ID(s)"', content)
+        self.assertIn('"partially complete": "Missing Filament ID(s)"', content)
+        self.assertIn('unavailable: "Missing All Data"', content)
 
     def test_browser_card_hides_thumbnail_when_archive_has_no_thumbnail_path(self):
         content = (
@@ -1608,7 +1602,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:\"start duration end\" \"track track track\";", content)
         self.assertIn(".print-history-popup-timeline-side--start{grid-area:start;align-items:flex-start;text-align:left;}", content)
         self.assertIn(".print-history-popup-timeline-side--end{grid-area:end;align-items:flex-end;text-align:right;}", content)
-        self.assertIn(".print-history-popup-timeline-duration{grid-area:duration;align-self:center;justify-self:center;", content)
+        self.assertIn(".print-history-popup-timeline-duration-wrap{grid-area:duration;align-self:center;justify-self:center;", content)
         self.assertIn("@media (max-width: 640px)", content)
         self.assertIn(".print-history-popup-timeline{column-gap:10px;row-gap:8px;}", content)
 
@@ -1617,7 +1611,9 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("if (days) parts.push(`${days}d`);", content)
         self.assertIn("if (hours || days) parts.push(`${hours}h`);", content)
         self.assertIn("if (minutes || (!days && !hours)) parts.push(`${minutes}m`);", content)
-        self.assertIn('<span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>\n                <div class="print-history-popup-timeline-main">', content)
+        self.assertIn('<span class="print-history-popup-timeline-duration">${escapeHtml(timelineDuration)}</span>', content)
+        self.assertIn('class="print-history-popup-timeline-tooltip-wrap print-history-popup-timeline-legend-wrap"', content)
+        self.assertIn('<div class="print-history-popup-timeline-main">', content)
 
     def test_browser_card_only_appends_year_for_non_current_year_archives(self):
         content = (
@@ -1635,6 +1631,52 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const haTimeZone = hass?.config?.time_zone ? String(hass.config.time_zone) : undefined;", content)
         self.assertIn("if (options.includeYearWhenNotCurrent === true && formatDateYear(parsed) !== formatDateYear(new Date())) {", content)
         self.assertIn("const formatTimelineDate = (value) => formatDateLabel(value, { includeTime: true, includeYearWhenNotCurrent: true });", content)
+
+    def test_popup_timeline_collapses_out_of_range_events_instead_of_clamping_them(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("if (normalized.timeMs < rawTimelineStartTime) {", content)
+        self.assertIn("if (normalized.timeMs > rawTimelineEndTime) {", content)
+        self.assertNotIn("const clampedMs = Math.min(rawTimelineEndTime, Math.max(rawTimelineStartTime, eventTimeMs));", content)
+        self.assertIn("const beforeOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.beforeStart, 'before');", content)
+        self.assertIn("const afterOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.afterEnd, 'after');", content)
+
+    def test_popup_timeline_overflow_dot_uses_dotted_connectors_and_combined_hover_text(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const buildTimelineOverflowTitle = (events, summary) => [", content)
+        self.assertNotIn("].join('\\n');", content)
+        self.assertIn("border-top:2px dotted", content)
+        self.assertIn("before print start", content)
+        self.assertIn("after ${endTimelineLabel.toLowerCase()}", content)
+        self.assertIn("events.length === 1 ? events[0].color : '#78909C'", content)
+
+    def test_popup_timeline_uses_shared_custom_tooltip_markup_for_anchors_and_events(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const buildTimelineTooltipMarkup = (lines, options = {}) => {", content)
+        self.assertIn("const buildTimelinePointMarkup = (options) => {", content)
+        self.assertIn('class="print-history-popup-timeline-tooltip-wrap"', content)
+        self.assertIn('class="print-history-popup-timeline-tooltip-line"', content)
+        self.assertIn("${startTimelineMarkup}", content)
+        self.assertIn("${endTimelineMarkup}", content)
+        self.assertNotIn('title="${escapeHtml(startTimelineTitle)}"', content)
+        self.assertNotIn('title="${escapeHtml(endTimelineTitle)}"', content)
+
+    def test_popup_timeline_legend_reuses_shared_tooltip_shell(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn('class="print-history-popup-timeline-tooltip print-history-popup-timeline-legend-tooltip"', content)
+        self.assertIn(".print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip", content)
+        self.assertNotIn(".print-history-popup-timeline-legend-wrap:hover .print-history-popup-timeline-legend-tooltip", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")

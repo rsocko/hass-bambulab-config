@@ -1459,7 +1459,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if target_detail is None:
             target_detail = await manager.async_refresh_archive_detail(target_archive_id, operation="finish_restore_refresh_target")
         enrichment_status = _extract_enrichment_status(target_detail)
-        if attempt_reenrich and enrichment_status not in {"complete", "near complete", "partial"}:
+        if attempt_reenrich and enrichment_status not in {"complete", "near complete", "mostly complete", "partially complete"}:
             await hass.services.async_call(
                 "script",
                 "reenrich_print_history_archive",
@@ -1469,7 +1469,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             target_detail = await manager.async_refresh_archive_detail(target_archive_id, operation="finish_restore_refresh_target")
             enrichment_status = _extract_enrichment_status(target_detail)
 
-        if enrichment_status not in {"complete", "near complete", "partial"}:
+        if enrichment_status not in {"complete", "near complete", "mostly complete", "partially complete"}:
             workflow = manager.restore_workflow.update(
                 entry_id=entry_id,
                 source_archive_id=source_archive_id,

@@ -630,11 +630,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
         + '</div>'
       : '';
     var metricsClass = variant === 'Media' ? 'media' : (variant === 'Compact' ? 'compact-tight' : 'list');
+    var enrichmentChipTitle = this._escapeAttribute(normalized.enrichmentTooltip || normalized.enrichmentLabel);
     var colorEnrichmentMarkup = normalized.filamentChips.length
       ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
         return this._renderFilamentDot(chip);
-      }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
-      : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>';
+      }.bind(this)).join("") + '</div><span class="chip" title="' + enrichmentChipTitle + '" aria-label="' + enrichmentChipTitle + '" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
+      : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" title="' + enrichmentChipTitle + '" aria-label="' + enrichmentChipTitle + '" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>';
     var tagProjectMarkup = ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
       + ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
         return this._renderTagChip(tag);
@@ -921,8 +922,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       statusLabel: status === "completed" ? "Completed" : status === "archived" ? "Archived" : status === "failed" ? "Failed" : status === "cancelled" ? "Cancelled" : status === "printing" ? "Printing" : "Unknown",
       statusColor: status === "completed" ? "#2E7D32" : status === "archived" ? "#546E7A" : status === "failed" ? "#C62828" : status === "cancelled" ? "#EF6C00" : status === "printing" ? "#1565C0" : "#546E7A",
       statusIcon: status === "completed" ? "✅" : status === "archived" ? "📦" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
-      enrichmentLabel: enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
-      enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "near complete" ? "#1565C0" : enrichmentStatus === "partial" ? "#EF6C00" : "#546E7A",
+      enrichmentLabel: enrichmentStatus === "mostly complete" ? "Mostly Complete" : enrichmentStatus === "partially complete" ? "Partially Complete" : enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
+      enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "near complete" ? "#1565C0" : enrichmentStatus === "mostly complete" ? "#6A1B9A" : enrichmentStatus === "partially complete" ? "#EF6C00" : "#546E7A",
+      enrichmentTooltip: this._enrichmentTooltip(enrichmentStatus),
       durationLabel: this._formatDuration(
         archive.effective_duration_seconds != null
           ? archive.effective_duration_seconds
@@ -1274,36 +1276,46 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var mapped = ({
       c: "complete",
       complete: "complete",
-      n: "near complete",
+      t: "near complete",
       "near complete": "near complete",
-      p: "partial",
-      partial: "partial",
+      m: "mostly complete",
+      n: "mostly complete",
+      "mostly complete": "mostly complete",
+      p: "partially complete",
+      partial: "partially complete",
+      "partially complete": "partially complete",
       u: "unavailable",
       unavailable: "unavailable",
     })[normalized] || "";
-    if (mapped === "complete" || mapped === "near complete" || mapped === "partial") {
-      return mapped;
-    }
-    if (mapped === "unavailable") {
-      if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
-        return "unavailable";
-      }
-      mapped = "";
-    }
     if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
-      return "unavailable";
+      return mapped || "unavailable";
     }
     if (enrichmentRows.some(function (item) {
       return !this._hasResolvedEntityId(item && item.f);
     }.bind(this))) {
-      return "partial";
+      return "partially complete";
     }
     if (enrichmentRows.some(function (item) {
       return !this._hasResolvedEntityId(item && item.s);
     }.bind(this))) {
+      return "mostly complete";
+    }
+    if (enrichmentRows.some(function (item) {
+      return String(item && item.t || "").trim() === "";
+    })) {
       return "near complete";
     }
     return "complete";
+  }
+
+  _enrichmentTooltip(status) {
+    return ({
+      "near complete": "May be missing Tray information",
+      "mostly complete": "Missing Spool ID(s)",
+      "partially complete": "Missing Filament ID(s)",
+      unavailable: "Missing All Data",
+      complete: "All enrichment data present",
+    })[String(status || "").toLowerCase()] || "Enrichment status";
   }
 
   _hasResolvedEntityId(value) {

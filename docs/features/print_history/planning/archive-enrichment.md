@@ -168,7 +168,7 @@ The compact payload currently written by the live automation is:
 
 Field meanings:
 
-- `s`: enrichment completeness only. `c` = complete, `n` = near complete, `p` = partial, `u` = unavailable
+- `s`: enrichment completeness only. `c` = complete, `t` = near complete, `m` = mostly complete, `p` = partially complete, `u` = unavailable. Legacy `n` payloads are treated as `mostly complete`.
 - `F`: one row per tray with non-zero contribution
 - `n`: best available spool display name
 - `w`: grams attributed to that tray
@@ -179,17 +179,18 @@ Field meanings:
 
 Status meaning used by the active implementation:
 
-- `complete`: per-row filament and exact spool lineage were both recovered
-- `near complete`: filament identity was recovered, but at least one row still lacks an exact spool match
-- `partial`: at least one row still lacks filament identity, even if a name or color fallback exists
+- `complete`: every row has tray, spool, and filament identity
+- `near complete`: every row has spool and filament identity, but at least one row still lacks tray information
+- `mostly complete`: every row has filament identity, but at least one row still lacks spool identity
+- `partially complete`: at least one row still lacks filament identity, even if a name or color fallback exists
 - `unavailable`: no usable enrichment rows were recovered
 
-Missing tray labels alone should not downgrade a payload out of `complete`; the current severity ordering is driven primarily by spool and filament lineage quality.
+The active severity ordering is driven by row completeness in this order: missing filament, then missing spool, then missing tray.
 
 Optional top-level manual re-enrich fields:
 
 - `src`: recovery source code. `afs` means archived filament slot rows. `at1` means archive-level single-color fallback.
-- `reason`: diagnostic text explaining why a manual re-enrich result is near complete, partial, or unavailable.
+- `reason`: diagnostic text explaining why a manual re-enrich result is near complete, mostly complete, partially complete, or unavailable.
 
 Optional row field used only when operator review is needed:
 

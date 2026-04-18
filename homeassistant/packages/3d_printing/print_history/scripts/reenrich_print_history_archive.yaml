@@ -687,7 +687,7 @@ reenrich_print_history_archive:
                   {% if candidate_filaments | count == 0 %}
                     u
                   {% else %}
-                    {% set ns = namespace(missing_filament=false, missing_spool=false) %}
+                    {% set ns = namespace(missing_filament=false, missing_spool=false, missing_tray=false) %}
                     {% for row in candidate_filaments %}
                       {% if row.f is none %}
                         {% set ns.missing_filament = true %}
@@ -695,11 +695,16 @@ reenrich_print_history_archive:
                       {% if row.s is none %}
                         {% set ns.missing_spool = true %}
                       {% endif %}
+                      {% if row.t | default('', true) | string | trim == '' %}
+                        {% set ns.missing_tray = true %}
+                      {% endif %}
                     {% endfor %}
                     {% if ns.missing_filament %}
                       p
-                    {% elif ns.missing_spool or (candidate_ambiguity_rows | count > 0) %}
-                      n
+                    {% elif ns.missing_spool %}
+                      m
+                    {% elif ns.missing_tray %}
+                      t
                     {% else %}
                       c
                     {% endif %}
@@ -724,8 +729,8 @@ reenrich_print_history_archive:
                   {% else %}
                     {{ '' }}
                   {% endif %}
-                candidate_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(candidate_payload_status, candidate_payload_status) }}"
-                existing_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
+                candidate_payload_status_label: "{{ {'c': 'complete', 't': 'near complete', 'm': 'mostly complete', 'n': 'mostly complete', 'p': 'partially complete', 'u': 'unavailable'}.get(candidate_payload_status, candidate_payload_status) }}"
+                existing_payload_status_label: "{{ {'c': 'complete', 't': 'near complete', 'm': 'mostly complete', 'n': 'mostly complete', 'p': 'partially complete', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
                 candidate_resolved_rows: >-
                   {% set ns = namespace(count=0) %}
                   {% for row in candidate_filaments %}
@@ -745,10 +750,10 @@ reenrich_print_history_archive:
                 candidate_filament_rows: "{{ candidate_filaments | count }}"
                 existing_filament_rows: "{{ existing_filaments | count }}"
                 candidate_payload_rank: >-
-                  {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
+                  {% set rank = {'c': 4, 't': 3, 'm': 2, 'n': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(candidate_payload_status, -1) }}
                 existing_payload_rank: >-
-                  {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
+                  {% set rank = {'c': 4, 't': 3, 'm': 2, 'n': 2, 'p': 1, 'u': 0} %}
                   {{ rank.get(existing_payload_status, -1) }}
                 candidate_detail_score: >-
                   {{
@@ -968,7 +973,7 @@ reenrich_print_history_archive:
                       data:
                         message: >-
                           Print History debug: updating archive {{ resolved_archive_id }} from manual re-enrich.
-                          effective_status={{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }},
+                          effective_status={{ {'c': 'complete', 't': 'near complete', 'm': 'mostly complete', 'n': 'mostly complete', 'p': 'partially complete', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }},
                           tags={{ effective_system_tags | count }},
                           elapsed_s={{ reenrich_elapsed_seconds }}.
                         level: warning

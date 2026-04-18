@@ -390,7 +390,7 @@ Deferred advanced scripts:
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
 | `print_history_browser_refresh_on_event` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Reset browser paging after lifecycle events; the Bambuddy integration refreshes its own store-backed browser state directly |
 
-The active enrichment payload now uses four completeness tiers in the hidden `+>` note payload: `complete`, `near complete`, `partial`, and `unavailable`. `Near complete` means filament identity was recovered but at least one row still lacks an exact spool match.
+The active enrichment payload now uses five completeness tiers in the hidden `+>` note payload: `complete`, `near complete`, `mostly complete`, `partially complete`, and `unavailable`. `Near complete` means only tray information is still missing. `Mostly complete` means every row has a filament ID but at least one row still lacks a spool ID. `Partially complete` means at least one row still lacks a filament ID.
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook

@@ -695,14 +695,14 @@ def test_variant3_option_sets_include_duplicate_filter() -> None:
     assert options["input_select.print_history_filter_duplicates"] == ["All", "Originals Only", "Duplicates Only"]
 
 
-def test_variant3_project_archive_maps_near_complete_status_code() -> None:
+def test_variant3_project_archive_maps_tray_missing_status_code() -> None:
     archive = project_archive(
         {
             "id": 401,
             "printer_id": 1,
             "print_name": "Near Complete Contract",
             "status": "completed",
-            "notes": "+>{\"s\":\"n\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":\"A1\",\"f\":34,\"h\":\"#112233\"}]}",
+            "notes": "+>{\"s\":\"t\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":null,\"s\":44,\"f\":34,\"h\":\"#112233\"}]}",
             "extra_data": {},
         }
     )
@@ -710,7 +710,7 @@ def test_variant3_project_archive_maps_near_complete_status_code() -> None:
     assert archive["enrichment_status"] == "near complete"
 
 
-def test_variant3_query_filters_near_complete_enrichment_status() -> None:
+def test_variant3_query_filters_mostly_complete_enrichment_status() -> None:
     archives = [
         project_archive(
             {
@@ -724,7 +724,7 @@ def test_variant3_query_filters_near_complete_enrichment_status() -> None:
                 "created_at": "2026-04-10T10:00:00Z",
                 "filament_type": "PLA",
                 "filament_color": "#112233",
-                "notes": "+>{\"s\":\"n\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":\"A1\",\"f\":34,\"h\":\"#112233\"}]}",
+                "notes": "+>{\"s\":\"m\",\"F\":[{\"n\":\"Blue PLA\",\"w\":10.0,\"t\":\"A1\",\"f\":34,\"h\":\"#112233\"}]}",
                 "extra_data": {},
             }
         )
@@ -732,7 +732,7 @@ def test_variant3_query_filters_near_complete_enrichment_status() -> None:
     states = {
         "input_select.print_history_filter_status": "All",
         "input_select.print_history_filter_archive_error": "All",
-        "input_select.print_history_filter_enrichment_status": "Near Complete",
+        "input_select.print_history_filter_enrichment_status": "Mostly Complete",
         "input_select.print_history_filter_material": "All",
         "input_select.print_history_filter_duplicates": "All",
         "input_select.print_history_filter_printer": "All",

@@ -418,11 +418,35 @@ def payload_hash(archive: dict[str, Any]) -> str:
 
 
 def enrichment_status(payload: dict[str, Any]) -> str:
+    rows = payload.get("F") if isinstance(payload, dict) else None
+    if isinstance(rows, list) and rows:
+        missing_filament = False
+        missing_spool = False
+        missing_tray = False
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if row.get("f") in (None, "", "null", "None"):
+                missing_filament = True
+            if row.get("s") in (None, "", "null", "None"):
+                missing_spool = True
+            if as_text(row.get("t")).strip() == "":
+                missing_tray = True
+        if missing_filament:
+            return "partially complete"
+        if missing_spool:
+            return "mostly complete"
+        if missing_tray:
+            return "near complete"
+        return "complete"
+
     status_code = as_text(payload.get("s")).strip().lower()
     return {
         "c": "complete",
-        "n": "near complete",
-        "p": "partial",
+        "t": "near complete",
+        "m": "mostly complete",
+        "n": "mostly complete",
+        "p": "partially complete",
         "u": "unavailable",
     }.get(status_code, "not defined")
 

@@ -5,7 +5,8 @@ print_history_filter_enrichment_status:
     - All
     - Complete
     - Near Complete
-    - Partial
+    - Mostly Complete
+    - Partially Complete
     - Unavailable
     - Not Defined
   initial: All
