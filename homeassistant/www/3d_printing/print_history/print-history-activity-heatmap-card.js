@@ -13,7 +13,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._summaryContainer = null;
     this._detailsContainer = null;
     this._renderQueued = false;
-    this._signature = "";
+    this._dataSignature = "";
+    this._selectionSignature = "";
     this._resizeObserver = null;
     this._intersectionObserver = null;
     this._visibilityHandler = null;
@@ -25,6 +26,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queryToken = 0;
     this._renderTimer = null;
     this._loading = false;
+    this._renderModel = null;
     this._debugStats = {
       scheduledRenders: 0,
       executedRenders: 0,
@@ -61,7 +63,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     };
 
-    this._signature = "";
+    this._dataSignature = "";
+    this._selectionSignature = "";
+    this._renderModel = null;
     this._renderShell();
     this._queueRender();
   }
@@ -72,13 +76,20 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    var signature = JSON.stringify(this._buildSignature(hass));
-    if (signature === this._signature) {
+    var dataSignature = JSON.stringify(this._buildDataSignature(hass));
+    var selectionSignature = JSON.stringify(this._buildSelectionSignature(hass));
+
+    if (dataSignature !== this._dataSignature) {
+      this._dataSignature = dataSignature;
+      this._selectionSignature = selectionSignature;
+      this._queueRender();
       return;
     }
 
-    this._signature = signature;
-    this._queueRender();
+    if (selectionSignature !== this._selectionSignature) {
+      this._selectionSignature = selectionSignature;
+      this._applySelectionOnlyState();
+    }
   }
 
   connectedCallback() {
@@ -118,21 +129,17 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return 10;
   }
 
-  _buildSignature(hass) {
+  _buildDataSignature(hass) {
     var sourceState = this._config.source_entity ? hass.states[this._config.source_entity] : null;
     var metricState = hass.states[this._config.mode_entity];
-    var selectedDateState = hass.states[this._config.selected_date_entity];
     var apiBaseState = hass.states[this._config.api_base_entity];
     var filteredState = hass.states["sensor.bambuddy_print_history_browser_filtered"];
-    var pageInfoState = hass.states["sensor.bambuddy_print_history_browser_page_info"];
 
     return {
       sourceState: sourceState ? sourceState.state : "",
       sourceFetch: sourceState && sourceState.attributes ? sourceState.attributes.last_fetch || "" : "",
       filteredRevision: filteredState && filteredState.attributes ? String(filteredState.attributes.browser_revision || "") : "",
-      pageInfoRevision: pageInfoState && pageInfoState.attributes ? String(pageInfoState.attributes.browser_revision || "") : "",
       metric: metricState ? metricState.state : "",
-      selectedDate: selectedDateState ? selectedDateState.state : "",
       apiBase: apiBaseState ? apiBaseState.state : "",
       status: this._stateValue("input_select.print_history_filter_status"),
       material: this._stateValue("input_select.print_history_filter_material"),
@@ -149,6 +156,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       colors: this._stateValue("input_text.print_history_filter_colors"),
       visible: this._config.visibility_entity ? this._stateValue(this._config.visibility_entity) : "on",
       darkMode: !!(hass.themes && hass.themes.darkMode),
+    };
+  }
+
+  _buildSelectionSignature(hass) {
+    var selectedDateState = hass.states[this._config.selected_date_entity];
+
+    return {
+      selectedDate: selectedDateState ? selectedDateState.state : "",
     };
   }
 
@@ -368,6 +383,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       var grouped = this._groupArchivesByDate(archives);
       var dataset = this._buildHeatmapDataset(grouped, this._resolveVisibleWeeks());
       var layout = this._buildChartLayout(dataset.weekKeys.length);
+      this._renderModel = {
+        archives: archives,
+        grouped: grouped,
+        dataset: dataset,
+      };
 
       this._applyChartLayout(layout);
 
@@ -569,7 +589,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       favorites_only: this._isOn("input_boolean.print_history_filter_favorites_only"),
       search: String(this._stateValue("input_text.print_history_search") || "").trim(),
       colors: String(this._stateValue("input_text.print_history_filter_colors") || "").trim(),
-      selected_day: String(this._stateValue(this._config.selected_date_entity) || "").trim(),
       sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
       activity_metric: this._normalizeFilterValue(this._stateValue(this._config.mode_entity)),
       include_activity_rows: true,
@@ -1159,23 +1178,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
     if (!selectedDate) {
+      this._clearSelectedPointState();
       this._hideSelectedOverlay();
       return null;
     }
 
     var indexes = this._findPointIndexesByDate(dataset, selectedDate);
     if (!indexes) {
+      this._clearSelectedPointState();
       this._hideSelectedOverlay();
       return null;
     }
 
-    var selectedPoints = this._chart && this._chart.w && this._chart.w.globals
-      ? this._chart.w.globals.selectedDataPoints
-      : null;
-    var currentSeriesSelection = selectedPoints && Array.isArray(selectedPoints[indexes.seriesIndex])
-      ? selectedPoints[indexes.seriesIndex]
-      : [];
-    if (currentSeriesSelection.indexOf(indexes.dataPointIndex) !== -1) {
+    var currentSelection = this._getSelectedPointIndexes();
+    if (currentSelection
+      && currentSelection.seriesIndex === indexes.seriesIndex
+      && currentSelection.dataPointIndex === indexes.dataPointIndex) {
       return {
         element: this._findRenderedPointElement(indexes),
         indexes: indexes,
@@ -1184,12 +1202,50 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     this._suppressPointSelection = true;
     try {
+      if (currentSelection) {
+        this._chart.toggleDataPointSelection(currentSelection.seriesIndex, currentSelection.dataPointIndex);
+      }
       var selectedElement = this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
       await Promise.resolve();
       return {
         element: selectedElement || this._findRenderedPointElement(indexes),
         indexes: indexes,
       };
+    } finally {
+      this._suppressPointSelection = false;
+    }
+  }
+
+  _getSelectedPointIndexes() {
+    var selectedPoints = this._chart && this._chart.w && this._chart.w.globals
+      ? this._chart.w.globals.selectedDataPoints
+      : null;
+    if (!selectedPoints || !Array.isArray(selectedPoints)) {
+      return null;
+    }
+
+    for (var seriesIndex = 0; seriesIndex < selectedPoints.length; seriesIndex += 1) {
+      var dataPoints = selectedPoints[seriesIndex];
+      if (Array.isArray(dataPoints) && dataPoints.length) {
+        return {
+          seriesIndex: seriesIndex,
+          dataPointIndex: dataPoints[0],
+        };
+      }
+    }
+
+    return null;
+  }
+
+  _clearSelectedPointState() {
+    var indexes = this._getSelectedPointIndexes();
+    if (!indexes || !this._chart || typeof this._chart.toggleDataPointSelection !== "function") {
+      return;
+    }
+
+    this._suppressPointSelection = true;
+    try {
+      this._chart.toggleDataPointSelection(indexes.seriesIndex, indexes.dataPointIndex);
     } finally {
       this._suppressPointSelection = false;
     }
@@ -1623,6 +1679,28 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     this._handleDateSelection(meta.dateKey);
+  }
+
+  _applySelectionOnlyState() {
+    if (!this._renderModel) {
+      return;
+    }
+
+    this._syncSelectedCellClasses();
+    this._renderSummary(this._renderModel.archives, this._renderModel.grouped, this._renderModel.dataset);
+    this._renderDetails(this._renderModel.grouped);
+    Promise.resolve(this._applySelectedVisualState(this._renderModel.dataset)).catch(function () {});
+  }
+
+  _syncSelectedCellClasses() {
+    if (!this._chartContainer) {
+      return;
+    }
+
+    var selectedDate = String(this._stateValue(this._config.selected_date_entity) || "").trim();
+    Array.from(this._chartContainer.querySelectorAll(".cell[data-date-key]")).forEach(function (button) {
+      button.classList.toggle("selected", !!selectedDate && button.getAttribute("data-date-key") === selectedDate);
+    });
   }
 
   _renderLegend(dataset) {

@@ -867,6 +867,19 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("new IntersectionObserver(function (entries)", content)
         self.assertIn("this._intersectionObserver.observe(this);", content)
 
+    def test_heatmap_card_ignores_browser_page_revision_for_data_renders(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("_buildDataSignature(hass)", content)
+        self.assertNotIn("pageInfoRevision", content)
+
+    def test_heatmap_card_updates_selected_day_without_refetching_activity_rows(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("_buildSelectionSignature(hass)", content)
+        self.assertIn("this._applySelectionOnlyState();", content)
+        self.assertIn("this._renderModel = {", content)
+        self.assertIn("_syncSelectedCellClasses()", content)
+        self.assertNotIn('selected_day: String(this._stateValue(this._config.selected_date_entity) || "").trim()', content)
+
     def test_heatmap_card_uses_api_object_count(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)
