@@ -1,7 +1,7 @@
 # Trigger-based archive cache for the print history browser.
 # Fetches the full archive list, projects it to a trimmed schema, and stores the
 # result as JSON for Layer 2 filtering and paging.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 - trigger:
     - trigger: time_pattern
       minutes: "/5"

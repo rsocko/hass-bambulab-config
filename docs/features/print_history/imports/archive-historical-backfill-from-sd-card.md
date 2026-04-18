@@ -33,11 +33,11 @@ That means historical backfill needs one extra layer ahead of the current design
 
 Use these documents together:
 
-- [archive-detection-recovery-design.md](archive-detection-recovery-design.md) for the replacement-archive model
-- [archive-runtime-field-impact-matrix.md](archive-runtime-field-impact-matrix.md) for which runtime fields matter
-- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md) for canonical timestamp repair limits
-- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md) for the current repair boundary
-- [archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md) for evidence already collected from the SD backup analysis
+- [archive-detection-recovery-design.md](../recovery/archive-detection-recovery-design.md) for the replacement-archive model
+- [archive-runtime-field-impact-matrix.md](../runtime-repair/archive-runtime-field-impact-matrix.md) for which runtime fields matter
+- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md) for canonical timestamp repair limits
+- [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md) for the current repair boundary
+- [archive-recovery-live-matrix-2026-04-04.md](../recovery/archive-recovery-live-matrix-2026-04-04.md) for evidence already collected from the SD backup analysis
 
 ## What The Current Design Already Proves
 
@@ -674,7 +674,7 @@ If a candidate or target archive would land in a duplicate chain where:
 
 do not auto-delete or auto-skip blindly.
 
-Mark the case as `suspicious_duplicate` and route it through the mismatch-review workflow documented in [archive-mismatch-repair-design.md](archive-mismatch-repair-design.md).
+Mark the case as `suspicious_duplicate` and route it through the mismatch-review workflow documented in [archive-mismatch-repair-design.md](../recovery/archive-mismatch-repair-design.md).
 
 ## Phase 3: Upload only high-confidence canonical candidates
 

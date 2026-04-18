@@ -1,5 +1,5 @@
 # Layer 2 browser state: filters, sorts, and pages the projected archive cache.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 - sensor:
     - name: Print History Filtered
       unique_id: print_history_filtered

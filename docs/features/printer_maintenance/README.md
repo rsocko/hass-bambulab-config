@@ -209,7 +209,7 @@ Full maintenance dashboard view assembling all 3 cards plus a link to Bambuddy's
 
 ## Advanced Design
 
-- [advanced-features-design.md](advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
+- [advanced-features-design.md](../print_history/planning/advanced-features-design.md) — fleet summary, maintenance history, custom types, calibration suggestions, policy tuning, and wiki-guided exception flows
 
 ## Scope Decision After API Review
 

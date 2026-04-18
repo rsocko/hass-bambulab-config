@@ -1,6 +1,6 @@
 # Capture photos on print failure, stop, or HMS error for diagnostics.
 # Queued mode handles rapid HMS error cascades.
-# Docs: docs/features/print_history/photo-capture-design.md
+# Docs: docs/features/print_history/ui-media/photo-capture-design.md
 - alias: "Print History - Capture Error Photos"
   id: bambuddy_capture_error_photos
   description: >

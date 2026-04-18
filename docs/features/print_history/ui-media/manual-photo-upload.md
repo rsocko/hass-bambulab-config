@@ -74,8 +74,8 @@ The current file-picker path is already usable on desktop browsers, but a future
 
 This is now split into dedicated design docs:
 
-- [source-3mf-import-design.md](source-3mf-import-design.md)
-- [source-3mf-import-implementation-plan.md](source-3mf-import-implementation-plan.md)
+- [source-3mf-import-design.md](../imports/source-3mf-import-design.md)
+- [source-3mf-import-implementation-plan.md](../imports/source-3mf-import-implementation-plan.md)
 
 The agreed direction is:
 

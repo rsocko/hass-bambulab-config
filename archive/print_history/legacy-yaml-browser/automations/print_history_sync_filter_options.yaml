@@ -1,5 +1,5 @@
 # Sync dynamic filter helper options from the archive cache.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 - alias: Print History - Sync Filter Options
   id: print_history_sync_filter_options
   initial_state: false

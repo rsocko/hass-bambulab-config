@@ -1,5 +1,5 @@
 # Refresh the active Bambuddy Variant 3 print-history browser cache.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 refresh_print_history_archives:
   alias: Refresh Print History Archives
   sequence:

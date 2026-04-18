@@ -1,7 +1,7 @@
 # Multi-stage photo capture during normal print lifecycle.
 # Stages: start (delayed), midprint (% threshold), near_complete (99%+), finish.
 # Finish capture is always attempted when the print_complete webhook arrives.
-# Docs: docs/features/print_history/photo-capture-design.md
+# Docs: docs/features/print_history/ui-media/photo-capture-design.md
 - alias: "Print History - Capture Print Photos"
   id: bambuddy_capture_print_photos
   description: >

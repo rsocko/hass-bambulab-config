@@ -26,8 +26,8 @@ The repository already contemplates Home Assistant as the UX plane for archive m
 Existing evidence:
 
 - [archive-runtime-ha-contract.md](archive-runtime-ha-contract.md) defines a Home Assistant contract for direct runtime repair of one archive
-- [archive-detail-popup-design.md](archive-detail-popup-design.md) reserves future archive-action slots in the popup instead of on the archive card face
-- [advanced-features-design.md](advanced-features-design.md) already treats repair and archive-admin flows as advanced follow-on work rather than default browsing behavior
+- [archive-detail-popup-design.md](../ui-media/archive-detail-popup-design.md) reserves future archive-action slots in the popup instead of on the archive card face
+- [advanced-features-design.md](../planning/advanced-features-design.md) already treats repair and archive-admin flows as advanced follow-on work rather than default browsing behavior
 
 ### Not designed or implemented today
 
@@ -160,7 +160,7 @@ The restore workflow needs an HA-native intake path for the case where the opera
 
 This path is specifically for a replacement sliced `.gcode.3mf` or other file intended to become the canonical Bambuddy archive payload.
 
-It is not the same as the source-project `.3mf` import flow documented in [source-3mf-import-design.md](source-3mf-import-design.md), which is intentionally scoped to image and limited metadata import.
+It is not the same as the source-project `.3mf` import flow documented in [source-3mf-import-design.md](../imports/source-3mf-import-design.md), which is intentionally scoped to image and limited metadata import.
 
 ### Recommended entry point
 

@@ -275,10 +275,10 @@ For forced removal when enrichment is still incomplete, use `force_remove_withou
 
 Reference design documents:
 
-- `docs/features/print_history/archive-runtime-sidecar-api-and-compose.md`
-- `docs/features/print_history/archive-runtime-restore-from-field-matrix.md`
-- `docs/features/print_history/archive-runtime-restore-from-example-191-200.md`
-- `docs/features/print_history/archive-runtime-restore-from-runbook.md`
+- `docs/features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md`
+- `docs/features/print_history/runtime-repair/archive-runtime-restore-from-field-matrix.md`
+- `docs/features/print_history/runtime-repair/archive-runtime-restore-from-example-191-200.md`
+- `docs/features/print_history/runtime-repair/archive-runtime-restore-from-runbook.md`
 
 ## Deployment Recommendation
 

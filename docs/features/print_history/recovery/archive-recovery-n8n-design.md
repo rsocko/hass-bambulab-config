@@ -10,10 +10,10 @@ Related documents:
 
 - [archive-detection-recovery-design.md](archive-detection-recovery-design.md)
 - [archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)
-- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
-- [archive-runtime-repair-deployment-options.md](archive-runtime-repair-deployment-options.md)
-- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
-- [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md)
+- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-repair-deployment-options.md](../runtime-repair/archive-runtime-repair-deployment-options.md)
+- [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
+- [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 - [../../repo/bambuddy-archive-recovery-approach.md](../../repo/bambuddy-archive-recovery-approach.md)
 
 ## Workflow Goal
@@ -26,7 +26,7 @@ When Home Assistant identifies an incomplete Bambuddy archive, `n8n` should be a
 4. annotate both the broken and recovered archives to preserve lineage
 5. return a structured outcome to HA
 
-If canonical runtime correction is required after recovery or for independently repaired archives, the same orchestration layer can also invoke the direct runtime-repair script described in [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md).
+If canonical runtime correction is required after recovery or for independently repaired archives, the same orchestration layer can also invoke the direct runtime-repair script described in [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md).
 
 ## Why `n8n`
 
@@ -230,8 +230,8 @@ Therefore the workflow must preserve original runtime values separately if they 
 
 If preserving runtime values in notes is not sufficient for the deployment, use the separate canonical repair path documented in:
 
-- [archive-runtime-db-repair-guide.md](archive-runtime-db-repair-guide.md)
-- [archive-runtime-repair-script-and-n8n-flow.md](archive-runtime-repair-script-and-n8n-flow.md)
+- [archive-runtime-db-repair-guide.md](../runtime-repair/archive-runtime-db-repair-guide.md)
+- [archive-runtime-repair-script-and-n8n-flow.md](../runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 
 ## Stage 7: Lineage annotation
 
@@ -272,7 +272,7 @@ Suggested format on the fallback archive:
 
 ```
 
-For an eventual always-on service boundary rather than script execution, see [archive-runtime-sidecar-api-and-compose.md](archive-runtime-sidecar-api-and-compose.md).
+For an eventual always-on service boundary rather than script execution, see [archive-runtime-sidecar-api-and-compose.md](../runtime-repair/archive-runtime-sidecar-api-and-compose.md).
 {"replaced_by_archive_id":181,"replacement_status":"archived","replacement_completed_at":"2026-04-04T18:20:00Z"}
 ```
 

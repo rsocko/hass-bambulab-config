@@ -1,7 +1,7 @@
 # Store archive_id from webhook + snapshot tray map at print start.
 # Triggers on print_started from bambuddy_webhook_event.
 # Also snapshots spoolman_tray_map for enrichment (Tier 2 matching).
-# Docs: docs/features/print_history/photo-capture-design.md
+# Docs: docs/features/print_history/ui-media/photo-capture-design.md
 - alias: "Print History - Capture Archive ID"
   id: bambuddy_capture_archive_id
   description: >

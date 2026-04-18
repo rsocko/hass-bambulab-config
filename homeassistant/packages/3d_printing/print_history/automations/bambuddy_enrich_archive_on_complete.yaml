@@ -1,7 +1,7 @@
 # Enrich Bambuddy archives using sensor.print_weight_effective + spoolman_tray_map.
 # First write happens during-print once archive_id and per-tray weight data exist,
 # then a terminal reconciliation runs on complete/failed/cancelled.
-# Docs: docs/features/print_history/archive-enrichment.md
+# Docs: docs/features/print_history/planning/archive-enrichment.md
 - alias: "Print History - Enrich Archive on Complete"
   id: bambuddy_enrich_archive_on_complete
   description: >
@@ -327,13 +327,22 @@
           {% if current_filaments | count == 0 %}
             u
           {% else %}
-            {% set ns = namespace(incomplete=false) %}
+            {% set ns = namespace(missing_filament=false, missing_spool=false) %}
             {% for row in current_filaments %}
-              {% if row.s is none or row.f is none or row.h is none %}
-                {% set ns.incomplete = true %}
+              {% if row.f is none %}
+                {% set ns.missing_filament = true %}
+              {% endif %}
+              {% if row.s is none %}
+                {% set ns.missing_spool = true %}
               {% endif %}
             {% endfor %}
-            {{ 'p' if ns.incomplete else 'c' }}
+            {% if ns.missing_filament %}
+              p
+            {% elif ns.missing_spool %}
+              n
+            {% else %}
+              c
+            {% endif %}
           {% endif %}
         current_payload: >-
           {{ {
@@ -348,8 +357,8 @@
           {% else %}
             {{ '' }}
           {% endif %}
-        current_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(current_payload_status, current_payload_status) }}"
-        existing_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
+        current_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(current_payload_status, current_payload_status) }}"
+        existing_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(existing_payload_status, existing_payload_status) }}"
         current_resolved_rows: >-
           {% set ns = namespace(count=0) %}
           {% for row in current_filaments %}
@@ -369,10 +378,10 @@
         current_filament_rows: "{{ current_filaments | count }}"
         existing_filament_rows: "{{ existing_filaments | count }}"
         current_payload_rank: >-
-          {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
+          {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
           {{ rank.get(current_payload_status, -1) }}
         existing_payload_rank: >-
-          {% set rank = {'c': 2, 'p': 1, 'u': 0} %}
+          {% set rank = {'c': 3, 'n': 2, 'p': 1, 'u': 0} %}
           {{ rank.get(existing_payload_status, -1) }}
         current_detail_score: >-
           {{
@@ -389,7 +398,7 @@
         use_existing_payload: >-
           {{ existing_payload is mapping and (existing_detail_score | int(-1)) > (current_detail_score | int(-1)) }}
         has_existing_enrichment: >-
-          {{ existing_payload is mapping and existing_payload_status in ['c', 'p', 'u'] }}
+          {{ existing_payload is mapping and existing_payload_status in ['c', 'n', 'p', 'u'] }}
         terminal_data_insufficient: >-
           {{ is_terminal_trigger and (current_detail_score | int(0)) <= 0 }}
         terminal_preserving_existing: >-
@@ -399,7 +408,7 @@
         effective_payload_source: "{{ 'preserved_existing' if use_existing_payload else 'current_recomputed' }}"
         effective_payload: >-
           {{ (existing_payload if use_existing_payload else current_payload) | tojson | from_json }}
-        effective_payload_status_label: "{{ {'c': 'complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }}"
+        effective_payload_status_label: "{{ {'c': 'complete', 'n': 'near complete', 'p': 'partial', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }}"
         effective_system_tags: >-
           {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
           {% for item in effective_payload.F | default([], true) %}

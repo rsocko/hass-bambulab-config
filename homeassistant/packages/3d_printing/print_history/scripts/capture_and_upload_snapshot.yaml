@@ -1,6 +1,6 @@
 # Multi-camera snapshot capture + multipart upload bridge.
 # Called by photo capture automations with a stage parameter.
-# Docs: docs/features/print_history/photo-capture-design.md
+# Docs: docs/features/print_history/ui-media/photo-capture-design.md
 capture_and_upload_snapshot:
   alias: "Capture Snapshot"
   description: >-

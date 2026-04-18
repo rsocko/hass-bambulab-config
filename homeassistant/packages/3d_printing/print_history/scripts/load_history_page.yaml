@@ -1,7 +1,7 @@
 # Set the current Layer 2 browser page.
 # Layer 1 holds the full archive cache, and Layer 2 slices the current page.
 # Called by script.navigate_history or directly from dashboard buttons.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 load_history_page:
   alias: "Load History Page"
   description: >-

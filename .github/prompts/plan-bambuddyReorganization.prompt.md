@@ -3,7 +3,7 @@
 ## TL;DR
 Break monolithic `bambuddy/` into 5 feature HA packages. Leverage Bambuddy's native auto-archiving, maintenance tracker — HA's role is READ + SURFACE + ENRICH + REACT, not recreate. HA adds multi-camera photo capture at strategic print stages (including errors), enriches archives with Spoolman spool data via PATCH tags/notes, and surfaces Bambuddy data in HA dashboards. Delete root `bambuddy/` after migration. Print Log skipped (strict subset of archives).
 
-> Historical planning note: this prompt captures migration design context, not the exact live archive-enrichment contract currently shipped in `homeassistant/packages/3d_printing/print_history/`. For the implemented current-state contract, use `docs/features/print_history/archive-enrichment.md`.
+> Historical planning note: this prompt captures migration design context, not the exact live archive-enrichment contract currently shipped in `homeassistant/packages/3d_printing/print_history/`. For the implemented current-state contract, use `docs/features/print_history/planning/archive-enrichment.md`.
 
 ## Decisions
 - **Package naming**: Feature-first (`print_history/`, `printer_maintenance/`)
@@ -249,8 +249,8 @@ docs/features/
 │   └── README.md
 ├── print_history/
 │   ├── README.md
-│   ├── archive-enrichment.md          # Spoolman → Bambuddy tag/notes pipeline
-│   └── photo-capture-design.md        # multi-camera, multi-stage capture
+│   ├── planning/archive-enrichment.md # Spoolman → Bambuddy tag/notes pipeline
+│   └── ui-media/photo-capture-design.md # multi-camera, multi-stage capture
 ├── print_queue/
 │   └── README.md
 ├── print_statistics/
@@ -357,7 +357,7 @@ Same as previous plan version — see helpers (strip domain wrapper), template s
 23. **Helpers**: bambuddy_current_archive_id, history_page_data, secondary_camera_entity, history_fetch_enabled, capture booleans (4 — start/mid/near-complete/error), midprint_capture_percent, history_limit, history_current_page
 24. **Dashboard cards**: print_history.yaml (compact summary), print_history_browser.yaml (paginated)
 25. **Dashboard view**: view_print_history.yaml
-26. Wire loader, create docs (including photo-capture-design.md and archive-enrichment.md)
+26. Wire loader, create docs (including ui-media/photo-capture-design.md and planning/archive-enrichment.md)
 
 ### Phase 3: `print_queue` *(depends on Phase 1; parallel with Phase 2)*
 

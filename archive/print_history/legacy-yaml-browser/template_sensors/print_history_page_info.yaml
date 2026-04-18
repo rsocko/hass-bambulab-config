@@ -1,6 +1,6 @@
 # Display string for pagination UI.
 # Reads the current page helper and Layer 2 total_pages attribute.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 - sensor:
     - name: Print History Page Info
       unique_id: print_history_page_info

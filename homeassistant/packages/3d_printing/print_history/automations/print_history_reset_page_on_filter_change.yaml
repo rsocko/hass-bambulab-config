@@ -1,5 +1,5 @@
 # Reset browser paging whenever filter/sort state changes.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 - alias: Print History - Reset Page On Filter Change
   id: print_history_reset_page_on_filter_change
   triggers:

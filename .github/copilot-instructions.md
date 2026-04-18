@@ -2,7 +2,7 @@
 
 ## Print History Layering
 
-- Preserve the three-layer print history contract documented in `docs/features/print_history/filter-sort-design.md`.
+- Preserve the three-layer print history contract documented in `docs/features/print_history/browser/filter-sort-design.md`.
 - **Layer 1** (`sensor.print_history_archives`) is a streamlined ingest/projection cache. Keep it lean, stable, and broadly reusable.
 - Do not move presentation-oriented labels, tooltip strings, UI-only joins, or card-specific wording into Layer 1 just to simplify a single dashboard component.
 - Keep Layer 1 focused on normalized archive fields and only the minimal derived data that is broadly useful across multiple Layer 2/Layer 3 consumers.

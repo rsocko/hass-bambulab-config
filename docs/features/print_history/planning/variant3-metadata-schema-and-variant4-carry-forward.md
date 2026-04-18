@@ -92,7 +92,7 @@ Recommended additions:
 - `archive_artifact_metadata`
 - `archive_lineage`
 
-The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](archive-popup-timeline-design.md).
+The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../ui-media/archive-popup-timeline-design.md).
 
 These should be integration-owned in Variant 3. If Variant 4 happens later, the same tables or equivalent collections should move behind the sidecar without changing their semantic contract.
 

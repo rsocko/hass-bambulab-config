@@ -116,7 +116,7 @@ Displays printing statistics:
 ## Related
 
 - [printer_maintenance](../printer_maintenance/README.md) — Uses statistics data for maintenance health scoring (depends on this package for `sensor.bambuddy_statistics`)
-- [advanced-features-design.md](advanced-features-design.md) — Rolling exception windows, energy analytics, and per-printer efficiency follow-ons
+- [advanced-features-design.md](../print_history/planning/advanced-features-design.md) — Rolling exception windows, energy analytics, and per-printer efficiency follow-ons
 
 ## Scope Decision After API Review
 

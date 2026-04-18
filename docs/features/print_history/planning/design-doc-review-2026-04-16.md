@@ -49,12 +49,12 @@ This review separates:
 
 These docs appear directionally accurate and only need routine maintenance, not a status rewrite:
 
-- `archive-detail-popup-design.md`
+- `ui-media/archive-detail-popup-design.md`
 - `archive-compare-similar-design.md`
-- `filter-sort-design.md`
-- `top-controls-contract.md`
-- `manual-photo-upload.md`
-- `archive-exception-ux-design.md` (mostly accurate, though it should cross-link the shipped browser slice more prominently)
+- `browser/filter-sort-design.md`
+- `browser/top-controls-contract.md`
+- `ui-media/manual-photo-upload.md`
+- `recovery/archive-exception-ux-design.md` (mostly accurate, though it should cross-link the shipped browser slice more prominently)
 
 ## Recommended Next Actions
 

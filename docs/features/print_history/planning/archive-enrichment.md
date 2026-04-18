@@ -168,7 +168,7 @@ The compact payload currently written by the live automation is:
 
 Field meanings:
 
-- `s`: enrichment completeness only. `c` = complete, `p` = partial, `u` = unavailable
+- `s`: enrichment completeness only. `c` = complete, `n` = near complete, `p` = partial, `u` = unavailable
 - `F`: one row per tray with non-zero contribution
 - `n`: best available spool display name
 - `w`: grams attributed to that tray
@@ -177,10 +177,19 @@ Field meanings:
 - `f`: Spoolman filament ID when resolved, otherwise `null`
 - `h`: normalized `#RRGGBB` color when available, otherwise `null`
 
+Status meaning used by the active implementation:
+
+- `complete`: per-row filament and exact spool lineage were both recovered
+- `near complete`: filament identity was recovered, but at least one row still lacks an exact spool match
+- `partial`: at least one row still lacks filament identity, even if a name or color fallback exists
+- `unavailable`: no usable enrichment rows were recovered
+
+Missing tray labels alone should not downgrade a payload out of `complete`; the current severity ordering is driven primarily by spool and filament lineage quality.
+
 Optional top-level manual re-enrich fields:
 
 - `src`: recovery source code. `afs` means archived filament slot rows. `at1` means archive-level single-color fallback.
-- `reason`: diagnostic text explaining why a manual re-enrich result is partial or unavailable.
+- `reason`: diagnostic text explaining why a manual re-enrich result is near complete, partial, or unavailable.
 
 Optional row field used only when operator review is needed:
 
@@ -235,7 +244,7 @@ Current behavior:
 
 - popup cards and the popup detail view hide system tags from the user-facing tag display
 - popup notes editing hides the `+>` payload from the user-facing notes field
-- popup detail derives `Partial` enrichment when the hidden payload contains filament rows or ambiguity data that still need review; `Unavailable` is reserved for archives with no preserved enrichment data
+- popup detail now derives `Near Complete` when filament identity is preserved but exact spool lineage is missing; `Partial` is reserved for rows that still lack filament identity, and `Unavailable` remains reserved for archives with no preserved enrichment data
 - popup filament enrichment is now rendered through the same shared stacked-bar card used by the live Print Weight and Print Cost tabs
 - the archive weight tab still renders when enrichment is partial by combining preserved filament rows with an `Unattributed usage` gap segment when the rows do not cover the archive total
 - popup legend rows still surface unresolved tray, spool, filament, or ambiguity state, and the archive weight tab adds explicit issue cards below the chart for the remaining gaps

@@ -4,7 +4,7 @@
 
 Run the same historical archive backfill workflow against the earlier printer SD-card backup without merging it into the existing April 3 manifest lane.
 
-This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](c:\dev\hass-bambulab-config\docs\features\print_history\archive-historical-backfill-from-sd-card.md).
+This runbook keeps the ledger, batch outputs, and operator workflow separate while reusing the same manifest generator and backfill runner described in [archive-historical-backfill-from-sd-card.md](archive-historical-backfill-from-sd-card.md).
 
 ## Source And State Files
 

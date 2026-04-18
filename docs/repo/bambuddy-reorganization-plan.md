@@ -24,16 +24,16 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 
 | Doc | Package | Purpose |
 |-----|---------|---------|
-| [photo-capture-design.md](../features/print_history/photo-capture-design.md) | print_history | Multi-camera, multi-stage capture flow |
-| [archive-enrichment.md](../features/print_history/archive-enrichment.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
-| [photo-review-design.md](../features/print_history/photo-review-design.md) | print_history | Post-print photo curation (remove/replace/cover) |
-| [archive-detection-recovery-design.md](../features/print_history/archive-detection-recovery-design.md) | print_history | Detect incomplete Bambuddy archives and define no-code-change repair options |
-| [archive-mismatch-repair-design.md](../features/print_history/archive-mismatch-repair-design.md) | print_history | Detect wrong-file archive records and define replacement-based repair options |
-| [archive-detection-phase1-scope.md](../features/print_history/archive-detection-phase1-scope.md) | print_history | Collapsed recommended first build slice: detection and visibility only |
-| [archive-detection-implementation-plan.md](../features/print_history/archive-detection-implementation-plan.md) | print_history | Design-only phased plan for HA detection, exception UX, and future recovery orchestration |
-| [archive-recovery-n8n-design.md](../features/print_history/archive-recovery-n8n-design.md) | print_history | `n8n` recovery workflow contract, retry policy, and outcome model |
-| [archive-exception-ux-design.md](../features/print_history/archive-exception-ux-design.md) | print_history | UX design for row markers, exception card, and status chip |
-| [archive-detection-execution-checklist.md](../features/print_history/archive-detection-execution-checklist.md) | print_history | Design-to-build execution checklist for phased delivery |
+| [photo-capture-design.md](../features/print_history/ui-media/photo-capture-design.md) | print_history | Multi-camera, multi-stage capture flow |
+| [archive-enrichment.md](../features/print_history/planning/archive-enrichment.md) | print_history | Spoolman → Bambuddy tag/notes pipeline |
+| [photo-review-design.md](../features/print_history/ui-media/photo-review-design.md) | print_history | Post-print photo curation (remove/replace/cover) |
+| [archive-detection-recovery-design.md](../features/print_history/recovery/archive-detection-recovery-design.md) | print_history | Detect incomplete Bambuddy archives and define no-code-change repair options |
+| [archive-mismatch-repair-design.md](../features/print_history/recovery/archive-mismatch-repair-design.md) | print_history | Detect wrong-file archive records and define replacement-based repair options |
+| [archive-detection-phase1-scope.md](../features/print_history/recovery/archive-detection-phase1-scope.md) | print_history | Collapsed recommended first build slice: detection and visibility only |
+| [archive-detection-implementation-plan.md](../features/print_history/recovery/archive-detection-implementation-plan.md) | print_history | Design-only phased plan for HA detection, exception UX, and future recovery orchestration |
+| [archive-recovery-n8n-design.md](../features/print_history/recovery/archive-recovery-n8n-design.md) | print_history | `n8n` recovery workflow contract, retry policy, and outcome model |
+| [archive-exception-ux-design.md](../features/print_history/recovery/archive-exception-ux-design.md) | print_history | UX design for row markers, exception card, and status chip |
+| [archive-detection-execution-checklist.md](../features/print_history/recovery/archive-detection-execution-checklist.md) | print_history | Design-to-build execution checklist for phased delivery |
 
 ---
 
@@ -63,11 +63,11 @@ This plan tracks the migration away from that early prototype into 5 HA feature 
 | 12 | REST sensor: `bambuddy_print_history_sensor.yaml` | **Done** | Read-only, page 1 |
 | 13 | REST commands: delete photo, set cover, update archive, fetch archives, query recent archive | **Done** | JSON-hint photo upload artifact removed; multipart upload remains a separate shell/external bridge |
 | 14 | Archive ID capture automation | **Done** | Triggers on `print_started` webhook; stores archive_id; fallback query; snapshots tray map; resets manifest |
-| 15 | Photo capture automation | **Done** | Multi-trigger capture for start, mid-print, near-complete, and finish/error-adjacent flows — see [photo-capture-design.md](../features/print_history/photo-capture-design.md) |
+| 15 | Photo capture automation | **Done** | Multi-trigger capture for start, mid-print, near-complete, and finish/error-adjacent flows — see [photo-capture-design.md](../features/print_history/ui-media/photo-capture-design.md) |
 | 16 | Error photo automation | **Done** | Triggers: print_failed, print_stopped, HMS error; queued mode (max: 3) |
 | 17 | Snapshot capture+upload script | **Done** | Light → capture → Python shell upload; archive-detail verification; count-based runtime state |
 | 18 | Archive ID fallback script | **Done** | `GET /archives/?printer_id=X&limit=1` + filename match |
-| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `+>` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/archive-enrichment.md) |
+| 19 | Enrichment automation | **Partially done** | Current shipped flow writes native `cost`, managed `f:` / `s:` tags, and a hidden `+>` notes payload while preserving user notes/tags. It does not currently PATCH native archive `status`; remaining work is UUID-first resolution plus richer provenance; see [archive-enrichment.md](../features/print_history/planning/archive-enrichment.md) |
 | 20 | History refresh automation | **Done** | Webhook completion/failure/stop events and manual refresh drive the Layer 1 archive cache via `print_history_refresh_requested` |
 | 21 | Browser paging scripts | **Done** | `load_history_page.yaml`, `navigate_history.yaml`, `refresh_print_history_archives.yaml`, `clear_print_history_filters.yaml`, `toggle_print_history_color_filter.yaml` |
 | 22 | Template sensors (modern format) | **Done** | Layer 1 cache (`print_history_archives`), Layer 2 filter metadata (`print_history_filtered`), page label, and current page slice |
@@ -221,7 +221,7 @@ Refer to the **Decisions** section in the [prompt file](../../.github/prompts/pl
 - **Maintenance**: Bambuddy is source of truth; HA reads + surfaces + allows mark-complete
 - **Print Log**: Skipped (subset of archives)
 - **AMS History**: Skipped (HA already records via ha-bambulab sensors)
-- **Photo Review**: Current UI ships a status chip only; full post-print curation popup remains advanced follow-on work (see [design](../features/print_history/photo-review-design.md))
+- **Photo Review**: Current UI ships a status chip only; full post-print curation popup remains advanced follow-on work (see [design](../features/print_history/ui-media/photo-review-design.md))
 
 ## Readiness Summary
 

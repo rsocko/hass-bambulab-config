@@ -121,4 +121,4 @@ Re-enrich could not safely resolve one filament row: multiple archived AMS trays
 
 Canonical design reference:
 
-- `docs/features/print_history/archive-enrichment.md`
+- `docs/features/print_history/planning/archive-enrichment.md`

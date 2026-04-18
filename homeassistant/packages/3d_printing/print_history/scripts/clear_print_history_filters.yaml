@@ -1,5 +1,5 @@
 # Reset all print history browser controls back to their defaults.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 clear_print_history_filters:
   alias: Clear Print History Filters
   sequence:

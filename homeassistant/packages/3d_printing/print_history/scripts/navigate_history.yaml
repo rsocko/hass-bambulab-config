@@ -1,7 +1,7 @@
 # Navigate print history: prev/next/first/last.
 # Adjusts the current page within the Layer 2 browser bounds and delegates to
 # load_history_page.
-# Docs: docs/features/print_history/filter-sort-design.md
+# Docs: docs/features/print_history/browser/filter-sort-design.md
 navigate_history:
   alias: "Navigate History"
   description: >-

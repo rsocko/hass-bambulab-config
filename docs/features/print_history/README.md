@@ -10,17 +10,31 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `List` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
 
-Manual phone-photo upload is documented in `manual-photo-upload.md`.
+Manual phone-photo upload is documented in `ui-media/manual-photo-upload.md`.
 
-Tag color assignment for archive tags is documented in `tag-color-contract.md`.
+Tag color assignment for archive tags is documented in `ui-media/tag-color-contract.md`.
 
 Source `.3mf` import workflow and long-term storage policy are documented in:
 
-- `source-3mf-import-design.md`
-- `source-3mf-import-implementation-plan.md`
-- `source-3mf-storage-strategy.md`
+- `imports/source-3mf-import-design.md`
+- `imports/source-3mf-import-implementation-plan.md`
+- `imports/source-3mf-storage-strategy.md`
 
-For the active print-history control-strip structure and mobile pagination guardrails, see `top-controls-contract.md`.
+For the active print-history control-strip structure and mobile pagination guardrails, see `browser/top-controls-contract.md`.
+
+## Documentation Map
+
+The print-history docs are grouped by sub-area so implementation notes, roadmap work, and recovery runbooks do not all live in one flat directory.
+
+- `browser/` - browser, filtering, pagination, and instrumentation design docs
+- `ui-media/` - popup, viewer, photo capture, photo review, and tag/media UX docs
+- `recovery/` - fallback archive detection, mismatch handling, exception UX, and recovery planning
+- `runtime-repair/` - canonical runtime repair and sidecar-backed restore contracts
+- `imports/` - historical backfill and source `.3mf` import workflows
+- `planning/` - roadmap, metadata, layering, and review/planning docs
+- `examples/` - example payloads and working notes kept alongside the feature docs
+
+See the `README.md` inside each subfolder for a focused index.
 
 ## Archived Browser Variants
 
@@ -32,11 +46,11 @@ The retired browser backends remain in-repo for reference only and are no longer
 
 Historical design notes:
 
-- `appdaemon-query-cache.md`
-- `filter-sort-design.md`
-- `external-services-design-review-2026-04.md` - now includes a direct O.D.I.N. vs Bambuddy comparison covering archive schema depth, API shape, Vigil AI/local inference, licensing gates, and transition recommendation
-- `variant3-metadata-schema-and-variant4-carry-forward.md`
-- `metadata-implementation-roadmap.md`
+- `browser/appdaemon-query-cache.md`
+- `browser/filter-sort-design.md`
+- `planning/external-services-design-review-2026-04.md` - now includes a direct O.D.I.N. vs Bambuddy comparison covering archive schema depth, API shape, Vigil AI/local inference, licensing gates, and transition recommendation
+- `planning/variant3-metadata-schema-and-variant4-carry-forward.md`
+- `planning/metadata-implementation-roadmap.md`
 - `issue-update-drafts-2026-04.md`
 - `issue-posting-plan-2026-04.md`
 - `github-posting-batch-1-2026-04.md`
@@ -45,16 +59,16 @@ Historical design notes:
 
 For fallback-archive canonical timestamp repair and adjacent orchestration design, see:
 
-- `archive-runtime-db-repair-guide.md`
-- `archive-runtime-field-impact-matrix.md`
-- `archive-runtime-repair-deployment-options.md`
-- `archive-runtime-repair-script-and-n8n-flow.md`
-- `archive-runtime-ha-contract.md`
-- `archive-runtime-restore-implementation-plan.md`
-- `archive-runtime-restore-ha-service-and-popup-contract.md`
-- `archive-runtime-restore-ha-ux-design.md`
-- `archive-runtime-sidecar-api-and-compose.md`
-- `archive-historical-backfill-from-sd-card.md`
+- `runtime-repair/archive-runtime-db-repair-guide.md`
+- `runtime-repair/archive-runtime-field-impact-matrix.md`
+- `runtime-repair/archive-runtime-repair-deployment-options.md`
+- `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
+- `runtime-repair/archive-runtime-ha-contract.md`
+- `runtime-repair/archive-runtime-restore-implementation-plan.md`
+- `runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md`
+- `runtime-repair/archive-runtime-restore-ha-ux-design.md`
+- `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
+- `imports/archive-historical-backfill-from-sd-card.md`
 
 ## Historical Backfill Execution
 
@@ -113,13 +127,13 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 If you have strong timing evidence, use the existing runtime repair tooling after upload. See:
 
-- `archive-runtime-db-repair-guide.md`
-- `archive-runtime-repair-script-and-n8n-flow.md`
-- `archive-runtime-sidecar-api-and-compose.md`
+- `runtime-repair/archive-runtime-db-repair-guide.md`
+- `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
+- `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
 
 Primary design reference for the historical-import workflow:
 
-- `archive-historical-backfill-from-sd-card.md`
+- `imports/archive-historical-backfill-from-sd-card.md`
 
 ### 6. Interpret the results
 
@@ -378,6 +392,8 @@ Deferred advanced scripts:
 | `bambuddy_capture_error_photos` | print_failed webhook, print_stopped webhook or native cancel event, print_error + HMS error sensors | Error photo capture via `capture_and_upload_snapshot` |
 | `bambuddy_enrich_archive_on_complete` | during-print weight readiness, archive ID availability, HA startup, and `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped` | PATCH archive with managed `f:` / `s:` tags, hidden `+>` notes payload, and native `cost`; clear archive_id on terminal pass |
 | `print_history_browser_refresh_on_event` | `bambuddy_webhook_event` where event=`print_complete`/`print_failed`/`print_stopped`, plus native cancel event for cancelled outcomes | Reset browser paging after lifecycle events; the Bambuddy integration refreshes its own store-backed browser state directly |
+
+The active enrichment payload now uses four completeness tiers in the hidden `+>` note payload: `complete`, `near complete`, `partial`, and `unavailable`. `Near complete` means filament identity was recovered but at least one row still lacks an exact spool match.
 | `print_history_reset_page_on_filter_change` | filter/sort helper changes | Reset browser page to 1 |
 
 ### Operating Without Webhook
@@ -434,26 +450,26 @@ Popup implementation notes for the current shipped path:
 
 For detailed design of the two major subsystems, see:
 
-- **[photo-capture-design.md](photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
-- **[archive-enrichment.md](archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
-- **[photo-review-design.md](photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
-- **[source-3mf-import-design.md](source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
-- **[source-3mf-import-implementation-plan.md](source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
-- **[filter-sort-design.md](filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
-- **[archive-detail-popup-design.md](archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
+- **[photo-capture-design.md](ui-media/photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
+- **[archive-enrichment.md](planning/archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
+- **[photo-review-design.md](ui-media/photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
+- **[source-3mf-import-design.md](imports/source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
+- **[source-3mf-import-implementation-plan.md](imports/source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
+- **[filter-sort-design.md](browser/filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
+- **[archive-detail-popup-design.md](ui-media/archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
-- **[archive-runtime-restore-ha-ux-design.md](archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
-- **[archive-runtime-restore-implementation-plan.md](archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
-- **[archive-runtime-restore-ha-service-and-popup-contract.md](archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
-- **[advanced-features-design.md](advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
-- **[archive-detection-recovery-design.md](archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
-- **[archive-detection-phase1-scope.md](archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
-- **[archive-detection-implementation-plan.md](archive-detection-implementation-plan.md)** — Design-only phased implementation plan for detection and recovery orchestration
-- **[archive-recovery-n8n-design.md](archive-recovery-n8n-design.md)** — Recommended `n8n` workflow design for manual and future automated recovery
-- **[archive-exception-ux-design.md](archive-exception-ux-design.md)** — Dashboard and interaction design for incomplete archive visibility
-- **[archive-detection-execution-checklist.md](archive-detection-execution-checklist.md)** — Task-level execution checklist before implementation
-- **[archive-recovery-live-matrix-2026-04-04.md](archive-recovery-live-matrix-2026-04-04.md)** — Point-in-time recovery matrix for the current live fallback archive set
-- **[archive-recovery-interim-test-plan.md](archive-recovery-interim-test-plan.md)** — Staged manual test method before HA or `n8n` automation creates records
+- **[archive-runtime-restore-ha-ux-design.md](runtime-repair/archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
+- **[archive-runtime-restore-implementation-plan.md](runtime-repair/archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
+- **[archive-runtime-restore-ha-service-and-popup-contract.md](runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
+- **[advanced-features-design.md](planning/advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
+- **[archive-detection-recovery-design.md](recovery/archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
+- **[archive-detection-phase1-scope.md](recovery/archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only
+- **[archive-detection-implementation-plan.md](recovery/archive-detection-implementation-plan.md)** — Design-only phased implementation plan for detection and recovery orchestration
+- **[archive-recovery-n8n-design.md](recovery/archive-recovery-n8n-design.md)** — Recommended `n8n` workflow design for manual and future automated recovery
+- **[archive-exception-ux-design.md](recovery/archive-exception-ux-design.md)** — Dashboard and interaction design for incomplete archive visibility
+- **[archive-detection-execution-checklist.md](recovery/archive-detection-execution-checklist.md)** — Task-level execution checklist before implementation
+- **[archive-recovery-live-matrix-2026-04-04.md](recovery/archive-recovery-live-matrix-2026-04-04.md)** — Point-in-time recovery matrix for the current live fallback archive set
+- **[archive-recovery-interim-test-plan.md](recovery/archive-recovery-interim-test-plan.md)** — Staged manual test method before HA or `n8n` automation creates records
 
 ## Migration Notes
 
@@ -488,13 +504,13 @@ For detailed design of the two major subsystems, see:
 
 These are worth planning immediately after the core package is stable, but they should stay out of the base Phase 2 migration scope:
 
-- **Browser refinements** — See [filter-sort-design.md](filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
-- **Configurable browser instrumentation** — See [browser-instrumentation.md](browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
-- **Heatmap backend unification** — See [filter-sort-design.md](filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
-- **Photo review actions** — See [photo-review-design.md](photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
-- **Timelapse lifecycle + media review** — See [advanced-features-design.md](advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
-- **Archive repair/capability diagnostics** — See [advanced-features-design.md](advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
-- **Reprint preflight** — See [advanced-features-design.md](advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
+- **Browser refinements** — See [filter-sort-design.md](browser/filter-sort-design.md). The Layer 1/Layer 2 browser is now implemented; remaining work is mostly refinement: better printer labels, richer tag chips, optional server-side pre-filtering at very large archive counts, and more polished media/list card layouts.
+- **Configurable browser instrumentation** — See [browser-instrumentation.md](browser/browser-instrumentation.md). This is now available as a dormant debug path for future filter/reset and heatmap analysis.
+- **Heatmap backend unification** — See [filter-sort-design.md](browser/filter-sort-design.md). The current heatmap is correct against the projected archive cache, but a future cleanup could move activity filtering to a dedicated backend activity payload so the card no longer reconstructs its own full filtered working set.
+- **Photo review actions** — See [photo-review-design.md](ui-media/photo-review-design.md). The next concrete slice is store-backed review state plus chip-to-popup handoff, dismiss, and delete actions in the existing archive popup.
+- **Timelapse lifecycle + media review** — See [advanced-features-design.md](planning/advanced-features-design.md). Valuable follow-on once the basic photo review loop is shipped.
+- **Archive repair/capability diagnostics** — See [advanced-features-design.md](planning/advanced-features-design.md). Good for exception handling and admin recovery after upgrades or storage changes.
+- **Reprint preflight** — See [advanced-features-design.md](planning/advanced-features-design.md). Worth doing only once queue lifecycle controls and AMS mapping are in place.
 
 ### Implemented Browser Layer
 
@@ -514,7 +530,7 @@ The print history browser now includes optional, helper-controlled instrumentati
 - UI toggle: debug row in the Print History settings popup opened from the browser header cog button
 - Output: browser console plus `window.__printHistoryDebug`
 
-See [browser-instrumentation.md](browser-instrumentation.md) for the full workflow and payload description.
+See [browser-instrumentation.md](browser/browser-instrumentation.md) for the full workflow and payload description.
 
 ### Thumbnail Images Require Local Network Access
 

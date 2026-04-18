@@ -385,9 +385,9 @@ Why fourth:
 When implementing issue `#757`, use these sources first:
 
 1. this document
-2. `docs/features/print_history/archive-detail-popup-design.md`
+2. `docs/features/print_history/ui-media/archive-detail-popup-design.md`
 3. `docs/features/bambuddy_common/bambuddy-archive-api-catalog.md`
-4. `docs/features/print_history/filter-sort-design.md`
+4. `docs/features/print_history/browser/filter-sort-design.md`
 5. Bambuddy source references:
    - `backend/app/api/routes/archives.py`
    - `backend/app/services/archive_comparison.py`
@@ -395,7 +395,7 @@ When implementing issue `#757`, use these sources first:
 
 Implementation guardrails:
 
-- preserve the three-layer browser contract from `filter-sort-design.md`
+- preserve the three-layer browser contract from `browser/filter-sort-design.md`
 - add compare and related workflows as on-demand detail queries, not as Layer 1 projection fields
 - prefer HA-native compare rendering over guessed Bambuddy deep links
 - keep selection limits aligned with Bambuddy's `2-5` archive API contract

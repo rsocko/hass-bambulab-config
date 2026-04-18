@@ -4,15 +4,15 @@
 
 Define the recommended approach for handling Bambuddy fallback archives from this repository without changing Bambuddy itself.
 
-This document is the repo-level decision record. Feature-level detail lives in [../features/print_history/archive-detection-recovery-design.md](../features/print_history/archive-detection-recovery-design.md).
+This document is the repo-level decision record. Feature-level detail lives in [../features/print_history/recovery/archive-detection-recovery-design.md](../features/print_history/recovery/archive-detection-recovery-design.md).
 
 Additional print_history design references for canonical runtime repair and deployment patterns:
 
-- [../features/print_history/archive-runtime-db-repair-guide.md](../features/print_history/archive-runtime-db-repair-guide.md)
-- [../features/print_history/archive-runtime-field-impact-matrix.md](../features/print_history/archive-runtime-field-impact-matrix.md)
-- [../features/print_history/archive-runtime-repair-deployment-options.md](../features/print_history/archive-runtime-repair-deployment-options.md)
-- [../features/print_history/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/archive-runtime-repair-script-and-n8n-flow.md)
-- [../features/print_history/archive-runtime-sidecar-api-and-compose.md](../features/print_history/archive-runtime-sidecar-api-and-compose.md)
+- [../features/print_history/runtime-repair/archive-runtime-db-repair-guide.md](../features/print_history/runtime-repair/archive-runtime-db-repair-guide.md)
+- [../features/print_history/runtime-repair/archive-runtime-field-impact-matrix.md](../features/print_history/runtime-repair/archive-runtime-field-impact-matrix.md)
+- [../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md](../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md)
+- [../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
+- [../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md](../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 
 ## Executive Summary
 

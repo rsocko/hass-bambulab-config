@@ -1,7 +1,7 @@
 # Fallback: query Bambuddy for the most recent active archive.
 # Used when the print_started webhook doesn't include an archive_id, or when
 # native print-start recovery needs to bind an archive without any webhook.
-# Docs: docs/features/print_history/photo-capture-design.md
+# Docs: docs/features/print_history/ui-media/photo-capture-design.md
 resolve_current_archive_id:
   alias: "Resolve Current Archive ID"
   description: >-
