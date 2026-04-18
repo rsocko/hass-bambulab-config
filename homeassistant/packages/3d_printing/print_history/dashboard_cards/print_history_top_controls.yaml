@@ -230,7 +230,7 @@ card:
                 return ({
                   Compact: 'mdi:view-grid-outline',
                   Media: 'mdi:image-multiple-outline',
-                  Detail: 'mdi:format-list-bulleted',
+                  List: 'mdi:format-list-bulleted',
                 })[variant] || 'mdi:view-dashboard-outline';
               })()}
             show_icon: true

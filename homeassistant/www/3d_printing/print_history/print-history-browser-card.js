@@ -102,7 +102,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid{display:grid;gap:16px;}" +
       ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
       ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
-      ".grid.detail{grid-template-columns:1fr;}" +
+      ".grid.list{grid-template-columns:1fr;}" +
       ".card{position:relative;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:hidden;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
       ".card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;opacity:0;transition:opacity .16s ease, background .16s ease;pointer-events:none;}" +
@@ -117,19 +117,25 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card.duplicate-copy{border-color:color-mix(in srgb, #00897B 34%, var(--divider-color));}" +
       ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
-      ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
-      ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
+      ".card-shell.compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
+      ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);}" +
       ".card-shell.compact{grid-template-columns:minmax(150px,188px) minmax(0,1fr);grid-template-areas:'thumb summary' 'name name' 'details details';column-gap:18px;row-gap:14px;align-items:start;}" +
       ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);grid-template-areas:'summary' 'name' 'details';}" +
       ".card-shell.media{grid-template-columns:minmax(0,1fr);min-height:320px;row-gap:14px;}" +
+      ".card-shell.list{grid-template-columns:minmax(112px,132px) minmax(0,1fr);align-items:center;column-gap:14px;row-gap:8px;min-height:148px;}" +
+      ".card-shell.list.no-image{grid-template-columns:minmax(0,1fr);}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".card-shell.media .thumb-wrap{position:relative;}" +
+      ".card-shell.list .thumb-wrap{position:relative;align-self:stretch;}" +
       ".media-gallery-surface{position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(15,23,42,0.18),rgba(15,23,42,0.08));}" +
       ".thumb.media{height:228px;object-fit:contain;padding:10px;background:rgba(255,255,255,0.04);}" +
+      ".thumb.list-thumb{height:116px;object-fit:contain;padding:8px;background:rgba(255,255,255,0.04);}" +
       ".media-gallery-surface .thumb.media{display:block;width:100%;}" +
+      ".media-gallery-surface .thumb.list-thumb{display:block;width:100%;}" +
       ".media-thumb-empty{height:228px;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}" +
+      ".list-thumb-empty{height:116px;display:flex;align-items:center;justify-content:center;padding:14px;text-align:center;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);font-size:12px;}" +
       ".media-thumb-overlay{position:absolute;inset:12px 12px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}" +
       ".media-thumb-overlay .action-buttons{pointer-events:auto;}" +
       ".media-thumb-overlay .icon-action,.media-thumb-overlay .chip.icon-chip{background:rgba(15,23,42,0.56);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);}" +
@@ -142,6 +148,18 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".media-status-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0;}" +
       ".media-date{font-size:12px;font-weight:600;white-space:nowrap;}" +
       ".chip-row.media-meta-line{align-items:center;gap:8px;}" +
+      ".content.list-content{gap:8px;align-self:center;}" +
+      ".list-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:6px;}" +
+      ".list-title-wrap{min-width:0;}" +
+      ".list-status-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0;}" +
+      ".chip-row.list-meta-line{align-items:center;gap:8px;}" +
+      ".list-bottom-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-width:0;}" +
+      ".list-bottom-row .dots{flex:0 0 auto;}" +
+      ".list-inline-tag-project{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;flex:1 1 240px;}" +
+      ".list-inline-tag-project .tags{min-width:0;}" +
+      ".list-inline-tag-project .project-chip{max-width:180px;}" +
+      ".list-chip-mobile-hide{display:inline-flex;}" +
+      ".list-row-mobile-hide{display:flex;}" +
       ".card-shell.compact .thumb{height:136px;}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
       ".content.compact-summary{grid-area:summary;gap:8px;align-self:start;}" +
@@ -184,9 +202,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".project-chip span{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
       ".metrics{display:grid;gap:10px;}" +
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
-      ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
+      ".metrics.compact,.metrics.list{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
       ".metrics.compact-tight{grid-template-columns:repeat(3,minmax(0,1fr));}" +
+      ".metrics.list{grid-template-columns:repeat(3,minmax(92px,1fr));gap:8px;}" +
       ".metric{padding:10px 12px;border-radius:16px;background:rgba(255,255,255,0.04);min-width:0;}" +
+      ".card-shell.list .metric{padding:8px 10px;border-radius:14px;}" +
       ".card:hover .metric,.card:focus-visible .metric,.card:focus-within .metric{background:color-mix(in srgb, rgba(148,163,184,0.16) 100%, rgba(255,255,255,0.04));}" +
       ".metric-label{font-size:11px;color:var(--secondary-text-color);line-height:1.2;margin-bottom:4px;}" +
       ".metric-value{font-size:15px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;}" +
@@ -202,8 +222,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
-      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line{justify-content:flex-start;}}" +
-      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}}" +
+      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header,.list-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line,.list-status-line{justify-content:flex-start;}.list-chip-mobile-hide{display:none;}.list-inline-tag-project .project-chip{max-width:140px;}}" +
+      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}.card-shell.list{grid-template-columns:92px minmax(0,1fr);column-gap:10px;padding:14px;}.thumb.list-thumb,.list-thumb-empty{height:92px;}.list-row-mobile-hide{display:none;}.metrics.list{grid-template-columns:repeat(3,minmax(72px,1fr));}}" +
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
@@ -372,7 +392,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _variant() {
     var value = String(this._stateValue(this._config.variant_entity) || "Compact");
-    return ["Compact", "Media", "Detail"].indexOf(value) >= 0 ? value : "Compact";
+    if (value === "Detail" || value === "List") {
+      return "List";
+    }
+    return ["Compact", "Media"].indexOf(value) >= 0 ? value : "Compact";
   }
 
   _showImages() {
@@ -420,15 +443,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var baseUrl = this._apiBaseUrl();
     var hasImage = showImages && !!normalized.thumbnailUrl(baseUrl);
     var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
-    var tags = normalized.userTags.slice(0, variant === "Detail" ? 6 : variant === "Media" ? 4 : 6);
+    var tags = normalized.userTags.slice(0, variant === "Media" || variant === "List" ? 4 : 6);
     var hiddenTagCount = Math.max(0, normalized.userTags.length - tags.length);
-    var chips = [];
-    if (variant !== "Compact") {
-      chips.push(this._renderInfoChip(normalized.metadata || "No additional metadata"));
-    }
-    if (variant === "Detail" && normalized.facts.length) {
-      chips = chips.concat(normalized.facts.map(this._renderInfoChip.bind(this)));
-    }
     var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
     var statusChip = '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
     var projectChip = normalized.projectLabel
@@ -455,20 +471,18 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var mediaPlaceholderLabel = this._showImages()
       ? 'No preview image available'
       : 'Images hidden';
+    var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';
+    var listPlaceholderLabel = showImages
+      ? 'No preview image available'
+      : 'Images hidden';
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
         + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
         + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
         + '</div>'
-      : '<div class="chip-row">'
-        + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
-        + '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>'
-        + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
-        + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
-        + '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>'
-        + '</div>';
-    var metricsClass = variant === 'Media' ? 'media' : (variant === 'Compact' ? 'compact-tight' : 'detail');
+      : '';
+    var metricsClass = variant === 'Media' ? 'media' : (variant === 'Compact' ? 'compact-tight' : 'list');
     var colorEnrichmentMarkup = normalized.filamentChips.length
       ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
         return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
@@ -480,6 +494,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '<div></div>')
       + projectChip
       + '</div>' : '');
+    var listDotsMarkup = normalized.filamentChips.length
+      ? '<div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
+        return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
+      }.bind(this)).join("") + '</div>'
+      : '';
+    var listTagsMarkup = (tags.length || hiddenTagCount)
+      ? '<div class="tags">' + tags.map(function (tag) {
+        return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
+      }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>'
+      : '';
 
     var summaryContent = '' +
       '<div class="content compact-summary">' +
@@ -553,44 +577,39 @@ class PrintHistoryBrowserCard extends HTMLElement {
       detailContent = '';
     }
 
-    if (variant === 'Detail') {
+    if (variant === 'List') {
       summaryContent = '' +
-        '<div class="content">' +
-          '<div class="content-top">' +
-          '<span></span>' +
-          '<div class="action-buttons">' +
-          '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
-          '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
-          '</button>' +
-          '<button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
-          '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
-          '</button>' +
-          '</div>' +
-          '</div>' +
+        '<div class="content list-content">' +
           (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '') +
-        '<div class="header">' +
-        '<div style="min-width:0;flex:1 1 220px;max-width:100%;">' +
-        '<div class="name">' + this._escapeHtml(normalized.printName) + '</div>' +
-        '<div class="subtle">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
-        '</div>' +
-        statusChip +
-        '</div>' +
-        primaryChipRow +
-        (chips.length ? '<div class="chip-row">' + chips.join("") + '</div>' : '') +
-        '<div class="metrics ' + metricsClass + '">' +
-        this._renderMetric('Duration', normalized.durationLabel) +
-        this._renderMetric('Filament', normalized.filamentLabel) +
-        this._renderMetric('Cost', normalized.costLabel) +
-        (variant === "Detail" ? this._renderMetric('Objects', normalized.objectLabel) : '') +
-        '</div>' +
-        (normalized.filamentChips.length ? '<div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
-          return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
-        }.bind(this)).join("") + '</div>' : '') +
-        ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
-          return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
-        }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
-        (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
-        (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
+          '<div class="list-header">' +
+            '<div class="list-title-wrap">' +
+              '<div class="name">' + this._escapeHtml(normalized.printName) + noteInline + '</div>' +
+            '</div>' +
+            '<div class="list-status-line">' +
+              '<div class="subtle media-date">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
+              statusChip +
+            '</div>' +
+          '</div>' +
+          '<div class="chip-row list-meta-line">' +
+            (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
+            (normalized.compactArchiveIdLabel ? '<span class="chip">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '') +
+            (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+            (mediaMetaChip ? mediaMetaChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
+            (mediaObjectsChip ? mediaObjectsChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
+            (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
+          '</div>' +
+          '<div class="metrics ' + metricsClass + '">' +
+            this._renderMetric('Duration', normalized.durationLabel) +
+            this._renderMetric('Filament', normalized.filamentLabel) +
+            this._renderMetric('Cost', normalized.costLabel) +
+          '</div>' +
+          ((listDotsMarkup || listTagsMarkup || projectChip || normalized.enrichmentLabel) ? '<div class="list-bottom-row list-row-mobile-hide">'
+            + listDotsMarkup
+            + '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>'
+            + ((listTagsMarkup || projectChip) ? '<div class="list-inline-tag-project">' + listTagsMarkup + projectChip + '</div>' : '')
+            + '</div>' : '') +
+          (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
+          (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
         '</div>';
       detailContent = '';
     }
@@ -601,9 +620,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
         + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
         + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
-      : (hasImage
+      : (variant === 'List'
+        ? '<div class="thumb-wrap"><div class="media-gallery-surface">'
+          + (listImageUrl ? '<img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="list-thumb-empty">' + this._escapeHtml(listPlaceholderLabel) + '</div>')
+          + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
+          + '</div></div>'
+        : (hasImage
         ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
-        : '');
+        : ''));
 
     return "" +
       '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +

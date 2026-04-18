@@ -4,5 +4,5 @@ print_history_card_variant:
   options:
     - Compact
     - Media
-    - Detail
+    - List
   initial: Compact
