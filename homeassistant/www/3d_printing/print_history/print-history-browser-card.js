@@ -151,7 +151,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip.icon-chip ha-icon{width:16px;height:16px;}" +
       ".icon-chip-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#1565C0;color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;}" +
       ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:3px 8px;gap:4px;min-height:24px;height:24px;font-size:10px;max-width:min(100%,180px);line-height:1;box-sizing:border-box;overflow:hidden;}" +
-      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));width:11px;height:11px;min-width:11px;flex:0 0 11px;}" +
+      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));--mdc-icon-size:11px;width:11px;height:11px;min-width:11px;flex:0 0 11px;}" +
       ".project-chip span{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}" +
       ".metrics{display:grid;gap:10px;}" +
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
@@ -409,7 +409,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var photoAction = normalized.photoCount > 0
       ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
-      : '<span class="chip icon-chip" title="No archive photos yet"><ha-icon icon="mdi:image-multiple-outline"></ha-icon></span>';
+      : '';
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
