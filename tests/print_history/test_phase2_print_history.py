@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=24", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=26", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=34", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=26", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
@@ -1649,8 +1649,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=16", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=25", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=18", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=26", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1675,6 +1675,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('Capture View', script)
         self.assertIn('Crop View', script)
         self.assertIn('Capture Crop', script)
+        self.assertIn('Hide Cube', script)
+        self.assertIn('Hide Grid', script)
+        self.assertIn('Show Cube', script)
+        self.assertIn('Show Grid', script)
         self.assertIn('Download G-code', script)
         self.assertIn('Download PNG', script)
         self.assertIn('Upload to Archive', script)
@@ -1713,6 +1717,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('tool === 1000', script)
         self.assertIn('tool === 255 && currentTool != null', script)
         self.assertIn('disableGradient: true', script)
+        self.assertIn('sceneManager.buildVolume = undefined;', script)
+        self.assertIn('child.type === "GridHelper"', script)
+        self.assertIn('child.type === "AxesHelper"', script)
+        self.assertIn('_applyBuildVolumeVisibility();', script)
         self.assertIn('this._preview = preview;', script)
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
@@ -1772,6 +1780,19 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('_buildArchiveViewerPopupContent(archive)', content)
         self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
         self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
+
+    def test_browser_card_favorite_buttons_render_toggle_tooltips_and_pressed_state(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_renderFavoriteButton(normalized, archiveJson)", content)
+        self.assertIn("_favoriteButtonTitle(isFavorite)", content)
+        self.assertIn("aria-pressed=\"' + (isFavorite ? 'true' : 'false') + '\"", content)
+        self.assertIn("Remove from favorites", content)
+        self.assertIn("Add to favorites", content)
+        self.assertIn("(toggle favorite)", content)
+        self.assertIn(".icon-action.favorite:hover,.icon-action.favorite:focus-visible", content)
 
     def test_browser_card_compact_layout_places_name_below_thumb_and_aligns_metadata(self):
         content = (

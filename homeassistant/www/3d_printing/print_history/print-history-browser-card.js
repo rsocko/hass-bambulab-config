@@ -239,11 +239,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:999px;padding:3px 8px;font-size:11px;line-height:1.2;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
       ".dot-button.tooltip-active .dot-tooltip,.dot-button:hover .dot-tooltip,.dot-button:focus-visible .dot-tooltip{opacity:1;transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(0);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
-      ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
+      ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;}" +
+      ".icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}" +
+      ".icon-action:active{transform:translateY(0);}" +
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
       ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
       ".icon-action.viewer:active{transform:translateY(0);}" +
-      ".favorite.active{background:rgba(245,194,66,0.18);color:#f5c242;}" +
+      ".icon-action.favorite{background:rgba(245,194,66,0.10);color:#f0d37a;}" +
+      ".icon-action.favorite:hover,.icon-action.favorite:focus-visible{background:rgba(245,194,66,0.22);color:#ffe08a;box-shadow:0 0 0 1px rgba(245,194,66,0.22);}" +
+      ".favorite.active{background:rgba(245,194,66,0.22);color:#f5c242;box-shadow:0 0 0 1px rgba(245,194,66,0.18);}" +
+      ".favorite.active:hover,.favorite.active:focus-visible{background:rgba(245,194,66,0.30);color:#ffd55f;box-shadow:0 0 0 1px rgba(245,194,66,0.26);}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
@@ -485,12 +490,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var listHeaderId = normalized.compactArchiveIdLabel ? '<span class="chip">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
+    var favoriteButton = this._renderFavoriteButton(normalized, archiveJson);
     var listHeaderActions = '<div class="list-header-actions">'
       + listHeaderId
       + '<div class="action-buttons">'
-      + '<button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">'
-      + '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>'
-      + '</button>'
+      + favoriteButton
       + photoAction
       + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">'
       + '<ha-icon icon="mdi:cube-scan"></ha-icon>'
@@ -552,9 +556,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
         '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
         '</button>' +
-        '<button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
-        '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
-        '</button>' +
+        favoriteButton +
         photoAction +
         '</div>' +
         '</div>' +
@@ -658,7 +660,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var thumbMarkup = variant === 'Media'
       ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
-        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + favoriteButton + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
         + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
@@ -681,6 +683,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _renderMetric(label, value) {
     return '<div class="metric"><div class="metric-label">' + this._escapeHtml(label) + '</div><div class="metric-value">' + this._escapeHtml(value) + '</div></div>';
+  }
+
+  _favoriteButtonTitle(isFavorite) {
+    return isFavorite ? 'Remove from favorites' : 'Add to favorites';
+  }
+
+  _renderFavoriteButton(normalized, archiveJson) {
+    var isFavorite = !!(normalized && normalized.isFavorite);
+    var buttonTitle = this._favoriteButtonTitle(isFavorite);
+    return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized && normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
   }
 
   _renderFilamentDot(chip) {
