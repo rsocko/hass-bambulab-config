@@ -134,6 +134,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card.duplicate-source::after{opacity:1;background:#1565C0;}" +
       ".card.duplicate-copy{border-color:color-mix(in srgb, #00897B 34%, var(--divider-color));}" +
       ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
+      ".card.related-match{border-color:color-mix(in srgb, #6D4C41 34%, var(--divider-color));}" +
+      ".card.related-match::after{opacity:1;background:#6D4C41;}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);}" +
@@ -195,6 +197,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
       ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
+      ".role-emblem.related{background:rgba(109,76,65,0.16);color:#6D4C41;}" +
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".header.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
@@ -809,7 +812,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var originalArchiveId = Math.max(0, Number(archive && archive.original_archive_id || 0));
     var isSource = duplicateSequence === 0 && originalArchiveId > 0 && originalArchiveId === archiveId;
     var isDuplicate = !isSource && (originalArchiveId > 0 || duplicateSequence > 0);
-    var isOriginal = duplicateCount > 0 && (isSource || !isDuplicate);
+    var isRelated = duplicateCount > 0 && !isSource && !isDuplicate;
     var groupSize = duplicateCount > 0 ? (duplicateCount + 1) : 0;
 
     if (isDuplicate) {
@@ -828,7 +831,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       };
     }
 
-    if (isOriginal) {
+    if (isSource) {
       return {
         chipLabel: groupSize > 1 ? ('Source · ' + groupSize + ' prints') : 'Source',
         chipColor: '#1565C0',
@@ -838,6 +841,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
         roleClass: 'duplicate-source',
         roleEmblemLabel: 'Source',
         roleEmblemClass: 'source',
+      };
+    }
+
+    if (isRelated) {
+      return {
+        chipLabel: groupSize > 1 ? ('Related · ' + groupSize + ' prints') : 'Related',
+        chipColor: '#6D4C41',
+        tooltip: groupSize > 1
+          ? ('Bambuddy reports ' + groupSize + ' related prints for this archive without explicit duplicate lineage')
+          : 'Bambuddy reports a related print for this archive without explicit duplicate lineage',
+        roleClass: 'related-match',
+        roleEmblemLabel: 'Related',
+        roleEmblemClass: 'related',
       };
     }
 
@@ -902,7 +918,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       statusColor: status === "completed" ? "#2E7D32" : status === "archived" ? "#546E7A" : status === "failed" ? "#C62828" : status === "cancelled" ? "#EF6C00" : status === "printing" ? "#1565C0" : "#546E7A",
       statusIcon: status === "completed" ? "✅" : status === "archived" ? "📦" : status === "failed" ? "❌" : status === "cancelled" ? "⛔" : status === "printing" ? "🖨️" : "⏳",
       enrichmentLabel: enrichmentStatus.charAt(0).toUpperCase() + enrichmentStatus.slice(1),
-      enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "partial" ? "#EF6C00" : "#546E7A",
+      enrichmentColor: enrichmentStatus === "complete" ? "#2E7D32" : enrichmentStatus === "near complete" ? "#1565C0" : enrichmentStatus === "partial" ? "#EF6C00" : "#546E7A",
       durationLabel: this._formatDuration(
         archive.effective_duration_seconds != null
           ? archive.effective_duration_seconds
@@ -1254,26 +1270,36 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var mapped = ({
       c: "complete",
       complete: "complete",
+      n: "near complete",
+      "near complete": "near complete",
       p: "partial",
       partial: "partial",
       u: "unavailable",
       unavailable: "unavailable",
     })[normalized] || "";
-    if (mapped === "complete" || mapped === "partial") {
+    if (mapped === "complete" || mapped === "near complete" || mapped === "partial") {
       return mapped;
     }
     if (mapped === "unavailable") {
-      return Array.isArray(enrichmentRows) && enrichmentRows.length ? "partial" : "unavailable";
+      if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
+        return "unavailable";
+      }
+      mapped = "";
     }
     if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
       return "unavailable";
     }
-    return enrichmentRows.some(function (item) {
-      return !String(item && item.t || "").trim()
-        || !this._hasResolvedEntityId(item && item.s)
-        || !this._hasResolvedEntityId(item && item.f)
-        || String(item && (item.am || item.a) || "").trim();
-    }.bind(this)) ? "partial" : "complete";
+    if (enrichmentRows.some(function (item) {
+      return !this._hasResolvedEntityId(item && item.f);
+    }.bind(this))) {
+      return "partial";
+    }
+    if (enrichmentRows.some(function (item) {
+      return !this._hasResolvedEntityId(item && item.s);
+    }.bind(this))) {
+      return "near complete";
+    }
+    return "complete";
   }
 
   _hasResolvedEntityId(value) {

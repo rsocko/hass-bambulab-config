@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
@@ -1083,7 +1083,7 @@ class TestHelpers(unittest.TestCase):
         )
         self.assertEqual(
             enrichment_filter_options,
-            ["All", "Complete", "Partial", "Unavailable", "Not Defined"],
+            ["All", "Complete", "Near Complete", "Partial", "Unavailable", "Not Defined"],
         )
         self.assertIn("Cancelled", popup_options)
         self.assertNotIn("Aborted", popup_options)
@@ -1516,8 +1516,10 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
     def test_popup_content_derives_partial_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
-        self.assertIn("if (enrichmentStatusRaw === 'unavailable' && hasEnrichmentData) return 'partial';", content)
-        self.assertIn("return enrichmentRowsWithState.some((row) => row.needsReview) ? 'partial' : 'complete';", content)
+            self.assertIn("if (enrichmentStatusRaw === 'unavailable' && !hasEnrichmentData) return 'unavailable';", content)
+            self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partial';", content)
+            self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'near complete';", content)
+            self.assertIn("return 'complete';", content)
 
     def test_browser_card_hides_thumbnail_when_archive_has_no_thumbnail_path(self):
         content = (
@@ -1759,7 +1761,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=31", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1853,6 +1855,27 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('archive_json: archive ? JSON.stringify(archive) : "{}",', script)
+
+    def test_duplicate_summary_uses_related_label_without_explicit_lineage(self):
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        popup = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("var isRelated = duplicateCount > 0 && !isSource && !isDuplicate;", script)
+        self.assertIn("'Related · ' + groupSize + ' prints'", script)
+        self.assertIn("roleEmblemLabel: 'Related'", script)
+        self.assertIn("roleEmblemClass: 'related'", script)
+        self.assertIn(".card.related-match", script)
+        self.assertIn(".role-emblem.related", script)
+        self.assertNotIn("var isOriginal = duplicateCount > 0 && (isSource || !isDuplicate);", script)
+
+        self.assertIn("const isRelated = duplicateCount > 0 && !isSource && !isDuplicate;", popup)
+        self.assertIn("roleLabel: 'Related Prints'", popup)
+        self.assertIn("chipLabel: groupSize > 1 ? `Related · ${groupSize} prints` : 'Related'", popup)
+        self.assertIn("icon: 'mdi:relation-many'", popup)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (
@@ -2141,10 +2164,10 @@ class TestDocumentation(unittest.TestCase):
         self.assertTrue((DOCS_HIST / "README.md").exists())
 
     def test_photo_capture_design_exists(self):
-        self.assertTrue((DOCS_HIST / "photo-capture-design.md").exists())
+        self.assertTrue((DOCS_HIST / "ui-media" / "photo-capture-design.md").exists())
 
     def test_archive_enrichment_design_exists(self):
-        self.assertTrue((DOCS_HIST / "archive-enrichment.md").exists())
+        self.assertTrue((DOCS_HIST / "planning" / "archive-enrichment.md").exists())
 
     def test_bambuddy_common_readme_exists(self):
         self.assertTrue((DOCS_COMMON / "README.md").exists())
