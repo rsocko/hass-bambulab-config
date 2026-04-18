@@ -359,17 +359,25 @@ print_history_archive_popup_content:
           { color: timelineColorForKey('enrichment'), label: 'Enrichment applied' },
           { color: timelineColorForKey('repair'), label: 'Repair applied' }
         ];
-        const timelineStartPosition = 12;
-        const timelineEndPosition = 88;
-        const timelineOverflowBeforePosition = 2;
-        const timelineOverflowAfterPosition = 98;
-        const buildTimelineTooltipMarkup = (lines, options = {}) => {
-          const normalizedLines = Array.isArray(lines)
-            ? lines.map((line) => String(line || '').trim()).filter(Boolean)
+        const buildTimelineTooltipMarkup = (items, options = {}) => {
+          const normalizedItems = Array.isArray(items)
+            ? items.map((item) => {
+                if (item && typeof item === 'object' && !Array.isArray(item)) {
+                  const text = String(item.text || '').trim();
+                  if (!text) return null;
+                  return {
+                    text,
+                    color: String(item.color || '').trim(),
+                    summary: item.summary === true
+                  };
+                }
+                const text = String(item || '').trim();
+                return text ? { text, color: '', summary: false } : null;
+              }).filter(Boolean)
             : [];
-          if (!normalizedLines.length) return '';
+          if (!normalizedItems.length) return '';
           const tooltipClass = options.tooltipClass ? ` ${options.tooltipClass}` : '';
-          return `<span class="print-history-popup-timeline-tooltip${tooltipClass}">${normalizedLines.map((line) => `<span class="print-history-popup-timeline-tooltip-line">${escapeHtml(line)}</span>`).join('')}</span>`;
+          return `<span class="print-history-popup-timeline-tooltip${tooltipClass}">${normalizedItems.map((item) => `<span class="print-history-popup-timeline-tooltip-line${item.summary ? ' print-history-popup-timeline-tooltip-line--summary' : ''}">${item.color ? `<span class="print-history-popup-timeline-tooltip-dot" style="background:${item.color};box-shadow:0 0 0 3px ${rgbaFromHex(item.color, 0.22, 'rgba(255,255,255,0.12)')};"></span>` : ''}<span>${escapeHtml(item.text)}</span></span>`).join('')}</span>`;
         };
         const timelineTooltipClassForPosition = (position) => {
           if (position <= (timelineStartPosition + 4)) return 'print-history-popup-timeline-tooltip--edge-left';
@@ -389,6 +397,23 @@ print_history_archive_popup_content:
         const rawTimelineEndTime = parseDateMs(archive?.completed_at)
           ?? (timelineEventTimes.length ? Math.max(...timelineEventTimes) : null);
         const endTimelineLabel = status === 'completed' ? 'Print finished' : (status === 'failed' ? 'Print failed' : (status === 'cancelled' ? 'Print stopped' : statusLabel));
+        const timelineEdgePadding = 4;
+        const timelineOverflowDotInset = 2;
+        const timelineOverflowAnchorOffset = 12;
+        const hasBeforeOverflow = rawTimelineStartTime !== null && rawTimelineEvents.some((item) => {
+          if (!item || typeof item !== 'object' || anchorEventTypes.has(String(item.type || '').trim())) return false;
+          const timeMs = parseDateMs(item?.time);
+          return timeMs !== null && timeMs < rawTimelineStartTime;
+        });
+        const hasAfterOverflow = rawTimelineEndTime !== null && rawTimelineEvents.some((item) => {
+          if (!item || typeof item !== 'object' || anchorEventTypes.has(String(item.type || '').trim())) return false;
+          const timeMs = parseDateMs(item?.time);
+          return timeMs !== null && timeMs > rawTimelineEndTime;
+        });
+        const timelineStartPosition = hasBeforeOverflow ? timelineOverflowAnchorOffset : timelineEdgePadding;
+        const timelineEndPosition = hasAfterOverflow ? (100 - timelineOverflowAnchorOffset) : (100 - timelineEdgePadding);
+        const timelineOverflowBeforePosition = timelineOverflowDotInset;
+        const timelineOverflowAfterPosition = 100 - timelineOverflowDotInset;
         const normalizeTimelineEvent = (item) => {
           const eventTimeMs = parseDateMs(item?.time);
           if (eventTimeMs === null) return null;
@@ -406,9 +431,10 @@ print_history_archive_popup_content:
           if (rawTimelineStartTime === null || rawTimelineEndTime === null || rawTimelineEndTime <= rawTimelineStartTime) {
             return { inRange: [], beforeStart: [], afterEnd: [] };
           }
-          const trackMin = timelineStartPosition;
-          const trackMax = timelineEndPosition;
-          const minGap = 4;
+          const anchorClearance = 5;
+          const minGap = 5;
+          const trackMin = Math.min(timelineEndPosition, timelineStartPosition + anchorClearance);
+          const trackMax = Math.max(trackMin, timelineEndPosition - anchorClearance);
           const beforeStart = [];
           const afterEnd = [];
           const projected = rawTimelineEvents
@@ -458,7 +484,7 @@ print_history_archive_popup_content:
           afterEnd: timelineEvents.afterEnd
         };
         const buildTimelinePointMarkup = (options) => {
-          const tooltipMarkup = buildTimelineTooltipMarkup(options.tooltipLines || [], { tooltipClass: options.tooltipClass || '' });
+          const tooltipMarkup = buildTimelineTooltipMarkup(options.tooltipItems || [], { tooltipClass: options.tooltipClass || '' });
           const label = String(options.label || '').trim();
           const tabindex = options.tabindex === false ? '' : ' tabindex="0"';
           const wrapClass = options.wrapClass ? ` ${options.wrapClass}` : '';
@@ -466,15 +492,15 @@ print_history_archive_popup_content:
         };
         const timelineDotMarkup = timelineDots.map((item) => buildTimelinePointMarkup({
           label: `${item.label} | ${formatTimelineDate(item.time)}`,
-          tooltipLines: [item.label, formatTimelineDate(item.time)],
+          tooltipItems: [{ text: `${item.label} | ${formatTimelineDate(item.time)}`, color: item.color }],
           tooltipClass: timelineTooltipClassForPosition(item.position),
           wrapStyle: `position:absolute;left:${item.position}%;top:50%;width:8px;height:8px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:8px;height:8px;border-radius:999px;background:${item.color};box-shadow:0 0 0 3px ${item.ringColor};`
         })).join('');
         const timelineOverflowDotColor = (events) => events.length === 1 ? events[0].color : '#78909C';
         const buildTimelineOverflowTitle = (events, summary) => [
-          summary,
-          ...events.map((item) => `${item.label} | ${formatTimelineDate(item.time)}`)
+          { text: summary, summary: true },
+          ...events.map((item) => ({ text: `${item.label} | ${formatTimelineDate(item.time)}`, color: item.color }))
         ];
         const buildTimelineOverflowMarkup = (events, side) => {
           if (!events.length) return '';
@@ -496,14 +522,14 @@ print_history_archive_popup_content:
         const endTimelineTitle = `${endTimelineLabel} | ${formatTimelineDate(archive?.completed_at)}`;
         const startTimelineMarkup = buildTimelinePointMarkup({
           label: startTimelineTitle,
-          tooltipLines: ['Print started', formatTimelineDate(archive?.started_at || archive?.created_at)],
+          tooltipItems: [{ text: `Print started | ${formatTimelineDate(archive?.started_at || archive?.created_at)}`, color: timelineStartColor }],
           tooltipClass: 'print-history-popup-timeline-tooltip--edge-left',
           wrapStyle: `position:absolute;left:${timelineStartPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};box-shadow:0 0 0 4px rgba(21,101,192,0.12);`
         });
         const endTimelineMarkup = buildTimelinePointMarkup({
           label: endTimelineTitle,
-          tooltipLines: [endTimelineLabel, formatTimelineDate(archive?.completed_at)],
+          tooltipItems: [{ text: `${endTimelineLabel} | ${formatTimelineDate(archive?.completed_at)}`, color: timelineEndColor }],
           tooltipClass: 'print-history-popup-timeline-tooltip--edge-right',
           wrapStyle: `position:absolute;left:${timelineEndPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};box-shadow:0 0 0 4px rgba(255,255,255,0.08);`
@@ -737,18 +763,21 @@ print_history_archive_popup_content:
             .print-history-popup-timeline-label{font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);}
             .print-history-popup-timeline-value{font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere;word-break:break-word;}
             .print-history-popup-timeline-main{grid-area:track;display:flex;align-items:center;min-width:0;width:100%;}
-            .print-history-popup-timeline-track{position:relative;width:100%;height:18px;}
+            .print-history-popup-timeline-track{position:relative;width:100%;height:18px;overflow:visible;isolation:isolate;z-index:0;}
             .print-history-popup-timeline-duration-wrap{grid-area:duration;align-self:center;justify-self:center;display:inline-flex;align-items:center;justify-content:center;gap:8px;max-width:100%;overflow:visible;z-index:5;}
             .print-history-popup-timeline-duration{display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700;letter-spacing:0.04em;max-width:100%;white-space:nowrap;}
             .print-history-popup-timeline-tooltip-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;outline:none;}
-            .print-history-popup-timeline-tooltip{position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%, -6px);width:min(260px, 72vw);padding:10px 12px;border-radius:12px;background:rgba(18,22,28,0.96);border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 30px rgba(0,0,0,0.28);color:#F5F7FA;font-size:12px;line-height:1.45;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 160ms ease, transform 160ms ease;z-index:40;}
-            .print-history-popup-timeline-tooltip::after{content:'';position:absolute;left:50%;bottom:100%;transform:translateX(-50%);border-width:0 6px 6px 6px;border-style:solid;border-color:transparent transparent rgba(18,22,28,0.96) transparent;}
+            .print-history-popup-timeline-tooltip{position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%, -6px);width:min(280px, 72vw);padding:10px 12px;border-radius:12px;background:#12161C;border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 30px rgba(0,0,0,0.28);color:#F5F7FA;font-size:12px;line-height:1.45;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 160ms ease, transform 160ms ease;z-index:80;overflow:hidden;backdrop-filter:none;}
+            .print-history-popup-timeline-tooltip::after{content:'';position:absolute;left:50%;bottom:100%;transform:translateX(-50%);border-width:0 6px 6px 6px;border-style:solid;border-color:transparent transparent #12161C transparent;}
             .print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}
             .print-history-popup-timeline-tooltip--edge-left::after{left:14px;transform:none;}
             .print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}
             .print-history-popup-timeline-tooltip--edge-right::after{left:auto;right:14px;transform:none;}
-            .print-history-popup-timeline-tooltip-line{display:block;}
+            .print-history-popup-timeline-tooltip-line{display:flex;align-items:flex-start;gap:10px;}
+            .print-history-popup-timeline-tooltip-line--summary{font-weight:700;color:rgba(245,247,250,0.82);}
+            .print-history-popup-timeline-tooltip-dot{display:inline-block;width:8px;height:8px;border-radius:999px;flex:0 0 auto;margin-top:4px;}
             .print-history-popup-timeline-tooltip-line + .print-history-popup-timeline-tooltip-line{margin-top:4px;}
+            .print-history-popup-timeline-tooltip-wrap:hover,.print-history-popup-timeline-tooltip-wrap:focus-visible,.print-history-popup-timeline-tooltip-wrap:focus-within{z-index:90;}
             .print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip,
             .print-history-popup-timeline-tooltip-wrap:focus-visible .print-history-popup-timeline-tooltip,
             .print-history-popup-timeline-tooltip-wrap:focus-within .print-history-popup-timeline-tooltip{opacity:1;visibility:visible;transform:translate(-50%, 0);}

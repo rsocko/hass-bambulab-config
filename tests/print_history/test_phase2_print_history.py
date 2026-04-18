@@ -815,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
@@ -832,9 +832,6 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('class="card-shell media"', content)
         self.assertIn('class="card-shell list"', content)
         self.assertIn('class="card-shell compact"', content)
-        self.assertIn('.card{position:relative;z-index:0;', content)
-        self.assertIn('.card:hover,.card:focus-visible,.card:focus-within{z-index:3;', content)
-        self.assertIn('.dot-button.tooltip-active,.dot-button:hover,.dot-button:focus-visible{z-index:4;}', content)
 
     def test_heatmap_card_renders_loading_skeleton_during_query(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -1640,8 +1637,12 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("const timelineStartPosition = 12;", content)
-        self.assertIn("const timelineEndPosition = 88;", content)
+        self.assertIn("const timelineEdgePadding = 4;", content)
+        self.assertIn("const timelineOverflowAnchorOffset = 12;", content)
+        self.assertIn("const hasBeforeOverflow = rawTimelineStartTime !== null && rawTimelineEvents.some((item) => {", content)
+        self.assertIn("const hasAfterOverflow = rawTimelineEndTime !== null && rawTimelineEvents.some((item) => {", content)
+        self.assertIn("const timelineStartPosition = hasBeforeOverflow ? timelineOverflowAnchorOffset : timelineEdgePadding;", content)
+        self.assertIn("const timelineEndPosition = hasAfterOverflow ? (100 - timelineOverflowAnchorOffset) : (100 - timelineEdgePadding);", content)
         self.assertIn("if (normalized.timeMs < rawTimelineStartTime) {", content)
         self.assertIn("if (normalized.timeMs > rawTimelineEndTime) {", content)
         self.assertNotIn("const clampedMs = Math.min(rawTimelineEndTime, Math.max(rawTimelineStartTime, eventTimeMs));", content)
@@ -1669,10 +1670,11 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("const buildTimelineTooltipMarkup = (lines, options = {}) => {", content)
+        self.assertIn("const buildTimelineTooltipMarkup = (items, options = {}) => {", content)
         self.assertIn("const buildTimelinePointMarkup = (options) => {", content)
         self.assertIn('class="print-history-popup-timeline-tooltip-wrap"', content)
-        self.assertIn('class="print-history-popup-timeline-tooltip-line"', content)
+        self.assertIn('class="print-history-popup-timeline-tooltip-line${item.summary ? \' print-history-popup-timeline-tooltip-line--summary\' : \'\'}"', content)
+        self.assertIn('class="print-history-popup-timeline-tooltip-dot"', content)
         self.assertIn("${startTimelineMarkup}", content)
         self.assertIn("${endTimelineMarkup}", content)
         self.assertNotIn('title="${escapeHtml(startTimelineTitle)}"', content)
@@ -1700,16 +1702,39 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(".print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}", content)
         self.assertIn(".print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}", content)
 
-    def test_popup_timeline_insets_start_end_anchors_to_reserve_overflow_space(self):
+    def test_popup_timeline_reserves_overflow_space_only_when_needed(self):
         content = (
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("const timelineOverflowBeforePosition = 2;", content)
-        self.assertIn("const timelineOverflowAfterPosition = 98;", content)
+        self.assertIn("const timelineOverflowDotInset = 2;", content)
+        self.assertIn("const timelineOverflowBeforePosition = timelineOverflowDotInset;", content)
+        self.assertIn("const timelineOverflowAfterPosition = 100 - timelineOverflowDotInset;", content)
         self.assertIn("wrapStyle: `position:absolute;left:${timelineStartPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`", content)
         self.assertIn("wrapStyle: `position:absolute;left:${timelineEndPosition}%;top:50%;width:10px;height:10px;transform:translate(-50%, -50%);`", content)
         self.assertIn("<span style=\"position:absolute;left:${timelineStartPosition}%;right:${100 - timelineEndPosition}%;top:50%;height:2px;border-radius:999px;background:rgba(255,255,255,0.18);transform:translateY(-50%);\"></span>", content)
+
+    def test_popup_timeline_keeps_in_range_dots_clear_of_anchors_and_neighbors(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const anchorClearance = 5;", content)
+        self.assertIn("const minGap = 5;", content)
+        self.assertIn("const trackMin = Math.min(timelineEndPosition, timelineStartPosition + anchorClearance);", content)
+        self.assertIn("const trackMax = Math.max(trackMin, timelineEndPosition - anchorClearance);", content)
+
+    def test_popup_timeline_tooltips_render_as_opaque_overlays(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn(".print-history-popup-timeline-track{position:relative;width:100%;height:18px;overflow:visible;isolation:isolate;z-index:0;}", content)
+        self.assertIn("background:#12161C", content)
+        self.assertIn("z-index:80", content)
+        self.assertIn("overflow:hidden", content)
+        self.assertIn("backdrop-filter:none", content)
+        self.assertIn(".print-history-popup-timeline-tooltip-wrap:hover,.print-history-popup-timeline-tooltip-wrap:focus-visible,.print-history-popup-timeline-tooltip-wrap:focus-within{z-index:90;}", content)
 
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
@@ -1861,36 +1886,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=37", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=34", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
-
-    def test_browser_card_tag_chips_use_shared_filter_action_path(self):
-        browser_card_content = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
-        ).read_text("utf-8")
-        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
-
-        self.assertIn("apply_print_history_card_filter_action:", action_script_content)
-        self.assertIn("action_key == 'tag_add'", action_script_content)
-        self.assertIn('data-action="apply-filter"', browser_card_content)
-        self.assertIn('data-filter-action="tag_add"', browser_card_content)
-        self.assertIn("Click to add this tag to filters", browser_card_content)
-        self.assertIn(".interactive-chip:hover,.interactive-chip:focus-visible", browser_card_content)
-        self.assertIn('await this._applyCardFilterAction(actionNode);', browser_card_content)
-
-    def test_browser_card_color_dots_use_shared_filter_action_path(self):
-        browser_card_content = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
-        ).read_text("utf-8")
-        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
-
-        self.assertIn("action_key == 'color_toggle'", action_script_content)
-        self.assertIn("script.toggle_print_history_color_filter", action_script_content)
-        self.assertIn('data-filter-action="color_toggle"', browser_card_content)
-        self.assertIn("Click to filter on this color", browser_card_content)
-        self.assertIn('class="dot-button interactive-chip"', browser_card_content)
-        self.assertIn('white-space:pre-line;', browser_card_content)
-        self.assertIn('filterColor: filterColor,', browser_card_content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

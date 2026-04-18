@@ -115,9 +115,10 @@ The existing popup track already shows start and end anchors. This issue extends
 
 Base behavior:
 
-1. start dot remains fixed at the left edge using the archive's canonical start time
-2. end dot remains fixed at the right edge using the archive's canonical end time when present
+1. start dot remains near the left edge using the archive's canonical start time
+2. end dot remains near the right edge using the archive's canonical end time when present
 3. intermediate event dots render between them based on relative event time
+4. the left and right gutters are conditional: only reserve extra side space on a side when that side has overflow events
 
 ### Relative positioning
 
@@ -143,6 +144,7 @@ Rendering rule:
 3. render one collapsed overflow dot after the end anchor for all post-end events
 4. connect each overflow dot back to the nearest anchor with a short dotted segment so the overflow remains visible without stretching the main track
 5. the hover for an overflow dot must list every collapsed event with label plus formatted date/time
+6. when a side has no overflow dot, the canonical anchor on that side should sit at the normal padded edge instead of reserving empty overflow space
 
 This keeps the canonical archive window visually honest while still preserving access to the full event audit trail.
 
@@ -154,8 +156,9 @@ Rendering rule:
 
 1. sort events chronologically
 2. compute raw percentage positions
-3. enforce a minimum visual gap between neighboring dots
-4. nudge later dots slightly left or right within a small tolerance so each dot stays visible
+3. reserve a minimum clearance from the canonical start and end anchors so dense events do not physically overlap those larger anchor dots
+4. enforce a minimum visual gap between neighboring dots
+5. nudge later dots slightly left or right within a small tolerance so each dot stays visible
 
 The goal is readability over perfect pixel accuracy.
 
@@ -165,9 +168,13 @@ Visible inline text must remain minimal.
 
 Allowed hover content:
 
-- formatted date/time
-- event label
-- for overflow dots, a short summary line plus one line per collapsed event containing label and formatted date/time
+- a single event row containing the event's color dot plus label and formatted date/time
+- for overflow dots, a short summary line plus one row per collapsed event containing that event's color dot, label, and formatted date/time
+
+Presentation rules:
+
+- timeline hover cards should render as opaque overlays above the popup content
+- underlying chips, icons, or cards should not visually bleed through an open timeline tooltip
 
 Not allowed inline in the default popup body:
 
@@ -216,3 +223,5 @@ Required validation:
 5. start-only and no-terminal archives still render cleanly without requiring duplicated ledger anchors
 6. hover content remains limited to date/time plus label
 7. pre-start and post-end events render as collapsed overflow dots with dotted connectors instead of being visually clamped inside the canonical window
+8. start and end anchors only shift inward when that side actually has overflow events
+9. near-edge and near-anchor events remain individually visible without physically overlapping anchor dots
