@@ -581,6 +581,7 @@ class PrintHistoryBrowserManager:
             seen_ids.add(project_id)
             project_name = as_text(project.get("name")).strip()
             status = as_text(project.get("status")).strip().lower()
+            color = as_text(project.get("color")).strip()
             if project_name:
                 key = project_name.casefold()
                 name_counts[key] = name_counts.get(key, 0) + 1
@@ -589,6 +590,7 @@ class PrintHistoryBrowserManager:
                     "id": project_id,
                     "name": project_name,
                     "status": status,
+                    "color": color,
                 }
             )
 
@@ -606,6 +608,7 @@ class PrintHistoryBrowserManager:
                     "id": project["id"],
                     "name": project_name,
                     "status": project["status"],
+                    "color": project["color"],
                     "label": label,
                 }
             )
