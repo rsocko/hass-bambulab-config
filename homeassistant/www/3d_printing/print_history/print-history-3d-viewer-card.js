@@ -190,9 +190,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".status{padding:16px 20px;color:#9fb0c0;font-size:0.95rem;line-height:1.5;}" +
       ".status.error{color:#fecaca;}" +
       ".viewer-workbench{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:start;}" +
-      ".stage{position:relative;min-height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
-      ".stage-panel{grid-area:stage;}" +
-      ".canvas{width:100%;height:100%;display:block;}" +
+      ".stage{position:relative;min-height:min(72vh,680px);height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
+      ".stage-panel{grid-area:stage;align-self:stretch;}" +
+      ".canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -227,7 +227,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-hero-copy{color:#d3deeb;font-size:0.92rem;line-height:1.55;}" +
       ".capture-preview-stack{display:grid;gap:14px;}" +
       ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
-      ".capture-preview-wrap img{display:block;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
+      ".capture-preview-wrap img{display:none;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
+      ".capture-preview-wrap.has-image img{display:block;}" +
       ".capture-empty{padding:22px;color:#9fb0c0;font-size:0.94rem;line-height:1.6;text-align:left;}" +
       ".capture-meta{display:grid;align-content:start;gap:10px;}" +
       ".capture-kicker{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;}" +
@@ -299,7 +300,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='capture-preview-stack'>" +
       "<div class='capture-preview-wrap'>" +
       "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
-      "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image without reopening the viewer in another tab.</div>" +
+      "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image.</div>" +
       "</div>" +
       "<div class='capture-meta'>" +
       "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
@@ -461,7 +462,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-copy");
     const controls = this.shadowRoot && this.shadowRoot.getElementById("capture-controls");
     const note = this.shadowRoot && this.shadowRoot.getElementById("capture-note");
-    if (!image || !empty || !title || !copy || !note) {
+    const previewWrap = image && image.parentElement instanceof HTMLElement ? image.parentElement : null;
+    if (!image || !empty || !title || !copy || !note || !previewWrap) {
       return;
     }
 
@@ -469,12 +471,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
       image.src = this._capture.objectUrl;
       image.hidden = false;
       empty.hidden = true;
+      previewWrap.classList.add("has-image");
       title.textContent = `${this._capture.width} x ${this._capture.height} PNG ready`;
       copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} ${this._capture.cropLabel || "viewer capture"} prepared from the current popup canvas.`;
     } else {
       image.removeAttribute("src");
       image.hidden = true;
       empty.hidden = false;
+      previewWrap.classList.remove("has-image");
       title.textContent = "No render captured yet";
       copy.textContent = this._cropMode
         ? `Adjust the ${this._cropPresetLabel().toLowerCase()} and then capture it. Square is the thumbnail-like default, while landscape presets are better for wide card framing.`
@@ -569,6 +573,27 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const width = Math.max(1, stage.clientWidth || Math.round(rect.width) || 1);
     const height = Math.max(1, stage.clientHeight || Math.round(rect.height) || 1);
     return { width, height, rect };
+  }
+
+  _syncViewerCanvasSize() {
+    const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
+    const metrics = this._getStageMetrics();
+    if (!(canvas instanceof HTMLCanvasElement) || !metrics) {
+      return;
+    }
+    if (canvas.width !== metrics.width) {
+      canvas.width = metrics.width;
+    }
+    if (canvas.height !== metrics.height) {
+      canvas.height = metrics.height;
+    }
+
+    const preview = this._preview;
+    if (preview && typeof preview.resize === "function") {
+      preview.resize();
+    } else if (preview && typeof preview.setSize === "function") {
+      preview.setSize(metrics.width, metrics.height);
+    }
   }
 
   _getCropAspectRatio() {
@@ -869,6 +894,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _handleWindowResize() {
+    this._syncViewerCanvasSize();
     if (!this._cropMode) {
       return;
     }
@@ -1288,6 +1314,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       if (!(canvas instanceof HTMLCanvasElement)) {
         throw new Error("Viewer canvas is not available.");
       }
+      this._syncViewerCanvasSize();
 
       this._setStatus("Rendering G-code preview...");
       try {
