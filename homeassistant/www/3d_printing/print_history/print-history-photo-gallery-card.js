@@ -8,6 +8,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._expanded = false;
     this._images = [];
     this._archiveName = "Archive Photos";
+    this._archiveId = "";
     this._archiveIdentity = "";
     this._localArchiveOverride = null;
     this._localPrimaryPhotoPath = null;
@@ -40,6 +41,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       include_thumbnail: !config || config.include_thumbnail !== false,
       compact: !!(config && config.compact),
     };
+    this._archiveId = "";
+    this._archiveIdentity = "";
+    this._localArchiveOverride = null;
+    this._localPrimaryPhotoPath = null;
+    this._localSelectedPrimaryPhotoPath = null;
+    this._localHasPrimaryPhotoOverride = null;
     this._activeIndex = 0;
     this._expanded = false;
     this._render();
@@ -1157,9 +1164,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? String(archive.id) : "";
     var archiveIdentity = this._archiveKey(archive);
     var shouldPreferPrimary = !this._archiveIdentity;
-    if (this._archiveIdentity && archiveIdentity && archiveIdentity !== this._archiveIdentity) {
+    if (this._archiveId && archiveId && archiveId !== this._archiveId) {
       shouldPreferPrimary = true;
       this._setExpanded(false);
       this._activeIndex = 0;
@@ -1168,6 +1176,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._localSelectedPrimaryPhotoPath = null;
       this._localHasPrimaryPhotoOverride = null;
     }
+    this._archiveId = archiveId;
     this._archiveIdentity = archiveIdentity;
 
     var images = this._buildImages(archive);

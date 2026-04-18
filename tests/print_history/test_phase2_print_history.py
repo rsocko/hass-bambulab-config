@@ -817,7 +817,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=27", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -1446,6 +1446,13 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("input_select.print_history_filter_archive_error", clear_script_content)
         self.assertIn("input_select.print_history_filter_archive_error", reset_page_content)
 
+    def test_layout_variant_does_not_reset_page(self):
+        reset_page_content = (HISTORY / "automations" / "print_history_reset_page_on_filter_change.yaml").read_text("utf-8")
+
+        self.assertIn("input_select.print_history_sort", reset_page_content)
+        self.assertIn("input_number.print_history_page_size", reset_page_content)
+        self.assertNotIn("input_select.print_history_card_variant", reset_page_content)
+
     def test_clear_filters_script_preserves_explicit_date_bounds(self):
         clear_script_content = (HISTORY / "scripts" / "clear_print_history_filters.yaml").read_text("utf-8")
 
@@ -1534,6 +1541,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("_archiveMediaCacheKey(archive)", gallery_content)
         self.assertIn("_withArchiveMediaCacheKey", gallery_content)
         self.assertIn(' + "v=" + encodeURIComponent(cacheKey)', gallery_content)
+
+    def test_photo_gallery_only_resets_local_media_state_when_archive_id_changes(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('this._archiveId = "";', content)
+        self.assertIn('if (this._archiveId && archiveId && archiveId !== this._archiveId) {', content)
 
     def test_popup_content_surfaces_enrichment_reason_and_source(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
