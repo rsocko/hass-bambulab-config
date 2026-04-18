@@ -367,6 +367,11 @@ print_history_archive_popup_content:
           const tooltipClass = options.tooltipClass ? ` ${options.tooltipClass}` : '';
           return `<span class="print-history-popup-timeline-tooltip${tooltipClass}">${normalizedLines.map((line) => `<span class="print-history-popup-timeline-tooltip-line">${escapeHtml(line)}</span>`).join('')}</span>`;
         };
+        const timelineTooltipClassForPosition = (position) => {
+          if (position <= 12) return 'print-history-popup-timeline-tooltip--edge-left';
+          if (position >= 88) return 'print-history-popup-timeline-tooltip--edge-right';
+          return '';
+        };
         const timelineLegendMarkup = [
           '<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(245,247,250,0.72);margin-bottom:8px;">Timeline colors</div>',
           ...timelineLegendItems.map((item) => `<div class="print-history-popup-timeline-legend-item"><span class="print-history-popup-timeline-legend-dot" style="background:${item.color};box-shadow:0 0 0 3px ${rgbaFromHex(item.color, 0.22, 'rgba(255,255,255,0.12)')};"></span><span>${escapeHtml(item.label)}</span></div>`)
@@ -449,14 +454,16 @@ print_history_archive_popup_content:
           afterEnd: timelineEvents.afterEnd
         };
         const buildTimelinePointMarkup = (options) => {
-          const tooltipMarkup = buildTimelineTooltipMarkup(options.tooltipLines || []);
+          const tooltipMarkup = buildTimelineTooltipMarkup(options.tooltipLines || [], { tooltipClass: options.tooltipClass || '' });
           const label = String(options.label || '').trim();
           const tabindex = options.tabindex === false ? '' : ' tabindex="0"';
-          return `<span class="print-history-popup-timeline-tooltip-wrap"${tabindex} aria-label="${escapeHtml(label)}" style="${options.wrapStyle}"><span style="${options.pointStyle}"></span>${tooltipMarkup}</span>`;
+          const wrapClass = options.wrapClass ? ` ${options.wrapClass}` : '';
+          return `<span class="print-history-popup-timeline-tooltip-wrap${wrapClass}"${tabindex} aria-label="${escapeHtml(label)}" style="${options.wrapStyle}"><span style="${options.pointStyle}"></span>${tooltipMarkup}</span>`;
         };
         const timelineDotMarkup = timelineDots.map((item) => buildTimelinePointMarkup({
           label: `${item.label} | ${formatTimelineDate(item.time)}`,
           tooltipLines: [item.label, formatTimelineDate(item.time)],
+          tooltipClass: timelineTooltipClassForPosition(item.position),
           wrapStyle: `position:absolute;left:${item.position}%;top:50%;width:8px;height:8px;transform:translate(-50%, -50%);`,
           pointStyle: `display:block;width:8px;height:8px;border-radius:999px;background:${item.color};box-shadow:0 0 0 3px ${item.ringColor};`
         })).join('');
@@ -475,9 +482,9 @@ print_history_archive_popup_content:
           const ringColor = rgbaFromHex(color, 0.22, 'rgba(255,255,255,0.12)');
           const lineColor = rgbaFromHex(color, 0.55, 'rgba(255,255,255,0.26)');
           if (side === 'before') {
-            return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;left:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;left:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;left:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines)}</span>`;
+            return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;left:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;left:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;left:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-left' })}</span>`;
           }
-          return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;right:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;right:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;right:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines)}</span>`;
+          return `<span class="print-history-popup-timeline-tooltip-wrap" tabindex="0" aria-label="${escapeHtml(summary)}" style="position:absolute;right:-26px;top:50%;width:24px;height:12px;transform:translateY(-50%);"><span style="position:absolute;right:6px;top:50%;width:16px;height:0;border-top:2px dotted ${lineColor};transform:translateY(-50%);"></span><span style="position:absolute;right:0;top:50%;width:8px;height:8px;border-radius:999px;background:${color};transform:translateY(-50%);box-shadow:0 0 0 3px ${ringColor};"></span>${buildTimelineTooltipMarkup(titleLines, { tooltipClass: 'print-history-popup-timeline-tooltip--edge-right' })}</span>`;
         };
         const beforeOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.beforeStart, 'before');
         const afterOverflowMarkup = buildTimelineOverflowMarkup(timelineOverflow.afterEnd, 'after');
@@ -486,12 +493,14 @@ print_history_archive_popup_content:
         const startTimelineMarkup = buildTimelinePointMarkup({
           label: startTimelineTitle,
           tooltipLines: ['Print started', formatTimelineDate(archive?.started_at || archive?.created_at)],
+          tooltipClass: 'print-history-popup-timeline-tooltip--edge-left',
           wrapStyle: 'position:absolute;left:0;top:50%;width:10px;height:10px;transform:translateY(-50%);',
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineStartColor};box-shadow:0 0 0 4px rgba(21,101,192,0.12);`
         });
         const endTimelineMarkup = buildTimelinePointMarkup({
           label: endTimelineTitle,
           tooltipLines: [endTimelineLabel, formatTimelineDate(archive?.completed_at)],
+          tooltipClass: 'print-history-popup-timeline-tooltip--edge-right',
           wrapStyle: 'position:absolute;right:0;top:50%;width:10px;height:10px;transform:translateY(-50%);',
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};box-shadow:0 0 0 4px rgba(255,255,255,0.08);`
         });
@@ -730,11 +739,21 @@ print_history_archive_popup_content:
             .print-history-popup-timeline-tooltip-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;outline:none;}
             .print-history-popup-timeline-tooltip{position:absolute;left:50%;top:calc(100% + 10px);transform:translate(-50%, -6px);width:min(260px, 72vw);padding:10px 12px;border-radius:12px;background:rgba(18,22,28,0.96);border:1px solid rgba(255,255,255,0.1);box-shadow:0 16px 30px rgba(0,0,0,0.28);color:#F5F7FA;font-size:12px;line-height:1.45;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 160ms ease, transform 160ms ease;z-index:40;}
             .print-history-popup-timeline-tooltip::after{content:'';position:absolute;left:50%;bottom:100%;transform:translateX(-50%);border-width:0 6px 6px 6px;border-style:solid;border-color:transparent transparent rgba(18,22,28,0.96) transparent;}
+            .print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}
+            .print-history-popup-timeline-tooltip--edge-left::after{left:14px;transform:none;}
+            .print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}
+            .print-history-popup-timeline-tooltip--edge-right::after{left:auto;right:14px;transform:none;}
             .print-history-popup-timeline-tooltip-line{display:block;}
             .print-history-popup-timeline-tooltip-line + .print-history-popup-timeline-tooltip-line{margin-top:4px;}
             .print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip,
             .print-history-popup-timeline-tooltip-wrap:focus-visible .print-history-popup-timeline-tooltip,
             .print-history-popup-timeline-tooltip-wrap:focus-within .print-history-popup-timeline-tooltip{opacity:1;visibility:visible;transform:translate(-50%, 0);}
+            .print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip--edge-left,
+            .print-history-popup-timeline-tooltip-wrap:focus-visible .print-history-popup-timeline-tooltip--edge-left,
+            .print-history-popup-timeline-tooltip-wrap:focus-within .print-history-popup-timeline-tooltip--edge-left,
+            .print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip--edge-right,
+            .print-history-popup-timeline-tooltip-wrap:focus-visible .print-history-popup-timeline-tooltip--edge-right,
+            .print-history-popup-timeline-tooltip-wrap:focus-within .print-history-popup-timeline-tooltip--edge-right{transform:translate(0, 0);}
             .print-history-popup-timeline-legend-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;pointer-events:auto;}
             .print-history-popup-timeline-legend{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:var(--secondary-text-color);cursor:help;pointer-events:auto;}
             .print-history-popup-timeline-legend-item{display:flex;align-items:center;gap:10px;}

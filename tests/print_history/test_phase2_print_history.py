@@ -815,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=35", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
@@ -1678,6 +1678,19 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(".print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip", content)
         self.assertNotIn(".print-history-popup-timeline-legend-wrap:hover .print-history-popup-timeline-legend-tooltip", content)
 
+    def test_popup_timeline_aligns_edge_tooltips_inside_popup_bounds(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const timelineTooltipClassForPosition = (position) => {", content)
+        self.assertIn("if (position <= 12) return 'print-history-popup-timeline-tooltip--edge-left';", content)
+        self.assertIn("if (position >= 88) return 'print-history-popup-timeline-tooltip--edge-right';", content)
+        self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-left'", content)
+        self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-right'", content)
+        self.assertIn(".print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}", content)
+        self.assertIn(".print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}", content)
+
     def test_save_script_preserves_existing_system_tags_and_hidden_notes(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
         self.assertIn("existing_tags_raw", content)
@@ -1818,20 +1831,6 @@ class TestPrintHistoryTagColors(unittest.TestCase):
                 self.assertIn("tooltip: hex", content)
                 self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
 
-    def test_browser_card_tag_chips_use_shared_filter_action_path(self):
-        browser_card_content = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
-        ).read_text("utf-8")
-        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
-
-        self.assertIn("apply_print_history_card_filter_action:", action_script_content)
-        self.assertIn("action_key == 'tag_add'", action_script_content)
-        self.assertIn('data-action="apply-filter"', browser_card_content)
-        self.assertIn('data-filter-action="tag_add"', browser_card_content)
-        self.assertIn("Click to add this tag to filters", browser_card_content)
-        self.assertIn(".interactive-chip:hover,.interactive-chip:focus-visible", browser_card_content)
-        self.assertIn('await this._applyCardFilterAction(actionNode);', browser_card_content)
-
 
 class TestPrintHistoryTagEditorCard(unittest.TestCase):
     """The popup tag editor should use the filter tag list as its suggestion source."""
@@ -1842,7 +1841,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=35", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=34", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
