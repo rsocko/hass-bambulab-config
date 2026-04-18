@@ -48,6 +48,16 @@ The `Layout` control is a single icon-only dropdown bound to `input_select.print
 
 The Bubble Card control strip must use a stable 60px host height with the 36px button row pinned at `top: 12px`. Do not rely on Bubble Card's default bottom-anchored positioning or percentage-based centering here, otherwise layout selection can temporarily shrink the visible top padding during open/close.
 
+### Loading Placeholder Guidance
+
+If a shimmer or skeleton row is shown above the archive cards, keep it deliberately approximate instead of mirroring every sub-button.
+
+- Match the real strip footprint first: `60px` host height, `36px` controls, `8px` inter-control gap, `12px` top inset.
+- Treat the `Layout` control as one icon-width placeholder, not a wider labeled dropdown.
+- Prefer 6-7 placeholder masses for the row rather than rendering every control separately.
+- Omit low-value micro-placeholders like `Matches` when the row already communicates pagination, page size, layout, and image/refresh/navigation affordances.
+- If a visual reference is needed, use `tmp_print_history_top_controls_harness.html` as the local alignment harness.
+
 ## Mobile Contract
 
 At mobile widths (`<= 720px`):
