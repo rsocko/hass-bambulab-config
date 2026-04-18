@@ -1096,8 +1096,8 @@ class PrintFilamentBreakdownCard extends HTMLElement {
   _describeEnrichmentAmbiguity(value) {
     const normalized = String(value || "").trim();
     return ({
-      a_tc: "Multiple archived AMS trays matched type+color",
-      a_fb: "Multiple archived AMS trays matched archive-level fallback",
+        a_tc: "Multiple candidate spools or filaments matched type+color",
+        a_fb: "Archive-level fallback matched multiple candidate spools or filaments",
       s_uuid: "Multiple Spoolman spools matched archived tray UUID",
       s_tc: "Multiple Spoolman spools matched type+color",
     })[normalized] || normalized;

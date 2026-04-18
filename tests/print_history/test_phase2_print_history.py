@@ -1591,6 +1591,20 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const enrichmentReason = String(archive?.enrichment_reason || notesInfo.payload?.reason || '').trim();", content)
         self.assertIn("const enrichmentSource = String(archive?.enrichment_source || notesInfo.payload?.src || '').trim();", content)
 
+    def test_archive_enrichment_ui_uses_candidate_match_wording_for_ambiguity_codes(self):
+        popup_content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
+        browser_card = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        breakdown_card = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
+        ).read_text("utf-8")
+
+        for content in (popup_content, browser_card, breakdown_card):
+            self.assertIn("Multiple candidate spools or filaments matched type+color", content)
+            self.assertIn("Archive-level fallback matched multiple candidate spools or filaments", content)
+            self.assertNotIn("Multiple archived AMS trays matched type+color", content)
+
     def test_archive_filament_breakdown_card_sorts_derived_cost_amounts_after_computing_cost(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
