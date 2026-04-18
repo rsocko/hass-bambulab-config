@@ -224,11 +224,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".color-dot{width:12px;height:12px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.32);}" +
       ".error{color:var(--error-color);font-size:.9rem;line-height:1.4;padding:12px 0;}" +
       "@keyframes printHistoryHeatmapShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}" +
-      ".loading-shell{display:grid;gap:10px;}" +
-      ".loading-month-row{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:end;}" +
+      ".loading-shell{display:grid;gap:8px;}" +
+      ".loading-month-row{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;margin-top:6px;}" +
       ".loading-month-labels{display:grid;grid-template-columns:repeat(var(--week-count,53), minmax(var(--cell-size,10px),1fr));column-gap:4px;align-items:center;min-height:14px;}" +
       ".loading-grid{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;}" +
-      ".loading-day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;padding-top:2px;}" +
+      ".loading-day-labels{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
       ".loading-cells{display:grid;grid-template-rows:repeat(7,var(--cell-size,18px));row-gap:4px;}" +
       ".loading-row{display:grid;grid-template-columns:repeat(var(--week-count,53), minmax(var(--cell-size,10px),1fr));column-gap:4px;}" +
       ".loading-swatch-row{display:flex;justify-content:flex-end;align-items:center;gap:6px;min-height:18px;}" +
@@ -483,8 +483,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._chartContainer.classList.add("loading");
     this._chartContainer.innerHTML = '' +
       '<div class="loading-shell" style="--week-count:' + this._escapeHtml(String(weekCount || 53)) + '">' +
-        '<div class="loading-month-row"><span></span><div class="loading-month-labels">' + monthLabels.join('') + '</div></div>' +
         '<div class="loading-grid"><div class="loading-day-labels">' + dayLabels.join('') + '</div><div class="loading-cells">' + rows.join('') + '</div></div>' +
+        '<div class="loading-month-row"><span></span><div class="loading-month-labels">' + monthLabels.join('') + '</div></div>' +
       '</div>';
     if (this._legendContainer) {
       this._legendContainer.classList.remove("hidden");

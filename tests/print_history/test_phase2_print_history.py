@@ -886,6 +886,12 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('self._showRefreshIndicator("Updating...");', content)
         self.assertIn("self._refreshing = !showLoadingState;", content)
 
+    def test_heatmap_card_places_loading_month_axis_below_grid(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('".loading-month-row{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;margin-top:6px;}"', content)
+        self.assertIn('''<div class="loading-grid"><div class="loading-day-labels">' + dayLabels.join('') + '</div><div class="loading-cells">' + rows.join('') + '</div></div>' +
+        '<div class="loading-month-row"><span></span><div class="loading-month-labels">' + monthLabels.join('') + '</div></div>''', content)
+
     def test_heatmap_card_preserves_last_successful_render_on_refresh_error(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("if (this._renderModel) {", content)
