@@ -1696,11 +1696,17 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
         self.assertIn("const timelineTooltipClassForPosition = (position) => {", content)
         self.assertIn("if (position <= (timelineStartPosition + 4)) return 'print-history-popup-timeline-tooltip--edge-left';", content)
+        self.assertIn("if (position <= (timelineStartPosition + 18)) return 'print-history-popup-timeline-tooltip--lean-left';", content)
         self.assertIn("if (position >= (timelineEndPosition - 4)) return 'print-history-popup-timeline-tooltip--edge-right';", content)
+        self.assertIn("if (position >= (timelineEndPosition - 18)) return 'print-history-popup-timeline-tooltip--lean-right';", content)
         self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-left'", content)
         self.assertIn("tooltipClass: 'print-history-popup-timeline-tooltip--edge-right'", content)
         self.assertIn(".print-history-popup-timeline-tooltip--edge-left{left:0;transform:translate(0, -6px);}", content)
+        self.assertIn(".print-history-popup-timeline-tooltip--lean-left{transform:translate(-18%, -6px);}", content)
         self.assertIn(".print-history-popup-timeline-tooltip--edge-right{left:auto;right:0;transform:translate(0, -6px);}", content)
+        self.assertIn(".print-history-popup-timeline-tooltip--lean-right{transform:translate(-82%, -6px);}", content)
+        self.assertIn(".print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip--lean-left,", content)
+        self.assertIn(".print-history-popup-timeline-tooltip-wrap:hover .print-history-popup-timeline-tooltip--lean-right,", content)
 
     def test_popup_timeline_reserves_overflow_space_only_when_needed(self):
         content = (
