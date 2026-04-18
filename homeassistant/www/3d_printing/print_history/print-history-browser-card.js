@@ -119,9 +119,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".content.compact-name{grid-area:name;gap:6px;padding-top:2px;}" +
       ".content.compact-details{grid-area:details;gap:10px;min-width:0;}" +
       ".content-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}" +
-      ".content-top.compact{display:flex;justify-content:flex-end;align-items:center;min-width:0;}" +
+      ".content-top.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;min-width:0;}" +
       ".action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
       ".action-buttons.compact-actions{width:100%;justify-content:flex-end;}" +
+      ".compact-archive-id{font-size:12px;line-height:1.2;font-weight:700;color:var(--secondary-text-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
       ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
@@ -133,11 +134,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".chip-row.compact-secondary{gap:6px;}" +
-      ".chip-row.compact-status-line{justify-content:flex-start;align-items:center;gap:8px;}" +
+      ".chip-row.compact-status-line{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:8px;row-gap:4px;}" +
       ".chip-row.compact-meta-line{justify-content:flex-start;align-items:center;gap:8px;}" +
-      ".compact-date{font-size:12px;color:var(--secondary-text-color);font-weight:600;line-height:1.2;white-space:nowrap;}" +
+      ".compact-date{font-size:12px;color:var(--secondary-text-color);font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}" +
       ".color-enrichment-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:8px;}" +
       ".color-enrichment-row .dots{min-width:0;}" +
+      ".tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;min-width:0;}" +
+      ".tag-project-row .tags{min-width:0;}" +
+      ".tag-project-row .project-chip{justify-self:end;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
       ".status-chip{color:#fff;font-weight:700;}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
@@ -165,8 +169,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
-      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}}" +
-      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{justify-content:flex-start;}}" +
+      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}}" +
+      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.chip-row.compact-status-line{grid-template-columns:minmax(0,1fr);}}" +
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
@@ -397,13 +401,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var projectChip = normalized.projectLabel
       ? '<span class="chip project-chip" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';" title="' + this._escapeAttribute(normalized.projectLabel) + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></span>'
       : '';
+    var compactArchiveId = normalized.compactArchiveIdLabel ? '<span class="compact-archive-id">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var photoAction = normalized.photoCount > 0
       ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
       : '<span class="chip icon-chip" title="No archive photos yet"><ha-icon icon="mdi:image-multiple-outline"></ha-icon></span>';
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
-        + '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>'
         + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
         + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
         + '</div>'
@@ -419,6 +423,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var summaryContent = '' +
       '<div class="content compact-summary">' +
         '<div class="content-top compact">' +
+        compactArchiveId +
         '<div class="action-buttons compact-actions">' +
         '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
         '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
@@ -443,7 +448,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var detailContent = '' +
       '<div class="content compact-details">' +
-      (projectChip ? '<div class="chip-row">' + projectChip + '</div>' : '') +
       '<div class="metrics ' + metricsClass + '">' +
       this._renderMetric('Duration', normalized.durationLabel) +
       this._renderMetric('Filament', normalized.filamentLabel) +
@@ -454,9 +458,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
           return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
         }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
         : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>') +
-      ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
-        return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
-      }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
+      ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
+        + ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
+          return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
+        }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '<div></div>')
+        + projectChip
+        + '</div>' : '') +
       (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
       (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
       '</div>';
@@ -622,6 +629,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       costLabel: this._formatCurrency(archive.cost),
       objectLabel: String(archive.object_count || 1),
       archiveIdLabel: archive.id != null && archive.id !== "" ? ("Archive #" + archive.id) : "Archive unavailable",
+      compactArchiveIdLabel: archive.id != null && archive.id !== "" ? ("#" + archive.id) : "",
       printerLabel: printerLabel,
       duplicateChipLabel: duplicateSummary.chipLabel,
       duplicateChipColor: duplicateSummary.chipColor,
