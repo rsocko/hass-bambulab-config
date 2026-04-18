@@ -11,6 +11,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
+    this._mediaGalleryIndices = {};
+    this._mediaSwipe = null;
+    this._suppressOpenUntil = 0;
+    this._suppressOpenArchiveId = "";
     this._debugStats = {
       scheduledRefreshes: 0,
       executedRefreshes: 0,
@@ -18,6 +22,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundKeydownHandler = this._handleKeydown.bind(this);
+    this._boundPointerDownHandler = this._handlePointerDown.bind(this);
+    this._boundPointerUpHandler = this._handlePointerUp.bind(this);
+    this._boundPointerCancelHandler = this._handlePointerCancel.bind(this);
   }
 
   setConfig(config) {
@@ -64,11 +71,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
   connectedCallback() {
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
     this.shadowRoot.addEventListener("keydown", this._boundKeydownHandler);
+    this.shadowRoot.addEventListener("pointerdown", this._boundPointerDownHandler);
+    this.shadowRoot.addEventListener("pointerup", this._boundPointerUpHandler);
+    this.shadowRoot.addEventListener("pointercancel", this._boundPointerCancelHandler);
   }
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
     this.shadowRoot.removeEventListener("keydown", this._boundKeydownHandler);
+    this.shadowRoot.removeEventListener("pointerdown", this._boundPointerDownHandler);
+    this.shadowRoot.removeEventListener("pointerup", this._boundPointerUpHandler);
+    this.shadowRoot.removeEventListener("pointercancel", this._boundPointerCancelHandler);
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -113,11 +126,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".card-shell.media .thumb-wrap{position:relative;}" +
+      ".media-gallery-surface{position:relative;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,rgba(15,23,42,0.18),rgba(15,23,42,0.08));}" +
       ".thumb.media{height:228px;object-fit:contain;padding:10px;background:rgba(255,255,255,0.04);}" +
+      ".media-gallery-surface .thumb.media{display:block;width:100%;}" +
+      ".media-thumb-empty{height:228px;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}" +
       ".media-thumb-overlay{position:absolute;inset:12px 12px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}" +
       ".media-thumb-overlay .action-buttons{pointer-events:auto;}" +
       ".media-thumb-overlay .icon-action,.media-thumb-overlay .chip.icon-chip{background:rgba(15,23,42,0.56);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);}" +
       ".media-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;max-width:100%;}" +
+      ".media-gallery-nav{position:absolute;left:10px;right:10px;top:50%;display:flex;align-items:center;justify-content:space-between;transform:translateY(-50%);pointer-events:none;z-index:2;}" +
+      ".media-gallery-nav .icon-action{pointer-events:auto;background:rgba(15,23,42,0.56);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);}" +
+      ".media-gallery-status{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.10);color:#fff;font-size:11px;font-weight:700;line-height:1.1;backdrop-filter:blur(8px);z-index:2;pointer-events:none;}" +
       ".media-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:16px;row-gap:8px;}" +
       ".media-title-wrap{min-width:0;}" +
       ".media-status-stack{display:grid;justify-items:end;align-content:start;gap:6px;}" +
@@ -422,6 +441,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
+    var mediaImageUrls = variant === 'Media' ? this._mediaImageUrls(archive, baseUrl) : [];
+    var mediaGalleryCount = mediaImageUrls.length;
+    var mediaGalleryIndex = mediaGalleryCount > 0 ? this._mediaGalleryIndex(archive && archive.id, mediaGalleryCount) : 0;
+    var mediaCurrentImageUrl = mediaGalleryCount > 0 ? mediaImageUrls[mediaGalleryIndex] : '';
+    var mediaPlaceholderLabel = this._showImages()
+      ? 'No preview image available'
+      : 'Images hidden';
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
@@ -561,11 +587,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
       detailContent = '';
     }
 
-    var thumbMarkup = hasImage
-      ? (variant === 'Media'
-        ? '<div class="thumb-wrap"><img class="thumb media" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"><div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div></div>'
-        : '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>')
-      : '';
+    var thumbMarkup = variant === 'Media'
+      ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '">'
+        + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
+        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + '</div></div>'
+      : (hasImage
+        ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
+        : '');
 
     return "" +
       '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
@@ -850,6 +880,87 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return Array.isArray(archive && archive.photos) ? archive.photos.length : 0;
   }
 
+  _archivePhotoPaths(archive) {
+    if (!Array.isArray(archive && archive.photos)) {
+      return [];
+    }
+    return archive.photos.map(function (item) {
+      if (typeof item === "string") {
+        return item.trim();
+      }
+      if (item && typeof item === "object") {
+        return String(item.path || item.url || item.photo_path || "").trim();
+      }
+      return "";
+    }).filter(Boolean);
+  }
+
+  _archivePhotoUrl(archiveId, photoPath, baseUrl) {
+    if (!baseUrl || archiveId == null || !photoPath) {
+      return "";
+    }
+    return baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(String(photoPath));
+  }
+
+  _mediaImageUrls(archive, baseUrl) {
+    var urls = [];
+    var seen = {};
+    var addUrl = function (url) {
+      var normalized = String(url || "").trim();
+      if (!normalized || seen[normalized]) {
+        return;
+      }
+      seen[normalized] = true;
+      urls.push(normalized);
+    };
+
+    addUrl(this._archivePhotoUrl(archive && archive.id, archive && archive.primary_photo_path, baseUrl));
+    this._archivePhotoPaths(archive).forEach(function (photoPath) {
+      addUrl(this._archivePhotoUrl(archive && archive.id, photoPath, baseUrl));
+    }.bind(this));
+    addUrl(baseUrl && archive && archive.id != null && String(archive.thumbnail_path || "").trim()
+      ? baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archive.id)) + "/thumbnail"
+      : "");
+
+    return urls;
+  }
+
+  _mediaGalleryIndex(archiveId, imageCount) {
+    var key = String(archiveId || "");
+    var count = Math.max(0, Number(imageCount) || 0);
+    if (!key || count <= 0) {
+      return 0;
+    }
+    var current = Number(this._mediaGalleryIndices[key] || 0);
+    if (!Number.isFinite(current) || current < 0) {
+      current = 0;
+    }
+    if (current >= count) {
+      current = count - 1;
+      this._mediaGalleryIndices[key] = current;
+    }
+    return current;
+  }
+
+  _setMediaGalleryIndex(archiveId, nextIndex, imageCount) {
+    var key = String(archiveId || "");
+    var count = Math.max(0, Number(imageCount) || 0);
+    if (!key || count <= 0) {
+      return;
+    }
+    var normalizedIndex = Number(nextIndex);
+    if (!Number.isFinite(normalizedIndex)) {
+      normalizedIndex = 0;
+    }
+    while (normalizedIndex < 0) {
+      normalizedIndex += count;
+    }
+    normalizedIndex = normalizedIndex % count;
+    this._mediaGalleryIndices[key] = normalizedIndex;
+    this._viewSignature = this._buildViewSignature(this._hass);
+    this._renderBody();
+  }
+
   _userTags(value) {
     var systemTagPrefixes = ["f:", "s:", "spoolman:", "vendor:", "material:", "cost:", "status:", "ha enrichment:", "ha_enrichment:"];
     var systemTagValues = ["ha_enriched:true"];
@@ -1128,9 +1239,60 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "media-prev" || action === "media-next") {
+      var galleryCount = Number(actionNode.getAttribute("data-gallery-count") || 0);
+      if (archive && archive.id != null && galleryCount > 1) {
+        this._setMediaGalleryIndex(archive.id, this._mediaGalleryIndex(archive.id, galleryCount) + (action === "media-next" ? 1 : -1), galleryCount);
+      }
+      return;
+    }
+
     if (action === "open") {
+      if (Date.now() < this._suppressOpenUntil && String(this._suppressOpenArchiveId || "") === String(archive && archive.id || "")) {
+        return;
+      }
       await this._openArchivePopup(archive);
     }
+  }
+
+  _handlePointerDown(event) {
+    if (!event || (event.target && event.target.closest && event.target.closest("[data-action]"))) {
+      return;
+    }
+    var surface = event.target && event.target.closest ? event.target.closest(".media-gallery-surface") : null;
+    if (!surface) {
+      this._mediaSwipe = null;
+      return;
+    }
+    this._mediaSwipe = {
+      archiveId: String(surface.getAttribute("data-archive-id") || ""),
+      galleryCount: Number(surface.getAttribute("data-gallery-count") || 0),
+      startX: Number(event.clientX || 0),
+      startY: Number(event.clientY || 0),
+    };
+  }
+
+  _handlePointerUp(event) {
+    if (!this._mediaSwipe) {
+      return;
+    }
+    var swipe = this._mediaSwipe;
+    this._mediaSwipe = null;
+    if (!swipe.archiveId || swipe.galleryCount <= 1) {
+      return;
+    }
+    var deltaX = Number(event.clientX || 0) - swipe.startX;
+    var deltaY = Number(event.clientY || 0) - swipe.startY;
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+    this._suppressOpenArchiveId = swipe.archiveId;
+    this._suppressOpenUntil = Date.now() + 450;
+    this._setMediaGalleryIndex(swipe.archiveId, this._mediaGalleryIndex(swipe.archiveId, swipe.galleryCount) + (deltaX < 0 ? 1 : -1), swipe.galleryCount);
+  }
+
+  _handlePointerCancel() {
+    this._mediaSwipe = null;
   }
 
   async _handleKeydown(event) {
