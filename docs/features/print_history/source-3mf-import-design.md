@@ -421,6 +421,8 @@ This feature does not replace Bambuddy `source_3mf_path` attachment. A future en
 
 But that should be a separate checkbox and not part of the first implementation slice.
 
+For multi-plate prints where one source project may relate to several archive rows, see `source-3mf-storage-strategy.md`. The current design recommendation is to prefer a shared durable source copy plus selective archive attachment, rather than attaching the same source `.3mf` to every sibling archive by default.
+
 ## Recommended Phases
 
 ### Phase 1: Read-only discovery

@@ -12,6 +12,12 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 Manual phone-photo upload is documented in `manual-photo-upload.md`.
 
+Source `.3mf` import workflow and long-term storage policy are documented in:
+
+- `source-3mf-import-design.md`
+- `source-3mf-import-implementation-plan.md`
+- `source-3mf-storage-strategy.md`
+
 For the active print-history control-strip structure and mobile pagination guardrails, see `top-controls-contract.md`.
 
 ## Archived Browser Variants
