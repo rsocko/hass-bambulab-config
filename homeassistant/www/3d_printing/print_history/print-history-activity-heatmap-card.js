@@ -26,6 +26,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._queryToken = 0;
     this._renderTimer = null;
     this._loading = false;
+    this._refreshing = false;
     this._renderModel = null;
     this._debugStats = {
       scheduledRenders: 0,
@@ -179,6 +180,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".title{font-size:1rem;font-weight:600;margin:0 0 4px 0;}" +
       ".chart-wrap{position:relative;min-height:var(--chart-min-height,300px);}" +
       ".chart-wrap.loading{overflow:hidden;}" +
+      ".refresh-indicator{position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;background:rgba(15,23,42,0.68);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);color:#fff;font-size:11px;font-weight:700;line-height:1.1;letter-spacing:0.01em;z-index:5;pointer-events:none;box-shadow:0 8px 18px rgba(15,23,42,0.16);}" +
+      ".refresh-indicator.hidden{display:none;}" +
+      ".refresh-indicator.error{background:rgba(127,29,29,0.88);border-color:rgba(254,202,202,0.28);color:#fee2e2;}" +
+      ".refresh-dot{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:0.9;}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
       ".month-spacer{height:14px;}" +
@@ -323,8 +328,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       self._debugStats.coalescedRenders += 1;
       clearTimeout(self._renderTimer);
     }
+    var showLoadingState = !self._renderModel;
     self._loading = true;
-    self._renderLoadingState();
+    self._refreshing = !showLoadingState;
+    if (showLoadingState) {
+      self._renderLoadingState();
+    } else {
+      self._showRefreshIndicator("Updating...");
+    }
     self._renderTimer = setTimeout(function () {
       self._renderTimer = null;
       if (self._renderQueued) {
@@ -365,7 +376,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (this._detailsContainer) {
         this._detailsContainer.innerHTML = "";
       }
+      this._hideRefreshIndicator();
       this._loading = false;
+      this._refreshing = false;
       return;
     }
 
@@ -399,12 +412,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         this._destroyChart();
         this._chartContainer.classList.remove("loading");
         this._chartContainer.innerHTML = '<div class="details-empty">No print history data is available for the current scope. Refresh the archive cache or relax the filters.</div>';
+        this._hideRefreshIndicator();
         return;
       }
 
       var ApexChartsCtor = await this._ensureApexCharts();
       if (!ApexChartsCtor) {
         this._renderHeatmap(dataset);
+        this._hideRefreshIndicator();
         return;
       }
 
@@ -421,9 +436,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       await this._chart.render();
       await this._ensureChartVisible(dataset);
       await this._applySelectedVisualState(dataset);
+      this._hideRefreshIndicator();
       this._recordDebug(renderStarted, dataset);
     } finally {
       this._loading = false;
+      this._refreshing = false;
     }
   }
 
@@ -431,6 +448,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (!this._chartContainer || !this._config || !this._isVisible()) {
       return;
     }
+
+    this._hideRefreshIndicator();
 
     var weekCount = this._resolveVisibleWeeks();
     var monthLabels = [];
@@ -521,6 +540,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
     this._chartContainer.classList.remove("loading");
+    this._hideRefreshIndicator();
     var errorNode = this._chartContainer.querySelector(".error");
     if (errorNode) {
       this._chartContainer.innerHTML = "";
@@ -2530,10 +2550,51 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _showError(message) {
+    if (this._renderModel) {
+      this._showRefreshIndicator("Couldn't refresh", true);
+      return;
+    }
+
     this._destroyChart();
     if (this._chartContainer) {
       this._chartContainer.classList.remove("loading");
       this._chartContainer.innerHTML = '<div class="error">' + this._escapeHtml(message) + "</div>";
+    }
+  }
+
+  _ensureRefreshIndicator() {
+    if (!this._chartContainer) {
+      return null;
+    }
+
+    var indicator = this._chartContainer.querySelector(".refresh-indicator");
+    if (!indicator) {
+      indicator = document.createElement("div");
+      indicator.className = "refresh-indicator hidden";
+      this._chartContainer.appendChild(indicator);
+    }
+    return indicator;
+  }
+
+  _showRefreshIndicator(message, isError) {
+    var indicator = this._ensureRefreshIndicator();
+    if (!indicator) {
+      return;
+    }
+
+    indicator.className = "refresh-indicator" + (isError ? " error" : "");
+    indicator.innerHTML = '<span class="refresh-dot"></span><span>' + this._escapeHtml(message) + '</span>';
+  }
+
+  _hideRefreshIndicator() {
+    if (!this._chartContainer) {
+      return;
+    }
+
+    var indicator = this._chartContainer.querySelector(".refresh-indicator");
+    if (indicator) {
+      indicator.className = "refresh-indicator hidden";
+      indicator.textContent = "";
     }
   }
 

@@ -880,6 +880,18 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("_syncSelectedCellClasses()", content)
         self.assertNotIn('selected_day: String(this._stateValue(this._config.selected_date_entity) || "").trim()', content)
 
+    def test_heatmap_card_keeps_existing_chart_visible_while_refreshing(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("var showLoadingState = !self._renderModel;", content)
+        self.assertIn('self._showRefreshIndicator("Updating...");', content)
+        self.assertIn("self._refreshing = !showLoadingState;", content)
+
+    def test_heatmap_card_preserves_last_successful_render_on_refresh_error(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("if (this._renderModel) {", content)
+        self.assertIn('this._showRefreshIndicator("Couldn\'t refresh", true);', content)
+        self.assertIn("_hideRefreshIndicator()", content)
+
     def test_heatmap_card_uses_api_object_count(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn("objectCount: Math.max(1, this._toNumber(archive && archive.object_count))", content)
