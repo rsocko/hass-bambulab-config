@@ -129,8 +129,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".header.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
-      ".note-chip{width:24px;height:24px;min-width:24px;min-height:24px;padding:0;}" +
-      ".note-chip ha-icon{width:13px;height:13px;}" +
+      ".note-chip{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;min-width:24px;min-height:24px;padding:0;}" +
+      ".note-chip ha-icon{--mdc-icon-size:12px;width:12px;height:12px;min-width:12px;min-height:12px;display:block;}" +
       ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--secondary-text-color) 40%, transparent);text-underline-offset:0.18em;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
@@ -147,7 +147,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
       ".status-chip{color:#fff;font-weight:700;}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
-      ".chip.icon-chip{position:relative;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;justify-content:center;flex:0 0 auto;}" +
+      ".chip.icon-chip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;flex:0 0 auto;line-height:0;}" +
       ".chip.icon-chip ha-icon{width:16px;height:16px;}" +
       ".icon-chip-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#1565C0;color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;}" +
       ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:3px 8px;gap:4px;min-height:24px;height:24px;font-size:10px;max-width:min(100%,180px);line-height:1;box-sizing:border-box;overflow:hidden;}" +
@@ -405,7 +405,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var compactArchiveId = normalized.compactArchiveIdLabel ? '<span class="compact-archive-id">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var compactNoteChip = normalized.noteText
-      ? '<span class="chip icon-chip note-chip" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:text-box-outline"></ha-icon></span>'
+      ? '<span class="chip icon-chip note-chip" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:note-text-outline"></ha-icon></span>'
       : '';
     var photoAction = normalized.photoCount > 0
       ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
@@ -414,7 +414,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
         + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
-        + compactNoteChip
         + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
         + '</div>'
       : '<div class="chip-row">'
@@ -438,6 +437,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
         '</button>' +
         photoAction +
+        compactNoteChip +
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
