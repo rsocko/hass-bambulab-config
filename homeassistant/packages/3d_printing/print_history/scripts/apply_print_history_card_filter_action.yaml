@@ -76,5 +76,14 @@ apply_print_history_card_filter_action:
                 entity_id: input_select.print_history_filter_status
               data:
                 option: "{{ target_value_raw }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ action_key == 'enrichment_status_set' and target_value_raw != '' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.print_history_filter_enrichment_status
+              data:
+                option: "{{ target_value_raw }}"
   mode: queued
   max: 20
