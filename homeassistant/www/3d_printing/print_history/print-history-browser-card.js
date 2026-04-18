@@ -108,11 +108,21 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
       ".card-shell.compact{grid-template-columns:minmax(150px,188px) minmax(0,1fr);grid-template-areas:'thumb summary' 'name name' 'details details';column-gap:18px;row-gap:14px;align-items:start;}" +
       ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);grid-template-areas:'summary' 'name' 'details';}" +
-      ".card-shell.media{grid-template-columns:minmax(0,1fr);min-height:260px;}" +
+      ".card-shell.media{grid-template-columns:minmax(0,1fr);min-height:320px;row-gap:14px;}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
-      ".thumb.media{height:180px;object-fit:contain;padding:6px;background:rgba(255,255,255,0.04);}" +
+      ".card-shell.media .thumb-wrap{position:relative;}" +
+      ".thumb.media{height:228px;object-fit:contain;padding:10px;background:rgba(255,255,255,0.04);}" +
+      ".media-thumb-overlay{position:absolute;inset:12px 12px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}" +
+      ".media-thumb-overlay .action-buttons{pointer-events:auto;}" +
+      ".media-thumb-overlay .icon-action,.media-thumb-overlay .chip.icon-chip{background:rgba(15,23,42,0.56);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);}" +
+      ".media-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;max-width:100%;}" +
+      ".media-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:16px;row-gap:8px;}" +
+      ".media-title-wrap{min-width:0;}" +
+      ".media-status-stack{display:grid;justify-items:end;align-content:start;gap:6px;}" +
+      ".media-date{font-size:12px;font-weight:600;white-space:nowrap;}" +
+      ".chip-row.media-meta-line{align-items:center;gap:8px;}" +
       ".card-shell.compact .thumb{height:136px;}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
       ".content.compact-summary{grid-area:summary;gap:8px;align-self:start;}" +
@@ -171,7 +181,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
-      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}}" +
+      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-stack{justify-items:start;}}" +
       "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}}" +
       "</style>" +
       "<ha-card>" +
@@ -404,12 +414,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<span class="chip project-chip" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';" title="' + this._escapeAttribute('Project: ' + normalized.projectLabel) + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></span>'
       : '';
     var compactArchiveId = normalized.compactArchiveIdLabel ? '<span class="compact-archive-id">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
-    var compactNoteInline = normalized.noteText
+    var noteInline = normalized.noteText
       ? '<span class="name-note-inline" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:note-text-outline"></ha-icon></span>'
       : '';
     var photoAction = normalized.photoCount > 0
       ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
       : '';
+    var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
+    var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
     var primaryChipRow = variant === 'Compact'
       ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
@@ -424,6 +436,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
         + '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>'
         + '</div>';
     var metricsClass = variant === 'Media' ? 'media' : (variant === 'Compact' ? 'compact-tight' : 'detail');
+    var colorEnrichmentMarkup = normalized.filamentChips.length
+      ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
+        return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
+      }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
+      : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>';
+    var tagProjectMarkup = ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
+      + ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
+        return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
+      }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '<div></div>')
+      + projectChip
+      + '</div>' : '');
 
     var summaryContent = '' +
       '<div class="content compact-summary">' +
@@ -448,7 +471,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var compactNameContent = variant === 'Compact'
       ? '<div class="content compact-name">'
         + (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '')
-        + '<div class="name">' + this._escapeHtml(normalized.printName) + compactNoteInline + '</div>'
+        + '<div class="name">' + this._escapeHtml(normalized.printName) + noteInline + '</div>'
         + '</div>'
       : '';
     var detailContent = '' +
@@ -458,22 +481,45 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._renderMetric('Filament', normalized.filamentLabel) +
       this._renderMetric('Cost', normalized.costLabel) +
       '</div>' +
-      (normalized.filamentChips.length
-        ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
-          return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
-        }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
-        : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>') +
-      ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
-        + ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
-          return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
-        }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '<div></div>')
-        + projectChip
-        + '</div>' : '') +
+      colorEnrichmentMarkup +
+      tagProjectMarkup +
       (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
       (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
       '</div>';
 
-    if (variant !== 'Compact') {
+    if (variant === 'Media') {
+      summaryContent = '' +
+        '<div class="content">' +
+          (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '') +
+          '<div class="header media-header">' +
+            '<div class="media-title-wrap">' +
+              '<div class="name">' + this._escapeHtml(normalized.printName) + noteInline + '</div>' +
+            '</div>' +
+            '<div class="media-status-stack">' +
+              statusChip +
+              '<div class="subtle media-date">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="chip-row media-meta-line">' +
+            (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
+            (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+            mediaMetaChip +
+            (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
+          '</div>' +
+          '<div class="metrics ' + metricsClass + '">' +
+            this._renderMetric('Duration', normalized.durationLabel) +
+            this._renderMetric('Filament', normalized.filamentLabel) +
+            this._renderMetric('Cost', normalized.costLabel) +
+          '</div>' +
+          colorEnrichmentMarkup +
+          tagProjectMarkup +
+          (normalized.hasArchiveError ? '<div class="archive-error-text ' + this._escapeAttribute(normalized.archiveErrorSeverity) + '">' + this._escapeHtml(normalized.archiveErrorSummary) + '</div>' : '') +
+          (normalized.failureReason ? '<div class="failure">' + this._escapeHtml(normalized.failureReason) + '</div>' : '') +
+        '</div>';
+      detailContent = '';
+    }
+
+    if (variant === 'Detail') {
       summaryContent = '' +
         '<div class="content">' +
           '<div class="content-top">' +
@@ -515,10 +561,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       detailContent = '';
     }
 
+    var thumbMarkup = hasImage
+      ? (variant === 'Media'
+        ? '<div class="thumb-wrap"><img class="thumb media" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"><div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions"><button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite"><ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>' + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div></div>'
+        : '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>')
+      : '';
+
     return "" +
       '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
-      (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
+      thumbMarkup +
       summaryContent +
       compactNameContent +
       detailContent +
@@ -601,6 +653,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return { dotColor: hex, tooltip: hex };
     });
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
+    var mediaMetaLabel = [
+      archive.filament_type ? String(archive.filament_type) : "",
+      archive.layer_height ? String(archive.layer_height) + "mm" : "",
+      archive.nozzle_diameter ? String(archive.nozzle_diameter) + "mm nozzle" : "",
+    ].filter(Boolean).join(" · ");
     var printerLabel = archive.printer_name ? String(archive.printer_name) : (archive.printer_id != null && archive.printer_id !== "" ? ("Printer " + String(archive.printer_id)) : "");
     var duplicateSummary = this._duplicateSummary(archive);
     var facts = [
@@ -643,6 +700,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       roleEmblemLabel: duplicateSummary.roleEmblemLabel,
       roleEmblemClass: duplicateSummary.roleEmblemClass,
       metadata: metadata,
+      mediaMetaLabel: mediaMetaLabel,
       facts: facts,
       filamentChips: filamentChips,
       projectLabel: archive.project_name ? String(archive.project_name).trim() : "",
