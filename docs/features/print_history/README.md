@@ -51,9 +51,6 @@ Historical design notes:
 - `planning/external-services-design-review-2026-04.md` - now includes a direct O.D.I.N. vs Bambuddy comparison covering archive schema depth, API shape, Vigil AI/local inference, licensing gates, and transition recommendation
 - `planning/variant3-metadata-schema-and-variant4-carry-forward.md`
 - `planning/metadata-implementation-roadmap.md`
-- `issue-update-drafts-2026-04.md`
-- `issue-posting-plan-2026-04.md`
-- `github-posting-batch-1-2026-04.md`
 
 ## Related Runtime Repair Docs
 
