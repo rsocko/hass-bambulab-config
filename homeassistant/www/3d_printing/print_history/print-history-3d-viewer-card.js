@@ -303,7 +303,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<span class='capture-kicker'>Viewer Capture</span>" +
       "</div>" +
       "<div id='capture-hero-title' class='capture-hero-title'>Capture workspace</div>" +
-      "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
+      "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
       "<div class='capture-primary-actions'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
       "<button id='crop-toggle-button' class='button ghost' type='button'>Crop View</button>" +
@@ -436,7 +436,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     let chipState = "idle";
     let chipLabel = "Waiting";
     let heroTitle = "Capture workspace";
-    let heroCopy = "Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.";
+    let heroCopy = "Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.";
 
     if (this._uploadInProgress) {
       panelState = "capture-ready";
