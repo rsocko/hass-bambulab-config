@@ -160,6 +160,25 @@ get_print_history_archive_detail:
           min: 1
           mode: box
 
+refresh_print_history_archive_detail:
+  name: Refresh Print History Archive Detail
+  description: Fetch one archive from Bambuddy and immediately upsert it into the local Variant 3 store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to refresh from the upstream API.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
 append_print_history_event:
   name: Append Print History Event
   description: Append one local per-archive timeline event to the Bambuddy Variant 3 store.

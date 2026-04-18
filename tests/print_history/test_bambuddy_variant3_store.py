@@ -37,7 +37,7 @@ def _projected_archives() -> list[dict]:
             "designer": "Jane",
             "is_favorite": True,
             "tags": "display,hueforge,s:123",
-            "notes": "User note\n\n+>{\"s\":\"c\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\"}]}",
+            "notes": "User note\n\n+>{\"s\":\"c\",\"src\":\"afs\",\"F\":[{\"n\":\"Blue PLA\",\"h\":\"#112233\",\"am\":\"a_tc\",\"fm\":\"cm\",\"pm\":\"t_hist\",\"sm\":\"uuid\"}]}",
             "file_path": "archives/101/model.3mf",
             "file_size": 98304,
             "photos": [
@@ -49,9 +49,27 @@ def _projected_archives() -> list[dict]:
             "project_name": "Wall Art",
             "extra_data": {
                 "filament_slots": [
-                    {"tray": "A1", "name": "Blue PLA", "color": "#112233", "used_grams": 21.2},
+                    {"tray": "A1", "name": "Blue PLA", "type": "PLA", "color": "#112233", "used_grams": 21.2},
                     {"tray": "A2", "name": "White PLA", "color": "#FFFFFF", "used_grams": 21.3},
-                ]
+                ],
+                "_print_data": {
+                    "raw_data": {
+                        "ams": [
+                            {
+                                "id": 0,
+                                "tray": [
+                                    {
+                                        "id": 0,
+                                        "tray_uuid": "UUID-A1",
+                                        "tray_type": "PLA",
+                                        "tray_color": "#112233",
+                                        "tray_sub_brands": "Blue PLA"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
             },
         },
         {
@@ -628,6 +646,7 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
 
     detail = store.load_archive(101)
     payload_rows = store.load_note_payload_rows(101)
+    provenance_rows = store.load_enrichment_provenance_rows(101)
     stats = store.load_store_stats()
 
     assert detail is not None
@@ -644,11 +663,51 @@ def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: P
             "used_grams": 0.0,
             "filament_id": "",
             "spool_id": "",
-            "ambiguity_code": "",
+            "ambiguity_code": "a_tc",
+            "filament_match_method": "cm",
+            "provenance_marker": "t_hist",
+            "spool_match_method": "uuid",
+        }
+    ]
+    assert provenance_rows == [
+        {
+            "row_index": 0,
+            "source_code": "afs",
+            "tray": "",
+            "name": "Blue PLA",
+            "type": "",
+            "color": "#112233",
+            "used_grams": 0.0,
+            "filament_id": "",
+            "spool_id": "",
+            "ambiguity_code": "a_tc",
+            "filament_match_method": "cm",
+            "provenance_marker": "t_hist",
+            "spool_match_method": "uuid",
+            "evidence": {
+                "source_code": "afs",
+                "source_slot_present": True,
+                "source_slot": {
+                    "tray": "A1",
+                    "name": "Blue PLA",
+                    "type": "PLA",
+                    "color": "#112233",
+                    "used_grams": 21.2,
+                    "filament_id": None,
+                    "spool_id": None,
+                },
+                "source_type": "PLA",
+                "source_color": "#112233",
+                "archived_ams_tray_count": 1,
+                "matching_archived_ams_tray_count": 1,
+                "matching_archived_ams_tray_codes": ["A1"],
+                "matching_archived_tray_uuid_count": 1,
+            },
         }
     ]
     assert stats["archive_count"] == 2
     assert stats["note_payload_row_count"] == 1
+    assert stats["enrichment_provenance_row_count"] == 1
 
     sync = store.load_sync_metadata(101)
 
@@ -888,7 +947,56 @@ def test_variant3_store_replace_archives_self_heals_partial_schema(tmp_path: Pat
 
     assert stats["archive_count"] == 2
     assert stats["note_payload_row_count"] == 1
+    assert stats["enrichment_provenance_row_count"] == 1
     assert payload_rows[0]["name"] == "Blue PLA"
+
+
+def test_variant3_query_note_payload_rows_parse_compact_match_markers() -> None:
+    archive = project_archive(
+        {
+            "id": 901,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "Marker Check",
+            "status": "completed",
+            "started_at": "2026-04-12T10:00:00Z",
+            "completed_at": "2026-04-12T11:00:00Z",
+            "created_at": "2026-04-12T10:00:00Z",
+            "filament_type": "PLA",
+            "filament_color": "#123456",
+            "notes": "+>{\"src\":\"afs\",\"F\":[{\"n\":\"Blue Ocean PLA\",\"h\":\"#123456\",\"am\":\"a_tc\",\"fm\":\"cm\",\"pm\":\"t_hist\",\"sm\":\"uuid\"}]}",
+            "extra_data": {
+                "filament_slots": [
+                    {"tray": "A1", "name": "Blue Ocean PLA", "type": "PLA", "color": "#123456", "used_grams": 12.5}
+                ]
+            },
+        }
+    )
+
+    rows = query_module.note_payload_rows(archive)
+    provenance_rows = query_module.enrichment_provenance_rows(archive)
+
+    assert rows == [
+        {
+            "row_index": 0,
+            "tray": "",
+            "name": "Blue Ocean PLA",
+            "type": "",
+            "color": "#123456",
+            "used_grams": 0.0,
+            "filament_id": None,
+            "spool_id": None,
+            "ambiguity_code": "a_tc",
+            "filament_match_method": "cm",
+            "provenance_marker": "t_hist",
+            "spool_match_method": "uuid",
+        }
+    ]
+    assert provenance_rows[0]["source_code"] == "afs"
+    assert provenance_rows[0]["spool_match_method"] == "uuid"
+    assert provenance_rows[0]["filament_match_method"] == "cm"
+    assert provenance_rows[0]["provenance_marker"] == "t_hist"
+    assert provenance_rows[0]["evidence"]["source_slot_present"] is True
 
 
 def test_variant3_store_connection_errors_include_db_path_diagnostics(tmp_path: Path) -> None:

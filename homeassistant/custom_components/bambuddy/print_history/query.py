@@ -149,6 +149,10 @@ def normalize_hex(value: Any) -> str:
     return ""
 
 
+def normalize_material_name(value: Any) -> str:
+    return as_text(value).strip().lower()
+
+
 def parse_iso_datetime(value: Any) -> datetime | None:
     raw = as_text(value).strip()
     if not raw:
@@ -507,6 +511,53 @@ def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
     return slots
 
 
+def project_archive_source_evidence(raw_archive: dict[str, Any]) -> dict[str, Any]:
+    extra_data = raw_archive.get("extra_data") if isinstance(raw_archive.get("extra_data"), dict) else {}
+    filament_slots = project_filament_slots(extra_data)
+
+    raw_ams_list = extra_data.get("_print_data", {}).get("raw_data", {}).get("ams")
+    archived_ams_trays: list[dict[str, Any]] = []
+    if isinstance(raw_ams_list, list):
+        for ams_index, ams in enumerate(raw_ams_list):
+            if not isinstance(ams, dict):
+                continue
+            tray_list = ams.get("tray") if isinstance(ams.get("tray"), list) else []
+            ams_id = as_int(ams.get("id"), ams_index)
+            for tray_index, tray in enumerate(tray_list):
+                if not isinstance(tray, dict):
+                    continue
+                tray_id = as_int(tray.get("id"), tray_index)
+                tray_code = (
+                    f"A{tray_id + 1}"
+                    if ams_id == 0
+                    else f"B{tray_id + 1}"
+                    if ams_id == 1
+                    else f"AMS{ams_id + 1}-{tray_id + 1}"
+                )
+                tray_uuid = as_text(tray.get("tray_uuid")).strip().strip('"')
+                archived_ams_trays.append(
+                    {
+                        "tray_code": tray_code,
+                        "tray_uuid": tray_uuid,
+                        "tray_type": as_text(tray.get("tray_type")).strip(),
+                        "tray_color": normalize_hex(tray.get("tray_color")),
+                        "tray_sub_brands": as_text(tray.get("tray_sub_brands")).strip(),
+                    }
+                )
+
+    tray_uuid_count = 0
+    for tray in archived_ams_trays:
+        tray_uuid = as_text(tray.get("tray_uuid")).strip().lower()
+        if tray_uuid and not re.fullmatch(r"0+", tray_uuid):
+            tray_uuid_count += 1
+
+    return {
+        "filament_slots": filament_slots,
+        "archived_ams_trays": archived_ams_trays,
+        "archived_tray_uuid_count": tray_uuid_count,
+    }
+
+
 def project_photos(raw_photos: Any) -> list[str]:
     if not isinstance(raw_photos, list):
         return []
@@ -572,6 +623,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "duplicate_sequence": duplicate_sequence(raw_archive.get("duplicate_sequence")),
         "original_archive_id": original_archive_id(raw_archive.get("original_archive_id")),
         "filament_slots": project_filament_slots(raw_archive.get("extra_data")),
+        "archive_source_evidence": project_archive_source_evidence(raw_archive),
         "enrichment_status": enrichment_status(payload),
         "source_updated_at": source_updated_at(raw_archive),
     }
@@ -600,10 +652,80 @@ def note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
                 "used_grams": as_float(row.get("w")),
                 "filament_id": row.get("f"),
                 "spool_id": row.get("s"),
-                "ambiguity_code": as_text(row.get("a")).strip(),
+                "ambiguity_code": as_text(row.get("am") or row.get("a")).strip(),
+                "filament_match_method": as_text(row.get("fm")).strip(),
+                "provenance_marker": as_text(row.get("pm")).strip(),
+                "spool_match_method": as_text(row.get("sm")).strip(),
             }
         )
     return rows
+
+
+def enrichment_provenance_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
+    payload = extract_enrichment_payload(as_text(archive.get("notes")))
+    source_code = as_text(payload.get("src")).strip()
+    parsed_rows = note_payload_rows(archive)
+    if not parsed_rows:
+        return []
+
+    source_evidence = archive.get("archive_source_evidence") if isinstance(archive.get("archive_source_evidence"), dict) else {}
+    source_slots = source_evidence.get("filament_slots") if isinstance(source_evidence.get("filament_slots"), list) else []
+    archived_ams_trays = (
+        source_evidence.get("archived_ams_trays")
+        if isinstance(source_evidence.get("archived_ams_trays"), list)
+        else []
+    )
+
+    provenance_rows: list[dict[str, Any]] = []
+    for row in parsed_rows:
+        row_index = as_int(row.get("row_index"))
+        source_slot = source_slots[row_index] if source_code == "afs" and row_index < len(source_slots) else None
+
+        source_type = as_text((source_slot or {}).get("type") or row.get("type") or archive.get("filament_type")).strip()
+        source_color = normalize_hex((source_slot or {}).get("color") or row.get("color"))
+        matching_trays: list[dict[str, Any]] = []
+        if source_type and source_color:
+            normalized_source_type = normalize_material_name(source_type)
+            for tray in archived_ams_trays:
+                tray_type = normalize_material_name(tray.get("tray_type"))
+                tray_color = normalize_hex(tray.get("tray_color"))
+                if tray_type == normalized_source_type and tray_color == source_color:
+                    matching_trays.append(tray)
+
+        evidence = {
+            "source_code": source_code,
+            "source_slot_present": source_slot is not None,
+            "source_slot": source_slot if isinstance(source_slot, dict) else {},
+            "source_type": source_type,
+            "source_color": source_color,
+            "archived_ams_tray_count": len(archived_ams_trays),
+            "matching_archived_ams_tray_count": len(matching_trays),
+            "matching_archived_ams_tray_codes": [as_text(item.get("tray_code")).strip() for item in matching_trays],
+            "matching_archived_tray_uuid_count": sum(
+                1
+                for item in matching_trays
+                if as_text(item.get("tray_uuid")).strip() and not re.fullmatch(r"0+", as_text(item.get("tray_uuid")).strip())
+            ),
+        }
+        provenance_rows.append(
+            {
+                "row_index": row_index,
+                "source_code": source_code,
+                "tray": as_text(row.get("tray")).strip(),
+                "name": as_text(row.get("name")).strip(),
+                "type": as_text(row.get("type")).strip(),
+                "color": normalize_hex(row.get("color")),
+                "used_grams": as_float(row.get("used_grams")),
+                "filament_id": row.get("filament_id"),
+                "spool_id": row.get("spool_id"),
+                "ambiguity_code": as_text(row.get("ambiguity_code")).strip(),
+                "filament_match_method": as_text(row.get("filament_match_method")).strip(),
+                "provenance_marker": as_text(row.get("provenance_marker")).strip(),
+                "spool_match_method": as_text(row.get("spool_match_method")).strip(),
+                "evidence": evidence,
+            }
+        )
+    return provenance_rows
 
 
 def color_tooltip_names(archives: list[dict[str, Any]]) -> dict[str, list[str]]:

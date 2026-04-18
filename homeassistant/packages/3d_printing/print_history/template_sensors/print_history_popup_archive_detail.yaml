@@ -61,6 +61,21 @@
             {% endif %}
             {{ timeline | tojson }}
           {% endif %}
+        enrichment_provenance_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            []
+          {% else %}
+            {% set content = result.get('enrichment_provenance', []) if result is defined and result is mapping else [] %}
+            {% if content is string %}
+              {% set provenance = content | from_json([]) %}
+            {% elif content is iterable and content is not mapping %}
+              {% set provenance = content | list %}
+            {% else %}
+              {% set provenance = [] %}
+            {% endif %}
+            {{ provenance | tojson }}
+          {% endif %}
         photos_json: >-
           {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
           {% if archive_id == '' %}

@@ -23,6 +23,7 @@ try:
         as_text,
         build_color_tooltips,
         canonical_color_tooltip_names,
+        enrichment_provenance_rows,
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         as_text,
         build_color_tooltips,
         canonical_color_tooltip_names,
+        enrichment_provenance_rows,
         effective_duration_seconds,
         has_active_filters,
         local_timezone,
@@ -210,9 +212,33 @@ class PrintHistoryStore:
                 filament_id TEXT,
                 spool_id TEXT,
                 ambiguity_code TEXT NOT NULL DEFAULT '',
+                filament_match_method TEXT NOT NULL DEFAULT '',
+                provenance_marker TEXT NOT NULL DEFAULT '',
+                spool_match_method TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (archive_id, row_index),
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS archive_enrichment_provenance_rows (
+                archive_id INTEGER NOT NULL,
+                row_index INTEGER NOT NULL,
+                source_code TEXT NOT NULL DEFAULT '',
+                tray TEXT NOT NULL DEFAULT '',
+                name TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '',
+                used_grams REAL NOT NULL DEFAULT 0,
+                filament_id TEXT,
+                spool_id TEXT,
+                ambiguity_code TEXT NOT NULL DEFAULT '',
+                filament_match_method TEXT NOT NULL DEFAULT '',
+                provenance_marker TEXT NOT NULL DEFAULT '',
+                spool_match_method TEXT NOT NULL DEFAULT '',
+                evidence_json TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (archive_id, row_index),
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_enrichment_provenance_archive_id ON archive_enrichment_provenance_rows(archive_id);
 
             CREATE TABLE IF NOT EXISTS archive_event_timeline (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,6 +289,7 @@ class PrintHistoryStore:
             """
         )
         self._ensure_archive_columns(connection)
+        self._ensure_note_payload_columns(connection)
         self._ensure_event_timeline_columns(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at)")
 
@@ -337,6 +364,23 @@ class PrintHistoryStore:
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_archive_id ON archive_event_timeline(archive_id)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_event_timeline_event_time ON archive_event_timeline(event_time)")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_archive_event_timeline_event_key ON archive_event_timeline(event_key)")
+
+    def _ensure_note_payload_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(archive_note_payload_rows)").fetchall()
+            if len(row) > 1
+        }
+        required_columns = {
+            "filament_match_method": "TEXT NOT NULL DEFAULT ''",
+            "provenance_marker": "TEXT NOT NULL DEFAULT ''",
+            "spool_match_method": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column_name, definition in required_columns.items():
+            if column_name in columns:
+                continue
+            _LOGGER.info("Adding missing archive_note_payload_rows.%s column to Bambuddy local store", column_name)
+            connection.execute(f"ALTER TABLE archive_note_payload_rows ADD COLUMN {column_name} {definition}")
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> dict[str, Any]:
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -639,6 +683,7 @@ class PrintHistoryStore:
     def _replace_archive_children(self, connection: sqlite3.Connection, archive_id: int, archive: dict[str, Any]) -> None:
         connection.execute("DELETE FROM archive_photos WHERE archive_id = ?", (archive_id,))
         connection.execute("DELETE FROM archive_note_payload_rows WHERE archive_id = ?", (archive_id,))
+        connection.execute("DELETE FROM archive_enrichment_provenance_rows WHERE archive_id = ?", (archive_id,))
         connection.execute("DELETE FROM archive_tags WHERE archive_id = ?", (archive_id,))
         connection.execute("DELETE FROM archive_filament_rows WHERE archive_id = ?", (archive_id,))
 
@@ -710,8 +755,9 @@ class PrintHistoryStore:
                 """
                 INSERT INTO archive_note_payload_rows (
                     archive_id, row_index, tray, name, type, color, used_grams,
-                    filament_id, spool_id, ambiguity_code
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    filament_id, spool_id, ambiguity_code, filament_match_method,
+                    provenance_marker, spool_match_method
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     archive_id,
@@ -724,6 +770,37 @@ class PrintHistoryStore:
                     as_text(payload_row.get("filament_id")).strip(),
                     as_text(payload_row.get("spool_id")).strip(),
                     as_text(payload_row.get("ambiguity_code")).strip(),
+                    as_text(payload_row.get("filament_match_method")).strip(),
+                    as_text(payload_row.get("provenance_marker")).strip(),
+                    as_text(payload_row.get("spool_match_method")).strip(),
+                ),
+            )
+
+        for provenance_row in enrichment_provenance_rows(archive):
+            connection.execute(
+                """
+                INSERT INTO archive_enrichment_provenance_rows (
+                    archive_id, row_index, source_code, tray, name, type, color, used_grams,
+                    filament_id, spool_id, ambiguity_code, filament_match_method,
+                    provenance_marker, spool_match_method, evidence_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    archive_id,
+                    as_int(provenance_row.get("row_index")),
+                    as_text(provenance_row.get("source_code")).strip(),
+                    as_text(provenance_row.get("tray")).strip(),
+                    as_text(provenance_row.get("name")).strip(),
+                    as_text(provenance_row.get("type")).strip(),
+                    as_text(provenance_row.get("color")).strip(),
+                    as_float(provenance_row.get("used_grams")),
+                    as_text(provenance_row.get("filament_id")).strip(),
+                    as_text(provenance_row.get("spool_id")).strip(),
+                    as_text(provenance_row.get("ambiguity_code")).strip(),
+                    as_text(provenance_row.get("filament_match_method")).strip(),
+                    as_text(provenance_row.get("provenance_marker")).strip(),
+                    as_text(provenance_row.get("spool_match_method")).strip(),
+                    self._payload_json(provenance_row.get("evidence")),
                 ),
             )
 
@@ -1253,7 +1330,8 @@ class PrintHistoryStore:
         with self._borrow_connection(connection) as active_connection:
             rows = active_connection.execute(
                 """
-                SELECT row_index, tray, name, type, color, used_grams, filament_id, spool_id, ambiguity_code
+                SELECT row_index, tray, name, type, color, used_grams, filament_id, spool_id,
+                       ambiguity_code, filament_match_method, provenance_marker, spool_match_method
                 FROM archive_note_payload_rows
                 WHERE archive_id = ?
                 ORDER BY row_index ASC
@@ -1271,9 +1349,56 @@ class PrintHistoryStore:
                 "filament_id": row[6],
                 "spool_id": row[7],
                 "ambiguity_code": row[8],
+                "filament_match_method": row[9],
+                "provenance_marker": row[10],
+                "spool_match_method": row[11],
             }
             for row in rows
         ]
+
+    def load_enrichment_provenance_rows(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                """
+                SELECT row_index, source_code, tray, name, type, color, used_grams, filament_id,
+                       spool_id, ambiguity_code, filament_match_method, provenance_marker,
+                       spool_match_method, evidence_json
+                FROM archive_enrichment_provenance_rows
+                WHERE archive_id = ?
+                ORDER BY row_index ASC
+                """,
+                (archive_id,),
+            ).fetchall()
+        parsed_rows: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                evidence = json.loads(row[13]) if as_text(row[13]).strip() else {}
+            except json.JSONDecodeError:
+                evidence = {}
+            parsed_rows.append(
+                {
+                    "row_index": row[0],
+                    "source_code": row[1],
+                    "tray": row[2],
+                    "name": row[3],
+                    "type": row[4],
+                    "color": row[5],
+                    "used_grams": row[6],
+                    "filament_id": row[7],
+                    "spool_id": row[8],
+                    "ambiguity_code": row[9],
+                    "filament_match_method": row[10],
+                    "provenance_marker": row[11],
+                    "spool_match_method": row[12],
+                    "evidence": evidence if isinstance(evidence, dict) else {},
+                }
+            )
+        return parsed_rows
 
     def load_archive_event_timeline(
         self,
@@ -1825,6 +1950,9 @@ class PrintHistoryStore:
         with self._borrow_connection(connection) as active_connection:
             archive_count = active_connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
             note_payload_count = active_connection.execute("SELECT COUNT(*) FROM archive_note_payload_rows").fetchone()[0]
+            enrichment_provenance_count = active_connection.execute(
+                "SELECT COUNT(*) FROM archive_enrichment_provenance_rows"
+            ).fetchone()[0]
             event_timeline_count = active_connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
             lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
@@ -1840,6 +1968,7 @@ class PrintHistoryStore:
             "db_size_bytes": db_size_bytes,
             "archive_count": archive_count,
             "note_payload_row_count": note_payload_count,
+            "enrichment_provenance_row_count": enrichment_provenance_count,
             "event_timeline_count": event_timeline_count,
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
@@ -1870,6 +1999,7 @@ class PrintHistoryStore:
                 "archive": archive,
                 "event_timeline": self.load_archive_event_timeline(archive_id, connection=connection),
                 "note_payload_rows": self.load_note_payload_rows(archive_id, connection=connection),
+                "enrichment_provenance": self.load_enrichment_provenance_rows(archive_id, connection=connection),
                 "review_state": self.load_review_state(archive_id, connection=connection),
                 "media_review": self.load_media_review_state(archive_id, connection=connection),
                 "repair_lineage": self.load_repair_lineage(archive_id, connection=connection),

@@ -227,6 +227,9 @@ save_print_history_archive_popup_edits:
             project_id: "{{ merged_project_id }}"
             status: "{{ resolved_status }}"
             failure_reason: "{{ resolved_failure_reason }}"
+        - action: bambuddy.refresh_print_history_archive_detail
+          data:
+            archive_id: "{{ resolved_archive_id }}"
         - if:
             - condition: template
               value_template: "{{ should_refresh_browser }}"

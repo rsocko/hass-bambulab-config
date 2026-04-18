@@ -619,6 +619,9 @@
                 archive_id: "{{ archive_id }}"
                 tags: "{{ merged_tags }}"
                 notes: "{{ merged_notes }}"
+        - action: bambuddy.refresh_print_history_archive_detail
+          data:
+            archive_id: "{{ archive_id }}"
 
     - if:
         - condition: template

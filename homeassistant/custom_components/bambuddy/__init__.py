@@ -35,6 +35,7 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
+    SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
     SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
     SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE,
@@ -871,6 +872,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_refresh_archive_detail(call: ServiceCall) -> None:
+        _entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        refreshed = await manager.async_refresh_archive_detail(
+            archive_id,
+            operation="service_refresh_archive_detail",
+        )
+        if refreshed is None:
+            raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+
     async def async_handle_append_event(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -1604,6 +1615,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             async_handle_detail,
             schema=SERVICE_DETAIL_SCHEMA,
             supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
+            async_handle_refresh_archive_detail,
+            schema=SERVICE_DETAIL_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_APPEND_PRINT_HISTORY_EVENT):
         hass.services.async_register(
