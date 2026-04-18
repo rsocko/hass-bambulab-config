@@ -132,6 +132,20 @@ If end time is unavailable, fallback options are:
 1. use the latest known event time as the temporary right boundary
 2. if only one point exists, render just the start dot and omit intermediate placements
 
+### Out-of-range events
+
+Events may legitimately exist outside the canonical print window, especially when local workflow actions such as manual enrichment are recorded after the archive's terminal timestamp or when imported/repaired data surfaces an earlier pre-start event.
+
+Rendering rule:
+
+1. do not clamp those events onto the solid start-to-end segment
+2. render one collapsed overflow dot before the start anchor for all pre-start events
+3. render one collapsed overflow dot after the end anchor for all post-end events
+4. connect each overflow dot back to the nearest anchor with a short dotted segment so the overflow remains visible without stretching the main track
+5. the hover for an overflow dot must list every collapsed event with label plus formatted date/time
+
+This keeps the canonical archive window visually honest while still preserving access to the full event audit trail.
+
 ### Anti-overlap rule
 
 Timeline accuracy should remain approximate when events cluster tightly.
@@ -153,6 +167,7 @@ Allowed hover content:
 
 - formatted date/time
 - event label
+- for overflow dots, a short summary line plus one line per collapsed event containing label and formatted date/time
 
 Not allowed inline in the default popup body:
 
@@ -200,3 +215,4 @@ Required validation:
 4. dense event clusters remain individually visible
 5. start-only and no-terminal archives still render cleanly without requiring duplicated ledger anchors
 6. hover content remains limited to date/time plus label
+7. pre-start and post-end events render as collapsed overflow dots with dotted connectors instead of being visually clamped inside the canonical window
