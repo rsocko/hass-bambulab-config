@@ -1317,6 +1317,7 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
 
     def test_reenrich_supports_temporal_fallback_and_marks_temporal_rows(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("archive_print_start_ts", content)
         self.assertIn("archive_temporal_window_start_ts", content)
         self.assertIn("archive_temporal_window_end_ts", content)
         self.assertIn("opened_ts", content)
@@ -1335,6 +1336,20 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("starts_before_archive", content)
         self.assertIn("ends_after_archive", content)
         self.assertIn("ns_temporal_scope.items | count == 1", content)
+
+    def test_reenrich_prefers_spools_active_at_print_start_before_strict_end_window(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("ns_print_start = namespace(items=[])", content)
+        self.assertIn("has_start_evidence = candidate_opened > 0 or candidate_first > 0", content)
+        self.assertIn("started_by_print = has_start_evidence", content)
+        self.assertIn("active_at_print_start", content)
+        self.assertIn("candidate_last >= archive_print_start_ts", content)
+        self.assertIn("candidate_archived >= archive_print_start_ts", content)
+
+    def test_reenrich_preserves_existing_only_when_it_is_strictly_better(self):
+        content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("(existing_detail_score | int(-1)) > (candidate_detail_score | int(-1))", content)
+        self.assertNotIn("(existing_detail_score | int(-1)) >= (candidate_detail_score | int(-1))", content)
 
     def test_reenrich_reports_candidate_ambiguity_instead_of_archived_tray_text(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")

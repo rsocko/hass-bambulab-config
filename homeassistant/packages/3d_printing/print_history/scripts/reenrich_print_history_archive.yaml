@@ -403,6 +403,13 @@ reenrich_print_history_archive:
                       {{ archive_started_ts | float(0) }}
                     {% endif %}
                   {% endif %}
+                archive_print_start_ts: >-
+                  {% set started = archive_started_ts | float(0) %}
+                  {% if started > 0 %}
+                    {{ started }}
+                  {% else %}
+                    {{ archive_completed_ts | float(0) }}
+                  {% endif %}
                 archive_temporal_window_start_ts: >-
                   {% set base = archive_started_ts | float(0) %}
                   {{ (base - 86400) if base > 0 else 0 }}
@@ -549,6 +556,28 @@ reenrich_print_history_archive:
                         {% endif %}
                       {% else %}
                         {% set ns_match.raw_candidates = ns_filament_pool.items %}
+                      {% endif %}
+
+                      {% if ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and archive_print_start_ts | float(0) > 0 %}
+                        {% set ns_print_start = namespace(items=[]) %}
+                        {% for candidate in ns_match.raw_candidates %}
+                          {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
+                          {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
+                          {% set has_start_evidence = candidate_opened > 0 or candidate_first > 0 %}
+                          {% set started_by_print = has_start_evidence and (candidate_opened <= 0 or candidate_opened <= archive_print_start_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_print_start_ts | float(0)) %}
+                          {% set active_at_print_start = ((candidate_last > 0 and candidate_last >= archive_print_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_print_start_ts | float(0)) or ((candidate_last <= 0 and candidate_archived <= 0) and not (candidate.archived | default(false, true)))) %}
+                          {% if started_by_print and active_at_print_start %}
+                            {% set ns_print_start.items = ns_print_start.items + [candidate] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_print_start.items | count == 1 %}
+                          {% set ns_match.matched_spool = ns_print_start.items[0] %}
+                          {% set ns_match.match_method = 't_hist' %}
+                        {% elif ns_print_start.items | count > 1 and ns_print_start.items | count < ns_match.raw_candidates | count %}
+                          {% set ns_match.raw_candidates = ns_print_start.items %}
+                        {% endif %}
                       {% endif %}
 
                       {% if ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and location_hint | length > 0 %}
