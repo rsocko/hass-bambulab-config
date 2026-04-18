@@ -35,6 +35,7 @@ print_history_archive_popup_content:
         const popupFavoriteState = states['input_boolean.print_history_popup_is_favorite']?.state || 'off';
         let archive = snapshotArchive;
         let detailEventTimeline = [];
+        let detailEnrichmentProvenance = [];
         const detailState = states['sensor.print_history_popup_archive_detail'];
         if (detailState && String(detailState.state || '') === String(snapshotArchiveId || '')) {
           try {
@@ -46,9 +47,13 @@ print_history_archive_popup_content:
             const timelineRaw = detailState.attributes?.event_timeline_json || '[]';
             const parsedTimeline = typeof timelineRaw === 'string' ? JSON.parse(timelineRaw || '[]') : timelineRaw;
             detailEventTimeline = Array.isArray(parsedTimeline) ? parsedTimeline : [];
+            const provenanceRaw = detailState.attributes?.enrichment_provenance_json || '[]';
+            const parsedProvenance = typeof provenanceRaw === 'string' ? JSON.parse(provenanceRaw || '[]') : provenanceRaw;
+            detailEnrichmentProvenance = Array.isArray(parsedProvenance) ? parsedProvenance : [];
           } catch (_error) {
             archive = snapshotArchive;
             detailEventTimeline = [];
+            detailEnrichmentProvenance = [];
           }
         }
 
@@ -75,6 +80,16 @@ print_history_archive_popup_content:
             cm: 'Filament family narrowed by color and material.',
             ct: 'Filament family narrowed by color and archived profile metadata.',
             cmt: 'Filament family narrowed by color, material, and archived profile metadata.'
+          })[normalized] || '';
+        };
+        const describeSpoolMatchMethod = (value) => {
+          const normalized = String(value || '').trim();
+          return ({
+            uuid: 'Final spool matched directly from an archived tray UUID.',
+            filament: 'Final spool selected after narrowing to a single candidate filament family.',
+            color: 'Final spool selected from a single remaining color candidate.',
+            location: 'Final spool selected by archived tray location after broader matching narrowed the field.',
+            t_hist: 'Final spool selected from archive-time lifecycle overlap.'
           })[normalized] || '';
         };
         const describeProvenanceMarker = (value) => {
@@ -705,46 +720,55 @@ print_history_archive_popup_content:
         const archiveExtraData = archive?.extra_data && typeof archive.extra_data === 'object' && !Array.isArray(archive.extra_data)
           ? archive.extra_data
           : {};
-        const archivedFilamentSlots = Array.isArray(archiveExtraData?.filament_slots) && archiveExtraData.filament_slots.length
-          ? archiveExtraData.filament_slots
-          : (Array.isArray(archive?.filament_slots) ? archive.filament_slots : []);
+        const sourceEvidence = archive?.archive_source_evidence && typeof archive.archive_source_evidence === 'object' && !Array.isArray(archive.archive_source_evidence)
+          ? archive.archive_source_evidence
+          : {};
+        const archivedFilamentSlots = Array.isArray(sourceEvidence?.filament_slots) && sourceEvidence.filament_slots.length
+          ? sourceEvidence.filament_slots
+          : (Array.isArray(archiveExtraData?.filament_slots) && archiveExtraData.filament_slots.length
+            ? archiveExtraData.filament_slots
+            : (Array.isArray(archive?.filament_slots) ? archive.filament_slots : []));
+        const archivedAmsTrayRows = Array.isArray(sourceEvidence?.archived_ams_trays)
+          ? sourceEvidence.archived_ams_trays
+          : [];
         const archivedRawAms = Array.isArray(archiveExtraData?._print_data?.raw_data?.ams)
           ? archiveExtraData._print_data.raw_data.ams
           : [];
-        const archivedAmsTrayRows = archivedRawAms.flatMap((ams, amsIndex) => {
-          const trayList = Array.isArray(ams?.tray) ? ams.tray : [];
-          const amsId = Number.isFinite(Number(ams?.id)) ? Number(ams.id) : amsIndex;
-          return trayList.map((tray, trayIndex) => {
-            const trayId = Number.isFinite(Number(tray?.id)) ? Number(tray.id) : trayIndex;
-            const trayCode = amsId === 0
-              ? `A${trayId + 1}`
-              : amsId === 1
-                ? `B${trayId + 1}`
-                : `AMS${amsId + 1}-${trayId + 1}`;
-            return {
-              tray_code: trayCode,
-              tray_uuid: String(tray?.tray_uuid || '').trim().replace(/^"|"$/g, ''),
-              tray_type: String(tray?.tray_type || '').trim(),
-              tray_color: String(tray?.tray_color || '').trim(),
-              tray_sub_brands: String(tray?.tray_sub_brands || '').trim()
-            };
-          });
-        });
-        const archivedTrayUuidCount = archivedAmsTrayRows.filter((row) => {
-          const normalized = String(row?.tray_uuid || '').trim().toLowerCase();
-          return normalized && !/^0+$/u.test(normalized);
-        }).length;
-        const enrichmentRowsWithState = enrichmentRows.map((item) => {
+        const archivedTrayUuidCount = Number.isFinite(Number(sourceEvidence?.archived_tray_uuid_count))
+          ? Number(sourceEvidence.archived_tray_uuid_count)
+          : archivedAmsTrayRows.filter((row) => {
+              const normalized = String(row?.tray_uuid || '').trim().toLowerCase();
+              return normalized && !/^0+$/u.test(normalized);
+            }).length;
+        const enrichmentRowsWithState = enrichmentRows.map((item, index) => {
+          const rowIndex = Number.isFinite(Number(item?.row_index)) ? Number(item.row_index) : index;
+          const provenanceRow = detailEnrichmentProvenance.find((candidate) => Number(candidate?.row_index) === rowIndex);
           const reviewReasons = getEnrichmentReviewReasons(item);
           const filamentHex = normalizeHex(item?.h);
           const needsReview = reviewReasons.length > 0;
           const storedWhy = [];
-          const filamentMatchExplanation = describeFilamentMatchMethod(item?.fm);
-          const provenanceExplanation = describeProvenanceMarker(item?.pm);
-          const ambiguityExplanation = describeEnrichmentAmbiguity(item?.am || item?.a);
+          const filamentMatchExplanation = describeFilamentMatchMethod(provenanceRow?.filament_match_method || item?.fm);
+          const spoolMatchExplanation = describeSpoolMatchMethod(provenanceRow?.spool_match_method || item?.sm);
+          const provenanceExplanation = describeProvenanceMarker(provenanceRow?.provenance_marker || item?.pm);
+          const ambiguityExplanation = describeEnrichmentAmbiguity(provenanceRow?.ambiguity_code || item?.am || item?.a);
+          const provenanceEvidence = provenanceRow?.evidence && typeof provenanceRow.evidence === 'object' ? provenanceRow.evidence : {};
           if (filamentMatchExplanation) storedWhy.push(filamentMatchExplanation);
+          if (spoolMatchExplanation) storedWhy.push(spoolMatchExplanation);
           if (provenanceExplanation) storedWhy.push(provenanceExplanation);
           if (ambiguityExplanation) storedWhy.push(ambiguityExplanation);
+          if (Number.isFinite(Number(provenanceEvidence?.matching_archived_ams_tray_count)) && Number(provenanceEvidence.matching_archived_ams_tray_count) > 0) {
+            const trayCodes = Array.isArray(provenanceEvidence?.matching_archived_ams_tray_codes)
+              ? provenanceEvidence.matching_archived_ams_tray_codes.filter(Boolean)
+              : [];
+            storedWhy.push(`Archive evidence contained ${Number(provenanceEvidence.matching_archived_ams_tray_count)} matching AMS tray row${Number(provenanceEvidence.matching_archived_ams_tray_count) === 1 ? '' : 's'}${trayCodes.length ? ` (${trayCodes.join(', ')})` : ''}.`);
+          }
+          if (provenanceEvidence?.source_slot_present) {
+            const sourceSlot = provenanceEvidence?.source_slot && typeof provenanceEvidence.source_slot === 'object' ? provenanceEvidence.source_slot : {};
+            const sourceTray = String(sourceSlot?.tray || '').trim();
+            const sourceWeight = Number.isFinite(Number(sourceSlot?.used_grams)) ? `${Number(sourceSlot.used_grams).toFixed(1)}g` : '';
+            const sourceLabel = [sourceTray, sourceWeight].filter(Boolean).join(' • ');
+            storedWhy.push(`Archive source row was preserved${sourceLabel ? ` (${sourceLabel})` : ''}.`);
+          }
           if (!storedWhy.length && (hasResolvedEntityId(item?.s) || hasResolvedEntityId(item?.f))) {
             storedWhy.push('This row resolved cleanly, but the compact payload does not preserve the exact internal branch used for the final spool selection.');
           }
@@ -753,6 +777,7 @@ print_history_archive_popup_content:
           }
           return {
             item,
+            provenanceRow,
             reviewReasons,
             needsReview,
             storedWhy,
@@ -807,17 +832,20 @@ print_history_archive_popup_content:
         ].filter(Boolean).join('');
         const archivedFilamentSlotsJson = stringifyJsonPreview(archivedFilamentSlots);
         const archivedAmsJson = stringifyJsonPreview(archivedRawAms);
+        const disclosureToggleHandler = 'event.preventDefault();event.stopPropagation();const container=this.parentElement;if(container){const isOpen=container.classList.toggle("is-open");this.setAttribute("aria-expanded",isOpen?"true":"false");}return false;';
+        const renderJsonDisclosure = (label, content) => `<div class="print-history-popup-json-disclosure"><button class="print-history-popup-json-toggle" type="button" aria-expanded="false" onclick='${escapeHtml(disclosureToggleHandler)}'><span class="print-history-popup-json-toggle-icon" aria-hidden="true">▸</span><span>${escapeHtml(label)}</span></button><pre>${escapeHtml(content || '[]')}</pre></div>`;
         const enrichmentEvidenceMarkup = enrichmentRowsWithState.length
-          ? `<div style="display:flex;flex-direction:column;gap:10px;">${enrichmentRowsWithState.map(({ item, storedWhy, reviewReasons, filamentHex }) => {
+          ? `<div style="display:flex;flex-direction:column;gap:10px;">${enrichmentRowsWithState.map(({ item, provenanceRow, storedWhy, reviewReasons, filamentHex }) => {
               const name = String(item?.n || 'Unknown filament').trim();
               const tray = String(item?.t || '').trim();
               const spoolLabel = hasResolvedEntityId(item?.s) ? `Spool #${String(item.s).trim()}` : 'Spool unresolved';
               const filamentLabel = hasResolvedEntityId(item?.f) ? `Filament #${String(item.f).trim()}` : 'Filament unresolved';
               const weightLabel = formatNumber(item?.w, 1, 'g');
               const markers = [
-                item?.fm ? `fm:${String(item.fm).trim()}` : '',
-                item?.pm ? `pm:${String(item.pm).trim()}` : '',
-                item?.am ? `am:${String(item.am).trim()}` : ''
+                provenanceRow?.spool_match_method || item?.sm ? `sm:${String(provenanceRow?.spool_match_method || item?.sm).trim()}` : '',
+                provenanceRow?.filament_match_method || item?.fm ? `fm:${String(provenanceRow?.filament_match_method || item?.fm).trim()}` : '',
+                provenanceRow?.provenance_marker || item?.pm ? `pm:${String(provenanceRow?.provenance_marker || item?.pm).trim()}` : '',
+                provenanceRow?.ambiguity_code || item?.am ? `am:${String(provenanceRow?.ambiguity_code || item?.am).trim()}` : ''
               ].filter(Boolean);
               return `<div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:16px;background:${filamentHex ? rgbaFromHex(filamentHex, 0.12, 'rgba(255,255,255,0.04)') : 'rgba(255,255,255,0.04)'};border:1px solid ${filamentHex ? rgbaFromHex(filamentHex, 0.45, 'rgba(255,255,255,0.12)') : 'rgba(255,255,255,0.12)'};"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><div style="font-size:13px;font-weight:700;line-height:1.35;overflow-wrap:anywhere;">${escapeHtml(tray ? `${name} [${tray}]` : name)}</div><div style="font-size:11px;color:var(--secondary-text-color);line-height:1.4;">${escapeHtml([weightLabel, spoolLabel, filamentLabel].filter(Boolean).join(' • '))}</div></div>${markers.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${markers.map((marker) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);font-size:11px;font-weight:700;color:var(--secondary-text-color);">${escapeHtml(marker)}</span>`).join('')}</div>` : ''}</div><div style="display:flex;flex-direction:column;gap:6px;">${storedWhy.map((line) => `<div style="font-size:12px;line-height:1.45;color:#E5E7EB;overflow-wrap:anywhere;">${escapeHtml(line)}</div>`).join('')}${reviewReasons.length ? `<div style="font-size:11px;line-height:1.45;color:#FFCC80;overflow-wrap:anywhere;">Needs review: ${escapeHtml(reviewReasons.join(' • '))}</div>` : ''}</div></div>`;
             }).join('')}</div>`
@@ -903,9 +931,13 @@ print_history_archive_popup_content:
             .print-history-popup-timeline-legend-item + .print-history-popup-timeline-legend-item{margin-top:7px;}
             .print-history-popup-timeline-legend-dot{display:inline-block;width:9px;height:9px;border-radius:999px;flex:0 0 auto;}
             .print-history-popup-json-shell{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);}
-            .print-history-popup-json-shell details{border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);padding:10px 12px;}
-            .print-history-popup-json-shell summary{cursor:pointer;font-size:12px;font-weight:700;letter-spacing:0.03em;color:var(--primary-text-color);}
-            .print-history-popup-json-shell pre{margin:10px 0 0;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word;color:#D7DEE8;max-height:280px;overflow:auto;}
+            .print-history-popup-json-disclosure{display:flex;flex-direction:column;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
+            .print-history-popup-json-toggle{appearance:none;-webkit-appearance:none;display:flex;align-items:center;gap:10px;width:100%;padding:12px;border:0;background:none;color:var(--primary-text-color);font-size:12px;font-weight:700;letter-spacing:0.03em;text-align:left;cursor:pointer;}
+            .print-history-popup-json-toggle:hover,.print-history-popup-json-toggle:focus-visible{background:rgba(255,255,255,0.04);outline:none;}
+            .print-history-popup-json-toggle-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;color:var(--secondary-text-color);transition:transform .16s ease;}
+            .print-history-popup-json-disclosure pre{display:none;margin:0;padding:0 12px 12px;font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word;color:#D7DEE8;max-height:280px;overflow:auto;}
+            .print-history-popup-json-disclosure.is-open .print-history-popup-json-toggle-icon{transform:rotate(90deg);}
+            .print-history-popup-json-disclosure.is-open pre{display:block;}
             @media (max-width: 640px) {
               .print-history-popup-timeline{column-gap:10px;row-gap:8px;}
             }
@@ -948,8 +980,8 @@ print_history_archive_popup_content:
             </div>
                   ${!hasEnrichmentPayload && filamentChips.length ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Filament Colors</div><div style="display:flex;gap:8px;flex-wrap:wrap;">${filamentChips.map((chip) => `<span title="${escapeHtml(chip.tooltip)}" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;"><span style="width:14px;height:14px;border-radius:999px;background:${escapeHtml(chip.dotColor)};box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);"></span><span style="font-size:12px;">${escapeHtml(chip.label)}</span></span>`).join('')}</div></div>` : ''}
                 ${hasEnrichmentPayload || hasEnrichmentData ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Enrichment</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${enrichmentSourceLabel ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(21,101,192,0.16);color:#BBDEFB;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentSourceLabel)}</span>` : ''}<span style="background:${enrichmentStatusColor};color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(enrichmentStatusLabel)}</span>${enrichmentRows.length ? `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;">${escapeHtml(String(enrichmentRows.length))} row${enrichmentRows.length === 1 ? '' : 's'}</span>` : ''}</div></div>${enrichmentReason ? `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.12)' : 'rgba(239,108,0,0.12)'};border:1px solid ${enrichmentStatus === 'complete' ? 'rgba(21,101,192,0.28)' : 'rgba(239,108,0,0.28)'};"><ha-icon icon="${enrichmentStatus === 'complete' ? 'mdi:information-outline' : 'mdi:alert-outline'}" style="--mdc-icon-size:16px;color:${enrichmentStatus === 'complete' ? '#90CAF9' : '#FFCC80'};margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:${enrichmentStatus === 'complete' ? '#E3F2FD' : '#FFE0B2'};overflow-wrap:anywhere;">${escapeHtml(enrichmentReason)}</div></div>` : ''}</div>` : ''}
-                ${hasEnrichmentPayload || hasEnrichmentData ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Match Evidence</div><div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(21,101,192,0.10);border:1px solid rgba(21,101,192,0.22);"><ha-icon icon="mdi:information-outline" style="--mdc-icon-size:16px;color:#90CAF9;margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:#E3F2FD;overflow-wrap:anywhere;">The compact payload preserves ambiguity markers <strong>am</strong>, filament-family markers <strong>fm</strong>, and time-window provenance <strong>pm</strong>. Clean matches do not always retain the exact internal branch, so the raw archive source evidence below is included to show whether archived slot rows, AMS tray rows, and tray UUIDs were available.</div></div>${enrichmentEvidenceMarkup}</div>` : ''}
-                ${(archivedFilamentSlots.length || archivedRawAms.length || hasEnrichmentPayload || hasEnrichmentData) ? `<div class="print-history-popup-json-shell"><div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Archive Source Evidence</div>${archiveEvidenceSummaryChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${archiveEvidenceSummaryChips}</div>` : ''}<div style="font-size:12px;line-height:1.45;color:var(--secondary-text-color);">These are the archive-detail fragments the manual re-enrich flow inspects when rebuilding lineage. They help explain whether the source record had archived filament slot rows, archived AMS tray data, and non-zero tray UUIDs.</div></div><details><summary>Archived filament_slots[] JSON</summary><pre>${escapeHtml(archivedFilamentSlotsJson || '[]')}</pre></details><details><summary>Archived raw_data.ams[] JSON</summary><pre>${escapeHtml(archivedAmsJson || '[]')}</pre></details></div>` : ''}
+                ${hasEnrichmentPayload || hasEnrichmentData ? `<div style="display:flex;flex-direction:column;gap:10px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Match Evidence</div><div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(21,101,192,0.10);border:1px solid rgba(21,101,192,0.22);"><ha-icon icon="mdi:information-outline" style="--mdc-icon-size:16px;color:#90CAF9;margin-top:1px;"></ha-icon><div style="font-size:12px;line-height:1.45;color:#E3F2FD;overflow-wrap:anywhere;">The compact payload preserves ambiguity markers <strong>am</strong>, filament-family markers <strong>fm</strong>, spool match markers <strong>sm</strong>, and time-window provenance <strong>pm</strong>. The local SQLite store also keeps a derived provenance table so the popup can explain which archive-source row and AMS evidence were present when the detail cache was built.</div></div>${enrichmentEvidenceMarkup}</div>` : ''}
+                ${(archivedFilamentSlots.length || archivedRawAms.length || hasEnrichmentPayload || hasEnrichmentData) ? `<div class="print-history-popup-json-shell"><div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Archive Source Evidence</div>${archiveEvidenceSummaryChips ? `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">${archiveEvidenceSummaryChips}</div>` : ''}<div style="font-size:12px;line-height:1.45;color:var(--secondary-text-color);">These are the archive-detail fragments the manual re-enrich flow inspects when rebuilding lineage. They help explain whether the source record had archived filament slot rows, archived AMS tray data, and non-zero tray UUIDs.</div></div>${renderJsonDisclosure('Archived filament_slots[] JSON', archivedFilamentSlotsJson)}${renderJsonDisclosure('Archived raw_data.ams[] JSON', archivedAmsJson)}</div>` : ''}
                 ${archiveUserNotes ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Notes</div><div style="font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(archiveUserNotes)}</div></div>` : ''}
             ${archive?.failure_reason ? `<div style="display:flex;flex-direction:column;gap:8px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);">Failure Reason</div><div style="font-size:14px;line-height:1.5;color:#ffb4ab;overflow-wrap:anywhere;">${escapeHtml(archive.failure_reason)}</div></div>` : ''}
           </div>`;
