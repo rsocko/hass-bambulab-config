@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
@@ -1861,7 +1861,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
 
     def test_browser_card_tag_chips_use_shared_filter_action_path(self):
@@ -1877,6 +1877,20 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("Click to add this tag to filters", browser_card_content)
         self.assertIn(".interactive-chip:hover,.interactive-chip:focus-visible", browser_card_content)
         self.assertIn('await this._applyCardFilterAction(actionNode);', browser_card_content)
+
+    def test_browser_card_color_dots_use_shared_filter_action_path(self):
+        browser_card_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
+
+        self.assertIn("action_key == 'color_toggle'", action_script_content)
+        self.assertIn("script.toggle_print_history_color_filter", action_script_content)
+        self.assertIn('data-filter-action="color_toggle"', browser_card_content)
+        self.assertIn("Click to filter on this color", browser_card_content)
+        self.assertIn('class="dot-button interactive-chip"', browser_card_content)
+        self.assertIn('white-space:pre-line;', browser_card_content)
+        self.assertIn('filterColor: filterColor,', browser_card_content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

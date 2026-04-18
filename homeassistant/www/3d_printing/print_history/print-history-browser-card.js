@@ -267,10 +267,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".skeleton-metric .skeleton-text:first-child{width:58%;}" +
       ".skeleton-metric .skeleton-text:last-child{width:72%;height:16px;}" +
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
-      ".dot-button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;}" +
+      ".dot-button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;padding:0;min-width:14px;min-height:14px;}" +
       ".dot-button:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25),0 0 0 2px var(--primary-color, var(--accent-color, #03a9f4));}" +
       ".dot-button.tooltip-active,.dot-button:hover,.dot-button:focus-visible{z-index:4;}" +
-      ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:999px;padding:3px 8px;font-size:11px;line-height:1.2;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
+      ".dot-button.interactive-chip:hover,.dot-button.interactive-chip:focus-visible{transform:translateY(-1px) scale(1.08);}" +
+      ".dot-button.interactive-chip:active{transform:translateY(0) scale(1.02);}" +
+      ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:14px;padding:6px 10px;font-size:11px;line-height:1.35;white-space:pre-line;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
       ".dot-button.tooltip-active .dot-tooltip,.dot-button:hover .dot-tooltip,.dot-button:focus-visible .dot-tooltip{opacity:1;transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(0);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;background:var(--tag-background, rgba(148,163,184,0.16));box-shadow:inset 0 0 0 1px var(--tag-border-color, rgba(148,163,184,0.42)),0 0 0 1px transparent;color:var(--primary-text-color);transition:background .16s ease,box-shadow .16s ease;}" +
       ".tag.interactive-chip:hover,.tag.interactive-chip:focus-visible{background:color-mix(in srgb, var(--tag-background, rgba(148,163,184,0.16)) 88%, rgba(255,255,255,0.10));}" +
@@ -807,9 +809,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _renderFilamentDot(chip) {
-    var tooltip = this._escapeAttribute(chip && chip.tooltip ? chip.tooltip : 'Filament color');
+    var dotLabel = String(chip && chip.tooltip ? chip.tooltip : 'Filament color');
+    var filterColor = this._normalizeHex(chip && chip.filterColor);
+    var tooltipText = filterColor
+      ? this._buildFilterActionTooltip(dotLabel, 'Click to filter on this color')
+      : dotLabel;
+    var tooltip = this._escapeAttribute(tooltipText);
     var dotColor = this._escapeAttribute(chip && chip.dotColor ? chip.dotColor : 'rgba(255,255,255,0.2)');
-    return '<span class="dot-button" tabindex="0" role="img" aria-label="' + tooltip + '" style="--dot-color:' + dotColor + ';"><span class="dot-tooltip" role="tooltip">' + this._escapeHtml(chip && chip.tooltip ? chip.tooltip : 'Filament color') + '</span></span>';
+    if (!filterColor) {
+      return '<span class="dot-button" tabindex="0" role="img" aria-label="' + tooltip + '" title="' + tooltip + '" style="--dot-color:' + dotColor + ';"><span class="dot-tooltip" role="tooltip">' + this._escapeHtml(tooltipText) + '</span></span>';
+    }
+    return '<button class="dot-button interactive-chip" type="button" data-action="apply-filter" data-filter-action="color_toggle" data-filter-value="' + this._escapeAttribute(filterColor) + '" aria-label="' + this._escapeAttribute(dotLabel + '. Click to filter on this color.') + '" title="' + tooltip + '" style="--dot-color:' + dotColor + ';--interactive-chip-border:rgba(255,255,255,0.72);"><span class="dot-tooltip" role="tooltip">' + this._escapeHtml(tooltipText) + '</span></button>';
   }
 
   _renderInfoChip(label) {
@@ -887,14 +897,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var filamentChips = enrichmentRows.length ? enrichmentRows.map(function (item, index) {
       var name = String(item && item.n || "").trim() || ("Filament " + (index + 1));
       var tray = String(item && item.t || "").trim();
-      var hex = this._normalizeHex(item && item.h) || "rgba(255,255,255,0.2)";
+      var filterColor = this._normalizeHex(item && item.h);
+      var hex = filterColor || "rgba(255,255,255,0.2)";
       var ambiguity = this._describeEnrichmentAmbiguity(item && item.am);
       return {
         dotColor: hex,
+        filterColor: filterColor,
         tooltip: [tray ? name + " (" + tray + ")" : name, this._normalizeHex(item && item.h), ambiguity].filter(Boolean).join(" | ") || name,
       };
     }.bind(this)) : colors.map(function (hex) {
-      return { dotColor: hex, tooltip: hex };
+      return { dotColor: hex, filterColor: hex, tooltip: hex };
     });
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
     var mediaMetaLabel = [
