@@ -196,6 +196,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".stage{position:relative;min-height:min(72vh,680px);height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
       ".stage-panel{grid-area:stage;align-self:stretch;}" +
       ".canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}" +
+      ".stage-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;z-index:2;pointer-events:none;transition:opacity 0.18s ease,visibility 0.18s ease;}" +
+      ".stage-status.hidden{opacity:0;visibility:hidden;}" +
+      ".stage-status-card{display:grid;justify-items:center;gap:12px;width:min(420px,100%);padding:24px 26px;border-radius:24px;border:1px solid rgba(125,211,200,0.2);background:linear-gradient(180deg,rgba(10,18,29,0.88),rgba(15,25,37,0.96));box-shadow:0 24px 56px rgba(0,0,0,0.32);backdrop-filter:blur(12px);text-align:center;}" +
+      ".stage-status.error .stage-status-card{border-color:rgba(248,113,113,0.28);background:linear-gradient(180deg,rgba(49,17,17,0.86),rgba(24,11,11,0.96));}" +
+      ".stage-status-spinner{width:42px;height:42px;border-radius:999px;border:3px solid rgba(148,163,184,0.28);border-top-color:#7dd3c8;box-shadow:0 0 0 1px rgba(255,255,255,0.04) inset;animation:stageSpinner 0.9s linear infinite;}" +
+      ".stage-status.error .stage-status-spinner{border-top-color:#fda4af;}" +
+      ".stage-status-label{font-size:1.16rem;font-weight:700;line-height:1.35;color:#f8fafc;}" +
+      ".stage-status-copy{max-width:34ch;color:#c7d5e3;font-size:0.96rem;line-height:1.55;}" +
       ".stage-toolbar{position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:10px;z-index:4;}" +
       ".stage-toolbar .button{min-height:38px;padding:0 14px;backdrop-filter:blur(8px);}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
@@ -258,6 +266,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".footnote{padding:0 4px;color:#9fb0c0;font-size:0.88rem;line-height:1.55;}" +
       ".footnote.error{color:#fecaca;}" +
       "@keyframes capturePulse{0%{transform:translateY(0);box-shadow:0 0 0 0 rgba(125,211,200,0);}35%{transform:translateY(-2px);box-shadow:0 14px 38px rgba(125,211,200,0.2);}100%{transform:translateY(0);box-shadow:0 22px 56px rgba(125,211,200,0.16);}}" +
+      "@keyframes stageSpinner{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
       "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;}}" +
       "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
@@ -282,6 +291,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
+      "<div id='stage-status' class='stage-status' aria-live='polite'>" +
+      "<div class='stage-status-card'>" +
+      "<div id='stage-status-spinner' class='stage-status-spinner'></div>" +
+      "<div id='stage-status-label' class='stage-status-label'>Loading 3D viewer</div>" +
+      "<div id='stage-status-copy' class='stage-status-copy'>Preparing archive preview inside the render stage.</div>" +
+      "</div>" +
+      "</div>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
       "<div id='crop-layer' class='crop-layer' aria-hidden='true'>" +
       "<div id='crop-mask-top' class='crop-mask'></div>" +
@@ -386,6 +402,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
     }
     this._updateCapturePanel();
+  }
+
+  _setStageStatus(label, copy, mode) {
+    const status = this.shadowRoot && this.shadowRoot.getElementById("stage-status");
+    const labelNode = this.shadowRoot && this.shadowRoot.getElementById("stage-status-label");
+    const copyNode = this.shadowRoot && this.shadowRoot.getElementById("stage-status-copy");
+    const spinner = this.shadowRoot && this.shadowRoot.getElementById("stage-status-spinner");
+    if (!status || !labelNode || !copyNode || !spinner) {
+      return;
+    }
+
+    if (mode === "hidden") {
+      status.className = "stage-status hidden";
+      return;
+    }
+
+    status.className = mode === "error" ? "stage-status error" : "stage-status";
+    labelNode.textContent = String(label || "Loading 3D viewer").trim() || "Loading 3D viewer";
+    copyNode.textContent = String(copy || "Preparing archive preview inside the render stage.").trim() || "Preparing archive preview inside the render stage.";
+    spinner.hidden = mode === "error";
   }
 
   _buildProxyUrl(path) {
@@ -1277,6 +1313,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const archiveTitle = this._config && this._config.archive_name ? this._config.archive_name : `Archive ${archiveId}`;
 
     if (!archiveId) {
+      this._setStageStatus("Viewer unavailable", "This popup cannot render because the archive ID is missing.", "error");
       this._setTitle("Archive viewer unavailable", "No archive ID was provided to the popup.");
       this._setStatus("Archive viewer could not start because archive_id is missing.", true);
       this._showFallback("Launch this popup from a print-history archive card or popup action.", "");
@@ -1286,11 +1323,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setTitle(archiveTitle, `Archive #${archiveId}`);
     this._disposePreview();
     this._hideFallback();
+    this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");
 
     const gcodeUrl = this._buildProxyUrl(`/api/bambuddy/print-history/archive-viewer/${encodeURIComponent(archiveId)}/gcode`);
     this._setDownloadLink(gcodeUrl);
 
     try {
+      this._setStageStatus("Checking archive capabilities", "Validating which Bambuddy assets are available for this print.");
       this._setStatus("Checking Bambuddy archive capabilities...");
       const viewerPayload = await this._fetchViewerPayload();
       if (token !== this._loadToken) {
@@ -1301,6 +1340,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
         : {};
 
       if (!capabilities.has_gcode) {
+        this._setStageStatus("Interactive preview unavailable", "This archive does not expose extracted G-code, so the popup cannot render the interactive stage.", "error");
         this._setStatus("This archive does not expose extracted G-code, so the preview cannot be rendered here.", true);
         this._showFallback(
           capabilities.has_model
@@ -1311,9 +1351,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
         return;
       }
 
+      this._setStageStatus("Downloading G-code", "Pulling the sliced toolpath from Bambuddy so the stage can render it.");
       this._setStatus("Downloading G-code from Bambuddy...");
       const gcodeText = viewerPayload && typeof viewerPayload.gcode === "string" ? viewerPayload.gcode : "";
       if (!String(gcodeText || "").trim()) {
+        this._setStageStatus("Empty G-code payload", "Bambuddy returned no renderable toolpath data for this archive.", "error");
         this._setStatus("Bambuddy returned an empty G-code payload for this archive.", true);
         this._showFallback("The archive G-code payload was empty.", "");
         return;
@@ -1330,6 +1372,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
       this._syncViewerCanvasSize();
 
+      this._setStageStatus("Rendering preview", "Building the interactive 3D toolpath view for this archive.");
       this._setStatus("Rendering G-code preview...");
       try {
         const GCodePreview = await import(PRINT_HISTORY_VIEWER_CDN_MODULE_URL);
@@ -1348,14 +1391,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
         this._preview = preview;
         this._rendererMode = "gcode";
         preview.processGCode(previewGcode);
+        this._setStageStatus("", "", "hidden");
         this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
+        this._setStageStatus("Interactive preview failed", "The viewer library could not load, so the popup fell back to raw G-code.", "error");
         this._setStatus("The interactive preview library could not be loaded, so the popup fell back to raw G-code.", true);
         this._showFallback(`Interactive preview failed to load: ${message}`, gcodeText);
       }
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
+      this._setStageStatus("Viewer load failed", message || "The popup could not load this archive preview.", "error");
       this._setStatus(message, true);
       this._showFallback(message, "");
     }

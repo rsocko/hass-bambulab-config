@@ -1673,7 +1673,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('typeof this._preview.dispose === "function"', script)
         self.assertIn('if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {', script)
         self.assertIn('Capture View', script)
-        self.assertIn('Crop Capture', script)
+        self.assertIn('Crop View', script)
+        self.assertIn('Capture Crop', script)
         self.assertIn('Download G-code', script)
         self.assertIn('Download PNG', script)
         self.assertIn('Upload to Archive', script)
@@ -1881,6 +1882,10 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("_availableTooltips()", content)
         self.assertIn("tooltips.get(color.toLowerCase()) || this._formatColorLabel(color)", content)
         self.assertIn('title="${safeTooltip}"', content)
+        self.assertIn("_updateTooltipPosition(button)", content)
+        self.assertIn('window.addEventListener("resize", this._boundWindowLayoutHandler);', content)
+        self.assertIn('translateX(calc(-50% + var(--tooltip-shift, 0px)))', content)
+        self.assertIn('max-width: min(320px, calc(100vw - 16px));', content)
 
     def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
         content = (
