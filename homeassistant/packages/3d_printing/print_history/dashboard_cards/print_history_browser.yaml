@@ -206,7 +206,10 @@ cards:
       - input_select.print_history_filter_designer
       - input_select.print_history_filter_project
       - input_select.print_history_filter_layer_height
-      - input_select.print_history_filter_tag
+      - sensor.print_history_filter_tags_summary
+      - input_text.print_history_filter_tags
+      - input_select.print_history_filter_tags_mode
+      - input_boolean.print_history_filter_tags_untagged_only
       - input_boolean.print_history_filter_favorites_only
       - sensor.bambuddy_print_history_browser_filtered
     card:
@@ -322,16 +325,50 @@ cards:
                 state_background: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
                 state_color: ${states['input_select.print_history_filter_layer_height']?.state !== (states['input_select.print_history_filter_layer_height']?.attributes?.options?.[0] ?? '')}
                 fill_width: true
-              - entity: input_select.print_history_filter_tag
-                sub_button_type: select
+              - entity: sensor.print_history_filter_tags_summary
+                sub_button_type: default
                 name: Tag
                 icon: mdi:tag-outline
                 show_name: true
                 show_state: true
                 show_background: true
-                state_background: ${states['input_select.print_history_filter_tag']?.state !== (states['input_select.print_history_filter_tag']?.attributes?.options?.[0] ?? '')}
-                state_color: ${states['input_select.print_history_filter_tag']?.state !== (states['input_select.print_history_filter_tag']?.attributes?.options?.[0] ?? '')}
+                state_background: ${states['sensor.print_history_filter_tags_summary']?.state !== 'All'}
+                state_color: ${states['sensor.print_history_filter_tags_summary']?.state !== 'All'}
                 fill_width: true
+                tap_action:
+                  action: fire-dom-event
+                  browser_mod:
+                    service: browser_mod.popup
+                    data:
+                      title: Tag Filters
+                      content:
+                        type: vertical-stack
+                        cards:
+                          - type: custom:print-history-tag-editor-card
+                            entity: input_text.print_history_filter_tags
+                            suggestions_entity: input_select.print_history_filter_tag
+                            title: Selected Tags
+                            placeholder: Filter by tag and press Enter
+                            helper: Choose one or more tags. Match mode controls Any vs All.
+                          - type: entities
+                            show_header_toggle: false
+                            entities:
+                              - entity: input_select.print_history_filter_tags_mode
+                                name: Match Mode
+                                icon: mdi:set-merge
+                              - entity: input_boolean.print_history_filter_tags_untagged_only
+                                name: Untagged Only
+                                icon: mdi:tag-off-outline
+                          - type: grid
+                            columns: 1
+                            square: false
+                            cards:
+                              - type: button
+                                name: Clear Tags
+                                icon: mdi:tag-remove-outline
+                                tap_action:
+                                  action: call-service
+                                  service: script.clear_print_history_tag_filter
               - entity: input_boolean.print_history_filter_favorites_only
                 name: Favorites
                 icon: mdi:star
@@ -389,7 +426,10 @@ cards:
           - input_select.print_history_filter_designer
           - input_select.print_history_filter_project
           - input_select.print_history_filter_layer_height
-          - input_select.print_history_filter_tag
+          - sensor.print_history_filter_tags_summary
+          - input_text.print_history_filter_tags
+          - input_select.print_history_filter_tags_mode
+          - input_boolean.print_history_filter_tags_untagged_only
           - input_boolean.print_history_filter_favorites_only
           - input_text.print_history_search
           - input_text.print_history_filter_colors
@@ -654,7 +694,7 @@ cards:
                   entity_id: input_select.print_history_filter_layer_height
                 data:
                   option: "All"
-            - entity: input_select.print_history_filter_tag
+            - entity: sensor.print_history_filter_tags_summary
               sub_button_type: default
               name: Clear Tag Filter
               icon: mdi:tag-remove-outline
@@ -665,15 +705,11 @@ cards:
               fill_width: false
               visibility:
                 - condition: state
-                  entity_id: input_select.print_history_filter_tag
+                  entity_id: sensor.print_history_filter_tags_summary
                   state_not: "All"
               tap_action:
                 action: call-service
-                service: input_select.select_option
-                target:
-                  entity_id: input_select.print_history_filter_tag
-                data:
-                  option: "All"
+                service: script.clear_print_history_tag_filter
             - entity: input_boolean.print_history_filter_favorites_only
               sub_button_type: default
               name: Clear Favorites Filter

@@ -1,0 +1,7 @@
+print_history_filter_tags_mode:
+  name: Print History Filter Tags Mode
+  icon: mdi:filter-variant-plus
+  options:
+    - Any
+    - All
+  initial: Any

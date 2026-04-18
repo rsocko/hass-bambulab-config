@@ -1,0 +1,30 @@
+- alias: Print History - Normalize Tag Filter State
+  id: print_history_normalize_tag_filter_state
+  triggers:
+    - trigger: state
+      entity_id: input_boolean.print_history_filter_tags_untagged_only
+      to: "on"
+    - trigger: state
+      entity_id: input_text.print_history_filter_tags
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+  actions:
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.entity_id == 'input_boolean.print_history_filter_tags_untagged_only' and trigger.to_state is not none and trigger.to_state.state == 'on' and states('input_text.print_history_filter_tags') | string | trim != '' }}"
+          sequence:
+            - action: input_text.set_value
+              data:
+                entity_id: input_text.print_history_filter_tags
+                value: ""
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.entity_id == 'input_text.print_history_filter_tags' and states('input_boolean.print_history_filter_tags_untagged_only') == 'on' and states('input_text.print_history_filter_tags') | string | trim != '' }}"
+          sequence:
+            - action: input_boolean.turn_off
+              data:
+                entity_id: input_boolean.print_history_filter_tags_untagged_only
+  mode: restart

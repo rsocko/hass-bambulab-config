@@ -30,6 +30,7 @@ try:
         normalize_hex,
         note_payload_rows,
         payload_hash as compute_payload_hash,
+        resolve_tag_filter_state,
         query_archives,
         resolve_printer_filter_ids,
         selected_colors,
@@ -54,6 +55,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         normalize_hex,
         note_payload_rows,
         payload_hash as compute_payload_hash,
+        resolve_tag_filter_state,
         query_archives,
         resolve_printer_filter_ids,
         selected_colors,
@@ -2052,6 +2054,12 @@ class PrintHistoryStore:
         current_time = datetime.now(timezone.utc)
         start_date = normalize_filter_date_value(states.get("input_text.print_history_filter_start_date", ""))
         end_date = normalize_filter_date_value(states.get("input_text.print_history_filter_end_date", ""))
+        selected_tags, tag_mode, tag_untagged_only = resolve_tag_filter_state(
+            states.get("input_text.print_history_filter_tags", ""),
+            states.get("input_select.print_history_filter_tags_mode", "Any"),
+            states.get("input_boolean.print_history_filter_tags_untagged_only", "off"),
+            states.get("input_select.print_history_filter_tag", "All"),
+        )
         return {
             "status": states.get("input_select.print_history_filter_status", "All").strip().lower(),
             "archive_error": states.get("input_select.print_history_filter_archive_error", "All").strip(),
@@ -2066,6 +2074,9 @@ class PrintHistoryStore:
             "project": states.get("input_select.print_history_filter_project", "All").strip(),
             "layer_height": states.get("input_select.print_history_filter_layer_height", "All").strip(),
             "tag": states.get("input_select.print_history_filter_tag", "All").strip().lower(),
+            "selected_tags": selected_tags,
+            "tag_mode": tag_mode,
+            "tag_untagged_only": tag_untagged_only,
             "favorites_only": states.get("input_boolean.print_history_filter_favorites_only", "off") == "on",
             "search": states.get("input_text.print_history_search", "").strip().lower(),
             "selected_day": states.get("input_text.print_history_activity_selected_date", "").strip(),
@@ -2145,16 +2156,27 @@ class PrintHistoryStore:
         if filters["selected_day"]:
             where_clauses.append("a.archive_day_local = ?")
             params.append(filters["selected_day"])
-        if filters["tag"] not in {"", "all"}:
-            if filters["tag"] == "none":
+        if filters["tag_untagged_only"]:
+            where_clauses.append(
+                "NOT EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0)"
+            )
+        elif filters["selected_tags"]:
+            placeholders = ",".join("?" for _ in filters["selected_tags"])
+            if filters["tag_mode"] == "All":
                 where_clauses.append(
-                    "NOT EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0)"
+                    "(SELECT COUNT(DISTINCT t.normalized_tag) FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0 AND t.normalized_tag IN ("
+                    + placeholders
+                    + ")) = ?"
                 )
+                params.extend(filters["selected_tags"])
+                params.append(len(filters["selected_tags"]))
             else:
                 where_clauses.append(
-                    "EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0 AND t.normalized_tag = ?)"
+                    "EXISTS (SELECT 1 FROM archive_tags t WHERE t.archive_id = a.archive_id AND t.is_system = 0 AND t.normalized_tag IN ("
+                    + placeholders
+                    + "))"
                 )
-                params.append(filters["tag"])
+                params.extend(filters["selected_tags"])
         if filters["colors"]:
             placeholders = ",".join("?" for _ in filters["colors"])
             like_clauses = " OR ".join("LOWER(COALESCE(a.filament_color, '')) LIKE ?" for _ in filters["colors"])

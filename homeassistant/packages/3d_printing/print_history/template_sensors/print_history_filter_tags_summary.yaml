@@ -1,0 +1,43 @@
+- trigger:
+    - trigger: state
+      entity_id:
+        - input_text.print_history_filter_tags
+        - input_select.print_history_filter_tags_mode
+        - input_boolean.print_history_filter_tags_untagged_only
+  sensor:
+    - name: Print History Filter Tags Summary
+      unique_id: print_history_filter_tags_summary
+      state: >-
+        {% set raw = states('input_text.print_history_filter_tags') | string %}
+        {% set mode = states('input_select.print_history_filter_tags_mode') | string | trim %}
+        {% set untagged_only = is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') %}
+        {% set cleaned = raw.split(',') | map('trim') | reject('equalto', '') | list %}
+        {% set ns = namespace(values=[]) %}
+        {% for tag in cleaned %}
+          {% set lowered = tag | lower %}
+          {% if lowered not in ns.values %}
+            {% set ns.values = ns.values + [lowered] %}
+          {% endif %}
+        {% endfor %}
+        {% if untagged_only %}
+          Untagged
+        {% elif ns.values | count == 0 %}
+          All
+        {% elif ns.values | count == 1 %}
+          1 {{ mode if mode in ['Any', 'All'] else 'Any' }}
+        {% else %}
+          {{ ns.values | count }} {{ mode if mode in ['Any', 'All'] else 'Any' }}
+        {% endif %}
+      attributes:
+        selected_count: >-
+          {% set cleaned = states('input_text.print_history_filter_tags').split(',') | map('trim') | reject('equalto', '') | list %}
+          {% set ns = namespace(values=[]) %}
+          {% for tag in cleaned %}
+            {% set lowered = tag | lower %}
+            {% if lowered not in ns.values %}
+              {% set ns.values = ns.values + [lowered] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | count }}
+        mode: "{{ states('input_select.print_history_filter_tags_mode') | string | trim }}"
+        untagged_only: "{{ is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') }}"

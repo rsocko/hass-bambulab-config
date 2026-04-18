@@ -1,0 +1,3 @@
+print_history_filter_tags_untagged_only:
+  name: Print History Filter Tags Untagged Only
+  icon: mdi:tag-off-outline

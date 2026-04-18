@@ -1427,13 +1427,23 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
         browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
         helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tag.yaml").read_text("utf-8")
+        selected_tags_helper_content = (HISTORY / "helpers" / "input_text" / "input_text_print_history_filter_tags.yaml").read_text("utf-8")
+        tag_mode_helper_content = (HISTORY / "helpers" / "input_select" / "input_select_print_history_filter_tags_mode.yaml").read_text("utf-8")
+        clear_tag_filter_content = (HISTORY / "scripts" / "clear_print_history_tag_filter.yaml").read_text("utf-8")
 
         self.assertIn("user_tag_values = namespace(values=[])", filtered_content)
         self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", filtered_content)
         self.assertIn("filter_tag in user_tag_values.values", filtered_content)
-        self.assertIn('tag: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tag"))', browser_card_content)
+        self.assertIn('tags: String(this._stateValue("input_text.print_history_filter_tags") || "").trim()', browser_card_content)
+        self.assertIn('tag_mode: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tags_mode")) || "Any"', browser_card_content)
+        self.assertIn('tag_untagged_only: this._stateValue("input_boolean.print_history_filter_tags_untagged_only") === "on"', browser_card_content)
         self.assertIn("- None", helper_content)
+        self.assertIn("print_history_filter_tags:", selected_tags_helper_content)
+        self.assertIn("print_history_filter_tags_mode:", tag_mode_helper_content)
+        self.assertIn("clear_print_history_tag_filter:", clear_tag_filter_content)
         self.assertIn("input_select.print_history_filter_archive_error", browser_yaml_content)
+        self.assertIn("sensor.print_history_filter_tags_summary", browser_yaml_content)
+        self.assertIn("script.clear_print_history_tag_filter", browser_yaml_content)
 
     def test_archive_error_filter_wired_into_browser_contract(self):
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1520,6 +1530,21 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("if (enrichmentRows.some((item) => item?.f === null || item?.f === undefined || String(item?.f || '').trim() === '')) return 'partial';", content)
         self.assertIn("if (enrichmentRows.some((item) => item?.s === null || item?.s === undefined || String(item?.s || '').trim() === '')) return 'near complete';", content)
         self.assertIn("return 'complete';", content)
+
+    def test_browser_card_enrichment_status_logic_matches_popup_contract(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        self.assertIn('n: "near complete"', content)
+        self.assertIn('"near complete": "near complete"', content)
+        self.assertIn('if (mapped === "complete" || mapped === "near complete" || mapped === "partial") {', content)
+        self.assertIn('if (mapped === "unavailable") {', content)
+        self.assertIn('return "unavailable";', content)
+        self.assertIn('return !this._hasResolvedEntityId(item && item.f);', content)
+        self.assertIn('return "partial";', content)
+        self.assertIn('return !this._hasResolvedEntityId(item && item.s);', content)
+        self.assertIn('return "near complete";', content)
+        self.assertIn('return "complete";', content)
 
     def test_browser_card_hides_thumbnail_when_archive_has_no_thumbnail_path(self):
         content = (
@@ -1761,7 +1786,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

@@ -100,6 +100,26 @@ Not required for the first version:
 - per-keypress remote suggestions
 - nested groups or advanced query-builder semantics
 
+### First implementation slice
+
+The first implementation should use the existing `Tag` header pill to open a popup-based picker rather than introducing a new persistent row in the header.
+
+Recommended first-slice popup contents:
+
+1. the shipped `print-history-tag-editor-card` bound to the tag-filter helper state
+2. a small `Match Mode` control with `Any` and `All`
+3. an `Untagged Only` toggle
+4. a `Clear Tags` action in the popup
+
+Important first-slice behavior:
+
+- typeahead remains local inside the tag editor card
+- tag add and remove actions persist only on commit actions such as Enter, comma, or chip removal
+- filter changes do not occur on every keypress while the user is still typing
+- the first slice may apply committed changes immediately rather than requiring a separate `Apply` button, because the editor persists only on commit boundaries instead of on every keystroke
+
+This keeps the implementation compact while still meeting the main performance goal: no per-keypress backend queries.
+
 ### Match semantics
 
 Recommended behavior for tag filtering:
@@ -239,6 +259,8 @@ Examples:
 - `Tag: Untagged`
 
 The summary should communicate only the active state, not spell out every selected tag inline in the main header row.
+
+For the first implementation, a helper-backed summary such as `All`, `Untagged`, `1 Any`, or `3 All` is sufficient. It does not need to enumerate actual tag names in the top controls.
 
 ### Active filter chips
 

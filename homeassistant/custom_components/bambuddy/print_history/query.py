@@ -80,6 +80,8 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_select.print_history_filter_project": "All",
     "input_select.print_history_filter_layer_height": "All",
     "input_select.print_history_filter_tag": "All",
+    "input_text.print_history_filter_tags": "",
+    "input_boolean.print_history_filter_tags_untagged_only": "off",
     "input_boolean.print_history_filter_favorites_only": "off",
     "input_text.print_history_search": "",
     "input_text.print_history_filter_colors": "",
@@ -719,6 +721,55 @@ def selected_colors(raw: str) -> list[str]:
     return [color for color in (normalize_hex(value) for value in raw.split(",")) if color]
 
 
+def parse_selected_tags(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        raw_values = [as_text(value) for value in raw]
+    else:
+        raw_values = as_text(raw).split(",")
+
+    selected: list[str] = []
+    seen: set[str] = set()
+    for value in raw_values:
+        normalized = as_text(value).strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        selected.append(normalized)
+    return selected
+
+
+def resolve_tag_filter_state(
+    raw_tags: Any,
+    raw_mode: Any,
+    raw_untagged_only: Any,
+    legacy_tag: Any = "",
+) -> tuple[list[str], str, bool]:
+    tag_mode = "All" if as_text(raw_mode).strip().lower() == "all" else "Any"
+    untagged_only = raw_untagged_only is True or as_text(raw_untagged_only).strip().lower() == "on"
+    selected = parse_selected_tags(raw_tags)
+    if untagged_only:
+        return [], tag_mode, True
+    if selected:
+        return selected, tag_mode, False
+
+    legacy = as_text(legacy_tag).strip().lower()
+    if legacy in {"", "all"}:
+        return [], tag_mode, False
+    if legacy == "none":
+        return [], tag_mode, True
+    return [legacy], tag_mode, False
+
+
+def has_active_tag_filter(states: dict[str, str]) -> bool:
+    selected_tags, _tag_mode, untagged_only = resolve_tag_filter_state(
+        states.get("input_text.print_history_filter_tags", ""),
+        states.get("input_select.print_history_filter_tags_mode", "Any"),
+        states.get("input_boolean.print_history_filter_tags_untagged_only", "off"),
+        states.get("input_select.print_history_filter_tag", "All"),
+    )
+    return untagged_only or bool(selected_tags)
+
+
 def matches_date_range(archive: dict[str, Any], filter_value: str, now: datetime) -> bool:
     if filter_value in {"", "All Time"}:
         return True
@@ -785,6 +836,8 @@ def sort_reverse(sort_option: str) -> bool:
 def has_active_filters(states: dict[str, str]) -> bool:
     if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time":
         return True
+    if has_active_tag_filter(states):
+        return True
     for entity_id, default_value in ACTIVE_FILTER_DEFAULTS.items():
         if states.get(entity_id, default_value) != default_value:
             return True
@@ -802,7 +855,6 @@ def active_filters(states: dict[str, str]) -> list[str]:
         "input_select.print_history_filter_designer": "designer",
         "input_select.print_history_filter_project": "project",
         "input_select.print_history_filter_layer_height": "layer_height",
-        "input_select.print_history_filter_tag": "tag",
         "input_boolean.print_history_filter_favorites_only": "favorites",
         "input_text.print_history_search": "search",
         "input_text.print_history_filter_colors": "colors",
@@ -811,6 +863,8 @@ def active_filters(states: dict[str, str]) -> list[str]:
     active: list[str] = []
     if states.get("input_select.print_history_filter_date_range", "All Time") != "All Time":
         active.append("date")
+    if has_active_tag_filter(states):
+        active.append("tag")
     for entity_id, label in labels.items():
         if states.get(entity_id, ACTIVE_FILTER_DEFAULTS.get(entity_id, "")) != ACTIVE_FILTER_DEFAULTS.get(entity_id, ""):
             active.append(label)
@@ -901,7 +955,12 @@ def query_archives(
     designer_filter = states.get("input_select.print_history_filter_designer", "All")
     project_filter = states.get("input_select.print_history_filter_project", "All")
     layer_height_filter = states.get("input_select.print_history_filter_layer_height", "All")
-    tag_filter = states.get("input_select.print_history_filter_tag", "All").strip().lower()
+    selected_tags, tag_mode, untagged_only = resolve_tag_filter_state(
+        states.get("input_text.print_history_filter_tags", ""),
+        states.get("input_select.print_history_filter_tags_mode", "Any"),
+        states.get("input_boolean.print_history_filter_tags_untagged_only", "off"),
+        states.get("input_select.print_history_filter_tag", "All"),
+    )
     favorites_only = states.get("input_boolean.print_history_filter_favorites_only", "off") == "on"
     search_text = states.get("input_text.print_history_search", "").strip().lower()
     selected_day = states.get("input_text.print_history_activity_selected_date", "").strip()
@@ -960,11 +1019,14 @@ def query_archives(
             continue
         if layer_height_filter != "All" and archive_layer_height != layer_height_filter:
             continue
-        if tag_filter not in {"", "all"}:
-            if tag_filter == "none":
-                if archive_user_tags:
+        if untagged_only:
+            if archive_user_tags:
+                continue
+        elif selected_tags:
+            if tag_mode == "All":
+                if any(tag not in archive_user_tags for tag in selected_tags):
                     continue
-            elif tag_filter not in archive_user_tags:
+            elif not any(tag in archive_user_tags for tag in selected_tags):
                 continue
         if favorites_only and not bool(archive.get("is_favorite")):
             continue

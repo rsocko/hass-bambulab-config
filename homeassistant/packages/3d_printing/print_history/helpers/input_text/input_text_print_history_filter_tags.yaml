@@ -1,0 +1,5 @@
+print_history_filter_tags:
+  name: Print History Filter Tags
+  icon: mdi:tag-multiple-outline
+  initial: ""
+  max: 255

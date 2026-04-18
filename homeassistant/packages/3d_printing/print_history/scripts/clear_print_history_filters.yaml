@@ -50,6 +50,7 @@ clear_print_history_filters:
       data:
         entity_id: input_select.print_history_filter_layer_height
         option: All
+    - action: script.clear_print_history_tag_filter
     - action: input_select.select_option
       data:
         entity_id: input_select.print_history_filter_tag
