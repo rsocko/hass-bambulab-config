@@ -1196,6 +1196,57 @@ class PrintHistory3dViewerCard extends HTMLElement {
       .filter(Boolean);
   }
 
+  _archiveUsedColors() {
+    const archive = this._config && this._config.archive && typeof this._config.archive === "object"
+      ? this._config.archive
+      : null;
+    if (!archive) {
+      return [];
+    }
+
+    const colors = [];
+    const seen = {};
+    const pushColor = (value) => {
+      const color = this._normalizeHex(value);
+      if (!color || seen[color]) {
+        return;
+      }
+      seen[color] = true;
+      colors.push(color);
+    };
+
+    const notes = String(archive.notes || "").trim();
+    if (notes.indexOf("+>") === 0) {
+      try {
+        const payload = JSON.parse(notes.slice(2));
+        const rows = payload && Array.isArray(payload.F) ? payload.F : [];
+        rows.forEach((row) => {
+          if (row && typeof row === "object") {
+            pushColor(row.h || row.color);
+          }
+        });
+      } catch (_error) {
+        // Ignore malformed enrichment payloads and fall through to archive slots.
+      }
+    }
+
+    const slots = Array.isArray(archive.filament_slots) ? archive.filament_slots : [];
+    slots.forEach((slot) => {
+      if (!slot || typeof slot !== "object") {
+        return;
+      }
+      const usedGrams = Number(slot.used_grams != null ? slot.used_grams : slot.used_g);
+      if (Number.isFinite(usedGrams) && usedGrams > 0) {
+        pushColor(slot.color || slot.hex || slot.h);
+      }
+    });
+
+    if (colors.length) {
+      return colors;
+    }
+    return this._normalizeArchiveColorList(archive.filament_color);
+  }
+
   _extractToolIdsFromGcode(gcodeText) {
     const lines = String(gcodeText || "").split("\n");
     const toolPattern = /^T(\d+)\s*$/;
@@ -1219,6 +1270,45 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
 
     return toolIds;
+  }
+
+  _resolveInitialToolIndex(colors, gcodeText) {
+    const palette = this._normalizeColors(colors);
+    if (!palette.length || !/(^|\n)T1000\s*($|\n)/m.test(String(gcodeText || ""))) {
+      return null;
+    }
+
+    const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
+    const explicitSet = {};
+    explicitToolIds.forEach((toolId) => {
+      explicitSet[String(toolId)] = true;
+    });
+
+    const candidateIds = [];
+    for (let index = 0; index < palette.length; index += 1) {
+      if (!explicitSet[String(index)]) {
+        candidateIds.push(index);
+      }
+    }
+    if (candidateIds.length === 1) {
+      return candidateIds[0];
+    }
+
+    const usedColors = this._archiveUsedColors();
+    if (usedColors.length === 1) {
+      const usedColor = usedColors[0];
+      const matchingIndex = palette.indexOf(usedColor);
+      if (matchingIndex >= 0) {
+        return matchingIndex;
+      }
+    }
+
+    const paletteMatches = candidateIds.filter((candidateId) => usedColors.indexOf(palette[candidateId]) >= 0);
+    if (paletteMatches.length === 1) {
+      return paletteMatches[0];
+    }
+
+    return null;
   }
 
   _singleArchiveFallbackColor() {
@@ -1287,13 +1377,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._normalizeColors(capabilities.filament_colors);
   }
 
-  _normalizePreviewGcode(gcodeText, maxToolIndex) {
+  _normalizePreviewGcode(gcodeText, maxToolIndex, initialToolIndex) {
     const source = String(gcodeText || "");
     if (!source) {
       return source;
     }
 
     const maxKnownTool = Number.isInteger(maxToolIndex) && maxToolIndex >= 0 ? maxToolIndex : null;
+    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
     const lines = source.split("\n");
     const toolPattern = /^T(\d+)\s*$/;
     let currentTool = null;
@@ -1316,13 +1407,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
         if (tool >= 0 && tool <= maxKnownTool) {
           normalizedTool = tool;
         } else if (tool === 1000) {
-          normalizedTool = 0;
+          normalizedTool = normalizedInitialTool;
         } else if (tool === 255 && currentTool != null) {
           normalizedTool = currentTool;
         } else if (currentTool != null) {
           normalizedTool = currentTool;
         } else {
-          normalizedTool = 0;
+          normalizedTool = normalizedInitialTool;
         }
       }
 
@@ -1507,7 +1598,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
-      const previewGcode = this._normalizePreviewGcode(gcodeText, colors.length ? colors.length - 1 : null);
+      const initialToolIndex = this._resolveInitialToolIndex(colors, gcodeText);
+      const previewGcode = this._normalizePreviewGcode(
+        gcodeText,
+        colors.length ? colors.length - 1 : null,
+        initialToolIndex
+      );
       this._renderCapabilityChips(capabilities, colors);
       this._renderOverlay(colors);
 
