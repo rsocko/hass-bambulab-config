@@ -1332,10 +1332,11 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
         self.assertIn("ns_temporal_scope = namespace(items=[])", content)
         self.assertIn("candidate.opened_ts | default(0, true) | float(0)", content)
-        self.assertIn("candidate.archived_ts | default(0, true) | float(0)", content)
         self.assertIn("starts_before_archive", content)
         self.assertIn("ends_after_archive", content)
         self.assertIn("ns_temporal_scope.items | count == 1", content)
+        self.assertIn("candidate_last <= 0 and not (candidate.archived | default(false, true))", content)
+        self.assertNotIn("candidate.archived_ts | default(0, true) | float(0)", content)
 
     def test_reenrich_prefers_spools_active_at_print_start_before_strict_end_window(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
@@ -1347,7 +1348,8 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("started_by_print = has_start_evidence", content)
         self.assertIn("active_at_print_start", content)
         self.assertIn("candidate_last >= archive_print_start_ts", content)
-        self.assertIn("candidate_archived >= archive_print_start_ts", content)
+        self.assertIn("candidate_last <= 0 and not (candidate.archived | default(false, true))", content)
+        self.assertNotIn("candidate_archived >= archive_print_start_ts", content)
 
     def test_reenrich_preserves_existing_only_when_it_is_strictly_better(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
@@ -1597,14 +1599,22 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
     def test_popup_content_surfaces_match_evidence_and_archive_source_json(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const describeFilamentMatchMethod = (value) => {", content)
+        self.assertIn("const describeSpoolMatchMethod = (value) => {", content)
         self.assertIn("const describeProvenanceMarker = (value) => {", content)
-        self.assertIn("const archivedFilamentSlots = Array.isArray(archiveExtraData?.filament_slots) && archiveExtraData.filament_slots.length", content)
+        self.assertIn("let detailEnrichmentProvenance = [];", content)
+        self.assertIn("const provenanceRaw = detailState.attributes?.enrichment_provenance_json || '[]';", content)
+        self.assertIn("const sourceEvidence = archive?.archive_source_evidence", content)
         self.assertIn("const archivedRawAms = Array.isArray(archiveExtraData?._print_data?.raw_data?.ams)", content)
         self.assertIn("Match Evidence", content)
         self.assertIn("Archive Source Evidence", content)
         self.assertIn("Archived filament_slots[] JSON", content)
         self.assertIn("Archived raw_data.ams[] JSON", content)
-        self.assertIn("The compact payload preserves ambiguity markers <strong>am</strong>, filament-family markers <strong>fm</strong>, and time-window provenance <strong>pm</strong>.", content)
+        self.assertIn("spool match markers <strong>sm</strong>", content)
+
+    def test_popup_detail_template_sensor_exposes_enrichment_provenance_json(self):
+        content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml").read_text("utf-8")
+        self.assertIn("enrichment_provenance_json:", content)
+        self.assertIn("result.get('enrichment_provenance', [])", content)
 
     def test_archive_enrichment_ui_uses_candidate_match_wording_for_ambiguity_codes(self):
         popup_content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
@@ -1810,8 +1820,28 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("refresh_browser:", content)
         self.assertIn("should_refresh_browser", content)
         self.assertIn('should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"', content)
+        self.assertIn("action: bambuddy.refresh_print_history_archive_detail", content)
         self.assertIn('value_template: "{{ should_refresh_browser }}"', content)
         self.assertIn("action: script.refresh_print_history_archives", content)
+
+    def test_note_update_paths_force_targeted_archive_sync(self):
+        save_content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
+        reenrich_content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        auto_content = (HISTORY / "automations" / "bambuddy_enrich_archive_on_complete.yaml").read_text("utf-8")
+
+        self.assertIn("action: bambuddy.refresh_print_history_archive_detail", save_content)
+        self.assertIn("action: bambuddy.refresh_print_history_archive_detail", reenrich_content)
+        self.assertIn("action: bambuddy.refresh_print_history_archive_detail", auto_content)
+
+    def test_bambuddy_services_expose_targeted_archive_sync(self):
+        content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "services.yaml").read_text("utf-8")
+        self.assertIn("refresh_print_history_archive_detail:", content)
+        self.assertIn("Fetch one archive from Bambuddy and immediately upsert it into the local Variant 3 store.", content)
+        const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
+        init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+        self.assertIn('SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL = "refresh_print_history_archive_detail"', const_content)
+        self.assertIn("async_handle_refresh_archive_detail", init_content)
+        self.assertIn("SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL", init_content)
 
     def test_popup_project_helper_uses_no_project_default(self):
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_project.yaml"

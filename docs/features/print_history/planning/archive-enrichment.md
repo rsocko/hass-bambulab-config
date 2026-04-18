@@ -198,7 +198,7 @@ Optional row field used only when operator review is needed:
 
 Optional row field used when lineage is inferred rather than exact:
 
-- `pm`: provenance marker. `t_hist` = the spool was resolved from lifecycle-date overlap against the archive window using any available Spoolman `date_opened`, `first_used`, `last_used`, or archived date evidence after stronger UUID and direct metadata paths failed.
+- `pm`: provenance marker. `t_hist` = the spool was resolved from lifecycle-date overlap against the archive window using available Spoolman `date_opened`, `first_used`, and `last_used` timestamps after stronger UUID and direct metadata paths failed. When no end timestamp exists, the matcher only treats currently non-archived spools as still active.
 
 Optional row field used when filament identity is recovered before spool identity:
 
@@ -266,7 +266,7 @@ It currently:
 - reconstructs candidate filament rows from archived `filament_slots[]` and archived AMS tray metadata when possible
 - pulls Spoolman spool records directly from the API with `allow_archived=true` so archived or consumed spools remain matchable during manual recovery
 - identifies filament families first from color matches, then narrows them with material and archived profile/type metadata before trying to select the actual spool
-- uses spool lifecycle overlap evidence from `date_opened`, `first_used`, `last_used`, and any archived date metadata before and after filament-family narrowing so obviously impossible candidates are dropped earlier
+- uses spool lifecycle overlap evidence from `date_opened`, `first_used`, and `last_used` before and after filament-family narrowing so obviously impossible candidates are dropped earlier
 - expands a uniquely identified filament into the full Spoolman spool family for that filament so older archived or replaced spools remain eligible for recovery
 - prefers a unique spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`) before treating the remaining family as unresolved spool ambiguity
 - can use a strict archive-time window fallback based on Spoolman lifecycle dates, and that temporal narrowing is allowed to reduce either a mixed-filament candidate pool or a same-filament spool family to one defensible spool
@@ -277,7 +277,9 @@ It currently:
 
 This manual re-enrich path is shipped, but it is still a best-effort heuristic flow rather than a fully UUID-first archive provenance system.
 
-The temporal fallback is intentionally conservative. It records `pm:"t_hist"` on any row resolved from archive-window lifecycle evidence so inferred lineage stays distinguishable from exact UUID or direct match lineage. The lifecycle check now considers `date_opened`, `first_used`, `last_used`, and any archived date metadata when those timestamps exist. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
+The temporal fallback is intentionally conservative. It records `pm:"t_hist"` on any row resolved from archive-window lifecycle evidence so inferred lineage stays distinguishable from exact UUID or direct match lineage. The lifecycle check now considers `date_opened`, `first_used`, and `last_used`. When those timestamps do not prove an end date, the matcher only keeps a spool active by absence of `archived: true`, not by any archive timestamp. When filament recovery had to fall back to color-driven inference first, the row also records `fm` so the hidden payload makes it clear that filament identity and spool identity were proven by different evidence tiers.
+
+Live verification against `spoolman.socko.us` on 2026-04-18 confirmed the current Spoolman REST schema exposes `archived` but does not expose `archived_at`, and this instance does not define a custom `date_archived` spool field.
 
 Generic `afs` fallback rows with no archived UUID, vendor, or profile hint no longer treat missing Bambu evidence as proof that the row must be non-Bambu. In those cases the matcher now keeps all vendors in the candidate pool and only narrows vendor when archived metadata explicitly supports it.
 
@@ -303,7 +305,7 @@ The shipped manual re-enrich script has two major phases:
 1. reconstruct archive-side candidate rows from Bambuddy archive detail
 2. resolve each candidate row against Spoolman spools and filament families without guessing through ambiguity
 
-The most important constraint is still the same: `filament_slots[].slot_id` is not treated as an AMS tray identity key. The script only trusts normalized archived metadata such as color, material/type, archived tray UUID, archived profile hints, spool lifecycle dates, and current Spoolman records.
+The most important constraint is still the same: `filament_slots[].slot_id` is not treated as an AMS tray identity key. The script only trusts normalized archived metadata such as color, material/type, archived tray UUID, archived profile hints, spool lifecycle dates, the current `archived` boolean, and current Spoolman records.
 
 ```mermaid
 flowchart TD
@@ -396,7 +398,7 @@ flowchart TD
 - First remove spools that had clearly ended before the print started.
 - Then prefer a single spool that was active at print start when lifecycle evidence is strong enough.
 - Then prefer a single spool whose current Spoolman location matches the archived tray family (`AMS`, `AMS 2`, or `External Spool Holder`).
-- Then try a stricter archive window fallback using `date_opened`, `first_used`, `last_used`, and archived timestamps.
+- Then try a stricter archive window fallback using `date_opened`, `first_used`, and `last_used`.
 - If the final selection comes from lifecycle overlap rather than exact UUID/direct metadata, the row keeps `pm: t_hist`.
 - If more than one spool still survives the final strict archive window, the row keeps `am: s_tw`.
 - If multiple candidates remain without a stronger ambiguity marker, the row keeps `am: s_tc`.

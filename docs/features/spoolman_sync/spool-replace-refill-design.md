@@ -667,6 +667,8 @@ All buttons in the wizard steps should maintain minimum 44×44 pt hit areas (App
 
 > **Note:** There is no "inactive" state in Spoolman. Spools are either `archived: false` (active, default) or `archived: true` (archived, hidden from default views and HA entities). Archive is the only supported mechanism for removing spent spools from active inventory.
 
+> **Schema note:** Live verification against `spoolman.socko.us` on 2026-04-18 confirmed the published `Spool` REST schema includes `archived` but does **not** expose an `archived_at` timestamp, and this instance does not define a custom spool `date_archived` field.
+
 ### 7.2 Unsealing
 
 Setting `extra.sealed` to `false` and recording the open date via `spoolman.patch_spool`:
@@ -680,7 +682,7 @@ Setting `extra.sealed` to `false` and recording the open date via `spoolman.patc
       date_opened: "{{ now().isoformat() }}"
 ```
 
-The `date_opened` extra field already exists in Spoolman (type: Text, stores ISO 8601 datetime). The workflow sets it automatically when unsealing a spool.
+The `date_opened` extra field already exists in Spoolman (type: `datetime`, stores an ISO 8601 datetime). The workflow sets it automatically when unsealing a spool.
 
 ### 7.3 Entity Refresh (NOT Integration Reload)
 

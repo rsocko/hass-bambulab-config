@@ -348,7 +348,6 @@ reenrich_print_history_archive:
                     {% set opened_ts = as_timestamp(spool_extra.date_opened | default('', true), 0) | float(0) %}
                     {% set first_used_ts = as_timestamp(spool.first_used | default('', true), 0) | float(0) %}
                     {% set last_used_ts = as_timestamp(spool.last_used | default('', true), 0) | float(0) %}
-                    {% set archived_ts = as_timestamp(spool.archived_at | default(spool_extra.date_archived | default('', true), true), 0) | float(0) %}
                     {% set multi = namespace(values=[], first='') %}
                     {% for raw_hex in (filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}
                       {% set parsed_hex = raw_hex | string | trim | replace('#', '') %}
@@ -383,7 +382,6 @@ reenrich_print_history_archive:
                       'opened_ts': opened_ts,
                       'first_used_ts': first_used_ts,
                       'last_used_ts': last_used_ts,
-                      'archived_ts': archived_ts,
                       'sealed': spool_extra.sealed | default('', true) | string | lower == 'true',
                       'archived': spool.archived | default(false, true)
                     }] %}
@@ -491,9 +489,8 @@ reenrich_print_history_archive:
                           {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
                           {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
-                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
                           {% set starts_before_archive = (candidate_opened <= 0 or candidate_opened <= archive_temporal_window_end_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) %}
-                          {% set ends_after_archive = ((candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_temporal_window_start_ts | float(0)) or ((candidate_last <= 0 and candidate_archived <= 0) and not (candidate.archived | default(false, true)))) %}
+                          {% set ends_after_archive = ((candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0)) or (candidate_last <= 0 and not (candidate.archived | default(false, true)))) %}
                           {% if starts_before_archive and ends_after_archive %}
                             {% set ns_temporal_scope.items = ns_temporal_scope.items + [candidate] %}
                           {% endif %}
@@ -562,8 +559,7 @@ reenrich_print_history_archive:
                         {% set ns_preprint_active = namespace(items=[]) %}
                         {% for candidate in ns_match.raw_candidates %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
-                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
-                          {% set ended_before_print_start = (candidate_last > 0 and candidate_last < archive_print_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived < archive_print_start_ts | float(0)) %}
+                          {% set ended_before_print_start = candidate_last > 0 and candidate_last < archive_print_start_ts | float(0) %}
                           {% if not ended_before_print_start %}
                             {% set ns_preprint_active.items = ns_preprint_active.items + [candidate] %}
                           {% endif %}
@@ -579,10 +575,9 @@ reenrich_print_history_archive:
                           {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
                           {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
-                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
                           {% set has_start_evidence = candidate_opened > 0 or candidate_first > 0 %}
                           {% set started_by_print = has_start_evidence and (candidate_opened <= 0 or candidate_opened <= archive_print_start_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_print_start_ts | float(0)) %}
-                          {% set active_at_print_start = ((candidate_last > 0 and candidate_last >= archive_print_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_print_start_ts | float(0)) or ((candidate_last <= 0 and candidate_archived <= 0) and not (candidate.archived | default(false, true)))) %}
+                          {% set active_at_print_start = ((candidate_last > 0 and candidate_last >= archive_print_start_ts | float(0)) or (candidate_last <= 0 and not (candidate.archived | default(false, true)))) %}
                           {% if started_by_print and active_at_print_start %}
                             {% set ns_print_start.items = ns_print_start.items + [candidate] %}
                           {% endif %}
@@ -615,8 +610,7 @@ reenrich_print_history_archive:
                           {% set candidate_opened = candidate.opened_ts | default(0, true) | float(0) %}
                           {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
                           {% set candidate_first = candidate.first_used_ts | default(0, true) | float(0) %}
-                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
-                          {% if (candidate_opened <= 0 or candidate_opened <= archive_temporal_window_end_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) and ((candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0) and candidate_last <= archive_temporal_window_end_ts | float(0)) or (candidate_archived > 0 and candidate_archived >= archive_temporal_window_start_ts | float(0) and candidate_archived <= archive_temporal_window_end_ts | float(0))) %}
+                          {% if (candidate_opened <= 0 or candidate_opened <= archive_temporal_window_end_ts | float(0)) and (candidate_first <= 0 or candidate_first <= archive_temporal_window_end_ts | float(0)) and (candidate_last > 0 and candidate_last >= archive_temporal_window_start_ts | float(0) and candidate_last <= archive_temporal_window_end_ts | float(0)) %}
                             {% set ns_temporal.items = ns_temporal.items + [candidate] %}
                           {% endif %}
                         {% endfor %}
@@ -643,12 +637,13 @@ reenrich_print_history_archive:
                         {% set ns_match.ambiguity_code = archive_ambiguity_code %}
                       {% endif %}
                     {% endif %}
-                    {% set ns_row = namespace(spool_id=none, filament_id=ns_match.filament_id, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code, pm='', fm=ns_match.filament_match_method) %}
+                    {% set ns_row = namespace(spool_id=none, filament_id=ns_match.filament_id, display_name=slot.name_hint | default('Unknown Filament', true), color_hex=slot.color_hex | default(none, true), am=ns_match.ambiguity_code, pm='', fm=ns_match.filament_match_method, sm='') %}
                     {% if ns_match.matched_spool is mapping and ns_match.matched_spool.id is defined %}
                       {% set ns_row.spool_id = ns_match.matched_spool.id | int(0) %}
                       {% set ns_row.filament_id = ns_match.matched_spool.filament_id | default(none, true) %}
                       {% set ns_row.display_name = ns_match.matched_spool.display_name | default(slot.name_hint | default('Unknown Filament', true), true) | string %}
                       {% set ns_row.am = '' %}
+                      {% set ns_row.sm = ns_match.match_method %}
                       {% if ns_match.match_method == 't_hist' %}
                         {% set ns_row.pm = 't_hist' %}
                       {% endif %}
@@ -690,6 +685,9 @@ reenrich_print_history_archive:
                     {% endif %}
                     {% if ns_row.fm | length > 0 %}
                       {% set row = dict(row, fm=ns_row.fm) %}
+                    {% endif %}
+                    {% if ns_row.sm | length > 0 %}
+                      {% set row = dict(row, sm=ns_row.sm) %}
                     {% endif %}
                     {% set ns.rows = ns.rows + [row] %}
                   {% endfor %}
@@ -954,6 +952,9 @@ reenrich_print_history_archive:
                             archive_id: "{{ resolved_archive_id }}"
                             tags: "{{ merged_tags }}"
                             notes: "{{ merged_notes }}"
+                    - action: bambuddy.refresh_print_history_archive_detail
+                      data:
+                        archive_id: "{{ resolved_archive_id }}"
                     - action: persistent_notification.create
                       data:
                         notification_id: "print_history_reenrich_preserved_{{ resolved_archive_id }}"
@@ -1039,6 +1040,9 @@ reenrich_print_history_archive:
                         archive_id: "{{ resolved_archive_id }}"
                         tags: "{{ merged_tags }}"
                         notes: "{{ merged_notes }}"
+                - action: bambuddy.refresh_print_history_archive_detail
+                  data:
+                    archive_id: "{{ resolved_archive_id }}"
                 - action: bambuddy.append_print_history_event
                   data:
                     archive_id: "{{ resolved_archive_id | int(0) }}"
