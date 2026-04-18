@@ -171,9 +171,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".list-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0;}" +
       ".list-header-actions .chip{white-space:nowrap;}" +
       ".list-header-actions .action-buttons{gap:6px;}" +
-      ".list-subheader{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-width:0;}" +
       ".list-status-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0;}" +
-      ".chip-row.list-meta-line{align-items:center;gap:8px;}" +
+      ".chip-row.list-meta-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:8px;}" +
+      ".list-meta-left{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;}" +
+      ".list-meta-right{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;min-width:0;}" +
       ".list-bottom-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-width:0;}" +
       ".list-bottom-row .dots{flex:0 0 auto;}" +
       ".list-inline-tag-project{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;flex:1 1 240px;}" +
@@ -248,7 +249,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
-      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header,.list-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line,.list-status-line{justify-content:flex-start;}.list-chip-mobile-hide{display:none;}.list-inline-tag-project .project-chip{max-width:140px;}.list-header-actions{justify-content:flex-start;}.list-subheader{justify-content:flex-start;}}" +
+      "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header,.list-header,.chip-row.list-meta-line{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line,.list-status-line,.list-meta-right{justify-content:flex-start;}.list-chip-mobile-hide{display:none;}.list-inline-tag-project .project-chip{max-width:140px;}.list-header-actions{justify-content:flex-start;}}" +
       "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr);row-gap:8px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}.card-shell.list{grid-template-columns:92px minmax(0,1fr);column-gap:10px;padding:14px;}.thumb.list-thumb,.list-thumb-empty{height:92px;}.list-row-mobile-hide{display:none;}.metrics.list{grid-template-columns:1fr;}.list-header-actions .chip{order:-1;}.list-header-actions .action-buttons{justify-content:flex-start;}}" +
       "</style>" +
       "<ha-card>" +
@@ -626,18 +627,18 @@ class PrintHistoryBrowserCard extends HTMLElement {
             '</div>' +
             listHeaderActions +
           '</div>' +
-          '<div class="list-subheader">' +
-            '<div class="subtle media-date">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
-            '<div class="list-status-line">' +
-              statusChip +
-            '</div>' +
-          '</div>' +
           '<div class="chip-row list-meta-line">' +
-            (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
-            (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
-            (mediaMetaChip ? mediaMetaChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
-            (mediaObjectsChip ? mediaObjectsChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
-            (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
+            '<div class="list-meta-left">' +
+              (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '') +
+              (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '') +
+              (mediaMetaChip ? mediaMetaChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
+              (mediaObjectsChip ? mediaObjectsChip.replace('class="chip"', 'class="chip list-chip-mobile-hide"') : '') +
+              (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '') +
+            '</div>' +
+            '<div class="list-meta-right">' +
+              '<div class="subtle media-date">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
+              '<div class="list-status-line">' + statusChip + '</div>' +
+            '</div>' +
           '</div>' +
           '<div class="metrics ' + metricsClass + '">' +
             this._renderMetric('Duration', normalized.durationLabel) +
