@@ -65,9 +65,20 @@ card:
           min-height: 60px !important;
           height: 60px !important;
           gap: 8px !important;
-          justify-content: center !important;
+          justify-content: flex-start !important;
+          flex-wrap: nowrap !important;
+          overflow-x: auto !important;
+          overflow-y: hidden !important;
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+          scrollbar-gutter: stable both-edges !important;
+          padding-bottom: 2px !important;
           transition: none !important;
           animation: none !important;
+        }
+        .bubble-sub-button-container::-webkit-scrollbar,
+        .bubble-sub-buttons-container::-webkit-scrollbar {
+          display: none !important;
         }
         .bubble-wrapper,
         .bubble-content-container,
@@ -84,6 +95,7 @@ card:
         }
         .bubble-sub-button {
           min-width: 0 !important;
+          flex: 0 0 auto !important;
         }
         ${layoutButtonSelector},
         ${layoutButtonSelector} *,
@@ -110,22 +122,7 @@ card:
           }
         }
         @media (max-width: 720px) {
-          .bubble-sub-button-container,
-          .bubble-sub-buttons-container {
-            justify-content: flex-start !important;
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            overflow-y: hidden !important;
-            scrollbar-width: none !important;
-            -ms-overflow-style: none !important;
-            padding-bottom: 2px !important;
-          }
-          .bubble-sub-button-container::-webkit-scrollbar,
-          .bubble-sub-buttons-container::-webkit-scrollbar {
-            display: none !important;
-          }
           .bubble-sub-button {
-            flex: 0 0 auto !important;
             padding-left: 8px !important;
             padding-right: 8px !important;
           }
@@ -187,7 +184,7 @@ card:
             name: >-
               ${(() => {
                 const raw = ((states['sensor.bambuddy_print_history_browser_page_info']?.state || '').replace(/^Page\s+/, '').trim()) || '1 of 1';
-                return window.innerWidth <= 720 ? raw.replace(/\s+of\s+/i, '/') : `Page ${raw}`;
+                return `Page ${raw.replace(/\s+of\s+/i, ' / ')}`;
               })()}
             icon: mdi:book-open-page-variant-outline
             show_icon: true
@@ -213,7 +210,7 @@ card:
           - entity: input_number.print_history_page_size
             sub_button_type: slider
             name: >-
-              ${window.innerWidth <= 720 ? 'PpP' : 'Prints / Page'}
+              Prints / Page
             icon: mdi:format-list-numbered
             show_name: true
             show_state: true
