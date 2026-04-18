@@ -50,5 +50,12 @@ apply_print_history_card_filter_action:
             - action: input_boolean.turn_off
               target:
                 entity_id: input_boolean.print_history_filter_tags_untagged_only
+        - conditions:
+            - condition: template
+              value_template: "{{ action_key == 'color_toggle' and target_value != '' }}"
+          sequence:
+            - action: script.toggle_print_history_color_filter
+              data:
+                color: "{{ target_value }}"
   mode: queued
   max: 20
