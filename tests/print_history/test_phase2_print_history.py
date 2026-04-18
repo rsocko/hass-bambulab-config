@@ -1729,7 +1729,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
 
-        self.assertIn(".print-history-popup-timeline-track{position:relative;width:100%;height:18px;overflow:visible;isolation:isolate;z-index:0;}", content)
+        self.assertIn(".print-history-popup-timeline-main{grid-area:track;display:flex;align-items:center;min-width:0;width:100%;position:relative;overflow:visible;z-index:5;}", content)
+        self.assertIn(".print-history-popup-timeline-track{position:relative;width:100%;height:18px;overflow:visible;}", content)
         self.assertIn("background:#12161C", content)
         self.assertIn("z-index:80", content)
         self.assertIn("overflow:hidden", content)
