@@ -1887,6 +1887,18 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('translateX(calc(-50% + var(--tooltip-shift, 0px)))', content)
         self.assertIn('max-width: min(320px, calc(100vw - 16px));', content)
 
+    def test_browser_card_filament_swatches_use_clamped_custom_tooltips(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_renderFilamentDot(chip)", content)
+        self.assertIn('class="dot-button"', content)
+        self.assertIn("_updateDotTooltipPosition(dotNode)", content)
+        self.assertIn('window.addEventListener("resize", this._boundTooltipLayoutHandler);', content)
+        self.assertIn('translateX(calc(-50% + var(--dot-tooltip-shift, 0px)))', content)
+        self.assertIn('max-width:min(320px, calc(100vw - 16px));', content)
+
     def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
         content = (
             ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml"

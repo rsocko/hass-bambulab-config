@@ -25,6 +25,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._boundPointerDownHandler = this._handlePointerDown.bind(this);
     this._boundPointerUpHandler = this._handlePointerUp.bind(this);
     this._boundPointerCancelHandler = this._handlePointerCancel.bind(this);
+    this._boundMouseOverHandler = this._handleMouseOver.bind(this);
+    this._boundMouseOutHandler = this._handleMouseOut.bind(this);
+    this._boundFocusInHandler = this._handleFocusIn.bind(this);
+    this._boundFocusOutHandler = this._handleFocusOut.bind(this);
+    this._boundTooltipLayoutHandler = this._handleTooltipLayout.bind(this);
   }
 
   setConfig(config) {
@@ -74,6 +79,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this.shadowRoot.addEventListener("pointerdown", this._boundPointerDownHandler);
     this.shadowRoot.addEventListener("pointerup", this._boundPointerUpHandler);
     this.shadowRoot.addEventListener("pointercancel", this._boundPointerCancelHandler);
+    this.shadowRoot.addEventListener("mouseover", this._boundMouseOverHandler);
+    this.shadowRoot.addEventListener("mouseout", this._boundMouseOutHandler);
+    this.shadowRoot.addEventListener("focusin", this._boundFocusInHandler);
+    this.shadowRoot.addEventListener("focusout", this._boundFocusOutHandler);
+    window.addEventListener("resize", this._boundTooltipLayoutHandler);
+    window.addEventListener("scroll", this._boundTooltipLayoutHandler, true);
   }
 
   disconnectedCallback() {
@@ -82,6 +93,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this.shadowRoot.removeEventListener("pointerdown", this._boundPointerDownHandler);
     this.shadowRoot.removeEventListener("pointerup", this._boundPointerUpHandler);
     this.shadowRoot.removeEventListener("pointercancel", this._boundPointerCancelHandler);
+    this.shadowRoot.removeEventListener("mouseover", this._boundMouseOverHandler);
+    this.shadowRoot.removeEventListener("mouseout", this._boundMouseOutHandler);
+    this.shadowRoot.removeEventListener("focusin", this._boundFocusInHandler);
+    this.shadowRoot.removeEventListener("focusout", this._boundFocusOutHandler);
+    window.removeEventListener("resize", this._boundTooltipLayoutHandler);
+    window.removeEventListener("scroll", this._boundTooltipLayoutHandler, true);
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -217,7 +234,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.list .metric-label{margin-bottom:0;white-space:nowrap;}" +
       ".card-shell.list .metric-value{font-size:14px;text-align:right;}" +
       ".dots,.tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}" +
-      ".dot{width:14px;height:14px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);}" +
+      ".dot-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;background:var(--dot-color, rgba(255,255,255,0.2));box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25);flex:0 0 auto;outline:none;}" +
+      ".dot-button:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25),0 0 0 2px var(--primary-color, var(--accent-color, #03a9f4));}" +
+      ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:999px;padding:3px 8px;font-size:11px;line-height:1.2;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
+      ".dot-button.tooltip-active .dot-tooltip,.dot-button:hover .dot-tooltip,.dot-button:focus-visible .dot-tooltip{opacity:1;transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(0);}" +
       ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
       ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;}" +
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
@@ -504,7 +524,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var metricsClass = variant === 'Media' ? 'media' : (variant === 'Compact' ? 'compact-tight' : 'list');
     var colorEnrichmentMarkup = normalized.filamentChips.length
       ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
-        return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
+        return this._renderFilamentDot(chip);
       }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
       : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>';
     var tagProjectMarkup = ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
@@ -515,7 +535,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       + '</div>' : '');
     var listDotsMarkup = normalized.filamentChips.length
       ? '<div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
-        return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
+        return this._renderFilamentDot(chip);
       }.bind(this)).join("") + '</div>'
       : '';
     var listTagsMarkup = (tags.length || hiddenTagCount)
@@ -661,6 +681,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _renderMetric(label, value) {
     return '<div class="metric"><div class="metric-label">' + this._escapeHtml(label) + '</div><div class="metric-value">' + this._escapeHtml(value) + '</div></div>';
+  }
+
+  _renderFilamentDot(chip) {
+    var tooltip = this._escapeAttribute(chip && chip.tooltip ? chip.tooltip : 'Filament color');
+    var dotColor = this._escapeAttribute(chip && chip.dotColor ? chip.dotColor : 'rgba(255,255,255,0.2)');
+    return '<span class="dot-button" tabindex="0" role="img" aria-label="' + tooltip + '" style="--dot-color:' + dotColor + ';"><span class="dot-tooltip" role="tooltip">' + this._escapeHtml(chip && chip.tooltip ? chip.tooltip : 'Filament color') + '</span></span>';
   }
 
   _renderInfoChip(label) {
@@ -1370,6 +1396,104 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _handlePointerCancel() {
     this._mediaSwipe = null;
+  }
+
+  _handleMouseOver(event) {
+    var dotNode = event && event.target && event.target.closest ? event.target.closest('.dot-button') : null;
+    if (!dotNode) {
+      return;
+    }
+    this._setDotTooltipState(dotNode, true);
+  }
+
+  _handleMouseOut(event) {
+    var dotNode = event && event.target && event.target.closest ? event.target.closest('.dot-button') : null;
+    var nextNode = event && event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest('.dot-button') : null;
+    if (!dotNode || dotNode === nextNode) {
+      return;
+    }
+    this._setDotTooltipState(dotNode, false);
+  }
+
+  _handleFocusIn(event) {
+    var dotNode = event && event.target && event.target.closest ? event.target.closest('.dot-button') : null;
+    if (!dotNode) {
+      return;
+    }
+    this._setDotTooltipState(dotNode, true);
+  }
+
+  _handleFocusOut(event) {
+    var dotNode = event && event.target && event.target.closest ? event.target.closest('.dot-button') : null;
+    var nextNode = event && event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest('.dot-button') : null;
+    if (!dotNode || dotNode === nextNode) {
+      return;
+    }
+    this._setDotTooltipState(dotNode, false);
+  }
+
+  _handleTooltipLayout() {
+    var dotNode = this.shadowRoot ? this.shadowRoot.querySelector('.dot-button.tooltip-active') : null;
+    if (!dotNode) {
+      return;
+    }
+    this._updateDotTooltipPosition(dotNode);
+  }
+
+  _setDotTooltipState(dotNode, isActive) {
+    if (!dotNode) {
+      return;
+    }
+    if (!isActive) {
+      dotNode.classList.remove('tooltip-active');
+      dotNode.style.removeProperty('--dot-tooltip-shift');
+      return;
+    }
+
+    var currentActive = this.shadowRoot ? this.shadowRoot.querySelector('.dot-button.tooltip-active') : null;
+    if (currentActive && currentActive !== dotNode) {
+      currentActive.classList.remove('tooltip-active');
+      currentActive.style.removeProperty('--dot-tooltip-shift');
+    }
+
+    dotNode.classList.add('tooltip-active');
+    this._updateDotTooltipPosition(dotNode);
+  }
+
+  _updateDotTooltipPosition(dotNode) {
+    var tooltip = dotNode && dotNode.querySelector ? dotNode.querySelector('.dot-tooltip') : null;
+    if (!tooltip) {
+      return;
+    }
+
+    var previousVisibility = tooltip.style.visibility;
+    var previousOpacity = tooltip.style.opacity;
+    tooltip.style.visibility = 'hidden';
+    tooltip.style.opacity = '1';
+
+    var tooltipRect = tooltip.getBoundingClientRect();
+    var dotRect = dotNode.getBoundingClientRect();
+
+    tooltip.style.visibility = previousVisibility;
+    tooltip.style.opacity = previousOpacity;
+
+    if (!tooltipRect.width || !dotRect.width) {
+      dotNode.style.removeProperty('--dot-tooltip-shift');
+      return;
+    }
+
+    var minViewportPadding = 8;
+    var centeredLeft = dotRect.left + (dotRect.width / 2) - (tooltipRect.width / 2);
+    var centeredRight = centeredLeft + tooltipRect.width;
+    var shift = 0;
+
+    if (centeredLeft < minViewportPadding) {
+      shift = minViewportPadding - centeredLeft;
+    } else if (centeredRight > window.innerWidth - minViewportPadding) {
+      shift = (window.innerWidth - minViewportPadding) - centeredRight;
+    }
+
+    dotNode.style.setProperty('--dot-tooltip-shift', String(Math.round(shift)) + 'px');
   }
 
   async _handleKeydown(event) {
