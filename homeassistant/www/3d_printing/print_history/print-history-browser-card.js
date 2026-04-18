@@ -272,8 +272,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
       ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
       ".icon-action.viewer:active{transform:translateY(0);}" +
-      ".icon-action.favorite{background:rgba(245,194,66,0.10);color:#f0d37a;}" +
-      ".icon-action.favorite:hover,.icon-action.favorite:focus-visible{background:rgba(245,194,66,0.22);color:#ffe08a;box-shadow:0 0 0 1px rgba(245,194,66,0.22);}" +
       ".favorite.active{background:rgba(245,194,66,0.22);color:#f5c242;box-shadow:0 0 0 1px rgba(245,194,66,0.18);}" +
       ".favorite.active:hover,.favorite.active:focus-visible{background:rgba(245,194,66,0.30);color:#ffd55f;box-shadow:0 0 0 1px rgba(245,194,66,0.26);}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
@@ -1802,7 +1800,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       },
       {
         type: "grid",
-        columns: archiveStatus === "printing" ? 5 : 6,
+        columns: archiveStatus === "printing" ? 4 : 5,
         square: false,
         cards: [
           ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
@@ -1827,11 +1825,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
               },
             }
           ),
-          {
-            type: "custom:button-card",
-            template: "print_history_archive_popup_favorite_button",
-            variables: { archive_json: archiveJson, archive_id: String(archiveId) },
-          },
           this._buildPopupActionButton(
             "Save",
             "mdi:content-save-outline",
