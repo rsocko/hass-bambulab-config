@@ -18,12 +18,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._capture = null;
     this._uploadInProgress = false;
     this._rendererMode = "gcode";
+    this._showBuildVolumeCube = true;
+    this._showBuildVolumeGrid = true;
+    this._buildVolumeConfig = null;
     this._cropMode = false;
     this._cropAspectPreset = "square";
     this._cropRect = null;
     this._cropDrag = null;
     this._globalListenersAttached = false;
     this._refreshButton = null;
+    this._buildCubeToggleButton = null;
+    this._buildGridToggleButton = null;
     this._captureButton = null;
     this._cropToggleButton = null;
     this._cropAspectSelect = null;
@@ -34,6 +39,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._downloadCaptureButton = null;
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
+    this._boundBuildCubeToggleHandler = this._handleBuildCubeToggle.bind(this);
+    this._boundBuildGridToggleHandler = this._handleBuildGridToggle.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
     this._boundCropToggleHandler = this._handleCropToggle.bind(this);
     this._boundCropAspectChangeHandler = this._handleCropAspectChange.bind(this);
@@ -91,6 +98,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._refreshButton) {
       this._refreshButton.removeEventListener("click", this._boundRefreshHandler);
       this._refreshButton = null;
+    }
+    if (this._buildCubeToggleButton) {
+      this._buildCubeToggleButton.removeEventListener("click", this._boundBuildCubeToggleHandler);
+      this._buildCubeToggleButton = null;
+    }
+    if (this._buildGridToggleButton) {
+      this._buildGridToggleButton.removeEventListener("click", this._boundBuildGridToggleHandler);
+      this._buildGridToggleButton = null;
     }
     if (this._captureButton) {
       this._captureButton.removeEventListener("click", this._boundCaptureHandler);
@@ -206,6 +221,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".stage-status-copy{max-width:34ch;color:#c7d5e3;font-size:0.96rem;line-height:1.55;}" +
       ".stage-toolbar{position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:10px;z-index:4;}" +
       ".stage-toolbar .button{min-height:38px;padding:0 14px;backdrop-filter:blur(8px);}" +
+      ".button.toggle-on{border-color:rgba(125,211,200,0.36);background:linear-gradient(180deg,rgba(20,66,67,0.96),rgba(8,29,33,0.98));color:#ecfeff;}" +
+      ".button.toggle-on:hover,.button.toggle-on:focus-visible{border-color:rgba(153,246,228,0.52);background:linear-gradient(180deg,rgba(28,88,87,0.98),rgba(10,41,45,0.98));}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -288,6 +305,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<section id='viewer-stage' class='panel stage stage-panel'>" +
       "<div class='stage-toolbar'>" +
       "<button id='refresh-button' class='button ghost' type='button'>Refresh</button>" +
+      "<button id='build-cube-toggle-button' class='button ghost' type='button' aria-pressed='true'>Hide Cube</button>" +
+      "<button id='build-grid-toggle-button' class='button ghost' type='button' aria-pressed='true'>Hide Grid</button>" +
       "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
@@ -365,6 +384,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
+  this._buildCubeToggleButton = this.shadowRoot.getElementById("build-cube-toggle-button");
+  this._buildGridToggleButton = this.shadowRoot.getElementById("build-grid-toggle-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -376,6 +397,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadCaptureButton = this.shadowRoot.getElementById("upload-capture-button");
     if (this._refreshButton) {
       this._refreshButton.addEventListener("click", this._boundRefreshHandler);
+    }
+    if (this._buildCubeToggleButton) {
+      this._buildCubeToggleButton.addEventListener("click", this._boundBuildCubeToggleHandler);
+    }
+    if (this._buildGridToggleButton) {
+      this._buildGridToggleButton.addEventListener("click", this._boundBuildGridToggleHandler);
     }
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
@@ -401,7 +428,129 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._uploadCaptureButton) {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
     }
+    this._updateBuildVolumeToggleButtons();
     this._updateCapturePanel();
+  }
+
+  _updateBuildVolumeToggleButtons() {
+    if (this._buildCubeToggleButton) {
+      this._buildCubeToggleButton.textContent = this._showBuildVolumeCube ? "Hide Cube" : "Show Cube";
+      this._buildCubeToggleButton.setAttribute("aria-pressed", this._showBuildVolumeCube ? "true" : "false");
+      this._buildCubeToggleButton.className = this._showBuildVolumeCube ? "button toggle-on" : "button ghost";
+    }
+    if (this._buildGridToggleButton) {
+      this._buildGridToggleButton.textContent = this._showBuildVolumeGrid ? "Hide Grid" : "Show Grid";
+      this._buildGridToggleButton.setAttribute("aria-pressed", this._showBuildVolumeGrid ? "true" : "false");
+      this._buildGridToggleButton.className = this._showBuildVolumeGrid ? "button toggle-on" : "button ghost";
+    }
+  }
+
+  _viewerSceneManager() {
+    const preview = this._preview;
+    return preview && preview.sceneManager ? preview.sceneManager : null;
+  }
+
+  _buildVolumeGroup(sceneManager) {
+    if (!sceneManager) {
+      return null;
+    }
+
+    const buildVolume = sceneManager.buildVolume;
+    if (buildVolume && buildVolume._group && Array.isArray(buildVolume._group.children)) {
+      return buildVolume._group;
+    }
+
+    const scene = sceneManager.scene;
+    if (!scene || !Array.isArray(scene.children)) {
+      return null;
+    }
+
+    for (let index = 0; index < scene.children.length; index += 1) {
+      const child = scene.children[index];
+      if (child && child.name === "BuildVolume" && Array.isArray(child.children)) {
+        return child;
+      }
+    }
+
+    return null;
+  }
+
+  _requestViewerRender(sceneManager) {
+    if (!sceneManager) {
+      return;
+    }
+    if (typeof sceneManager.render === "function") {
+      sceneManager.render();
+      return;
+    }
+    if (this._preview && typeof this._preview.render === "function") {
+      this._preview.render();
+    }
+  }
+
+  _applyBuildVolumeVisibility() {
+    this._updateBuildVolumeToggleButtons();
+
+    const sceneManager = this._viewerSceneManager();
+    if (!sceneManager || !this._buildVolumeConfig) {
+      return;
+    }
+
+    if (!this._showBuildVolumeCube && !this._showBuildVolumeGrid) {
+      if (sceneManager.buildVolume) {
+        sceneManager.buildVolume = undefined;
+        this._requestViewerRender(sceneManager);
+      }
+      return;
+    }
+
+    if (!sceneManager.buildVolume) {
+      sceneManager.buildVolume = {
+        x: this._buildVolumeConfig.x,
+        y: this._buildVolumeConfig.y,
+        z: this._buildVolumeConfig.z,
+        smallGrid: !!this._buildVolumeConfig.smallGrid,
+      };
+    }
+
+    const group = this._buildVolumeGroup(sceneManager);
+    if (group && Array.isArray(group.children)) {
+      for (let index = 0; index < group.children.length; index += 1) {
+        const child = group.children[index];
+        if (!child) {
+          continue;
+        }
+        if (child.type === "GridHelper") {
+          child.visible = this._showBuildVolumeGrid;
+          continue;
+        }
+        if (child.type === "AxesHelper") {
+          child.visible = this._showBuildVolumeCube;
+          continue;
+        }
+        child.visible = this._showBuildVolumeCube;
+      }
+    }
+
+    this._requestViewerRender(sceneManager);
+  }
+
+  _handleBuildCubeToggle() {
+    this._showBuildVolumeCube = !this._showBuildVolumeCube;
+    this._applyBuildVolumeVisibility();
+    this._setCaptureStatus(
+      this._showBuildVolumeCube ? "Build-volume cube is visible in the viewer." : "Build-volume cube hidden for cleaner framing.",
+      "info"
+    );
+  }
+
+  _handleBuildGridToggle() {
+    this._showBuildVolumeGrid = !this._showBuildVolumeGrid;
+    this._applyBuildVolumeVisibility();
+    this._setCaptureStatus(
+      this._showBuildVolumeGrid ? "Build grid is visible in the viewer." : "Build grid hidden for cleaner framing.",
+      "info"
+    );
   }
 
   _setStageStatus(label, copy, mode) {
@@ -1363,6 +1512,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
       const previewGcode = this._normalizePreviewGcode(gcodeText, colors.length ? colors.length - 1 : null);
+      this._buildVolumeConfig = Object.assign({ smallGrid: false }, this._normalizeBuildVolume(capabilities.build_volume));
       this._renderCapabilityChips(capabilities, colors);
       this._renderOverlay(colors);
 
@@ -1381,7 +1531,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
         }
         const preview = GCodePreview.init({
           canvas,
-          buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
+          buildVolume: this._buildVolumeConfig,
           extrusionColor: colors.length ? colors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
           disableGradient: true,
           backgroundColor: "#08101a",
@@ -1391,6 +1541,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
         this._preview = preview;
         this._rendererMode = "gcode";
         preview.processGCode(previewGcode);
+        this._applyBuildVolumeVisibility();
         this._setStageStatus("", "", "hidden");
         this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
       } catch (error) {
