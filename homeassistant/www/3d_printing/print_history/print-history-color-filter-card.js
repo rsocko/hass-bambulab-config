@@ -6,6 +6,8 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     this._config = null;
     this._signature = "";
     this._busyColor = "";
+    this._activeTooltipColor = "";
+    this._boundWindowLayoutHandler = this._handleWindowLayout.bind(this);
   }
 
   setConfig(config) {
@@ -52,6 +54,16 @@ class PrintHistoryColorFilterCard extends HTMLElement {
 
   getCardSize() {
     return 2;
+  }
+
+  connectedCallback() {
+    window.addEventListener("resize", this._boundWindowLayoutHandler);
+    window.addEventListener("scroll", this._boundWindowLayoutHandler, true);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("resize", this._boundWindowLayoutHandler);
+    window.removeEventListener("scroll", this._boundWindowLayoutHandler, true);
   }
 
   _escapeHtml(value) {
@@ -148,6 +160,75 @@ class PrintHistoryColorFilterCard extends HTMLElement {
       this._signature = "";
       this._render();
     }
+  }
+
+  _handleWindowLayout() {
+    if (!this._activeTooltipColor) {
+      return;
+    }
+    const activeButton = this.shadowRoot?.querySelector(`.swatch[data-color="${this._activeTooltipColor}"]`);
+    if (activeButton) {
+      this._updateTooltipPosition(activeButton);
+    }
+  }
+
+  _setTooltipActive(button, active) {
+    if (!button) {
+      return;
+    }
+
+    if (!active) {
+      button.style.removeProperty("--tooltip-shift");
+      button.removeAttribute("data-tooltip-edge");
+      if ((button.dataset.color || "") === this._activeTooltipColor) {
+        this._activeTooltipColor = "";
+      }
+      return;
+    }
+
+    this._activeTooltipColor = button.dataset.color || "";
+    this._updateTooltipPosition(button);
+  }
+
+  _updateTooltipPosition(button) {
+    const tooltip = button?.querySelector?.(".tooltip");
+    if (!tooltip) {
+      return;
+    }
+
+    const minViewportPadding = 8;
+    const previousVisibility = tooltip.style.visibility;
+    const previousOpacity = tooltip.style.opacity;
+    tooltip.style.visibility = "hidden";
+    tooltip.style.opacity = "1";
+
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+
+    tooltip.style.visibility = previousVisibility;
+    tooltip.style.opacity = previousOpacity;
+
+    if (!tooltipRect.width || !buttonRect.width) {
+      button.style.removeProperty("--tooltip-shift");
+      button.removeAttribute("data-tooltip-edge");
+      return;
+    }
+
+    const centeredLeft = buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2);
+    const centeredRight = centeredLeft + tooltipRect.width;
+    let shift = 0;
+    let edge = "center";
+
+    if (centeredLeft < minViewportPadding) {
+      shift = minViewportPadding - centeredLeft;
+      edge = "start";
+    } else if (centeredRight > window.innerWidth - minViewportPadding) {
+      shift = (window.innerWidth - minViewportPadding) - centeredRight;
+      edge = "end";
+    }
+
+    button.style.setProperty("--tooltip-shift", `${Math.round(shift)}px`);
+    button.setAttribute("data-tooltip-edge", edge);
   }
 
   _render() {
@@ -247,7 +328,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           position: absolute;
           left: 50%;
           bottom: calc(100% + 6px);
-          transform: translateX(-50%) translateY(4px);
+          transform: translateX(calc(-50% + var(--tooltip-shift, 0px))) translateY(4px);
           background: rgba(17, 24, 39, 0.94);
           color: #f9fafb;
           border-radius: 999px;
@@ -259,6 +340,9 @@ class PrintHistoryColorFilterCard extends HTMLElement {
           opacity: 0;
           transition: opacity 0.12s ease, transform 0.12s ease;
           z-index: 2;
+          max-width: min(320px, calc(100vw - 16px));
+          overflow-wrap: anywhere;
+          text-align: center;
         }
 
         .swatch:hover .ring {
@@ -268,7 +352,7 @@ class PrintHistoryColorFilterCard extends HTMLElement {
         .swatch:hover .tooltip,
         .swatch:focus-visible .tooltip {
           opacity: 1;
-          transform: translateX(-50%) translateY(0);
+          transform: translateX(calc(-50% + var(--tooltip-shift, 0px))) translateY(0);
         }
 
         .swatch:active .ring,
@@ -292,8 +376,14 @@ class PrintHistoryColorFilterCard extends HTMLElement {
     `;
 
     this.shadowRoot.querySelectorAll(".swatch").forEach((button) => {
+      button.addEventListener("mouseenter", () => this._setTooltipActive(button, true));
+      button.addEventListener("focus", () => this._setTooltipActive(button, true));
+      button.addEventListener("mouseleave", () => this._setTooltipActive(button, false));
+      button.addEventListener("blur", () => this._setTooltipActive(button, false));
       button.addEventListener("click", () => this._toggleColor(button.dataset.color || ""));
     });
+
+    this._handleWindowLayout();
   }
 }
 
