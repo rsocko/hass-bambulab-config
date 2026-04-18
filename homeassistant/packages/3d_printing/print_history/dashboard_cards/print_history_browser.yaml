@@ -171,6 +171,8 @@ cards:
                     name: Filter End Date (YYYY-MM-DD)
                   - entity: input_number.photo_review_timeout_hours
                     name: Review Timeout (hrs)
+                  - entity: input_boolean.print_history_viewer_render_animated
+                    name: Animate 3D Viewer Render
                   - type: divider
                   - entity: input_boolean.print_history_debug_instrumentation
                     name: Debug Instrumentation

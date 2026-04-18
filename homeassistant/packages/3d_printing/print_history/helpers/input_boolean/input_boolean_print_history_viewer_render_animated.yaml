@@ -1,0 +1,4 @@
+print_history_viewer_render_animated:
+  name: Animate 3D Viewer Render
+  icon: mdi:movie-open-play-outline
+  initial: false

@@ -1,4 +1,5 @@
 const PRINT_HISTORY_VIEWER_CDN_MODULE_URL = "https://cdn.jsdelivr.net/npm/gcode-preview@2.18.0/+esm";
+const DEFAULT_RENDER_ANIMATED_ENTITY = "input_boolean.print_history_viewer_render_animated";
 const CROP_PRESETS = {
   free: null,
   square: 1,
@@ -62,6 +63,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       archive_id: String(config.archive_id).trim(),
       archive_name: String(config.archive_name || "").trim(),
       entry_id: String(config.entry_id || "").trim(),
+      render_animated_entity: String(config.render_animated_entity || DEFAULT_RENDER_ANIMATED_ENTITY).trim() || DEFAULT_RENDER_ANIMATED_ENTITY,
     };
     this._loadedSignature = "";
     this._renderShell();
@@ -175,7 +177,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {
       return;
     }
-    const signature = JSON.stringify(this._config);
+    const signature = JSON.stringify({
+      config: this._config,
+      renderAnimated: this._renderAnimatedEnabled(),
+    });
     if (signature === this._loadedSignature) {
       return;
     }
@@ -1367,6 +1372,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
     });
   }
 
+  _renderAnimatedEnabled() {
+    if (!this._hass || !this._hass.states || !this._config) {
+      return false;
+    }
+    const entityId = String(this._config.render_animated_entity || DEFAULT_RENDER_ANIMATED_ENTITY).trim() || DEFAULT_RENDER_ANIMATED_ENTITY;
+    const entity = this._hass.states[entityId];
+    return !!(entity && entity.state === "on");
+  }
+
   _setStatus(message, isError = false) {
     const status = this.shadowRoot && this.shadowRoot.getElementById("viewer-footnote");
     if (!status) {
@@ -1393,10 +1407,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
     const buildVolume = this._normalizeBuildVolume(capabilities.build_volume);
+    const renderAnimated = this._renderAnimatedEnabled();
     const chipMarkup = [
       `<span class='chip${capabilities.has_gcode ? "" : " warn"}'>G-code ${capabilities.has_gcode ? "Available" : "Unavailable"}</span>`,
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
+      `<span class='chip'>${renderAnimated ? "Render Animated" : "Render Static"}</span>`,
     ];
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
@@ -1460,6 +1476,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const token = ++this._loadToken;
     const archiveId = this._config && this._config.archive_id ? this._config.archive_id : "";
     const archiveTitle = this._config && this._config.archive_name ? this._config.archive_name : `Archive ${archiveId}`;
+    const renderAnimated = this._renderAnimatedEnabled();
 
     if (!archiveId) {
       this._setStageStatus("Viewer unavailable", "This popup cannot render because the archive ID is missing.", "error");
@@ -1523,7 +1540,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._syncViewerCanvasSize();
 
       this._setStageStatus("Rendering preview", "Building the interactive 3D toolpath view for this archive.");
-      this._setStatus("Rendering G-code preview...");
+      this._setStatus(renderAnimated ? "Rendering animated G-code preview..." : "Rendering G-code preview...");
       try {
         const GCodePreview = await import(PRINT_HISTORY_VIEWER_CDN_MODULE_URL);
         if (token !== this._loadToken) {
@@ -1537,13 +1554,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
+          renderAnimated,
+          RenderAnimated: renderAnimated,
         });
         this._preview = preview;
         this._rendererMode = "gcode";
         preview.processGCode(previewGcode);
+        if (renderAnimated) {
+          if (typeof preview.renderAnimated === "function") {
+            preview.renderAnimated();
+          } else if (preview.sceneManager && typeof preview.sceneManager.renderAnimated === "function") {
+            preview.sceneManager.renderAnimated();
+          }
+        }
         this._applyBuildVolumeVisibility();
         this._setStageStatus("", "", "hidden");
-        this._setStatus("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.");
+        this._setStatus(
+          renderAnimated
+            ? "Rendered Bambuddy G-code preview with animated path build. Use drag, pan, and zoom inside the canvas."
+            : "Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas."
+        );
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
         this._setStageStatus("Interactive preview failed", "The viewer library could not load, so the popup fell back to raw G-code.", "error");
