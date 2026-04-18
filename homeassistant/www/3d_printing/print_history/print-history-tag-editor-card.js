@@ -149,6 +149,20 @@ class PrintHistoryTagEditorCard extends HTMLElement {
     return helper.colorForTag(tag);
   }
 
+  _tagStyle(tag) {
+    const helper = window.PrintHistoryTagColors;
+    if (helper && typeof helper.styleForTag === "function") {
+      return helper.styleForTag(tag);
+    }
+
+    return {
+      color: this._tagColor(tag),
+      background: "rgba(134, 239, 172, 0.14)",
+      border: "rgba(134, 239, 172, 0.58)",
+      glow: "rgba(134, 239, 172, 0.2)",
+    };
+  }
+
   _filteredSuggestions() {
     const selected = new Set(this._tags.map((tag) => this._normalizeTag(tag)));
     const query = this._normalizeTag(this._draft);
@@ -400,7 +414,8 @@ class PrintHistoryTagEditorCard extends HTMLElement {
           -webkit-appearance: none;
           border: none;
           border-radius: 999px;
-          color: #243242;
+          background: var(--tag-background, rgba(148, 163, 184, 0.16));
+          color: var(--primary-text-color);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -408,11 +423,11 @@ class PrintHistoryTagEditorCard extends HTMLElement {
           font-size: 12px;
           font-weight: 600;
           padding: 6px 10px;
-          box-shadow: inset 0 0 0 1px rgba(36, 50, 66, 0.14);
+          box-shadow: inset 0 0 0 1px var(--tag-border-color, rgba(148, 163, 184, 0.42)), 0 0 0 1px transparent;
         }
 
         .tag-pill:hover {
-          filter: brightness(0.97);
+          filter: brightness(0.99);
         }
 
         .tag-label {
@@ -559,9 +574,9 @@ class PrintHistoryTagEditorCard extends HTMLElement {
 
     tagList.innerHTML = this._tags
       .map((tag, index) => {
-        const background = this._tagColor(tag);
+        const style = this._tagStyle(tag);
         return `
-          <button class="tag-pill" type="button" data-tag-index="${index}" style="background:${background};">
+          <button class="tag-pill" type="button" data-tag-index="${index}" style="background:${style.background};box-shadow:inset 0 0 0 1px ${style.border},0 0 0 1px ${style.glow};">
             <span class="tag-label">${this._escapeHtml(tag)}</span>
             <span class="tag-remove" aria-hidden="true">×</span>
           </button>`;

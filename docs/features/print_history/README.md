@@ -12,6 +12,8 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 Manual phone-photo upload is documented in `manual-photo-upload.md`.
 
+Tag color assignment for archive tags is documented in `tag-color-contract.md`.
+
 Source `.3mf` import workflow and long-term storage policy are documented in:
 
 - `source-3mf-import-design.md`

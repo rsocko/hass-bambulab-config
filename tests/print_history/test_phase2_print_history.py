@@ -1675,16 +1675,44 @@ class TestPrintHistoryTagColors(unittest.TestCase):
                 self.assertIn("tagColorHelper.colorForTag(tag)", content)
                 self.assertNotIn("const tagPalette =", content)
 
-    def test_shared_tag_color_helper_uses_prefix_hashing_and_twenty_four_colors(self):
+    def test_shared_tag_color_helper_uses_prefix_hashing_and_thirty_six_colors(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-colors.js"
         ).read_text("utf-8")
 
         self.assertIn("const TAG_PALETTE = Object.freeze([", content)
-        self.assertGreaterEqual(content.count("#"), 24)
+        self.assertGreaterEqual(content.count("#"), 36)
         self.assertIn('return normalized.includes(":") ? normalized.split(":", 1)[0] : normalized;', content)
+        self.assertIn("let hash = 2166136261;", content)
+        self.assertIn("hash = Math.imul(hash, 16777619) >>> 0;", content)
         self.assertIn("return TAG_PALETTE[hash % TAG_PALETTE.length];", content)
+        self.assertIn("background: rgbaForHex(color, 0.14)", content)
+        self.assertIn("border: rgbaForHex(color, 0.58)", content)
+        self.assertIn("styleForTag,", content)
         self.assertIn("window.PrintHistoryTagColors = PrintHistoryTagColors;", content)
+
+    def test_browser_card_renders_accent_tag_chips_from_shared_helper(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_tagStyle(tag)", content)
+        self.assertIn("styleForTag(tag)", content)
+        self.assertIn("_renderTagChip(tag)", content)
+        self.assertIn('background:var(--tag-background, rgba(148,163,184,0.16))', content)
+        self.assertIn('color:var(--primary-text-color)', content)
+        self.assertIn('box-shadow:inset 0 0 0 1px var(--tag-border-color, rgba(148,163,184,0.42)),0 0 0 1px transparent', content)
+
+    def test_tag_editor_card_renders_accent_tag_pills_from_shared_helper(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_tagStyle(tag)", content)
+        self.assertIn("styleForTag(tag)", content)
+        self.assertIn('background: var(--tag-background, rgba(148, 163, 184, 0.16));', content)
+        self.assertIn('color: var(--primary-text-color);', content)
+        self.assertIn('box-shadow: inset 0 0 0 1px var(--tag-border-color, rgba(148, 163, 184, 0.42)), 0 0 0 1px transparent;', content)
 
     def test_tag_rendering_no_longer_uses_single_hardcoded_blue(self):
         files = [
@@ -1727,11 +1755,11 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
 
     def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=18", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=30", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1803,6 +1831,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertNotIn('set_print_history_primary_photo', script)
         self.assertNotIn('this._hass.callService(', script)
         self.assertNotIn('window.open(targetUrl, "_blank", "noopener")', script)
+        self.assertIn('archive: this._parseArchiveConfig(config.archive_json || config.archive || null),', script)
+        self.assertIn('_singleArchiveFallbackColor()', script)
+        self.assertIn('const archiveFallbackColor = this._singleArchiveFallbackColor();', script)
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
         self.assertIn('tool === 1000', script)
         self.assertIn('tool === 255 && currentTool != null', script)
@@ -1811,6 +1842,13 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
+
+    def test_archive_viewer_popup_passes_archive_payload_to_viewer_card(self):
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('archive_json: archive ? JSON.stringify(archive) : "{}",', script)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (
@@ -1966,6 +2004,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('Press Enter or comma to add.', content)
         self.assertIn('const helper = window.PrintHistoryTagColors;', content)
         self.assertIn('return helper.colorForTag(tag);', content)
+        self.assertIn('return helper.styleForTag(tag);', content)
 
     def test_tag_editor_card_keeps_input_element_stable_during_updates(self):
         content = (

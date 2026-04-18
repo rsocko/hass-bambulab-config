@@ -264,7 +264,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".dot-button:focus-visible{box-shadow:inset 0 0 0 1px rgba(255,255,255,0.25),0 0 0 2px var(--primary-color, var(--accent-color, #03a9f4));}" +
       ".dot-tooltip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(4px);background:rgba(17,24,39,0.94);color:#f9fafb;border-radius:999px;padding:3px 8px;font-size:11px;line-height:1.2;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s ease, transform .12s ease;z-index:4;max-width:min(320px, calc(100vw - 16px));overflow-wrap:anywhere;text-align:center;}" +
       ".dot-button.tooltip-active .dot-tooltip,.dot-button:hover .dot-tooltip,.dot-button:focus-visible .dot-tooltip{opacity:1;transform:translateX(calc(-50% + var(--dot-tooltip-shift, 0px))) translateY(0);}" +
-      ".tag{border-radius:999px;padding:3px 8px;font-size:10px;box-shadow:inset 0 0 0 1px rgba(36,50,66,0.14);color:#243242;}" +
+      ".tag{border-radius:999px;padding:3px 8px;font-size:10px;background:var(--tag-background, rgba(148,163,184,0.16));box-shadow:inset 0 0 0 1px var(--tag-border-color, rgba(148,163,184,0.42)),0 0 0 1px transparent;color:var(--primary-text-color);transition:background .16s ease,box-shadow .16s ease;}" +
       ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;}" +
       ".icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}" +
       ".icon-action:active{transform:translateY(0);}" +
@@ -630,7 +630,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>';
     var tagProjectMarkup = ((tags.length || hiddenTagCount || projectChip) ? '<div class="tag-project-row">'
       + ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
-        return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
+        return this._renderTagChip(tag);
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '<div></div>')
       + projectChip
       + '</div>' : '');
@@ -641,7 +641,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       : '';
     var listTagsMarkup = (tags.length || hiddenTagCount)
       ? '<div class="tags">' + tags.map(function (tag) {
-        return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
+        return this._renderTagChip(tag);
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>'
       : '';
 
@@ -1375,6 +1375,26 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return helper && typeof helper.colorForTag === "function" ? helper.colorForTag(tag) : "#86EFAC";
   }
 
+  _tagStyle(tag) {
+    var helper = window.PrintHistoryTagColors;
+    if (helper && typeof helper.styleForTag === "function") {
+      return helper.styleForTag(tag);
+    }
+
+    var fallbackColor = this._tagColor(tag);
+    return {
+      color: fallbackColor,
+      background: "rgba(134, 239, 172, 0.14)",
+      border: "rgba(134, 239, 172, 0.58)",
+      glow: "rgba(134, 239, 172, 0.2)",
+    };
+  }
+
+  _renderTagChip(tag) {
+    var style = this._tagStyle(tag);
+    return '<span class="tag" style="background:' + this._escapeAttribute(style.background) + ';box-shadow:inset 0 0 0 1px ' + this._escapeAttribute(style.border) + ',0 0 0 1px ' + this._escapeAttribute(style.glow) + ';">' + this._escapeHtml(tag) + '</span>';
+  }
+
   _statusEntityAttributes() {
     var state = this._hass && this._hass.states ? this._hass.states["sensor.bambuddy_print_history_browser_status"] : null;
     return state && state.attributes ? state.attributes : {};
@@ -1390,6 +1410,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       type: "custom:print-history-3d-viewer-card",
       archive_id: archive && archive.id != null ? String(archive.id) : "",
       archive_name: archive && archive.print_name ? String(archive.print_name) : "",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
       entry_id: this._resolvedEntryId(),
       bambuddy_base: this._apiBaseUrl(),
     };
