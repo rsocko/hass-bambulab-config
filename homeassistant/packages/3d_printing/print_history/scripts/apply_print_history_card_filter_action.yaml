@@ -17,6 +17,7 @@ apply_print_history_card_filter_action:
   sequence:
     - variables:
         action_key: "{{ action | string | trim | lower }}"
+        target_value_raw: "{{ value | string | trim }}"
         target_value: "{{ value | string | trim | lower }}"
     - choose:
         - conditions:
@@ -57,5 +58,14 @@ apply_print_history_card_filter_action:
             - action: script.toggle_print_history_color_filter
               data:
                 color: "{{ target_value }}"
+        - conditions:
+            - condition: template
+              value_template: "{{ action_key == 'project_set' and target_value_raw != '' }}"
+          sequence:
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.print_history_filter_project
+              data:
+                option: "{{ target_value_raw }}"
   mode: queued
   max: 20

@@ -815,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=33", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=38", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
 
@@ -1886,8 +1886,23 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=38", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+
+    def test_browser_card_project_chips_use_shared_filter_action_path(self):
+        browser_card_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        action_script_content = (HISTORY / "scripts" / "apply_print_history_card_filter_action.yaml").read_text("utf-8")
+
+        self.assertIn('target_value_raw: "{{ value | string | trim }}"', action_script_content)
+        self.assertIn("action_key == 'project_set'", action_script_content)
+        self.assertIn('entity_id: input_select.print_history_filter_project', action_script_content)
+        self.assertIn('option: "{{ target_value_raw }}"', action_script_content)
+        self.assertIn('data-filter-action="project_set"', browser_card_content)
+        self.assertIn("Click to filter by this project", browser_card_content)
+        self.assertIn('class="chip project-chip interactive-chip"', browser_card_content)
+        self.assertIn('.project-chip.interactive-chip:hover,.project-chip.interactive-chip:focus-visible', browser_card_content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
