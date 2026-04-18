@@ -174,25 +174,25 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<style>" +
       ":host{display:block;}" +
       "ha-card{padding:0;overflow:hidden;border-radius:24px;background:linear-gradient(180deg,#071019 0%,#09111b 100%);color:#f8fafc;}" +
-      ".shell{display:grid;grid-template-rows:auto auto auto auto;gap:14px;min-height:720px;padding:18px;}" +
+      ".shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:18px;}" +
       ".panel{border:1px solid rgba(125,211,200,0.18);border-radius:20px;background:rgba(13,23,35,0.94);box-shadow:0 18px 50px rgba(0,0,0,0.22);backdrop-filter:blur(10px);}" +
-      ".header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;}" +
+      ".header{display:grid;gap:12px;padding:18px 20px 16px;}" +
       ".eyebrow{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;margin-bottom:6px;}" +
       "h1{margin:0;font-size:clamp(1.05rem,1.3vw + 0.8rem,1.55rem);line-height:1.2;}" +
-      ".subtitle{margin-top:6px;color:#9fb0c0;font-size:0.93rem;}" +
-      ".toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;}" +
+      ".header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;}" +
+      ".subtitle{color:#9fb0c0;font-size:0.9rem;font-weight:600;}" +
       ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:600;cursor:pointer;}" +
       ".button.primary{background:rgba(125,211,200,0.14);border-color:rgba(125,211,200,0.28);}" +
       ".button:disabled,.button[aria-disabled='true']{opacity:0.45;pointer-events:none;}" +
-      ".chips{display:flex;flex-wrap:wrap;gap:10px;padding:0 20px 18px;}" +
-      ".chip{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#f8fafc;font-size:0.84rem;font-weight:600;}" +
+      ".chips{display:flex;flex-wrap:wrap;gap:8px;}" +
+      ".chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#f8fafc;font-size:0.76rem;font-weight:700;letter-spacing:0.01em;}" +
       ".chip.warn{color:#fde68a;border-color:rgba(245,158,11,0.34);background:rgba(245,158,11,0.12);}" +
-      ".status{padding:16px 20px;color:#9fb0c0;font-size:0.95rem;line-height:1.5;}" +
-      ".status.error{color:#fecaca;}" +
       ".viewer-workbench{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:start;}" +
       ".stage{position:relative;min-height:min(72vh,680px);height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
       ".stage-panel{grid-area:stage;align-self:stretch;}" +
       ".canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}" +
+      ".stage-toolbar{position:absolute;left:16px;top:16px;display:flex;flex-wrap:wrap;gap:10px;z-index:4;}" +
+      ".stage-toolbar .button{min-height:36px;padding:0 12px;background:rgba(6,12,20,0.74);backdrop-filter:blur(8px);}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -216,6 +216,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-hero.status-upload{border-color:rgba(56,189,248,0.28);background:linear-gradient(180deg,rgba(10,39,54,0.6),rgba(9,22,31,0.96));}" +
       ".capture-hero.status-error{border-color:rgba(248,113,113,0.28);background:linear-gradient(180deg,rgba(59,17,17,0.62),rgba(28,12,12,0.96));}" +
       ".capture-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}" +
+      ".capture-primary-actions{display:flex;flex-wrap:wrap;gap:10px;}" +
       ".capture-chip{display:inline-flex;align-items:center;gap:8px;min-height:28px;padding:0 12px;border-radius:999px;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);}" +
       ".capture-chip::before{content:'';width:9px;height:9px;border-radius:999px;background:currentColor;box-shadow:0 0 0 4px rgba(255,255,255,0.06);}" +
       ".capture-chip.idle{color:#cbd5e1;}" +
@@ -247,11 +248,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".fallback-title{margin:0 0 8px;font-size:0.96rem;font-weight:700;}" +
       ".fallback-copy{margin:0 0 12px;color:#9fb0c0;line-height:1.5;font-size:0.92rem;}" +
       ".fallback pre{margin:0;padding:14px;border-radius:14px;overflow:auto;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.06);color:#dbeafe;font-family:'Cascadia Code',Consolas,monospace;font-size:0.8rem;line-height:1.45;max-height:220px;}" +
-      ".footnote{padding:0 4px;color:#9fb0c0;font-size:0.82rem;line-height:1.5;}" +
+      ".footnote{padding:0 4px;color:#9fb0c0;font-size:0.88rem;line-height:1.55;}" +
+      ".footnote.error{color:#fecaca;}" +
       "@keyframes capturePulse{0%{transform:translateY(0);box-shadow:0 0 0 0 rgba(125,211,200,0);}35%{transform:translateY(-2px);box-shadow:0 14px 38px rgba(125,211,200,0.2);}100%{transform:translateY(0);box-shadow:0 22px 56px rgba(125,211,200,0.16);}}" +
       "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
       "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;}}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.chips,.status,.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;}}" +
+      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
@@ -260,19 +262,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div>" +
       "<div class='eyebrow'>Print History Viewer</div>" +
       "<h1 id='viewer-title'>Loading archive viewer...</h1>" +
-      "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
       "</div>" +
-      "<div class='toolbar'>" +
-      "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
-      "<button id='crop-toggle-button' class='button' type='button'>Crop Capture</button>" +
-      "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
-      "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
-      "</div></div>" +
+      "<div class='header-meta'>" +
+      "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
       "<div id='capability-chips' class='chips'></div>" +
+      "</div></div>" +
       "</section>" +
-      "<section id='viewer-status' class='panel status'>Checking archive capabilities...</section>" +
       "<section class='viewer-workbench'>" +
       "<section id='viewer-stage' class='panel stage stage-panel'>" +
+      "<div class='stage-toolbar'>" +
+      "<button id='refresh-button' class='button' type='button'>Refresh</button>" +
+      "<a id='download-link' class='button' href='#' download='archive.gcode'>Download G-code</a>" +
+      "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='viewer-overlay' class='overlay'></div>" +
       "<div id='crop-layer' class='crop-layer' aria-hidden='true'>" +
@@ -296,6 +297,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</div>" +
       "<div id='capture-hero-title' class='capture-hero-title'>Capture workspace</div>" +
       "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop Capture to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
+      "<div class='capture-primary-actions'>" +
+      "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
+      "<button id='crop-toggle-button' class='button' type='button'>Crop Capture</button>" +
+      "</div>" +
       "</div>" +
       "<div class='capture-preview-stack'>" +
       "<div class='capture-preview-wrap'>" +
@@ -330,7 +335,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<p id='fallback-copy' class='fallback-copy'></p>" +
       "<pre id='fallback-snippet'></pre>" +
       "</section>" +
-      "<div class='footnote'>Capture and crop both run directly inside this popup against the current canvas, so the saved image matches the preview you are already framing.</div>" +
+      "<div id='viewer-footnote' class='footnote'>Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.</div>" +
       "</div>" +
       "</ha-card>";
 
@@ -1169,12 +1174,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _setStatus(message, isError = false) {
-    const status = this.shadowRoot && this.shadowRoot.getElementById("viewer-status");
+    const status = this.shadowRoot && this.shadowRoot.getElementById("viewer-footnote");
     if (!status) {
       return;
     }
     status.textContent = message;
-    status.className = isError ? "panel status error" : "panel status";
+    status.className = isError ? "footnote error" : "footnote";
   }
 
   _setTitle(title, subtitle) {

@@ -1649,7 +1649,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=1", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=15", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=16", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1681,10 +1681,13 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertNotIn('archives-link', script)
         self.assertIn('const CROP_PRESETS = {', script)
         self.assertIn("viewer-workbench", script)
+        self.assertIn("header-meta", script)
+        self.assertIn("stage-toolbar", script)
         self.assertIn("capture-hero", script)
         self.assertIn("Capture workspace", script)
         self.assertIn("Capture ready to use", script)
         self.assertIn("Crop mode is active", script)
+        self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
         self.assertIn('_syncViewerCanvasSize()', script)
@@ -1697,6 +1700,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('_buildCornerRect(', script)
         self.assertNotIn('print-history-3d-viewer.html', script)
         self.assertNotIn('without reopening the viewer in another tab', script)
+        self.assertNotIn("<section id='viewer-status' class='panel status'>", script)
         self.assertIn('this._boundCaptureHandler = this._handleCapture.bind(this);', script)
         self.assertIn('this._capture = {', script)
         self.assertIn('type: "bambuddy/print_history_upload_photo"', script)
