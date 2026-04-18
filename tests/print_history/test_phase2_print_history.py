@@ -1339,6 +1339,9 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
 
     def test_reenrich_prefers_spools_active_at_print_start_before_strict_end_window(self):
         content = (HISTORY / "scripts" / "reenrich_print_history_archive.yaml").read_text("utf-8")
+        self.assertIn("ns_preprint_active = namespace(items=[])", content)
+        self.assertIn("ended_before_print_start", content)
+        self.assertIn("if not ended_before_print_start", content)
         self.assertIn("ns_print_start = namespace(items=[])", content)
         self.assertIn("has_start_evidence = candidate_opened > 0 or candidate_first > 0", content)
         self.assertIn("started_by_print = has_start_evidence", content)

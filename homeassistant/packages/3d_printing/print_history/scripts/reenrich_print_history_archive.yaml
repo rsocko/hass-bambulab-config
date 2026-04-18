@@ -558,6 +558,21 @@ reenrich_print_history_archive:
                         {% set ns_match.raw_candidates = ns_filament_pool.items %}
                       {% endif %}
 
+                      {% if ns_match.raw_candidates | count > 0 and archive_print_start_ts | float(0) > 0 %}
+                        {% set ns_preprint_active = namespace(items=[]) %}
+                        {% for candidate in ns_match.raw_candidates %}
+                          {% set candidate_last = candidate.last_used_ts | default(0, true) | float(0) %}
+                          {% set candidate_archived = candidate.archived_ts | default(0, true) | float(0) %}
+                          {% set ended_before_print_start = (candidate_last > 0 and candidate_last < archive_print_start_ts | float(0)) or (candidate_archived > 0 and candidate_archived < archive_print_start_ts | float(0)) %}
+                          {% if not ended_before_print_start %}
+                            {% set ns_preprint_active.items = ns_preprint_active.items + [candidate] %}
+                          {% endif %}
+                        {% endfor %}
+                        {% if ns_preprint_active.items | count < ns_match.raw_candidates | count %}
+                          {% set ns_match.raw_candidates = ns_preprint_active.items %}
+                        {% endif %}
+                      {% endif %}
+
                       {% if ns_match.filament_id is not none and ns_match.raw_candidates | count > 1 and archive_print_start_ts | float(0) > 0 %}
                         {% set ns_print_start = namespace(items=[]) %}
                         {% for candidate in ns_match.raw_candidates %}
