@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=28", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=31", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
@@ -1759,7 +1759,32 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=31", content)
+
+    def test_search_fields_hide_ha_empty_placeholder_until_focus(self):
+        browser_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+        catalog_content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "filament_catalog" / "dashboard_cards" / "catalog_filter_bar.yaml").read_text("utf-8")
+
+        self.assertIn("hui-input-text-entity-row $ ha-textfield $ ha-input $ wa-input $", browser_content)
+        self.assertIn(".control::placeholder", browser_content)
+        self.assertIn("color: transparent !important;", browser_content)
+        self.assertIn(".text-field:focus-within .control::placeholder", browser_content)
+
+        self.assertIn("hui-input-text-entity-row $ ha-textfield $ ha-input $ wa-input $", catalog_content)
+        self.assertIn(".control::placeholder", catalog_content)
+        self.assertIn("color: transparent !important;", catalog_content)
+        self.assertIn(".text-field:focus-within .control::placeholder", catalog_content)
+
+    def test_popup_entities_card_applies_same_placeholder_suppression(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_popupTextFieldCardMod()", content)
+        self.assertIn('"hui-input-text-entity-row $ ha-textfield $ ha-input $ wa-input $"', content)
+        self.assertIn('".control::placeholder {"', content)
+        self.assertIn('".text-field:focus-within .control::placeholder {"', content)
+        self.assertIn("card_mod: this._popupTextFieldCardMod()", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (

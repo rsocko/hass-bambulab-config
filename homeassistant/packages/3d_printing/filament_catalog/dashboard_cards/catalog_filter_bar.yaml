@@ -257,29 +257,12 @@ cards:
               #states {
                 padding: 0 !important;
               }
-            hui-input-text-entity-row $ ha-textfield $: |
-              .mdc-text-field {
-                width: 95% !important;
+            hui-input-text-entity-row $ ha-textfield $ ha-input $ wa-input $: |
+              .control::placeholder {
+                color: transparent !important;
               }
-              .mdc-text-field--filled {
-                height: 45px !important;
-                --mdc-filled-text-field-container-height: 45px;
-                display: flex !important;
-                align-items: center !important;
-              }
-              .mdc-text-field__input {
-                padding-top: 12px !important;
-                padding-bottom: 2px !important;
-                margin-top: 0 !important;
-                align-self: center !important;
-              }
-              .mdc-floating-label {
-                top: 50% !important;
-                transform: translateY(-50%) !important;
-              }
-              .mdc-floating-label--float-above {
-                top: 5px !important;
-                transform: translateY(0) scale(0.75) !important;
+              .text-field:focus-within .control::placeholder {
+                color: var(--secondary-text-color) !important;
               }
         entities:
           - entity: input_text.filament_catalog_search

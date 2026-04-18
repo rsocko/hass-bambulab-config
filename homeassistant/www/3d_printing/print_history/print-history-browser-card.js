@@ -1728,6 +1728,21 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
+  _popupTextFieldCardMod() {
+    return {
+      style: {
+        "hui-input-text-entity-row $ ha-textfield $ ha-input $ wa-input $": [
+          ".control::placeholder {",
+          "  color: transparent !important;",
+          "}",
+          ".text-field:focus-within .control::placeholder {",
+          "  color: var(--secondary-text-color) !important;",
+          "}",
+        ].join("\n"),
+      },
+    };
+  }
+
   async _openArchivePopup(archive) {
     if (!archive || archive.id == null || !this._hass) {
       return;
@@ -1834,6 +1849,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       {
         type: "entities",
         show_header_toggle: false,
+        card_mod: this._popupTextFieldCardMod(),
         entities: [
           { entity: "input_text.print_history_popup_print_name", name: "Print Name", icon: "mdi:printer-3d" },
           { entity: "input_select.print_history_popup_project", name: "Project", icon: "mdi:folder-outline" },
