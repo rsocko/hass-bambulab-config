@@ -1650,6 +1650,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=16", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=25", content)
 
     def test_archive_restore_card_registration_is_guarded(self):
         content = (
@@ -1770,6 +1771,21 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('_buildArchiveViewerPopupContent(archive)', content)
         self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
         self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
+
+    def test_browser_card_compact_layout_places_name_below_thumb_and_aligns_metadata(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("grid-template-areas:'thumb summary' 'name name' 'details details'", content)
+        self.assertIn("content compact-name", content)
+        self.assertIn("action-buttons compact-actions", content)
+        self.assertIn("compact-status-line", content)
+        self.assertIn("compact-date", content)
+        self.assertIn("compact-meta-line", content)
+        self.assertIn("color-enrichment-row", content)
+        self.assertIn("photoAction", content)
+        self.assertIn("project-chip span{display:inline-flex;align-items:center;min-width:0;", content)
 
     def test_browser_card_popup_action_row_includes_3d_view_button(self):
         content = (

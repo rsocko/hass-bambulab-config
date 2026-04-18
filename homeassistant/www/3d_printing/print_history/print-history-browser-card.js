@@ -106,8 +106,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact,.card-shell.detail{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image,.card-shell.detail.no-image{grid-template-columns:minmax(0,1fr);}" +
-      ".card-shell.compact{grid-template-columns:minmax(150px,188px) minmax(0,1fr);grid-template-areas:'thumb summary' 'details details';column-gap:18px;row-gap:14px;align-items:start;}" +
-      ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);grid-template-areas:'summary' 'details';}" +
+      ".card-shell.compact{grid-template-columns:minmax(150px,188px) minmax(0,1fr);grid-template-areas:'thumb summary' 'name name' 'details details';column-gap:18px;row-gap:14px;align-items:start;}" +
+      ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);grid-template-areas:'summary' 'name' 'details';}" +
       ".card-shell.media{grid-template-columns:minmax(0,1fr);min-height:260px;}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
@@ -116,10 +116,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.compact .thumb{height:136px;}" +
       ".content{display:flex;flex-direction:column;gap:10px;min-width:0;}" +
       ".content.compact-summary{grid-area:summary;gap:8px;align-self:start;}" +
+      ".content.compact-name{grid-area:name;gap:6px;padding-top:2px;}" +
       ".content.compact-details{grid-area:details;gap:10px;min-width:0;}" +
       ".content-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}" +
-      ".content-top.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:10px;row-gap:8px;}" +
+      ".content-top.compact{display:flex;justify-content:flex-end;align-items:center;min-width:0;}" +
       ".action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
+      ".action-buttons.compact-actions{width:100%;justify-content:flex-end;}" +
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
       ".role-emblem.duplicate{background:rgba(0,137,123,0.16);color:#00897B;}" +
@@ -131,14 +133,20 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".chip-row.compact-secondary{gap:6px;}" +
+      ".chip-row.compact-status-line{justify-content:flex-start;align-items:center;gap:8px;}" +
+      ".chip-row.compact-meta-line{justify-content:flex-start;align-items:center;gap:8px;}" +
+      ".compact-date{font-size:12px;color:var(--secondary-text-color);font-weight:600;line-height:1.2;white-space:nowrap;}" +
+      ".color-enrichment-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:8px;}" +
+      ".color-enrichment-row .dots{min-width:0;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.05);color:var(--primary-text-color);font-size:11px;font-weight:600;line-height:1.2;min-width:0;max-width:100%;overflow-wrap:anywhere;}" +
       ".status-chip{color:#fff;font-weight:700;}" +
       ".archive-error-chip{color:#fff;font-weight:700;}" +
       ".chip.icon-chip{position:relative;width:30px;height:30px;min-width:30px;padding:0;border-radius:999px;justify-content:center;flex:0 0 auto;}" +
       ".chip.icon-chip ha-icon{width:16px;height:16px;}" +
       ".icon-chip-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:#1565C0;color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center;box-sizing:border-box;}" +
-      ".project-chip{border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:7px 14px;gap:8px;min-height:38px;font-size:12px;max-width:min(100%,280px);}" +
-      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));width:14px;height:14px;flex:0 0 auto;}" +
+      ".project-chip{display:inline-flex;align-items:center;border:1px solid var(--project-chip-color, rgba(255,255,255,0.14));background:var(--project-chip-background, rgba(255,255,255,0.05));color:var(--primary-text-color);padding:5px 12px;gap:6px;min-height:30px;font-size:11px;max-width:min(100%,280px);line-height:1.1;}" +
+      ".project-chip ha-icon{color:var(--project-chip-color, var(--primary-text-color));width:13px;height:13px;flex:0 0 auto;}" +
+      ".project-chip span{display:inline-flex;align-items:center;min-width:0;overflow-wrap:anywhere;word-break:break-word;}" +
       ".metrics{display:grid;gap:10px;}" +
       ".metrics.media{grid-template-columns:repeat(3,minmax(0,1fr));}" +
       ".metrics.compact,.metrics.detail{grid-template-columns:repeat(auto-fit,minmax(116px,1fr));}" +
@@ -158,7 +166,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
       "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}}" +
-      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{grid-template-columns:minmax(0,1fr) auto;}}" +
+      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.content-top.compact{justify-content:flex-start;}}" +
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
@@ -389,24 +397,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var projectChip = normalized.projectLabel
       ? '<span class="chip project-chip" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';" title="' + this._escapeAttribute(normalized.projectLabel) + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></span>'
       : '';
-    var utilityChips = [
-      normalized.noteText
-        ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:text-box-outline"></ha-icon></span>'
-        : '',
-      normalized.photoCount > 0
-        ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
-        : ''
-    ].filter(Boolean).join('');
+    var photoAction = normalized.photoCount > 0
+      ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
+      : '<span class="chip icon-chip" title="No archive photos yet"><ha-icon icon="mdi:image-multiple-outline"></ha-icon></span>';
     var primaryChipRow = variant === 'Compact'
-      ? '<div class="chip-row compact-primary"><div class="chip-row compact-secondary">'
+      ? '<div class="chip-row compact-secondary compact-meta-line">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
         + '<span class="chip">' + this._escapeHtml(normalized.archiveIdLabel) + '</span>'
         + (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '')
         + (normalized.duplicateChipLabel ? '<span class="chip" title="' + this._escapeAttribute(normalized.duplicateTooltip) + '" style="background:' + this._escapeAttribute(normalized.duplicateChipColor) + ';color:#fff;">' + this._escapeHtml(normalized.duplicateChipLabel) + '</span>' : '')
-        + '<span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span>'
-        + projectChip
-        + '</div>'
-        + (utilityChips ? '<div class="chip-row">' + utilityChips + '</div>' : '')
         + '</div>'
       : '<div class="chip-row">'
         + (normalized.hasArchiveError ? '<span class="chip archive-error-chip" style="background:' + this._escapeAttribute(normalized.archiveErrorColor) + ';">' + this._escapeHtml(normalized.archiveErrorIcon + ' ' + normalized.archiveErrorLabel) + '</span>' : '')
@@ -420,35 +419,41 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var summaryContent = '' +
       '<div class="content compact-summary">' +
         '<div class="content-top compact">' +
-        (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '<span></span>') +
-        '<div class="action-buttons">' +
+        '<div class="action-buttons compact-actions">' +
         '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
         '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
         '</button>' +
         '<button class="icon-action favorite' + (normalized.isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="Toggle favorite">' +
         '<ha-icon icon="' + (normalized.isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon>' +
         '</button>' +
+        photoAction +
         '</div>' +
         '</div>' +
-      '<div class="header compact">' +
-      '<div style="min-width:0;max-width:100%;">' +
-      '<div class="name">' + this._escapeHtml(normalized.printName) + '</div>' +
-      '<div class="subtle">' + this._escapeHtml(normalized.startedLabel) + '</div>' +
-      '</div>' +
+      '<div class="chip-row compact-status-line">' +
       statusChip +
+      '<span class="compact-date">' + this._escapeHtml(normalized.startedLabel) + '</span>' +
       '</div>' +
+      primaryChipRow +
       '</div>';
+    var compactNameContent = variant === 'Compact'
+      ? '<div class="content compact-name">'
+        + (normalized.roleEmblemLabel ? '<div class="role-emblem ' + this._escapeAttribute(normalized.roleEmblemClass) + '">' + this._escapeHtml(normalized.roleEmblemLabel) + '</div>' : '')
+        + '<div class="name">' + this._escapeHtml(normalized.printName) + '</div>'
+        + '</div>'
+      : '';
     var detailContent = '' +
       '<div class="content compact-details">' +
-      primaryChipRow +
+      (projectChip ? '<div class="chip-row">' + projectChip + '</div>' : '') +
       '<div class="metrics ' + metricsClass + '">' +
       this._renderMetric('Duration', normalized.durationLabel) +
       this._renderMetric('Filament', normalized.filamentLabel) +
       this._renderMetric('Cost', normalized.costLabel) +
       '</div>' +
-      (normalized.filamentChips.length ? '<div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
-        return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
-      }.bind(this)).join("") + '</div>' : '') +
+      (normalized.filamentChips.length
+        ? '<div class="color-enrichment-row"><div class="dots">' + normalized.filamentChips.slice(0, 6).map(function (chip) {
+          return '<span class="dot" title="' + this._escapeAttribute(chip.tooltip) + '" style="background:' + this._escapeAttribute(chip.dotColor) + ';"></span>';
+        }.bind(this)).join("") + '</div><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>'
+        : '<div class="chip-row" style="justify-content:flex-end;"><span class="chip" style="background:' + this._escapeAttribute(normalized.enrichmentColor) + ';color:#fff;">Enrichment ' + this._escapeHtml(normalized.enrichmentLabel) + '</span></div>') +
       ((tags.length || hiddenTagCount) ? '<div class="tags">' + tags.map(function (tag) {
         return '<span class="tag" style="background:' + this._escapeAttribute(this._tagColor(tag)) + ';">' + this._escapeHtml(tag) + '</span>';
       }.bind(this)).join("") + (hiddenTagCount ? '<span class="chip">… +' + hiddenTagCount + '</span>' : '') + '</div>' : '') +
@@ -503,6 +508,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       (hasImage ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' : '') +
       summaryContent +
+      compactNameContent +
       detailContent +
       '</article>';
   }
