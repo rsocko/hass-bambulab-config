@@ -3,6 +3,7 @@
 This folder holds the browser-specific documentation for print history.
 
 - `filter-sort-design.md` - browser architecture, filtering, sorting, pagination, and scaling notes
+- `card-chip-filter-actions-design.md` - issue `#860` shared contract for clickable archive-card chips that mutate browser filters
 - `multi-select-filter-design.md` - issue `#784` tags-first compact multi-select filter design and follow-on filter evaluation
 - `full-text-search-evaluation.md` - issue `#840` evaluation for Bambuddy full-text search vs the shipped browser search contract
 - `top-controls-contract.md` - control-strip layout and mobile behavior contract

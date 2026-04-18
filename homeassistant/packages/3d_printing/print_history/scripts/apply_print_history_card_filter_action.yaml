@@ -1,0 +1,54 @@
+apply_print_history_card_filter_action:
+  alias: Apply Print History Card Filter Action
+  description: >-
+    Shared mutation path for clickable archive-card chips that modify the
+    print-history browser filters.
+  fields:
+    action:
+      description: Mutation to apply (for example tag_add).
+      required: true
+      selector:
+        text:
+    value:
+      description: Filter value from the clicked chip.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        action_key: "{{ action | string | trim | lower }}"
+        target_value: "{{ value | string | trim | lower }}"
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ action_key == 'tag_add' and target_value != '' }}"
+          sequence:
+            - variables:
+                existing_raw: "{{ states('input_text.print_history_filter_tags') | string | trim | lower }}"
+                existing_list: >-
+                  {% if existing_raw in ['', 'unknown', 'unavailable'] %}
+                    []
+                  {% else %}
+                    {{ existing_raw.split(',') | map('trim') | reject('equalto', '') | list }}
+                  {% endif %}
+                updated_list: >-
+                  {% if target_value in existing_list %}
+                    {{ existing_list }}
+                  {% else %}
+                    {{ (existing_list + [target_value]) | unique | list }}
+                  {% endif %}
+            - action: input_text.set_value
+              target:
+                entity_id: input_text.print_history_filter_tags
+              data:
+                value: "{{ updated_list | join(',') }}"
+            - action: input_select.select_option
+              target:
+                entity_id: input_select.print_history_filter_tag
+              data:
+                option: All
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.print_history_filter_tags_untagged_only
+  mode: queued
+  max: 20
