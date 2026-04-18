@@ -129,7 +129,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".header{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;min-width:0;}" +
       ".header.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
-      ".name-note-inline{display:inline-flex;align-items:center;justify-content:center;vertical-align:text-bottom;margin-left:6px;color:var(--primary-color, var(--accent-color, #03a9f4));}" +
+      ".name-note-inline{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;transform:translateY(-1px);margin-left:6px;color:var(--primary-color, var(--accent-color, #03a9f4));}" +
       ".name-note-inline ha-icon{--mdc-icon-size:14px;width:14px;height:14px;min-width:14px;min-height:14px;display:block;}" +
       ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--secondary-text-color) 40%, transparent);text-underline-offset:0.18em;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
@@ -401,7 +401,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
     var statusChip = '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
     var projectChip = normalized.projectLabel
-      ? '<span class="chip project-chip" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';" title="' + this._escapeAttribute(normalized.projectLabel) + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></span>'
+      ? '<span class="chip project-chip" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';" title="' + this._escapeAttribute('Project: ' + normalized.projectLabel) + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></span>'
       : '';
     var compactArchiveId = normalized.compactArchiveIdLabel ? '<span class="compact-archive-id">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var compactNoteInline = normalized.noteText
