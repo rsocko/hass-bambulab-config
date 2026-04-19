@@ -25,7 +25,7 @@ bulk_update_print_history_user_tags:
   sequence:
     - variables:
         should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
-        archive_ids_json: >-
+        archive_ids: >-
           {% set ns = namespace(values=[]) %}
           {% for token in (archive_ids_csv | default('', true) | string | regex_findall('\d+')) %}
             {% set numeric = token | int(0) %}
@@ -33,8 +33,8 @@ bulk_update_print_history_user_tags:
               {% set ns.values = ns.values + [numeric] %}
             {% endif %}
           {% endfor %}
-          {{ ns.values | tojson }}
-        add_user_tags_json: >-
+          {{ ns.values | tojson | from_json }}
+        add_user_tags: >-
           {% set ns = namespace(values=[], seen=[]) %}
           {% for token in (add_tags | default('', true) | string).split(',') %}
             {% set cleaned = token | string | trim %}
@@ -54,8 +54,8 @@ bulk_update_print_history_user_tags:
               {% set ns.seen = ns.seen + [lowered] %}
             {% endif %}
           {% endfor %}
-          {{ ns.values | tojson }}
-        remove_user_tags_json: >-
+          {{ ns.values | tojson | from_json }}
+        remove_user_tags: >-
           {% set ns = namespace(values=[], seen=[]) %}
           {% for token in (remove_tags | default('', true) | string).split(',') %}
             {% set cleaned = token | string | trim %}
@@ -75,14 +75,14 @@ bulk_update_print_history_user_tags:
               {% set ns.seen = ns.seen + [lowered] %}
             {% endif %}
           {% endfor %}
-          {{ ns.values | tojson }}
+          {{ ns.values | tojson | from_json }}
     - if:
         - condition: template
           value_template: >-
-            {{ (archive_ids_json | from_json | count) > 0 and ((add_user_tags_json | from_json | count) > 0 or (remove_user_tags_json | from_json | count) > 0) }}
+            {{ archive_ids | count > 0 and (add_user_tags | count > 0 or remove_user_tags | count > 0) }}
       then:
         - repeat:
-            for_each: "{{ archive_ids_json | from_json }}"
+            for_each: "{{ archive_ids }}"
             sequence:
               - action: bambuddy.get_print_history_archive_detail
                 data:
@@ -121,8 +121,8 @@ bulk_update_print_history_user_tags:
                     {% endfor %}
                     {{ ns.result | tojson | from_json }}
                   merged_user_tags: >-
-                    {% set additions = add_user_tags_json | from_json %}
-                    {% set removals = remove_user_tags_json | from_json %}
+                    {% set additions = add_user_tags %}
+                    {% set removals = remove_user_tags %}
                     {% set ns = namespace(result=[], seen=[]) %}
                     {% for tag in existing_tags_raw.split(',') %}
                       {% set cleaned = tag | string | trim %}

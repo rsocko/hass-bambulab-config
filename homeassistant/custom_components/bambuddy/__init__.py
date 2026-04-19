@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
+from urllib.parse import quote
 
 import voluptuous as vol
 from aiohttp import web
@@ -54,6 +55,7 @@ from .const import (
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
     SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
     RESTORE_UPLOAD_DISCOVER_URL,
+    SOURCE_3MF_UPLOAD_URL,
 )
 from .manager import PrintHistoryBrowserManager
 from .print_history.query import project_archive
@@ -74,6 +76,7 @@ _LOGGER = logging.getLogger(__name__)
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
+WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION = "bambuddy/print_history_archive_action"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
 DATA_HTTP_VIEW_REGISTERED = f"{DOMAIN}_restore_upload_view_registered"
 
@@ -163,6 +166,89 @@ def _resolve_uploaded_photo_path(
 
 def _strip_entry_id(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if key not in {CONF_ENTRY_ID, "id", "type"}}
+
+
+def _normalize_3mf_filename(candidate: str, fallback: str) -> str:
+    normalized = str(candidate or "").strip().replace("\\", "/")
+    normalized = normalized.split("/")[-1].replace("?", "_").replace("#", "_")
+    normalized = normalized or str(fallback or "archive").strip() or "archive"
+    if not normalized.lower().endswith(".3mf"):
+        normalized += ".3mf"
+    return normalized
+
+
+def _resolve_archive_model_resource(archive: dict[str, Any]) -> dict[str, str]:
+    archive_id = _extract_archive_id(archive.get("id")) or 0
+    file_path = str(archive.get("file_path") or "").strip()
+    source_path = str(archive.get("source_3mf_path") or "").strip()
+    archive_name = str(archive.get("print_name") or archive.get("filename") or "").strip()
+
+    if file_path:
+        return {
+            "resource_type": "file",
+            "filename": _normalize_3mf_filename(archive_name or _basename(file_path), f"archive-{archive_id}"),
+        }
+    if source_path:
+        return {
+            "resource_type": "source",
+            "filename": _normalize_3mf_filename(_basename(source_path) or archive_name, f"archive-{archive_id}-source"),
+        }
+    raise HomeAssistantError(f"Archive {archive_id} does not have an archived 3MF or attached source 3MF")
+
+
+async def _build_archive_action_response(
+    hass: HomeAssistant,
+    manager: PrintHistoryBrowserManager,
+    archive_id: int,
+    *,
+    entry_id: str,
+    intent: str,
+) -> dict[str, Any]:
+    if not await manager.async_ensure_archive_loaded(archive_id):
+        raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+    archive = manager.build_archive_detail_response(archive_id)
+    if archive is None:
+        raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+    resource = _resolve_archive_model_resource(archive)
+    resource_type = resource["resource_type"]
+    filename = resource["filename"]
+    encoded_filename = quote(filename, safe="")
+    base_url = manager.base_url.rstrip("/")
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+
+    try:
+        if resource_type == "source":
+            token = await client.async_create_source_slicer_token(archive_id)
+            download_url = f"{base_url}/api/v1/archives/{archive_id}/source-dl/{token}/{encoded_filename}"
+        else:
+            token = await client.async_create_archive_slicer_token(archive_id)
+            download_url = f"{base_url}/api/v1/archives/{archive_id}/dl/{token}/{encoded_filename}"
+    except RuntimeError:
+        token = ""
+        if resource_type == "source":
+            download_url = f"{base_url}/api/v1/archives/{archive_id}/source/{encoded_filename}"
+        else:
+            download_url = f"{base_url}/api/v1/archives/{archive_id}/file/{encoded_filename}"
+
+    return {
+        CONF_ENTRY_ID: entry_id,
+        CONF_ARCHIVE_ID: archive_id,
+        "intent": intent,
+        "resource_type": resource_type,
+        "file_name": filename,
+        "download_url": download_url,
+        "tokenized": bool(token),
+        "archive": archive,
+    }
 
 
 def _parse_service_datetime(value: str, field_name: str) -> datetime:
@@ -673,6 +759,118 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
             )
 
 
+class ArchiveSource3mfUploadView(HomeAssistantView):
+    url = SOURCE_3MF_UPLOAD_URL
+    name = "api:bambuddy:print-history:archive:source-3mf:upload"
+    requires_auth = True
+
+    async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        hass = request.app["hass"]
+        archive_id_value = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID) or archive_id)
+        if archive_id_value is None:
+            return web.json_response(
+                {"success": False, "error": "archive_id_required", "message": "archive_id must be a positive integer."},
+                status=400,
+            )
+
+        try:
+            reader = await request.multipart()
+        except ValueError as error:
+            return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
+
+        fields: dict[str, Any] = {}
+        file_part = None
+        while True:
+            part = await reader.next()
+            if part is None:
+                break
+            if part.name == "file":
+                file_part = part
+                continue
+            fields[part.name] = await part.text()
+
+        entry_id_raw = str(fields.get(CONF_ENTRY_ID, "")).strip() or None
+        if file_part is None or not getattr(file_part, "filename", ""):
+            return web.json_response(
+                {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
+                status=400,
+            )
+
+        file_name = str(file_part.filename or "").strip()
+        if not file_name.lower().endswith(".3mf"):
+            return web.json_response(
+                {"success": False, "error": "invalid_file_type", "message": "File must be a .3mf file."},
+                status=400,
+            )
+
+        try:
+            resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+            if not await manager.async_ensure_archive_loaded(archive_id_value):
+                raise HomeAssistantError(f"Archive {archive_id_value} was not found in the Bambuddy local store")
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+        byte_count = 0
+        chunks: list[bytes] = []
+        try:
+            while True:
+                chunk = await file_part.read_chunk(size=64 * 1024)
+                if not chunk:
+                    break
+                byte_count += len(chunk)
+                if byte_count > manager.restore_uploads.max_upload_bytes:
+                    raise HomeAssistantError(
+                        f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
+                    )
+                chunks.append(chunk)
+            if byte_count <= 0:
+                raise HomeAssistantError("Upload payload is empty")
+
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            upload_response = await client.async_upload_archive_source_3mf(
+                archive_id_value,
+                file_name=file_name,
+                mime_type=str(file_part.headers.get("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml")),
+                content=b"".join(chunks),
+            )
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id_value,
+                operation="upload_archive_source_3mf",
+                extra_details={
+                    "file_name": file_name,
+                    "byte_count": byte_count,
+                },
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
+
+            response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response.update(
+                {
+                    "success": True,
+                    CONF_ENTRY_ID: resolved_entry_id,
+                    CONF_ARCHIVE_ID: archive_id_value,
+                    "upload": {
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                    },
+                }
+            )
+            if upload_response:
+                response["upload_response"] = upload_response
+            return web.json_response(response)
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=400)
+        except RuntimeError as error:
+            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=502)
+
+
 async def _resolve_archive_viewer_request(
     request: web.Request,
 ) -> tuple[HomeAssistant, str, int, PrintHistoryBrowserManager, BambuddyApiClient] | web.Response:
@@ -726,6 +924,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
         hass.http.register_view(ReplacementArchiveDiscoverView())
+        hass.http.register_view(ArchiveSource3mfUploadView())
         hass.http.register_view(ArchiveViewerGcodeView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
@@ -822,6 +1021,41 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection.send_result(msg["id"], response)
 
     websocket_api.async_register_command(hass, websocket_handle_archive_viewer)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+            vol.Required("intent"): vol.In({"download", "open_in_slicer"}),
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_archive_action(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            archive_id = int(msg[CONF_ARCHIVE_ID])
+            response = await _build_archive_action_response(
+                hass,
+                manager,
+                archive_id,
+                entry_id=entry_id,
+                intent=str(msg.get("intent") or "").strip(),
+            )
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "archive_action_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "archive_action_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_archive_action)
 
     @websocket_api.websocket_command(
         {
@@ -1962,7 +2196,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
             async_handle_update_archive,
             schema=SERVICE_UPDATE_ARCHIVE_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+                supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE):
         hass.services.async_register(
@@ -1970,7 +2204,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE,
             async_handle_set_archive_favorite,
             schema=SERVICE_SET_ARCHIVE_FAVORITE_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+                supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL):
         hass.services.async_register(

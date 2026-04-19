@@ -308,6 +308,113 @@ class BambuddyApiClient:
             except ClientResponseError as error:
                 raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
 
+    async def async_create_archive_slicer_token(self, archive_id: int) -> str:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/slicer-token",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            payload = await response.json()
+            token = str(payload.get("token") if isinstance(payload, dict) else "").strip()
+            if not token:
+                raise RuntimeError("Bambuddy slicer token response did not include a token")
+            return token
+
+    async def async_create_source_slicer_token(self, archive_id: int) -> str:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/source-slicer-token",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            payload = await response.json()
+            token = str(payload.get("token") if isinstance(payload, dict) else "").strip()
+            if not token:
+                raise RuntimeError("Bambuddy source slicer token response did not include a token")
+            return token
+
+    async def async_upload_archive_source_3mf(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        normalized_file_name = str(file_name or "").strip().replace("\r", "_").replace("\n", "_")
+        normalized_file_name = normalized_file_name.replace("\\", "/").split("/")[-1].replace('"', "")
+        normalized_mime_type = str(mime_type or "application/octet-stream").strip().replace("\r", "").replace("\n", "")
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+        if not normalized_file_name:
+            raise RuntimeError("Upload file_name is empty")
+        if not content:
+            raise RuntimeError("Upload content is empty")
+
+        boundary = f"----ha-bambuddy-{uuid4().hex}"
+        body = (
+            f"--{boundary}\r\n".encode("utf-8")
+            + f'Content-Disposition: form-data; name="file"; filename="{normalized_file_name}"\r\n'.encode("utf-8")
+            + f"Content-Type: {normalized_mime_type or 'application/octet-stream'}\r\n\r\n".encode("utf-8")
+            + content
+            + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        )
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/source",
+            headers={
+                "X-API-Key": self._api_key,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+            data=body,
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
+
     async def async_upload_archive_replacement(
         self,
         *,

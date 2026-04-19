@@ -237,6 +237,7 @@ save_print_history_archive_popup_edits:
               {% else %}
                 {{ resolved_failure_reason }}
               {% endif %}
+            response_variable: save_archive_response
         - if:
             - condition: template
               value_template: "{{ should_refresh_browser }}"

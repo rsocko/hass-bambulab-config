@@ -21,7 +21,7 @@ bulk_assign_print_history_project:
     - variables:
         should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
         resolved_project_id: "{{ project_id | default('__NULL__', true) | string | trim }}"
-        archive_ids_json: >-
+        archive_ids: >-
           {% set ns = namespace(values=[]) %}
           {% for token in (archive_ids_csv | default('', true) | string | regex_findall('\d+')) %}
             {% set numeric = token | int(0) %}
@@ -29,13 +29,13 @@ bulk_assign_print_history_project:
               {% set ns.values = ns.values + [numeric] %}
             {% endif %}
           {% endfor %}
-          {{ ns.values | tojson }}
+          {{ ns.values | tojson | from_json }}
     - if:
         - condition: template
-          value_template: "{{ (archive_ids_json | from_json | count) > 0 }}"
+          value_template: "{{ archive_ids | count > 0 }}"
       then:
         - repeat:
-            for_each: "{{ archive_ids_json | from_json }}"
+            for_each: "{{ archive_ids }}"
             sequence:
               - action: bambuddy.update_print_history_archive
                 data:
