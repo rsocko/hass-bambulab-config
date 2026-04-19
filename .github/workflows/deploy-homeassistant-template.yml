@@ -1523,6 +1523,114 @@ jobs:
           echo "ERROR: Post-deploy action failed."
           exit $ACTION_EXIT
 
+      - name: Wait for Home Assistant after Core restart
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' }}
+        shell: bash
+        env:
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"${HA_SUPERVISOR_TOKEN:-}\"" <<'REMOTE_WAIT'
+          set -euo pipefail
+
+          input_token="${1:-}"
+
+          if [ -n "$input_token" ]; then
+            export SUPERVISOR_TOKEN="$input_token"
+          fi
+
+          if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+            for token_file in \
+              /run/s6/container_environment/SUPERVISOR_TOKEN \
+              /run/secrets/supervisor_token \
+              /data/supervisor_token
+            do
+              if [ -r "$token_file" ]; then
+                export SUPERVISOR_TOKEN="$(cat "$token_file" 2>/dev/null || true)"
+                [ -n "${SUPERVISOR_TOKEN:-}" ] && break
+              fi
+            done
+          fi
+
+          max_attempts=60
+          attempt=1
+          while [ "$attempt" -le "$max_attempts" ]; do
+            if ha core api get /api/ >/dev/null 2>&1; then
+              echo "Home Assistant API is reachable after restart (attempt $attempt/$max_attempts)."
+              exit 0
+            fi
+
+            echo "Waiting for Home Assistant API after restart (attempt $attempt/$max_attempts)..."
+            attempt=$((attempt + 1))
+            sleep 5
+          done
+
+          echo "Timed out waiting for Home Assistant Core API to become reachable after restart."
+          exit 1
+          REMOTE_WAIT
+
+      - name: Verify Lovelace resources after Core restart
+        id: verify_resources_post_restart
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        continue-on-error: true
+        shell: bash
+        env:
+          RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+          MANAGED_RESOURCE_PREFIXES: /local/3d_printing/
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          export SSH_OPTS
+          bash .github/scripts/sync_lovelace_resources.sh --dry-run --strict
+
+      - name: Re-sync Lovelace resources after restart drift
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') && steps.verify_resources_post_restart.outcome != 'success' }}
+        shell: bash
+        env:
+          RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+          MANAGED_RESOURCE_PREFIXES: /local/3d_printing/
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          export SSH_OPTS
+          bash .github/scripts/sync_lovelace_resources.sh
+
+      - name: Final Lovelace resource verification after restart
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        shell: bash
+        env:
+          RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
+          HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
+          MANAGED_RESOURCE_PREFIXES: /local/3d_printing/
+        run: |
+          set -euo pipefail
+
+          SSH_OPTS="-i $SSH_KEY_PATH -p $HA_SSH_PORT -o StrictHostKeyChecking=$SSH_STRICT_MODE"
+          if [ "$SSH_STRICT_MODE" = "yes" ]; then
+            SSH_OPTS="$SSH_OPTS -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          fi
+
+          export SSH_OPTS
+          bash .github/scripts/sync_lovelace_resources.sh --dry-run --strict
+
       - name: Post-deploy reminder
         run: |
           echo "Selected post_deploy_action: ${{ github.event.inputs.post_deploy_action }}"
