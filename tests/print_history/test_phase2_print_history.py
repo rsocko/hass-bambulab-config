@@ -827,9 +827,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=50", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=32", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=34", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -838,10 +838,12 @@ class TestHeatmapActivityCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('action === "advanced-actions"', content)
-        self.assertIn('label: "..."', content)
+        self.assertIn('data-action="advanced-actions"', content)
+        self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('label: "Repair Archive"', content)
         self.assertIn('label: "Delete Archive"', content)
         self.assertIn('Archive ID #', content)
+        self.assertIn('max-height:88px', content)
         self.assertIn('Yes, Continue to Delete', content)
         self.assertIn('**PERMANENTLY REMOVES**', content)
         self.assertIn('var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";', content)
@@ -2069,7 +2071,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=49", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
         browser_card_content = (

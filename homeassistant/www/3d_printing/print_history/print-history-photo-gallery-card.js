@@ -733,7 +733,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       hold_action: { action: "none" },
       styles: {
         card: [
-          { padding: "14px 16px" },
+          { padding: "10px 14px" },
           { "border-radius": "16px" },
           { "box-shadow": "none" },
           { border: String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") },
@@ -741,17 +741,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         ],
         grid: [
           { "grid-template-areas": '"i n"' },
-          { "grid-template-columns": "24px 1fr" },
+          { "grid-template-columns": "22px 1fr" },
           { "align-items": "center" },
-          { gap: "12px" },
+          { gap: "10px" },
         ],
         icon: [
-          { width: "24px" },
-          { height: "24px" },
+          { width: "22px" },
+          { height: "22px" },
           { color: String(cardOptions.icon_color || "var(--primary-text-color)") },
         ],
         name: [
-          { "font-size": "15px" },
+          { "font-size": "14px" },
           { "font-weight": "700" },
           { color: "var(--primary-text-color)" },
           { "text-align": "left" },
@@ -810,7 +810,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     if (previewImage && previewImage.src) {
       summaryLines.push(
-        '<img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '" style="display:block;width:100%;max-height:168px;object-fit:cover;border-radius:14px;margin-top:12px;background:rgba(15,23,42,0.32);">'
+        '<img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '" style="display:block;width:100%;max-height:88px;object-fit:cover;border-radius:14px;margin-top:10px;background:rgba(15,23,42,0.32);">'
       );
     }
 
@@ -1537,12 +1537,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   }
 
   _buildAdvancedActionsButton() {
-    return this._buildActionButtonHtml({
-      className: "stage-action-button",
-      action: "advanced-actions",
-      label: "...",
-      title: "Open advanced archive actions",
-    });
+    return '<button class="icon-action advanced" type="button" data-action="advanced-actions" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
   }
 
   _archiveKey(archive) {
@@ -1661,9 +1656,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.expand{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.3);color:var(--primary-text-color);}" +
       ".icon-action.expand:hover,.icon-action.expand:focus-visible{background:rgba(30,64,175,0.36);color:var(--primary-text-color);border-color:rgba(96,165,250,0.48);box-shadow:0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.expand:active{transform:translateY(0);}" +
-      ".stage-action-button{appearance:none;border:1px solid rgba(148,163,184,0.30);border-radius:999px;width:38px;height:38px;padding:0;background:rgba(15,23,42,0.82);color:#fff;font-size:18px;font-weight:800;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);pointer-events:auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
-      ".stage-action-button:hover,.stage-action-button:focus-visible{background:rgba(30,41,59,0.96);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
-      ".stage-action-button:active{transform:translateY(0);}" +
+      ".icon-action.advanced{background:rgba(15,23,42,0.78);border-color:rgba(148,163,184,0.28);color:var(--primary-text-color);}" +
+      ".icon-action.advanced:hover,.icon-action.advanced:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.advanced:active{transform:translateY(0);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
