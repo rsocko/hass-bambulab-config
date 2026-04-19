@@ -100,6 +100,11 @@ QUERY_OVERRIDE_ENTITY_MAP = {
     "page_size": "input_number.print_history_page_size",
 }
 
+QUERY_BOOLEAN_OVERRIDE_FIELDS = {
+    "favorites_only",
+    "tag_untagged_only",
+}
+
 
 class PrintHistoryBrowserManager:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -925,7 +930,7 @@ class PrintHistoryBrowserManager:
             if field_name not in overrides or overrides[field_name] is None:
                 continue
             value = overrides[field_name]
-            if field_name == "favorites_only":
+            if field_name in QUERY_BOOLEAN_OVERRIDE_FIELDS:
                 snapshot[entity_id] = "on" if bool(value) else "off"
                 continue
             if field_name in {"page", "page_size"}:

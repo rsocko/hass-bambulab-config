@@ -2061,6 +2061,17 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("var filamentChips = this._filamentChipsFromSlots(archive.filament_slots);", content)
         self.assertIn("var notesInfo = this._splitArchiveNotesLight(archive.notes);", content)
 
+    def test_websocket_query_boolean_overrides_map_to_helper_on_off_states(self):
+        content = (
+            ROOT / "homeassistant" / "custom_components" / "bambuddy" / "manager.py"
+        ).read_text("utf-8")
+
+        self.assertIn("QUERY_BOOLEAN_OVERRIDE_FIELDS = {", content)
+        self.assertIn('"favorites_only",', content)
+        self.assertIn('"tag_untagged_only",', content)
+        self.assertIn('if field_name in QUERY_BOOLEAN_OVERRIDE_FIELDS:', content)
+        self.assertIn('snapshot[entity_id] = "on" if bool(value) else "off"', content)
+
     def test_browser_card_project_chips_use_shared_filter_action_path(self):
         browser_card_content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
