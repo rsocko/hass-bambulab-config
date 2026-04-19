@@ -724,7 +724,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     var className = buttonClass || "action-button";
     var label = this._uploadInProgress ? "Uploading..." : "Add Photo";
-    return '<button class="' + className + '" type="button" data-action="upload-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>' + label + '</button>';
+    return this._buildActionButtonHtml({
+      className: className,
+      action: "upload-photo",
+      disabled: this._uploadInProgress,
+      icon: this._uploadInProgress ? "mdi:loading" : "mdi:plus",
+      label: label,
+      title: label,
+    });
   }
 
   _buildViewerAction(buttonClass) {
@@ -893,11 +900,23 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var className = buttonClass || "action-button";
     if (active.kind === "photo" && !active.isPrimary) {
-      return '<button class="' + className + '" type="button" data-action="set-primary-photo">Use In List View</button>';
+      return this._buildActionButtonHtml({
+        className: className,
+        action: "set-primary-photo",
+        icon: "mdi:image-check-outline",
+        label: "Set List Image",
+        title: "Set List Image",
+      });
     }
 
     if (active.hasPhotoPrimary) {
-      return '<button class="' + className + '" type="button" data-action="clear-primary-photo">Use Thumbnail</button>';
+      return this._buildActionButtonHtml({
+        className: className,
+        action: "clear-primary-photo",
+        icon: "mdi:image-off-outline",
+        label: "Use Thumbnail",
+        title: "Use Thumbnail",
+      });
     }
 
     return "";
@@ -908,7 +927,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return "";
     }
     var className = buttonClass || "action-button";
-    return '<button class="' + className + ' danger" type="button" data-action="delete-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>Delete Photo</button>';
+    return this._buildActionButtonHtml({
+      className: className + " danger",
+      action: "delete-photo",
+      disabled: this._uploadInProgress,
+      icon: "mdi:close-thick",
+      label: "Delete Photo",
+      title: "Delete Photo",
+    });
   }
 
   _findPreferredActiveIndex(images) {
@@ -1072,8 +1098,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}" +
       ".actions{display:flex;align-items:center;gap:10px;}" +
       ".actions .button[disabled]{opacity:0.6;cursor:wait;}" +
-      ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);}" +
+      ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;}" +
       ".button.danger{background:rgba(183,28,28,0.3);color:#ffcdd2;}" +
+      ".button-icon{--mdc-icon-size:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
+      ".button-icon.spin{animation:phgSpin 1s linear infinite;}" +
       ".upload-status{padding:10px 12px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif;}" +
       ".upload-status.info{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.88);}" +
       ".upload-status.success{background:rgba(46,125,50,0.2);color:#dcedc8;}" +
@@ -1088,6 +1116,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}" +
       ".thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}" +
       ".thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
+      "@keyframes phgSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
       "@media (max-width: 900px){.shell{grid-template-rows:auto minmax(0,1fr) auto;gap:12px;}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}" +
       "@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}" +
@@ -1196,6 +1225,24 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       .replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  _buildActionButtonHtml(options) {
+    var buttonOptions = options || {};
+    var className = String(buttonOptions.className || "action-button").trim();
+    var action = String(buttonOptions.action || "").trim();
+    var label = String(buttonOptions.label || "").trim();
+    if (!action || !label) {
+      return "";
+    }
+
+    var title = String(buttonOptions.title || label).trim();
+    var icon = String(buttonOptions.icon || "").trim();
+    var iconHtml = icon
+      ? '<ha-icon class="button-icon' + (icon === "mdi:loading" ? ' spin' : '') + '" icon="' + this._escapeHtml(icon) + '"></ha-icon>'
+      : "";
+
+    return '<button class="' + this._escapeHtml(className) + '" type="button" data-action="' + this._escapeHtml(action) + '" title="' + this._escapeHtml(title) + '" aria-label="' + this._escapeHtml(title) + '"' + (buttonOptions.disabled ? ' disabled' : '') + '>' + iconHtml + '<span>' + this._escapeHtml(label) + '</span></button>';
   }
 
   _archiveKey(archive) {
@@ -1321,9 +1368,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".meta-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}" +
       ".title{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);}" +
       ".subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);margin-top:4px;}" +
-      ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
+      ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}" +
       ".action-button.danger{background:rgba(183,28,28,0.12);color:#b71c1c;}" +
       ".action-button[disabled]{opacity:0.6;cursor:wait;}" +
+      ".action-button .button-icon{--mdc-icon-size:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
+      ".action-button .button-icon.spin{animation:phgSpin 1s linear infinite;}" +
       ".upload-status-host{min-height:0;}" +
       ".upload-status{margin:2px 2px 0;padding:10px 12px;border-radius:14px;font-size:12px;font-weight:600;line-height:1.4;}" +
       ".upload-status.info{background:rgba(21,101,192,0.10);color:#0d47a1;}" +
@@ -1334,6 +1383,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb.active{border-color:rgba(59,130,246,0.9);box-shadow:0 0 0 2px rgba(59,130,246,0.2);}" +
       ".thumb img{display:block;width:72px;height:72px;object-fit:cover;background:rgba(15,23,42,0.28);}" +
       ".thumb-label{position:absolute;left:6px;bottom:6px;padding:3px 6px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:10px;font-weight:700;backdrop-filter:blur(10px);}" +
+      "@keyframes phgSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       ":host([compact]) .wrap{gap:8px;}" +
       ":host([compact]) .stage{border-radius:16px;}" +
       ":host([compact]) .stage-image{max-height:220px;min-height:220px;}" +
