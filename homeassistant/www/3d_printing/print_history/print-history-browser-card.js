@@ -446,7 +446,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       project: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_project")),
       layer_height: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_layer_height")),
       tags: String(this._stateValue("input_text.print_history_filter_tags") || "").trim(),
-      tag_mode: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tags_mode")) || "Any",
+      tag_mode: this._normalizeTagModeValue(this._stateValue("input_select.print_history_filter_tags_mode")),
       tag_untagged_only: this._stateValue("input_boolean.print_history_filter_tags_untagged_only") === "on",
       favorites_only: this._stateValue("input_boolean.print_history_filter_favorites_only") === "on",
       search: String(this._stateValue("input_text.print_history_search") || "").trim(),
@@ -463,6 +463,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return "";
     }
     return normalized;
+  }
+
+  _normalizeTagModeValue(value) {
+    return String(value || "").trim() === "All" ? "All" : "Any";
   }
 
   _variant() {

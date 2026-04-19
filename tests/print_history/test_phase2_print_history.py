@@ -815,8 +815,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=47", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=49", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=30", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
@@ -1455,7 +1455,8 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("filter_tag == 'none' and user_tag_values.values | count == 0", filtered_content)
         self.assertIn("filter_tag in user_tag_values.values", filtered_content)
         self.assertIn('tags: String(this._stateValue("input_text.print_history_filter_tags") || "").trim()', browser_card_content)
-        self.assertIn('tag_mode: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tags_mode")) || "Any"', browser_card_content)
+        self.assertIn('tag_mode: this._normalizeTagModeValue(this._stateValue("input_select.print_history_filter_tags_mode"))', browser_card_content)
+        self.assertIn('_normalizeTagModeValue(value)', browser_card_content)
         self.assertIn('tag_untagged_only: this._stateValue("input_boolean.print_history_filter_tags_untagged_only") === "on"', browser_card_content)
         self.assertIn("- None", helper_content)
         self.assertIn("print_history_filter_tags:", selected_tags_helper_content)
@@ -2022,7 +2023,20 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=48", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=49", content)
+
+    def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
+        browser_card_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        heatmap_card_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('tag_mode: this._normalizeTagModeValue(this._stateValue("input_select.print_history_filter_tags_mode"))', browser_card_content)
+        self.assertIn('return String(value || "").trim() === "All" ? "All" : "Any";', browser_card_content)
+        self.assertIn('tag_mode: this._normalizeTagModeValue(this._stateValue("input_select.print_history_filter_tags_mode"))', heatmap_card_content)
+        self.assertIn('return String(value || "").trim() === "All" ? "All" : "Any";', heatmap_card_content)
 
     def test_tag_editor_card_supports_header_mode_toggle(self):
         content = (

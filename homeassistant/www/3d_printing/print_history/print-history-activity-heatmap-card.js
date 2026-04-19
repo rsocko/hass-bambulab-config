@@ -606,7 +606,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       project: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_project")),
       layer_height: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_layer_height")),
       tags: String(this._stateValue("input_text.print_history_filter_tags") || "").trim(),
-      tag_mode: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_tags_mode")) || "Any",
+      tag_mode: this._normalizeTagModeValue(this._stateValue("input_select.print_history_filter_tags_mode")),
       tag_untagged_only: this._isOn("input_boolean.print_history_filter_tags_untagged_only"),
       favorites_only: this._isOn("input_boolean.print_history_filter_favorites_only"),
       search: String(this._stateValue("input_text.print_history_search") || "").trim(),
@@ -665,6 +665,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return "";
     }
     return normalized;
+  }
+
+  _normalizeTagModeValue(value) {
+    return String(value || "").trim() === "All" ? "All" : "Any";
   }
 
   _parseArchiveArray(raw) {
