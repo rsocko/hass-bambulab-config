@@ -755,7 +755,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
@@ -809,9 +811,42 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                 SimpleNamespace(data={"archive_id": 101})
             )
         )
+        enrichment_metadata_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA)(
+                SimpleNamespace(data={"archive_id": 101, "mode": "MISSING_SPOOL"})
+            )
+        )
         update_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE)(
                 SimpleNamespace(data={"archive_id": 101, "tags": "display,verified"})
+            )
+        )
+        update_enrichment_metadata_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "tag_metadata": {
+                            "system_tags": ["s:999", "f:555"],
+                        },
+                        "note_metadata": {
+                            "payload": {
+                                "s": "m",
+                                "F": [
+                                    {
+                                        "n": "Blue PLA",
+                                        "w": 42.5,
+                                        "t": "A1",
+                                        "s": 999,
+                                        "f": 555,
+                                        "h": "#112233",
+                                    }
+                                ],
+                            },
+                            "recovery_block": "[RECOVERY_AUDIT_V1]\nupdated by test",
+                        },
+                    }
+                )
             )
         )
         favorite_response = asyncio.run(
@@ -914,7 +949,18 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
     assert detail_response["archive"]["primary_photo_path"] == ""
+    assert enrichment_metadata_response["tag_metadata"]["system_tags"] == ["s:123"]
+    assert enrichment_metadata_response["tag_metadata"]["user_tags"] == ["display", "hueforge"]
+    assert enrichment_metadata_response["mode"] == "MISSING_SPOOL"
+    assert enrichment_metadata_response["note_metadata"]["filtered_payload_row_count"] == 1
+    assert enrichment_metadata_response["note_metadata"]["filtered_payload_rows"][0]["spool_id"] is None
     assert update_response["archive"]["tags"] == "display,verified"
+    assert update_enrichment_metadata_response["tag_metadata"]["system_tags"] == ["s:999", "f:555"]
+    assert update_enrichment_metadata_response["tag_metadata"]["user_tags"] == ["display", "verified"]
+    assert update_enrichment_metadata_response["note_metadata"]["payload"]["F"][0]["s"] == 999
+    assert update_enrichment_metadata_response["note_metadata"]["payload"]["F"][0]["f"] == 555
+    assert "[RECOVERY_AUDIT_V1]" in update_enrichment_metadata_response["note_metadata"]["system_notes"]
+    assert update_enrichment_metadata_response["archive"]["notes"].startswith("User note")
     assert favorite_response["archive"]["is_favorite"] is True
     assert primary_photo_response["primary_photo_selection"]["photo_path"] == "topdown-closeup.jpg"
     assert primary_photo_response["archive"]["primary_photo_path"] == "topdown-closeup.jpg"
@@ -926,7 +972,16 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert delete_response["deleted"] == 1
     assert delete_archive_response["deleted"] == 1
     assert FakeApiClient.deleted_archives == [202]
-    assert FakeApiClient.updated_archives == [{"archive_id": 101, "payload": {"tags": "display,verified"}}]
+    assert FakeApiClient.updated_archives == [
+        {"archive_id": 101, "payload": {"tags": "display,verified"}},
+        {
+            "archive_id": 101,
+            "payload": {
+                "tags": "display,verified,s:999,f:555",
+                "notes": "User note\n\n[RECOVERY_AUDIT_V1]\nupdated by test\n\n+>{\"F\":[{\"f\":555,\"h\":\"#112233\",\"n\":\"Blue PLA\",\"s\":999,\"t\":\"A1\",\"w\":42.5}],\"s\":\"m\"}",
+            },
+        },
+    ]
     assert FakeApiClient.toggled_favorites == [202]
     assert manager.store.load_archive(202) is None
     assert manager.last_refresh_store_total_count == 1
@@ -937,7 +992,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 11
+    assert manager.mutation_stats["count"] == 13
     assert manager.mutation_stats["last_operation"] == "delete_print_history_archive"
 
 

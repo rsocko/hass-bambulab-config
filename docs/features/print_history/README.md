@@ -477,6 +477,7 @@ For detailed design of the two major subsystems, see:
 
 - **[photo-capture-design.md](ui-media/photo-capture-design.md)** — Multi-camera, multi-stage photo capture with error photos
 - **[archive-enrichment.md](planning/archive-enrichment.md)** — Current archive enrichment contract (managed system tags + hidden notes payload + native cost)
+- **[archive-enrichment-metadata-services.md](planning/archive-enrichment-metadata-services.md)** — Read and write contract for operator-facing managed enrichment tag and hidden note metadata services
 - **[photo-review-design.md](ui-media/photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
 - **[source-3mf-import-design.md](imports/source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
 - **[source-3mf-import-implementation-plan.md](imports/source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow

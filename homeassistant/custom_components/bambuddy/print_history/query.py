@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover - standalone test import fallback
 
 
 ENRICHMENT_MARKER = "+>"
+RECOVERY_AUDIT_MARKER = "[RECOVERY_AUDIT_V1]"
 SYSTEM_TAG_PREFIXES = (
     "s:",
     "f:",
@@ -358,6 +359,81 @@ def extract_enrichment_payload(notes: str) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def system_tags(raw_tags: str) -> list[str]:
+    values: list[str] = []
+    seen: set[str] = set()
+    for tag in split_tags(raw_tags):
+        normalized = tag.lower()
+        is_system_tag = normalized in SYSTEM_TAG_VALUES or any(normalized.startswith(prefix) for prefix in SYSTEM_TAG_PREFIXES)
+        if not is_system_tag or normalized in seen:
+            continue
+        seen.add(normalized)
+        values.append(tag)
+    return values
+
+
+def split_enrichment_notes(raw_notes: str) -> dict[str, Any]:
+    notes = as_text(raw_notes)
+    marker_index = notes.find(ENRICHMENT_MARKER)
+    recovery_index = notes.find(RECOVERY_AUDIT_MARKER)
+
+    if marker_index >= 0 and recovery_index >= 0:
+        cutoff = min(marker_index, recovery_index)
+    elif marker_index >= 0:
+        cutoff = marker_index
+    elif recovery_index >= 0:
+        cutoff = recovery_index
+    else:
+        cutoff = -1
+
+    if cutoff >= 0:
+        user_notes = notes[:cutoff].rstrip("\n")
+    else:
+        user_notes = notes.rstrip("\n")
+
+    if recovery_index >= 0:
+        if marker_index >= 0 and recovery_index < marker_index:
+            recovery_block = notes[recovery_index:marker_index].rstrip("\n")
+        else:
+            recovery_block = notes[recovery_index:].rstrip("\n")
+    else:
+        recovery_block = ""
+
+    if marker_index >= 0:
+        payload_raw = notes[marker_index + len(ENRICHMENT_MARKER) :].strip()
+    else:
+        payload_raw = ""
+
+    payload = extract_enrichment_payload(notes)
+    system_parts: list[str] = []
+    if recovery_block:
+        system_parts.append(recovery_block)
+    if payload_raw:
+        system_parts.append(f"{ENRICHMENT_MARKER}{payload_raw}")
+
+    return {
+        "user_notes": user_notes,
+        "recovery_block": recovery_block,
+        "payload": payload,
+        "payload_raw": payload_raw,
+        "system_notes": "\n\n".join(system_parts),
+        "has_payload": bool(payload_raw),
+    }
+
+
+def build_enrichment_notes(*, user_notes: str, payload: dict[str, Any], recovery_block: str = "") -> str:
+    parts: list[str] = []
+    normalized_user_notes = as_text(user_notes).strip()
+    normalized_recovery_block = as_text(recovery_block).strip()
+    if normalized_user_notes:
+        parts.append(normalized_user_notes)
+    if normalized_recovery_block:
+        parts.append(normalized_recovery_block)
+    if isinstance(payload, dict) and payload:
+        parts.append(f"{ENRICHMENT_MARKER}{json.dumps(payload, separators=(',', ':'), sort_keys=True)}")
+    return "\n\n".join(parts)
+
+
 def source_updated_at(raw_archive: dict[str, Any]) -> str:
     for key in ("updated_at", "completed_at", "started_at", "created_at"):
         value = as_text(raw_archive.get(key)).strip()
@@ -659,6 +735,29 @@ def note_payload_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def filter_note_payload_rows(rows: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
+    normalized_mode = as_text(mode).strip().upper() or "ALL"
+    if normalized_mode == "ALL":
+        return list(rows)
+
+    def _missing_filament(row: dict[str, Any]) -> bool:
+        return row.get("filament_id") in (None, "", "null", "None")
+
+    def _missing_spool(row: dict[str, Any]) -> bool:
+        return row.get("spool_id") in (None, "", "null", "None")
+
+    def _missing_tray(row: dict[str, Any]) -> bool:
+        return as_text(row.get("tray")).strip() == ""
+
+    if normalized_mode == "ANY_MISSING_DATA":
+        return [row for row in rows if _missing_filament(row) or _missing_spool(row) or _missing_tray(row)]
+    if normalized_mode == "MISSING_SPOOL":
+        return [row for row in rows if _missing_spool(row)]
+    if normalized_mode == "MISSING_FILAMENT":
+        return [row for row in rows if _missing_filament(row)]
+    raise ValueError(f"Unsupported note payload row filter mode: {mode}")
 
 
 def enrichment_provenance_rows(archive: dict[str, Any]) -> list[dict[str, Any]]:

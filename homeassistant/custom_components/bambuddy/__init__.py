@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
@@ -36,6 +37,7 @@ from .const import (
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
+    SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
     SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
@@ -54,11 +56,24 @@ from .const import (
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
     SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
+    SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
     RESTORE_UPLOAD_DISCOVER_URL,
     SOURCE_3MF_UPLOAD_URL,
 )
 from .manager import PrintHistoryBrowserManager
-from .print_history.query import project_archive
+from .print_history.query import (
+    ENRICHMENT_MARKER,
+    RECOVERY_AUDIT_MARKER,
+    SYSTEM_TAG_PREFIXES,
+    SYSTEM_TAG_VALUES,
+    build_enrichment_notes,
+    filter_note_payload_rows,
+    note_payload_rows,
+    project_archive,
+    split_enrichment_notes,
+    system_tags,
+    user_tags,
+)
 
 
 CONF_ENTRY_ID = "entry_id"
@@ -69,9 +84,12 @@ CONF_PRINTER_ID = "printer_id"
 CONF_UPLOAD_SESSION_ID = "upload_session_id"
 CONF_RELATED_ARCHIVE_ID = "related_archive_id"
 CONF_RELATION_TYPE = "relation_type"
+CONF_MODE = "mode"
 
 
 _LOGGER = logging.getLogger(__name__)
+
+ENRICHMENT_METADATA_MODES = ("ALL", "ANY_MISSING_DATA", "MISSING_SPOOL", "MISSING_FILAMENT")
 
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
@@ -319,6 +337,13 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
+SERVICE_ENRICHMENT_METADATA_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional(CONF_MODE, default="ALL"): vol.In(ENRICHMENT_METADATA_MODES),
+    }
+)
 SERVICE_UPDATE_ARCHIVE_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -330,6 +355,14 @@ SERVICE_UPDATE_ARCHIVE_SCHEMA = vol.Schema(
         vol.Optional("status"): str,
         vol.Optional("failure_reason"): vol.Any(None, str),
         vol.Optional("project_id"): vol.Any(None, vol.Coerce(int), str),
+    }
+)
+SERVICE_UPDATE_ENRICHMENT_METADATA_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("tag_metadata"): vol.Any(dict, str),
+        vol.Optional("note_metadata"): vol.Any(dict, str),
     }
 )
 SERVICE_SET_ARCHIVE_FAVORITE_SCHEMA = vol.Schema(
@@ -555,6 +588,132 @@ def _extract_enrichment_status(detail_response: dict[str, Any] | None) -> str:
     if not isinstance(archive, dict):
         return ""
     return str(archive.get("enrichment_status", "")).strip()
+
+
+def _normalize_enrichment_metadata_mode(value: Any) -> str:
+    normalized = str(value or "ALL").strip().upper() or "ALL"
+    if normalized not in ENRICHMENT_METADATA_MODES:
+        raise HomeAssistantError(
+            f"mode must be one of {', '.join(ENRICHMENT_METADATA_MODES)}"
+        )
+    return normalized
+
+
+def _parse_service_metadata_object(value: Any, field_name: str) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    raw = str(value or "").strip()
+    if not raw:
+        raise HomeAssistantError(f"{field_name} must be a JSON object or mapping")
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise HomeAssistantError(f"{field_name} must be valid JSON") from error
+    if not isinstance(parsed, dict):
+        raise HomeAssistantError(f"{field_name} must be a JSON object")
+    return parsed
+
+
+def _normalize_system_tag_values(value: Any) -> list[str]:
+    if isinstance(value, list):
+        raw_values = [str(item).strip() for item in value]
+    else:
+        raw_values = [item.strip() for item in str(value or "").split(",")]
+
+    tags: list[str] = []
+    seen: set[str] = set()
+    for raw_tag in raw_values:
+        if not raw_tag:
+            continue
+        normalized = raw_tag.lower()
+        is_system = normalized in SYSTEM_TAG_VALUES or any(normalized.startswith(prefix) for prefix in SYSTEM_TAG_PREFIXES)
+        if not is_system:
+            raise HomeAssistantError(f"Only system-managed enrichment tags are allowed here: {raw_tag}")
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        tags.append(raw_tag)
+    return tags
+
+
+def _build_archive_enrichment_metadata_response(
+    detail_response: dict[str, Any],
+    *,
+    entry_id: str,
+    archive_id: int,
+    mode: str,
+) -> dict[str, Any]:
+    archive = detail_response.get("archive", {}) if isinstance(detail_response, dict) else {}
+    if not isinstance(archive, dict):
+        archive = {}
+    note_parts = split_enrichment_notes(str(archive.get("notes", "")))
+    payload_rows = note_payload_rows(archive)
+    filtered_rows = filter_note_payload_rows(payload_rows, mode)
+    return {
+        CONF_ENTRY_ID: entry_id,
+        CONF_ARCHIVE_ID: archive_id,
+        CONF_MODE: mode,
+        "archive": archive,
+        "tag_metadata": {
+            "raw_tags": str(archive.get("tags", "")),
+            "system_tags": system_tags(str(archive.get("tags", ""))),
+            "user_tags": user_tags(str(archive.get("tags", ""))),
+        },
+        "note_metadata": {
+            "marker": ENRICHMENT_MARKER,
+            "recovery_marker": RECOVERY_AUDIT_MARKER,
+            "system_notes": note_parts["system_notes"],
+            "user_notes": note_parts["user_notes"],
+            "recovery_block": note_parts["recovery_block"],
+            "payload": note_parts["payload"],
+            "payload_raw": note_parts["payload_raw"],
+            "has_payload": bool(note_parts["has_payload"]),
+            "payload_rows": payload_rows,
+            "filtered_payload_rows": filtered_rows,
+            "filtered_row_indices": [int(row.get("row_index", 0)) for row in filtered_rows],
+            "payload_row_count": len(payload_rows),
+            "filtered_payload_row_count": len(filtered_rows),
+            "enrichment_status": str(archive.get("enrichment_status", "")),
+        },
+    }
+
+
+async def _async_apply_archive_update(
+    hass: HomeAssistant,
+    manager: PrintHistoryBrowserManager,
+    *,
+    archive_id: int,
+    update_payload: dict[str, Any],
+    operation: str,
+) -> dict[str, Any]:
+    started = perf_counter()
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+    try:
+        await client.async_update_archive(archive_id, update_payload)
+        refreshed = await manager.async_refresh_archive_detail(
+            archive_id,
+            operation=operation,
+            extra_details={"updated_fields": sorted(update_payload.keys())},
+        )
+    except RuntimeError as error:
+        raise HomeAssistantError(str(error)) from error
+
+    if refreshed is None:
+        raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+
+    manager.record_mutation(
+        operation=operation,
+        archive_id=archive_id,
+        duration_ms=round((perf_counter() - started) * 1000, 1),
+        details={"updated_fields": sorted(update_payload.keys())},
+    )
+    return refreshed
 
 
 def _build_runtime_repair_client(
@@ -1183,6 +1342,22 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_get_enrichment_metadata(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        mode = _normalize_enrichment_metadata_mode(call.data.get(CONF_MODE))
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        detail_response = manager.build_archive_detail_response(archive_id)
+        if detail_response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        return _build_archive_enrichment_metadata_response(
+            detail_response,
+            entry_id=entry_id,
+            archive_id=archive_id,
+            mode=mode,
+        )
+
     async def async_handle_refresh_archive_detail(call: ServiceCall) -> None:
         _entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -1214,32 +1389,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if not update_payload:
             raise HomeAssistantError("At least one archive field must be provided")
 
-        started = perf_counter()
-        session = aiohttp_client.async_get_clientsession(hass)
-        client = BambuddyApiClient(
-            session,
-            manager.base_url,
-            manager.api_key,
-            manager.fetch_timeout_seconds,
-        )
-        try:
-            await client.async_update_archive(archive_id, update_payload)
-            refreshed = await manager.async_refresh_archive_detail(
-                archive_id,
-                operation="service_update_archive",
-                extra_details={"updated_fields": sorted(update_payload.keys())},
-            )
-        except RuntimeError as error:
-            raise HomeAssistantError(str(error)) from error
-
-        if refreshed is None:
-            raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
-
-        manager.record_mutation(
-            operation="update_print_history_archive",
+        await _async_apply_archive_update(
+            hass,
+            manager,
             archive_id=archive_id,
-            duration_ms=round((perf_counter() - started) * 1000, 1),
-            details={"updated_fields": sorted(update_payload.keys())},
+            update_payload=update_payload,
+            operation="update_print_history_archive",
         )
 
         response = manager.build_archive_detail_response(archive_id)
@@ -1247,6 +1402,75 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         response[CONF_ENTRY_ID] = entry_id
         response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
+    async def async_handle_update_enrichment_metadata(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        current_detail = manager.build_archive_detail_response(archive_id)
+        if current_detail is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        current_archive = current_detail.get("archive", {}) if isinstance(current_detail, dict) else {}
+        if not isinstance(current_archive, dict):
+            current_archive = {}
+
+        update_payload: dict[str, Any] = {}
+        updated_fields: list[str] = []
+
+        if "tag_metadata" in call.data:
+            tag_metadata = _parse_service_metadata_object(call.data.get("tag_metadata"), "tag_metadata")
+            if "system_tags" not in tag_metadata:
+                raise HomeAssistantError("tag_metadata must include the full system_tags list")
+            normalized_system_tags = _normalize_system_tag_values(tag_metadata.get("system_tags"))
+            merged_tags = ",".join(user_tags(str(current_archive.get("tags", ""))) + normalized_system_tags)
+            update_payload["tags"] = merged_tags
+            updated_fields.append("tags")
+
+        if "note_metadata" in call.data:
+            note_metadata = _parse_service_metadata_object(call.data.get("note_metadata"), "note_metadata")
+            if "payload" not in note_metadata:
+                raise HomeAssistantError("note_metadata must include the full payload object")
+            payload_value = note_metadata.get("payload")
+            if isinstance(payload_value, str):
+                try:
+                    payload_value = json.loads(payload_value)
+                except json.JSONDecodeError as error:
+                    raise HomeAssistantError("note_metadata.payload must be valid JSON") from error
+            if not isinstance(payload_value, dict):
+                raise HomeAssistantError("note_metadata.payload must be a JSON object")
+            recovery_block = str(note_metadata.get("recovery_block", "")).strip()
+            current_note_parts = split_enrichment_notes(str(current_archive.get("notes", "")))
+            update_payload["notes"] = build_enrichment_notes(
+                user_notes=str(current_note_parts.get("user_notes", "")),
+                recovery_block=recovery_block,
+                payload=payload_value,
+            )
+            updated_fields.append("notes")
+
+        if not update_payload:
+            raise HomeAssistantError("At least one of tag_metadata or note_metadata must be provided")
+
+        await _async_apply_archive_update(
+            hass,
+            manager,
+            archive_id=archive_id,
+            update_payload=update_payload,
+            operation="update_print_history_archive_enrichment_metadata",
+        )
+
+        detail_response = manager.build_archive_detail_response(archive_id)
+        if detail_response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response = _build_archive_enrichment_metadata_response(
+            detail_response,
+            entry_id=entry_id,
+            archive_id=archive_id,
+            mode="ALL",
+        )
+        response["updated_fields"] = updated_fields
         return response
 
     async def async_handle_set_archive_favorite(call: ServiceCall) -> ServiceResponse:
@@ -2193,6 +2417,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             schema=SERVICE_DETAIL_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
+            async_handle_get_enrichment_metadata,
+            schema=SERVICE_ENRICHMENT_METADATA_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
     if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE):
         hass.services.async_register(
             DOMAIN,
@@ -2200,6 +2432,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             async_handle_update_archive,
             schema=SERVICE_UPDATE_ARCHIVE_SCHEMA,
                 supports_response=SupportsResponse.OPTIONAL,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
+            async_handle_update_enrichment_metadata,
+            schema=SERVICE_UPDATE_ENRICHMENT_METADATA_SCHEMA,
+            supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE):
         hass.services.async_register(

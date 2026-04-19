@@ -1959,6 +1959,28 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("async_handle_refresh_archive_detail", init_content)
         self.assertIn("SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL", init_content)
 
+    def test_bambuddy_services_expose_enrichment_metadata_management(self):
+        content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "services.yaml").read_text("utf-8")
+        self.assertIn("get_print_history_archive_enrichment_metadata:", content)
+        self.assertIn("update_print_history_archive_enrichment_metadata:", content)
+        self.assertIn("MISSING_SPOOL", content)
+        self.assertIn("system-managed enrichment tags", content)
+
+        const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
+        self.assertIn(
+            'SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA = "get_print_history_archive_enrichment_metadata"',
+            const_content,
+        )
+        self.assertIn(
+            'SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA = "update_print_history_archive_enrichment_metadata"',
+            const_content,
+        )
+
+        init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+        self.assertIn("async_handle_get_enrichment_metadata", init_content)
+        self.assertIn("async_handle_update_enrichment_metadata", init_content)
+        self.assertIn("ENRICHMENT_METADATA_MODES", init_content)
+
     def test_popup_project_helper_uses_no_project_default(self):
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_project.yaml"
         popup_data = _load_yaml_safe(popup_path)

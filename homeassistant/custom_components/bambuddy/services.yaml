@@ -160,6 +160,31 @@ get_print_history_archive_detail:
           min: 1
           mode: box
 
+get_print_history_archive_enrichment_metadata:
+  name: Get Print History Archive Enrichment Metadata
+  description: Return the system-managed enrichment tags and hidden note payload for one archive, plus a filtered row view for operator review.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to inspect.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    mode:
+      name: Mode
+      description: Row filter for the returned hidden payload rows. Use ALL, ANY_MISSING_DATA, MISSING_SPOOL, or MISSING_FILAMENT.
+      required: false
+      selector:
+        text:
+
 update_print_history_archive:
   name: Update Print History Archive
   description: Update one Bambuddy archive through the integration connection, then refresh the local Variant 3 store.
@@ -215,6 +240,37 @@ update_print_history_archive:
     project_id:
       name: Project ID
       description: Project ID to assign. Leave blank to clear the current project.
+      required: false
+      selector:
+        text:
+
+update_print_history_archive_enrichment_metadata:
+  name: Update Print History Archive Enrichment Metadata
+  description: Replace the system-managed enrichment tag set and or hidden note payload for one archive while preserving operator-managed tags and notes.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    tag_metadata:
+      name: Tag Metadata
+      description: Full replacement for the system-managed enrichment tags. Pass a JSON object containing system_tags.
+      required: false
+      selector:
+        text:
+    note_metadata:
+      name: Note Metadata
+      description: Full replacement for the system-managed hidden note data. Pass a JSON object containing payload and optionally recovery_block.
       required: false
       selector:
         text:
