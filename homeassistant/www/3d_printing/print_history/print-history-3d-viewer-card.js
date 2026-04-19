@@ -20,11 +20,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._rendererMode = "gcode";
     this._renderAnimated = false;
     this._viewerSettings = {
-      bambuddyGeometry: true,
+      useCustomLineWidth: false,
+      lineWidth: 2,
+      useFixedLineHeight: false,
+      lineHeight: 0.2,
       hideTravelMoves: true,
-      compactToolRemap: true,
+      useColorGradient: false,
     };
-    this._comparePanelOpen = false;
+    this._configurationPanelOpen = false;
     this._cropMode = false;
     this._cropAspectPreset = "square";
     this._cropRect = null;
@@ -32,11 +35,16 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._globalListenersAttached = false;
     this._refreshButton = null;
     this._animateButton = null;
-    this._compareButton = null;
-    this._comparePanel = null;
-    this._compareGeometryButton = null;
-    this._compareTravelButton = null;
-    this._compareToolMapButton = null;
+    this._configurationButton = null;
+    this._configurationPanel = null;
+    this._lineWidthToggleButton = null;
+    this._lineWidthRange = null;
+    this._lineWidthValue = null;
+    this._lineHeightToggleButton = null;
+    this._lineHeightRange = null;
+    this._lineHeightValue = null;
+    this._travelToggleButton = null;
+    this._gradientToggleButton = null;
     this._captureButton = null;
     this._cropToggleButton = null;
     this._cropAspectSelect = null;
@@ -48,10 +56,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
     this._boundAnimateHandler = this._handleAnimate.bind(this);
-    this._boundComparePanelToggleHandler = this._handleComparePanelToggle.bind(this);
-    this._boundCompareGeometryHandler = this._handleCompareGeometryToggle.bind(this);
-    this._boundCompareTravelHandler = this._handleCompareTravelToggle.bind(this);
-    this._boundCompareToolMapHandler = this._handleCompareToolMapToggle.bind(this);
+    this._boundConfigurationPanelToggleHandler = this._handleConfigurationPanelToggle.bind(this);
+    this._boundLineWidthToggleHandler = this._handleLineWidthToggle.bind(this);
+    this._boundLineWidthInputHandler = this._handleLineWidthInput.bind(this);
+    this._boundLineHeightToggleHandler = this._handleLineHeightToggle.bind(this);
+    this._boundLineHeightInputHandler = this._handleLineHeightInput.bind(this);
+    this._boundTravelToggleHandler = this._handleTravelToggle.bind(this);
+    this._boundGradientToggleHandler = this._handleGradientToggle.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
     this._boundCropToggleHandler = this._handleCropToggle.bind(this);
     this._boundCropAspectChangeHandler = this._handleCropAspectChange.bind(this);
@@ -116,21 +127,39 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._animateButton.removeEventListener("click", this._boundAnimateHandler);
       this._animateButton = null;
     }
-    if (this._compareButton) {
-      this._compareButton.removeEventListener("click", this._boundComparePanelToggleHandler);
-      this._compareButton = null;
+    if (this._configurationButton) {
+      this._configurationButton.removeEventListener("click", this._boundConfigurationPanelToggleHandler);
+      this._configurationButton = null;
     }
-    if (this._compareGeometryButton) {
-      this._compareGeometryButton.removeEventListener("click", this._boundCompareGeometryHandler);
-      this._compareGeometryButton = null;
+    if (this._lineWidthToggleButton) {
+      this._lineWidthToggleButton.removeEventListener("click", this._boundLineWidthToggleHandler);
+      this._lineWidthToggleButton = null;
     }
-    if (this._compareTravelButton) {
-      this._compareTravelButton.removeEventListener("click", this._boundCompareTravelHandler);
-      this._compareTravelButton = null;
+    if (this._lineWidthRange) {
+      this._lineWidthRange.removeEventListener("input", this._boundLineWidthInputHandler);
+      this._lineWidthRange = null;
     }
-    if (this._compareToolMapButton) {
-      this._compareToolMapButton.removeEventListener("click", this._boundCompareToolMapHandler);
-      this._compareToolMapButton = null;
+    if (this._lineWidthValue) {
+      this._lineWidthValue = null;
+    }
+    if (this._lineHeightToggleButton) {
+      this._lineHeightToggleButton.removeEventListener("click", this._boundLineHeightToggleHandler);
+      this._lineHeightToggleButton = null;
+    }
+    if (this._lineHeightRange) {
+      this._lineHeightRange.removeEventListener("input", this._boundLineHeightInputHandler);
+      this._lineHeightRange = null;
+    }
+    if (this._lineHeightValue) {
+      this._lineHeightValue = null;
+    }
+    if (this._travelToggleButton) {
+      this._travelToggleButton.removeEventListener("click", this._boundTravelToggleHandler);
+      this._travelToggleButton = null;
+    }
+    if (this._gradientToggleButton) {
+      this._gradientToggleButton.removeEventListener("click", this._boundGradientToggleHandler);
+      this._gradientToggleButton = null;
     }
     if (this._captureButton) {
       this._captureButton.removeEventListener("click", this._boundCaptureHandler);
@@ -254,17 +283,23 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".button.toggle-on{border-color:rgba(125,211,200,0.36);background:linear-gradient(180deg,rgba(20,66,67,0.96),rgba(8,29,33,0.98));color:#ecfeff;}" +
       ".button.toggle-on:hover,.button.toggle-on:focus-visible{border-color:rgba(153,246,228,0.52);background:linear-gradient(180deg,rgba(28,88,87,0.98),rgba(10,41,45,0.98));}" +
       ".button.toggle-off{border-color:rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(30,41,59,0.9),rgba(15,23,42,0.96));color:#cbd5e1;}" +
-      ".compare-panel{position:absolute;left:16px;top:64px;display:grid;gap:10px;min-width:min(340px,calc(100% - 32px));padding:14px;border-radius:18px;border:1px solid rgba(125,211,200,0.16);background:linear-gradient(180deg,rgba(9,18,29,0.96),rgba(14,24,37,0.98));box-shadow:0 18px 44px rgba(0,0,0,0.28);backdrop-filter:blur(12px);z-index:4;}" +
-      ".compare-panel[hidden]{display:none;}" +
-      ".compare-panel-header{display:grid;gap:4px;}" +
-      ".compare-panel-title{font-size:0.93rem;font-weight:700;color:#f8fafc;}" +
-      ".compare-panel-copy{font-size:0.82rem;line-height:1.45;color:#9fb0c0;}" +
-      ".compare-panel-grid{display:grid;gap:8px;}" +
-      ".compare-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.03);}" +
-      ".compare-toggle-copy{display:grid;gap:3px;min-width:0;}" +
-      ".compare-toggle-title{font-size:0.86rem;font-weight:700;color:#f8fafc;}" +
-      ".compare-toggle-desc{font-size:0.77rem;line-height:1.4;color:#9fb0c0;}" +
-      ".compare-toggle .button{flex:0 0 auto;min-height:34px;padding:0 12px;font-size:0.78rem;}" +
+      ".configuration-button{position:absolute;right:16px;bottom:16px;z-index:4;width:44px;min-width:44px;height:44px;padding:0;border-radius:999px;}" +
+      ".configuration-panel{position:absolute;right:16px;bottom:70px;display:grid;gap:10px;width:min(360px,calc(100% - 32px));padding:14px;border-radius:18px;border:1px solid rgba(125,211,200,0.16);background:linear-gradient(180deg,rgba(9,18,29,0.96),rgba(14,24,37,0.98));box-shadow:0 18px 44px rgba(0,0,0,0.28);backdrop-filter:blur(12px);z-index:4;}" +
+      ".configuration-panel[hidden]{display:none;}" +
+      ".configuration-panel-header{display:grid;gap:4px;}" +
+      ".configuration-panel-title{font-size:0.93rem;font-weight:700;color:#f8fafc;}" +
+      ".configuration-panel-copy{font-size:0.82rem;line-height:1.45;color:#9fb0c0;}" +
+      ".configuration-grid{display:grid;gap:8px;}" +
+      ".configuration-row{display:grid;gap:10px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.03);}" +
+      ".configuration-row-top{display:flex;align-items:center;justify-content:space-between;gap:12px;}" +
+      ".configuration-copy{display:grid;gap:3px;min-width:0;}" +
+      ".configuration-title{font-size:0.86rem;font-weight:700;color:#f8fafc;}" +
+      ".configuration-desc{font-size:0.77rem;line-height:1.4;color:#9fb0c0;}" +
+      ".configuration-row .button{flex:0 0 auto;min-height:34px;padding:0 12px;font-size:0.78rem;}" +
+      ".configuration-slider{display:grid;gap:6px;}" +
+      ".configuration-slider[hidden]{display:none;}" +
+      ".configuration-slider input[type='range']{width:100%;accent-color:#7dd3c8;}" +
+      ".configuration-slider-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.76rem;color:#c7d5e3;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -345,26 +380,28 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='stage-toolbar'>" +
       "<button id='refresh-button' class='button ghost' type='button'>Refresh</button>" +
       "<button id='animate-button' class='button ghost' type='button' aria-pressed='false'>Animate</button>" +
-      "<button id='compare-button' class='button ghost' type='button' aria-expanded='false'>Compare</button>" +
       "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
       "</div>" +
-      "<div id='compare-panel' class='compare-panel' hidden>" +
-      "<div class='compare-panel-header'>" +
-      "<div class='compare-panel-title'>Viewer Comparison Controls</div>" +
-      "<div class='compare-panel-copy'>Toggle Bambuddy-aligned geometry, travel visibility, and tool remapping independently so you can compare outputs side by side.</div>" +
+      "<button id='configuration-button' class='button ghost configuration-button' type='button' aria-expanded='false' aria-label='Viewer configuration' title='Viewer configuration'><ha-icon icon='mdi:cog'></ha-icon></button>" +
+      "<div id='configuration-panel' class='configuration-panel' hidden>" +
+      "<div class='configuration-panel-header'>" +
+      "<div class='configuration-panel-title'>Viewer Configuration</div>" +
+      "<div class='configuration-panel-copy'>Adjust how the G-code preview is rendered for this viewer session.</div>" +
       "</div>" +
-      "<div class='compare-panel-grid'>" +
-      "<div class='compare-toggle'>" +
-      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Bambuddy Line Geometry</div><div class='compare-toggle-desc'>Uses the thicker line width and fixed line height from Bambuddy.</div></div>" +
-      "<button id='compare-geometry-button' class='button' type='button'>On</button>" +
+      "<div class='configuration-grid'>" +
+      "<div class='configuration-row'>" +
+      "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Custom Line Width</div><div class='configuration-desc'>Apply a fixed width to the rendered extrusion lines.</div></div><button id='line-width-toggle-button' class='button' type='button'>Off</button></div>" +
+      "<div id='line-width-slider' class='configuration-slider' hidden><input id='line-width-range' type='range' min='1' max='6' step='0.25' value='2'><div class='configuration-slider-meta'><span>Width</span><span id='line-width-value'>2.00</span></div></div>" +
       "</div>" +
-      "<div class='compare-toggle'>" +
-      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Hide Travel Moves</div><div class='compare-toggle-desc'>Suppresses non-extrusion travel paths so the preview focuses on printed material.</div></div>" +
-      "<button id='compare-travel-button' class='button' type='button'>On</button>" +
+      "<div class='configuration-row'>" +
+      "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Fixed Line Height</div><div class='configuration-desc'>Use a fixed layer height value for preview rendering.</div></div><button id='line-height-toggle-button' class='button' type='button'>Off</button></div>" +
+      "<div id='line-height-slider' class='configuration-slider' hidden><input id='line-height-range' type='range' min='0.05' max='0.4' step='0.01' value='0.2'><div class='configuration-slider-meta'><span>Height</span><span id='line-height-value'>0.20</span></div></div>" +
       "</div>" +
-      "<div class='compare-toggle'>" +
-      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Compact Tool Remap</div><div class='compare-toggle-desc'>Uses the newer contiguous tool remap while preserving T1000 and T255 handling.</div></div>" +
-      "<button id='compare-toolmap-button' class='button' type='button'>On</button>" +
+      "<div class='configuration-row'>" +
+      "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Hide Travel Moves</div><div class='configuration-desc'>Keep non-extrusion travel paths out of the preview.</div></div><button id='travel-toggle-button' class='button' type='button'>On</button></div>" +
+      "</div>" +
+      "<div class='configuration-row'>" +
+      "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Color Gradient</div><div class='configuration-desc'>Blend color shading across extrusion paths instead of using flat colors.</div></div><button id='gradient-toggle-button' class='button' type='button'>Off</button></div>" +
       "</div>" +
       "</div>" +
       "</div>" +
@@ -435,17 +472,22 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<p id='fallback-copy' class='fallback-copy'></p>" +
       "<pre id='fallback-snippet'></pre>" +
       "</section>" +
-      "<div id='viewer-footnote' class='footnote'>Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.</div>" +
+      "<div id='viewer-footnote' class='footnote'>Rendered G-code preview. Use drag, pan, and zoom inside the canvas.</div>" +
       "</div>" +
       "</ha-card>";
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
     this._animateButton = this.shadowRoot.getElementById("animate-button");
-    this._compareButton = this.shadowRoot.getElementById("compare-button");
-    this._comparePanel = this.shadowRoot.getElementById("compare-panel");
-    this._compareGeometryButton = this.shadowRoot.getElementById("compare-geometry-button");
-    this._compareTravelButton = this.shadowRoot.getElementById("compare-travel-button");
-    this._compareToolMapButton = this.shadowRoot.getElementById("compare-toolmap-button");
+    this._configurationButton = this.shadowRoot.getElementById("configuration-button");
+    this._configurationPanel = this.shadowRoot.getElementById("configuration-panel");
+    this._lineWidthToggleButton = this.shadowRoot.getElementById("line-width-toggle-button");
+    this._lineWidthRange = this.shadowRoot.getElementById("line-width-range");
+    this._lineWidthValue = this.shadowRoot.getElementById("line-width-value");
+    this._lineHeightToggleButton = this.shadowRoot.getElementById("line-height-toggle-button");
+    this._lineHeightRange = this.shadowRoot.getElementById("line-height-range");
+    this._lineHeightValue = this.shadowRoot.getElementById("line-height-value");
+    this._travelToggleButton = this.shadowRoot.getElementById("travel-toggle-button");
+    this._gradientToggleButton = this.shadowRoot.getElementById("gradient-toggle-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -461,17 +503,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._animateButton) {
       this._animateButton.addEventListener("click", this._boundAnimateHandler);
     }
-    if (this._compareButton) {
-      this._compareButton.addEventListener("click", this._boundComparePanelToggleHandler);
+    if (this._configurationButton) {
+      this._configurationButton.addEventListener("click", this._boundConfigurationPanelToggleHandler);
     }
-    if (this._compareGeometryButton) {
-      this._compareGeometryButton.addEventListener("click", this._boundCompareGeometryHandler);
+    if (this._lineWidthToggleButton) {
+      this._lineWidthToggleButton.addEventListener("click", this._boundLineWidthToggleHandler);
     }
-    if (this._compareTravelButton) {
-      this._compareTravelButton.addEventListener("click", this._boundCompareTravelHandler);
+    if (this._lineWidthRange) {
+      this._lineWidthRange.addEventListener("input", this._boundLineWidthInputHandler);
     }
-    if (this._compareToolMapButton) {
-      this._compareToolMapButton.addEventListener("click", this._boundCompareToolMapHandler);
+    if (this._lineHeightToggleButton) {
+      this._lineHeightToggleButton.addEventListener("click", this._boundLineHeightToggleHandler);
+    }
+    if (this._lineHeightRange) {
+      this._lineHeightRange.addEventListener("input", this._boundLineHeightInputHandler);
+    }
+    if (this._travelToggleButton) {
+      this._travelToggleButton.addEventListener("click", this._boundTravelToggleHandler);
+    }
+    if (this._gradientToggleButton) {
+      this._gradientToggleButton.addEventListener("click", this._boundGradientToggleHandler);
     }
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
@@ -498,7 +549,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
     }
     this._updateAnimateButton();
-    this._updateCompareControls();
+    this._updateConfigurationControls();
     this._updateCapturePanel();
   }
 
@@ -527,47 +578,87 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _reloadForViewerSettings(message) {
     this._loadedSignature = "";
     this._disposePreview();
-    this._setStageStatus("Updating comparison view", "Re-rendering the preview with the selected comparison settings.");
-    this._setStatus(message || "Updating viewer comparison settings...");
+    this._setStageStatus("Updating viewer", "Re-rendering the preview with the selected viewer configuration.");
+    this._setStatus(message || "Updating viewer configuration...");
     this._maybeLoad();
   }
 
-  _handleComparePanelToggle() {
-    this._comparePanelOpen = !this._comparePanelOpen;
-    this._updateCompareControls();
+  _formatViewerSettingValue(value, decimals) {
+    const places = Number.isInteger(decimals) && decimals >= 0 ? decimals : 2;
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(places) : "";
   }
 
-  _handleCompareGeometryToggle() {
-    this._viewerSettings.bambuddyGeometry = !this._viewerSettings.bambuddyGeometry;
-    this._updateCompareControls();
+  _handleConfigurationPanelToggle() {
+    this._configurationPanelOpen = !this._configurationPanelOpen;
+    this._updateConfigurationControls();
+  }
+
+  _handleLineWidthToggle() {
+    this._viewerSettings.useCustomLineWidth = !this._viewerSettings.useCustomLineWidth;
+    this._updateConfigurationControls();
     this._reloadForViewerSettings(
-      this._viewerSettings.bambuddyGeometry
-        ? "Enabled Bambuddy line geometry for the comparison render."
-        : "Reverted to the legacy line geometry defaults for the comparison render."
+      this._viewerSettings.useCustomLineWidth
+        ? `Applied custom line width (${this._formatViewerSettingValue(this._viewerSettings.lineWidth, 2)}).`
+        : "Reverted to the default line width."
     );
   }
 
-  _handleCompareTravelToggle() {
+  _handleLineWidthInput(event) {
+    const value = Number(event && event.target ? event.target.value : this._viewerSettings.lineWidth);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    this._viewerSettings.lineWidth = value;
+    this._updateConfigurationControls();
+    this._reloadForViewerSettings(
+      `Updated custom line width to ${this._formatViewerSettingValue(this._viewerSettings.lineWidth, 2)}.`
+    );
+  }
+
+  _handleLineHeightToggle() {
+    this._viewerSettings.useFixedLineHeight = !this._viewerSettings.useFixedLineHeight;
+    this._updateConfigurationControls();
+    this._reloadForViewerSettings(
+      this._viewerSettings.useFixedLineHeight
+        ? `Applied fixed line height (${this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2)}).`
+        : "Reverted to the default line height behavior."
+    );
+  }
+
+  _handleLineHeightInput(event) {
+    const value = Number(event && event.target ? event.target.value : this._viewerSettings.lineHeight);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    this._viewerSettings.lineHeight = value;
+    this._updateConfigurationControls();
+    this._reloadForViewerSettings(
+      `Updated fixed line height to ${this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2)}.`
+    );
+  }
+
+  _handleTravelToggle() {
     this._viewerSettings.hideTravelMoves = !this._viewerSettings.hideTravelMoves;
-    this._updateCompareControls();
+    this._updateConfigurationControls();
     this._reloadForViewerSettings(
       this._viewerSettings.hideTravelMoves
-        ? "Travel moves are hidden for the comparison render."
-        : "Travel moves are now visible for the comparison render."
+        ? "Travel moves are hidden in the preview."
+        : "Travel moves are now visible in the preview."
     );
   }
 
-  _handleCompareToolMapToggle() {
-    this._viewerSettings.compactToolRemap = !this._viewerSettings.compactToolRemap;
-    this._updateCompareControls();
+  _handleGradientToggle() {
+    this._viewerSettings.useColorGradient = !this._viewerSettings.useColorGradient;
+    this._updateConfigurationControls();
     this._reloadForViewerSettings(
-      this._viewerSettings.compactToolRemap
-        ? "Enabled compact tool remapping for the comparison render."
-        : "Reverted to the legacy tool remapping path for the comparison render."
+      this._viewerSettings.useColorGradient
+        ? "Color gradient shading is enabled."
+        : "Flat filament colors are enabled."
     );
   }
 
-  _updateCompareToggleButton(button, isEnabled) {
+  _updateToggleButton(button, isEnabled) {
     if (!button) {
       return;
     }
@@ -576,17 +667,38 @@ class PrintHistory3dViewerCard extends HTMLElement {
     button.setAttribute("aria-pressed", isEnabled ? "true" : "false");
   }
 
-  _updateCompareControls() {
-    if (this._compareButton) {
-      this._compareButton.className = this._comparePanelOpen ? "button toggle-on" : "button ghost";
-      this._compareButton.setAttribute("aria-expanded", this._comparePanelOpen ? "true" : "false");
+  _updateConfigurationControls() {
+    if (this._configurationButton) {
+      this._configurationButton.className = this._configurationPanelOpen ? "button toggle-on configuration-button" : "button ghost configuration-button";
+      this._configurationButton.setAttribute("aria-expanded", this._configurationPanelOpen ? "true" : "false");
     }
-    if (this._comparePanel) {
-      this._comparePanel.hidden = !this._comparePanelOpen;
+    if (this._configurationPanel) {
+      this._configurationPanel.hidden = !this._configurationPanelOpen;
     }
-    this._updateCompareToggleButton(this._compareGeometryButton, !!this._viewerSettings.bambuddyGeometry);
-    this._updateCompareToggleButton(this._compareTravelButton, !!this._viewerSettings.hideTravelMoves);
-    this._updateCompareToggleButton(this._compareToolMapButton, !!this._viewerSettings.compactToolRemap);
+    this._updateToggleButton(this._lineWidthToggleButton, !!this._viewerSettings.useCustomLineWidth);
+    this._updateToggleButton(this._lineHeightToggleButton, !!this._viewerSettings.useFixedLineHeight);
+    this._updateToggleButton(this._travelToggleButton, !!this._viewerSettings.hideTravelMoves);
+    this._updateToggleButton(this._gradientToggleButton, !!this._viewerSettings.useColorGradient);
+    if (this._lineWidthRange) {
+      this._lineWidthRange.value = this._formatViewerSettingValue(this._viewerSettings.lineWidth, 2);
+      const lineWidthSlider = this.shadowRoot && this.shadowRoot.getElementById("line-width-slider");
+      if (lineWidthSlider) {
+        lineWidthSlider.hidden = !this._viewerSettings.useCustomLineWidth;
+      }
+    }
+    if (this._lineWidthValue) {
+      this._lineWidthValue.textContent = this._formatViewerSettingValue(this._viewerSettings.lineWidth, 2);
+    }
+    if (this._lineHeightRange) {
+      this._lineHeightRange.value = this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2);
+      const lineHeightSlider = this.shadowRoot && this.shadowRoot.getElementById("line-height-slider");
+      if (lineHeightSlider) {
+        lineHeightSlider.hidden = !this._viewerSettings.useFixedLineHeight;
+      }
+    }
+    if (this._lineHeightValue) {
+      this._lineHeightValue.textContent = this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2);
+    }
   }
 
   _setStageStatus(label, copy, mode) {
@@ -1505,18 +1617,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._normalizeColors(capabilities.filament_colors);
   }
 
-  _buildLegacyPreviewToolState(colors, initialToolIndex) {
-    const palette = this._normalizeColors(colors);
-    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
-    return {
-      mode: "legacy",
-      defaultToolIndex: normalizedInitialTool,
-      maxKnownTool: palette.length ? palette.length - 1 : null,
-      previewPalette: palette,
-      toolMap: {},
-    };
-  }
-
   _buildPreviewToolState(colors, gcodeText, initialToolIndex) {
     const palette = this._normalizeColors(colors);
     const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
@@ -1712,9 +1812,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
       `<span class='chip'>${renderAnimated ? "Animated Preview" : "Static Preview"}</span>`,
-      `<span class='chip'>${this._viewerSettings.bambuddyGeometry ? "Bambuddy Geometry" : "Legacy Geometry"}</span>`,
-      `<span class='chip'>${this._viewerSettings.hideTravelMoves ? "Travel Hidden" : "Travel Visible"}</span>`,
-      `<span class='chip'>${this._viewerSettings.compactToolRemap ? "Compact Remap" : "Legacy Remap"}</span>`,
     ].filter(Boolean);
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
@@ -1797,8 +1894,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setDownloadLink(gcodeUrl);
 
     try {
-      this._setStageStatus("Checking archive capabilities", "Validating which Bambuddy assets are available for this print.");
-      this._setStatus("Checking Bambuddy archive capabilities...");
+      this._setStageStatus("Checking archive capabilities", "Validating which viewer assets are available for this print.");
+      this._setStatus("Checking archive viewer capabilities...");
       const viewerPayload = await this._fetchViewerPayload();
       if (token !== this._loadToken) {
         return;
@@ -1812,28 +1909,26 @@ class PrintHistory3dViewerCard extends HTMLElement {
         this._setStatus("This archive does not expose extracted G-code, so the preview cannot be rendered here.", true);
         this._showFallback(
           capabilities.has_model
-            ? "The archive still has a 3D model, but Bambuddy does not expose a deep-linkable modal route that Home Assistant can reuse directly."
+            ? "The archive still has a 3D model, but this popup does not have a reusable deep-link route for that viewer yet."
             : "This archive has neither extracted G-code nor a usable model preview path for this popup.",
           ""
         );
         return;
       }
 
-      this._setStageStatus("Downloading G-code", "Pulling the sliced toolpath from Bambuddy so the stage can render it.");
-      this._setStatus("Downloading G-code from Bambuddy...");
+      this._setStageStatus("Downloading G-code", "Pulling the sliced toolpath so the stage can render it.");
+      this._setStatus("Downloading G-code for the viewer...");
       const gcodeText = viewerPayload && typeof viewerPayload.gcode === "string" ? viewerPayload.gcode : "";
       if (!String(gcodeText || "").trim()) {
-        this._setStageStatus("Empty G-code payload", "Bambuddy returned no renderable toolpath data for this archive.", "error");
-        this._setStatus("Bambuddy returned an empty G-code payload for this archive.", true);
+        this._setStageStatus("Empty G-code payload", "The archive returned no renderable toolpath data.", "error");
+        this._setStatus("The archive returned an empty G-code payload for this viewer.", true);
         this._showFallback("The archive G-code payload was empty.", "");
         return;
       }
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
       const initialToolIndex = this._resolveInitialToolIndex(colors, gcodeText);
-      const toolState = this._viewerSettings.compactToolRemap
-        ? this._buildPreviewToolState(colors, gcodeText, initialToolIndex)
-        : this._buildLegacyPreviewToolState(colors, initialToolIndex);
+      const toolState = this._buildPreviewToolState(colors, gcodeText, initialToolIndex);
       const previewColors = toolState.previewPalette.length ? toolState.previewPalette : colors;
       const previewGcode = this._normalizePreviewGcode(gcodeText, toolState);
       this._renderCapabilityChips(capabilities, previewColors);
@@ -1856,9 +1951,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
           canvas,
           buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
           extrusionColor: previewColors.length ? previewColors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
-          disableGradient: true,
-          lineHeight: this._viewerSettings.bambuddyGeometry ? 0.2 : undefined,
-          lineWidth: this._viewerSettings.bambuddyGeometry ? 2 : undefined,
+          disableGradient: !this._viewerSettings.useColorGradient,
+          lineHeight: this._viewerSettings.useFixedLineHeight ? this._viewerSettings.lineHeight : undefined,
+          lineWidth: this._viewerSettings.useCustomLineWidth ? this._viewerSettings.lineWidth : undefined,
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
@@ -1881,8 +1976,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
         this._setStageStatus("", "", "hidden");
         this._setStatus(
           renderAnimated
-            ? "Rendered Bambuddy G-code preview with animated path build. Use drag, pan, and zoom inside the canvas."
-            : "Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas."
+            ? "Rendered G-code preview with animated path build. Use drag, pan, and zoom inside the canvas."
+            : "Rendered G-code preview. Use drag, pan, and zoom inside the canvas."
         );
       } catch (error) {
         const message = error && error.message ? error.message : String(error);
