@@ -320,7 +320,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".bulk-dialog-body{display:grid;gap:14px;}" +
       ".bulk-dialog-field{display:grid;gap:6px;}" +
       ".bulk-dialog-field label{font-size:12px;font-weight:700;color:var(--secondary-text-color);}" +
-      ".bulk-dialog-field input,.bulk-dialog-field select{width:100%;min-height:42px;border-radius:14px;border:1px solid rgba(148,163,184,0.34);background:rgba(15,23,42,0.18);color:var(--primary-text-color);padding:0 14px;box-sizing:border-box;font:inherit;}" +
+      ".bulk-dialog-field input,.bulk-dialog-field select{width:100%;min-height:42px;border-radius:14px;border:1px solid rgba(148,163,184,0.34);background:var(--card-background-color,var(--ha-card-background,var(--primary-background-color)));color:var(--primary-text-color);padding:0 14px;box-sizing:border-box;font:inherit;}" +
+      ".bulk-dialog-field select{appearance:auto;-webkit-appearance:menulist;color-scheme:light dark;}" +
+      ".bulk-dialog-field select option,.bulk-dialog-field select optgroup{background:var(--card-background-color,var(--ha-card-background,var(--primary-background-color)));color:var(--primary-text-color);}" +
       ".bulk-dialog-field input:focus,.bulk-dialog-field select:focus{outline:none;border-color:color-mix(in srgb, var(--primary-color, #1976d2) 54%, rgba(148,163,184,0.34));box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color, #1976d2) 22%, transparent);}" +
       ".bulk-dialog-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap;}" +
       ".bulk-dialog-button{appearance:none;-webkit-appearance:none;border:none;border-radius:999px;min-height:38px;padding:0 16px;background:rgba(255,255,255,0.08);color:var(--primary-text-color);font:inherit;font-weight:700;cursor:pointer;transition:transform .16s ease,background .16s ease,box-shadow .16s ease;}" +

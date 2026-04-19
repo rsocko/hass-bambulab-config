@@ -25,13 +25,11 @@ bulk_update_print_history_user_tags:
   sequence:
     - variables:
         should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
-        requested_archive_ids: "{{ archive_ids_csv | default('', true) | string | trim }}"
         archive_ids_json: >-
           {% set ns = namespace(values=[]) %}
-          {% for token in requested_archive_ids.split(',') %}
-            {% set cleaned = token | string | trim %}
-            {% set numeric = cleaned | int(0) %}
-            {% if cleaned != '' and numeric > 0 and numeric not in ns.values %}
+          {% for token in (archive_ids_csv | default('', true) | string | regex_findall('\d+')) %}
+            {% set numeric = token | int(0) %}
+            {% if numeric > 0 and numeric not in ns.values %}
               {% set ns.values = ns.values + [numeric] %}
             {% endif %}
           {% endfor %}
