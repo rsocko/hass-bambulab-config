@@ -291,7 +291,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='header'>" +
       "<div>" +
       "<div class='eyebrow'>Print History Viewer</div>" +
-      "<h1 id='viewer-title'>Loading archive viewer...</h1>" +
+      "<h1 id='viewer-title'>3D Viewer</h1>" +
       "</div>" +
       "<div class='header-meta'>" +
       "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
@@ -1550,13 +1550,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     if (!archiveId) {
       this._setStageStatus("Viewer unavailable", "This popup cannot render because the archive ID is missing.", "error");
-      this._setTitle("Archive viewer unavailable", "No archive ID was provided to the popup.");
+      this._setTitle("3D Viewer", "No archive ID was provided to the popup.");
       this._setStatus("Archive viewer could not start because archive_id is missing.", true);
       this._showFallback("Launch this popup from a print-history archive card or popup action.", "");
       return;
     }
 
-    this._setTitle(archiveTitle, `Archive #${archiveId}`);
+    this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);
     this._disposePreview();
     this._hideFallback();
     this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");

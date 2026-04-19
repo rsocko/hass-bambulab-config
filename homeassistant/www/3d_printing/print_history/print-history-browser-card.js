@@ -1509,9 +1509,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!archive || archive.id == null) {
       return;
     }
-    var archiveName = archive.print_name || ("Archive " + archive.id);
     this._fireBrowserModEvent("browser_mod.popup", {
-      title: "3D View · " + archiveName,
+      title: "3D Viewer",
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
     });
@@ -2027,7 +2026,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
               browser_mod: {
                 service: "browser_mod.popup",
                 data: {
-                  title: "3D View · " + archiveName,
+                  title: "3D Viewer",
                   size: "wide",
                   content: this._buildArchiveViewerPopupContent(archive),
                 },

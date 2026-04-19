@@ -1966,7 +1966,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
 
@@ -2080,6 +2080,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.sceneManager.renderAnimated()', script)
         self.assertIn('Animated Preview', script)
         self.assertIn('Static Preview', script)
+        self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
+        self.assertIn('this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
@@ -2196,6 +2198,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('mdi:cube-scan', content)
         self.assertIn('_buildArchiveViewerCardConfig(archive)', content)
         self.assertIn('_buildArchiveViewerPopupContent(archive)', content)
+        self.assertIn('title: "3D Viewer"', content)
         self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
         self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
 
