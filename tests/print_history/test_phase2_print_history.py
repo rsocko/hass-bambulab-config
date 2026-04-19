@@ -1622,6 +1622,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("Show Details", content)
         self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr));", content)
         self.assertIn("white-space:pre;", content)
+        self.assertIn("white-space:normal !important;", content)
+        self.assertIn("min-width:0;max-width:100%;font-size:12px;line-height:1.45;color:#E3F2FD;white-space:normal !important;", content)
         self.assertIn(".print-history-popup-json-toggle-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;min-width:18px;font-size:18px;", content)
 
     def test_popup_detail_template_sensor_exposes_enrichment_provenance_json(self):
