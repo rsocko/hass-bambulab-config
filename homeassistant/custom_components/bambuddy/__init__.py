@@ -952,6 +952,7 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
 
     async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
         hass = request.app["hass"]
+        started = perf_counter()
         archive_id_value = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID) or archive_id)
         if archive_id_value is None:
             return web.json_response(
@@ -1052,8 +1053,44 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                 response["upload_response"] = upload_response
             return web.json_response(response)
         except HomeAssistantError as error:
+            if "manager" in locals():
+                manager.record_mutation(
+                    operation="upload_archive_source_3mf_failed",
+                    archive_id=archive_id_value,
+                    duration_ms=round((perf_counter() - started) * 1000, 1),
+                    details={
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                        "message": str(error),
+                    },
+                )
+            _LOGGER.warning(
+                "Archive source 3MF upload failed for archive %s (%s bytes, file=%s): %s",
+                archive_id_value,
+                byte_count,
+                file_name,
+                error,
+            )
             return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=400)
         except RuntimeError as error:
+            if "manager" in locals():
+                manager.record_mutation(
+                    operation="upload_archive_source_3mf_failed",
+                    archive_id=archive_id_value,
+                    duration_ms=round((perf_counter() - started) * 1000, 1),
+                    details={
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                        "message": str(error),
+                    },
+                )
+            _LOGGER.warning(
+                "Archive source 3MF upload proxy received runtime error for archive %s (%s bytes, file=%s): %s",
+                archive_id_value,
+                byte_count,
+                file_name,
+                error,
+            )
             return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=502)
 
 

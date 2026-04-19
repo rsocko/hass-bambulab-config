@@ -1000,7 +1000,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       window.__printHistoryArchiveActionsCardPromise = new Promise(function (resolve, reject) {
         var script = document.createElement("script");
         script.type = "module";
-        script.src = "/local/3d_printing/print_history/print-history-archive-actions-card.js?v=1";
+        script.src = "/local/3d_printing/print_history/print-history-archive-actions-card.js?v=3";
         script.onload = function () {
           resolve(true);
         };

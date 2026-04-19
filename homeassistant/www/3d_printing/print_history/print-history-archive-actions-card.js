@@ -112,7 +112,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return;
     }
     if (action === "download-model") {
-      this._handleDownload();
+      this._handleDownload("download_gcode", "Preparing G-code download...", "G-code download started.");
+      return;
+    }
+    if (action === "download-source-3mf") {
+      this._handleDownload("download_source_3mf", "Preparing source 3MF download...", "Source 3MF download started.");
       return;
     }
     if (action === "open-makerworld") {
@@ -329,17 +333,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
-  async _handleDownload() {
+  async _handleDownload(intent, preparingMessage, successMessage) {
     try {
-      this._setBusy(true, "Preparing download...", "info");
-      var response = await this._requestArchiveAction("download");
+      this._setBusy(true, preparingMessage || "Preparing download...", "info");
+      var response = await this._requestArchiveAction(intent || "download");
       var downloadUrl = response && response.download_url ? String(response.download_url) : "";
       if (!downloadUrl) {
         throw new Error("No download URL was returned for this archive");
       }
       this._openWindow(downloadUrl, "_blank");
       this._busy = false;
-      this._setStatus("Download started.", "success");
+      this._setStatus(successMessage || "Download started.", "success");
     } catch (error) {
       this._busy = false;
       this._setStatus(error && error.message ? error.message : "Could not start the download", "error");
@@ -539,13 +543,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _renderMain(archive) {
-    var hasModel = !!(archive && (archive.file_path || archive.source_3mf_path));
-    var makerworldUrl = this._makerWorldUrl(archive);
+    var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
+    var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = String((archive && archive.makerworld_url) || "").trim() ? "View on MakerWorld" : "View Designer";
     return '<div class="actions-grid">' +
-      this._renderActionButton("open-in-slicer", "Open in Slicer", "mdi:vector-polyline", { disabled: !hasModel || this._busy }) +
-      this._renderActionButton("download-model", hasSource && !archive.file_path ? "Download Source 3MF" : "Download 3MF", "mdi:download", { disabled: !hasModel || this._busy }) +
+      this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
+      (hasSource ? this._renderActionButton("download-source-3mf", "Download 3MF", "mdi:file-download-outline", { disabled: this._busy }) : "") +
       this._renderActionButton("open-makerworld", makerworldLabel, "mdi:earth", { disabled: !makerworldUrl || this._busy }) +
       this._renderActionButton("upload-source-3mf", hasSource ? "Replace Source 3MF" : "Upload Source 3MF", "mdi:upload", { disabled: this._busy }) +
       this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +

@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
-from uuid import uuid4
 
 from aiohttp import ClientResponseError, ClientSession, ClientTimeout, FormData
 
@@ -384,23 +383,18 @@ class BambuddyApiClient:
         if not content:
             raise RuntimeError("Upload content is empty")
 
-        boundary = f"----ha-bambuddy-{uuid4().hex}"
-        body = (
-            f"--{boundary}\r\n".encode("utf-8")
-            + f'Content-Disposition: form-data; name="file"; filename="{normalized_file_name}"\r\n'.encode("utf-8")
-            + f"Content-Type: {normalized_mime_type or 'application/octet-stream'}\r\n\r\n".encode("utf-8")
-            + content
-            + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        form = FormData()
+        form.add_field(
+            "file",
+            content,
+            filename=normalized_file_name,
+            content_type=normalized_mime_type or "application/octet-stream",
         )
 
         async with self._session.post(
             f"{self._base_url}/api/v1/archives/{normalized_archive_id}/source",
-            headers={
-                "X-API-Key": self._api_key,
-                "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "Content-Length": str(len(body)),
-            },
-            data=body,
+            headers={"X-API-Key": self._api_key},
+            data=form,
             timeout=self._timeout,
         ) as response:
             try:
