@@ -276,7 +276,8 @@ print_history_archive_popup_content:
             const color = options.color || 'var(--primary-text-color)';
             const fontWeight = options.fontWeight || 600;
             const title = options.title ? ` title="${escapeHtml(options.title)}"` : '';
-            return `<span${title} style="display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:${background};border:${border};color:${color};font-size:12px;font-weight:${fontWeight};line-height:1.2;max-width:100%;min-width:0;"><ha-icon icon="${icon}" style="--mdc-icon-size:15px;flex:0 0 auto;color:${color};"></ha-icon><span style="min-width:0;overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(String(value))}</span></span>`;
+            const iconMarkup = icon ? `<ha-icon icon="${icon}" style="--mdc-icon-size:15px;flex:0 0 auto;color:${color};"></ha-icon>` : '';
+            return `<span${title} style="display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:${background};border:${border};color:${color};font-size:12px;font-weight:${fontWeight};line-height:1.2;max-width:100%;min-width:0;">${iconMarkup}<span style="min-width:0;overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(String(value))}</span></span>`;
         };
         const hasMeaningfulValue = (value) => {
           if (value === null || value === undefined) return false;
@@ -679,7 +680,7 @@ print_history_archive_popup_content:
         const favoriteChip = `<button class="print-history-popup-favorite-toggle${isFavorite ? ' active' : ''}" type="button" aria-label="${escapeHtml(favoriteButtonLabel)}" aria-pressed="${isFavorite ? 'true' : 'false'}" title="${escapeHtml(favoriteButtonTitle)}" onclick='${escapeHtml(favoriteButtonHandler)}'><ha-icon icon="${isFavorite ? 'mdi:star' : 'mdi:star-outline'}"></ha-icon></button>`;
         const summaryRowChips = [
           `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
-            archiveId != null ? renderInfoChip('mdi:identifier', `#${archiveId}`, { fontWeight: 700, title: `Archive ID #${archiveId}` }) : '',
+            archiveId != null ? renderInfoChip('', `#${archiveId}`, { fontWeight: 700, title: `Archive ID #${archiveId}` }) : '',
           archiveError.hasArchiveError ? `<span style="background:${archiveError.severity === 'error' ? '#C62828' : '#EF6C00'};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:15px;color:#fff;"></ha-icon><span>${escapeHtml(archiveError.label)}</span></span>` : '',
           duplicateState.hasDuplicateContext ? `<span style="background:${duplicateState.chipColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><ha-icon icon="${escapeHtml(duplicateState.icon)}" style="--mdc-icon-size:15px;color:#fff;"></ha-icon><span>${escapeHtml(duplicateState.chipLabel)}</span></span>` : '',
           renderInfoChip('mdi:palette-swatch-outline', archive?.designer, { fontWeight: 500 }),
