@@ -771,8 +771,22 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var selectedPrimaryPhotoPath = String(archive && archive.selected_primary_photo_path || "").trim();
     var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
     var thumbnailPath = String(archive && archive.thumbnail_path || "").trim();
+    var hasPrimaryOverride = archive && archive.has_primary_photo_override != null
+      ? !!archive.has_primary_photo_override
+      : !!selectedPrimaryPhotoPath;
     var photos = Array.isArray(archive && archive.photos) ? archive.photos : [];
     var fallbackPhotoPath = photos.length ? String(photos[0] || "").trim() : "";
+
+    if (thumbnailPath && !hasPrimaryOverride) {
+      return {
+        src: this._withArchiveMediaCacheKey(
+          baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/thumbnail",
+          archive
+        ),
+        alt: archive && archive.print_name ? String(archive.print_name) : "Archive thumbnail",
+      };
+    }
+
     var previewPhotoPath = selectedPrimaryPhotoPath || primaryPhotoPath || fallbackPhotoPath;
 
     if (previewPhotoPath) {
@@ -812,10 +826,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       hold_action: { action: "none" },
       custom_fields: {
         preview: previewImage && previewImage.src
-          ? '<div class="archive-summary-preview"><img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '"></div>'
-          : '<div class="archive-summary-preview empty"><ha-icon icon="mdi:image-off-outline"></ha-icon></div>',
-        meta: '<div class="archive-summary-title">' + this._escapeHtml(archiveName) + '</div>' +
-          '<div class="archive-summary-id">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>',
+          ? '<div style="width:104px;height:58px;border-radius:12px;overflow:hidden;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;"><img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '" style="display:block;width:100%;height:100%;object-fit:cover;"></div>'
+          : '<div style="width:104px;height:58px;border-radius:12px;background:rgba(15,23,42,0.20);display:flex;align-items:center;justify-content:center;color:var(--secondary-text-color);"><ha-icon icon="mdi:image-off-outline" style="--mdc-icon-size:20px;"></ha-icon></div>',
+        meta: '<div style="font-size:15px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;">' + this._escapeHtml(archiveName) + '</div>' +
+          '<div style="margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>',
       },
       styles: {
         card: [
@@ -833,9 +847,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         ],
         custom_fields: {
           preview: [
+            { "grid-area": "preview" },
             { "justify-self": "start" },
           ],
           meta: [
+            { "grid-area": "meta" },
             { "text-align": "left" },
             { "justify-self": "stretch" },
           ],
@@ -1678,12 +1694,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.advanced{background:rgba(15,23,42,0.78);border-color:rgba(148,163,184,0.28);color:var(--primary-text-color);}" +
       ".icon-action.advanced:hover,.icon-action.advanced:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.advanced:active{transform:translateY(0);}" +
-      ".archive-summary-preview{width:104px;height:58px;border-radius:12px;overflow:hidden;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;}" +
-      ".archive-summary-preview img{display:block;width:100%;height:100%;object-fit:cover;}" +
-      ".archive-summary-preview.empty{color:var(--secondary-text-color);}" +
-      ".archive-summary-preview.empty ha-icon{--mdc-icon-size:20px;}" +
-      ".archive-summary-title{font-size:15px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;}" +
-      ".archive-summary-id{margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +

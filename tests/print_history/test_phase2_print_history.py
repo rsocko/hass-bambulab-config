@@ -829,7 +829,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=35", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=36", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -845,6 +845,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('Archive ID #', content)
         self.assertIn('grid-template-columns": "104px minmax(0, 1fr)"', content)
         self.assertIn('width:104px;height:58px', content)
+        self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', content)
         self.assertIn('Yes, Continue to Delete', content)
         self.assertIn('**PERMANENTLY REMOVES**', content)
         self.assertIn('var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";', content)
