@@ -843,6 +843,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('data-action="advanced-actions"', content)
         self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', content)
+        self.assertIn('window.__printHistoryArchiveActionsCardPromise', content)
+        self.assertIn('print-history-archive-actions-card.js?v=1', content)
         self.assertIn('Source 3MF attached:', action_content)
         self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', action_content)
         self.assertIn('Download Source 3MF', action_content)
@@ -2478,11 +2480,24 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "toggle_print_history_archive_favorite.yaml"
         ).read_text("utf-8")
         self.assertIn("action: bambuddy.get_print_history_archive_detail", content)
-        self.assertIn("response_variable: popup_detail_result", content)
+        self.assertIn("response_variable: archive_detail_result", content)
+        self.assertIn("action: bambuddy.set_print_history_archive_favorite", content)
+        self.assertIn("response_variable: favorite_update_result", content)
+        self.assertIn("next_is_favorite", content)
         self.assertIn("{{ detail.get('is_favorite', false) }}", content)
         self.assertIn("action: input_boolean.turn_on", content)
         self.assertIn("action: input_boolean.turn_off", content)
         self.assertNotIn("action: script.refresh_print_history_archives", content)
+        self.assertNotIn("action: rest_command.bambuddy_toggle_favorite", content)
+
+    def test_browser_card_favorite_updates_invalidate_normalized_cache(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+        self.assertIn('return archiveId + ":" + payloadHash + ":" + String(archive.is_favorite ? "1" : "0");', content)
+        self.assertIn("async _toggleFavorite(archive)", content)
+        self.assertIn("async _runBulkFavoriteToggle()", content)
+        self.assertGreaterEqual(content.count("this._normalizedArchiveCache = {};"), 3)
 
     def test_multi_select_scripts_use_shared_helpers_and_bulk_services(self):
         request_content = (HISTORY / "scripts" / "request_print_history_multi_select_action.yaml").read_text("utf-8")

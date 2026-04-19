@@ -14,21 +14,35 @@ toggle_print_history_archive_favorite:
         - condition: template
           value_template: "{{ resolved_archive_id != '' }}"
       then:
-        - action: rest_command.bambuddy_toggle_favorite
+        - action: bambuddy.get_print_history_archive_detail
           data:
             archive_id: "{{ resolved_archive_id }}"
+          response_variable: archive_detail_result
+        - variables:
+            current_is_favorite: >-
+              {% set content = archive_detail_result.get('archive', {}) if archive_detail_result is defined and archive_detail_result is mapping else {} %}
+              {% if content is string %}
+                {% set detail = content | from_json({}) %}
+              {% elif content is mapping %}
+                {% set detail = content %}
+              {% else %}
+                {% set detail = {} %}
+              {% endif %}
+              {{ detail.get('is_favorite', false) }}
+            next_is_favorite: "{{ not (current_is_favorite | bool) }}"
+        - action: bambuddy.set_print_history_archive_favorite
+          data:
+            archive_id: "{{ resolved_archive_id }}"
+            is_favorite: "{{ next_is_favorite }}"
+          response_variable: favorite_update_result
         - if:
             - condition: template
               value_template: >-
                 {{ states('input_text.print_history_popup_archive_id') | default('', true) | string | trim == resolved_archive_id }}
           then:
-            - action: bambuddy.get_print_history_archive_detail
-              data:
-                archive_id: "{{ resolved_archive_id }}"
-              response_variable: popup_detail_result
             - variables:
                 popup_is_favorite: >-
-                  {% set content = popup_detail_result.get('archive', {}) if popup_detail_result is defined and popup_detail_result is mapping else {} %}
+                  {% set content = favorite_update_result.get('archive', {}) if favorite_update_result is defined and favorite_update_result is mapping else {} %}
                   {% if content is string %}
                     {% set detail = content | from_json({}) %}
                   {% elif content is mapping %}
