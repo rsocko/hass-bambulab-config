@@ -24,7 +24,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._resolvedNozzleDiameter = 0.4;
     this._viewerSettings = {
       showLayerScrubber: true,
-      startLayer: null,
       endLayer: null,
       renderBuildVolume: true,
       buildVolumeX: null,
@@ -61,9 +60,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._lineHeightValue = null;
     this._layerScrubberToggleButton = null;
     this._layerScrubberPanel = null;
-    this._layerScrubberStartRange = null;
     this._layerScrubberEndRange = null;
-    this._layerScrubberSelection = null;
     this._buildVolumeToggleButton = null;
     this._buildVolumeXInput = null;
     this._buildVolumeYInput = null;
@@ -130,7 +127,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     };
     this._renderAnimated = false;
     this._totalLayers = 0;
-    this._viewerSettings.startLayer = null;
     this._viewerSettings.endLayer = null;
     this._loadedSignature = "";
     this._renderShell();
@@ -198,16 +194,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._layerScrubberToggleButton.removeEventListener("click", this._boundLayerScrubberToggleHandler);
       this._layerScrubberToggleButton = null;
     }
-    if (this._layerScrubberStartRange) {
-      this._layerScrubberStartRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
-      this._layerScrubberStartRange = null;
-    }
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
       this._layerScrubberEndRange = null;
-    }
-    if (this._layerScrubberSelection) {
-      this._layerScrubberSelection = null;
     }
     if (this._buildVolumeToggleButton) {
       this._buildVolumeToggleButton.removeEventListener("click", this._boundBuildVolumeToggleHandler);
@@ -325,12 +314,31 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._preview = null;
   }
 
-  _syncLoadedSignature() {
-    this._loadedSignature = JSON.stringify({
+  _buildLoadSignature() {
+    return JSON.stringify({
       config: this._config,
       renderAnimated: this._renderAnimated,
-      viewerSettings: this._viewerSettings,
+      viewerSettings: {
+        renderBuildVolume: this._viewerSettings.renderBuildVolume,
+        buildVolumeX: this._viewerSettings.buildVolumeX,
+        buildVolumeY: this._viewerSettings.buildVolumeY,
+        buildVolumeZ: this._viewerSettings.buildVolumeZ,
+        backgroundColor: this._viewerSettings.backgroundColor,
+        gridColor: this._viewerSettings.gridColor,
+        renderTubes: this._viewerSettings.renderTubes,
+        extrusionWidth: this._viewerSettings.extrusionWidth,
+        lineWidth: this._viewerSettings.lineWidth,
+        useFixedLineHeight: this._viewerSettings.useFixedLineHeight,
+        lineHeight: this._viewerSettings.lineHeight,
+        showTravelMoves: this._viewerSettings.showTravelMoves,
+        travelColor: this._viewerSettings.travelColor,
+        useColorGradient: this._viewerSettings.useColorGradient,
+      },
     });
+  }
+
+  _syncLoadedSignature() {
+    this._loadedSignature = this._buildLoadSignature();
   }
 
   _clearTimer(name) {
@@ -374,11 +382,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (!this.isConnected || !this._config || !this.shadowRoot || !this._hass) {
       return;
     }
-    const signature = JSON.stringify({
-      config: this._config,
-      renderAnimated: this._renderAnimated,
-      viewerSettings: this._viewerSettings,
-    });
+    const signature = this._buildLoadSignature();
     if (signature === this._loadedSignature) {
       return;
     }
@@ -453,23 +457,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".configuration-inline-note{font-size:0.74rem;line-height:1.45;color:#8fa5b6;}" +
       ".layer-scrubber{position:absolute;right:18px;top:92px;bottom:92px;width:30px;display:flex;align-items:center;justify-content:center;z-index:5;}" +
       ".layer-scrubber[hidden]{display:none;}" +
-      ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:30px;padding:8px 0;}" +
-      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:6px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(148,163,184,0.28),rgba(71,85,105,0.34));pointer-events:none;}" +
-      ".layer-scrubber-selection{position:absolute;left:50%;width:6px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(125,211,252,0.95),rgba(56,189,248,0.95));box-shadow:0 0 8px rgba(56,189,248,0.18);pointer-events:none;}" +
-      ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:none;width:30px;height:100%;min-height:220px;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer;}" +
+      ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:24px;padding:8px 0;}" +
+      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:4px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(148,163,184,0.24),rgba(71,85,105,0.3));pointer-events:none;}" +
+      ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:none;width:24px;height:100%;min-height:220px;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer;}" +
       ".layer-scrubber-range:hover,.layer-scrubber-range:focus-visible{outline:none;filter:brightness(1.08);}" +
       ".layer-scrubber-range::-webkit-slider-runnable-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range:hover::-webkit-slider-runnable-track,.layer-scrubber-range:focus-visible::-webkit-slider-runnable-track{border-color:transparent;background:transparent;box-shadow:none;}" +
-      ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-left:-4px;border-radius:999px;border:none;background:#ecfeff;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
-      ".layer-scrubber-range.start::-webkit-slider-thumb{background:#38bdf8;}" +
-      ".layer-scrubber-range.end::-webkit-slider-thumb{background:#ecfeff;}" +
+      ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-left:0;border-radius:999px;border:none;background:#38bdf8;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease;}" +
       ".layer-scrubber-range:hover::-webkit-slider-thumb,.layer-scrubber-range:focus-visible::-webkit-slider-thumb{transform:scale(1.04);box-shadow:0 0 0 2px rgba(8,15,26,0.86),0 0 0 4px rgba(125,211,252,0.12),0 4px 12px rgba(0,0,0,0.28);}" +
       ".layer-scrubber-range::-moz-range-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range:hover::-moz-range-track,.layer-scrubber-range:focus-visible::-moz-range-track{border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range::-moz-range-progress{background:transparent;}" +
-      ".layer-scrubber-range::-moz-range-thumb{width:14px;height:14px;border-radius:999px;border:none;background:#ecfeff;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
-      ".layer-scrubber-range.start::-moz-range-thumb{background:#38bdf8;}" +
-      ".layer-scrubber-range.end::-moz-range-thumb{background:#ecfeff;}" +
+      ".layer-scrubber-range::-moz-range-thumb{width:12px;height:12px;border-radius:999px;border:none;background:#38bdf8;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease;}" +
       ".layer-scrubber-range:hover::-moz-range-thumb,.layer-scrubber-range:focus-visible::-moz-range-thumb{transform:scale(1.04);box-shadow:0 0 0 2px rgba(8,15,26,0.86),0 0 0 4px rgba(125,211,252,0.12),0 4px 12px rgba(0,0,0,0.28);}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
@@ -597,9 +596,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div id='layer-scrubber' class='layer-scrubber'>" +
       "<div class='layer-scrubber-track'>" +
       "<div class='layer-scrubber-rail'></div>" +
-      "<div id='layer-scrubber-selection' class='layer-scrubber-selection'></div>" +
-      "<input id='layer-scrubber-end-range' class='layer-scrubber-range end' type='range' min='1' max='1' step='1' value='1' aria-label='End layer'>" +
-      "<input id='layer-scrubber-start-range' class='layer-scrubber-range start' type='range' min='1' max='1' step='1' value='1' aria-label='Start layer'>" +
+      "<input id='layer-scrubber-end-range' class='layer-scrubber-range' type='range' min='1' max='1' step='1' value='1' aria-label='Visible layers'>" +
       "</div>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
@@ -697,9 +694,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._travelColorInput = this.shadowRoot.getElementById("travel-color-input");
     this._gradientToggleButton = this.shadowRoot.getElementById("gradient-toggle-button");
     this._layerScrubberPanel = this.shadowRoot.getElementById("layer-scrubber");
-    this._layerScrubberStartRange = this.shadowRoot.getElementById("layer-scrubber-start-range");
     this._layerScrubberEndRange = this.shadowRoot.getElementById("layer-scrubber-end-range");
-    this._layerScrubberSelection = this.shadowRoot.getElementById("layer-scrubber-selection");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -762,9 +757,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._gradientToggleButton) {
       this._gradientToggleButton.addEventListener("click", this._boundGradientToggleHandler);
-    }
-    if (this._layerScrubberStartRange) {
-      this._layerScrubberStartRange.addEventListener("input", this._boundLayerScrubberInputHandler);
     }
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.addEventListener("input", this._boundLayerScrubberInputHandler);
@@ -879,7 +871,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
   _effectiveLayerWindow() {
     const maxLayer = Math.max(this._totalLayers, 1);
-    const startLayer = this._clampNumber(this._viewerSettings.startLayer, 1, maxLayer, 1);
+    const startLayer = 1;
     const endLayer = this._clampNumber(this._viewerSettings.endLayer, startLayer, maxLayer, maxLayer);
     return {
       startLayer,
@@ -920,18 +912,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _updateLayerScrubberSelection() {
-    if (!this._layerScrubberSelection || !this._totalLayers) {
-      if (this._layerScrubberSelection) {
-        this._layerScrubberSelection.style.top = "";
-        this._layerScrubberSelection.style.bottom = "";
-      }
-      return;
-    }
-    const window = this._effectiveLayerWindow();
-    const topPercent = ((window.startLayer - 1) / this._totalLayers) * 100;
-    const bottomPercent = ((this._totalLayers - window.endLayer) / this._totalLayers) * 100;
-    this._layerScrubberSelection.style.top = `${topPercent}%`;
-    this._layerScrubberSelection.style.bottom = `${bottomPercent}%`;
+    return;
   }
 
   _applyLayerScrubberState() {
@@ -939,10 +920,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
     const window = this._effectiveLayerWindow();
-    this._viewerSettings.startLayer = window.startLayer;
     this._viewerSettings.endLayer = window.endLayer;
     this._setPreviewLayerWindow(this._preview, window.startLayer, window.endLayer);
-    this._updateLayerScrubberSelection();
+    if (typeof this._preview.render === "function") {
+      this._preview.render();
+    }
   }
 
   _scheduleLayerScrubberApply() {
@@ -950,7 +932,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._layerScrubberTimer = setTimeout(() => {
       this._layerScrubberTimer = null;
       this._applyLayerScrubberState();
-      this._syncLoadedSignature();
     }, 60);
   }
 
@@ -1018,26 +999,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleLayerScrubberToggle() {
     this._viewerSettings.showLayerScrubber = !this._viewerSettings.showLayerScrubber;
     if (!this._viewerSettings.showLayerScrubber && this._totalLayers) {
-      this._viewerSettings.startLayer = 1;
       this._viewerSettings.endLayer = this._totalLayers;
       this._applyLayerScrubberState();
     }
-    this._syncLoadedSignature();
     this._updateConfigurationControls();
   }
 
   _handleLayerScrubberInput(event) {
     const target = event && event.target;
     const maxLayer = Math.max(this._totalLayers, 1);
-    const current = this._effectiveLayerWindow();
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
-    if (target.id === "layer-scrubber-start-range") {
-      this._viewerSettings.startLayer = this._clampNumber(target.value, 1, current.endLayer, 1);
-    } else {
-      this._viewerSettings.endLayer = this._clampNumber(target.value, current.startLayer, maxLayer, maxLayer);
-    }
+    this._viewerSettings.endLayer = this._clampNumber(target.value, 1, maxLayer, maxLayer);
     this._updateConfigurationControls();
     this._scheduleLayerScrubberApply();
   }
@@ -1186,30 +1160,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     const maxLayer = Math.max(this._totalLayers, 1);
     const layerWindow = this._effectiveLayerWindow();
-    if (this._layerScrubberStartRange) {
-      this._layerScrubberStartRange.min = this._totalLayers ? "1" : "0";
-      this._layerScrubberStartRange.max = String(maxLayer);
-      this._layerScrubberStartRange.value = String(layerWindow.startLayer);
-      this._layerScrubberStartRange.disabled = this._totalLayers <= 1;
-    }
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.min = this._totalLayers ? "1" : "0";
       this._layerScrubberEndRange.max = String(maxLayer);
       this._layerScrubberEndRange.value = String(layerWindow.endLayer);
       this._layerScrubberEndRange.disabled = this._totalLayers <= 1;
-    }
-    this._updateLayerScrubberSelection();
-    const effectiveBuildVolume = this._effectiveBuildVolume();
-    if (this._buildVolumeXInput) {
-      this._buildVolumeXInput.value = String(Math.round(effectiveBuildVolume.x));
-    }
     if (this._buildVolumeYInput) {
       this._buildVolumeYInput.value = String(Math.round(effectiveBuildVolume.y));
     }
     if (this._buildVolumeZRange) {
       this._buildVolumeZRange.value = String(Math.round(effectiveBuildVolume.z));
     }
-    if (this._buildVolumeZValue) {
       this._buildVolumeZValue.textContent = String(Math.round(effectiveBuildVolume.z));
     }
     if (this._backgroundColorInput) {
@@ -2656,9 +2617,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
         preview.processGCode(previewGcode);
         this._applySceneManagerColors(preview);
         this._totalLayers = this._resolvePreviewLayerCount(preview);
-        if (!Number.isFinite(this._viewerSettings.startLayer) || this._viewerSettings.startLayer == null) {
-          this._viewerSettings.startLayer = 1;
-        }
         if (!Number.isFinite(this._viewerSettings.endLayer) || this._viewerSettings.endLayer == null || this._viewerSettings.endLayer > this._totalLayers) {
           this._viewerSettings.endLayer = this._totalLayers;
         }
