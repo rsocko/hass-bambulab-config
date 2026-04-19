@@ -825,11 +825,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=52", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=5", content)
-        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=102", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=42", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=54", content)
+        self.assertNotIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=5", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
         content = (
@@ -2106,11 +2106,11 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
 
     def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=6", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=52", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=102", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
         browser_card_content = (
