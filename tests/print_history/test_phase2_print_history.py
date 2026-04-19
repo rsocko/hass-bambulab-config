@@ -189,14 +189,21 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_SCRIPTS = [
+        "bulk_assign_print_history_project.yaml",
+        "bulk_delete_print_history_archives.yaml",
+        "bulk_set_print_history_archive_favorite.yaml",
+        "bulk_update_print_history_user_tags.yaml",
         "backfill_print_history_archive_enrichment.yaml",
+        "cancel_print_history_multi_select_mode.yaml",
         "capture_and_upload_snapshot.yaml",
+        "enter_print_history_multi_select_mode.yaml",
         "resolve_current_archive_id.yaml",
         "load_history_page.yaml",
         "navigate_history.yaml",
         "refresh_print_history_archives.yaml",
         "clear_print_history_filters.yaml",
         "print_history_payload_self_test.yaml",
+        "request_print_history_multi_select_action.yaml",
     ]
 
     EXPECTED_REST_COMMANDS = [
@@ -231,6 +238,7 @@ class TestFileInventory(unittest.TestCase):
         "input_text_print_history_activity_selected_date.yaml",
         "input_text_print_history_filter_end_date.yaml",
         "input_text_print_history_filter_start_date.yaml",
+        "input_text_print_history_multi_select_request.yaml",
         "input_text_print_history_restore_source_archive_id.yaml",
         "input_text_print_history_restore_target_archive_id.yaml",
         "input_text_print_history_restore_upload_session_id.yaml",
@@ -247,6 +255,8 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
+        "input_boolean_print_history_multi_select_all_favorites.yaml",
+        "input_boolean_print_history_multi_select_mode.yaml",
         "input_boolean_print_history_show_activity_heatmap.yaml",
     ]
 
@@ -255,6 +265,7 @@ class TestFileInventory(unittest.TestCase):
         "input_number_history_current_page.yaml",
         "input_number_midprint_capture_percent.yaml",
         "input_number_photo_review_timeout_hours.yaml",
+        "input_number_print_history_multi_select_count.yaml",
         "input_number_print_history_page_size.yaml",
         "input_number_print_history_max_archives.yaml",
     ]
@@ -286,6 +297,7 @@ class TestFileInventory(unittest.TestCase):
         "print_history_activity_panel.yaml",
         "print_history.yaml",
         "print_history_browser.yaml",
+        "print_history_top_controls.yaml",
         "photo_review_chip.yaml",
     ]
 
@@ -817,7 +829,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=50", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=31", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=32", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -826,9 +838,12 @@ class TestHeatmapActivityCard(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('action === "advanced-actions"', content)
-        self.assertIn('label: "Advanced Actions"', content)
+        self.assertIn('label: "..."', content)
         self.assertIn('label: "Repair Archive"', content)
         self.assertIn('label: "Delete Archive"', content)
+        self.assertIn('Archive ID #', content)
+        self.assertIn('Yes, Continue to Delete', content)
+        self.assertIn('**PERMANENTLY REMOVES**', content)
         self.assertIn('var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";', content)
         self.assertIn('service: "bambuddy.delete_print_history_archive"', content)
         self.assertIn('No thumbnail or photos are available for this archive yet.', content)
@@ -1271,14 +1286,15 @@ class TestEnrichmentArchiveUpdatePayload(unittest.TestCase):
         self.assertIn("effective_payload_rows", content)
 
     def test_update_archive_payload_is_field_optional(self):
-        """PATCH payload should always include tags/notes and add native fields only when passed."""
+        """PATCH payload should include only the archive fields that are explicitly supplied."""
         content = (HISTORY / "rest_commands" / "bambuddy_update_archive.yaml").read_text("utf-8")
         self.assertIn("namespace(body={", content)
-        self.assertIn('"tags": tags | default(\'\', true)', content)
-        self.assertIn('"notes": notes | default(\'\', true)', content)
+        self.assertIn("{% if tags is defined %}", content)
+        self.assertIn("{% if notes is defined %}", content)
         self.assertIn("{% if cost is defined %}", content)
         self.assertIn("{% if status is defined %}", content)
         self.assertIn("{% if failure_reason is defined %}", content)
+        self.assertIn("{% if is_favorite is defined %}", content)
         self.assertIn("tojson", content)
         self.assertNotIn('"tags": [', content)
 
@@ -1537,6 +1553,23 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn(".bubble-sub-button.cache-limit", browser_yaml_content)
         self.assertIn("browser_mod.popup", browser_yaml_content)
         self.assertIn("Print History Cache", browser_yaml_content)
+
+    def test_top_controls_switches_between_normal_and_multi_select_modes(self):
+        content = (HISTORY / "dashboard_cards" / "print_history_top_controls.yaml").read_text("utf-8")
+
+        self.assertIn("input_boolean.print_history_multi_select_mode", content)
+        self.assertIn("input_number.print_history_multi_select_count", content)
+        self.assertIn("input_boolean.print_history_multi_select_all_favorites", content)
+        self.assertIn("input_text.print_history_multi_select_request", content)
+        self.assertIn("script.enter_print_history_multi_select_mode", content)
+        self.assertIn("script.cancel_print_history_multi_select_mode", content)
+        self.assertIn("script.request_print_history_multi_select_action", content)
+        self.assertIn("mdi:checkbox-multiple-blank-outline", content)
+        self.assertIn("mdi:checkbox-multiple-marked-outline", content)
+        self.assertIn("mdi:select-all", content)
+        self.assertIn("mdi:tag-multiple-outline", content)
+        self.assertIn("mdi:folder-multiple-outline", content)
+        self.assertIn("mdi:trash-can-outline", content)
 
 
 # =============================================================================
@@ -2438,6 +2471,46 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("action: input_boolean.turn_on", content)
         self.assertIn("action: input_boolean.turn_off", content)
         self.assertNotIn("action: script.refresh_print_history_archives", content)
+
+    def test_multi_select_scripts_use_shared_helpers_and_bulk_services(self):
+        request_content = (HISTORY / "scripts" / "request_print_history_multi_select_action.yaml").read_text("utf-8")
+        enter_content = (HISTORY / "scripts" / "enter_print_history_multi_select_mode.yaml").read_text("utf-8")
+        cancel_content = (HISTORY / "scripts" / "cancel_print_history_multi_select_mode.yaml").read_text("utf-8")
+        tag_content = (HISTORY / "scripts" / "bulk_update_print_history_user_tags.yaml").read_text("utf-8")
+        project_content = (HISTORY / "scripts" / "bulk_assign_print_history_project.yaml").read_text("utf-8")
+        favorite_content = (HISTORY / "scripts" / "bulk_set_print_history_archive_favorite.yaml").read_text("utf-8")
+        delete_content = (HISTORY / "scripts" / "bulk_delete_print_history_archives.yaml").read_text("utf-8")
+
+        self.assertIn("input_text.print_history_multi_select_request", request_content)
+        self.assertIn("requested_action ~ '|' ~ (now().timestamp() | int(0))", request_content)
+        self.assertIn("input_boolean.print_history_multi_select_mode", enter_content)
+        self.assertIn("input_number.print_history_multi_select_count", enter_content)
+        self.assertIn("input_boolean.print_history_multi_select_all_favorites", cancel_content)
+        self.assertIn("bambuddy.get_print_history_archive_detail", tag_content)
+        self.assertIn("preserved_system_tags", tag_content)
+        self.assertIn("rest_command.bambuddy_update_archive", tag_content)
+        self.assertIn('project_id: "{{ resolved_project_id }}"', project_content)
+        self.assertIn('is_favorite: "{{ target_favorite }}"', favorite_content)
+        self.assertIn("bambuddy.delete_print_history_archive", delete_content)
+
+    def test_browser_card_supports_multi_select_mode_and_bulk_dialogs(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("this._selectionSignature = \"\";", content)
+        self.assertIn("this._selectedArchiveIds = {};", content)
+        self.assertIn("_buildSelectionSignature()", content)
+        self.assertIn("_isMultiSelectMode()", content)
+        self.assertIn("_consumePendingMultiSelectRequest()", content)
+        self.assertIn("data-action=\"select-archive\"", content)
+        self.assertIn("selection-badge", content)
+        self.assertIn("bulk-dialog", content)
+        self.assertIn("bulk_update_print_history_user_tags", content)
+        self.assertIn("bulk_assign_print_history_project", content)
+        self.assertIn("bulk_set_print_history_archive_favorite", content)
+        self.assertIn("bulk_delete_print_history_archives", content)
+        self.assertIn("Type DELETE to permanently remove the selected prints.", content)
 
     def test_print_history_append_event_calls_capture_response_data(self):
         files = (

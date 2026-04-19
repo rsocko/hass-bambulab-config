@@ -733,7 +733,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       hold_action: { action: "none" },
       styles: {
         card: [
-          { padding: "12px 14px" },
+          { padding: "14px 16px" },
           { "border-radius": "16px" },
           { "box-shadow": "none" },
           { border: String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") },
@@ -741,22 +741,86 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         ],
         grid: [
           { "grid-template-areas": '"i n"' },
-          { "grid-template-columns": "20px 1fr" },
+          { "grid-template-columns": "24px 1fr" },
           { "align-items": "center" },
-          { gap: "10px" },
+          { gap: "12px" },
         ],
         icon: [
-          { width: "20px" },
-          { height: "20px" },
+          { width: "24px" },
+          { height: "24px" },
           { color: String(cardOptions.icon_color || "var(--primary-text-color)") },
         ],
         name: [
-          { "font-size": "13px" },
+          { "font-size": "15px" },
           { "font-weight": "700" },
           { color: "var(--primary-text-color)" },
           { "text-align": "left" },
           { "justify-self": "start" },
         ],
+      },
+    };
+  }
+
+  _resolveArchivePreviewImage(archive) {
+    var baseUrl = this._getBaseUrl();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (!baseUrl || archiveId == null) {
+      return null;
+    }
+
+    var selectedPrimaryPhotoPath = String(archive && archive.selected_primary_photo_path || "").trim();
+    var primaryPhotoPath = String(archive && archive.primary_photo_path || "").trim();
+    var thumbnailPath = String(archive && archive.thumbnail_path || "").trim();
+    var photos = Array.isArray(archive && archive.photos) ? archive.photos : [];
+    var fallbackPhotoPath = photos.length ? String(photos[0] || "").trim() : "";
+    var previewPhotoPath = selectedPrimaryPhotoPath || primaryPhotoPath || fallbackPhotoPath;
+
+    if (previewPhotoPath) {
+      return {
+        src: this._withArchiveMediaCacheKey(
+          baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/photos/" + encodeURIComponent(previewPhotoPath),
+          archive
+        ),
+        alt: archive && archive.print_name ? String(archive.print_name) : "Archive preview",
+      };
+    }
+
+    if (thumbnailPath) {
+      return {
+        src: this._withArchiveMediaCacheKey(
+          baseUrl + "/api/v1/archives/" + encodeURIComponent(String(archiveId)) + "/thumbnail",
+          archive
+        ),
+        alt: archive && archive.print_name ? String(archive.print_name) : "Archive thumbnail",
+      };
+    }
+
+    return null;
+  }
+
+  _buildArchiveSummaryCard(archive, options) {
+    var cardOptions = options || {};
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "Untitled Archive";
+    var previewImage = this._resolveArchivePreviewImage(archive);
+    var summaryLines = [
+      '<div style="font-size:16px;font-weight:700;line-height:1.35;">' + this._escapeHtml(archiveName) + '</div>',
+      '<div style="margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>',
+    ];
+
+    if (previewImage && previewImage.src) {
+      summaryLines.push(
+        '<img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '" style="display:block;width:100%;max-height:168px;object-fit:cover;border-radius:14px;margin-top:12px;background:rgba(15,23,42,0.32);">'
+      );
+    }
+
+    return {
+      type: "markdown",
+      content: summaryLines.join(""),
+      card_mod: {
+        style: {
+          ".": "ha-card { padding: 4px 4px 6px; background: " + String(cardOptions.background || "rgba(255,255,255,0.03)") + "; border: " + String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") + "; border-radius: 18px; box-shadow: none; }",
+        },
       },
     };
   }
@@ -834,8 +898,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var secondLevel = level === 2;
     var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";
     var body = secondLevel
-      ? "This permanently removes the archive in Bambuddy and immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata."
-      : "Delete " + archiveName + " from Bambuddy? Bambuddy should remove the archive directory, photos, thumbnails, and source media as part of the archive delete.";
+      ? "Delete **" + archiveName + "** from Bambuddy?\n\n**PERMANENTLY REMOVES** the archive, photos, thumbnails, source media, timeline, and related local metadata.\n\nThis also immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata."
+      : "Delete **" + archiveName + "** from Bambuddy?\n\nThis will remove the archive, photos, thumbnails, source media, timeline, and related metadata as part of the archive delete.";
     var deleteTapAction = secondLevel
       ? {
           action: "fire-dom-event",
@@ -860,12 +924,16 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       content: {
         type: "vertical-stack",
         cards: [
+          this._buildArchiveSummaryCard(archive, {
+            background: secondLevel ? "rgba(183,28,28,0.08)" : "rgba(239,108,0,0.08)",
+            border: secondLevel ? "1px solid rgba(239,68,68,0.16)" : "1px solid rgba(255,167,38,0.16)",
+          }),
           {
             type: "markdown",
             content: body,
           },
           this._buildPopupActionCard({
-            label: secondLevel ? "Delete Archive Now" : "Continue to Final Delete",
+            label: secondLevel ? "Delete Archive Now" : "Yes, Continue to Delete",
             icon: secondLevel ? "mdi:delete-forever-outline" : "mdi:alert-outline",
             background: secondLevel ? "rgba(183,28,28,0.16)" : "rgba(239,108,0,0.16)",
             border: secondLevel ? "1px solid rgba(239,68,68,0.28)" : "1px solid rgba(255,167,38,0.22)",
@@ -900,10 +968,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       content: {
         type: "vertical-stack",
         cards: [
-          {
-            type: "markdown",
-            content: "Use advanced archive actions for repair or permanent deletion.",
-          },
+          this._buildArchiveSummaryCard(archive),
           this._buildPopupActionCard({
             label: "Repair Archive",
             icon: "mdi:wrench-cog",
@@ -1475,8 +1540,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return this._buildActionButtonHtml({
       className: "stage-action-button",
       action: "advanced-actions",
-      icon: "mdi:dots-horizontal-circle-outline",
-      label: "Advanced Actions",
+      label: "...",
       title: "Open advanced archive actions",
     });
   }
@@ -1597,10 +1661,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.expand{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.3);color:var(--primary-text-color);}" +
       ".icon-action.expand:hover,.icon-action.expand:focus-visible{background:rgba(30,64,175,0.36);color:var(--primary-text-color);border-color:rgba(96,165,250,0.48);box-shadow:0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.expand:active{transform:translateY(0);}" +
-      ".stage-action-button{appearance:none;border:1px solid rgba(148,163,184,0.30);border-radius:999px;padding:8px 12px;background:rgba(15,23,42,0.82);color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;backdrop-filter:blur(10px);pointer-events:auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
+      ".stage-action-button{appearance:none;border:1px solid rgba(148,163,184,0.30);border-radius:999px;width:38px;height:38px;padding:0;background:rgba(15,23,42,0.82);color:#fff;font-size:18px;font-weight:800;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);pointer-events:auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
       ".stage-action-button:hover,.stage-action-button:focus-visible{background:rgba(30,41,59,0.96);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
       ".stage-action-button:active{transform:translateY(0);}" +
-      ".stage-action-button .button-icon{--mdc-icon-size:15px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +

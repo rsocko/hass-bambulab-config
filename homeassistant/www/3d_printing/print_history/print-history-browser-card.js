@@ -6,11 +6,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._config = null;
     this._querySignature = "";
     this._viewSignature = "";
+    this._selectionSignature = "";
     this._queryToken = 0;
     this._refreshTimer = null;
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
+    this._selectedArchiveIds = {};
+    this._handledMultiSelectRequest = "";
+    this._bulkDialog = null;
+    this._bulkActionBusy = false;
     this._normalizedArchiveCache = {};
     this._mediaGalleryIndices = {};
     this._mediaSwipe = null;
@@ -49,6 +54,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
     this._querySignature = "";
     this._viewSignature = "";
+    this._selectionSignature = "";
+    this._selectedArchiveIds = {};
+    this._handledMultiSelectRequest = "";
+    this._bulkDialog = null;
+    this._bulkActionBusy = false;
     this._normalizedArchiveCache = {};
     this._renderShell();
     this._queueRefresh();
@@ -62,9 +72,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var nextQuerySignature = this._buildQuerySignature(hass);
     var nextViewSignature = this._buildViewSignature(hass);
+    var nextSelectionSignature = this._buildSelectionSignature(hass);
+    var selectionChanged = nextSelectionSignature !== this._selectionSignature;
 
     if (nextQuerySignature !== this._querySignature) {
       this._querySignature = nextQuerySignature;
+      this._selectionSignature = nextSelectionSignature;
       this._queueRefresh();
       return;
     }
@@ -72,6 +85,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (nextViewSignature !== this._viewSignature) {
       this._viewSignature = nextViewSignature;
       this._renderBody();
+    }
+
+    if (selectionChanged) {
+      this._selectionSignature = nextSelectionSignature;
+      this._applySelectionOnlyState();
     }
   }
 
@@ -288,6 +306,29 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".icon-action.viewer:active{transform:translateY(0);}" +
       ".favorite.active{background:rgba(245,194,66,0.22);color:#f5c242;box-shadow:0 0 0 1px rgba(245,194,66,0.18);}" +
       ".favorite.active:hover,.favorite.active:focus-visible{background:rgba(245,194,66,0.30);color:#ffd55f;box-shadow:0 0 0 1px rgba(245,194,66,0.26);}" +
+      ".card.selection-mode{cursor:pointer;}" +
+      ".card.selection-mode.selected{border-color:color-mix(in srgb, var(--primary-color, #1976d2) 48%, var(--divider-color));box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color, #1976d2) 28%, rgba(255,255,255,0.08)),0 12px 24px rgba(15,23,42,0.12);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 84%, rgba(25,118,210,0.16)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(25,118,210,0.10)));}" +
+      ".selection-badge{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.32);border:1px solid rgba(255,255,255,0.12);color:var(--secondary-text-color);font-size:11px;font-weight:700;line-height:1.1;white-space:nowrap;}" +
+      ".selection-badge ha-icon{--mdc-icon-size:15px;width:15px;height:15px;min-width:15px;min-height:15px;display:block;}" +
+      ".selection-badge.active{background:rgba(25,118,210,0.18);border-color:rgba(25,118,210,0.44);color:var(--primary-text-color);}" +
+      ".selection-meta{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
+      ".bulk-dialog-backdrop{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,0.56);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}" +
+      ".bulk-dialog{width:min(520px,100%);max-height:min(90vh,780px);overflow:auto;border-radius:24px;border:1px solid rgba(255,255,255,0.12);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 94%, rgba(255,255,255,0.06)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 98%, rgba(255,255,255,0.02)));box-shadow:0 18px 44px rgba(15,23,42,0.28);padding:22px;box-sizing:border-box;}" +
+      ".bulk-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}" +
+      ".bulk-dialog-title{font-size:18px;font-weight:700;line-height:1.2;}" +
+      ".bulk-dialog-subtle{font-size:12px;color:var(--secondary-text-color);line-height:1.45;}" +
+      ".bulk-dialog-body{display:grid;gap:14px;}" +
+      ".bulk-dialog-field{display:grid;gap:6px;}" +
+      ".bulk-dialog-field label{font-size:12px;font-weight:700;color:var(--secondary-text-color);}" +
+      ".bulk-dialog-field input,.bulk-dialog-field select{width:100%;min-height:42px;border-radius:14px;border:1px solid rgba(148,163,184,0.34);background:rgba(15,23,42,0.18);color:var(--primary-text-color);padding:0 14px;box-sizing:border-box;font:inherit;}" +
+      ".bulk-dialog-field input:focus,.bulk-dialog-field select:focus{outline:none;border-color:color-mix(in srgb, var(--primary-color, #1976d2) 54%, rgba(148,163,184,0.34));box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color, #1976d2) 22%, transparent);}" +
+      ".bulk-dialog-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap;}" +
+      ".bulk-dialog-button{appearance:none;-webkit-appearance:none;border:none;border-radius:999px;min-height:38px;padding:0 16px;background:rgba(255,255,255,0.08);color:var(--primary-text-color);font:inherit;font-weight:700;cursor:pointer;transition:transform .16s ease,background .16s ease,box-shadow .16s ease;}" +
+      ".bulk-dialog-button:hover,.bulk-dialog-button:focus-visible{outline:none;transform:translateY(-1px);background:rgba(255,255,255,0.12);box-shadow:0 0 0 1px rgba(255,255,255,0.12);}" +
+      ".bulk-dialog-button:active{transform:translateY(0);}" +
+      ".bulk-dialog-button.primary{background:color-mix(in srgb, var(--primary-color, #1976d2) 88%, rgba(255,255,255,0.12));color:#fff;}" +
+      ".bulk-dialog-button.danger{background:rgba(198,40,40,0.18);color:#ffd7d7;}" +
+      ".bulk-dialog-button[disabled]{opacity:.52;pointer-events:none;cursor:default;transform:none;box-shadow:none;}" +
       ".archive-error-text{font-size:12px;line-height:1.45;overflow-wrap:anywhere;}" +
       ".archive-error-text.warning{color:#FFD89B;}" +
       ".archive-error-text.error{color:#FFB4AB;}" +
@@ -298,6 +339,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
       '<div id="body" class="status">Loading print history…</div>' +
+      '<div id="dialog-host"></div>' +
       "</ha-card>";
 
     var titleNode = this.shadowRoot.querySelector(".title");
@@ -341,6 +383,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
       count: Array.isArray(this._response.archives) ? this._response.archives.length : 0,
       error: this._error,
       loading: this._loading,
+    });
+  }
+
+  _buildSelectionSignature() {
+    return JSON.stringify({
+      mode: this._isMultiSelectMode(),
+      request: String(this._stateValue("input_text.print_history_multi_select_request") || "").trim(),
     });
   }
 
@@ -482,6 +531,107 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return String(this._stateValue(this._config.api_base_entity) || "").replace(/\/$/, "");
   }
 
+  _isMultiSelectMode() {
+    return this._stateValue("input_boolean.print_history_multi_select_mode") === "on";
+  }
+
+  _selectedArchiveIdList() {
+    return Object.keys(this._selectedArchiveIds || {}).filter(function (archiveId) {
+      return !!this._selectedArchiveIds[archiveId];
+    }.bind(this));
+  }
+
+  _selectedArchiveIdsCsv() {
+    return this._selectedArchiveIdList().join(",");
+  }
+
+  _selectedArchiveCount() {
+    return this._selectedArchiveIdList().length;
+  }
+
+  _archiveById(archiveId) {
+    var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
+    for (var index = 0; index < archives.length; index += 1) {
+      if (String(archives[index] && archives[index].id || "") === String(archiveId || "")) {
+        return archives[index];
+      }
+    }
+    return null;
+  }
+
+  _selectedArchivesAllFavorites() {
+    var selectedIds = this._selectedArchiveIdList();
+    if (!selectedIds.length) {
+      return false;
+    }
+    for (var index = 0; index < selectedIds.length; index += 1) {
+      var archive = this._archiveById(selectedIds[index]);
+      if (!archive || !archive.is_favorite) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  _syncMultiSelectSummary() {
+    if (!this._hass) {
+      return;
+    }
+    var selectedCount = this._selectedArchiveCount();
+    var helperCount = Math.max(0, Number(this._stateValue("input_number.print_history_multi_select_count") || 0) || 0);
+    if (selectedCount !== helperCount) {
+      this._hass.callService("input_number", "set_value", {
+        entity_id: "input_number.print_history_multi_select_count",
+        value: selectedCount,
+      });
+    }
+    var allFavorites = this._selectedArchivesAllFavorites();
+    var helperAllFavorites = this._stateValue("input_boolean.print_history_multi_select_all_favorites") === "on";
+    if (allFavorites !== helperAllFavorites) {
+      this._hass.callService("input_boolean", allFavorites ? "turn_on" : "turn_off", {
+        entity_id: "input_boolean.print_history_multi_select_all_favorites",
+      });
+    }
+  }
+
+  _clearLocalMultiSelectState() {
+    this._selectedArchiveIds = {};
+    this._bulkDialog = null;
+    this._bulkActionBusy = false;
+  }
+
+  _reconcileMultiSelectState(archives) {
+    if (!this._isMultiSelectMode()) {
+      if (this._selectedArchiveCount() || this._bulkDialog) {
+        this._clearLocalMultiSelectState();
+      }
+      this._syncMultiSelectSummary();
+      return;
+    }
+
+    var visibleIds = {};
+    (Array.isArray(archives) ? archives : []).forEach(function (archive) {
+      var archiveId = String(archive && archive.id || "").trim();
+      if (archiveId) {
+        visibleIds[archiveId] = true;
+      }
+    });
+
+    var nextSelection = {};
+    Object.keys(this._selectedArchiveIds || {}).forEach(function (archiveId) {
+      if (visibleIds[archiveId]) {
+        nextSelection[archiveId] = true;
+      }
+    });
+    this._selectedArchiveIds = nextSelection;
+    this._syncMultiSelectSummary();
+  }
+
+  _applySelectionOnlyState() {
+    this._renderBody();
+    this._consumePendingMultiSelectRequest();
+  }
+
   _renderBody() {
     var body = this.shadowRoot.getElementById("body");
     if (!body) {
@@ -492,19 +642,23 @@ class PrintHistoryBrowserCard extends HTMLElement {
       var loadingVariant = this._variant();
       body.className = "grid " + loadingVariant.toLowerCase() + " loading";
       body.innerHTML = this._renderSkeletonGrid(loadingVariant);
+      this._renderBulkDialog();
       return;
     }
 
     if (this._error) {
       body.className = "status error";
       body.textContent = this._error;
+      this._renderBulkDialog();
       return;
     }
 
     var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
+    this._reconcileMultiSelectState(archives);
     if (!archives.length && this._config.show_empty_state) {
       body.className = "status";
       body.textContent = "No matching archives. Adjust filters or refresh the archive cache.";
+      this._renderBulkDialog();
       return;
     }
 
@@ -512,6 +666,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var variantClass = variant.toLowerCase();
     body.className = "grid " + variantClass;
     body.innerHTML = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
+    this._renderBulkDialog();
   }
 
   _renderSkeletonGrid(variant) {
@@ -591,6 +746,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _renderArchiveCard(variant, archive) {
     var normalized = this._normalizeArchive(archive || {});
+    var selectionMode = this._isMultiSelectMode();
+    var archiveId = String(normalized.id || "");
+    var isSelected = !!(selectionMode && archiveId && this._selectedArchiveIds[archiveId]);
     var showImages = this._showImages();
     var mediaShowsImages = variant === 'Media' ? true : showImages;
     var baseUrl = this._apiBaseUrl();
@@ -598,7 +756,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
     var tags = normalized.userTags.slice(0, variant === "Media" || variant === "List" ? 4 : 6);
     var hiddenTagCount = Math.max(0, normalized.userTags.length - tags.length);
-    var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "");
+    var cardClass = "card" + (normalized.roleClass ? (" " + normalized.roleClass) : "") + (normalized.hasArchiveError ? (" archive-error archive-error-" + normalized.archiveErrorSeverity) : "") + (selectionMode ? " selection-mode" : "") + (isSelected ? " selected" : "");
     var statusChip = normalized.statusFilterValue
       ? '<button class="chip status-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="status_set" data-filter-value="' + this._escapeAttribute(normalized.statusFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Status: ' + normalized.statusLabel, 'Click to filter by this status')) + '" aria-label="' + this._escapeAttribute('Status ' + normalized.statusLabel + '. Click to filter by this status.') + '" style="background:' + this._escapeAttribute(normalized.statusColor) + ';--status-chip-background:' + this._escapeAttribute(normalized.statusColor) + ';--interactive-chip-border:rgba(255,255,255,0.68);">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</button>'
       : '<div class="chip status-chip" style="background:' + this._escapeAttribute(normalized.statusColor) + ';">' + this._escapeHtml(normalized.statusIcon + ' ' + normalized.statusLabel) + '</div>';
@@ -612,13 +770,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var photoAction = normalized.photoCount > 0
       ? '<span class="chip icon-chip" title="' + this._escapeAttribute(normalized.photoCountLabel) + '"><ha-icon icon="mdi:image-multiple-outline"></ha-icon><span class="icon-chip-badge">' + this._escapeHtml(String(normalized.photoCount)) + '</span></span>'
       : '';
+    var selectionBadge = selectionMode
+      ? '<span class="selection-badge' + (isSelected ? ' active' : '') + '" aria-hidden="true"><ha-icon icon="' + (isSelected ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline') + '"></ha-icon>' + this._escapeHtml(isSelected ? 'Selected' : 'Select') + '</span>'
+      : '';
     var mediaArchivePill = normalized.compactArchiveIdLabel ? '<span class="media-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var listHeaderId = normalized.compactArchiveIdLabel ? '<span class="chip">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>' : '';
     var favoriteButton = this._renderFavoriteButton(normalized, archiveJson);
     var listHeaderActions = '<div class="list-header-actions">'
       + listHeaderId
       + '<div class="action-buttons">'
-      + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)
+      + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction))
       + '</div>'
       + '</div>';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
@@ -676,7 +837,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '<div class="content-top compact">' +
         compactArchiveId +
         '<div class="action-buttons compact-actions">' +
-        this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) +
+        (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)) +
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
@@ -779,8 +940,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var thumbMarkup = variant === 'Media'
       ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
-        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) + '</div></div>'
-        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + (selectionMode ? selectionBadge : this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)) + '</div></div>'
+        + (!selectionMode && mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
         ? (listImageUrl
@@ -793,7 +954,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         : ''));
 
     return "" +
-      '<article class="' + cardClass + '" tabindex="0" role="button" data-action="open" data-archive="' + archiveJson + '" aria-label="Open details for ' + this._escapeAttribute(normalized.printName) + '">' +
+      '<article class="' + cardClass + '" tabindex="0" role="' + (selectionMode ? 'checkbox' : 'button') + '" data-action="' + (selectionMode ? 'select-archive' : 'open') + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute((selectionMode ? 'Select ' : 'Open details for ') + normalized.printName) + '"' + (selectionMode ? (' aria-checked="' + (isSelected ? 'true' : 'false') + '"') : '') + '>' +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       thumbMarkup +
       summaryContent +
@@ -820,6 +981,239 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var isFavorite = !!(normalized && normalized.isFavorite);
     var buttonTitle = this._favoriteButtonTitle(isFavorite);
     return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized && normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
+  }
+
+  _renderBulkDialog() {
+    var host = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("dialog-host") : null;
+    if (!host) {
+      return;
+    }
+    if (!this._bulkDialog || !this._isMultiSelectMode()) {
+      host.innerHTML = "";
+      return;
+    }
+
+    var selectedCount = this._selectedArchiveCount();
+    var dialogTitle = this._bulkDialog.type === "project" ? "Assign Project" : "Edit Tags";
+    var helperText = this._bulkDialog.type === "project"
+      ? "Assign one project to all selected prints. This replaces the current project assignment for each selected archive."
+      : "Only user tags are changed. Add tags are appended, remove tags are stripped, and Bambuddy system tags are preserved.";
+    var bodyMarkup = this._bulkDialog.type === "project"
+      ? '<div class="bulk-dialog-field"><label for="bulk-project-select">Project</label><select id="bulk-project-select">' + this._bulkProjectChoices().map(function (choice) {
+        return '<option value="' + this._escapeAttribute(choice.value) + '"' + (choice.value === this._bulkDialog.projectValue ? ' selected' : '') + '>' + this._escapeHtml(choice.label) + '</option>';
+      }.bind(this)).join("") + '</select></div>'
+      : '<div class="bulk-dialog-field"><label for="bulk-tag-add">Add User Tags</label><input id="bulk-tag-add" type="text" value="' + this._escapeAttribute(this._bulkDialog.addTags || "") + '" placeholder="functional, prototype"></div>'
+        + '<div class="bulk-dialog-field"><label for="bulk-tag-remove">Remove User Tags</label><input id="bulk-tag-remove" type="text" value="' + this._escapeAttribute(this._bulkDialog.removeTags || "") + '" placeholder="draft, reprint"></div>';
+    host.innerHTML = '' +
+      '<div class="bulk-dialog-backdrop">' +
+        '<div class="bulk-dialog" role="dialog" aria-modal="true" aria-label="' + this._escapeAttribute(dialogTitle) + '">' +
+          '<div class="bulk-dialog-header">' +
+            '<div>' +
+              '<div class="bulk-dialog-title">' + this._escapeHtml(dialogTitle) + '</div>' +
+              '<div class="bulk-dialog-subtle">' + this._escapeHtml(String(selectedCount) + (selectedCount === 1 ? ' print selected. ' : ' prints selected. ') + helperText) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bulk-dialog-body">' + bodyMarkup + '</div>' +
+          '<div class="bulk-dialog-actions">' +
+            '<button class="bulk-dialog-button" data-action="multi-select-dialog-cancel"' + (this._bulkActionBusy ? ' disabled' : '') + '>Cancel</button>' +
+            '<button class="bulk-dialog-button primary" data-action="multi-select-dialog-submit"' + (this._bulkActionBusy ? ' disabled' : '') + '>' + this._escapeHtml(this._bulkActionBusy ? 'Working...' : (this._bulkDialog.type === 'project' ? 'Assign Project' : 'Apply Tags')) + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  _bulkProjectChoices() {
+    var choices = [{ value: "__NULL__", label: "No Project" }];
+    var projectOptions = this._entityAttribute(this._config.browser_status_entity, "project_options");
+    var raw = [];
+    try {
+      raw = this._hass && this._hass.states && this._hass.states[this._config.browser_status_entity]
+        && this._hass.states[this._config.browser_status_entity].attributes
+        && Array.isArray(this._hass.states[this._config.browser_status_entity].attributes.project_options)
+        ? this._hass.states[this._config.browser_status_entity].attributes.project_options
+        : [];
+    } catch (error) {
+      raw = [];
+    }
+    raw.forEach(function (option) {
+      var optionId = option && option.id != null ? String(option.id).trim() : "";
+      var optionLabel = option && option.label ? String(option.label).trim() : "";
+      if (optionId && optionLabel) {
+        choices.push({ value: optionId, label: optionLabel });
+      }
+    });
+    return choices;
+  }
+
+  _openBulkTagDialog() {
+    if (!this._selectedArchiveCount()) {
+      return;
+    }
+    this._bulkDialog = { type: "tag", addTags: "", removeTags: "" };
+    this._renderBulkDialog();
+  }
+
+  _openBulkProjectDialog() {
+    if (!this._selectedArchiveCount()) {
+      return;
+    }
+    this._bulkDialog = { type: "project", projectValue: "__NULL__" };
+    this._renderBulkDialog();
+  }
+
+  _closeBulkDialog() {
+    this._bulkDialog = null;
+    this._bulkActionBusy = false;
+    this._renderBulkDialog();
+  }
+
+  _clearMultiSelectRequest() {
+    if (!this._hass) {
+      return;
+    }
+    this._hass.callService("input_text", "set_value", {
+      entity_id: "input_text.print_history_multi_select_request",
+      value: "",
+    });
+  }
+
+  async _consumePendingMultiSelectRequest() {
+    if (!this._hass || !this._isMultiSelectMode()) {
+      return;
+    }
+    var request = String(this._stateValue("input_text.print_history_multi_select_request") || "").trim();
+    if (!request || request === this._handledMultiSelectRequest) {
+      return;
+    }
+    this._handledMultiSelectRequest = request;
+    this._clearMultiSelectRequest();
+    var action = request.split("|")[0];
+    if (action === "select_all") {
+      this._selectAllVisibleArchives();
+      return;
+    }
+    if (action === "tag") {
+      this._openBulkTagDialog();
+      return;
+    }
+    if (action === "project") {
+      this._openBulkProjectDialog();
+      return;
+    }
+    if (action === "favorite") {
+      await this._runBulkFavoriteToggle();
+      return;
+    }
+    if (action === "delete") {
+      await this._runBulkDelete();
+    }
+  }
+
+  _selectAllVisibleArchives() {
+    if (!this._isMultiSelectMode()) {
+      return;
+    }
+    var nextSelection = {};
+    (Array.isArray(this._response.archives) ? this._response.archives : []).forEach(function (archive) {
+      var archiveId = String(archive && archive.id || "").trim();
+      if (archiveId) {
+        nextSelection[archiveId] = true;
+      }
+    });
+    this._selectedArchiveIds = nextSelection;
+    this._syncMultiSelectSummary();
+    this._renderBody();
+  }
+
+  _toggleSelectedArchive(archive) {
+    if (!this._isMultiSelectMode() || !archive || archive.id == null) {
+      return;
+    }
+    var archiveId = String(archive.id).trim();
+    if (!archiveId) {
+      return;
+    }
+    if (this._selectedArchiveIds[archiveId]) {
+      delete this._selectedArchiveIds[archiveId];
+    } else {
+      this._selectedArchiveIds[archiveId] = true;
+    }
+    this._syncMultiSelectSummary();
+    this._renderBody();
+  }
+
+  async _submitBulkDialog() {
+    if (!this._bulkDialog || this._bulkActionBusy || !this._hass) {
+      return;
+    }
+    this._bulkActionBusy = true;
+    this._renderBulkDialog();
+    try {
+      if (this._bulkDialog.type === "tag") {
+        var addInput = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-add") : null;
+        var removeInput = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-remove") : null;
+        await this._hass.callService("script", "bulk_update_print_history_user_tags", {
+          archive_ids_csv: this._selectedArchiveIdsCsv(),
+          add_tags: addInput && addInput.value ? String(addInput.value).trim() : "",
+          remove_tags: removeInput && removeInput.value ? String(removeInput.value).trim() : "",
+        });
+      } else if (this._bulkDialog.type === "project") {
+        var selectNode = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-project-select") : null;
+        var projectValue = selectNode && selectNode.value ? String(selectNode.value).trim() : "__NULL__";
+        await this._hass.callService("script", "bulk_assign_print_history_project", {
+          archive_ids_csv: this._selectedArchiveIdsCsv(),
+          project_id: projectValue || "__NULL__",
+        });
+      }
+      this._closeBulkDialog();
+    } catch (error) {
+      this._bulkActionBusy = false;
+      this._renderBulkDialog();
+      throw error;
+    }
+  }
+
+  async _runBulkFavoriteToggle() {
+    if (!this._hass || !this._selectedArchiveCount()) {
+      return;
+    }
+    var nextFavorite = !this._selectedArchivesAllFavorites();
+    await this._hass.callService("script", "bulk_set_print_history_archive_favorite", {
+      archive_ids_csv: this._selectedArchiveIdsCsv(),
+      is_favorite: nextFavorite,
+    });
+    var selectedIds = this._selectedArchiveIdList();
+    this._response.archives = (Array.isArray(this._response.archives) ? this._response.archives : []).map(function (archive) {
+      if (selectedIds.indexOf(String(archive && archive.id || "")) >= 0) {
+        return Object.assign({}, archive, { is_favorite: nextFavorite });
+      }
+      return archive;
+    });
+    this._syncMultiSelectSummary();
+    this._renderBody();
+  }
+
+  async _runBulkDelete() {
+    if (!this._hass || !this._selectedArchiveCount()) {
+      return;
+    }
+    var selectedCount = this._selectedArchiveCount();
+    if (!window.confirm("Delete " + selectedCount + (selectedCount === 1 ? " selected print" : " selected prints") + "? This permanently removes them from Bambuddy and cannot be undone.")) {
+      return;
+    }
+    if (window.prompt("Type DELETE to permanently remove the selected prints.", "") !== "DELETE") {
+      return;
+    }
+    var selectedIds = this._selectedArchiveIdList();
+    await this._hass.callService("script", "bulk_delete_print_history_archives", {
+      archive_ids_csv: selectedIds.join(","),
+    });
+    this._response.archives = (Array.isArray(this._response.archives) ? this._response.archives : []).filter(function (archive) {
+      return selectedIds.indexOf(String(archive && archive.id || "")) === -1;
+    });
+    this._clearLocalMultiSelectState();
+    await this._hass.callService("script", "cancel_print_history_multi_select_mode", {});
+    this._renderBody();
   }
 
   _renderFilamentDot(chip) {
@@ -1715,6 +2109,21 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var rawArchive = actionNode.getAttribute("data-archive") || actionNode.closest("[data-archive]")?.getAttribute("data-archive") || "{}";
     var archive = this._parseJson(rawArchive, {});
 
+    if (action === "select-archive") {
+      this._toggleSelectedArchive(archive);
+      return;
+    }
+
+    if (action === "multi-select-dialog-cancel") {
+      this._closeBulkDialog();
+      return;
+    }
+
+    if (action === "multi-select-dialog-submit") {
+      await this._submitBulkDialog();
+      return;
+    }
+
     if (action === "favorite") {
       await this._toggleFavorite(archive);
       return;
@@ -1751,6 +2160,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _handlePointerDown(event) {
+    if (this._isMultiSelectMode()) {
+      this._mediaSwipe = null;
+      return;
+    }
     if (!event || (event.target && event.target.closest && event.target.closest("[data-action]"))) {
       return;
     }
@@ -1769,6 +2182,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _handlePointerUp(event) {
+    if (this._isMultiSelectMode()) {
+      this._mediaSwipe = null;
+      return;
+    }
     if (!this._mediaSwipe) {
       return;
     }
@@ -1898,13 +2315,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!target || target.closest("[data-action=\"favorite\"]")) {
       return;
     }
-    var cardNode = target.closest ? target.closest('.card[data-action="open"]') : null;
+    var cardNode = target.closest ? target.closest('.card[data-action="open"],.card[data-action="select-archive"]') : null;
     if (!cardNode || cardNode !== target) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     var archive = this._parseJson(cardNode.getAttribute("data-archive") || "{}", {});
+    if (cardNode.getAttribute("data-action") === "select-archive") {
+      this._toggleSelectedArchive(archive);
+      return;
+    }
     await this._openArchivePopup(archive);
   }
 
