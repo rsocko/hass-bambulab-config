@@ -922,9 +922,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const window = this._effectiveLayerWindow();
     this._viewerSettings.endLayer = window.endLayer;
     this._setPreviewLayerWindow(this._preview, window.startLayer, window.endLayer);
-    if (typeof this._preview.render === "function") {
-      this._preview.render();
-    }
+    this._renderPreviewInPlace();
   }
 
   _scheduleLayerScrubberApply() {
@@ -933,6 +931,23 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._layerScrubberTimer = null;
       this._applyLayerScrubberState();
     }, 60);
+  }
+
+  _renderPreviewInPlace() {
+    const preview = this._preview;
+    if (!preview) {
+      return false;
+    }
+    if (typeof preview.render === "function") {
+      preview.render();
+      return true;
+    }
+    const sceneManager = preview.sceneManager;
+    if (sceneManager && typeof sceneManager.render === "function") {
+      sceneManager.render();
+      return true;
+    }
+    return false;
   }
 
   _applySceneManagerSettings() {
@@ -981,7 +996,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       sceneManager.lineHeight = this._viewerSettings.useFixedLineHeight ? this._viewerSettings.lineHeight : 0.2;
       sceneManager.disableGradient = !this._viewerSettings.useColorGradient;
       this._applySceneManagerSettings();
-      preview.render();
       this._restoreCameraState(preview, cameraState);
       this._applyLayerScrubberState();
       this._syncLoadedSignature();
@@ -1051,6 +1065,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._viewerSettings.backgroundColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.backgroundColor, "#08101A");
     this._updateConfigurationControls();
     this._applySceneManagerSettings();
+    this._renderPreviewInPlace();
     this._syncLoadedSignature();
     this._setStatus("Updated the stage background color.");
   }
@@ -1059,6 +1074,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._viewerSettings.gridColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.gridColor, "#888888");
     this._updateConfigurationControls();
     this._applySceneManagerSettings();
+    this._renderPreviewInPlace();
     this._syncLoadedSignature();
     this._setStatus("Updated the build volume grid color.");
   }
@@ -1118,6 +1134,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._viewerSettings.travelColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.travelColor, "#990000");
     this._updateConfigurationControls();
     this._applySceneManagerSettings();
+    this._renderPreviewInPlace();
     this._syncLoadedSignature();
     this._setStatus("Updated the travel move color.");
   }
