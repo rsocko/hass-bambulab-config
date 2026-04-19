@@ -1618,6 +1618,11 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("Archived filament_slots[] JSON", content)
         self.assertIn("Archived raw_data.ams[] JSON", content)
         self.assertIn("spool match markers <strong>sm</strong>", content)
+        self.assertIn("print-history-popup-enrichment-toggle-label", content)
+        self.assertIn("Show Details", content)
+        self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr));", content)
+        self.assertIn("white-space:pre;", content)
+        self.assertIn(".print-history-popup-json-toggle-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;min-width:18px;font-size:18px;", content)
 
     def test_popup_detail_template_sensor_exposes_enrichment_provenance_json(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml").read_text("utf-8")
