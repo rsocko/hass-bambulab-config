@@ -59,7 +59,13 @@ def normalize_datetime(value: str | None, field_name: str) -> str | None:
     except ValueError as exc:
         raise ValueError(f"Invalid {field_name}: {value}") from exc
 
-    return parsed.isoformat()
+    # Bambuddy stores these columns as plain SQLite DateTime values.
+    # Persist UTC without a timezone suffix so repaired rows match the rest
+    # of the archive table and avoid mixed timestamp encodings.
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return parsed.isoformat(sep=" ", timespec="microseconds")
 
 
 def validate_status(value: str | None) -> str | None:
