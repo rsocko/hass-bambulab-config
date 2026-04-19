@@ -1357,14 +1357,76 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._normalizeColors(capabilities.filament_colors);
   }
 
-  _normalizePreviewGcode(gcodeText, maxToolIndex, initialToolIndex) {
+  _buildPreviewToolState(colors, gcodeText, initialToolIndex) {
+    const palette = this._normalizeColors(colors);
+    const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
+    const sawInitialToolPlaceholder = /(^|\n)T1000\s*($|\n)/m.test(String(gcodeText || ""));
+    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
+    const orderedToolIds = explicitToolIds.slice();
+    const toolMap = {};
+    const previewPalette = [];
+
+    if (sawInitialToolPlaceholder && orderedToolIds.indexOf(normalizedInitialTool) < 0) {
+      orderedToolIds.unshift(normalizedInitialTool);
+    }
+
+    if (!orderedToolIds.length) {
+      if (palette.length && palette[normalizedInitialTool]) {
+        previewPalette.push(palette[normalizedInitialTool]);
+      }
+      for (let index = 0; index < Math.min(palette.length, 8); index += 1) {
+        if (!previewPalette[index]) {
+          previewPalette[index] = palette[index];
+        }
+      }
+      return {
+        defaultToolIndex: 0,
+        previewPalette: previewPalette.filter(Boolean),
+        toolMap,
+      };
+    }
+
+    for (let index = 0; index < orderedToolIds.length; index += 1) {
+      const toolId = orderedToolIds[index];
+      const mappedToolId = index % 8;
+      toolMap[String(toolId)] = mappedToolId;
+      if (palette[toolId]) {
+        previewPalette[mappedToolId] = palette[toolId];
+      } else if (!previewPalette[mappedToolId] && palette[index]) {
+        previewPalette[mappedToolId] = palette[index];
+      }
+    }
+
+    for (let index = 0; index < Math.min(palette.length, 8); index += 1) {
+      if (!previewPalette[index] && palette[index]) {
+        previewPalette[index] = palette[index];
+      }
+    }
+
+    const defaultToolIndex = Object.prototype.hasOwnProperty.call(toolMap, String(normalizedInitialTool))
+      ? toolMap[String(normalizedInitialTool)]
+      : 0;
+
+    return {
+      defaultToolIndex,
+      previewPalette: previewPalette.filter(Boolean),
+      toolMap,
+    };
+  }
+
+  _normalizePreviewGcode(gcodeText, toolState) {
     const source = String(gcodeText || "");
     if (!source) {
       return source;
     }
 
-    const maxKnownTool = Number.isInteger(maxToolIndex) && maxToolIndex >= 0 ? maxToolIndex : null;
-    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
+    const normalizedToolState = toolState && typeof toolState === "object" ? toolState : {};
+    const toolMap = normalizedToolState.toolMap && typeof normalizedToolState.toolMap === "object"
+      ? normalizedToolState.toolMap
+      : {};
+    const defaultToolIndex = Number.isInteger(normalizedToolState.defaultToolIndex) && normalizedToolState.defaultToolIndex >= 0
+      ? normalizedToolState.defaultToolIndex
+      : 0;
     const lines = source.split("\n");
     const toolPattern = /^T(\d+)\s*$/;
     let currentTool = null;
@@ -1382,27 +1444,23 @@ class PrintHistory3dViewerCard extends HTMLElement {
         return line;
       }
 
-      let normalizedTool = tool;
-      if (maxKnownTool != null) {
-        if (tool >= 0 && tool <= maxKnownTool) {
-          normalizedTool = tool;
-        } else if (tool === 1000) {
-          normalizedTool = normalizedInitialTool;
-        } else if (tool === 255 && currentTool != null) {
-          normalizedTool = currentTool;
-        } else if (currentTool != null) {
-          normalizedTool = currentTool;
-        } else {
-          normalizedTool = normalizedInitialTool;
-        }
+      let normalizedTool = defaultToolIndex;
+      if (tool === 1000) {
+        normalizedTool = defaultToolIndex;
+      } else if (tool === 255 && currentTool != null) {
+        normalizedTool = currentTool;
+      } else if (Object.prototype.hasOwnProperty.call(toolMap, String(tool))) {
+        normalizedTool = toolMap[String(tool)];
+      } else if (currentTool != null) {
+        normalizedTool = currentTool;
       }
 
       currentTool = normalizedTool;
       return `T${normalizedTool}`;
     });
 
-    if (!sawAnyTool && maxKnownTool != null) {
-      normalizedLines.unshift("T0");
+    if (!sawAnyTool) {
+      normalizedLines.unshift(`T${defaultToolIndex}`);
     }
 
     return normalizedLines.join("\n");
@@ -1590,13 +1648,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
       const initialToolIndex = this._resolveInitialToolIndex(colors, gcodeText);
-      const previewGcode = this._normalizePreviewGcode(
-        gcodeText,
-        colors.length ? colors.length - 1 : null,
-        initialToolIndex
-      );
-      this._renderCapabilityChips(capabilities, colors);
-      this._renderOverlay(colors);
+      const toolState = this._buildPreviewToolState(colors, gcodeText, initialToolIndex);
+      const previewColors = toolState.previewPalette.length ? toolState.previewPalette : colors;
+      const previewGcode = this._normalizePreviewGcode(gcodeText, toolState);
+      this._renderCapabilityChips(capabilities, previewColors);
+      this._renderOverlay(previewColors);
 
       const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
       if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1614,11 +1670,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
         const preview = GCodePreview.init({
           canvas,
           buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
-          extrusionColor: colors.length ? colors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
+          extrusionColor: previewColors.length ? previewColors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
           disableGradient: true,
+          lineHeight: 0.2,
+          lineWidth: 2,
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
+          renderTravel: false,
+          renderExtrusion: true,
           renderAnimated,
           RenderAnimated: renderAnimated,
         });
