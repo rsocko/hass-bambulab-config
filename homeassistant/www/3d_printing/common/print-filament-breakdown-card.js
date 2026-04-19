@@ -72,12 +72,13 @@ class PrintFilamentBreakdownCard extends HTMLElement {
     }
 
     const view = this._buildViewModel();
-    const titleHtml = this._config.show_title
-      ? `<div class="header"><div class="title">${this._escapeHtml(view.title)}</div><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>`
-      : `<div class="header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>`;
     const sortToggleHtml = view.sortOptions && view.sortOptions.length
       ? `<div class="sort-toggle" role="group" aria-label="Archive filament sort order">${view.sortOptions.map((option) => `<button class="sort-toggle-button${option.active ? " is-active" : ""}" data-sort-mode="${this._escapeHtml(option.value)}" type="button">${this._escapeHtml(option.label)}</button>`).join("")}</div>`
       : "";
+    const headerSideHtml = `<div class="header-side${sortToggleHtml ? " has-sort-toggle" : ""}"><div class="total">${this._escapeHtml(view.totalLabel)}</div>${sortToggleHtml}</div>`;
+    const titleHtml = this._config.show_title
+      ? `<div class="header"><div class="title">${this._escapeHtml(view.title)}</div>${headerSideHtml}</div>`
+      : `<div class="header header-compact">${headerSideHtml}</div>`;
     const barHtml = view.placeholder
       ? `<div class="placeholder"><div class="placeholder-bar">${view.placeholderLabel ? `<span class="placeholder-label">${this._escapeHtml(view.placeholderLabel)}</span>` : ""}</div>${view.placeholderMessage ? `<div class="placeholder-message">${this._escapeHtml(view.placeholderMessage)}</div>` : ""}</div>`
       : view.segments.length
@@ -112,13 +113,25 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         }
         .header {
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           justify-content: space-between;
           gap: 12px;
           min-width: 0;
         }
         .header-compact {
           justify-content: flex-start;
+        }
+        .header-side {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 10px;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
+        .header-compact .header-side {
+          width: 100%;
+          justify-content: space-between;
         }
         .title {
           font-size: 14px;
@@ -128,7 +141,6 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         }
         .sort-toggle {
           display: inline-flex;
-          align-self: flex-start;
           border-radius: 999px;
           background: rgba(127, 127, 127, 0.12);
           border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
