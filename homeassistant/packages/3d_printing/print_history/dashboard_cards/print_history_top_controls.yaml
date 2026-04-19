@@ -124,7 +124,16 @@ card:
           display: none !important;
         }
         ${isMediaVariant ? `${imagesSelector} {
-          display: none !important;
+          opacity: 0.42 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+          filter: saturate(0.35) !important;
+        }
+        ${imagesSelector} ha-icon {
+          color: var(--disabled-text-color) !important;
+        }
+        ${imagesSelector} .bubble-sub-button-background {
+          opacity: 0.55 !important;
         }` : ''}
         ${disabledSelectors.length ? `${disabledSelectors.join(',\n        ')} {
           opacity: 0.42 !important;
@@ -267,8 +276,8 @@ card:
             show_name: false
             show_state: false
             show_background: true
-            state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
-            state_color: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+            state_background: ${states['input_select.print_history_card_variant']?.state !== 'Media' && states['input_boolean.print_history_show_images']?.state === 'on'}
+            state_color: ${states['input_select.print_history_card_variant']?.state !== 'Media' && states['input_boolean.print_history_show_images']?.state === 'on'}
             fill_width: false
             tap_action:
               action: toggle
