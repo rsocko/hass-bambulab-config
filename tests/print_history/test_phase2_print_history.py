@@ -815,10 +815,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=47", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
-        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1465,6 +1465,31 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("sensor.print_history_filter_tags_summary", browser_yaml_content)
         self.assertIn("script.clear_print_history_tag_filter", browser_yaml_content)
 
+    def test_tag_filter_summary_prefers_single_tag_labels_and_plural_mode_summary(self):
+        summary_content = (HISTORY / "template_sensors" / "print_history_filter_tags_summary.yaml").read_text("utf-8")
+
+        self.assertIn("{% set normalized_mode = mode if mode in ['Any', 'All'] else 'Any' %}", summary_content)
+        self.assertIn("{% set ns = namespace(values=[], labels=[]) %}", summary_content)
+        self.assertIn("{{ ns.labels[0] }}", summary_content)
+        self.assertIn("{{ normalized_mode }} of {{ ns.values | count }} Tags", summary_content)
+        self.assertIn("selected_tags_preview", summary_content)
+        self.assertIn("selected_tags_tooltip", summary_content)
+        self.assertIn("Show only prints without user tags.", summary_content)
+
+    def test_tag_filter_popup_uses_compact_toggle_buttons(self):
+        browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+
+        self.assertIn("type: custom:config-template-card", browser_yaml_content)
+        self.assertIn("title: Selected Tags", browser_yaml_content)
+        self.assertIn("mode_entity: input_select.print_history_filter_tags_mode", browser_yaml_content)
+        self.assertIn("helper: Choose one or more tags. Untagged is a separate toggle.", browser_yaml_content)
+        self.assertIn("name: Untagged", browser_yaml_content)
+        self.assertIn("action: toggle", browser_yaml_content)
+        self.assertIn("name: Clear Tags", browser_yaml_content)
+        self.assertIn("service: script.clear_print_history_tag_filter", browser_yaml_content)
+        self.assertNotIn("**Current:**", browser_yaml_content)
+        self.assertNotIn("Choose one or more tags or switch to untagged-only.", browser_yaml_content)
+
     def test_archive_error_filter_wired_into_browser_contract(self):
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
         browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
@@ -1543,6 +1568,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(">Enrichment<", content)
         self.assertNotIn(">Tags<", content)
 
+    def test_popup_archive_id_chip_omits_identifier_icon(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const iconMarkup = icon ? `<ha-icon icon=\"${icon}\" style=\"--mdc-icon-size:15px;flex:0 0 auto;color:${color};\"></ha-icon>` : '';", content)
+        self.assertIn("archiveId != null ? renderInfoChip('', `#${archiveId}`, { fontWeight: 700, title: `Archive ID #${archiveId}` }) : ''", content)
+
     def test_popup_content_derives_enrichment_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
@@ -1610,6 +1643,15 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("Archived filament_slots[] JSON", content)
         self.assertIn("Archived raw_data.ams[] JSON", content)
         self.assertIn("spool match markers <strong>sm</strong>", content)
+        self.assertIn("print-history-popup-enrichment-toggle-label", content)
+        self.assertIn("Show Details", content)
+        self.assertIn("grid-template-columns:minmax(0,1fr);", content)
+        self.assertIn("white-space:pre;", content)
+        self.assertIn("white-space:normal !important;", content)
+        self.assertIn("min-width:0;max-width:100%;font-size:12px;line-height:1.45;color:#E3F2FD;white-space:normal !important;", content)
+        self.assertIn("print-history-popup-json-description", content)
+        self.assertIn("print-history-popup-json-toggle-label", content)
+        self.assertIn(".print-history-popup-json-toggle-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;min-width:18px;font-size:18px;", content)
 
     def test_popup_detail_template_sensor_exposes_enrichment_provenance_json(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml").read_text("utf-8")
@@ -1650,6 +1692,19 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("return -1;", content)
         self.assertIn("if (rightTray) {", content)
         self.assertIn("return 1;", content)
+
+    def test_archive_filament_breakdown_card_compact_header_aligns_total_and_sort_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('const headerSideHtml = `<div class="header-side${sortToggleHtml ? " has-sort-toggle" : ""}"><div class="total">${this._escapeHtml(view.totalLabel)}</div>${sortToggleHtml}</div>`;', content)
+        self.assertIn('.header-side {', content)
+        self.assertIn('justify-content: flex-end;', content)
+        self.assertIn('.header-compact .header-side {', content)
+        self.assertIn('grid-template-columns: minmax(0,1fr) auto;', content)
+        self.assertIn('justify-self: end;', content)
+        self.assertNotIn('header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>', content)
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
@@ -1964,11 +2019,33 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
     def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=19", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=48", content)
+
+    def test_tag_editor_card_supports_header_mode_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('mode_entity: config.mode_entity || "",', content)
+        self.assertIn('mode_options: Array.isArray(config.mode_options) && config.mode_options.length ? config.mode_options : ["Any", "All"],', content)
+        self.assertIn('const currentValue = this._readModeValue();', content)
+        self.assertIn('headerActions.style.display = "inline-flex";', content)
+        self.assertIn('class="mode-chip', content)
+        self.assertIn('await this._hass.callService("input_select", "select_option", {', content)
+        self.assertIn('entity_id: this._config.mode_entity,', content)
+
+    def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("this._normalizedArchiveCache = {};", content)
+        self.assertIn("this._pruneNormalizedArchiveCache(this._response.archives);", content)
+        self.assertIn("var filamentChips = this._filamentChipsFromSlots(archive.filament_slots);", content)
+        self.assertIn("var notesInfo = this._splitArchiveNotesLight(archive.notes);", content)
 
     def test_browser_card_project_chips_use_shared_filter_action_path(self):
         browser_card_content = (
@@ -2080,17 +2157,40 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.sceneManager.renderAnimated()', script)
         self.assertIn('Animated Preview', script)
         self.assertIn('Static Preview', script)
+        self.assertIn('"<div class=\'eyebrow\'>3D Viewer</div>" +', script)
+        self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
+        self.assertIn('"<div id=\'viewer-subtitle\' class=\'subtitle\' hidden></div>" +', script)
+        self.assertNotIn('Print History Viewer', script)
+        self.assertIn("_archiveChipMarkup()", script)
+        self.assertIn("<span class='chip'>Archive #", script)
+        self.assertIn('subtitleNode.hidden = !subtitleText;', script)
+        self.assertIn('this._setTitle(archiveTitle, "");', script)
+        self.assertNotIn('Preparing Bambuddy archive preview.', script)
+        self.assertNotIn('this._setTitle(archiveTitle, "Bambuddy archive preview.");', script)
+        self.assertNotIn('this._setTitle(archiveTitle, `Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
+        self.assertIn('.shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:22px 18px 18px;}', script)
+        self.assertIn(".viewer-workbench{--viewer-stage-height:min(72vh,680px);display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:stretch;}", script)
+        self.assertIn('.capture-panel{grid-area:capture;display:grid;grid-template-rows:auto minmax(0,1fr);gap:14px;padding:18px 20px;position:sticky;top:18px;align-self:stretch;min-height:var(--viewer-stage-height);height:var(--viewer-stage-height);box-sizing:border-box;}', script)
+        self.assertIn("@media (max-width:720px){.shell{padding:16px 12px 12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}", script)
         self.assertIn('_syncViewerCanvasSize()', script)
         self.assertIn('canvas.width = metrics.width;', script)
         self.assertIn('canvas.height = metrics.height;', script)
         self.assertIn('id=\'crop-layer\'', script)
         self.assertIn('id=\'crop-aspect-select\'', script)
+        capture_panel_markup = script[script.index("<section id='capture-panel'"):]
+        self.assertLess(capture_panel_markup.index("id='capture-controls'"), capture_panel_markup.index("capture-preview-stack"))
         self.assertIn('_setCropMode(true);', script)
         self.assertIn('_cropPresetLabel()', script)
         self.assertIn('_buildCornerRect(', script)
+        self.assertNotIn('capture-hero-copy', script)
+        self.assertNotIn('capture-copy', script)
+        self.assertNotIn('capture-note', script)
+        self.assertNotIn('Use Capture View for the full frame', script)
+        self.assertNotIn('Capture uses the exact popup canvas', script)
+        self.assertNotIn('thumbnail-like default', script)
         self.assertNotIn('print-history-3d-viewer.html', script)
         self.assertNotIn('without reopening the viewer in another tab', script)
         self.assertNotIn("<section id='viewer-status' class='panel status'>", script)
@@ -2155,7 +2255,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertFalse((ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-page.js").exists())
         self.assertIn('id=\'crop-layer\'', script)
         self.assertIn('Landscape 16:9', script)
-        self.assertIn('Square is the best starting point', script)
+        self.assertNotIn('Square is the best starting point', script)
         self.assertNotIn('/capture-upload', script)
         self.assertNotIn('ArchiveViewerCaptureUploadView', integration)
         self.assertNotIn('ArchiveViewerCapabilitiesView', integration)
@@ -2196,6 +2296,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn('mdi:cube-scan', content)
         self.assertIn('_buildArchiveViewerCardConfig(archive)', content)
         self.assertIn('_buildArchiveViewerPopupContent(archive)', content)
+        self.assertIn('title: "3D Viewer"', content)
         self.assertIn('type: "custom:print-history-3d-viewer-card"', content)
         self.assertIn('archive_id: archive && archive.id != null ? String(archive.id) : ""', content)
 
@@ -2226,6 +2327,32 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("color-enrichment-row", content)
         self.assertIn("photoAction", content)
         self.assertIn("project-chip span{display:inline-flex;align-items:center;min-width:0;", content)
+
+    def test_browser_card_primary_actions_share_same_order_across_variants(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)", content)
+        self.assertEqual(content.count("_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)"), 4)
+
+        helper_signature = "_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {"
+        helper_start = content.index(helper_signature) + len(helper_signature)
+        helper_end = content.index("\n\n  _renderFavoriteButton", helper_start)
+        helper = content[helper_start:helper_end]
+
+        self.assertLess(helper.index('mdi:cube-scan'), helper.index('favoriteButton'))
+        self.assertLess(helper.index('favoriteButton'), helper.index('photoAction'))
+
+    def test_browser_card_list_view_omits_hidden_images_placeholder_when_images_are_disabled(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';", content)
+        self.assertIn("? (listImageUrl", content)
+        self.assertIn("? '<div class=\"thumb-wrap\"><div class=\"media-gallery-surface\"><div class=\"list-thumb-empty\">No preview image available</div></div></div>'", content)
+        self.assertNotIn("var listPlaceholderLabel = showImages", content)
 
     def test_browser_card_popup_action_row_includes_3d_view_button(self):
         content = (

@@ -11,6 +11,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
+    this._normalizedArchiveCache = {};
     this._mediaGalleryIndices = {};
     this._mediaSwipe = null;
     this._suppressOpenUntil = 0;
@@ -48,6 +49,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
     this._querySignature = "";
     this._viewSignature = "";
+    this._normalizedArchiveCache = {};
     this._renderShell();
     this._queueRefresh();
   }
@@ -203,7 +205,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
       ".name-note-inline{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;position:relative;top:-3px;margin-left:6px;color:var(--primary-color, var(--accent-color, #03a9f4));}" +
       ".name-note-inline ha-icon{--mdc-icon-size:14px;width:14px;height:14px;min-width:14px;min-height:14px;display:block;}" +
-      ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--secondary-text-color) 40%, transparent);text-underline-offset:0.18em;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
@@ -381,6 +382,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return;
       }
       this._response = response && typeof response === "object" ? response : { archives: [], query: {} };
+      this._pruneNormalizedArchiveCache(this._response.archives);
       this._error = "";
       this._recordDebug("browser", response, started);
     } catch (error) {
@@ -586,6 +588,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _renderArchiveCard(variant, archive) {
     var normalized = this._normalizeArchive(archive || {});
     var showImages = this._showImages();
+    var mediaShowsImages = variant === 'Media' ? true : showImages;
     var baseUrl = this._apiBaseUrl();
     var hasImage = showImages && !!normalized.thumbnailUrl(baseUrl);
     var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
@@ -611,11 +614,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var listHeaderActions = '<div class="list-header-actions">'
       + listHeaderId
       + '<div class="action-buttons">'
-      + favoriteButton
-      + photoAction
-      + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">'
-      + '<ha-icon icon="mdi:cube-scan"></ha-icon>'
-      + '</button>'
+      + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)
       + '</div>'
       + '</div>';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
@@ -628,13 +627,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
         : this._mediaPreferredGalleryIndex(archive, mediaImageUrls, baseUrl))
       : 0;
     var mediaCurrentImageUrl = mediaGalleryCount > 0 ? mediaImageUrls[mediaGalleryIndex] : '';
-    var mediaPlaceholderLabel = this._showImages()
+    var mediaPlaceholderLabel = mediaShowsImages
       ? 'No preview image available'
       : 'Images hidden';
     var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';
-    var listPlaceholderLabel = showImages
-      ? 'No preview image available'
-      : 'Images hidden';
     var printerChip = normalized.printerFilterValue
       ? '<button class="chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="printer_set" data-filter-value="' + this._escapeAttribute(normalized.printerFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Printer: ' + normalized.printerLabel, 'Click to filter by this printer')) + '" aria-label="' + this._escapeAttribute('Printer ' + normalized.printerLabel + '. Click to filter by this printer.') + '">' + this._escapeHtml(normalized.printerLabel) + '</button>'
       : (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '');
@@ -676,11 +672,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '<div class="content-top compact">' +
         compactArchiveId +
         '<div class="action-buttons compact-actions">' +
-        '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
-        '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
-        '</button>' +
-        favoriteButton +
-        photoAction +
+        this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) +
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
@@ -781,15 +773,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
 
     var thumbMarkup = variant === 'Media'
-      ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '">'
+      ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
-        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + favoriteButton + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
-        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) + '</div></div>'
+        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
-        ? '<div class="thumb-wrap"><div class="media-gallery-surface">'
-          + (listImageUrl ? '<img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="list-thumb-empty">' + this._escapeHtml(listPlaceholderLabel) + '</div>')
-          + '</div></div>'
+        ? (listImageUrl
+          ? '<div class="thumb-wrap"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div></div>'
+          : (showImages
+            ? '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="list-thumb-empty">No preview image available</div></div></div>'
+            : ''))
         : (hasImage
         ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
         : ''));
@@ -810,6 +804,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _favoriteButtonTitle(isFavorite) {
     return isFavorite ? 'Remove from favorites' : 'Add to favorites';
+  }
+
+  _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
+    return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+      + favoriteButton
+      + photoAction;
   }
 
   _renderFavoriteButton(normalized, archiveJson) {
@@ -898,26 +898,101 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
-  _normalizeArchive(archive) {
-    var notesInfo = this._splitArchiveNotes(archive.notes);
-    var enrichmentPayload = notesInfo.payload;
-    var enrichmentRows = Array.isArray(enrichmentPayload && enrichmentPayload.F) ? enrichmentPayload.F : [];
-    var enrichmentStatus = this._normalizeEnrichmentStatus(archive.enrichment_status || (enrichmentPayload && enrichmentPayload.s), enrichmentRows);
-    var colors = String(archive.filament_color || "").split(",").map(this._normalizeHex).filter(Boolean);
-    var filamentChips = enrichmentRows.length ? enrichmentRows.map(function (item, index) {
-      var name = String(item && item.n || "").trim() || ("Filament " + (index + 1));
-      var tray = String(item && item.t || "").trim();
-      var filterColor = this._normalizeHex(item && item.h);
-      var hex = filterColor || "rgba(255,255,255,0.2)";
-      var ambiguity = this._describeEnrichmentAmbiguity(item && item.am);
+  _normalizeArchiveCacheKey(archive) {
+    if (!archive || typeof archive !== "object") {
+      return "";
+    }
+    var archiveId = archive.id != null ? String(archive.id) : "";
+    var payloadHash = String(archive.payload_hash || "").trim();
+    if (archiveId && payloadHash) {
+      return archiveId + ":" + payloadHash;
+    }
+    if (!archiveId) {
+      return "";
+    }
+    var sourceUpdatedAt = String(archive.source_updated_at || "").trim();
+    var notes = String(archive.notes || "");
+    return archiveId + ":" + [
+      String(archive.status || ""),
+      String(archive.enrichment_status || ""),
+      String(archive.is_favorite ? "1" : "0"),
+      sourceUpdatedAt,
+      String(notes.length),
+      notes.slice(-64),
+    ].join("|");
+  }
+
+  _pruneNormalizedArchiveCache(archives) {
+    if (!this._normalizedArchiveCache) {
+      this._normalizedArchiveCache = {};
+    }
+    var keep = {};
+    (Array.isArray(archives) ? archives : []).forEach(function (archive) {
+      var key = this._normalizeArchiveCacheKey(archive);
+      if (key) {
+        keep[key] = true;
+      }
+    }.bind(this));
+    Object.keys(this._normalizedArchiveCache).forEach(function (key) {
+      if (!keep[key]) {
+        delete this._normalizedArchiveCache[key];
+      }
+    }.bind(this));
+  }
+
+  _archiveNoteBoundaryIndex(raw) {
+    var markerIndex = raw.indexOf("+>");
+    var recoveryIndex = raw.indexOf("[RECOVERY_AUDIT_V1]");
+    var indexes = [markerIndex, recoveryIndex].filter(function (index) { return index >= 0; });
+    return indexes.length ? Math.min.apply(null, indexes) : -1;
+  }
+
+  _splitArchiveNotesLight(value) {
+    var raw = String(value || "");
+    var cutoff = this._archiveNoteBoundaryIndex(raw);
+    if (cutoff < 0) {
+      return { userNotes: raw.trimEnd() };
+    }
+    return { userNotes: raw.slice(0, cutoff).replace(/\n+$/u, "") };
+  }
+
+  _filamentChipsFromSlots(slots) {
+    if (!Array.isArray(slots) || !slots.length) {
+      return [];
+    }
+    return slots.map(function (slot, index) {
+      var name = String(slot && slot.name || "").trim() || ("Filament " + (index + 1));
+      var tray = String(slot && slot.tray || "").trim();
+      var filterColor = this._normalizeHex(slot && slot.color);
+      var dotColor = filterColor || "rgba(255,255,255,0.2)";
       return {
-        dotColor: hex,
+        dotColor: dotColor,
         filterColor: filterColor,
-        tooltip: [tray ? name + " (" + tray + ")" : name, this._normalizeHex(item && item.h), ambiguity].filter(Boolean).join(" | ") || name,
+        tooltip: [tray ? name + " (" + tray + ")" : name, filterColor].filter(Boolean).join(" | ") || name,
       };
-    }.bind(this)) : colors.map(function (hex) {
+    }.bind(this)).filter(function (chip) {
+      return !!chip.dotColor;
+    });
+  }
+
+  _filamentChipsFromColors(colors) {
+    return colors.map(function (hex) {
       return { dotColor: hex, filterColor: hex, tooltip: hex };
     });
+  }
+
+  _normalizeArchive(archive) {
+    var cacheKey = this._normalizeArchiveCacheKey(archive);
+    if (cacheKey && this._normalizedArchiveCache[cacheKey]) {
+      return this._normalizedArchiveCache[cacheKey];
+    }
+    var notesInfo = this._splitArchiveNotesLight(archive.notes);
+    var enrichmentStatus = this._normalizeEnrichmentStatus(archive.enrichment_status, null);
+    var colors = String(archive.filament_color || "").split(",").map(this._normalizeHex).filter(Boolean);
+    var filamentChips = this._filamentChipsFromSlots(archive.filament_slots);
+    if (!filamentChips.length) {
+      filamentChips = this._filamentChipsFromColors(colors);
+    }
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
     var mediaMetaLabel = [
       archive.filament_type ? String(archive.filament_type) : "",
@@ -941,7 +1016,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveError = this._normalizeArchiveError(archive);
     var card = this;
 
-    return {
+    var normalized = {
       id: archive.id,
       archive: archive,
       isFavorite: !!archive.is_favorite,
@@ -996,6 +1071,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return card._mediaPreferredImageUrl(archive, baseUrl);
       },
     };
+    if (cacheKey) {
+      this._normalizedArchiveCache[cacheKey] = normalized;
+    }
+    return normalized;
   }
 
   _normalizeArchiveError(archive) {
@@ -1235,6 +1314,34 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return current;
   }
 
+  _readRenderedMediaGalleryIndex(node, imageCount) {
+    var count = Math.max(0, Number(imageCount) || 0);
+    if (count <= 0) {
+      return 0;
+    }
+    var currentNode = node || null;
+    while (currentNode) {
+      if (currentNode.getAttribute) {
+        var rawIndex = currentNode.getAttribute("data-gallery-index");
+        if (rawIndex !== null && rawIndex !== "") {
+          var parsedIndex = Number(rawIndex);
+          if (Number.isFinite(parsedIndex)) {
+            while (parsedIndex < 0) {
+              parsedIndex += count;
+            }
+            return parsedIndex % count;
+          }
+        }
+      }
+      currentNode = currentNode.closest ? currentNode.closest(".media-gallery-surface") : null;
+      if (currentNode === node) {
+        break;
+      }
+      node = currentNode;
+    }
+    return 0;
+  }
+
   _setMediaGalleryIndex(archiveId, nextIndex, imageCount) {
     var key = String(archiveId || "");
     var count = Math.max(0, Number(imageCount) || 0);
@@ -1362,12 +1469,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _splitArchiveNotes(value) {
     var raw = String(value || "");
     var markerIndex = raw.indexOf("+>");
-    var recoveryIndex = raw.indexOf("[RECOVERY_AUDIT_V1]");
-    var indexes = [markerIndex, recoveryIndex].filter(function (index) { return index >= 0; });
-    if (!indexes.length) {
+    var cutoff = this._archiveNoteBoundaryIndex(raw);
+    if (cutoff < 0) {
       return { userNotes: raw.trimEnd(), payload: null };
     }
-    var cutoff = Math.min.apply(null, indexes);
     var userNotes = raw.slice(0, cutoff).replace(/\n+$/u, "");
     var payloadRaw = markerIndex >= 0 ? raw.slice(markerIndex + 2).trim() : "";
     try {
@@ -1509,9 +1614,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!archive || archive.id == null) {
       return;
     }
-    var archiveName = archive.print_name || ("Archive " + archive.id);
     this._fireBrowserModEvent("browser_mod.popup", {
-      title: "3D View · " + archiveName,
+      title: "3D Viewer",
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
     });
@@ -1625,7 +1729,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (action === "media-prev" || action === "media-next") {
       var galleryCount = Number(actionNode.getAttribute("data-gallery-count") || 0);
       if (archive && archive.id != null && galleryCount > 1) {
-        this._setMediaGalleryIndex(archive.id, this._mediaGalleryIndex(archive.id, galleryCount) + (action === "media-next" ? 1 : -1), galleryCount);
+        var currentGalleryIndex = this._readRenderedMediaGalleryIndex(actionNode, galleryCount);
+        if (!Number.isFinite(currentGalleryIndex)) {
+          currentGalleryIndex = this._mediaGalleryIndex(archive.id, galleryCount);
+        }
+        this._setMediaGalleryIndex(archive.id, currentGalleryIndex + (action === "media-next" ? 1 : -1), galleryCount);
       }
       return;
     }
@@ -1650,6 +1758,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._mediaSwipe = {
       archiveId: String(surface.getAttribute("data-archive-id") || ""),
       galleryCount: Number(surface.getAttribute("data-gallery-count") || 0),
+      galleryIndex: this._readRenderedMediaGalleryIndex(surface, Number(surface.getAttribute("data-gallery-count") || 0)),
       startX: Number(event.clientX || 0),
       startY: Number(event.clientY || 0),
     };
@@ -1671,7 +1780,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     this._suppressOpenArchiveId = swipe.archiveId;
     this._suppressOpenUntil = Date.now() + 450;
-    this._setMediaGalleryIndex(swipe.archiveId, this._mediaGalleryIndex(swipe.archiveId, swipe.galleryCount) + (deltaX < 0 ? 1 : -1), swipe.galleryCount);
+    var currentGalleryIndex = Number.isFinite(swipe.galleryIndex) ? swipe.galleryIndex : this._mediaGalleryIndex(swipe.archiveId, swipe.galleryCount);
+    this._setMediaGalleryIndex(swipe.archiveId, currentGalleryIndex + (deltaX < 0 ? 1 : -1), swipe.galleryCount);
   }
 
   _handlePointerCancel() {
@@ -2027,7 +2137,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
               browser_mod: {
                 service: "browser_mod.popup",
                 data: {
-                  title: "3D View · " + archiveName,
+                  title: "3D Viewer",
                   size: "wide",
                   content: this._buildArchiveViewerPopupContent(archive),
                 },

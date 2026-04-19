@@ -36,7 +36,15 @@ card:
       // Use icon-based selectors instead of nth-child so mobile visibility does not
       // depend on generated sub-button DOM positions inside bubble-card.
       const byIcon = (icon) => `.bubble-sub-button:has(ha-icon[icon="${icon}"])`;
+      const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
+      const activeVariant = states['input_select.print_history_card_variant']?.state || '';
+      const isMediaVariant = activeVariant === 'Media';
+      const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
+      const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
+      const atFirstPage = currentPage <= 1;
+      const atLastPage = currentPage >= totalPages;
       const firstSelector = byIcon('mdi:page-first');
+      const prevSelector = byIcon('mdi:chevron-left');
       const lastSelector = byIcon('mdi:page-last');
       const matchesSelector = byIcon('mdi:counter');
       const pageInfoSelector = byIcon('mdi:book-open-page-variant-outline');
@@ -54,6 +62,10 @@ card:
       const imagesSelector = byIcon('mdi:image-outline');
       const refreshSelector = byIcon('mdi:refresh');
       const nextSelector = byIcon('mdi:chevron-right');
+      const disabledSelectors = [
+        ...(atFirstPage ? [firstSelector, prevSelector] : []),
+        ...(atLastPage ? [nextSelector, lastSelector] : []),
+      ];
       return `
         ha-card {
           overflow: visible !important;
@@ -111,6 +123,27 @@ card:
         ${layoutStateSelector} {
           display: none !important;
         }
+        ${isMediaVariant ? `${imagesSelector} {
+          opacity: 0.42 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+          filter: saturate(0.35) !important;
+        }
+        ${imagesSelector} ha-icon {
+          color: var(--disabled-text-color) !important;
+        }
+        ${imagesSelector} .bubble-sub-button-background {
+          opacity: 0.55 !important;
+        }` : ''}
+        ${disabledSelectors.length ? `${disabledSelectors.join(',\n        ')} {
+          opacity: 0.42 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+          filter: saturate(0.35) !important;
+        }
+        ${disabledSelectors.map((selector) => `${selector} ha-icon`).join(',\n        ')} {
+          color: var(--disabled-text-color) !important;
+        }` : ''}
         @media (max-width: 900px) {
           .bubble-sub-button-container,
           .bubble-sub-buttons-container {
@@ -243,8 +276,8 @@ card:
             show_name: false
             show_state: false
             show_background: true
-            state_background: ${states['input_boolean.print_history_show_images']?.state === 'on'}
-            state_color: ${states['input_boolean.print_history_show_images']?.state === 'on'}
+            state_background: ${states['input_select.print_history_card_variant']?.state !== 'Media' && states['input_boolean.print_history_show_images']?.state === 'on'}
+            state_color: ${states['input_select.print_history_card_variant']?.state !== 'Media' && states['input_boolean.print_history_show_images']?.state === 'on'}
             fill_width: false
             tap_action:
               action: toggle

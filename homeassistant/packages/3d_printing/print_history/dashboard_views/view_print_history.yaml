@@ -9,6 +9,13 @@ icon: mdi:history
 panel: true
 cards:
   - type: vertical-stack
+    card_mod:
+      style: |
+        :host {
+          display: block;
+          box-sizing: border-box;
+          padding-inline: max(8px, min(1.8vw, 20px));
+        }
     cards:
       # Conditional photo review chip (hidden when idle)
       - !include ../dashboard_cards/photo_review_chip.yaml

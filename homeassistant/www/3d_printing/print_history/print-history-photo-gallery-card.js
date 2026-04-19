@@ -140,6 +140,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._moveActiveIndex(1);
       return;
     }
+    if (action === "viewer") {
+      this._openViewerPopup();
+      return;
+    }
     if (action === "expand") {
       this._setExpanded(true);
       return;
@@ -655,6 +659,63 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return "archive-" + String(archiveId) + "-" + baseName + "-" + timestamp + "-" + String(index + 1) + ".jpg";
   }
 
+  _resolvedEntryId() {
+    var state = this._hass && this._hass.states ? this._hass.states["sensor.bambuddy_print_history_browser_status"] : null;
+    return state && state.attributes && state.attributes.entry_id
+      ? String(state.attributes.entry_id).trim()
+      : "";
+  }
+
+  _buildArchiveViewerCardConfig(archive) {
+    return {
+      type: "custom:print-history-3d-viewer-card",
+      archive_id: archive && archive.id != null ? String(archive.id) : "",
+      archive_name: archive && archive.print_name ? String(archive.print_name) : "",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      entry_id: this._resolvedEntryId(),
+    };
+  }
+
+  _buildArchiveViewerPopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [this._buildArchiveViewerCardConfig(archive)],
+    };
+  }
+
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
+  }
+
+  _openViewerPopup() {
+    var archive = this._resolveArchive();
+    if (!archive || archive.id == null) {
+      return;
+    }
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "3D Viewer",
+      size: "wide",
+      content: this._buildArchiveViewerPopupContent(archive),
+    });
+  }
+
   _buildUploadAction(buttonClass) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? archive.id : null;
@@ -663,7 +724,32 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
     var className = buttonClass || "action-button";
     var label = this._uploadInProgress ? "Uploading..." : "Add Photo";
-    return '<button class="' + className + '" type="button" data-action="upload-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>' + label + '</button>';
+    return this._buildActionButtonHtml({
+      className: className,
+      action: "upload-photo",
+      disabled: this._uploadInProgress,
+      icon: this._uploadInProgress ? "mdi:loading" : "mdi:plus",
+      label: label,
+      title: label,
+    });
+  }
+
+  _buildViewerAction(buttonClass) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (archiveId == null) {
+      return "";
+    }
+    var className = buttonClass || "icon-action viewer";
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
+    return '<button class="' + className + '" type="button" data-action="viewer" aria-label="Open 3D viewer for ' + this._escapeHtml(archiveName) + '" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>';
+  }
+
+  _buildExpandAction(buttonClass) {
+    var archive = this._resolveArchive();
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
+    var className = buttonClass || "icon-action expand";
+    return '<button class="' + className + '" type="button" data-action="expand" aria-label="Open full screen gallery for ' + this._escapeHtml(archiveName) + '" title="Open Full Screen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>';
   }
 
   _renderUploadStatus() {
@@ -814,11 +900,23 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var className = buttonClass || "action-button";
     if (active.kind === "photo" && !active.isPrimary) {
-      return '<button class="' + className + '" type="button" data-action="set-primary-photo">Use In List View</button>';
+      return this._buildActionButtonHtml({
+        className: className,
+        action: "set-primary-photo",
+        icon: "mdi:image-check-outline",
+        label: "Set List Image",
+        title: "Set List Image",
+      });
     }
 
     if (active.hasPhotoPrimary) {
-      return '<button class="' + className + '" type="button" data-action="clear-primary-photo">Use Thumbnail</button>';
+      return this._buildActionButtonHtml({
+        className: className,
+        action: "clear-primary-photo",
+        icon: "mdi:image-off-outline",
+        label: "Use Thumbnail",
+        title: "Use Thumbnail",
+      });
     }
 
     return "";
@@ -829,7 +927,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return "";
     }
     var className = buttonClass || "action-button";
-    return '<button class="' + className + ' danger" type="button" data-action="delete-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>Delete Photo</button>';
+    return this._buildActionButtonHtml({
+      className: className + " danger",
+      action: "delete-photo",
+      disabled: this._uploadInProgress,
+      icon: "mdi:close-thick",
+      label: "Delete Photo",
+      title: "Delete Photo",
+    });
   }
 
   _findPreferredActiveIndex(images) {
@@ -991,10 +1096,15 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;color:#fff;}" +
       ".title{font:700 clamp(18px,2.2vw,28px)/1.2 system-ui,sans-serif;letter-spacing:0.01em;}" +
       ".subtitle{margin-top:6px;font:500 clamp(13px,1.4vw,15px)/1.45 system-ui,sans-serif;color:rgba(255,255,255,0.76);}" +
-      ".actions{display:flex;align-items:center;gap:10px;}" +
+      ".actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;overflow-x:auto;}" +
       ".actions .button[disabled]{opacity:0.6;cursor:wait;}" +
-      ".button{appearance:none;border:none;border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.14);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);}" +
-      ".button.danger{background:rgba(183,28,28,0.3);color:#ffcdd2;}" +
+      ".button{appearance:none;border:1px solid rgba(255,255,255,0.24);border-radius:999px;padding:12px 16px;background:rgba(255,255,255,0.10);color:#fff;font:700 13px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
+      ".button:hover,.button:focus-visible{background:rgba(255,255,255,0.18);color:#fff;border-color:rgba(255,255,255,0.42);box-shadow:0 0 0 1px rgba(255,255,255,0.12),0 10px 24px rgba(0,0,0,0.2);transform:translateY(-1px);outline:none;}" +
+      ".button:active{transform:translateY(0);}" +
+      ".button.danger{background:rgba(239,68,68,0.18);border-color:rgba(248,113,113,0.28);color:#fff;}" +
+      ".button.danger:hover,.button.danger:focus-visible{background:rgba(239,68,68,0.28);border-color:rgba(248,113,113,0.48);box-shadow:0 0 0 1px rgba(248,113,113,0.14),0 10px 24px rgba(127,29,29,0.24);}" +
+      ".button-icon{--mdc-icon-size:16px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
+      ".button-icon.spin{animation:phgSpin 1s linear infinite;}" +
       ".upload-status{padding:10px 12px;border-radius:14px;font:600 13px/1.4 system-ui,sans-serif;}" +
       ".upload-status.info{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.88);}" +
       ".upload-status.success{background:rgba(46,125,50,0.2);color:#dcedc8;}" +
@@ -1009,6 +1119,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb{appearance:none;border:2px solid transparent;background:none;padding:0;border-radius:16px;overflow:hidden;cursor:pointer;flex:0 0 auto;opacity:0.82;transition:opacity 120ms ease,border-color 120ms ease,transform 120ms ease;}" +
       ".thumb.active{border-color:#90caf9;opacity:1;transform:translateY(-1px);}" +
       ".thumb img{display:block;width:108px;height:108px;object-fit:cover;background:rgba(15,23,42,0.35);}" +
+      "@keyframes phgSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       "dialog[aria-label='Full-screen gallery']::backdrop{background:transparent;}" +
       "@media (max-width: 900px){.shell{grid-template-rows:auto minmax(0,1fr) auto;gap:12px;}.thumb img{width:84px;height:84px;}.nav{width:48px;height:48px;font-size:26px;}}" +
       "@media (max-width: 640px){.header{gap:12px;}.title{font-size:18px;}.subtitle{font-size:13px;}.button{padding:10px 14px;}.stage{border-radius:20px;}.image-wrap{padding:10px;}.nav.prev{left:10px;}.nav.next{right:10px;}.thumb img{width:72px;height:72px;}}" +
@@ -1044,8 +1155,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var active = this._images[this._activeIndex];
-    var subtitle = this._subtitleForImages(this._images);
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
+    var viewerAction = this._buildViewerAction("icon-action viewer");
+    var expandAction = this._buildExpandAction("icon-action expand");
 
     var stageImage = this.shadowRoot.querySelector(".stage-image");
     if (stageImage) {
@@ -1055,10 +1167,15 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       stageImage.decoding = "async";
     }
 
-    Array.from(this.shadowRoot.querySelectorAll(".badge"))
-      .forEach(function (badge, index) {
-        badge.textContent = index === 0 ? active.label : subtitle;
-      });
+    var stageBadge = this.shadowRoot.querySelector(".stage-badge");
+    if (stageBadge) {
+      stageBadge.textContent = active.label;
+    }
+
+    var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
+    if (topbarActions) {
+      topbarActions.innerHTML = viewerAction + expandAction;
+    }
 
     Array.from(this.shadowRoot.querySelectorAll(".thumb"))
       .forEach(function (button) {
@@ -1072,7 +1189,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var metaActions = this.shadowRoot.querySelector(".meta-actions");
     if (metaActions) {
-      metaActions.innerHTML = uploadAction + primaryAction + deleteAction + '<button class="expand" type="button" data-action="expand">Full Screen</button>';
+      metaActions.innerHTML = uploadAction + primaryAction + deleteAction;
     }
 
     var uploadStatus = this.shadowRoot.querySelector(".upload-status-host");
@@ -1111,6 +1228,24 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       .replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  _buildActionButtonHtml(options) {
+    var buttonOptions = options || {};
+    var className = String(buttonOptions.className || "action-button").trim();
+    var action = String(buttonOptions.action || "").trim();
+    var label = String(buttonOptions.label || "").trim();
+    if (!action || !label) {
+      return "";
+    }
+
+    var title = String(buttonOptions.title || label).trim();
+    var icon = String(buttonOptions.icon || "").trim();
+    var iconHtml = icon
+      ? '<ha-icon class="button-icon' + (icon === "mdi:loading" ? ' spin' : '') + '" icon="' + this._escapeHtml(icon) + '"></ha-icon>'
+      : "";
+
+    return '<button class="' + this._escapeHtml(className) + '" type="button" data-action="' + this._escapeHtml(action) + '" title="' + this._escapeHtml(title) + '" aria-label="' + this._escapeHtml(title) + '"' + (buttonOptions.disabled ? ' disabled' : '') + '>' + iconHtml + '<span>' + this._escapeHtml(label) + '</span></button>';
   }
 
   _archiveKey(archive) {
@@ -1197,10 +1332,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var active = images[this._activeIndex];
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
-    var subtitle = this._subtitleForImages(images);
+    var photoCount = this._photoCount(images);
+    var galleryTitle = String(this._config.title || "Archive Photos") + " (" + String(photoCount) + ")";
     var primaryAction = this._buildPrimaryAction(active, "action-button");
     var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
+    var viewerAction = this._buildViewerAction("icon-action viewer");
+    var expandAction = this._buildExpandAction("icon-action expand");
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -1217,18 +1355,30 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;}" +
       ".topbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}" +
       ".topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:auto;}" +
-      ".badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
+      ".icon-action{position:static;width:32px;height:32px;border:1px solid rgba(148,163,184,0.28);border-radius:999px;background:rgba(15,23,42,0.78);color:var(--primary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
+      ".icon-action:hover,.icon-action:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action:active{transform:translateY(0);}" +
+      ".icon-action.viewer{background:rgba(20,83,45,0.22);border-color:rgba(34,197,94,0.28);color:var(--primary-text-color);}" +
+      ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(20,83,45,0.34);color:var(--primary-text-color);border-color:rgba(34,197,94,0.46);box-shadow:0 0 0 1px rgba(34,197,94,0.18),0 8px 20px rgba(20,83,45,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.viewer:active{transform:translateY(0);}" +
+      ".icon-action.expand{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.3);color:var(--primary-text-color);}" +
+      ".icon-action.expand:hover,.icon-action.expand:focus-visible{background:rgba(30,64,175,0.36);color:var(--primary-text-color);border-color:rgba(96,165,250,0.48);box-shadow:0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.expand:active{transform:translateY(0);}" +
+      ".stage-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
-      ".meta{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:0 2px;}" +
-      ".meta-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}" +
+      ".meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 2px;margin-top:2px;position:relative;z-index:2;}" +
+      ".meta-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;justify-content:flex-end;white-space:nowrap;overflow-x:auto;scrollbar-width:thin;}" +
       ".title{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--secondary-text-color);}" +
-      ".subtitle{font-size:13px;line-height:1.45;color:var(--secondary-text-color);margin-top:4px;}" +
-      ".expand{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(21,101,192,0.14);color:#bbdefb;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
-      ".action-button{appearance:none;border:none;border-radius:999px;padding:8px 12px;background:rgba(46,125,50,0.12);color:#2e7d32;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}" +
-      ".action-button.danger{background:rgba(183,28,28,0.12);color:#b71c1c;}" +
+      ".action-button{appearance:none;border:1px solid rgba(148,163,184,0.32);border-radius:999px;padding:8px 12px;background:rgba(255,255,255,0.04);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;position:relative;z-index:0;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease;}" +
+      ".action-button:hover,.action-button:focus-visible{background:rgba(255,255,255,0.10);color:var(--primary-text-color);border-color:rgba(148,163,184,0.6);box-shadow:0 0 0 1px rgba(255,255,255,0.14),0 4px 10px rgba(15,23,42,0.12);outline:none;z-index:3;}" +
+      ".action-button:active{box-shadow:0 0 0 1px rgba(255,255,255,0.10),0 2px 6px rgba(15,23,42,0.10);}" +
+      ".action-button.danger{background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.28);color:var(--primary-text-color);}" +
+      ".action-button.danger:hover,.action-button.danger:focus-visible{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.54);box-shadow:0 0 0 1px rgba(239,68,68,0.16),0 4px 10px rgba(127,29,29,0.14);}" +
       ".action-button[disabled]{opacity:0.6;cursor:wait;}" +
+      ".action-button .button-icon{--mdc-icon-size:14px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
+      ".action-button .button-icon.spin{animation:phgSpin 1s linear infinite;}" +
       ".upload-status-host{min-height:0;}" +
       ".upload-status{margin:2px 2px 0;padding:10px 12px;border-radius:14px;font-size:12px;font-weight:600;line-height:1.4;}" +
       ".upload-status.info{background:rgba(21,101,192,0.10);color:#0d47a1;}" +
@@ -1239,6 +1389,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".thumb.active{border-color:rgba(59,130,246,0.9);box-shadow:0 0 0 2px rgba(59,130,246,0.2);}" +
       ".thumb img{display:block;width:72px;height:72px;object-fit:cover;background:rgba(15,23,42,0.28);}" +
       ".thumb-label{position:absolute;left:6px;bottom:6px;padding:3px 6px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:10px;font-weight:700;backdrop-filter:blur(10px);}" +
+      "@keyframes phgSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       ":host([compact]) .wrap{gap:8px;}" +
       ":host([compact]) .stage{border-radius:16px;}" +
       ":host([compact]) .stage-image{max-height:220px;min-height:220px;}" +
@@ -1252,14 +1403,14 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
       "</button>" +
       '<div class="topbar">' +
-      '<div class="topbar-left"><span class="badge">' + this._escapeHtml(active.label) + "</span>" +
-      '<span class="badge">' + this._escapeHtml(subtitle) + "</span></div>" +
+      '<div class="topbar-left"><span class="stage-badge">' + this._escapeHtml(active.label) + "</span></div>" +
+      '<div class="topbar-actions">' + viewerAction + expandAction + '</div>' +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +
       (compact ? "" : ('<div class="meta">' +
-      '<div><div class="title">' + this._escapeHtml(this._config.title) + "</div><div class=\"subtitle\">" + this._escapeHtml(archiveName) + " \u00b7 " + this._escapeHtml(subtitle) + "</div></div>" +
-      '<div class="meta-actions">' + uploadAction + primaryAction + deleteAction + '<button class="expand" type="button" data-action="expand">Full Screen</button></div>' +
+      '<div><div class="title">' + this._escapeHtml(galleryTitle) + "</div></div>" +
+      '<div class="meta-actions">' + uploadAction + primaryAction + deleteAction + '</div>' +
       "</div>")) +
       '<div class="upload-status-host">' + this._renderUploadStatus() + '</div>' +
       '<div class="thumbs">' + images.map(function (image, index) {

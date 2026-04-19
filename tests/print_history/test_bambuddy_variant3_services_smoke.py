@@ -1396,6 +1396,38 @@ def test_variant3_manager_limit_notice_reports_truncated_history(tmp_path: Path)
     assert "not included in the local browser cache" in notice["popup_markdown"]
 
 
+def test_variant3_manager_limit_notice_reports_incomplete_history(tmp_path: Path) -> None:
+    _const_module, _query_module, manager_module, _init_module = _import_component_modules()
+
+    state_map = _default_state_map()
+    state_map["input_number.print_history_max_archives"] = "20"
+    hass = FakeHass(tmp_path, state_map)
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    template_archives = _projected_archives(manager_module.project_archive)
+    archives: list[dict[str, object]] = []
+    for index in range(10):
+        source = dict(template_archives[index % len(template_archives)])
+        source["id"] = 2000 + index
+        archives.append(source)
+    manager.store.replace_archives(archives)
+    manager.archives = manager.store.load_archives()
+    manager.last_refresh_archive_total_count = 12
+
+    notice = manager.limit_notice
+
+    assert notice["show"] is True
+    assert notice["state"] == "incomplete"
+    assert notice["chip_label"] == "10 of 12"
+    assert notice["expected_cached_count"] == 12
+    assert "expected cache entries are missing" in notice["popup_markdown"]
+
+
 def test_variant3_manager_limit_notice_reports_near_limit(tmp_path: Path) -> None:
     _const_module, _query_module, manager_module, _init_module = _import_component_modules()
 

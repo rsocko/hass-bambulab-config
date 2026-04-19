@@ -186,13 +186,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<style>" +
       ":host{display:block;}" +
       "ha-card{padding:0;overflow:hidden;border-radius:24px;background:linear-gradient(180deg,#071019 0%,#09111b 100%);color:#f8fafc;}" +
-      ".shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:18px;}" +
+      ".shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:22px 18px 18px;}" +
       ".panel{border:1px solid rgba(125,211,200,0.18);border-radius:20px;background:rgba(13,23,35,0.94);box-shadow:0 18px 50px rgba(0,0,0,0.22);backdrop-filter:blur(10px);}" +
       ".header{display:grid;gap:12px;padding:18px 20px 16px;}" +
       ".eyebrow{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;margin-bottom:6px;}" +
       "h1{margin:0;font-size:clamp(1.05rem,1.3vw + 0.8rem,1.55rem);line-height:1.2;}" +
       ".header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;}" +
       ".subtitle{color:#9fb0c0;font-size:0.9rem;font-weight:600;}" +
+      ".subtitle[hidden]{display:none;}" +
       ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:700;letter-spacing:0.01em;cursor:pointer;transition:transform 0.16s ease,box-shadow 0.16s ease,border-color 0.16s ease,background 0.16s ease,color 0.16s ease;}" +
       ".button:hover,.button:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 14px 28px rgba(4,12,20,0.28);transform:translateY(-1px);outline:none;}" +
       ".button:active{transform:translateY(0);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 8px 18px rgba(4,12,20,0.22);}" +
@@ -204,8 +205,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".chips{display:flex;flex-wrap:wrap;gap:8px;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);color:#f8fafc;font-size:0.76rem;font-weight:700;letter-spacing:0.01em;}" +
       ".chip.warn{color:#fde68a;border-color:rgba(245,158,11,0.34);background:rgba(245,158,11,0.12);}" +
-      ".viewer-workbench{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:start;}" +
-      ".stage{position:relative;min-height:min(72vh,680px);height:min(72vh,680px);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
+      ".viewer-workbench{--viewer-stage-height:min(72vh,680px);display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:stretch;}" +
+      ".stage{position:relative;min-height:var(--viewer-stage-height);height:var(--viewer-stage-height);overflow:hidden;background:linear-gradient(180deg,rgba(10,19,30,0.92),rgba(8,14,23,0.98)),radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 34%);}" +
       ".stage-panel{grid-area:stage;align-self:stretch;}" +
       ".canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}" +
       ".stage-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;z-index:2;pointer-events:none;transition:opacity 0.18s ease,visibility 0.18s ease;}" +
@@ -233,7 +234,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".crop-handle.ne{right:-11px;top:-11px;cursor:nesw-resize;}" +
       ".crop-handle.sw{left:-11px;bottom:-11px;cursor:nesw-resize;}" +
       ".crop-handle.se{right:-11px;bottom:-11px;cursor:nwse-resize;}" +
-      ".capture-panel{grid-area:capture;display:grid;grid-template-rows:auto auto 1fr;gap:14px;padding:18px 20px;position:sticky;top:18px;}" +
+      ".capture-panel{grid-area:capture;display:grid;grid-template-rows:auto minmax(0,1fr);gap:14px;padding:18px 20px;position:sticky;top:18px;align-self:stretch;min-height:var(--viewer-stage-height);height:var(--viewer-stage-height);box-sizing:border-box;}" +
       ".capture-panel.idle{border-color:rgba(255,255,255,0.08);}" +
       ".capture-panel.crop-active{border-color:rgba(245,158,11,0.34);box-shadow:0 18px 50px rgba(245,158,11,0.12);}" +
       ".capture-panel.capture-ready{border-color:rgba(125,211,200,0.34);box-shadow:0 22px 56px rgba(125,211,200,0.16);}" +
@@ -252,8 +253,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-chip.error{color:#fca5a5;}" +
       ".capture-chip.upload{color:#7dd3fc;}" +
       ".capture-hero-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
-      ".capture-hero-copy{color:#d3deeb;font-size:0.92rem;line-height:1.55;}" +
-      ".capture-preview-stack{display:grid;gap:14px;}" +
+      ".capture-preview-stack{display:grid;grid-template-rows:minmax(0,1fr) auto;gap:14px;min-height:0;}" +
       ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
       ".capture-preview-wrap img{display:none;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
       ".capture-preview-wrap.has-image img{display:block;}" +
@@ -262,7 +262,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-kicker{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;}" +
       ".capture-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}" +
       ".capture-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
-      ".capture-copy{color:#9fb0c0;font-size:0.94rem;line-height:1.55;}" +
       ".capture-status{min-height:22px;font-size:0.9rem;color:#9fb0c0;}" +
       ".capture-status.error{color:#fecaca;}" +
       ".capture-status.success{color:#86efac;}" +
@@ -270,7 +269,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-controls.visible{display:flex;}" +
       ".capture-controls select{appearance:none;min-height:42px;padding:0 42px 0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;font-size:0.92rem;font-weight:700;}" +
       ".capture-controls select:hover,.capture-controls select:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));outline:none;}" +
-      ".capture-note{color:#9fb0c0;font-size:0.84rem;line-height:1.5;}" +
       ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;flex:0 0 auto;}" +
       ".fallback{display:none;padding:18px 20px 22px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(18,31,46,0.98);}" +
       ".fallback.visible{display:block;}" +
@@ -282,19 +280,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "@keyframes capturePulse{0%{transform:translateY(0);box-shadow:0 0 0 0 rgba(125,211,200,0);}35%{transform:translateY(-2px);box-shadow:0 14px 38px rgba(125,211,200,0.2);}100%{transform:translateY(0);box-shadow:0 22px 56px rgba(125,211,200,0.16);}}" +
       "@keyframes stageSpinner{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
-      "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;}}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
+      "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;min-height:auto;height:auto;}}" +
+      "@media (max-width:720px){.shell{padding:16px 12px 12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
       "<section class='panel'>" +
       "<div class='header'>" +
       "<div>" +
-      "<div class='eyebrow'>Print History Viewer</div>" +
-      "<h1 id='viewer-title'>Loading archive viewer...</h1>" +
+        "<div class='eyebrow'>3D Viewer</div>" +
+      "<h1 id='viewer-title'>3D Viewer</h1>" +
       "</div>" +
       "<div class='header-meta'>" +
-      "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
+      "<div id='viewer-subtitle' class='subtitle' hidden></div>" +
       "<div id='capability-chips' class='chips'></div>" +
       "</div></div>" +
       "</section>" +
@@ -334,27 +332,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<span class='capture-kicker'>Viewer Capture</span>" +
       "</div>" +
       "<div id='capture-hero-title' class='capture-hero-title'>Capture workspace</div>" +
-      "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
       "<div class='capture-primary-actions'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
       "<button id='crop-toggle-button' class='button ghost' type='button'>Crop View</button>" +
       "</div>" +
-      "</div>" +
-      "<div class='capture-preview-stack'>" +
-      "<div class='capture-preview-wrap'>" +
-      "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
-      "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image.</div>" +
-      "</div>" +
-      "<div class='capture-meta'>" +
-      "<div class='capture-title-row'>" +
-      "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
-      "<div class='capture-actions'>" +
-      "<button id='download-capture-button' class='button primary' type='button' disabled>Download PNG</button>" +
-      "<button id='upload-capture-button' class='button primary' type='button' disabled>Upload to Archive</button>" +
-      "</div>" +
-      "</div>" +
-      "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
-      "<div id='capture-status' class='capture-status'></div>" +
       "<div id='capture-controls' class='capture-controls'>" +
       "<select id='crop-aspect-select' aria-label='Crop aspect preset'>" +
       "<option value='square'>Square</option>" +
@@ -365,7 +346,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<button id='reset-crop-button' class='button ghost' type='button'>Reset Crop</button>" +
       "<button id='cancel-crop-button' class='button ghost' type='button'>Cancel Crop</button>" +
       "</div>" +
-      "<div id='capture-note' class='capture-note'>Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.</div>" +
+      "</div>" +
+      "<div class='capture-preview-stack'>" +
+      "<div class='capture-preview-wrap'>" +
+      "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
+      "<div id='capture-empty' class='capture-empty'>No capture yet.</div>" +
+      "</div>" +
+      "<div class='capture-meta'>" +
+      "<div class='capture-title-row'>" +
+      "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
+      "<div class='capture-actions'>" +
+      "<button id='download-capture-button' class='button primary' type='button' disabled>Download PNG</button>" +
+      "<button id='upload-capture-button' class='button primary' type='button' disabled>Upload to Archive</button>" +
+      "</div>" +
+      "</div>" +
+      "<div id='capture-status' class='capture-status'></div>" +
       "</div>" +
       "</div>" +
       "</section>" +
@@ -504,8 +499,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const hero = this.shadowRoot && this.shadowRoot.getElementById("capture-hero");
     const chip = this.shadowRoot && this.shadowRoot.getElementById("capture-chip");
     const title = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-title");
-    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-copy");
-    if (!hero || !chip || !title || !copy || !this._capturePanel) {
+    if (!hero || !chip || !title || !this._capturePanel) {
       return;
     }
 
@@ -514,7 +508,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     let chipState = "idle";
     let chipLabel = "Waiting";
     let heroTitle = "Capture workspace";
-    let heroCopy = "Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.";
 
     if (this._uploadInProgress) {
       panelState = "capture-ready";
@@ -522,21 +515,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       chipState = "upload";
       chipLabel = "Uploading";
       heroTitle = "Uploading your viewer capture";
-      heroCopy = "The current PNG is being added to the archive photo gallery. Leave the popup open until the upload finishes.";
     } else if (this._capture) {
       panelState = "capture-ready";
       heroState = "status-ready";
       chipState = "ready";
       chipLabel = "Ready";
       heroTitle = "Capture ready to use";
-      heroCopy = "Your latest viewer render is ready. Download the PNG or upload it straight into the archive from this panel.";
     } else if (this._cropMode) {
       panelState = "crop-active";
       heroState = "status-crop";
       chipState = "crop";
       chipLabel = "Crop mode";
       heroTitle = "Crop mode is active";
-      heroCopy = "Drag the frame on the renderer, adjust the preset here, then press Capture Crop to create the image.";
     }
 
     this._capturePanel.className = `panel capture-panel ${panelState}`;
@@ -544,18 +534,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
     chip.className = `capture-chip ${chipState}`;
     chip.textContent = chipLabel;
     title.textContent = heroTitle;
-    copy.textContent = heroCopy;
   }
 
   _updateCapturePanel() {
     const image = this.shadowRoot && this.shadowRoot.getElementById("capture-preview-image");
     const empty = this.shadowRoot && this.shadowRoot.getElementById("capture-empty");
     const title = this.shadowRoot && this.shadowRoot.getElementById("capture-title");
-    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-copy");
     const controls = this.shadowRoot && this.shadowRoot.getElementById("capture-controls");
-    const note = this.shadowRoot && this.shadowRoot.getElementById("capture-note");
     const previewWrap = image && image.parentElement instanceof HTMLElement ? image.parentElement : null;
-    if (!image || !empty || !title || !copy || !note || !previewWrap) {
+    if (!image || !empty || !title || !previewWrap) {
       return;
     }
 
@@ -565,24 +552,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       empty.hidden = true;
       previewWrap.classList.add("has-image");
       title.textContent = `${this._capture.width} x ${this._capture.height} PNG ready`;
-      copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} ${this._capture.cropLabel || "viewer capture"} prepared from the current popup canvas.`;
     } else {
       image.removeAttribute("src");
       image.hidden = true;
       empty.hidden = false;
       previewWrap.classList.remove("has-image");
-      title.textContent = "No render captured yet";
-      copy.textContent = this._cropMode
-        ? `Adjust the ${this._cropPresetLabel().toLowerCase()} and then capture it. Square is the thumbnail-like default, while landscape presets are better for wide card framing.`
-        : "Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.";
+      title.textContent = this._cropMode ? this._cropPresetLabel() : "No render captured yet";
     }
 
     if (controls) {
       controls.classList.toggle("visible", this._cropMode);
     }
-    note.textContent = this._cropMode
-      ? "Square stays closest to the stock thumbnail behavior. Landscape presets usually frame better for the list card and camera-style previews."
-      : "Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.";
 
     if (this._captureButton) {
       this._captureButton.textContent = "Capture View";
@@ -842,7 +822,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._cropDrag = null;
     if (this._cropMode) {
       this._ensureCropRect(!this._cropRect);
-      this._setCaptureStatus("Crop mode is active. Square is the thumbnail-like default; switch to a landscape preset if you want wider framing.", "info");
+      this._setCaptureStatus("Crop mode is active.", "info");
       this._focusCapturePanel("crop");
     }
     this._updateCapturePanel();
@@ -1012,7 +992,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     this._ensureCropRect(true);
     this._updateCropOverlay();
-    this._setCaptureStatus(`Reset to ${this._cropPresetLabel().toLowerCase()}.`, "info");
+    this._setCaptureStatus("Crop reset.", "info");
   }
 
   _handleCancelCrop() {
@@ -1082,7 +1062,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       cropLabel,
     };
     this._updateCapturePanel();
-    this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}. Download it or upload it to the archive.`, "success");
+    this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}.`, "success");
     this._focusCapturePanel("capture");
   }
 
@@ -1377,14 +1357,76 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._normalizeColors(capabilities.filament_colors);
   }
 
-  _normalizePreviewGcode(gcodeText, maxToolIndex, initialToolIndex) {
+  _buildPreviewToolState(colors, gcodeText, initialToolIndex) {
+    const palette = this._normalizeColors(colors);
+    const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
+    const sawInitialToolPlaceholder = /(^|\n)T1000\s*($|\n)/m.test(String(gcodeText || ""));
+    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
+    const orderedToolIds = explicitToolIds.slice();
+    const toolMap = {};
+    const previewPalette = [];
+
+    if (sawInitialToolPlaceholder && orderedToolIds.indexOf(normalizedInitialTool) < 0) {
+      orderedToolIds.unshift(normalizedInitialTool);
+    }
+
+    if (!orderedToolIds.length) {
+      if (palette.length && palette[normalizedInitialTool]) {
+        previewPalette.push(palette[normalizedInitialTool]);
+      }
+      for (let index = 0; index < Math.min(palette.length, 8); index += 1) {
+        if (!previewPalette[index]) {
+          previewPalette[index] = palette[index];
+        }
+      }
+      return {
+        defaultToolIndex: 0,
+        previewPalette: previewPalette.filter(Boolean),
+        toolMap,
+      };
+    }
+
+    for (let index = 0; index < orderedToolIds.length; index += 1) {
+      const toolId = orderedToolIds[index];
+      const mappedToolId = index % 8;
+      toolMap[String(toolId)] = mappedToolId;
+      if (palette[toolId]) {
+        previewPalette[mappedToolId] = palette[toolId];
+      } else if (!previewPalette[mappedToolId] && palette[index]) {
+        previewPalette[mappedToolId] = palette[index];
+      }
+    }
+
+    for (let index = 0; index < Math.min(palette.length, 8); index += 1) {
+      if (!previewPalette[index] && palette[index]) {
+        previewPalette[index] = palette[index];
+      }
+    }
+
+    const defaultToolIndex = Object.prototype.hasOwnProperty.call(toolMap, String(normalizedInitialTool))
+      ? toolMap[String(normalizedInitialTool)]
+      : 0;
+
+    return {
+      defaultToolIndex,
+      previewPalette: previewPalette.filter(Boolean),
+      toolMap,
+    };
+  }
+
+  _normalizePreviewGcode(gcodeText, toolState) {
     const source = String(gcodeText || "");
     if (!source) {
       return source;
     }
 
-    const maxKnownTool = Number.isInteger(maxToolIndex) && maxToolIndex >= 0 ? maxToolIndex : null;
-    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
+    const normalizedToolState = toolState && typeof toolState === "object" ? toolState : {};
+    const toolMap = normalizedToolState.toolMap && typeof normalizedToolState.toolMap === "object"
+      ? normalizedToolState.toolMap
+      : {};
+    const defaultToolIndex = Number.isInteger(normalizedToolState.defaultToolIndex) && normalizedToolState.defaultToolIndex >= 0
+      ? normalizedToolState.defaultToolIndex
+      : 0;
     const lines = source.split("\n");
     const toolPattern = /^T(\d+)\s*$/;
     let currentTool = null;
@@ -1402,27 +1444,23 @@ class PrintHistory3dViewerCard extends HTMLElement {
         return line;
       }
 
-      let normalizedTool = tool;
-      if (maxKnownTool != null) {
-        if (tool >= 0 && tool <= maxKnownTool) {
-          normalizedTool = tool;
-        } else if (tool === 1000) {
-          normalizedTool = normalizedInitialTool;
-        } else if (tool === 255 && currentTool != null) {
-          normalizedTool = currentTool;
-        } else if (currentTool != null) {
-          normalizedTool = currentTool;
-        } else {
-          normalizedTool = normalizedInitialTool;
-        }
+      let normalizedTool = defaultToolIndex;
+      if (tool === 1000) {
+        normalizedTool = defaultToolIndex;
+      } else if (tool === 255 && currentTool != null) {
+        normalizedTool = currentTool;
+      } else if (Object.prototype.hasOwnProperty.call(toolMap, String(tool))) {
+        normalizedTool = toolMap[String(tool)];
+      } else if (currentTool != null) {
+        normalizedTool = currentTool;
       }
 
       currentTool = normalizedTool;
       return `T${normalizedTool}`;
     });
 
-    if (!sawAnyTool && maxKnownTool != null) {
-      normalizedLines.unshift("T0");
+    if (!sawAnyTool) {
+      normalizedLines.unshift(`T${defaultToolIndex}`);
     }
 
     return normalizedLines.join("\n");
@@ -1467,8 +1505,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       titleNode.textContent = title;
     }
     if (subtitleNode) {
-      subtitleNode.textContent = subtitle;
+      const subtitleText = String(subtitle || "").trim();
+      subtitleNode.textContent = subtitleText;
+      subtitleNode.hidden = !subtitleText;
     }
+  }
+
+  _archiveChipMarkup() {
+    const archiveId = this._config && this._config.archive_id ? String(this._config.archive_id).trim() : "";
+    if (!archiveId) {
+      return "";
+    }
+    return `<span class='chip'>Archive #${this._escapeHtml(archiveId)}</span>`;
   }
 
   _renderCapabilityChips(capabilities, colors) {
@@ -1479,11 +1527,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const buildVolume = this._normalizeBuildVolume(capabilities.build_volume);
     const renderAnimated = this._renderAnimated;
     const chipMarkup = [
+      this._archiveChipMarkup(),
       `<span class='chip${capabilities.has_gcode ? "" : " warn"}'>G-code ${capabilities.has_gcode ? "Available" : "Unavailable"}</span>`,
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
       `<span class='chip'>${renderAnimated ? "Animated Preview" : "Static Preview"}</span>`,
-    ];
+    ].filter(Boolean);
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
     }
@@ -1550,13 +1599,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     if (!archiveId) {
       this._setStageStatus("Viewer unavailable", "This popup cannot render because the archive ID is missing.", "error");
-      this._setTitle("Archive viewer unavailable", "No archive ID was provided to the popup.");
+      this._setTitle("3D Viewer", "No archive ID was provided to the popup.");
       this._setStatus("Archive viewer could not start because archive_id is missing.", true);
       this._showFallback("Launch this popup from a print-history archive card or popup action.", "");
       return;
     }
 
-    this._setTitle(archiveTitle, `Archive #${archiveId}`);
+    this._setTitle(archiveTitle, "");
     this._disposePreview();
     this._hideFallback();
     this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");
@@ -1599,13 +1648,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
       const initialToolIndex = this._resolveInitialToolIndex(colors, gcodeText);
-      const previewGcode = this._normalizePreviewGcode(
-        gcodeText,
-        colors.length ? colors.length - 1 : null,
-        initialToolIndex
-      );
-      this._renderCapabilityChips(capabilities, colors);
-      this._renderOverlay(colors);
+      const toolState = this._buildPreviewToolState(colors, gcodeText, initialToolIndex);
+      const previewColors = toolState.previewPalette.length ? toolState.previewPalette : colors;
+      const previewGcode = this._normalizePreviewGcode(gcodeText, toolState);
+      this._renderCapabilityChips(capabilities, previewColors);
+      this._renderOverlay(previewColors);
 
       const canvas = this.shadowRoot && this.shadowRoot.getElementById("viewer-canvas");
       if (!(canvas instanceof HTMLCanvasElement)) {
@@ -1623,11 +1670,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
         const preview = GCodePreview.init({
           canvas,
           buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
-          extrusionColor: colors.length ? colors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
+          extrusionColor: previewColors.length ? previewColors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
           disableGradient: true,
+          lineHeight: 0.2,
+          lineWidth: 2,
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
+          renderTravel: false,
+          renderExtrusion: true,
           renderAnimated,
           RenderAnimated: renderAnimated,
         });
