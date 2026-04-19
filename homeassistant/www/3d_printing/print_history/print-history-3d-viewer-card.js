@@ -1556,7 +1556,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
 
-    this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);
+    this._setTitle(archiveTitle, `Archive #${archiveId}`);
     this._disposePreview();
     this._hideFallback();
     this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");

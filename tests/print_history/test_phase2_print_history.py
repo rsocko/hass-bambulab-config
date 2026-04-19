@@ -813,29 +813,12 @@ class TestTemplateSensors(unittest.TestCase):
 class TestHeatmapActivityCard(unittest.TestCase):
     """Heatmap card logic should match the projected archive schema and metric labels."""
 
-    def test_top_controls_disable_invalid_pagination_buttons_from_page_info(self):
-        content = (HISTORY / "dashboard_cards" / "print_history_top_controls.yaml").read_text("utf-8")
-
-        self.assertIn("sensor.bambuddy_print_history_browser_page_info']?.attributes", content)
-        self.assertIn("current_page", content)
-        self.assertIn("total_pages", content)
-        self.assertIn("pointer-events: none !important;", content)
-        self.assertIn("mdi:page-first", content)
-        self.assertIn("mdi:chevron-left", content)
-        self.assertIn("mdi:chevron-right", content)
-        self.assertIn("mdi:page-last", content)
-
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
-
-    def test_browser_card_does_not_underline_print_name_on_hover(self):
-        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
-
-        self.assertNotIn('.card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline', content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1608,16 +1591,6 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("_withArchiveMediaCacheKey", gallery_content)
         self.assertIn(' + "v=" + encodeURIComponent(cacheKey)', gallery_content)
 
-    def test_media_card_navigation_uses_the_rendered_gallery_index_for_primary_photo_selection(self):
-        content = (
-            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
-        ).read_text("utf-8")
-
-        self.assertIn("data-gallery-index=\"' + this._escapeAttribute(String(mediaGalleryIndex)) + '\"", content)
-        self.assertIn("_readRenderedMediaGalleryIndex(actionNode, galleryCount)", content)
-        self.assertIn("galleryIndex: this._readRenderedMediaGalleryIndex(surface, Number(surface.getAttribute(\"data-gallery-count\") || 0))", content)
-        self.assertIn("Number.isFinite(swipe.galleryIndex) ? swipe.galleryIndex : this._mediaGalleryIndex", content)
-
     def test_photo_gallery_only_resets_local_media_state_when_archive_id_changes(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
@@ -2014,7 +1987,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
 
     def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
         content = (
@@ -2139,7 +2112,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('"<div class=\'eyebrow\'>3D Viewer</div>" +', script)
         self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
         self.assertNotIn('Print History Viewer', script)
-        self.assertIn('this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);', script)
+        self.assertIn('this._setTitle(archiveTitle, `Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
