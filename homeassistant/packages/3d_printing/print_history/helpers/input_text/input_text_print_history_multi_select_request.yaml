@@ -1,0 +1,5 @@
+print_history_multi_select_request:
+  name: Print History Multi Select Request
+  icon: mdi:gesture-tap-button
+  max: 80
+  initial: ""

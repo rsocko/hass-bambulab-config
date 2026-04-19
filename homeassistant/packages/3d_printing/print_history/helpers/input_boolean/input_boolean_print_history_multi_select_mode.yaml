@@ -1,0 +1,3 @@
+print_history_multi_select_mode:
+  name: Print History Multi Select Mode
+  icon: mdi:checkbox-multiple-marked-outline

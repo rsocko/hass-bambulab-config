@@ -65,6 +65,27 @@ Current filter semantics:
 
 Follow-on work such as related-item navigation, compare flows, or suspicious same-hash review should use popup detail hydration or a dedicated query path rather than widening the base archive projection.
 
+## Shipped Multi-Select Actions
+
+Issue `#919` adds a shipped browser-side multi-select action flow for archives.
+
+Current contract:
+
+- the top control strip exposes `Select Prints` in normal mode
+- entering selection mode swaps the toolbar into a bulk-action row instead of mixing paging and destructive actions together
+- actual selected archive IDs stay local to the browser custom card
+- shared Home Assistant helpers carry only mode and summary state so the YAML toolbar and JS card stay aligned
+- `Select All` applies only to the currently visible page
+- bulk actions currently cover user-tag updates, project assignment, favorite/unfavorite, and delete
+
+Important guardrails:
+
+- bulk tag edits must preserve system-managed tags
+- bulk project and favorite updates rely on field-optional PATCH payloads and must not clear unrelated fields
+- card open, favorite, and media-gallery interactions are suppressed while selection mode is active
+
+See [multi-select-actions-design.md](multi-select-actions-design.md) for the detailed design and implementation contract.
+
 ## Planned Multi-Select Filter Expansion
 
 Issue `#784` starts with the tag filter.

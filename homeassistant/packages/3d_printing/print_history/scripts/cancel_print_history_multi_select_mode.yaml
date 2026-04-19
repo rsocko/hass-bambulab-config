@@ -1,0 +1,21 @@
+# Leave browser multi-select mode and clear any pending toolbar requests.
+cancel_print_history_multi_select_mode:
+  alias: Cancel Print History Multi Select Mode
+  sequence:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.print_history_multi_select_mode
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.print_history_multi_select_count
+      data:
+        value: 0
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.print_history_multi_select_all_favorites
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.print_history_multi_select_request
+      data:
+        value: ""
+  mode: queued

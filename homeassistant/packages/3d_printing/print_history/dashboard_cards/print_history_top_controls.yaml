@@ -3,6 +3,10 @@ entities:
   - input_number.print_history_page_size
   - input_select.print_history_card_variant
   - input_boolean.print_history_show_images
+  - input_boolean.print_history_multi_select_mode
+  - input_number.print_history_multi_select_count
+  - input_boolean.print_history_multi_select_all_favorites
+  - input_text.print_history_multi_select_request
   - sensor.bambuddy_print_history_browser_page_info
   - sensor.bambuddy_print_history_browser_filtered
 card_mod:
@@ -39,6 +43,9 @@ card:
       const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
       const activeVariant = states['input_select.print_history_card_variant']?.state || '';
       const isMediaVariant = activeVariant === 'Media';
+      const multiSelectMode = states['input_boolean.print_history_multi_select_mode']?.state === 'on';
+      const selectedCount = Math.max(0, Number(states['input_number.print_history_multi_select_count']?.state || 0) || 0);
+      const hasSelection = selectedCount > 0;
       const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
       const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
       const atFirstPage = currentPage <= 1;
@@ -62,10 +69,41 @@ card:
       const imagesSelector = byIcon('mdi:image-outline');
       const refreshSelector = byIcon('mdi:refresh');
       const nextSelector = byIcon('mdi:chevron-right');
+      const selectModeSelector = byIcon('mdi:checkbox-multiple-blank-outline');
+      const selectedCountSelector = byIcon('mdi:checkbox-multiple-marked-outline');
+      const cancelSelector = byIcon('mdi:close');
+      const selectAllSelector = byIcon('mdi:select-all');
+      const tagSelector = byIcon('mdi:tag-multiple-outline');
+      const projectSelector = byIcon('mdi:folder-multiple-outline');
+      const favoriteSelector = byIcon('mdi:star-circle-outline');
+      const deleteSelector = byIcon('mdi:trash-can-outline');
+      const multiModeSelectors = [
+        selectedCountSelector,
+        cancelSelector,
+        selectAllSelector,
+        tagSelector,
+        projectSelector,
+        favoriteSelector,
+        deleteSelector,
+      ];
+      const hiddenNormalSelectors = [
+        firstSelector,
+        prevSelector,
+        pageInfoSelector,
+        matchesSelector,
+        pageSizeSelector,
+        ...layoutSelectors,
+        imagesSelector,
+        refreshSelector,
+        nextSelector,
+        lastSelector,
+        selectModeSelector,
+      ];
       const disabledSelectors = [
         ...(atFirstPage ? [firstSelector, prevSelector] : []),
         ...(atLastPage ? [nextSelector, lastSelector] : []),
       ];
+      const multiDisabledSelectors = hasSelection ? [] : [tagSelector, projectSelector, favoriteSelector, deleteSelector];
       return `
         ha-card {
           overflow: visible !important;
@@ -109,6 +147,11 @@ card:
           min-width: 0 !important;
           flex: 0 0 auto !important;
         }
+        ${multiSelectMode ? `${hiddenNormalSelectors.join(',\n        ')} {
+          display: none !important;
+        }` : `${multiModeSelectors.join(',\n        ')} {
+          display: none !important;
+        }`}
         ${layoutButtonSelector},
         ${layoutButtonSelector} *,
         ${layoutButtonSelector} .bubble-dropdown-arrow,
@@ -144,6 +187,24 @@ card:
         ${disabledSelectors.map((selector) => `${selector} ha-icon`).join(',\n        ')} {
           color: var(--disabled-text-color) !important;
         }` : ''}
+        ${multiSelectMode ? `${selectedCountSelector} {
+          pointer-events: none !important;
+        }
+        ${multiDisabledSelectors.length ? `${multiDisabledSelectors.join(',\n        ')} {
+          opacity: 0.42 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+          filter: saturate(0.35) !important;
+        }
+        ${multiDisabledSelectors.map((selector) => `${selector} ha-icon`).join(',\n        ')} {
+          color: var(--disabled-text-color) !important;
+        }` : ''}
+        ${deleteSelector} {
+          background: rgba(198, 40, 40, 0.12) !important;
+        }
+        ${deleteSelector} ha-icon {
+          color: #c62828 !important;
+        }` : ''}
         @media (max-width: 900px) {
           .bubble-sub-button-container,
           .bubble-sub-buttons-container {
@@ -162,6 +223,9 @@ card:
           ${firstSelector},
           ${lastSelector},
           ${matchesSelector} {
+            display: none !important;
+          }
+          ${selectedCountSelector} .bubble-sub-button-name {
             display: none !important;
           }
           ${pageInfoSelector} .bubble-sub-button-name {
@@ -251,6 +315,16 @@ card:
             state_background: false
             tap_to_slide: true
             fill_width: false
+          - name: Select Prints
+            icon: mdi:checkbox-multiple-blank-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.enter_print_history_multi_select_mode
           - entity: input_select.print_history_card_variant
             sub_button_type: select
             name: Layout
@@ -315,5 +389,91 @@ card:
               perform_action: script.navigate_history
               data:
                 direction: last
+          - entity: input_number.print_history_multi_select_count
+            sub_button_type: default
+            name: >-
+              ${(() => {
+                const count = Math.max(0, Number(states['input_number.print_history_multi_select_count']?.state || 0) || 0);
+                return `${count} selected`;
+              })()}
+            icon: mdi:checkbox-multiple-marked-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: none
+          - name: Cancel
+            icon: mdi:close
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.cancel_print_history_multi_select_mode
+          - name: Select All
+            icon: mdi:select-all
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: select_all
+          - name: Tags
+            icon: mdi:tag-multiple-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: tag
+          - name: Project
+            icon: mdi:folder-multiple-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: project
+          - name: >-
+              ${states['input_boolean.print_history_multi_select_all_favorites']?.state === 'on' ? 'Unfavorite' : 'Favorite'}
+            icon: mdi:star-circle-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: favorite
+          - name: Delete
+            icon: mdi:trash-can-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: delete
         buttons_layout: inline
         justify_content: center

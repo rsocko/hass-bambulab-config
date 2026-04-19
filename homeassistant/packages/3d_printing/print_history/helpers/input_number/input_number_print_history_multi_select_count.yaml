@@ -1,0 +1,8 @@
+print_history_multi_select_count:
+  name: Print History Multi Select Count
+  min: 0
+  max: 50
+  step: 1
+  initial: 0
+  icon: mdi:counter
+  mode: box

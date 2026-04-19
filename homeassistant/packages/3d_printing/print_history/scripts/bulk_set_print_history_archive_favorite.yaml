@@ -1,0 +1,51 @@
+# Set favorite state across a selected set of archives.
+bulk_set_print_history_archive_favorite:
+  alias: Bulk Set Print History Archive Favorite
+  fields:
+    archive_ids_csv:
+      description: Comma-separated archive IDs.
+      required: true
+      selector:
+        text:
+    is_favorite:
+      description: Target favorite state.
+      required: true
+      selector:
+        boolean:
+    refresh_browser:
+      description: Refresh the browser after updating favorites. Defaults to true.
+      required: false
+      selector:
+        boolean:
+  sequence:
+    - variables:
+        should_refresh_browser: "{{ refresh_browser if refresh_browser is defined else true }}"
+        requested_archive_ids: "{{ archive_ids_csv | default('', true) | string | trim }}"
+        target_favorite: "{{ is_favorite | bool }}"
+        archive_ids_json: >-
+          {% set ns = namespace(values=[]) %}
+          {% for token in requested_archive_ids.split(',') %}
+            {% set cleaned = token | string | trim %}
+            {% set numeric = cleaned | int(0) %}
+            {% if cleaned != '' and numeric > 0 and numeric not in ns.values %}
+              {% set ns.values = ns.values + [numeric] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | tojson }}
+    - if:
+        - condition: template
+          value_template: "{{ (archive_ids_json | from_json | count) > 0 }}"
+      then:
+        - repeat:
+            for_each: "{{ archive_ids_json | from_json }}"
+            sequence:
+              - action: rest_command.bambuddy_update_archive
+                data:
+                  archive_id: "{{ repeat.item }}"
+                  is_favorite: "{{ target_favorite }}"
+        - if:
+            - condition: template
+              value_template: "{{ should_refresh_browser }}"
+          then:
+            - action: script.refresh_print_history_archives
+  mode: queued

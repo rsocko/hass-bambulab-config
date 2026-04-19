@@ -1,0 +1,33 @@
+# Delete a selected set of archives from Bambuddy and the local Variant 3 store.
+bulk_delete_print_history_archives:
+  alias: Bulk Delete Print History Archives
+  fields:
+    archive_ids_csv:
+      description: Comma-separated archive IDs.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        requested_archive_ids: "{{ archive_ids_csv | default('', true) | string | trim }}"
+        archive_ids_json: >-
+          {% set ns = namespace(values=[]) %}
+          {% for token in requested_archive_ids.split(',') %}
+            {% set cleaned = token | string | trim %}
+            {% set numeric = cleaned | int(0) %}
+            {% if cleaned != '' and numeric > 0 and numeric not in ns.values %}
+              {% set ns.values = ns.values + [numeric] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | tojson }}
+    - if:
+        - condition: template
+          value_template: "{{ (archive_ids_json | from_json | count) > 0 }}"
+      then:
+        - repeat:
+            for_each: "{{ archive_ids_json | from_json }}"
+            sequence:
+              - action: bambuddy.delete_print_history_archive
+                data:
+                  archive_id: "{{ repeat.item }}"
+  mode: queued

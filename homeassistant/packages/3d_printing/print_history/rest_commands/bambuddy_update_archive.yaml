@@ -10,10 +10,13 @@ bambuddy_update_archive:
   headers:
     X-API-Key: !secret bambuddy_api_key
   payload: >-
-    {% set ns = namespace(body={
-      "tags": tags | default('', true),
-      "notes": notes | default('', true)
-    }) %}
+    {% set ns = namespace(body={}) %}
+    {% if tags is defined %}
+      {% set ns.body = dict(ns.body, tags=(tags | default('', true))) %}
+    {% endif %}
+    {% if notes is defined %}
+      {% set ns.body = dict(ns.body, notes=(notes | default('', true))) %}
+    {% endif %}
     {% if print_name is defined %}
       {% set ns.body = dict(ns.body, print_name=print_name) %}
     {% endif %}
@@ -36,6 +39,9 @@ bambuddy_update_archive:
       {% else %}
         {% set ns.body = dict(ns.body, project_id=(project_id | int(0))) %}
       {% endif %}
+    {% endif %}
+    {% if is_favorite is defined %}
+      {% set ns.body = dict(ns.body, is_favorite=(is_favorite | bool)) %}
     {% endif %}
     {{ ns.body | tojson }}
   content_type: "application/json"

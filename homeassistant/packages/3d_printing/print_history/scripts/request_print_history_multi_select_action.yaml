@@ -1,0 +1,22 @@
+# Send one toolbar-originated multi-select action request to the browser card.
+request_print_history_multi_select_action:
+  alias: Request Print History Multi Select Action
+  fields:
+    action:
+      description: Request key such as select_all, tag, project, favorite, or delete.
+      required: true
+      selector:
+        text:
+  sequence:
+    - variables:
+        requested_action: "{{ action | default('', true) | string | trim | lower }}"
+    - if:
+        - condition: template
+          value_template: "{{ requested_action != '' }}"
+      then:
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.print_history_multi_select_request
+          data:
+            value: "{{ requested_action ~ '|' ~ (now().timestamp() | int(0)) }}"
+  mode: queued

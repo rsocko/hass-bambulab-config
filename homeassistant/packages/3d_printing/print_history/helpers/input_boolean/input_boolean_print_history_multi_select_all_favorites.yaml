@@ -1,0 +1,3 @@
+print_history_multi_select_all_favorites:
+  name: Print History Multi Select All Favorites
+  icon: mdi:star-multiple

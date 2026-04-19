@@ -8,7 +8,7 @@ Reads print archives from Bambuddy's API, captures multi-camera photos at multip
 
 **HA Role**: READ archives + CAPTURE multi-stage photos + ENRICH with Spoolman data + SURFACE in dashboard. Bambuddy owns archive creation (auto-creates at print start with 3MF metadata, thumbnails, filament data).
 
-**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `List` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
+**Current Status**: The browser-first dashboard, filter/sort/page pipeline, and archive card variants are implemented and active. The active browser backend is the `bambuddy` custom integration in `homeassistant/custom_components/bambuddy/`, with large page and activity payloads now fetched directly by Lovelace custom cards over websocket instead of being materialized into Home Assistant entity state. The `List` variant renders as a full-width single-row layout, while `Compact` and `Media` remain grid-oriented and responsive to available width. The top control strip now also supports a shipped browser multi-select mode for visible-page bulk actions across `Compact`, `Media`, and `List`, including tag edits, project assignment, favorite/unfavorite, and delete. Multi-stage photos are captured locally and now use a shipped multipart upload bridge with archive-detail verification. The archive browser opens a per-print detail popup from each card, the popup supports helper-backed edits for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`, and the popup also exposes shipped manual actions for `Re-Enrich`, primary-photo selection, `Delete Photo`, `Dismiss Review`, and phone-driven manual photo upload. The media-review slice now persists per-archive state in the Bambuddy Variant 3 store. The first project-assignment slice intentionally only allows picking from existing Bambuddy projects; project creation or broader project-admin flows remain deferred. Remaining advanced mutation flows are mostly compare/deep-link, replace-photo, and broader recovery/review lifecycle work rather than basic archive editing.
 
 Manual phone-photo upload is documented in `ui-media/manual-photo-upload.md`.
 
@@ -220,6 +220,13 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── refresh_print_history_archives.yaml        # manual trigger for archive cache refresh
 │   ├── reenrich_print_history_archive.yaml        # rebuild managed enrichment for older archives
 │   ├── backfill_print_history_archive_enrichment.yaml # batch re-enrich a targeted archive list
+│   ├── enter_print_history_multi_select_mode.yaml # enter browser multi-select mode and reset shared selection summary helpers
+│   ├── cancel_print_history_multi_select_mode.yaml # leave browser multi-select mode and clear shared selection summary helpers
+│   ├── request_print_history_multi_select_action.yaml # send one-shot bulk-action requests from the toolbar to the browser card
+│   ├── bulk_update_print_history_user_tags.yaml   # add/remove user tags across selected archives while preserving system tags
+│   ├── bulk_assign_print_history_project.yaml     # assign or clear one project across selected archives
+│   ├── bulk_set_print_history_archive_favorite.yaml # bulk set favorite state across selected archives
+│   ├── bulk_delete_print_history_archives.yaml    # bulk delete selected archives
 │   ├── save_print_history_archive_popup_edits.yaml # persist popup edits while preserving hidden enrichment metadata
 │   ├── toggle_print_history_archive_favorite.yaml # toggle archive favorite state from cards/popup
 │   ├── clear_print_history_filters.yaml           # reset browser controls to defaults
@@ -237,6 +244,7 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_text_bambuddy_tray_map_snapshot.yaml
 │   │   ├── input_text_print_history_activity_selected_date.yaml
 │   │   ├── input_text_print_history_filter_colors.yaml
+│   │   ├── input_text_print_history_multi_select_request.yaml
 │   │   ├── input_text_print_history_popup_archive_id.yaml
 │   │   ├── input_text_print_history_popup_notes.yaml
 │   │   ├── input_text_print_history_popup_print_name.yaml
@@ -250,11 +258,14 @@ homeassistant/packages/3d_printing/print_history/
 │   │   ├── input_boolean_capture_at_midprint.yaml
 │   │   ├── input_boolean_capture_near_complete.yaml
 │   │   ├── input_boolean_capture_on_error.yaml
+│   │   ├── input_boolean_print_history_multi_select_mode.yaml
+│   │   ├── input_boolean_print_history_multi_select_all_favorites.yaml
 │   │   ├── input_boolean_print_history_show_activity_heatmap.yaml
 │   │   └── input_boolean_print_history_filter_favorites_only.yaml
 │   ├── input_number/
 │   │   ├── input_number_history_current_page.yaml
 │   │   ├── input_number_midprint_capture_percent.yaml
+│   │   ├── input_number_print_history_multi_select_count.yaml
 │   │   ├── input_number_print_history_page_size.yaml
 │   │   ├── input_number_print_history_max_archives.yaml
 │   │   └── input_number_photo_review_timeout_hours.yaml
@@ -316,7 +327,7 @@ input_select: !include_dir_merge_named helpers/input_select
 | `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Filename-based delete used by the shipped store-backed photo-review flow |
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
 | `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
-| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, cost, status, and failure reason |
+| `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, project, favorite state, cost, status, and failure reason; payload fields are intentionally optional for safe bulk updates |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 
 ### Template Sensors / Integration Entities
@@ -344,15 +355,19 @@ input_select: !include_dir_merge_named helpers/input_select
 | `input_text.print_history_activity_selected_date` | input_text | Selected day for the activity heatmap drill-in (`YYYY-MM-DD`) | - |
 | `input_text.print_history_search` | input_text | Browser search text | — |
 | `input_text.print_history_filter_colors` | input_text | Multi-select color filter state as comma-separated hex values | — |
+| `input_text.print_history_multi_select_request` | input_text | One-shot toolbar request channel for browser multi-select actions | — |
 | `input_text.bambuddy_tray_map_snapshot` | input_text | Simplified tray→spool_id snapshot captured at print start (Tier 2 matching) | No `initial:` |
 | `input_boolean.bambuddy_history_sync_enabled` | input_boolean | Enable/disable history sync features (refresh, cache sync, capture sync) | — |
 | `input_boolean.capture_at_start` | input_boolean | Enable photo capture at print start | — |
 | `input_boolean.capture_at_midprint` | input_boolean | Enable photo capture at mid-print % | — |
 | `input_boolean.capture_near_complete` | input_boolean | Enable photo capture at ~99% | — |
 | `input_boolean.capture_on_error` | input_boolean | Enable photo capture on error/failure | — |
+| `input_boolean.print_history_multi_select_mode` | input_boolean | Shared browser toolbar/card flag for whether archive multi-select mode is active | — |
+| `input_boolean.print_history_multi_select_all_favorites` | input_boolean | Summary flag indicating whether every currently selected archive is already favorited | — |
 | `input_boolean.print_history_show_activity_heatmap` | input_boolean | Collapse/expand the heatmap body while keeping the activity separator controls visible | — |
 | `input_boolean.print_history_debug_instrumentation` | input_boolean | Enable browser and heatmap performance instrumentation for future debugging sessions | Off by default |
 | `input_number.history_current_page` | input_number | Current pagination page | — |
+| `input_number.print_history_multi_select_count` | input_number | Shared selected-count summary for the toolbar while multi-select mode is active | — |
 | `input_number.print_history_page_size` | input_number | Browser page size for Layer 2 paging | — |
 | `input_number.print_history_max_archives` | input_number | Max archives fetched into the browser cache | — |
 | `input_number.midprint_capture_percent` | input_number | Progress % for mid-print capture (e.g., 50) | — |
@@ -378,6 +393,13 @@ input_select: !include_dir_merge_named helpers/input_select
 | `script.resolve_current_archive_id` | Fallback: query Bambuddy API, match by filename, store archive_id |
 | `script.reenrich_print_history_archive` | Manual popup action: rebuild managed enrichment for an older archive while preserving user notes/tags; now resolves filament first from color/material/profile hints, then uses location and strict time-window fallback to pick the actual spool when needed |
 | `script.backfill_print_history_archive_enrichment` | Batch re-enrich a CSV archive list while deferring browser refresh until the batch completes |
+| `script.enter_print_history_multi_select_mode` | Enter browser multi-select mode and reset the shared count/favorite/request helpers |
+| `script.cancel_print_history_multi_select_mode` | Leave browser multi-select mode and clear the shared count/favorite/request helpers |
+| `script.request_print_history_multi_select_action` | Send a one-shot bulk action request from the toolbar to the browser card |
+| `script.bulk_update_print_history_user_tags` | Bulk add/remove user tags while preserving system tags on each selected archive |
+| `script.bulk_assign_print_history_project` | Bulk assign one project, or clear it, across selected archives |
+| `script.bulk_set_print_history_archive_favorite` | Bulk set the favorite state across selected archives |
+| `script.bulk_delete_print_history_archives` | Bulk delete selected archives from Bambuddy |
 | `script.save_print_history_archive_popup_edits` | Save popup edits while preserving hidden enrichment metadata |
 | `script.toggle_print_history_archive_favorite` | Toggle an archive's favorite state from the card or popup |
 | `script.refresh_print_history_archives` | Fire a manual Bambuddy browser refresh through the custom integration |
@@ -436,6 +458,7 @@ Implemented now:
 - Day drill-in cards that can follow the active browser filters or ignore them
 - Repeated top/bottom control strip with page navigation, page-size slider, layout toggles, and refresh
 - Archive grid renderer with `Compact`, `Media`, and `List` variants
+- Browser multi-select mode with visible-page selection and bulk tag/project/favorite/delete actions
 - Popup edit/save flows for `print_name`, `tags`, `notes`, `project`, `status`, and `failure_reason`
 - Store-backed media review primitives plus popup/gallery actions for primary-photo selection, photo upload, photo delete, and dismiss review
 - Archive-issue detection and browser/popup surfacing for missing core 3MF, source-only, and missing-thumbnail states
@@ -462,6 +485,7 @@ For detailed design of the two major subsystems, see:
 - **[source-3mf-import-design.md](imports/source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
 - **[source-3mf-import-implementation-plan.md](imports/source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
 - **[filter-sort-design.md](browser/filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
+- **[multi-select-actions-design.md](browser/multi-select-actions-design.md)** — Issue #919 shipped browser multi-select mode, toolbar/card coordination, and bulk action semantics
 - **[archive-detail-popup-design.md](ui-media/archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
 - **[archive-compare-similar-design.md](archive-compare-similar-design.md)** — Issue #757 design for popup `Related` and `Compare` actions, HA-native compare rendering, and browser multi-select compare
 - **[archive-runtime-restore-ha-ux-design.md](runtime-repair/archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
@@ -525,8 +549,9 @@ The Print History view now includes the configurable browser described in the fi
 1. **Filter and sort layer** — search, filter, sort, and page over a projected in-memory archive dataset.
 2. **Always-visible browser header** — Open Bambuddy, settings, filter pills, search, matches, clear actions, and multi-select color chips stay pinned above the archive grid.
 3. **Repeated control strip** — page navigation, page-size slider, card-variant toggles, and refresh appear both above and below the archive grid.
-4. **Archive card variants** — the history renderer switches between compact, media, and list cards while keeping a two-column desktop layout and a single-column mobile fallback.
-5. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
+4. **Multi-select archive actions** — the control strip can swap into a multi-select mode, archive cards become selectable instead of opening, and visible-page bulk actions can update tags, project, favorite state, or delete selected archives.
+5. **Archive card variants** — the history renderer switches between compact, media, and list cards while keeping a two-column desktop layout and a single-column mobile fallback.
+6. **Archive detail popup is live and now actionable** — each archive card opens a `browser_mod.popup`; favorites can be toggled from the card and popup, popup-backed `print_name` / `tags` / `notes` / `status` / `failure_reason` edits can be saved, and a manual `Re-Enrich` action is available. Compare/deep-link and richer follow-on actions remain deferred.
 
 ### Debug Instrumentation
 
