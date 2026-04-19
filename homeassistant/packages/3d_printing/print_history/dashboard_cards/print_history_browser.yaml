@@ -234,13 +234,23 @@ cards:
       styles: |
         ha-card {
           overflow: visible !important;
+          min-height: 104px !important;
           padding-top: 5px !important;
           padding-bottom: 5px !important;
         }
         .card-content.large,
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
+          min-height: 104px !important;
+          height: 104px !important;
           gap: 6px !important;
+          justify-content: flex-start !important;
+          padding-bottom: 2px !important;
+        }
+        .bubble-sub-button-bottom-container {
+          top: 12px !important;
+          bottom: auto !important;
+          margin-bottom: 0 !important;
         }
       sub_button:
         main: []
