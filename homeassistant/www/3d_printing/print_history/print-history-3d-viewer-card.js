@@ -193,6 +193,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "h1{margin:0;font-size:clamp(1.05rem,1.3vw + 0.8rem,1.55rem);line-height:1.2;}" +
       ".header-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;}" +
       ".subtitle{color:#9fb0c0;font-size:0.9rem;font-weight:600;}" +
+      ".subtitle[hidden]{display:none;}" +
       ".button,.button:visited{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;text-decoration:none;font-size:0.92rem;font-weight:700;letter-spacing:0.01em;cursor:pointer;transition:transform 0.16s ease,box-shadow 0.16s ease,border-color 0.16s ease,background 0.16s ease,color 0.16s ease;}" +
       ".button:hover,.button:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 14px 28px rgba(4,12,20,0.28);transform:translateY(-1px);outline:none;}" +
       ".button:active{transform:translateY(0);box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 8px 18px rgba(4,12,20,0.22);}" +
@@ -291,7 +292,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<h1 id='viewer-title'>3D Viewer</h1>" +
       "</div>" +
       "<div class='header-meta'>" +
-      "<div id='viewer-subtitle' class='subtitle'>Preparing Bambuddy archive preview.</div>" +
+      "<div id='viewer-subtitle' class='subtitle' hidden></div>" +
       "<div id='capability-chips' class='chips'></div>" +
       "</div></div>" +
       "</section>" +
@@ -1446,7 +1447,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       titleNode.textContent = title;
     }
     if (subtitleNode) {
-      subtitleNode.textContent = subtitle;
+      const subtitleText = String(subtitle || "").trim();
+      subtitleNode.textContent = subtitleText;
+      subtitleNode.hidden = !subtitleText;
     }
   }
 
@@ -1544,7 +1547,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
 
-    this._setTitle(archiveTitle, "Bambuddy archive preview.");
+    this._setTitle(archiveTitle, "");
     this._disposePreview();
     this._hideFallback();
     this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");
