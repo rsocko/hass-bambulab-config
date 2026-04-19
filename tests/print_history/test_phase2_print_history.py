@@ -2117,6 +2117,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
+        self.assertIn(".viewer-workbench{--viewer-stage-height:min(72vh,680px);display:grid;grid-template-columns:minmax(0,1.7fr) minmax(320px,0.95fr);grid-template-areas:'stage capture';gap:14px;align-items:stretch;}", script)
+        self.assertIn('.capture-panel{grid-area:capture;display:grid;grid-template-rows:auto minmax(0,1fr);gap:14px;padding:18px 20px;position:sticky;top:18px;align-self:stretch;min-height:var(--viewer-stage-height);height:var(--viewer-stage-height);box-sizing:border-box;}', script)
         self.assertIn('_syncViewerCanvasSize()', script)
         self.assertIn('canvas.width = metrics.width;', script)
         self.assertIn('canvas.height = metrics.height;', script)
