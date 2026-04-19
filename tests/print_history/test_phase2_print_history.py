@@ -815,10 +815,23 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=49", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=50", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=31", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
+
+    def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('action === "advanced-actions"', content)
+        self.assertIn('label: "Advanced Actions"', content)
+        self.assertIn('label: "Repair Archive"', content)
+        self.assertIn('label: "Delete Archive"', content)
+        self.assertIn('var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";', content)
+        self.assertIn('service: "bambuddy.delete_print_history_archive"', content)
+        self.assertIn('No thumbnail or photos are available for this archive yet.', content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")

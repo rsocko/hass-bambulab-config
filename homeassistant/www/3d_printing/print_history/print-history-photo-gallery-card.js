@@ -144,6 +144,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._openViewerPopup();
       return;
     }
+    if (action === "advanced-actions") {
+      this._openAdvancedActions();
+      return;
+    }
     if (action === "expand") {
       this._setExpanded(true);
       return;
@@ -716,6 +720,225 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     });
   }
 
+  _buildPopupActionCard(options) {
+    var cardOptions = options || {};
+    return {
+      type: "custom:button-card",
+      name: String(cardOptions.label || "").trim(),
+      icon: String(cardOptions.icon || "mdi:dots-horizontal").trim(),
+      show_name: true,
+      show_icon: true,
+      show_state: false,
+      tap_action: cardOptions.tap_action || { action: "none" },
+      hold_action: { action: "none" },
+      styles: {
+        card: [
+          { padding: "12px 14px" },
+          { "border-radius": "16px" },
+          { "box-shadow": "none" },
+          { border: String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") },
+          { background: String(cardOptions.background || "rgba(255,255,255,0.04)") },
+        ],
+        grid: [
+          { "grid-template-areas": '"i n"' },
+          { "grid-template-columns": "20px 1fr" },
+          { "align-items": "center" },
+          { gap: "10px" },
+        ],
+        icon: [
+          { width: "20px" },
+          { height: "20px" },
+          { color: String(cardOptions.icon_color || "var(--primary-text-color)") },
+        ],
+        name: [
+          { "font-size": "13px" },
+          { "font-weight": "700" },
+          { color: "var(--primary-text-color)" },
+          { "text-align": "left" },
+          { "justify-self": "start" },
+        ],
+      },
+    };
+  }
+
+  _buildRepairSequence(archive) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive";
+    return [
+      {
+        service: "browser_mod.close_popup",
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_source_archive_id",
+          value: String(archiveId),
+        },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_target_archive_id",
+          value: "",
+        },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_upload_session_id",
+          value: "",
+        },
+      },
+      {
+        service: "bambuddy.clear_print_history_archive_restore",
+        data: {
+          source_archive_id: archiveId,
+        },
+      },
+      {
+        service: "browser_mod.popup",
+        data: {
+          title: "Repair " + archiveName,
+          size: "wide",
+          content: {
+            type: "custom:print-history-archive-restore-card",
+            workflow_entity: "sensor.print_history_popup_restore_workflow",
+            detail_entity: "sensor.print_history_popup_archive_detail",
+            source_archive_helper: "input_text.print_history_restore_source_archive_id",
+            target_archive_helper: "input_text.print_history_restore_target_archive_id",
+            upload_session_helper: "input_text.print_history_restore_upload_session_id",
+          },
+        },
+      },
+    ];
+  }
+
+  _buildDeleteArchiveFinalizeSequence(archiveId) {
+    return [
+      {
+        service: "bambuddy.delete_print_history_archive",
+        data: {
+          archive_id: Number(archiveId),
+        },
+      },
+      { service: "browser_mod.close_popup" },
+      { service: "browser_mod.close_popup" },
+      { service: "browser_mod.close_popup" },
+      { service: "browser_mod.close_popup" },
+    ];
+  }
+
+  _buildDeleteArchiveConfirmPopup(archive, level) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "this archive";
+    var secondLevel = level === 2;
+    var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";
+    var body = secondLevel
+      ? "This permanently removes the archive in Bambuddy and immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata."
+      : "Delete " + archiveName + " from Bambuddy? Bambuddy should remove the archive directory, photos, thumbnails, and source media as part of the archive delete.";
+    var deleteTapAction = secondLevel
+      ? {
+          action: "fire-dom-event",
+          browser_mod: {
+            service: "browser_mod.sequence",
+            data: {
+              sequence: this._buildDeleteArchiveFinalizeSequence(archiveId),
+            },
+          },
+        }
+      : {
+          action: "fire-dom-event",
+          browser_mod: {
+            service: "browser_mod.popup",
+            data: this._buildDeleteArchiveConfirmPopup(archive, 2),
+          },
+        };
+
+    return {
+      title: title,
+      size: "normal",
+      content: {
+        type: "vertical-stack",
+        cards: [
+          {
+            type: "markdown",
+            content: body,
+          },
+          this._buildPopupActionCard({
+            label: secondLevel ? "Delete Archive Now" : "Continue to Final Delete",
+            icon: secondLevel ? "mdi:delete-forever-outline" : "mdi:alert-outline",
+            background: secondLevel ? "rgba(183,28,28,0.16)" : "rgba(239,108,0,0.16)",
+            border: secondLevel ? "1px solid rgba(239,68,68,0.28)" : "1px solid rgba(255,167,38,0.22)",
+            icon_color: secondLevel ? "#FFCDD2" : "#FFE0B2",
+            tap_action: deleteTapAction,
+          }),
+          this._buildPopupActionCard({
+            label: "Cancel",
+            icon: "mdi:close",
+            background: "rgba(255,255,255,0.04)",
+            tap_action: {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.close_popup",
+              },
+            },
+          }),
+        ],
+      },
+    };
+  }
+
+  _openAdvancedActions() {
+    var archive = this._resolveArchive();
+    if (!archive || archive.id == null) {
+      return;
+    }
+
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Advanced Actions",
+      size: "normal",
+      content: {
+        type: "vertical-stack",
+        cards: [
+          {
+            type: "markdown",
+            content: "Use advanced archive actions for repair or permanent deletion.",
+          },
+          this._buildPopupActionCard({
+            label: "Repair Archive",
+            icon: "mdi:wrench-cog",
+            background: "rgba(239,108,0,0.18)",
+            border: "1px solid rgba(255,167,38,0.22)",
+            icon_color: "#FFE0B2",
+            tap_action: {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.sequence",
+                data: {
+                  sequence: this._buildRepairSequence(archive),
+                },
+              },
+            },
+          }),
+          this._buildPopupActionCard({
+            label: "Delete Archive",
+            icon: "mdi:delete-outline",
+            background: "rgba(183,28,28,0.16)",
+            border: "1px solid rgba(239,68,68,0.28)",
+            icon_color: "#FFCDD2",
+            tap_action: {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.popup",
+                data: this._buildDeleteArchiveConfirmPopup(archive, 1),
+              },
+            },
+          }),
+        ],
+      },
+    });
+  }
+
   _buildUploadAction(buttonClass) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? archive.id : null;
@@ -1167,9 +1390,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       stageImage.decoding = "async";
     }
 
-    var stageBadge = this.shadowRoot.querySelector(".stage-badge");
-    if (stageBadge) {
-      stageBadge.textContent = active.label;
+    var stageAction = this.shadowRoot.querySelector(".stage-action-host");
+    if (stageAction) {
+      stageAction.innerHTML = this._buildAdvancedActionsButton();
     }
 
     var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
@@ -1248,6 +1471,16 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return '<button class="' + this._escapeHtml(className) + '" type="button" data-action="' + this._escapeHtml(action) + '" title="' + this._escapeHtml(title) + '" aria-label="' + this._escapeHtml(title) + '"' + (buttonOptions.disabled ? ' disabled' : '') + '>' + iconHtml + '<span>' + this._escapeHtml(label) + '</span></button>';
   }
 
+  _buildAdvancedActionsButton() {
+    return this._buildActionButtonHtml({
+      className: "stage-action-button",
+      action: "advanced-actions",
+      icon: "mdi:dots-horizontal-circle-outline",
+      label: "Advanced Actions",
+      title: "Open advanced archive actions",
+    });
+  }
+
   _archiveKey(archive) {
     if (!archive || typeof archive !== "object") {
       return "";
@@ -1315,22 +1548,18 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._archiveIdentity = archiveIdentity;
 
     var images = this._buildImages(archive);
-    if (!images.length) {
-      this._setExpanded(false);
-      this._archiveIdentity = "";
-      this.shadowRoot.innerHTML = "<style>:host{display:none}</style>";
-      return;
-    }
-
-    if (shouldPreferPrimary) {
+    var hasImages = images.length > 0;
+    if (shouldPreferPrimary && hasImages) {
       this._activeIndex = this._findPreferredActiveIndex(images);
     }
 
-    if (this._activeIndex >= images.length) {
+    if (hasImages && this._activeIndex >= images.length) {
       this._activeIndex = 0;
     }
 
-    var active = images[this._activeIndex];
+    var active = hasImages
+      ? images[this._activeIndex]
+      : { key: "empty", label: "No media", src: "", kind: "empty", filename: "" };
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive Photos";
     var photoCount = this._photoCount(images);
     var galleryTitle = String(this._config.title || "Archive Photos") + " (" + String(photoCount) + ")";
@@ -1338,7 +1567,8 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
     var viewerAction = this._buildViewerAction("icon-action viewer");
-    var expandAction = this._buildExpandAction("icon-action expand");
+    var expandAction = hasImages ? this._buildExpandAction("icon-action expand") : "";
+    var advancedAction = this._buildAdvancedActionsButton();
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -1352,9 +1582,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".stage{position:relative;border-radius:18px;overflow:hidden;background:rgba(15,23,42,0.32);min-height:220px;}" +
       ".stage-button{appearance:none;border:none;background:none;padding:0;display:block;width:100%;cursor:zoom-in;}" +
       ".stage-image{display:block;width:100%;max-height:320px;min-height:220px;object-fit:cover;background:rgba(15,23,42,0.32);}" +
+      ".stage-empty{display:flex;align-items:center;justify-content:center;min-height:220px;padding:24px;background:linear-gradient(180deg,rgba(15,23,42,0.42),rgba(15,23,42,0.22));color:var(--secondary-text-color);text-align:center;}" +
+      ".stage-empty-copy{max-width:320px;font-size:13px;line-height:1.5;}" +
       ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;}" +
       ".topbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}" +
       ".topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:auto;}" +
+      ".stage-action-host{pointer-events:auto;}" +
       ".icon-action{position:static;width:32px;height:32px;border:1px solid rgba(148,163,184,0.28);border-radius:999px;background:rgba(15,23,42,0.78);color:var(--primary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
       ".icon-action:hover,.icon-action:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action:active{transform:translateY(0);}" +
@@ -1364,7 +1597,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.expand{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.3);color:var(--primary-text-color);}" +
       ".icon-action.expand:hover,.icon-action.expand:focus-visible{background:rgba(30,64,175,0.36);color:var(--primary-text-color);border-color:rgba(96,165,250,0.48);box-shadow:0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.expand:active{transform:translateY(0);}" +
-      ".stage-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
+      ".stage-action-button{appearance:none;border:1px solid rgba(148,163,184,0.30);border-radius:999px;padding:8px 12px;background:rgba(15,23,42,0.82);color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;backdrop-filter:blur(10px);pointer-events:auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}" +
+      ".stage-action-button:hover,.stage-action-button:focus-visible{background:rgba(30,41,59,0.96);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
+      ".stage-action-button:active{transform:translateY(0);}" +
+      ".stage-action-button .button-icon{--mdc-icon-size:15px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
@@ -1399,11 +1635,13 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       "<ha-card>" +
       '<div class="wrap">' +
       '<div class="stage">' +
-      '<button class="stage-button" type="button" data-action="expand">' +
-      '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
-      "</button>" +
+      (hasImages
+        ? ('<button class="stage-button" type="button" data-action="expand">' +
+          '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
+          "</button>")
+        : ('<div class="stage-empty"><div class="stage-empty-copy">No thumbnail or photos are available for this archive yet.</div></div>')) +
       '<div class="topbar">' +
-      '<div class="topbar-left"><span class="stage-badge">' + this._escapeHtml(active.label) + "</span></div>" +
+      '<div class="topbar-left"><div class="stage-action-host">' + advancedAction + '</div></div>' +
       '<div class="topbar-actions">' + viewerAction + expandAction + '</div>' +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
@@ -1413,12 +1651,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="meta-actions">' + uploadAction + primaryAction + deleteAction + '</div>' +
       "</div>")) +
       '<div class="upload-status-host">' + this._renderUploadStatus() + '</div>' +
-      '<div class="thumbs">' + images.map(function (image, index) {
+      (hasImages ? ('<div class="thumbs">' + images.map(function (image, index) {
         return '<button class="thumb' + (index === this._activeIndex ? ' active' : '') + '" type="button" data-index="' + this._escapeHtml(String(index)) + '">' +
           '<img src="' + this._escapeHtml(image.src) + '" alt="' + this._escapeHtml(image.filename || image.label || archiveName) + '">' +
           '<span class="thumb-label">' + this._escapeHtml(image.label) + '</span>' +
           '</button>';
-      }.bind(this)).join("") + '</div>' +
+      }.bind(this)).join("") + '</div>') : "") +
       '<input type="file" accept="image/*" multiple data-upload-input="true" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none">' +
       "</div>" +
       "</ha-card>";

@@ -118,6 +118,7 @@ def _install_homeassistant_stubs() -> None:
     voluptuous_module.Optional = lambda key, default=None: key
     voluptuous_module.Any = lambda *validators: validators
     voluptuous_module.Coerce = lambda type_: type_
+    voluptuous_module.In = lambda values: values
 
     aiohttp_module.ClientResponseError = ClientResponseError
     aiohttp_module.ClientSession = ClientSession
@@ -246,6 +247,7 @@ class FakeApiClient:
     last_fetch_archives_kwargs: dict[str, object] = {}
     uploaded_photos: list[dict[str, object]] = []
     uploaded_replacements: list[dict[str, object]] = []
+    deleted_archives: list[int] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -328,6 +330,9 @@ class FakeApiClient:
         }
         type(self).uploaded_replacements.append(record)
         return record
+
+    async def async_delete_archive(self, archive_id: int) -> None:
+        type(self).deleted_archives.append(int(archive_id))
 
 
 class FakeRuntimeRepairClient:
@@ -641,6 +646,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_ARCHIVE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE) in registered
@@ -657,7 +663,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert const_module.ARCHIVE_VIEWER_GCODE_URL in view_urls
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
+    original_api_client = init_module.BambuddyApiClient
     init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
+    init_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.deleted_archives = []
 
     try:
         query_response = asyncio.run(
@@ -736,6 +746,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                 )
             )
         )
+        delete_archive_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_ARCHIVE)(
+                SimpleNamespace(data={"archive_id": 202})
+            )
+        )
         estimate_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE)(
                 SimpleNamespace(
@@ -751,6 +766,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         )
     finally:
         init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
+        init_module.BambuddyApiClient = original_api_client
 
     assert query_response["entry_id"] == "entry-1"
     assert query_response["archives"][0]["id"] == 101
@@ -771,14 +787,17 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
     assert delete_response["deleted"] == 1
+    assert delete_archive_response["deleted"] == 1
+    assert FakeApiClient.deleted_archives == [202]
+    assert manager.store.load_archive(202) is None
     assert estimate_response["success"] is True
     assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 6
-    assert manager.mutation_stats["last_operation"] == "delete_repair_lineage"
+    assert manager.mutation_stats["count"] == 7
+    assert manager.mutation_stats["last_operation"] == "delete_print_history_archive"
 
 
 def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> None:

@@ -231,6 +231,26 @@ class BambuddyApiClient:
             except ClientResponseError as error:
                 raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
 
+    async def async_delete_archive(self, archive_id: int) -> None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.delete(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
     async def async_upload_archive_replacement(
         self,
         *,

@@ -29,6 +29,7 @@ from .const import (
     CONF_RUNTIME_REPAIR_BASE_URL,
     CONF_RUNTIME_REPAIR_TOKEN,
     SERVICE_DELETE_PRINT_HISTORY_PHOTO,
+    SERVICE_DELETE_PRINT_HISTORY_ARCHIVE,
     SERVICE_DISMISS_PRINT_HISTORY_MEDIA_REVIEW,
     CONF_FETCH_TIMEOUT_SECONDS,
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
@@ -254,6 +255,7 @@ SERVICE_DELETE_PHOTO_SCHEMA = vol.Schema(
         vol.Required("photo_path"): str,
     }
 )
+SERVICE_DELETE_ARCHIVE_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
 SERVICE_MEDIA_REVIEW_STATE_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -1066,6 +1068,50 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ARCHIVE_ID] = archive_id
         return response
 
+    async def async_handle_delete_archive(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        started = perf_counter()
+        session = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyApiClient(
+            session,
+            manager.base_url,
+            manager.api_key,
+            manager.fetch_timeout_seconds,
+        )
+        try:
+            await client.async_delete_archive(archive_id)
+            delete_result = await hass.async_add_executor_job(manager.store.delete_archive, archive_id)
+        except (RuntimeError, ValueError) as error:
+            raise HomeAssistantError(str(error)) from error
+
+        manager.archives = await hass.async_add_executor_job(manager.store.load_archives)
+        query_changed = manager._recompute_query("delete_print_history_archive")
+        if query_changed or int(delete_result.get("deleted", 0)) > 0:
+            manager.browser_revision += 1
+        manager.record_mutation(
+            operation="delete_print_history_archive",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "deleted": int(delete_result.get("deleted", 0)),
+                "lineage_deleted": int(delete_result.get("lineage_deleted", 0)),
+            },
+        )
+        await manager._async_sync_options()
+        await manager._async_sync_media_review_helper()
+        manager._notify_listeners()
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            CONF_ARCHIVE_ID: archive_id,
+            "deleted": int(delete_result.get("deleted", 0)),
+            "lineage_deleted": int(delete_result.get("lineage_deleted", 0)),
+        }
+
     async def async_handle_set_media_review_state(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         archive_id = int(call.data[CONF_ARCHIVE_ID])
@@ -1810,6 +1856,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_DELETE_PRINT_HISTORY_PHOTO,
             async_handle_delete_photo,
             schema=SERVICE_DELETE_PHOTO_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_DELETE_PRINT_HISTORY_ARCHIVE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_DELETE_PRINT_HISTORY_ARCHIVE,
+            async_handle_delete_archive,
+            schema=SERVICE_DELETE_ARCHIVE_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE):

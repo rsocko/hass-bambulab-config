@@ -1231,6 +1231,33 @@ class PrintHistoryStore:
         archive = with_effective_duration_seconds(payload)
         return self._augment_archive_with_photo_metadata(archive, connection=connection)
 
+    def delete_archive(self, archive_id: int) -> dict[str, int]:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+
+            lineage_cursor = connection.execute(
+                """
+                DELETE FROM archive_repair_lineage
+                WHERE archive_id = ? OR related_archive_id = ?
+                """,
+                (normalized_archive_id, normalized_archive_id),
+            )
+            archive_cursor = connection.execute(
+                "DELETE FROM archives WHERE archive_id = ?",
+                (normalized_archive_id,),
+            )
+
+        return {
+            "archive_id": normalized_archive_id,
+            "deleted": archive_cursor.rowcount,
+            "lineage_deleted": lineage_cursor.rowcount,
+        }
+
     def load_primary_photo_selection(
         self,
         archive_id: int,
