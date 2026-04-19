@@ -27,6 +27,17 @@ cards:
         .bubble-sub-button.cache-limit ha-icon {
           color: #c62828 !important;
         }
+        {% elif notice_state == 'incomplete' %}
+        .bubble-sub-button.cache-limit {
+          background: rgba(198, 40, 40, 0.12) !important;
+          box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.28) !important;
+        }
+        .bubble-sub-button.cache-limit .bubble-sub-button-name-container {
+          color: var(--primary-text-color) !important;
+        }
+        .bubble-sub-button.cache-limit ha-icon {
+          color: #c62828 !important;
+        }
         {% elif notice_state == 'at_limit' %}
         .bubble-sub-button.cache-limit {
           background: rgba(239, 108, 0, 0.16) !important;
@@ -69,14 +80,16 @@ cards:
           browser_mod:
             service: browser_mod.popup
             data:
-              title: Print History Cache
+              title: >-
+                {{ state_attr('sensor.bambuddy_print_history_browser_status',
+                'limit_notice_popup_title') or 'Print History Cache' }}
               size: normal
               content:
                 type: markdown
                 content: >-
                   {{ state_attr('sensor.bambuddy_print_history_browser_status',
-                  'limit_notice_popup_markdown') or 'The print history cache is
-                  healthy.' }}
+                  'limit_notice_popup_markdown') or 'No print history cache
+                  warning is active right now.' }}
         hold_action:
           action: none
         double_tap_action:
@@ -220,12 +233,19 @@ cards:
       rows: 1.84
       styles: |
         ha-card {
-          padding-top: 4px !important;
-          padding-bottom: 6px !important;
+          overflow: visible !important;
+          padding-top: 5px !important;
+          padding-bottom: 5px !important;
         }
+        .card-content.large,
         .bubble-sub-button-container,
         .bubble-sub-buttons-container {
           gap: 6px !important;
+        }
+        .bubble-sub-button-bottom-container {
+          top: 10px !important;
+          bottom: auto !important;
+          margin-bottom: 0 !important;
         }
       sub_button:
         main: []
