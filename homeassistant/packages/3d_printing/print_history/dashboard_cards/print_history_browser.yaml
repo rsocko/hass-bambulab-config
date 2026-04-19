@@ -242,11 +242,6 @@ cards:
         .bubble-sub-buttons-container {
           gap: 6px !important;
         }
-        .bubble-sub-button-bottom-container {
-          top: 10px !important;
-          bottom: auto !important;
-          margin-bottom: 0 !important;
-        }
       sub_button:
         main: []
         bottom_layout: rows
