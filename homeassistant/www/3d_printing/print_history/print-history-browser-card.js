@@ -613,11 +613,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var listHeaderActions = '<div class="list-header-actions">'
       + listHeaderId
       + '<div class="action-buttons">'
-      + favoriteButton
-      + photoAction
-      + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">'
-      + '<ha-icon icon="mdi:cube-scan"></ha-icon>'
-      + '</button>'
+      + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)
       + '</div>'
       + '</div>';
     var mediaMetaChip = normalized.mediaMetaLabel ? '<span class="chip">' + this._escapeHtml(normalized.mediaMetaLabel) + '</span>' : '';
@@ -634,9 +630,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? 'No preview image available'
       : 'Images hidden';
     var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';
-    var listPlaceholderLabel = showImages
-      ? 'No preview image available'
-      : 'Images hidden';
     var printerChip = normalized.printerFilterValue
       ? '<button class="chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="printer_set" data-filter-value="' + this._escapeAttribute(normalized.printerFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Printer: ' + normalized.printerLabel, 'Click to filter by this printer')) + '" aria-label="' + this._escapeAttribute('Printer ' + normalized.printerLabel + '. Click to filter by this printer.') + '">' + this._escapeHtml(normalized.printerLabel) + '</button>'
       : (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '');
@@ -678,11 +671,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         '<div class="content-top compact">' +
         compactArchiveId +
         '<div class="action-buttons compact-actions">' +
-        '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '">' +
-        '<ha-icon icon="mdi:cube-scan"></ha-icon>' +
-        '</button>' +
-        favoriteButton +
-        photoAction +
+        this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) +
         '</div>' +
         '</div>' +
       '<div class="chip-row compact-status-line">' +
@@ -785,13 +774,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var thumbMarkup = variant === 'Media'
       ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
-        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + favoriteButton + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
+        + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + this._renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) + '</div></div>'
         + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
-        ? '<div class="thumb-wrap"><div class="media-gallery-surface">'
-          + (listImageUrl ? '<img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="list-thumb-empty">' + this._escapeHtml(listPlaceholderLabel) + '</div>')
-          + '</div></div>'
+        ? (listImageUrl
+          ? '<div class="thumb-wrap"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div></div>'
+          : (showImages
+            ? '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="list-thumb-empty">No preview image available</div></div></div>'
+            : ''))
         : (hasImage
         ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
         : ''));
@@ -812,6 +803,12 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _favoriteButtonTitle(isFavorite) {
     return isFavorite ? 'Remove from favorites' : 'Add to favorites';
+  }
+
+  _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
+    return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+      + favoriteButton
+      + photoAction;
   }
 
   _renderFavoriteButton(normalized, archiveJson) {
