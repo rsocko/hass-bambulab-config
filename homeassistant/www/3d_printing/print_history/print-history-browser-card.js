@@ -11,6 +11,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
+    this._normalizedArchiveCache = {};
     this._mediaGalleryIndices = {};
     this._mediaSwipe = null;
     this._suppressOpenUntil = 0;
@@ -48,6 +49,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
     this._querySignature = "";
     this._viewSignature = "";
+    this._normalizedArchiveCache = {};
     this._renderShell();
     this._queueRefresh();
   }
@@ -203,7 +205,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".name{font-size:18px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}" +
       ".name-note-inline{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;position:relative;top:-3px;margin-left:6px;color:var(--primary-color, var(--accent-color, #03a9f4));}" +
       ".name-note-inline ha-icon{--mdc-icon-size:14px;width:14px;height:14px;min-width:14px;min-height:14px;display:block;}" +
-      ".card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb, var(--secondary-text-color) 40%, transparent);text-underline-offset:0.18em;}" +
       ".subtle{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}" +
       ".chip-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0;}" +
       ".chip-row.compact-primary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}" +
@@ -381,6 +382,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return;
       }
       this._response = response && typeof response === "object" ? response : { archives: [], query: {} };
+      this._pruneNormalizedArchiveCache(this._response.archives);
       this._error = "";
       this._recordDebug("browser", response, started);
     } catch (error) {
@@ -898,26 +900,101 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
-  _normalizeArchive(archive) {
-    var notesInfo = this._splitArchiveNotes(archive.notes);
-    var enrichmentPayload = notesInfo.payload;
-    var enrichmentRows = Array.isArray(enrichmentPayload && enrichmentPayload.F) ? enrichmentPayload.F : [];
-    var enrichmentStatus = this._normalizeEnrichmentStatus(archive.enrichment_status || (enrichmentPayload && enrichmentPayload.s), enrichmentRows);
-    var colors = String(archive.filament_color || "").split(",").map(this._normalizeHex).filter(Boolean);
-    var filamentChips = enrichmentRows.length ? enrichmentRows.map(function (item, index) {
-      var name = String(item && item.n || "").trim() || ("Filament " + (index + 1));
-      var tray = String(item && item.t || "").trim();
-      var filterColor = this._normalizeHex(item && item.h);
-      var hex = filterColor || "rgba(255,255,255,0.2)";
-      var ambiguity = this._describeEnrichmentAmbiguity(item && item.am);
+  _normalizeArchiveCacheKey(archive) {
+    if (!archive || typeof archive !== "object") {
+      return "";
+    }
+    var archiveId = archive.id != null ? String(archive.id) : "";
+    var payloadHash = String(archive.payload_hash || "").trim();
+    if (archiveId && payloadHash) {
+      return archiveId + ":" + payloadHash;
+    }
+    if (!archiveId) {
+      return "";
+    }
+    var sourceUpdatedAt = String(archive.source_updated_at || "").trim();
+    var notes = String(archive.notes || "");
+    return archiveId + ":" + [
+      String(archive.status || ""),
+      String(archive.enrichment_status || ""),
+      String(archive.is_favorite ? "1" : "0"),
+      sourceUpdatedAt,
+      String(notes.length),
+      notes.slice(-64),
+    ].join("|");
+  }
+
+  _pruneNormalizedArchiveCache(archives) {
+    if (!this._normalizedArchiveCache) {
+      this._normalizedArchiveCache = {};
+    }
+    var keep = {};
+    (Array.isArray(archives) ? archives : []).forEach(function (archive) {
+      var key = this._normalizeArchiveCacheKey(archive);
+      if (key) {
+        keep[key] = true;
+      }
+    }.bind(this));
+    Object.keys(this._normalizedArchiveCache).forEach(function (key) {
+      if (!keep[key]) {
+        delete this._normalizedArchiveCache[key];
+      }
+    }.bind(this));
+  }
+
+  _archiveNoteBoundaryIndex(raw) {
+    var markerIndex = raw.indexOf("+>");
+    var recoveryIndex = raw.indexOf("[RECOVERY_AUDIT_V1]");
+    var indexes = [markerIndex, recoveryIndex].filter(function (index) { return index >= 0; });
+    return indexes.length ? Math.min.apply(null, indexes) : -1;
+  }
+
+  _splitArchiveNotesLight(value) {
+    var raw = String(value || "");
+    var cutoff = this._archiveNoteBoundaryIndex(raw);
+    if (cutoff < 0) {
+      return { userNotes: raw.trimEnd() };
+    }
+    return { userNotes: raw.slice(0, cutoff).replace(/\n+$/u, "") };
+  }
+
+  _filamentChipsFromSlots(slots) {
+    if (!Array.isArray(slots) || !slots.length) {
+      return [];
+    }
+    return slots.map(function (slot, index) {
+      var name = String(slot && slot.name || "").trim() || ("Filament " + (index + 1));
+      var tray = String(slot && slot.tray || "").trim();
+      var filterColor = this._normalizeHex(slot && slot.color);
+      var dotColor = filterColor || "rgba(255,255,255,0.2)";
       return {
-        dotColor: hex,
+        dotColor: dotColor,
         filterColor: filterColor,
-        tooltip: [tray ? name + " (" + tray + ")" : name, this._normalizeHex(item && item.h), ambiguity].filter(Boolean).join(" | ") || name,
+        tooltip: [tray ? name + " (" + tray + ")" : name, filterColor].filter(Boolean).join(" | ") || name,
       };
-    }.bind(this)) : colors.map(function (hex) {
+    }.bind(this)).filter(function (chip) {
+      return !!chip.dotColor;
+    });
+  }
+
+  _filamentChipsFromColors(colors) {
+    return colors.map(function (hex) {
       return { dotColor: hex, filterColor: hex, tooltip: hex };
     });
+  }
+
+  _normalizeArchive(archive) {
+    var cacheKey = this._normalizeArchiveCacheKey(archive);
+    if (cacheKey && this._normalizedArchiveCache[cacheKey]) {
+      return this._normalizedArchiveCache[cacheKey];
+    }
+    var notesInfo = this._splitArchiveNotesLight(archive.notes);
+    var enrichmentStatus = this._normalizeEnrichmentStatus(archive.enrichment_status, null);
+    var colors = String(archive.filament_color || "").split(",").map(this._normalizeHex).filter(Boolean);
+    var filamentChips = this._filamentChipsFromSlots(archive.filament_slots);
+    if (!filamentChips.length) {
+      filamentChips = this._filamentChipsFromColors(colors);
+    }
     var metadata = [archive.filament_type || "Unknown material", archive.layer_height ? String(archive.layer_height) + "mm" : "", archive.designer || ""].filter(Boolean).join(" · ");
     var mediaMetaLabel = [
       archive.filament_type ? String(archive.filament_type) : "",
@@ -941,7 +1018,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveError = this._normalizeArchiveError(archive);
     var card = this;
 
-    return {
+    var normalized = {
       id: archive.id,
       archive: archive,
       isFavorite: !!archive.is_favorite,
@@ -996,6 +1073,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
         return card._mediaPreferredImageUrl(archive, baseUrl);
       },
     };
+    if (cacheKey) {
+      this._normalizedArchiveCache[cacheKey] = normalized;
+    }
+    return normalized;
   }
 
   _normalizeArchiveError(archive) {
@@ -1362,12 +1443,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _splitArchiveNotes(value) {
     var raw = String(value || "");
     var markerIndex = raw.indexOf("+>");
-    var recoveryIndex = raw.indexOf("[RECOVERY_AUDIT_V1]");
-    var indexes = [markerIndex, recoveryIndex].filter(function (index) { return index >= 0; });
-    if (!indexes.length) {
+    var cutoff = this._archiveNoteBoundaryIndex(raw);
+    if (cutoff < 0) {
       return { userNotes: raw.trimEnd(), payload: null };
     }
-    var cutoff = Math.min.apply(null, indexes);
     var userNotes = raw.slice(0, cutoff).replace(/\n+$/u, "");
     var payloadRaw = markerIndex >= 0 ? raw.slice(markerIndex + 2).trim() : "";
     try {

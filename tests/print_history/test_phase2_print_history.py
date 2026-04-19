@@ -815,10 +815,15 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=44", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
+
+    def test_browser_card_does_not_underline_print_name_on_hover(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
+
+        self.assertNotIn('.card:hover .name,.card:focus-visible .name,.card:focus-within .name{text-decoration:underline', content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1987,7 +1992,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=44", content)
 
     def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
         content = (

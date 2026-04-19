@@ -11,13 +11,13 @@
 - url: /local/3d_printing/print_history/print-history-tag-editor-card.js?v=4
   type: module
 - url: /local/3d_printing/print_history/print-history-browser-card.js?v=41
-- url: /local/3d_printing/print_history/print-history-browser-card.js?v=43
+- url: /local/3d_printing/print_history/print-history-browser-card.js?v=44
   type: module
 - url: /local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20
   type: module
 - url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36
   type: module
-- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28
+- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=24
   type: module
