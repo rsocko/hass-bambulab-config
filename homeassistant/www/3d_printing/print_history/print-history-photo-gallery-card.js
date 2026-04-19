@@ -140,6 +140,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._moveActiveIndex(1);
       return;
     }
+    if (action === "viewer") {
+      this._openViewerPopup();
+      return;
+    }
     if (action === "expand") {
       this._setExpanded(true);
       return;
@@ -655,6 +659,63 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return "archive-" + String(archiveId) + "-" + baseName + "-" + timestamp + "-" + String(index + 1) + ".jpg";
   }
 
+  _resolvedEntryId() {
+    var state = this._hass && this._hass.states ? this._hass.states["sensor.bambuddy_print_history_browser_status"] : null;
+    return state && state.attributes && state.attributes.entry_id
+      ? String(state.attributes.entry_id).trim()
+      : "";
+  }
+
+  _buildArchiveViewerCardConfig(archive) {
+    return {
+      type: "custom:print-history-3d-viewer-card",
+      archive_id: archive && archive.id != null ? String(archive.id) : "",
+      archive_name: archive && archive.print_name ? String(archive.print_name) : "",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      entry_id: this._resolvedEntryId(),
+    };
+  }
+
+  _buildArchiveViewerPopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [this._buildArchiveViewerCardConfig(archive)],
+    };
+  }
+
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
+  }
+
+  _openViewerPopup() {
+    var archive = this._resolveArchive();
+    if (!archive || archive.id == null) {
+      return;
+    }
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "3D Viewer",
+      size: "wide",
+      content: this._buildArchiveViewerPopupContent(archive),
+    });
+  }
+
   _buildUploadAction(buttonClass) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? archive.id : null;
@@ -664,6 +725,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var className = buttonClass || "action-button";
     var label = this._uploadInProgress ? "Uploading..." : "Add Photo";
     return '<button class="' + className + '" type="button" data-action="upload-photo"' + (this._uploadInProgress ? ' disabled' : '') + '>' + label + '</button>';
+  }
+
+  _buildViewerAction(buttonClass) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    if (archiveId == null) {
+      return "";
+    }
+    var className = buttonClass || "topbar-action viewer-action";
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
+    return '<button class="' + className + '" type="button" data-action="viewer" aria-label="Open 3D viewer for ' + this._escapeHtml(archiveName) + '" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>';
   }
 
   _renderUploadStatus() {
@@ -1046,6 +1118,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = this._images[this._activeIndex];
     var subtitle = this._subtitleForImages(this._images);
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
+    var viewerAction = this._buildViewerAction("topbar-action viewer-action");
 
     var stageImage = this.shadowRoot.querySelector(".stage-image");
     if (stageImage) {
@@ -1059,6 +1132,11 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       .forEach(function (badge, index) {
         badge.textContent = index === 0 ? active.label : subtitle;
       });
+
+    var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
+    if (topbarActions) {
+      topbarActions.innerHTML = viewerAction;
+    }
 
     Array.from(this.shadowRoot.querySelectorAll(".thumb"))
       .forEach(function (button) {
@@ -1201,6 +1279,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var primaryAction = this._buildPrimaryAction(active, "action-button");
     var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
+    var viewerAction = this._buildViewerAction("topbar-action viewer-action");
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -1217,6 +1296,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;}" +
       ".topbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}" +
       ".topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:auto;}" +
+      ".topbar-action{appearance:none;border:none;width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 10px 24px rgba(0,0,0,0.22);}" +
+      ".topbar-action ha-icon{--mdc-icon-size:20px;}" +
+      ".topbar-action:hover{background:rgba(0,0,0,0.68);}" +
+      ".topbar-action:focus-visible{outline:2px solid rgba(144,202,249,0.95);outline-offset:2px;}" +
       ".badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
@@ -1254,6 +1337,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<div class="topbar">' +
       '<div class="topbar-left"><span class="badge">' + this._escapeHtml(active.label) + "</span>" +
       '<span class="badge">' + this._escapeHtml(subtitle) + "</span></div>" +
+      '<div class="topbar-actions">' + viewerAction + '</div>' +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +

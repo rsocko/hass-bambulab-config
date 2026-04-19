@@ -815,9 +815,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -1543,6 +1543,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn(">Enrichment<", content)
         self.assertNotIn(">Tags<", content)
 
+    def test_popup_archive_id_chip_omits_identifier_icon(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("const iconMarkup = icon ? `<ha-icon icon=\"${icon}\" style=\"--mdc-icon-size:15px;flex:0 0 auto;color:${color};\"></ha-icon>` : '';", content)
+        self.assertIn("archiveId != null ? renderInfoChip('', `#${archiveId}`, { fontWeight: 700, title: `Archive ID #${archiveId}` }) : ''", content)
+
     def test_popup_content_derives_enrichment_status_and_review_badges(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn("const hasEnrichmentData = enrichmentRows.length > 0;", content)
@@ -1979,8 +1987,17 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
+
+    def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("this._normalizedArchiveCache = {};", content)
+        self.assertIn("this._pruneNormalizedArchiveCache(this._response.archives);", content)
+        self.assertIn("var filamentChips = this._filamentChipsFromSlots(archive.filament_slots);", content)
+        self.assertIn("var notesInfo = this._splitArchiveNotesLight(archive.notes);", content)
 
     def test_browser_card_project_chips_use_shared_filter_action_path(self):
         browser_card_content = (
