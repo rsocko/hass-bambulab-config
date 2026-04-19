@@ -783,10 +783,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
 
     var thumbMarkup = variant === 'Media'
-      ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '">'
+      ? '<div class="thumb-wrap"><div class="media-gallery-surface" data-archive-id="' + this._escapeAttribute(String(normalized.id || '')) + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '">'
         + (mediaCurrentImageUrl ? '<img class="thumb media" src="' + this._escapeAttribute(mediaCurrentImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '">' : '<div class="media-thumb-empty">' + this._escapeHtml(mediaPlaceholderLabel) + '</div>')
         + '<div class="media-thumb-overlay">' + mediaArchivePill + '<div class="action-buttons media-thumb-actions">' + favoriteButton + photoAction + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button></div></div>'
-        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
+        + (mediaGalleryCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" data-action="media-prev" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Previous archive image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" data-action="media-next" data-archive="' + archiveJson + '" data-gallery-count="' + this._escapeAttribute(String(mediaGalleryCount)) + '" data-gallery-index="' + this._escapeAttribute(String(mediaGalleryIndex)) + '" aria-label="Next archive image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div><div class="media-gallery-status">' + this._escapeHtml(String(mediaGalleryIndex + 1) + ' / ' + String(mediaGalleryCount)) + '</div>' : '')
         + '</div></div>'
       : (variant === 'List'
         ? '<div class="thumb-wrap"><div class="media-gallery-surface">'
@@ -1316,6 +1316,34 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return current;
   }
 
+  _readRenderedMediaGalleryIndex(node, imageCount) {
+    var count = Math.max(0, Number(imageCount) || 0);
+    if (count <= 0) {
+      return 0;
+    }
+    var currentNode = node || null;
+    while (currentNode) {
+      if (currentNode.getAttribute) {
+        var rawIndex = currentNode.getAttribute("data-gallery-index");
+        if (rawIndex !== null && rawIndex !== "") {
+          var parsedIndex = Number(rawIndex);
+          if (Number.isFinite(parsedIndex)) {
+            while (parsedIndex < 0) {
+              parsedIndex += count;
+            }
+            return parsedIndex % count;
+          }
+        }
+      }
+      currentNode = currentNode.closest ? currentNode.closest(".media-gallery-surface") : null;
+      if (currentNode === node) {
+        break;
+      }
+      node = currentNode;
+    }
+    return 0;
+  }
+
   _setMediaGalleryIndex(archiveId, nextIndex, imageCount) {
     var key = String(archiveId || "");
     var count = Math.max(0, Number(imageCount) || 0);
@@ -1703,7 +1731,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (action === "media-prev" || action === "media-next") {
       var galleryCount = Number(actionNode.getAttribute("data-gallery-count") || 0);
       if (archive && archive.id != null && galleryCount > 1) {
-        this._setMediaGalleryIndex(archive.id, this._mediaGalleryIndex(archive.id, galleryCount) + (action === "media-next" ? 1 : -1), galleryCount);
+        var currentGalleryIndex = this._readRenderedMediaGalleryIndex(actionNode, galleryCount);
+        if (!Number.isFinite(currentGalleryIndex)) {
+          currentGalleryIndex = this._mediaGalleryIndex(archive.id, galleryCount);
+        }
+        this._setMediaGalleryIndex(archive.id, currentGalleryIndex + (action === "media-next" ? 1 : -1), galleryCount);
       }
       return;
     }
@@ -1728,6 +1760,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._mediaSwipe = {
       archiveId: String(surface.getAttribute("data-archive-id") || ""),
       galleryCount: Number(surface.getAttribute("data-gallery-count") || 0),
+      galleryIndex: this._readRenderedMediaGalleryIndex(surface, Number(surface.getAttribute("data-gallery-count") || 0)),
       startX: Number(event.clientX || 0),
       startY: Number(event.clientY || 0),
     };
@@ -1749,7 +1782,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     this._suppressOpenArchiveId = swipe.archiveId;
     this._suppressOpenUntil = Date.now() + 450;
-    this._setMediaGalleryIndex(swipe.archiveId, this._mediaGalleryIndex(swipe.archiveId, swipe.galleryCount) + (deltaX < 0 ? 1 : -1), swipe.galleryCount);
+    var currentGalleryIndex = Number.isFinite(swipe.galleryIndex) ? swipe.galleryIndex : this._mediaGalleryIndex(swipe.archiveId, swipe.galleryCount);
+    this._setMediaGalleryIndex(swipe.archiveId, currentGalleryIndex + (deltaX < 0 ? 1 : -1), swipe.galleryCount);
   }
 
   _handlePointerCancel() {

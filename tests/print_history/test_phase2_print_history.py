@@ -827,7 +827,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=44", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1608,6 +1608,16 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("_withArchiveMediaCacheKey", gallery_content)
         self.assertIn(' + "v=" + encodeURIComponent(cacheKey)', gallery_content)
 
+    def test_media_card_navigation_uses_the_rendered_gallery_index_for_primary_photo_selection(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("data-gallery-index=\"' + this._escapeAttribute(String(mediaGalleryIndex)) + '\"", content)
+        self.assertIn("_readRenderedMediaGalleryIndex(actionNode, galleryCount)", content)
+        self.assertIn("galleryIndex: this._readRenderedMediaGalleryIndex(surface, Number(surface.getAttribute(\"data-gallery-count\") || 0))", content)
+        self.assertIn("Number.isFinite(swipe.galleryIndex) ? swipe.galleryIndex : this._mediaGalleryIndex", content)
+
     def test_photo_gallery_only_resets_local_media_state_when_archive_id_changes(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
@@ -2004,7 +2014,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=44", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
 
     def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
         content = (
