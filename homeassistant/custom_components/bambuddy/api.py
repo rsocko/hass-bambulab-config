@@ -96,6 +96,63 @@ class BambuddyApiClient:
                 raise RuntimeError("Bambuddy archive detail response was not a JSON object")
             return payload
 
+    async def async_update_archive(self, archive_id: int, payload: dict[str, Any]) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+        if not isinstance(payload, dict) or not payload:
+            raise RuntimeError("payload must include at least one field")
+
+        async with self._session.patch(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}",
+            headers={"X-API-Key": self._api_key, "Content-Type": "application/json"},
+            json=payload,
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            try:
+                response_payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return response_payload if isinstance(response_payload, dict) else None
+
+    async def async_toggle_archive_favorite(self, archive_id: int) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/favorite",
+            headers={"X-API-Key": self._api_key, "Content-Type": "application/json"},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
+            try:
+                response_payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return response_payload if isinstance(response_payload, dict) else None
+
     async def async_fetch_archive_capabilities(self, archive_id: int) -> dict[str, Any]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
