@@ -815,10 +815,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=29", content)
-        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1668,7 +1668,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn('.header-side {', content)
         self.assertIn('justify-content: flex-end;', content)
         self.assertIn('.header-compact .header-side {', content)
-        self.assertIn('justify-content: space-between;', content)
+        self.assertIn('grid-template-columns: minmax(0,1fr) auto;', content)
+        self.assertIn('justify-self: end;', content)
         self.assertNotIn('header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>', content)
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):
@@ -2112,7 +2113,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('"<div class=\'eyebrow\'>3D Viewer</div>" +', script)
         self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
         self.assertNotIn('Print History Viewer', script)
-        self.assertIn('this._setTitle(archiveTitle, `Archive #${archiveId}`);', script)
+        self.assertIn('this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)

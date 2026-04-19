@@ -130,8 +130,11 @@ class PrintFilamentBreakdownCard extends HTMLElement {
           flex-wrap: wrap;
         }
         .header-compact .header-side {
+          display: grid;
+          grid-template-columns: minmax(0,1fr) auto;
+          align-items: center;
           width: 100%;
-          justify-content: space-between;
+          gap: 12px;
         }
         .title {
           font-size: 14px;
@@ -141,6 +144,7 @@ class PrintFilamentBreakdownCard extends HTMLElement {
         }
         .sort-toggle {
           display: inline-flex;
+          justify-self: end;
           border-radius: 999px;
           background: rgba(127, 127, 127, 0.12);
           border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
