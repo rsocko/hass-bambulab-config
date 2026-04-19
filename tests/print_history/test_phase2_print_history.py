@@ -1647,7 +1647,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("spool match markers <strong>sm</strong>", content)
         self.assertIn("print-history-popup-enrichment-toggle-label", content)
         self.assertIn("Show Details", content)
-        self.assertIn("grid-template-columns:repeat(2,minmax(0,1fr));", content)
+        self.assertIn("grid-template-columns:minmax(0,1fr);", content)
         self.assertIn("white-space:pre;", content)
         self.assertIn("white-space:normal !important;", content)
         self.assertIn("min-width:0;max-width:100%;font-size:12px;line-height:1.45;color:#E3F2FD;white-space:normal !important;", content)

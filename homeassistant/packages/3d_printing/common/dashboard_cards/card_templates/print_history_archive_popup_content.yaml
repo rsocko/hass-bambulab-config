@@ -945,7 +945,7 @@ print_history_archive_popup_content:
             .print-history-popup-enrichment-toggle ha-icon{--mdc-icon-size:16px;color:currentColor;pointer-events:none;}
             .print-history-popup-enrichment-details{display:none;flex-direction:column;gap:10px;}
             .print-history-popup-enrichment-shell.is-open .print-history-popup-enrichment-details{display:flex;}
-            .print-history-popup-match-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start;}
+            .print-history-popup-match-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}
             .print-history-popup-match-card{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.12);text-align:left;min-width:0;max-width:100%;overflow:hidden;}
             .print-history-popup-match-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;min-width:0;max-width:100%;}
             .print-history-popup-match-card-title-wrap{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 220px;text-align:left;}
@@ -973,7 +973,6 @@ print_history_archive_popup_content:
               .print-history-popup-timeline{column-gap:10px;row-gap:8px;}
               .print-history-popup-enrichment-header{align-items:stretch;}
               .print-history-popup-enrichment-toggle{width:100%;justify-content:flex-start;}
-              .print-history-popup-match-grid{grid-template-columns:minmax(0,1fr);}
             }
           </style>
           <div class="print-history-popup-content">
