@@ -815,7 +815,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=45", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=47", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=30", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
@@ -2113,7 +2113,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('"<div class=\'eyebrow\'>3D Viewer</div>" +', script)
         self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
         self.assertNotIn('Print History Viewer', script)
-        self.assertIn('this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);', script)
+        self.assertIn('this._setTitle(archiveTitle, `Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)
         self.assertIn('capture-preview-wrap.has-image img{display:block;}', script)
@@ -2122,9 +2122,17 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('canvas.height = metrics.height;', script)
         self.assertIn('id=\'crop-layer\'', script)
         self.assertIn('id=\'crop-aspect-select\'', script)
+        capture_panel_markup = script[script.index("<section id='capture-panel'"):]
+        self.assertLess(capture_panel_markup.index("id='capture-controls'"), capture_panel_markup.index("capture-preview-stack"))
         self.assertIn('_setCropMode(true);', script)
         self.assertIn('_cropPresetLabel()', script)
         self.assertIn('_buildCornerRect(', script)
+        self.assertNotIn('capture-hero-copy', script)
+        self.assertNotIn('capture-copy', script)
+        self.assertNotIn('capture-note', script)
+        self.assertNotIn('Use Capture View for the full frame', script)
+        self.assertNotIn('Capture uses the exact popup canvas', script)
+        self.assertNotIn('thumbnail-like default', script)
         self.assertNotIn('print-history-3d-viewer.html', script)
         self.assertNotIn('without reopening the viewer in another tab', script)
         self.assertNotIn("<section id='viewer-status' class='panel status'>", script)
@@ -2189,7 +2197,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertFalse((ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-3d-viewer-page.js").exists())
         self.assertIn('id=\'crop-layer\'', script)
         self.assertIn('Landscape 16:9', script)
-        self.assertIn('Square is the best starting point', script)
+        self.assertNotIn('Square is the best starting point', script)
         self.assertNotIn('/capture-upload', script)
         self.assertNotIn('ArchiveViewerCaptureUploadView', integration)
         self.assertNotIn('ArchiveViewerCapabilitiesView', integration)
@@ -2261,6 +2269,32 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("color-enrichment-row", content)
         self.assertIn("photoAction", content)
         self.assertIn("project-chip span{display:inline-flex;align-items:center;min-width:0;", content)
+
+    def test_browser_card_primary_actions_share_same_order_across_variants(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)", content)
+        self.assertEqual(content.count("_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction)"), 4)
+
+        helper_signature = "_renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {"
+        helper_start = content.index(helper_signature) + len(helper_signature)
+        helper_end = content.index("\n\n  _renderFavoriteButton", helper_start)
+        helper = content[helper_start:helper_end]
+
+        self.assertLess(helper.index('mdi:cube-scan'), helper.index('favoriteButton'))
+        self.assertLess(helper.index('favoriteButton'), helper.index('photoAction'))
+
+    def test_browser_card_list_view_omits_hidden_images_placeholder_when_images_are_disabled(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';", content)
+        self.assertIn("? (listImageUrl", content)
+        self.assertIn("? '<div class=\"thumb-wrap\"><div class=\"media-gallery-surface\"><div class=\"list-thumb-empty\">No preview image available</div></div></div>'", content)
+        self.assertNotIn("var listPlaceholderLabel = showImages", content)
 
     def test_browser_card_popup_action_row_includes_3d_view_button(self):
         content = (
