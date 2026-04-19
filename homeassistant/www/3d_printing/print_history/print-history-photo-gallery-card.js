@@ -991,9 +991,51 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     };
   }
 
-  _openAdvancedActions() {
+  async _ensureArchiveActionsCardLoaded() {
+    if (customElements.get("print-history-archive-actions-card")) {
+      return true;
+    }
+
+    if (!window.__printHistoryArchiveActionsCardPromise) {
+      window.__printHistoryArchiveActionsCardPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement("script");
+        script.type = "module";
+        script.src = "/local/3d_printing/print_history/print-history-archive-actions-card.js?v=1";
+        script.onload = function () {
+          resolve(true);
+        };
+        script.onerror = function () {
+          reject(new Error("Failed to load print-history advanced actions card"));
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    try {
+      await window.__printHistoryArchiveActionsCardPromise;
+    } catch (_error) {
+      return false;
+    }
+
+    return !!customElements.get("print-history-archive-actions-card");
+  }
+
+  async _openAdvancedActions() {
     var archive = this._resolveArchive();
     if (!archive || archive.id == null) {
+      return;
+    }
+
+    var loaded = await this._ensureArchiveActionsCardLoaded();
+    if (!loaded) {
+      this._fireBrowserModEvent("browser_mod.popup", {
+        title: "Advanced Actions",
+        size: "normal",
+        content: {
+          type: "markdown",
+          content: "Advanced actions could not be loaded. Refresh the dashboard and try again.",
+        },
+      });
       return;
     }
 

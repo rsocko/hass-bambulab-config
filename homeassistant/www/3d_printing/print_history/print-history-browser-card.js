@@ -1199,6 +1199,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       }
       return archive;
     });
+    this._normalizedArchiveCache = {};
     await this._completeBulkActionAndExitMode();
   }
 
@@ -1310,7 +1311,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var archiveId = archive.id != null ? String(archive.id) : "";
     var payloadHash = String(archive.payload_hash || "").trim();
     if (archiveId && payloadHash) {
-      return archiveId + ":" + payloadHash;
+        return archiveId + ":" + payloadHash + ":" + String(archive.is_favorite ? "1" : "0");
     }
     if (!archiveId) {
       return "";
@@ -2350,6 +2351,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       }
       return Object.assign({}, item, { is_favorite: !item.is_favorite });
     });
+    this._normalizedArchiveCache = {};
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
   }

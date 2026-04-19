@@ -609,11 +609,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 }
 
-customElements.define("print-history-archive-actions-card", PrintHistoryArchiveActionsCard);
+if (!customElements.get("print-history-archive-actions-card")) {
+  customElements.define("print-history-archive-actions-card", PrintHistoryArchiveActionsCard);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "print-history-archive-actions-card",
-  name: "Print History Archive Actions Card",
-  description: "Advanced print-history archive actions for slicer, MakerWorld, download, source upload, repair, and delete.",
-});
+if (!window.customCards.some(function (card) { return card && card.type === "print-history-archive-actions-card"; })) {
+  window.customCards.push({
+    type: "print-history-archive-actions-card",
+    name: "Print History Archive Actions Card",
+    description: "Advanced print-history archive actions for slicer, MakerWorld, download, source upload, repair, and delete.",
+  });
+}
