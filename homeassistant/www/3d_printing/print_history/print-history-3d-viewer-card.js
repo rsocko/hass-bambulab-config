@@ -252,7 +252,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-chip.error{color:#fca5a5;}" +
       ".capture-chip.upload{color:#7dd3fc;}" +
       ".capture-hero-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
-      ".capture-hero-copy{color:#d3deeb;font-size:0.92rem;line-height:1.55;}" +
       ".capture-preview-stack{display:grid;gap:14px;}" +
       ".capture-preview-wrap{position:relative;min-height:240px;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(8,16,26,0.98),rgba(12,22,35,0.98));display:flex;align-items:center;justify-content:center;}" +
       ".capture-preview-wrap img{display:none;width:100%;height:100%;object-fit:contain;background:radial-gradient(circle at top,rgba(125,211,200,0.08),transparent 44%),#060c14;}" +
@@ -262,7 +261,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-kicker{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;}" +
       ".capture-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}" +
       ".capture-title{font-size:1.1rem;font-weight:700;color:#f8fafc;}" +
-      ".capture-copy{color:#9fb0c0;font-size:0.94rem;line-height:1.55;}" +
       ".capture-status{min-height:22px;font-size:0.9rem;color:#9fb0c0;}" +
       ".capture-status.error{color:#fecaca;}" +
       ".capture-status.success{color:#86efac;}" +
@@ -270,7 +268,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".capture-controls.visible{display:flex;}" +
       ".capture-controls select{appearance:none;min-height:42px;padding:0 42px 0 16px;border-radius:14px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.18);color:#f8fafc;font-size:0.92rem;font-weight:700;}" +
       ".capture-controls select:hover,.capture-controls select:focus-visible{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(34,52,68,0.98),rgba(13,24,36,0.98));outline:none;}" +
-      ".capture-note{color:#9fb0c0;font-size:0.84rem;line-height:1.5;}" +
       ".capture-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;flex:0 0 auto;}" +
       ".fallback{display:none;padding:18px 20px 22px;border-top:1px solid rgba(255,255,255,0.06);background:rgba(18,31,46,0.98);}" +
       ".fallback.visible{display:block;}" +
@@ -334,27 +331,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<span class='capture-kicker'>Viewer Capture</span>" +
       "</div>" +
       "<div id='capture-hero-title' class='capture-hero-title'>Capture workspace</div>" +
-      "<div id='capture-hero-copy' class='capture-hero-copy'>Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.</div>" +
       "<div class='capture-primary-actions'>" +
       "<button id='capture-button' class='button primary' type='button'>Capture View</button>" +
       "<button id='crop-toggle-button' class='button ghost' type='button'>Crop View</button>" +
       "</div>" +
-      "</div>" +
-      "<div class='capture-preview-stack'>" +
-      "<div class='capture-preview-wrap'>" +
-      "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
-      "<div id='capture-empty' class='capture-empty'>Capture the current popup render to save a viewer-based archive image.</div>" +
-      "</div>" +
-      "<div class='capture-meta'>" +
-      "<div class='capture-title-row'>" +
-      "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
-      "<div class='capture-actions'>" +
-      "<button id='download-capture-button' class='button primary' type='button' disabled>Download PNG</button>" +
-      "<button id='upload-capture-button' class='button primary' type='button' disabled>Upload to Archive</button>" +
-      "</div>" +
-      "</div>" +
-      "<div id='capture-copy' class='capture-copy'>Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.</div>" +
-      "<div id='capture-status' class='capture-status'></div>" +
       "<div id='capture-controls' class='capture-controls'>" +
       "<select id='crop-aspect-select' aria-label='Crop aspect preset'>" +
       "<option value='square'>Square</option>" +
@@ -365,7 +345,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<button id='reset-crop-button' class='button ghost' type='button'>Reset Crop</button>" +
       "<button id='cancel-crop-button' class='button ghost' type='button'>Cancel Crop</button>" +
       "</div>" +
-      "<div id='capture-note' class='capture-note'>Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.</div>" +
+      "</div>" +
+      "<div class='capture-preview-stack'>" +
+      "<div class='capture-preview-wrap'>" +
+      "<img id='capture-preview-image' alt='Captured viewer render' hidden>" +
+      "<div id='capture-empty' class='capture-empty'>No capture yet.</div>" +
+      "</div>" +
+      "<div class='capture-meta'>" +
+      "<div class='capture-title-row'>" +
+      "<div id='capture-title' class='capture-title'>No render captured yet</div>" +
+      "<div class='capture-actions'>" +
+      "<button id='download-capture-button' class='button primary' type='button' disabled>Download PNG</button>" +
+      "<button id='upload-capture-button' class='button primary' type='button' disabled>Upload to Archive</button>" +
+      "</div>" +
+      "</div>" +
+      "<div id='capture-status' class='capture-status'></div>" +
       "</div>" +
       "</div>" +
       "</section>" +
@@ -504,8 +498,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const hero = this.shadowRoot && this.shadowRoot.getElementById("capture-hero");
     const chip = this.shadowRoot && this.shadowRoot.getElementById("capture-chip");
     const title = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-title");
-    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-hero-copy");
-    if (!hero || !chip || !title || !copy || !this._capturePanel) {
+    if (!hero || !chip || !title || !this._capturePanel) {
       return;
     }
 
@@ -514,7 +507,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     let chipState = "idle";
     let chipLabel = "Waiting";
     let heroTitle = "Capture workspace";
-    let heroCopy = "Use Capture View for the full frame or Crop View to define a tighter thumbnail. This panel stays in sync with the renderer so the next step is always visible.";
 
     if (this._uploadInProgress) {
       panelState = "capture-ready";
@@ -522,21 +514,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       chipState = "upload";
       chipLabel = "Uploading";
       heroTitle = "Uploading your viewer capture";
-      heroCopy = "The current PNG is being added to the archive photo gallery. Leave the popup open until the upload finishes.";
     } else if (this._capture) {
       panelState = "capture-ready";
       heroState = "status-ready";
       chipState = "ready";
       chipLabel = "Ready";
       heroTitle = "Capture ready to use";
-      heroCopy = "Your latest viewer render is ready. Download the PNG or upload it straight into the archive from this panel.";
     } else if (this._cropMode) {
       panelState = "crop-active";
       heroState = "status-crop";
       chipState = "crop";
       chipLabel = "Crop mode";
       heroTitle = "Crop mode is active";
-      heroCopy = "Drag the frame on the renderer, adjust the preset here, then press Capture Crop to create the image.";
     }
 
     this._capturePanel.className = `panel capture-panel ${panelState}`;
@@ -544,18 +533,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
     chip.className = `capture-chip ${chipState}`;
     chip.textContent = chipLabel;
     title.textContent = heroTitle;
-    copy.textContent = heroCopy;
   }
 
   _updateCapturePanel() {
     const image = this.shadowRoot && this.shadowRoot.getElementById("capture-preview-image");
     const empty = this.shadowRoot && this.shadowRoot.getElementById("capture-empty");
     const title = this.shadowRoot && this.shadowRoot.getElementById("capture-title");
-    const copy = this.shadowRoot && this.shadowRoot.getElementById("capture-copy");
     const controls = this.shadowRoot && this.shadowRoot.getElementById("capture-controls");
-    const note = this.shadowRoot && this.shadowRoot.getElementById("capture-note");
     const previewWrap = image && image.parentElement instanceof HTMLElement ? image.parentElement : null;
-    if (!image || !empty || !title || !copy || !note || !previewWrap) {
+    if (!image || !empty || !title || !previewWrap) {
       return;
     }
 
@@ -565,24 +551,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
       empty.hidden = true;
       previewWrap.classList.add("has-image");
       title.textContent = `${this._capture.width} x ${this._capture.height} PNG ready`;
-      copy.textContent = `Archive #${this._config && this._config.archive_id ? this._config.archive_id : ""} ${this._capture.cropLabel || "viewer capture"} prepared from the current popup canvas.`;
     } else {
       image.removeAttribute("src");
       image.hidden = true;
       empty.hidden = false;
       previewWrap.classList.remove("has-image");
-      title.textContent = "No render captured yet";
-      copy.textContent = this._cropMode
-        ? `Adjust the ${this._cropPresetLabel().toLowerCase()} and then capture it. Square is the thumbnail-like default, while landscape presets are better for wide card framing.`
-        : "Capture uses the exact popup canvas that is already on screen, so the saved image matches the current preview framing and colors.";
+      title.textContent = this._cropMode ? this._cropPresetLabel() : "No render captured yet";
     }
 
     if (controls) {
       controls.classList.toggle("visible", this._cropMode);
     }
-    note.textContent = this._cropMode
-      ? "Square stays closest to the stock thumbnail behavior. Landscape presets usually frame better for the list card and camera-style previews."
-      : "Square is the best starting point when you want a thumbnail-like replacement. Landscape presets usually frame better for the list card and camera-style previews.";
 
     if (this._captureButton) {
       this._captureButton.textContent = "Capture View";
@@ -842,7 +821,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._cropDrag = null;
     if (this._cropMode) {
       this._ensureCropRect(!this._cropRect);
-      this._setCaptureStatus("Crop mode is active. Square is the thumbnail-like default; switch to a landscape preset if you want wider framing.", "info");
+      this._setCaptureStatus("Crop mode is active.", "info");
       this._focusCapturePanel("crop");
     }
     this._updateCapturePanel();
@@ -1012,7 +991,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     this._ensureCropRect(true);
     this._updateCropOverlay();
-    this._setCaptureStatus(`Reset to ${this._cropPresetLabel().toLowerCase()}.`, "info");
+    this._setCaptureStatus("Crop reset.", "info");
   }
 
   _handleCancelCrop() {
@@ -1082,7 +1061,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       cropLabel,
     };
     this._updateCapturePanel();
-    this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}. Download it or upload it to the archive.`, "success");
+    this._setCaptureStatus(`Captured ${cropLabel.toLowerCase()}.`, "success");
     this._focusCapturePanel("capture");
   }
 
