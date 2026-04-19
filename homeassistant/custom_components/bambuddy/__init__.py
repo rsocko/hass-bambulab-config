@@ -195,11 +195,29 @@ def _normalize_3mf_filename(candidate: str, fallback: str) -> str:
     return normalized
 
 
-def _resolve_archive_model_resource(archive: dict[str, Any]) -> dict[str, str]:
+def _resolve_archive_model_resource(
+    archive: dict[str, Any], *, preferred_resource_type: str | None = None
+) -> dict[str, str]:
     archive_id = _extract_archive_id(archive.get("id")) or 0
     file_path = str(archive.get("file_path") or "").strip()
     source_path = str(archive.get("source_3mf_path") or "").strip()
     archive_name = str(archive.get("print_name") or archive.get("filename") or "").strip()
+
+    if preferred_resource_type == "file":
+        if not file_path:
+            raise HomeAssistantError(f"Archive {archive_id} does not have an archived G-code file")
+        return {
+            "resource_type": "file",
+            "filename": _normalize_3mf_filename(archive_name or _basename(file_path), f"archive-{archive_id}"),
+        }
+
+    if preferred_resource_type == "source":
+        if not source_path:
+            raise HomeAssistantError(f"Archive {archive_id} does not have an attached source 3MF")
+        return {
+            "resource_type": "source",
+            "filename": _normalize_3mf_filename(_basename(source_path) or archive_name, f"archive-{archive_id}-source"),
+        }
 
     if file_path:
         return {
@@ -232,7 +250,13 @@ async def _build_archive_action_response(
     if not isinstance(archive, dict):
         raise HomeAssistantError(f"Archive {archive_id} detail payload is missing archive data")
 
-    resource = _resolve_archive_model_resource(archive)
+    preferred_resource_type = None
+    if intent == "download_gcode":
+        preferred_resource_type = "file"
+    elif intent == "download_source_3mf":
+        preferred_resource_type = "source"
+
+    resource = _resolve_archive_model_resource(archive, preferred_resource_type=preferred_resource_type)
     resource_type = resource["resource_type"]
     filename = resource["filename"]
     encoded_filename = quote(filename, safe="")
@@ -1189,7 +1213,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION,
             vol.Optional(CONF_ENTRY_ID): str,
             vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
-            vol.Required("intent"): vol.In({"download", "open_in_slicer"}),
+            vol.Required("intent"): vol.In({"download", "download_gcode", "download_source_3mf", "open_in_slicer"}),
         }
     )
     @websocket_api.async_response

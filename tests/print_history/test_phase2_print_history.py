@@ -828,7 +828,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=3", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -844,19 +844,20 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', content)
         self.assertIn('window.__printHistoryArchiveActionsCardPromise', content)
-        self.assertIn('print-history-archive-actions-card.js?v=1', content)
+        self.assertIn('print-history-archive-actions-card.js?v=3', content)
         self.assertIn('Source 3MF attached:', action_content)
         self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', action_content)
-        self.assertIn('Download Source 3MF', action_content)
+        self.assertIn('Download Gcode file', action_content)
+        self.assertIn('Download 3MF', action_content)
         self.assertIn('Replace Source 3MF', action_content)
         self.assertIn('View on MakerWorld', action_content)
         self.assertIn('View Designer', action_content)
-        self.assertIn('Open in Slicer', action_content)
+        self.assertNotIn('Open in Slicer', action_content)
         self.assertIn('PERMANENTLY REMOVES', action_content)
         self.assertIn('bambuddy/print_history_archive_action', action_content)
+        self.assertIn('download_source_3mf', action_content)
+        self.assertIn('download_gcode', action_content)
         self.assertIn('/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload', action_content)
-        self.assertIn('bambustudioopen://', action_content)
-        self.assertIn('bambustudio://open?file=', action_content)
         self.assertIn('delete_print_history_archive', action_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -2102,10 +2103,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
     def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=6", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=52", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
         browser_card_content = (
@@ -2125,6 +2126,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
         ).read_text("utf-8")
 
+        self.assertIn("local_only: !!config.local_only,", content)
+        self.assertIn("getTags()", content)
+        self.assertIn("setTags(value)", content)
         self.assertIn('mode_entity: config.mode_entity || "",', content)
         self.assertIn('mode_options: Array.isArray(config.mode_options) && config.mode_options.length ? config.mode_options : ["Any", "All"],', content)
         self.assertIn('const currentValue = this._readModeValue();', content)
@@ -2560,6 +2564,11 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("data-action=\"select-archive\"", content)
         self.assertIn("selection-badge", content)
         self.assertIn("bulk-dialog", content)
+        self.assertIn("bulk-tag-add-editor-host", content)
+        self.assertIn("bulk-tag-remove-editor-host", content)
+        self.assertIn("_mountBulkTagEditors()", content)
+        self.assertIn("_bulkTagDialogValue(", content)
+        self.assertIn('local_only: true,', content)
         self.assertIn("color-scheme:light dark", content)
         self.assertIn("select option,.bulk-dialog-field select optgroup", content)
         self.assertIn("bulk_update_print_history_user_tags", content)

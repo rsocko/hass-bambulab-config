@@ -14,12 +14,13 @@ class PrintHistoryTagEditorCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || !config.entity) {
+    if (!config || (!config.entity && !config.local_only)) {
       throw new Error("print-history-tag-editor-card requires an entity");
     }
 
     this._config = {
-      entity: config.entity,
+      entity: config.entity || "",
+      local_only: !!config.local_only,
       suggestions_entity: config.suggestions_entity || "input_select.print_history_filter_tag",
       mode_entity: config.mode_entity || "",
       mode_options: Array.isArray(config.mode_options) && config.mode_options.length ? config.mode_options : ["Any", "All"],
@@ -32,7 +33,15 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       max_suggestions: Number(config.max_suggestions || 8),
     };
 
-    this._syncTagsFromEntity();
+    if (this._config.local_only) {
+      this._entityValue = Array.isArray(config.initial_tags)
+        ? config.initial_tags.join(", ")
+        : String(config.initial_tags || "");
+      this._tags = this._parseTags(this._entityValue);
+      this._suggestionsSignature = JSON.stringify(this._readSuggestionPool());
+    } else {
+      this._syncTagsFromEntity();
+    }
     this._render();
   }
 
@@ -42,10 +51,12 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       return;
     }
 
-    const nextEntityValue = this._readEntityValue();
-    if (nextEntityValue !== this._entityValue) {
-      this._entityValue = nextEntityValue;
-      this._tags = this._parseTags(nextEntityValue);
+    if (!this._config.local_only) {
+      const nextEntityValue = this._readEntityValue();
+      if (nextEntityValue !== this._entityValue) {
+        this._entityValue = nextEntityValue;
+        this._tags = this._parseTags(nextEntityValue);
+      }
     }
 
     const nextSuggestionsSignature = JSON.stringify(this._readSuggestionPool());
@@ -205,16 +216,34 @@ class PrintHistoryTagEditorCard extends HTMLElement {
   }
 
   async _persistTags() {
+    const joinedValue = this._tags.join(", ");
+    this._entityValue = joinedValue;
+
+    if (this._config?.local_only) {
+      return;
+    }
+
     if (!this._hass || !this._config?.entity) {
       return;
     }
 
-    const joinedValue = this._tags.join(", ");
-    this._entityValue = joinedValue;
     await this._hass.callService("input_text", "set_value", {
       entity_id: this._config.entity,
       value: joinedValue,
     });
+  }
+
+  getTags() {
+    return this._tags.slice();
+  }
+
+  setTags(value) {
+    const nextValue = Array.isArray(value) ? value.join(", ") : String(value || "");
+    this._entityValue = nextValue;
+    this._tags = this._parseTags(nextValue);
+    this._draft = "";
+    this._highlightedIndex = 0;
+    this._render();
   }
 
   async _persistMode(option) {

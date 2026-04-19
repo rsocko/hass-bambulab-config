@@ -1082,7 +1082,7 @@ def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_p
             action_handler(
                 hass,
                 connection,
-                {"id": 1, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 101, "intent": "download"},
+                {"id": 1, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 101, "intent": "download_gcode"},
             )
         )
         asyncio.run(
@@ -1092,6 +1092,13 @@ def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_p
                 {"id": 2, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 202, "intent": "open_in_slicer"},
             )
         )
+        asyncio.run(
+            action_handler(
+                hass,
+                connection,
+                {"id": 3, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 202, "intent": "download_source_3mf"},
+            )
+        )
     finally:
         init_module.BambuddyApiClient = original_api_client
         manager_module.BambuddyApiClient = original_manager_api_client
@@ -1099,12 +1106,15 @@ def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_p
     assert not connection.errors
     first_result = connection.results[0][1]
     second_result = connection.results[1][1]
+    third_result = connection.results[2][1]
     assert first_result["resource_type"] == "file"
     assert "/api/v1/archives/101/dl/archive-101-token/" in first_result["download_url"]
     assert second_result["resource_type"] == "source"
     assert "/api/v1/archives/202/source-dl/source-202-token/" in second_result["download_url"]
+    assert third_result["resource_type"] == "source"
+    assert "/api/v1/archives/202/source-dl/source-202-token/" in third_result["download_url"]
     assert FakeApiClient.archive_slicer_tokens == [101]
-    assert FakeApiClient.source_slicer_tokens == [202]
+    assert FakeApiClient.source_slicer_tokens == [202, 202]
 
 
 def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path) -> None:

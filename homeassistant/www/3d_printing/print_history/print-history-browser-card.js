@@ -1004,8 +1004,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? '<div class="bulk-dialog-field"><label for="bulk-project-select">Project</label><select id="bulk-project-select">' + this._bulkProjectChoices().map(function (choice) {
         return '<option value="' + this._escapeAttribute(choice.value) + '"' + (choice.value === this._bulkDialog.projectValue ? ' selected' : '') + '>' + this._escapeHtml(choice.label) + '</option>';
       }.bind(this)).join("") + '</select></div>'
-      : '<div class="bulk-dialog-field"><label for="bulk-tag-add">Add User Tags</label><input id="bulk-tag-add" type="text" value="' + this._escapeAttribute(this._bulkDialog.addTags || "") + '" placeholder="functional, prototype"></div>'
-        + '<div class="bulk-dialog-field"><label for="bulk-tag-remove">Remove User Tags</label><input id="bulk-tag-remove" type="text" value="' + this._escapeAttribute(this._bulkDialog.removeTags || "") + '" placeholder="draft, reprint"></div>';
+      : '<div class="bulk-dialog-field"><div id="bulk-tag-add-editor-host"></div></div>'
+        + '<div class="bulk-dialog-field"><div id="bulk-tag-remove-editor-host"></div></div>';
     host.innerHTML = '' +
       '<div class="bulk-dialog-backdrop">' +
         '<div class="bulk-dialog" role="dialog" aria-modal="true" aria-label="' + this._escapeAttribute(dialogTitle) + '">' +
@@ -1022,6 +1022,44 @@ class PrintHistoryBrowserCard extends HTMLElement {
           '</div>' +
         '</div>' +
       '</div>';
+    if (this._bulkDialog.type === "tag") {
+      this._mountBulkTagEditors();
+    }
+  }
+
+  _mountBulkTagEditors() {
+    var addHost = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-add-editor-host") : null;
+    var removeHost = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-remove-editor-host") : null;
+    if (!addHost || !removeHost || typeof customElements === "undefined" || !customElements.get("print-history-tag-editor-card")) {
+      return;
+    }
+
+    var createEditor = function (title, helperText, initialTags) {
+      var editor = document.createElement("print-history-tag-editor-card");
+      editor.setConfig({
+        local_only: true,
+        initial_tags: initialTags || "",
+        suggestions_entity: "input_select.print_history_filter_tag",
+        title: title,
+        placeholder: "Add a tag and press Enter",
+        helper: helperText,
+      });
+      editor.hass = this._hass;
+      return editor;
+    }.bind(this);
+
+    addHost.innerHTML = "";
+    addHost.appendChild(createEditor("Add User Tags", "Reuse an existing tag or create a new one. Each added tag is appended to every selected print.", this._bulkDialog.addTags));
+    removeHost.innerHTML = "";
+    removeHost.appendChild(createEditor("Remove User Tags", "Suggestions come from existing print-history tags. Matching user tags are removed from every selected print.", this._bulkDialog.removeTags));
+  }
+
+  _bulkTagDialogValue(hostId) {
+    var host = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById(hostId) : null;
+    var editor = host && host.firstElementChild && typeof host.firstElementChild.getTags === "function"
+      ? host.firstElementChild
+      : null;
+    return editor ? editor.getTags().join(", ") : "";
   }
 
   _bulkProjectChoices() {
@@ -1156,20 +1194,29 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!this._bulkDialog || this._bulkActionBusy || !this._hass) {
       return;
     }
+    var addTags = "";
+    var removeTags = "";
+    var projectValue = "__NULL__";
+    if (this._bulkDialog.type === "tag") {
+      addTags = this._bulkTagDialogValue("bulk-tag-add-editor-host");
+      removeTags = this._bulkTagDialogValue("bulk-tag-remove-editor-host");
+      this._bulkDialog.addTags = addTags;
+      this._bulkDialog.removeTags = removeTags;
+    } else if (this._bulkDialog.type === "project") {
+      var selectNode = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-project-select") : null;
+      projectValue = selectNode && selectNode.value ? String(selectNode.value).trim() : "__NULL__";
+      this._bulkDialog.projectValue = projectValue || "__NULL__";
+    }
     this._bulkActionBusy = true;
     this._renderBulkDialog();
     try {
       if (this._bulkDialog.type === "tag") {
-        var addInput = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-add") : null;
-        var removeInput = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-tag-remove") : null;
         await this._hass.callService("script", "bulk_update_print_history_user_tags", {
           archive_ids_csv: this._selectedArchiveIdsCsv(),
-          add_tags: addInput && addInput.value ? String(addInput.value).trim() : "",
-          remove_tags: removeInput && removeInput.value ? String(removeInput.value).trim() : "",
+          add_tags: addTags,
+          remove_tags: removeTags,
         });
       } else if (this._bulkDialog.type === "project") {
-        var selectNode = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("bulk-project-select") : null;
-        var projectValue = selectNode && selectNode.value ? String(selectNode.value).trim() : "__NULL__";
         await this._hass.callService("script", "bulk_assign_print_history_project", {
           archive_ids_csv: this._selectedArchiveIdsCsv(),
           project_id: projectValue || "__NULL__",
