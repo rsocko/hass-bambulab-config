@@ -804,21 +804,54 @@ class PrintHistoryBrowserManager:
         loaded_count = max(0, len(self.archives))
         total_prints = self.last_refresh_archive_total_count
         total_known = isinstance(total_prints, int) and total_prints >= 0
+        refresh_start_date = normalize_filter_date_value(
+            self.hass.states.get("input_text.print_history_filter_start_date").state
+            if self.hass.states.get("input_text.print_history_filter_start_date")
+            else ""
+        )
+        refresh_end_date = normalize_filter_date_value(
+            self.hass.states.get("input_text.print_history_filter_end_date").state
+            if self.hass.states.get("input_text.print_history_filter_end_date")
+            else ""
+        )
+        source_date_scoped = bool(refresh_start_date or refresh_end_date)
+        expected_cached_count = min(limit, total_prints) if total_known else None
         threshold_count = min(limit, max(1, limit - 25, int(limit * 0.9)))
-        is_truncated = bool(total_known and total_prints > limit)
+        is_truncated = bool(
+            total_known
+            and not source_date_scoped
+            and total_prints > limit
+            and loaded_count >= limit
+        )
+        is_incomplete = bool(
+            expected_cached_count is not None
+            and not source_date_scoped
+            and loaded_count < expected_cached_count
+        )
         is_at_limit = loaded_count >= limit
         is_near_limit = loaded_count >= threshold_count and loaded_count < limit
-        show = limit > 0 and (is_truncated or is_at_limit or is_near_limit)
+        show = limit > 0 and (is_incomplete or is_truncated or is_at_limit or is_near_limit)
 
         state = "hidden"
         chip_icon = "mdi:archive-outline"
         chip_label = ""
         popup_title = "Print History Cache"
-        popup_markdown = "The print history cache is healthy."
+        popup_markdown = "No print history cache warning is active right now."
         missing_count = 0
 
         if show:
-            if is_truncated:
+            if is_incomplete:
+                state = "incomplete"
+                chip_icon = "mdi:archive-alert-outline"
+                chip_label = f"{loaded_count:,} of {total_prints:,}"
+                missing_count = max(0, total_prints - loaded_count) if total_known else 0
+                popup_title = "Print History Cache Incomplete"
+                popup_markdown = (
+                    f"Home Assistant currently cached **{loaded_count:,}** archived prints, while Bambuddy reports **{total_prints:,}** total prints.\n\n"
+                    f"With your current max of **{limit:,}**, the local browser would normally hold **{expected_cached_count:,}** prints, so **{max(0, expected_cached_count - loaded_count):,}** expected cache entries are missing.\n\n"
+                    "Refresh the print history cache and inspect the Bambuddy browser status if this count should match."
+                )
+            elif is_truncated:
                 state = "truncated"
                 chip_icon = "mdi:archive-remove-outline"
                 chip_label = f"{loaded_count:,} of {total_prints:,}"
@@ -870,6 +903,8 @@ class PrintHistoryBrowserManager:
             "loaded_count": loaded_count,
             "total_prints": total_prints,
             "total_known": total_known,
+            "source_date_scoped": source_date_scoped,
+            "expected_cached_count": expected_cached_count,
             "missing_count": missing_count,
             "chip_icon": chip_icon,
             "chip_label": chip_label,

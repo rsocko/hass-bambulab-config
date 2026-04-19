@@ -108,7 +108,7 @@ class BambuddyBrowserSensor(SensorEntity):
                 "limit_notice_state": limit_notice.get("state", "hidden"),
                 "limit_notice_chip_label": limit_notice.get("chip_label", ""),
                 "limit_notice_popup_title": limit_notice.get("popup_title", "Print History Cache"),
-                "limit_notice_popup_markdown": limit_notice.get("popup_markdown", "The print history cache is healthy."),
+                "limit_notice_popup_markdown": limit_notice.get("popup_markdown", "No print history cache warning is active right now."),
                 "last_refresh": self.manager.last_refresh,
                 "last_refresh_reason": self.manager.last_refresh_reason,
                 "last_refresh_started_at": self.manager.last_refresh_started_at,
