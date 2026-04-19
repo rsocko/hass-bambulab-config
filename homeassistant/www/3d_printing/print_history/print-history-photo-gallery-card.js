@@ -803,23 +803,42 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Untitled Archive";
     var previewImage = this._resolveArchivePreviewImage(archive);
-    var summaryLines = [
-      '<div style="font-size:16px;font-weight:700;line-height:1.35;">' + this._escapeHtml(archiveName) + '</div>',
-      '<div style="margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>',
-    ];
-
-    if (previewImage && previewImage.src) {
-      summaryLines.push(
-        '<img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '" style="display:block;width:100%;max-height:88px;object-fit:cover;border-radius:14px;margin-top:10px;background:rgba(15,23,42,0.32);">'
-      );
-    }
-
     return {
-      type: "markdown",
-      content: summaryLines.join(""),
-      card_mod: {
-        style: {
-          ".": "ha-card { padding: 4px 4px 6px; background: " + String(cardOptions.background || "rgba(255,255,255,0.03)") + "; border: " + String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") + "; border-radius: 18px; box-shadow: none; }",
+      type: "custom:button-card",
+      show_icon: false,
+      show_name: false,
+      show_state: false,
+      tap_action: { action: "none" },
+      hold_action: { action: "none" },
+      custom_fields: {
+        preview: previewImage && previewImage.src
+          ? '<div class="archive-summary-preview"><img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '"></div>'
+          : '<div class="archive-summary-preview empty"><ha-icon icon="mdi:image-off-outline"></ha-icon></div>',
+        meta: '<div class="archive-summary-title">' + this._escapeHtml(archiveName) + '</div>' +
+          '<div class="archive-summary-id">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>',
+      },
+      styles: {
+        card: [
+          { padding: "10px 12px" },
+          { "border-radius": "18px" },
+          { "box-shadow": "none" },
+          { border: String(cardOptions.border || "1px solid rgba(255,255,255,0.08)") },
+          { background: String(cardOptions.background || "rgba(255,255,255,0.03)") },
+        ],
+        grid: [
+          { "grid-template-areas": '"preview meta"' },
+          { "grid-template-columns": "104px minmax(0, 1fr)" },
+          { gap: "12px" },
+          { "align-items": "center" },
+        ],
+        custom_fields: {
+          preview: [
+            { "justify-self": "start" },
+          ],
+          meta: [
+            { "text-align": "left" },
+            { "justify-self": "stretch" },
+          ],
         },
       },
     };
@@ -1659,6 +1678,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.advanced{background:rgba(15,23,42,0.78);border-color:rgba(148,163,184,0.28);color:var(--primary-text-color);}" +
       ".icon-action.advanced:hover,.icon-action.advanced:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.advanced:active{transform:translateY(0);}" +
+      ".archive-summary-preview{width:104px;height:58px;border-radius:12px;overflow:hidden;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;}" +
+      ".archive-summary-preview img{display:block;width:100%;height:100%;object-fit:cover;}" +
+      ".archive-summary-preview.empty{color:var(--secondary-text-color);}" +
+      ".archive-summary-preview.empty ha-icon{--mdc-icon-size:20px;}" +
+      ".archive-summary-title{font-size:15px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;}" +
+      ".archive-summary-id{margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
