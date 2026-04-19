@@ -579,7 +579,7 @@ def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
                 "name": as_text(raw_slot.get("name") or raw_slot.get("n")).strip(),
                 "type": as_text(raw_slot.get("type")).strip(),
                 "color": color,
-                "used_grams": as_float(raw_slot.get("used_grams")),
+                "used_grams": as_float(raw_slot.get("used_grams") if raw_slot.get("used_grams") not in (None, "") else raw_slot.get("used_g")),
                 "filament_id": raw_slot.get("filament_id") or raw_slot.get("f"),
                 "spool_id": raw_slot.get("spool_id") or raw_slot.get("s"),
             }

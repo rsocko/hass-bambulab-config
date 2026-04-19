@@ -90,6 +90,7 @@ CONF_MODE = "mode"
 _LOGGER = logging.getLogger(__name__)
 
 ENRICHMENT_METADATA_MODES = ("ALL", "ANY_MISSING_DATA", "MISSING_SPOOL", "MISSING_FILAMENT")
+ENRICHMENT_SLOT_OVERRIDE_ROW_KEYS = ("slot_id", "tray", "spool_id", "filament_id")
 
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
@@ -387,6 +388,7 @@ SERVICE_UPDATE_ENRICHMENT_METADATA_SCHEMA = vol.Schema(
         vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
         vol.Optional("tag_metadata"): vol.Any(dict, str),
         vol.Optional("note_metadata"): vol.Any(dict, str),
+        vol.Optional("slot_overrides"): vol.Any(list, str),
     }
 )
 SERVICE_SET_ARCHIVE_FAVORITE_SCHEMA = vol.Schema(
@@ -660,6 +662,91 @@ def _normalize_system_tag_values(value: Any) -> list[str]:
     return tags
 
 
+def _parse_slot_override_rows(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise HomeAssistantError("slot_overrides must be valid JSON") from error
+
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        raise HomeAssistantError("slot_overrides must be a JSON array")
+
+    rows: list[dict[str, Any]] = []
+    seen_slot_ids: set[str] = set()
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise HomeAssistantError(f"slot_overrides[{index}] must be a JSON object")
+
+        slot_id = str(item.get("slot_id", "")).strip()
+        if not slot_id:
+            raise HomeAssistantError(f"slot_overrides[{index}] must include slot_id")
+        if slot_id in seen_slot_ids:
+            raise HomeAssistantError(f"slot_overrides contains duplicate slot_id: {slot_id}")
+        seen_slot_ids.add(slot_id)
+
+        row: dict[str, Any] = {"slot_id": slot_id}
+
+        tray_value = str(item.get("tray", "")).strip()
+        if tray_value:
+            row["tray"] = tray_value
+
+        for field_name in ("spool_id", "filament_id"):
+            field_value = item.get(field_name)
+            if field_value in (None, "", "null", "None"):
+                continue
+            try:
+                normalized = int(field_value)
+            except (TypeError, ValueError) as error:
+                raise HomeAssistantError(f"slot_overrides[{index}].{field_name} must be an integer") from error
+            if normalized <= 0:
+                raise HomeAssistantError(f"slot_overrides[{index}].{field_name} must be a positive integer")
+            row[field_name] = normalized
+
+        if len(row) == 1:
+            raise HomeAssistantError(
+                f"slot_overrides[{index}] must include at least one of tray, spool_id, or filament_id"
+            )
+        rows.append(row)
+
+    return rows
+
+
+def _slot_override_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_rows = payload.get("slot_overrides") if isinstance(payload, dict) else None
+    if not isinstance(raw_rows, list):
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for item in raw_rows:
+        if not isinstance(item, dict):
+            continue
+        row: dict[str, Any] = {}
+        for key in ENRICHMENT_SLOT_OVERRIDE_ROW_KEYS:
+            value = item.get(key)
+            if key == "slot_id":
+                normalized = str(value or "").strip()
+                if normalized:
+                    row[key] = normalized
+            elif key == "tray":
+                normalized = str(value or "").strip()
+                if normalized:
+                    row[key] = normalized
+            elif value not in (None, "", "null", "None"):
+                try:
+                    row[key] = int(value)
+                except (TypeError, ValueError):
+                    continue
+        if row.get("slot_id"):
+            rows.append(row)
+    return rows
+
+
 def _build_archive_enrichment_metadata_response(
     detail_response: dict[str, Any],
     *,
@@ -690,6 +777,7 @@ def _build_archive_enrichment_metadata_response(
             "user_notes": note_parts["user_notes"],
             "recovery_block": note_parts["recovery_block"],
             "payload": note_parts["payload"],
+            "slot_overrides": _slot_override_rows_from_payload(note_parts["payload"]),
             "payload_raw": note_parts["payload_raw"],
             "has_payload": bool(note_parts["has_payload"]),
             "payload_rows": payload_rows,
@@ -1504,6 +1592,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 raise HomeAssistantError("note_metadata.payload must be a JSON object")
             recovery_block = str(note_metadata.get("recovery_block", "")).strip()
             current_note_parts = split_enrichment_notes(str(current_archive.get("notes", "")))
+            slot_override_rows = _parse_slot_override_rows(note_metadata.get("slot_overrides", []))
+            if slot_override_rows:
+                payload_value = dict(payload_value)
+                payload_value["slot_overrides"] = slot_override_rows
+            elif "slot_overrides" in payload_value and not isinstance(payload_value.get("slot_overrides"), list):
+                payload_value = dict(payload_value)
+                payload_value.pop("slot_overrides", None)
             update_payload["notes"] = build_enrichment_notes(
                 user_notes=str(current_note_parts.get("user_notes", "")),
                 recovery_block=recovery_block,
@@ -1511,8 +1606,27 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             )
             updated_fields.append("notes")
 
+        if "slot_overrides" in call.data:
+            current_note_parts = split_enrichment_notes(str(current_archive.get("notes", "")))
+            payload_value = current_note_parts.get("payload")
+            if not isinstance(payload_value, dict):
+                raise HomeAssistantError("slot_overrides requires an existing hidden note payload or note_metadata.payload")
+            slot_override_rows = _parse_slot_override_rows(call.data.get("slot_overrides"))
+            payload_value = dict(payload_value)
+            if slot_override_rows:
+                payload_value["slot_overrides"] = slot_override_rows
+            else:
+                payload_value.pop("slot_overrides", None)
+            update_payload["notes"] = build_enrichment_notes(
+                user_notes=str(current_note_parts.get("user_notes", "")),
+                recovery_block=str(current_note_parts.get("recovery_block", "")),
+                payload=payload_value,
+            )
+            if "notes" not in updated_fields:
+                updated_fields.append("notes")
+
         if not update_payload:
-            raise HomeAssistantError("At least one of tag_metadata or note_metadata must be provided")
+            raise HomeAssistantError("At least one of tag_metadata, note_metadata, or slot_overrides must be provided")
 
         await _async_apply_archive_update(
             hass,

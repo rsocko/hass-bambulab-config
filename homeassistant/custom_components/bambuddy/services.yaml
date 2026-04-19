@@ -270,7 +270,13 @@ update_print_history_archive_enrichment_metadata:
         text:
     note_metadata:
       name: Note Metadata
-      description: Full replacement for the system-managed hidden note data. Pass a JSON object containing payload and optionally recovery_block.
+      description: Full replacement for the system-managed hidden note data. Pass a JSON object containing payload and optionally recovery_block and slot_overrides.
+      required: false
+      selector:
+        text:
+    slot_overrides:
+      name: Slot Overrides
+      description: Optional JSON array of slot override rows. Each row must include slot_id and at least one of tray, spool_id, or filament_id.
       required: false
       selector:
         text:

@@ -1827,6 +1827,56 @@ def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_pa
     assert timeline[0]["type"] == "enrichment_applied"
 
 
+def test_project_archive_source_evidence_accepts_used_g_slot_values() -> None:
+    projected = project_archive(
+        {
+            "id": 451,
+            "print_name": "Single Color Recovery",
+            "status": "completed",
+            "filament_used_grams": 14.0,
+            "filament_type": "PLA",
+            "filament_color": "#000000",
+            "notes": "+>{\"s\":\"p\",\"src\":\"afs\",\"F\":[{\"n\":\"PLA #000000\",\"h\":\"#000000\",\"w\":14.0}]}",
+            "extra_data": {
+                "filament_slots": [
+                    {"slot_id": 0, "type": "PLA", "color": "#000000", "used_g": 14.0}
+                ],
+                "_print_data": {
+                    "raw_data": {
+                        "ams": [
+                            {
+                                "id": 0,
+                                "tray": [
+                                    {
+                                        "id": 2,
+                                        "tray_uuid": "UUID-A3",
+                                        "tray_type": "PLA",
+                                        "tray_color": "#000000",
+                                        "tray_sub_brands": "PLA Basic",
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                },
+            },
+        }
+    )
+
+    assert projected["archive_source_evidence"]["filament_slots"] == [
+        {
+            "tray": "",
+            "name": "",
+            "type": "PLA",
+            "color": "#000000",
+            "used_grams": 14.0,
+            "filament_id": None,
+            "spool_id": None,
+        }
+    ]
+    assert projected["archive_source_evidence"]["archived_ams_trays"][0]["tray_code"] == "A3"
+
+
 def test_variant3_store_delta_sync_keeps_unchanged_rows_and_updates_last_synced_at(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

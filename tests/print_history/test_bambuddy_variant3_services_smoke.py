@@ -842,6 +842,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                                         "h": "#112233",
                                     }
                                 ],
+                                "slot_overrides": [
+                                    {"slot_id": "0", "tray": "A1", "spool_id": 999, "filament_id": 555}
+                                ],
                             },
                             "recovery_block": "[RECOVERY_AUDIT_V1]\nupdated by test",
                         },
@@ -959,6 +962,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert update_enrichment_metadata_response["tag_metadata"]["user_tags"] == ["display", "verified"]
     assert update_enrichment_metadata_response["note_metadata"]["payload"]["F"][0]["s"] == 999
     assert update_enrichment_metadata_response["note_metadata"]["payload"]["F"][0]["f"] == 555
+    assert update_enrichment_metadata_response["note_metadata"]["slot_overrides"] == [
+        {"slot_id": "0", "tray": "A1", "spool_id": 999, "filament_id": 555}
+    ]
     assert "[RECOVERY_AUDIT_V1]" in update_enrichment_metadata_response["note_metadata"]["system_notes"]
     assert update_enrichment_metadata_response["archive"]["notes"].startswith("User note")
     assert favorite_response["archive"]["is_favorite"] is True
@@ -978,7 +984,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
             "archive_id": 101,
             "payload": {
                 "tags": "display,verified,s:999,f:555",
-                "notes": "User note\n\n[RECOVERY_AUDIT_V1]\nupdated by test\n\n+>{\"F\":[{\"f\":555,\"h\":\"#112233\",\"n\":\"Blue PLA\",\"s\":999,\"t\":\"A1\",\"w\":42.5}],\"s\":\"m\"}",
+                "notes": "User note\n\n[RECOVERY_AUDIT_V1]\nupdated by test\n\n+>{\"F\":[{\"f\":555,\"h\":\"#112233\",\"n\":\"Blue PLA\",\"s\":999,\"t\":\"A1\",\"w\":42.5}],\"s\":\"m\",\"slot_overrides\":[{\"filament_id\":555,\"slot_id\":\"0\",\"spool_id\":999,\"tray\":\"A1\"}]}",
             },
         },
     ]

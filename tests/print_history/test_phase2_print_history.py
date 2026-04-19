@@ -1331,6 +1331,9 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("archive_row_reason", content)
         self.assertIn("dict(payload, src=archive_row_source)", content)
         self.assertIn("dict(payload, reason=archive_row_reason)", content)
+        self.assertIn("existing_slot_overrides", content)
+        self.assertIn("archive_slot_rows_with_overrides", content)
+        self.assertIn("manual slot overrides", content)
         self.assertIn("Print History Re-Enrich Saved Diagnostic Only", content)
         self.assertIn("hidden enrichment payload was updated with a", content)
 
@@ -1704,10 +1707,12 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("const provenanceRaw = detailState.attributes?.enrichment_provenance_json || '[]';", content)
         self.assertIn("const sourceEvidence = archive?.archive_source_evidence", content)
         self.assertIn("const archivedRawAms = Array.isArray(archiveExtraData?._print_data?.raw_data?.ams)", content)
+        self.assertIn("const archivedAmsDisclosureUsesRawBlob = archivedRawAms.length > 0;", content)
+        self.assertIn("const archivedAmsDisclosureLabel = 'Archived AMS evidence JSON';", content)
         self.assertIn("Match Evidence", content)
         self.assertIn("Archive Source Evidence", content)
         self.assertIn("Archived filament_slots[] JSON", content)
-        self.assertIn("Archived raw_data.ams[] JSON", content)
+        self.assertIn("Archived AMS evidence JSON", content)
         self.assertIn("spool match markers <strong>sm</strong>", content)
         self.assertIn("print-history-popup-enrichment-toggle-label", content)
         self.assertIn("Show Details", content)
@@ -1970,6 +1975,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("update_print_history_archive_enrichment_metadata:", content)
         self.assertIn("MISSING_SPOOL", content)
         self.assertIn("system-managed enrichment tags", content)
+        self.assertIn("Slot Overrides", content)
 
         const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
         self.assertIn(
@@ -1985,6 +1991,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("async_handle_get_enrichment_metadata", init_content)
         self.assertIn("async_handle_update_enrichment_metadata", init_content)
         self.assertIn("ENRICHMENT_METADATA_MODES", init_content)
+        self.assertIn("slot_overrides", init_content)
 
     def test_popup_project_helper_uses_no_project_default(self):
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_project.yaml"
@@ -2553,6 +2560,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("bambuddy.set_print_history_archive_favorite", favorite_content)
         self.assertIn('is_favorite: "{{ target_favorite }}"', favorite_content)
         self.assertIn("regex_findall('\\d+')", delete_content)
+        self.assertIn("{{ ns.values | tojson | from_json }}", delete_content)
+        self.assertNotIn("archive_ids_json", delete_content)
         self.assertIn("bambuddy.delete_print_history_archive", delete_content)
 
     def test_browser_card_supports_multi_select_mode_and_bulk_dialogs(self):
@@ -2581,7 +2590,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("bulk_delete_print_history_archives", content)
         self.assertGreaterEqual(content.count("_completeBulkActionAndExitMode()"), 3)
         self.assertIn('await this._hass.callService("script", "cancel_print_history_multi_select_mode", {});', content)
-        self.assertIn("Type DELETE to permanently remove the selected prints.", content)
+        self.assertIn('window.confirm("Delete " + selectedCount + (selectedCount === 1 ? " selected print" : " selected prints") + "? This permanently removes them from Bambuddy and cannot be undone.")', content)
+        self.assertIn('window.prompt("Type DELETE to permanently remove " + selectedCount + (selectedCount === 1 ? " selected print." : " selected prints."), "")', content)
 
     def test_print_history_append_event_calls_capture_response_data(self):
         files = (

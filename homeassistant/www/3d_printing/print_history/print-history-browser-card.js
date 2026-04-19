@@ -1268,7 +1268,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!window.confirm("Delete " + selectedCount + (selectedCount === 1 ? " selected print" : " selected prints") + "? This permanently removes them from Bambuddy and cannot be undone.")) {
       return;
     }
-    if (window.prompt("Type DELETE to permanently remove the selected prints.", "") !== "DELETE") {
+    if (window.prompt("Type DELETE to permanently remove " + selectedCount + (selectedCount === 1 ? " selected print." : " selected prints."), "") !== "DELETE") {
       return;
     }
     var selectedIds = this._selectedArchiveIdList();

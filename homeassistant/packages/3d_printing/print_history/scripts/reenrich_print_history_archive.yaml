@@ -109,6 +109,27 @@ reenrich_print_history_archive:
                   {% else %}
                     {{ {} }}
                   {% endif %}
+                existing_slot_overrides: >-
+                  {% set rows = existing_payload.slot_overrides | default([], true) if existing_payload is mapping else [] %}
+                  {% set ns = namespace(items=[]) %}
+                  {% for item in rows if item is mapping %}
+                    {% set slot_id = item.slot_id | default('', true) | string | trim %}
+                    {% if slot_id | length > 0 %}
+                      {% set row = {'slot_id': slot_id} %}
+                      {% set tray_value = item.tray | default('', true) | string | trim %}
+                      {% if tray_value | length > 0 %}
+                        {% set row = dict(row, tray=tray_value) %}
+                      {% endif %}
+                      {% if item.spool_id is defined and item.spool_id is not none and (item.spool_id | string | trim) | length > 0 %}
+                        {% set row = dict(row, spool_id=item.spool_id | int(0)) %}
+                      {% endif %}
+                      {% if item.filament_id is defined and item.filament_id is not none and (item.filament_id | string | trim) | length > 0 %}
+                        {% set row = dict(row, filament_id=item.filament_id | int(0)) %}
+                      {% endif %}
+                      {% set ns.items = ns.items + [row] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.items | tojson | from_json }}
                 existing_user_tags: >-
                   {% set ns = namespace(result=[]) %}
                   {% for tag in existing_tags_raw.split(',') %}
@@ -243,16 +264,48 @@ reenrich_print_history_archive:
                     {% endif %}
                   {% endif %}
                   {{ ns.rows | tojson | from_json }}
+                archive_slot_rows_with_overrides: >-
+                  {% set ns = namespace(rows=[]) %}
+                  {% for slot in archive_slot_rows %}
+                    {% set override = namespace(value={}) %}
+                    {% set slot_key = slot.slot_id | default('', true) | string | trim %}
+                    {% for item in existing_slot_overrides if item is mapping %}
+                      {% if slot_key | length > 0 and item.slot_id | default('', true) | string | trim == slot_key %}
+                        {% set override.value = item %}
+                      {% endif %}
+                    {% endfor %}
+                    {% if override.value is mapping and override.value | count > 0 %}
+                      {% set row = dict(slot) %}
+                      {% if override.value.tray is defined %}
+                        {% set row = dict(row, tray=override.value.tray | string) %}
+                      {% endif %}
+                      {% if override.value.spool_id is defined %}
+                        {% set row = dict(row, spool_id=override.value.spool_id | int(0)) %}
+                      {% endif %}
+                      {% if override.value.filament_id is defined %}
+                        {% set row = dict(row, filament_id=override.value.filament_id | int(0)) %}
+                      {% endif %}
+                      {% set row = dict(row, override_applied=true) %}
+                      {% set ns.rows = ns.rows + [row] %}
+                    {% else %}
+                      {% set ns.rows = ns.rows + [slot] %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.rows | tojson | from_json }}
                 archive_row_source: >-
-                  {% if archive_slot_rows | count == 0 %}
+                  {% if archive_slot_rows_with_overrides | count == 0 %}
                     unavailable
-                  {% elif archive_slot_rows | selectattr('src', 'equalto', 'at1') | list | count == archive_slot_rows | count %}
+                  {% elif archive_slot_rows_with_overrides | selectattr('override_applied', 'defined') | list | count > 0 %}
+                    manual_override
+                  {% elif archive_slot_rows_with_overrides | selectattr('src', 'equalto', 'at1') | list | count == archive_slot_rows_with_overrides | count %}
                     at1
                   {% else %}
                     afs
                   {% endif %}
                 archive_row_source_label: >-
-                  {% if archive_row_source == 'at1' %}
+                  {% if archive_row_source == 'manual_override' %}
+                    manual slot overrides
+                  {% elif archive_row_source == 'at1' %}
                     archive-level fallback
                   {% elif archive_row_source == 'afs' %}
                     archived slot rows
@@ -282,9 +335,11 @@ reenrich_print_history_archive:
                       {% endif %}
                     {% endif %}
                   {% endfor %}
-                  {% if archive_row_source == 'at1' %}
+                  {% if archive_row_source == 'manual_override' %}
+                    Manual slot overrides supplied known tray, spool, or filament identity for one or more archived slot rows before heuristic matching.
+                  {% elif archive_row_source == 'at1' %}
                     This archive has no archived filament slot rows, so re-enrich used the archive-level filament total as a single-color fallback.
-                  {% elif archive_slot_rows | count > 0 %}
+                  {% elif archive_slot_rows_with_overrides | count > 0 %}
                     {{ '' }}
                   {% elif slots | count > 0 %}
                     Archived filament slot rows were present, but none had a positive used_g value that could be re-enriched.
@@ -416,8 +471,32 @@ reenrich_print_history_archive:
                   {{ (base + 86400) if base > 0 else 0 }}
                 candidate_filaments: >-
                   {% set ns = namespace(rows=[]) %}
-                  {% for slot in archive_slot_rows %}
+                  {% for slot in archive_slot_rows_with_overrides %}
                     {% set archive_ambiguity_code = slot.am | default('', true) | string %}
+                    {% set manual_spool_id = slot.spool_id | default(none, true) if slot is mapping else none %}
+                    {% set manual_filament_id = slot.filament_id | default(none, true) if slot is mapping else none %}
+                    {% if manual_spool_id is not none or manual_filament_id is not none %}
+                      {% set manual_spool = namespace(value={}) %}
+                      {% if manual_spool_id is not none %}
+                        {% for candidate in spoolman_spools_normalized %}
+                          {% if candidate.id == (manual_spool_id | int(0)) and not (manual_spool.value is mapping and manual_spool.value.id is defined) %}
+                            {% set manual_spool.value = candidate %}
+                          {% endif %}
+                        {% endfor %}
+                      {% endif %}
+                      {% set row = {
+                        'n': (manual_spool.value.display_name if manual_spool.value is mapping and manual_spool.value.id is defined else slot.name_hint | default('Unknown Filament', true)),
+                        'w': slot.weight,
+                        't': (slot.tray | default(none, true)),
+                        's': (manual_spool_id | int(0) if manual_spool_id is not none else none),
+                        'f': (manual_filament_id | int(0) if manual_filament_id is not none else (manual_spool.value.filament_id | default(none, true) if manual_spool.value is mapping and manual_spool.value.id is defined else none)),
+                        'h': (manual_spool.value.color_hex | default(slot.color_hex | default(none, true), true) if manual_spool.value is mapping and manual_spool.value.id is defined else slot.color_hex | default(none, true)),
+                        'sm': 'manual' if manual_spool_id is not none else '',
+                        'fm': 'manual' if manual_filament_id is not none else ''
+                      } %}
+                      {% set ns.rows = ns.rows + [row] %}
+                      {% continue %}
+                    {% endif %}
                     {% set target_uuid = slot.tray_uuid | default('', true) | string | trim('"') | lower %}
                     {% set target_type = slot.type | default('', true) | string %}
                     {% set target_name = slot.profile_name | default('', true) | string | trim('"') %}
@@ -694,7 +773,7 @@ reenrich_print_history_archive:
                   {{ ns.rows | tojson | from_json }}
                 candidate_ambiguity_rows: >-
                   {% set ns = namespace(items=[]) %}
-                  {% for slot in archive_slot_rows %}
+                  {% for slot in archive_slot_rows_with_overrides %}
                     {% set row = candidate_filaments[loop.index0] if loop.index0 < (candidate_filaments | count) else {} %}
                     {% set code = row.am | default('', true) | string if row is mapping else '' %}
                     {% if code | length == 0 %}
