@@ -733,7 +733,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (archiveId == null) {
       return "";
     }
-    var className = buttonClass || "topbar-action viewer-action";
+    var className = buttonClass || "icon-action viewer";
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
     return '<button class="' + className + '" type="button" data-action="viewer" aria-label="Open 3D viewer for ' + this._escapeHtml(archiveName) + '" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>';
   }
@@ -1118,7 +1118,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = this._images[this._activeIndex];
     var subtitle = this._subtitleForImages(this._images);
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
-    var viewerAction = this._buildViewerAction("topbar-action viewer-action");
+    var viewerAction = this._buildViewerAction("icon-action viewer");
 
     var stageImage = this.shadowRoot.querySelector(".stage-image");
     if (stageImage) {
@@ -1279,7 +1279,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var primaryAction = this._buildPrimaryAction(active, "action-button");
     var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
-    var viewerAction = this._buildViewerAction("topbar-action viewer-action");
+    var viewerAction = this._buildViewerAction("icon-action viewer");
     var compact = !!this._config.compact;
     this._images = images;
     this._archiveName = archiveName;
@@ -1296,10 +1296,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;}" +
       ".topbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}" +
       ".topbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;pointer-events:auto;}" +
-      ".topbar-action{appearance:none;border:none;width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(10px);box-shadow:0 10px 24px rgba(0,0,0,0.22);}" +
-      ".topbar-action ha-icon{--mdc-icon-size:20px;}" +
-      ".topbar-action:hover{background:rgba(0,0,0,0.68);}" +
-      ".topbar-action:focus-visible{outline:2px solid rgba(144,202,249,0.95);outline-offset:2px;}" +
+      ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;}" +
+      ".icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}" +
+      ".icon-action:active{transform:translateY(0);}" +
+      ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
+      ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.viewer:active{transform:translateY(0);}" +
       ".badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
