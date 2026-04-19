@@ -30,7 +30,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       buildVolumeY: null,
       buildVolumeZ: null,
       backgroundColor: "#08101A",
-      gridColor: "#888888",
       renderTubes: false,
       extrusionWidth: null,
       lineWidth: 1,
@@ -74,7 +73,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._buildVolumeZRange = null;
     this._buildVolumeZValue = null;
     this._backgroundColorInput = null;
-    this._gridColorInput = null;
     this._tubeToggleButton = null;
     this._tubeWidthRange = null;
     this._tubeWidthValue = null;
@@ -107,7 +105,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._boundBuildVolumeDimensionInputHandler = this._handleBuildVolumeDimensionInput.bind(this);
     this._boundBuildVolumeZInputHandler = this._handleBuildVolumeZInput.bind(this);
     this._boundBackgroundColorInputHandler = this._handleBackgroundColorInput.bind(this);
-    this._boundGridColorInputHandler = this._handleGridColorInput.bind(this);
     this._boundTubeToggleHandler = this._handleTubeToggle.bind(this);
     this._boundTubeWidthInputHandler = this._handleTubeWidthInput.bind(this);
     this._boundTravelToggleHandler = this._handleTravelToggle.bind(this);
@@ -247,10 +244,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._backgroundColorInput.removeEventListener("change", this._boundBackgroundColorInputHandler);
       this._backgroundColorInput = null;
     }
-    if (this._gridColorInput) {
-      this._gridColorInput.removeEventListener("change", this._boundGridColorInputHandler);
-      this._gridColorInput = null;
-    }
     if (this._tubeToggleButton) {
       this._tubeToggleButton.removeEventListener("click", this._boundTubeToggleHandler);
       this._tubeToggleButton = null;
@@ -350,7 +343,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
         buildVolumeY: this._viewerSettings.buildVolumeY,
         buildVolumeZ: this._viewerSettings.buildVolumeZ,
         backgroundColor: this._viewerSettings.backgroundColor,
-        gridColor: this._viewerSettings.gridColor,
         renderTubes: this._viewerSettings.renderTubes,
         extrusionWidth: this._viewerSettings.extrusionWidth,
         lineWidth: this._viewerSettings.lineWidth,
@@ -599,8 +591,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='configuration-inline-note'>X and Y default to inferred job dimensions when available, otherwise 256 mm.</div>" +
       "</div>" +
       "<div class='configuration-row'>" +
-      "<div class='configuration-copy'><div class='configuration-title'>Stage Colors</div><div class='configuration-desc'>Tune the preview background and build-volume grid colors.</div></div>" +
-      "<div class='configuration-input-grid'><label class='configuration-input-stack'><span class='configuration-label'>Background</span><input id='background-color-input' class='configuration-color' type='color' value='#08101a'></label><label class='configuration-input-stack'><span class='configuration-label'>Grid</span><input id='grid-color-input' class='configuration-color' type='color' value='#888888'></label></div>" +
+      "<div class='configuration-copy'><div class='configuration-title'>Stage Background</div><div class='configuration-desc'>Adjust the preview background color.</div></div>" +
+      "<div class='configuration-input-grid'><label class='configuration-input-stack'><span class='configuration-label'>Background</span><input id='background-color-input' class='configuration-color' type='color' value='#08101a'></label></div>" +
       "</div>" +
       "<div class='configuration-row'>" +
       "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Render As Tubes</div><div class='configuration-desc'>Render extrusion as volumetric tubes using the configured nozzle width.</div></div><button id='tube-toggle-button' class='button' type='button'>Off</button></div>" +
@@ -713,7 +705,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._buildVolumeZRange = this.shadowRoot.getElementById("build-volume-z-range");
     this._buildVolumeZValue = this.shadowRoot.getElementById("build-volume-z-value");
     this._backgroundColorInput = this.shadowRoot.getElementById("background-color-input");
-    this._gridColorInput = this.shadowRoot.getElementById("grid-color-input");
     this._tubeToggleButton = this.shadowRoot.getElementById("tube-toggle-button");
     this._tubeWidthRange = this.shadowRoot.getElementById("tube-width-range");
     this._tubeWidthValue = this.shadowRoot.getElementById("tube-width-value");
@@ -765,9 +756,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._backgroundColorInput) {
       this._backgroundColorInput.addEventListener("change", this._boundBackgroundColorInputHandler);
-    }
-    if (this._gridColorInput) {
-      this._gridColorInput.addEventListener("change", this._boundGridColorInputHandler);
     }
     if (this._tubeToggleButton) {
       this._tubeToggleButton.addEventListener("click", this._boundTubeToggleHandler);
@@ -1167,19 +1155,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleBackgroundColorInput(event) {
     this._viewerSettings.backgroundColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.backgroundColor, "#08101A");
     this._updateConfigurationControls();
-    this._applySceneManagerSettings();
-    this._renderPreviewInPlace();
-    this._syncLoadedSignature();
-    this._setStatus("Updated the stage background color.");
-  }
-
-  _handleGridColorInput(event) {
-    this._viewerSettings.gridColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.gridColor, "#888888");
-    this._updateConfigurationControls();
-    this._applySceneManagerSettings();
-    this._renderPreviewInPlace();
-    this._syncLoadedSignature();
-    this._setStatus("Updated the build volume grid color.");
+    this._schedulePreviewRerender("Updated the stage background color.", 0);
   }
 
   _handleTubeToggle() {
@@ -1236,10 +1212,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleTravelColorInput(event) {
     this._viewerSettings.travelColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.travelColor, "#990000");
     this._updateConfigurationControls();
-    this._applySceneManagerSettings();
-    this._renderPreviewInPlace();
-    this._syncLoadedSignature();
-    this._setStatus("Updated the travel move color.");
+    this._schedulePreviewRerender("Updated the travel move color.", 0);
   }
 
   _handleGradientToggle() {
@@ -1302,9 +1275,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._backgroundColorInput) {
       this._backgroundColorInput.value = this._viewerSettings.backgroundColor;
-    }
-    if (this._gridColorInput) {
-      this._gridColorInput.value = this._viewerSettings.gridColor;
     }
     if (this._tubeWidthRange) {
       this._tubeWidthRange.value = this._formatViewerSettingValue(this._effectiveTubeWidth(), 2);
@@ -2497,22 +2467,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._viewerSettings.showTravelMoves && this._viewerSettings.travelColor) {
       sceneManager.travelColor = this._viewerSettings.travelColor;
-    }
-    const buildVolume = sceneManager.buildVolume;
-    if (buildVolume) {
-      if (this._viewerSettings.gridColor && Object.prototype.hasOwnProperty.call(buildVolume, "gridColor")) {
-        buildVolume.gridColor = buildVolume.gridColor && typeof buildVolume.gridColor.set === "function"
-          ? buildVolume.gridColor.set(this._viewerSettings.gridColor)
-          : buildVolume.gridColor;
-      }
-      if (this._viewerSettings.gridColor && Object.prototype.hasOwnProperty.call(buildVolume, "smallGridColor")) {
-        buildVolume.smallGridColor = buildVolume.smallGridColor && typeof buildVolume.smallGridColor.set === "function"
-          ? buildVolume.smallGridColor.set(this._viewerSettings.gridColor)
-          : buildVolume.smallGridColor;
-      }
-      if (typeof buildVolume.update === "function") {
-        buildVolume.update();
-      }
     }
   }
 
