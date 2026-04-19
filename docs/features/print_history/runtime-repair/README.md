@@ -4,7 +4,7 @@ This folder holds the canonical-runtime repair and sidecar-backed restore docs.
 
 - `archive-runtime-db-repair-guide.md` - direct DB repair guidance
 - `archive-runtime-field-impact-matrix.md` - field-level impact analysis
-- `archive-runtime-ha-contract.md` - Home Assistant repair contract guidance
+- `archive-runtime-ha-contract.md` - Home Assistant repair contract guidance, including `bambuddy.repair_print_history_archive_from_start`
 - `archive-runtime-repair-deployment-options.md` - deployment tradeoffs
 - `archive-runtime-repair-script-and-n8n-flow.md` - script and orchestration workflow
 - `archive-runtime-sidecar-api-and-compose.md` - sidecar API and compose contract

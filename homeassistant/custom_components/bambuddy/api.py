@@ -367,6 +367,9 @@ class BambuddyRuntimeRepairClient:
             payload["last_progress"] = last_progress
         return await self._async_post_json("/admin/archive-partial-usage/estimate", payload)
 
+    async def async_runtime_repair(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-runtime-repair", payload)
+
     async def async_restore_from(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._async_post_json("/admin/archive-restore-from", payload)
 

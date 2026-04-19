@@ -554,6 +554,84 @@ estimate_partial_usage:
       selector:
         boolean:
 
+repair_print_history_archive_from_start:
+  name: Repair Print History Archive From Start
+  description: Compute completed and created timestamps from a provided historical start time, then send the repair through the Bambuddy runtime-repair sidecar configured on the integration entry.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to repair.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    started_at:
+      name: Started At
+      description: ISO timestamp to treat as the historical print start.
+      required: true
+      selector:
+        text:
+    duration_seconds:
+      name: Duration Seconds Override
+      description: Optional explicit duration override. When omitted, the service uses print_time_seconds first, then actual_time_seconds.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    created_at:
+      name: Created At Override
+      description: Optional ISO timestamp override. Defaults to the provided started_at timestamp to match normal Bambuddy archive creation behavior.
+      required: false
+      selector:
+        text:
+    status:
+      name: Status Override
+      description: Optional status such as completed, failed, or cancelled.
+      required: false
+      selector:
+        text:
+    set_status_completed:
+      name: Set Status Completed
+      description: When true and status is omitted, send completed as the repaired status.
+      required: false
+      selector:
+        boolean:
+    failure_reason:
+      name: Failure Reason
+      description: Optional failure reason to write with the repair.
+      required: false
+      selector:
+        text:
+    audit_note:
+      name: Audit Note
+      description: Optional audit note appended by the runtime-repair sidecar.
+      required: false
+      selector:
+        text:
+    dry_run:
+      name: Dry Run
+      description: Preview the computed timestamps without applying the repair.
+      required: false
+      selector:
+        boolean:
+    response_detail:
+      name: Response Detail
+      description: Choose full or summary sidecar response detail.
+      required: false
+      selector:
+        select:
+          options:
+            - full
+            - summary
+
 get_print_history_archive_restore_workflow:
   name: Get Print History Archive Restore Workflow
   description: Return the transient HA-managed replacement-upload and restore workflow state for one source or target archive.

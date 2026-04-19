@@ -128,6 +128,15 @@ If you have strong timing evidence, use the existing runtime repair tooling afte
 - `runtime-repair/archive-runtime-repair-script-and-n8n-flow.md`
 - `runtime-repair/archive-runtime-sidecar-api-and-compose.md`
 
+When you know the historical print start time and the archive already exists, the HA integration now provides `bambuddy.repair_print_history_archive_from_start` as the direct operator action for this case. It derives `completed_at` from duration and defaults `created_at` to the same timestamp as `started_at` to match normal Bambuddy archive behavior.
+
+Recommended use of that service:
+
+- use it for existing archives when start-time evidence is trustworthy
+- preview first with `dry_run: true`
+- supply `duration_seconds` explicitly only when the archive's own duration fields are missing or untrustworthy
+- use restore or replacement workflows instead when the archive content itself must change
+
 Primary design reference for the historical-import workflow:
 
 - `imports/archive-historical-backfill-from-sd-card.md`

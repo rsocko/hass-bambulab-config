@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
 
@@ -34,6 +35,7 @@ from .const import (
     SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
+    SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
@@ -160,6 +162,39 @@ def _strip_entry_id(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if key not in {CONF_ENTRY_ID, "id", "type"}}
 
 
+def _parse_service_datetime(value: str, field_name: str) -> datetime:
+    raw = str(value or "").strip()
+    if not raw:
+        raise HomeAssistantError(f"{field_name} is required")
+    normalized = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise HomeAssistantError(f"{field_name} must be a valid ISO datetime") from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _archive_duration_for_runtime_repair(archive: dict[str, Any], explicit_duration: int | None) -> tuple[int, str]:
+    if explicit_duration is not None:
+        if int(explicit_duration) <= 0:
+            raise HomeAssistantError("duration_seconds must be greater than zero when provided")
+        return int(explicit_duration), "manual_override"
+
+    print_time_seconds = int(archive.get("print_time_seconds") or 0)
+    if print_time_seconds > 0:
+        return print_time_seconds, "print_time_seconds"
+
+    actual_time_seconds = int(archive.get("actual_time_seconds") or 0)
+    if actual_time_seconds > 0:
+        return actual_time_seconds, "actual_time_seconds"
+
+    raise HomeAssistantError(
+        "No usable duration was found on the archive. Provide duration_seconds explicitly."
+    )
+
+
 SERVICE_REFRESH_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str})
 SERVICE_QUERY_SCHEMA = vol.Schema(
     {
@@ -263,6 +298,21 @@ SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA = vol.Schema(
         vol.Optional("last_progress"): vol.Coerce(float),
         vol.Optional("resolve_spoolman_matches", default=True): bool,
         vol.Optional("keep_tracking_row", default=True): bool,
+    }
+)
+SERVICE_REPAIR_ARCHIVE_FROM_START_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("started_at"): str,
+        vol.Optional("duration_seconds"): vol.Coerce(int),
+        vol.Optional("created_at"): str,
+        vol.Optional("status"): str,
+        vol.Optional("failure_reason"): vol.Any(None, str),
+        vol.Optional("audit_note"): str,
+        vol.Optional("dry_run", default=False): bool,
+        vol.Optional("response_detail", default="full"): vol.In({"full", "summary"}),
+        vol.Optional("set_status_completed", default=False): bool,
     }
 )
 SERVICE_GET_RESTORE_WORKFLOW_SCHEMA = vol.Schema(
@@ -1211,6 +1261,113 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             "estimate": estimate,
         }
 
+    async def async_handle_repair_archive_from_start(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        archive = manager.build_archive_detail_response(archive_id)
+        if archive is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        started_at = _parse_service_datetime(str(call.data["started_at"]), "started_at")
+        duration_seconds, duration_source = _archive_duration_for_runtime_repair(
+            archive,
+            call.data.get("duration_seconds"),
+        )
+        completed_at = started_at + timedelta(seconds=duration_seconds)
+        created_override = call.data.get("created_at")
+        created_at = (
+            _parse_service_datetime(str(created_override), "created_at")
+            if created_override not in (None, "")
+            else started_at
+        )
+
+        status = call.data.get("status")
+        if not status and bool(call.data.get("set_status_completed", False)):
+            status = "completed"
+
+        payload: dict[str, Any] = {
+            "archive_id": archive_id,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "created_at": created_at.isoformat(),
+            "dry_run": bool(call.data.get("dry_run", False)),
+            "response_detail": str(call.data.get("response_detail", "full")),
+        }
+        if status:
+            payload["status"] = str(status)
+        if "failure_reason" in call.data:
+            payload["failure_reason"] = call.data.get("failure_reason")
+
+        audit_note = str(call.data.get("audit_note", "")).strip()
+        if audit_note:
+            payload["audit_note"] = audit_note
+        else:
+            payload["audit_note"] = (
+                f"Start-time runtime repair from HA service using {duration_source}={duration_seconds}s"
+            )
+
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        computed_fields = {
+            "started_at": payload["started_at"],
+            "completed_at": payload["completed_at"],
+            "created_at": payload["created_at"],
+            "duration_seconds": duration_seconds,
+            "duration_source": duration_source,
+        }
+        if error_response is not None:
+            error_response["archive_id"] = archive_id
+            error_response["computed_fields"] = computed_fields
+            return error_response
+
+        started = perf_counter()
+        try:
+            sidecar_response = await client.async_runtime_repair(payload)
+        except RuntimeError as error:
+            return {
+                "success": False,
+                "entry_id": entry_id,
+                "archive_id": archive_id,
+                "error": "runtime_repair_request_failed",
+                "message": str(error),
+                "computed_fields": computed_fields,
+            }
+
+        response: dict[str, Any] = {
+            "success": True,
+            "entry_id": entry_id,
+            "archive_id": archive_id,
+            "dry_run": bool(payload["dry_run"]),
+            "computed_fields": computed_fields,
+            "repair": sidecar_response,
+        }
+
+        if not bool(payload["dry_run"]):
+            response["archive"] = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="repair_archive_from_start",
+                extra_details={
+                    "started_at": payload["started_at"],
+                    "completed_at": payload["completed_at"],
+                    "created_at": payload["created_at"],
+                    "duration_source": duration_source,
+                },
+            )
+
+        manager.record_mutation(
+            operation="repair_archive_from_start_preview" if bool(payload["dry_run"]) else "repair_archive_from_start",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "duration_seconds": duration_seconds,
+                "duration_source": duration_source,
+                "dry_run": bool(payload["dry_run"]),
+            },
+        )
+        return response
+
     async def async_handle_get_restore_workflow(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         source_archive_id = _extract_archive_id(call.data.get(CONF_SOURCE_ARCHIVE_ID))
@@ -1693,6 +1850,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_ESTIMATE_PARTIAL_USAGE,
             async_handle_estimate_partial_usage,
             schema=SERVICE_ESTIMATE_PARTIAL_USAGE_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
+            async_handle_repair_archive_from_start,
+            schema=SERVICE_REPAIR_ARCHIVE_FROM_START_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW):

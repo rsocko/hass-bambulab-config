@@ -599,6 +599,8 @@ Current repair inference is intentionally conservative:
 
 This keeps preview and apply separate: preview is safe evidence review validated by the sidecar, while apply is an explicit administrative action executed through the same sidecar boundary that already owns direct DB access.
 
+If the archive already exists and you have independently validated the historical start timestamp, the Home Assistant integration also provides `bambuddy.repair_print_history_archive_from_start` for this narrower operator flow. That service derives `completed_at` from duration, defaults `created_at` to the same timestamp as `started_at`, and is the preferred HA-side action when you do not need the broader manifest runner to infer timing for you.
+
 ## Phase 2: Compare against existing Bambuddy archives
 
 Build an index from current Bambuddy archives using at least:
