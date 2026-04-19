@@ -133,7 +133,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this.shadowRoot.innerHTML = "" +
       "<style>" +
       "ha-card{padding:14px 14px 16px;}" +
-      ".title{font-size:1rem;font-weight:700;margin:0 0 12px;}" +
+      ".title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:1rem;font-weight:700;margin:0 0 12px;}" +
+      ".title-version{display:inline-flex;align-items:center;min-height:20px;padding:0 8px;border-radius:999px;background:rgba(21,101,192,0.14);color:#1565C0;font-size:11px;font-weight:800;letter-spacing:0.04em;line-height:1.1;text-transform:uppercase;}" +
       ".status{padding:18px;border-radius:18px;background:rgba(148,163,184,0.12);color:var(--secondary-text-color);line-height:1.5;}" +
       ".status.error{color:var(--error-color);}" +
       ".grid{display:grid;gap:16px;}" +
@@ -346,7 +347,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.textContent = this._config.title;
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v103</span>';
     }
   }
 
@@ -518,6 +519,15 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
   _normalizeTagModeValue(value) {
     return String(value || "").trim() === "All" ? "All" : "Any";
+  }
+
+  _escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   _variant() {
