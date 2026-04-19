@@ -9,7 +9,7 @@ bulk_delete_print_history_archives:
         text:
   sequence:
     - variables:
-        archive_ids_json: >-
+        archive_ids: >-
           {% set ns = namespace(values=[]) %}
           {% for token in (archive_ids_csv | default('', true) | string | regex_findall('\d+')) %}
             {% set numeric = token | int(0) %}
@@ -17,13 +17,13 @@ bulk_delete_print_history_archives:
               {% set ns.values = ns.values + [numeric] %}
             {% endif %}
           {% endfor %}
-          {{ ns.values | tojson }}
+          {{ ns.values | tojson | from_json }}
     - if:
         - condition: template
-          value_template: "{{ (archive_ids_json | from_json | count) > 0 }}"
+          value_template: "{{ archive_ids | count > 0 }}"
       then:
         - repeat:
-            for_each: "{{ archive_ids_json | from_json }}"
+            for_each: "{{ archive_ids }}"
             sequence:
               - action: bambuddy.delete_print_history_archive
                 data:
