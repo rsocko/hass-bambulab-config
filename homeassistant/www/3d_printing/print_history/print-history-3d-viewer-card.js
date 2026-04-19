@@ -1177,17 +1177,23 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     const maxLayer = Math.max(this._totalLayers, 1);
     const layerWindow = this._effectiveLayerWindow();
+    const effectiveBuildVolume = this._effectiveBuildVolume();
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.min = this._totalLayers ? "1" : "0";
       this._layerScrubberEndRange.max = String(maxLayer);
       this._layerScrubberEndRange.value = String(layerWindow.endLayer);
       this._layerScrubberEndRange.disabled = this._totalLayers <= 1;
+    }
+    if (this._buildVolumeXInput) {
+      this._buildVolumeXInput.value = String(Math.round(effectiveBuildVolume.x));
+    }
     if (this._buildVolumeYInput) {
       this._buildVolumeYInput.value = String(Math.round(effectiveBuildVolume.y));
     }
     if (this._buildVolumeZRange) {
       this._buildVolumeZRange.value = String(Math.round(effectiveBuildVolume.z));
     }
+    if (this._buildVolumeZValue) {
       this._buildVolumeZValue.textContent = String(Math.round(effectiveBuildVolume.z));
     }
     if (this._backgroundColorInput) {
