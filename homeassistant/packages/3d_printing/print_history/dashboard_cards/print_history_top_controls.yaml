@@ -36,7 +36,13 @@ card:
       // Use icon-based selectors instead of nth-child so mobile visibility does not
       // depend on generated sub-button DOM positions inside bubble-card.
       const byIcon = (icon) => `.bubble-sub-button:has(ha-icon[icon="${icon}"])`;
+      const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
+      const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
+      const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
+      const atFirstPage = currentPage <= 1;
+      const atLastPage = currentPage >= totalPages;
       const firstSelector = byIcon('mdi:page-first');
+      const prevSelector = byIcon('mdi:chevron-left');
       const lastSelector = byIcon('mdi:page-last');
       const matchesSelector = byIcon('mdi:counter');
       const pageInfoSelector = byIcon('mdi:book-open-page-variant-outline');
@@ -54,6 +60,10 @@ card:
       const imagesSelector = byIcon('mdi:image-outline');
       const refreshSelector = byIcon('mdi:refresh');
       const nextSelector = byIcon('mdi:chevron-right');
+      const disabledSelectors = [
+        ...(atFirstPage ? [firstSelector, prevSelector] : []),
+        ...(atLastPage ? [nextSelector, lastSelector] : []),
+      ];
       return `
         ha-card {
           overflow: visible !important;
@@ -111,6 +121,15 @@ card:
         ${layoutStateSelector} {
           display: none !important;
         }
+        ${disabledSelectors.length ? `${disabledSelectors.join(',\n        ')} {
+          opacity: 0.42 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+          filter: saturate(0.35) !important;
+        }
+        ${disabledSelectors.map((selector) => `${selector} ha-icon`).join(',\n        ')} {
+          color: var(--disabled-text-color) !important;
+        }` : ''}
         @media (max-width: 900px) {
           .bubble-sub-button-container,
           .bubble-sub-buttons-container {

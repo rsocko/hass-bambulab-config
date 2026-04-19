@@ -813,6 +813,18 @@ class TestTemplateSensors(unittest.TestCase):
 class TestHeatmapActivityCard(unittest.TestCase):
     """Heatmap card logic should match the projected archive schema and metric labels."""
 
+    def test_top_controls_disable_invalid_pagination_buttons_from_page_info(self):
+        content = (HISTORY / "dashboard_cards" / "print_history_top_controls.yaml").read_text("utf-8")
+
+        self.assertIn("sensor.bambuddy_print_history_browser_page_info']?.attributes", content)
+        self.assertIn("current_page", content)
+        self.assertIn("total_pages", content)
+        self.assertIn("pointer-events: none !important;", content)
+        self.assertIn("mdi:page-first", content)
+        self.assertIn("mdi:chevron-left", content)
+        self.assertIn("mdi:chevron-right", content)
+        self.assertIn("mdi:page-last", content)
+
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=44", content)
