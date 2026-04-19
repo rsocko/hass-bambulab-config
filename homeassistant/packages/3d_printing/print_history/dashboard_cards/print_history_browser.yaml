@@ -379,6 +379,7 @@ cards:
                             - type: custom:print-history-tag-editor-card
                               entity: input_text.print_history_filter_tags
                               suggestions_entity: input_select.print_history_filter_tag
+                              mode_entity: input_select.print_history_filter_tags_mode
                               title: Selected Tags
                               placeholder: Filter by tag and press Enter
                               helper: Choose one or more tags. Untagged is a separate toggle.
@@ -450,88 +451,6 @@ cards:
                                       - color: var(--primary-text-color)
                                       - font-size: 11px
                                       - font-weight: 600
-                            - type: markdown
-                              content: >-
-                                ${states['sensor.print_history_filter_tags_summary']?.attributes?.selected_tags_preview &&
-                                states['sensor.print_history_filter_tags_summary']?.state !== 'All'
-                                  ? '**Current:** ' + states['sensor.print_history_filter_tags_summary'].attributes.selected_tags_preview
-                                  : 'Choose one or more tags or switch to untagged-only.'}
-                              card_mod:
-                                style: |
-                                  ha-card {
-                                    margin: -2px 0 2px 0 !important;
-                                    padding: 0 4px !important;
-                                    box-shadow: none !important;
-                                    background: transparent !important;
-                                    border: none !important;
-                                  }
-                                  ha-markdown {
-                                    color: var(--secondary-text-color);
-                                    font-size: 12px;
-                                    line-height: 1.45;
-                                  }
-                            - type: grid
-                              columns: 2
-                              square: false
-                              cards:
-                                - type: custom:button-card
-                                  entity: input_select.print_history_filter_tags_mode
-                                  name: Any
-                                  show_icon: false
-                                  show_state: false
-                                  tap_action:
-                                    action: call-service
-                                    service: input_select.select_option
-                                    target:
-                                      entity_id: input_select.print_history_filter_tags_mode
-                                    data:
-                                      option: Any
-                                  styles:
-                                    card:
-                                      - padding: 10px 12px
-                                      - border-radius: 14px
-                                      - border: >-
-                                          [[[ return entity && entity.state === 'Any'
-                                            ? '1px solid rgba(21,101,192,0.42)'
-                                            : '1px solid rgba(255,255,255,0.08)'; ]]]
-                                      - background: >-
-                                          [[[ return entity && entity.state === 'Any'
-                                            ? 'rgba(21,101,192,0.18)'
-                                            : 'rgba(255,255,255,0.04)'; ]]]
-                                      - box-shadow: none
-                                    name:
-                                      - color: var(--primary-text-color)
-                                      - font-size: 13px
-                                      - font-weight: 700
-                                - type: custom:button-card
-                                  entity: input_select.print_history_filter_tags_mode
-                                  name: All
-                                  show_icon: false
-                                  show_state: false
-                                  tap_action:
-                                    action: call-service
-                                    service: input_select.select_option
-                                    target:
-                                      entity_id: input_select.print_history_filter_tags_mode
-                                    data:
-                                      option: All
-                                  styles:
-                                    card:
-                                      - padding: 10px 12px
-                                      - border-radius: 14px
-                                      - border: >-
-                                          [[[ return entity && entity.state === 'All'
-                                            ? '1px solid rgba(21,101,192,0.42)'
-                                            : '1px solid rgba(255,255,255,0.08)'; ]]]
-                                      - background: >-
-                                          [[[ return entity && entity.state === 'All'
-                                            ? 'rgba(21,101,192,0.18)'
-                                            : 'rgba(255,255,255,0.04)'; ]]]
-                                      - box-shadow: none
-                                    name:
-                                      - color: var(--primary-text-color)
-                                      - font-size: 13px
-                                      - font-weight: 700
               - entity: input_boolean.print_history_filter_favorites_only
                 name: Favorites
                 icon: mdi:star

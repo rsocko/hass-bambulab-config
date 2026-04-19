@@ -21,6 +21,8 @@ class PrintHistoryTagEditorCard extends HTMLElement {
     this._config = {
       entity: config.entity,
       suggestions_entity: config.suggestions_entity || "input_select.print_history_filter_tag",
+      mode_entity: config.mode_entity || "",
+      mode_options: Array.isArray(config.mode_options) && config.mode_options.length ? config.mode_options : ["Any", "All"],
       title: config.title || "Tags",
       placeholder: config.placeholder || "Add a tag and press Enter",
       helper:
@@ -60,6 +62,10 @@ class PrintHistoryTagEditorCard extends HTMLElement {
 
   _readEntityValue() {
     return String(this._hass?.states?.[this._config?.entity]?.state || "");
+  }
+
+  _readModeValue() {
+    return String(this._hass?.states?.[this._config?.mode_entity]?.state || "").trim();
   }
 
   _syncTagsFromEntity() {
@@ -208,6 +214,18 @@ class PrintHistoryTagEditorCard extends HTMLElement {
     await this._hass.callService("input_text", "set_value", {
       entity_id: this._config.entity,
       value: joinedValue,
+    });
+  }
+
+  async _persistMode(option) {
+    const targetOption = String(option || "").trim();
+    if (!this._hass || !this._config?.mode_entity || !targetOption) {
+      return;
+    }
+
+    await this._hass.callService("input_select", "select_option", {
+      entity_id: this._config.mode_entity,
+      option: targetOption,
     });
   }
 
@@ -390,10 +408,78 @@ class PrintHistoryTagEditorCard extends HTMLElement {
         .header {
           display: flex;
           align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .header-main {
+          display: inline-flex;
+          align-items: center;
           gap: 8px;
+          min-width: 0;
           font-size: 14px;
           font-weight: 600;
-          margin-bottom: 12px;
+        }
+
+        .header-title {
+          overflow-wrap: anywhere;
+        }
+
+        .header-actions {
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          flex: 0 0 auto;
+        }
+
+        .mode-chip {
+          appearance: none;
+          -webkit-appearance: none;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--primary-text-color);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 54px;
+          min-height: 28px;
+          padding: 0 12px;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1;
+          letter-spacing: 0.01em;
+          box-shadow: none;
+          transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+        }
+
+        .mode-chip.active {
+          border-color: rgba(21, 101, 192, 0.42);
+          background: rgba(21, 101, 192, 0.18);
+        }
+
+        .mode-chip:hover,
+        .mode-chip:focus-visible {
+          outline: none;
+          border-color: rgba(96, 165, 250, 0.36);
+        }
+
+        @media (max-width: 520px) {
+          .header {
+            align-items: flex-start;
+          }
+
+          .header-main {
+            flex: 1 1 auto;
+          }
+
+          .mode-chip {
+            min-width: 48px;
+            padding: 0 10px;
+          }
         }
 
         .editor {
@@ -526,8 +612,11 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="header">
-          <ha-icon icon="${safeIcon}" style="--mdc-icon-size:18px;"></ha-icon>
-          <span>${safeTitle}</span>
+          <div class="header-main">
+            <ha-icon icon="${safeIcon}" style="--mdc-icon-size:18px;"></ha-icon>
+            <span class="header-title">${safeTitle}</span>
+          </div>
+          <div class="header-actions"></div>
         </div>
         <div class="editor">
           <div class="tag-list"></div>
@@ -543,11 +632,43 @@ class PrintHistoryTagEditorCard extends HTMLElement {
       </ha-card>`;
 
     this._elements = {
+      headerActions: this.shadowRoot.querySelector(".header-actions"),
       tagList: this.shadowRoot.querySelector(".tag-list"),
       input: this.shadowRoot.querySelector("input"),
       suggestions: this.shadowRoot.querySelector(".suggestions"),
     };
     this._bindEvents();
+  }
+
+  _renderHeaderActions() {
+    const headerActions = this._elements?.headerActions;
+    if (!headerActions) {
+      return;
+    }
+
+    const modeEntity = String(this._config?.mode_entity || "").trim();
+    const options = Array.isArray(this._config?.mode_options) ? this._config.mode_options.filter(Boolean) : [];
+    if (!modeEntity || !options.length) {
+      headerActions.innerHTML = "";
+      headerActions.style.display = "none";
+      return;
+    }
+
+    const currentValue = this._readModeValue();
+    headerActions.style.display = "inline-flex";
+    headerActions.innerHTML = options
+      .map((option) => {
+        const safeOption = this._escapeHtml(option);
+        const isActive = currentValue === option;
+        return '<button class="mode-chip' + (isActive ? ' active' : '') + '" type="button" data-mode-option="' + safeOption + '">' + safeOption + '</button>';
+      })
+      .join("");
+
+    headerActions.querySelectorAll("button[data-mode-option]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        await this._persistMode(button.dataset.modeOption || "");
+      });
+    });
   }
 
   _renderInputValue() {
@@ -639,6 +760,7 @@ class PrintHistoryTagEditorCard extends HTMLElement {
     }
 
     this._ensureFrame();
+    this._renderHeaderActions();
     this._renderInputValue();
     this._renderTagList();
     this._renderSuggestions();

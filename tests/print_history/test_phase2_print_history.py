@@ -1481,16 +1481,14 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
 
         self.assertIn("type: custom:config-template-card", browser_yaml_content)
         self.assertIn("title: Selected Tags", browser_yaml_content)
+        self.assertIn("mode_entity: input_select.print_history_filter_tags_mode", browser_yaml_content)
         self.assertIn("helper: Choose one or more tags. Untagged is a separate toggle.", browser_yaml_content)
         self.assertIn("name: Untagged", browser_yaml_content)
         self.assertIn("action: toggle", browser_yaml_content)
         self.assertIn("name: Clear Tags", browser_yaml_content)
         self.assertIn("service: script.clear_print_history_tag_filter", browser_yaml_content)
-        self.assertIn("name: Any", browser_yaml_content)
-        self.assertIn("option: Any", browser_yaml_content)
-        self.assertIn("name: All", browser_yaml_content)
-        self.assertIn("option: All", browser_yaml_content)
-        self.assertIn("**Current:**", browser_yaml_content)
+        self.assertNotIn("**Current:**", browser_yaml_content)
+        self.assertNotIn("Choose one or more tags or switch to untagged-only.", browser_yaml_content)
 
     def test_archive_error_filter_wired_into_browser_contract(self):
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -2021,10 +2019,23 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
     def test_tag_editor_card_resources_are_registered(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=4", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=43", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=48", content)
+
+    def test_tag_editor_card_supports_header_mode_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('mode_entity: config.mode_entity || "",', content)
+        self.assertIn('mode_options: Array.isArray(config.mode_options) && config.mode_options.length ? config.mode_options : ["Any", "All"],', content)
+        self.assertIn('const currentValue = this._readModeValue();', content)
+        self.assertIn('headerActions.style.display = "inline-flex";', content)
+        self.assertIn('class="mode-chip', content)
+        self.assertIn('await this._hass.callService("input_select", "select_option", {', content)
+        self.assertIn('entity_id: this._config.mode_entity,', content)
 
     def test_browser_card_uses_projected_filament_slots_and_cached_archive_models(self):
         content = (
