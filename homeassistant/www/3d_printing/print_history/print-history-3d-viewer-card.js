@@ -24,8 +24,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._resolvedNozzleDiameter = 0.4;
     this._viewerSettings = {
       showLayerScrubber: true,
-      layerScrubDirection: "bottom-up",
-      selectedLayer: null,
+      startLayer: null,
+      endLayer: null,
       renderBuildVolume: true,
       buildVolumeX: null,
       buildVolumeY: null,
@@ -42,6 +42,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       useColorGradient: false,
     };
     this._configurationPanelOpen = false;
+    this._previewRerenderTimer = null;
+    this._layerScrubberTimer = null;
+    this._pendingCameraState = null;
     this._cropMode = false;
     this._cropAspectPreset = "square";
     this._cropRect = null;
@@ -58,10 +61,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._lineHeightValue = null;
     this._layerScrubberToggleButton = null;
     this._layerScrubberPanel = null;
-    this._layerScrubberRange = null;
-    this._layerScrubberValue = null;
-    this._layerScrubberTopButton = null;
-    this._layerScrubberBottomButton = null;
+    this._layerScrubberStartRange = null;
+    this._layerScrubberEndRange = null;
+    this._layerScrubberSelection = null;
     this._buildVolumeToggleButton = null;
     this._buildVolumeXInput = null;
     this._buildVolumeYInput = null;
@@ -92,8 +94,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._boundLineHeightInputHandler = this._handleLineHeightInput.bind(this);
     this._boundLayerScrubberToggleHandler = this._handleLayerScrubberToggle.bind(this);
     this._boundLayerScrubberInputHandler = this._handleLayerScrubberInput.bind(this);
-    this._boundLayerScrubberTopHandler = this._handleLayerScrubberTop.bind(this);
-    this._boundLayerScrubberBottomHandler = this._handleLayerScrubberBottom.bind(this);
     this._boundBuildVolumeToggleHandler = this._handleBuildVolumeToggle.bind(this);
     this._boundBuildVolumeDimensionInputHandler = this._handleBuildVolumeDimensionInput.bind(this);
     this._boundBuildVolumeZInputHandler = this._handleBuildVolumeZInput.bind(this);
@@ -110,6 +110,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._boundResetCropHandler = this._handleResetCrop.bind(this);
     this._boundCancelCropHandler = this._handleCancelCrop.bind(this);
     this._boundCropPointerDownHandler = this._handleCropPointerDown.bind(this);
+    this._boundWindowPointerDownHandler = this._handleWindowPointerDown.bind(this);
     this._boundWindowPointerMoveHandler = this._handleWindowPointerMove.bind(this);
     this._boundWindowPointerUpHandler = this._handleWindowPointerUp.bind(this);
     this._boundWindowResizeHandler = this._handleWindowResize.bind(this);
@@ -129,7 +130,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
     };
     this._renderAnimated = false;
     this._totalLayers = 0;
-    this._viewerSettings.selectedLayer = null;
+    this._viewerSettings.startLayer = null;
+    this._viewerSettings.endLayer = null;
     this._loadedSignature = "";
     this._renderShell();
     this._maybeLoad();
@@ -175,7 +177,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._configurationButton = null;
     }
     if (this._lineWidthRange) {
-      this._lineWidthRange.removeEventListener("input", this._boundLineWidthInputHandler);
+      this._lineWidthRange.removeEventListener("change", this._boundLineWidthInputHandler);
       this._lineWidthRange = null;
     }
     if (this._lineWidthValue) {
@@ -186,7 +188,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._lineHeightToggleButton = null;
     }
     if (this._lineHeightRange) {
-      this._lineHeightRange.removeEventListener("input", this._boundLineHeightInputHandler);
+      this._lineHeightRange.removeEventListener("change", this._boundLineHeightInputHandler);
       this._lineHeightRange = null;
     }
     if (this._lineHeightValue) {
@@ -196,20 +198,16 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._layerScrubberToggleButton.removeEventListener("click", this._boundLayerScrubberToggleHandler);
       this._layerScrubberToggleButton = null;
     }
-    if (this._layerScrubberRange) {
-      this._layerScrubberRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
-      this._layerScrubberRange = null;
+    if (this._layerScrubberStartRange) {
+      this._layerScrubberStartRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
+      this._layerScrubberStartRange = null;
     }
-    if (this._layerScrubberValue) {
-      this._layerScrubberValue = null;
+    if (this._layerScrubberEndRange) {
+      this._layerScrubberEndRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
+      this._layerScrubberEndRange = null;
     }
-    if (this._layerScrubberTopButton) {
-      this._layerScrubberTopButton.removeEventListener("click", this._boundLayerScrubberTopHandler);
-      this._layerScrubberTopButton = null;
-    }
-    if (this._layerScrubberBottomButton) {
-      this._layerScrubberBottomButton.removeEventListener("click", this._boundLayerScrubberBottomHandler);
-      this._layerScrubberBottomButton = null;
+    if (this._layerScrubberSelection) {
+      this._layerScrubberSelection = null;
     }
     if (this._buildVolumeToggleButton) {
       this._buildVolumeToggleButton.removeEventListener("click", this._boundBuildVolumeToggleHandler);
@@ -224,18 +222,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._buildVolumeYInput = null;
     }
     if (this._buildVolumeZRange) {
-      this._buildVolumeZRange.removeEventListener("input", this._boundBuildVolumeZInputHandler);
+      this._buildVolumeZRange.removeEventListener("change", this._boundBuildVolumeZInputHandler);
       this._buildVolumeZRange = null;
     }
     if (this._buildVolumeZValue) {
       this._buildVolumeZValue = null;
     }
     if (this._backgroundColorInput) {
-      this._backgroundColorInput.removeEventListener("input", this._boundBackgroundColorInputHandler);
+      this._backgroundColorInput.removeEventListener("change", this._boundBackgroundColorInputHandler);
       this._backgroundColorInput = null;
     }
     if (this._gridColorInput) {
-      this._gridColorInput.removeEventListener("input", this._boundGridColorInputHandler);
+      this._gridColorInput.removeEventListener("change", this._boundGridColorInputHandler);
       this._gridColorInput = null;
     }
     if (this._tubeToggleButton) {
@@ -243,7 +241,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._tubeToggleButton = null;
     }
     if (this._tubeWidthRange) {
-      this._tubeWidthRange.removeEventListener("input", this._boundTubeWidthInputHandler);
+      this._tubeWidthRange.removeEventListener("change", this._boundTubeWidthInputHandler);
       this._tubeWidthRange = null;
     }
     if (this._tubeWidthValue) {
@@ -254,7 +252,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._travelToggleButton = null;
     }
     if (this._travelColorInput) {
-      this._travelColorInput.removeEventListener("input", this._boundTravelColorInputHandler);
+      this._travelColorInput.removeEventListener("change", this._boundTravelColorInputHandler);
       this._travelColorInput = null;
     }
     if (this._gradientToggleButton) {
@@ -299,6 +297,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._globalListenersAttached || typeof window === "undefined") {
       return;
     }
+    window.addEventListener("pointerdown", this._boundWindowPointerDownHandler);
     window.addEventListener("pointermove", this._boundWindowPointerMoveHandler);
     window.addEventListener("pointerup", this._boundWindowPointerUpHandler);
     window.addEventListener("resize", this._boundWindowResizeHandler);
@@ -309,6 +308,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (!this._globalListenersAttached || typeof window === "undefined") {
       return;
     }
+    window.removeEventListener("pointerdown", this._boundWindowPointerDownHandler);
     window.removeEventListener("pointermove", this._boundWindowPointerMoveHandler);
     window.removeEventListener("pointerup", this._boundWindowPointerUpHandler);
     window.removeEventListener("resize", this._boundWindowResizeHandler);
@@ -323,6 +323,51 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._preview.dispose();
     }
     this._preview = null;
+  }
+
+  _syncLoadedSignature() {
+    this._loadedSignature = JSON.stringify({
+      config: this._config,
+      renderAnimated: this._renderAnimated,
+      viewerSettings: this._viewerSettings,
+    });
+  }
+
+  _clearTimer(name) {
+    if (this[name] != null) {
+      clearTimeout(this[name]);
+      this[name] = null;
+    }
+  }
+
+  _captureCameraState(preview) {
+    const sceneManager = preview && preview.sceneManager ? preview.sceneManager : null;
+    if (!sceneManager || !sceneManager.camera || !sceneManager.controls) {
+      return null;
+    }
+    return {
+      position: { x: sceneManager.camera.position.x, y: sceneManager.camera.position.y, z: sceneManager.camera.position.z },
+      rotation: { x: sceneManager.camera.rotation.x, y: sceneManager.camera.rotation.y, z: sceneManager.camera.rotation.z },
+      zoom: sceneManager.camera.zoom,
+      target: { x: sceneManager.controls.target.x, y: sceneManager.controls.target.y, z: sceneManager.controls.target.z },
+    };
+  }
+
+  _restoreCameraState(preview, state) {
+    const sceneManager = preview && preview.sceneManager ? preview.sceneManager : null;
+    if (!sceneManager || !sceneManager.camera || !sceneManager.controls || !state) {
+      return;
+    }
+    sceneManager.camera.position.set(state.position.x, state.position.y, state.position.z);
+    sceneManager.camera.rotation.set(state.rotation.x, state.rotation.y, state.rotation.z);
+    sceneManager.camera.zoom = state.zoom;
+    if (typeof sceneManager.camera.updateProjectionMatrix === "function") {
+      sceneManager.camera.updateProjectionMatrix();
+    }
+    sceneManager.controls.target.set(state.target.x, state.target.y, state.target.z);
+    if (typeof sceneManager.controls.update === "function") {
+      sceneManager.controls.update();
+    }
   }
 
   _maybeLoad() {
@@ -406,13 +451,28 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".configuration-number,.configuration-color{width:100%;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));color:#f8fafc;box-sizing:border-box;}" +
       ".configuration-color{padding:4px 6px;}" +
       ".configuration-inline-note{font-size:0.74rem;line-height:1.45;color:#8fa5b6;}" +
-      ".layer-scrubber{position:absolute;right:16px;top:84px;bottom:84px;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:10px;width:62px;padding:12px 10px;border-radius:18px;border:1px solid rgba(125,211,200,0.16);background:linear-gradient(180deg,rgba(9,18,29,0.94),rgba(14,24,37,0.96));box-shadow:0 18px 44px rgba(0,0,0,0.24);backdrop-filter:blur(12px);z-index:5;}" +
+      ".layer-scrubber{position:absolute;right:18px;top:92px;bottom:92px;width:30px;display:flex;align-items:center;justify-content:center;z-index:5;}" +
       ".layer-scrubber[hidden]{display:none;}" +
-      ".layer-scrubber-button{width:100%;min-height:34px;padding:0 4px;font-size:0.68rem;line-height:1.1;text-align:center;}" +
-      ".layer-scrubber-track{display:flex;align-items:center;justify-content:center;min-height:0;}" +
-      ".layer-scrubber-range{appearance:slider-vertical;-webkit-appearance:slider-vertical;width:28px;height:100%;min-height:220px;accent-color:#7dd3c8;writing-mode:bt-lr;}" +
-      ".layer-scrubber-meta{display:grid;gap:2px;justify-items:center;text-align:center;color:#c7d5e3;font-size:0.72rem;font-weight:700;}" +
-      ".layer-scrubber-label{font-size:0.66rem;letter-spacing:0.04em;text-transform:uppercase;color:#9fb0c0;}" +
+      ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:30px;padding:6px 0;}" +
+      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:8px;transform:translateX(-50%);border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
+      ".layer-scrubber-selection{position:absolute;left:50%;width:10px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 1px rgba(255,255,255,0.18),0 0 10px rgba(45,212,191,0.16);pointer-events:none;}" +
+      ".layer-scrubber-cap{position:absolute;left:50%;width:16px;height:16px;transform:translateX(-50%);border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(148,163,184,0.5),rgba(71,85,105,0.72));box-shadow:0 0 0 3px rgba(15,23,42,0.58),0 4px 10px rgba(0,0,0,0.22);pointer-events:none;}" +
+      ".layer-scrubber-cap.top{top:4px;}" +
+      ".layer-scrubber-cap.bottom{bottom:4px;}" +
+      ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:slider-vertical;width:30px;height:100%;min-height:220px;writing-mode:bt-lr;background:transparent;cursor:pointer;}" +
+      ".layer-scrubber-range:hover,.layer-scrubber-range:focus-visible{outline:none;filter:brightness(1.08);}" +
+      ".layer-scrubber-range::-webkit-slider-runnable-track{width:8px;border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
+      ".layer-scrubber-range:hover::-webkit-slider-runnable-track,.layer-scrubber-range:focus-visible::-webkit-slider-runnable-track{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(148,163,184,0.52),rgba(100,116,139,0.62));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.34),0 0 0 1px rgba(125,211,200,0.1),0 0 10px rgba(125,211,200,0.16);}" +
+      ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:-5px;border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 3px rgba(15,23,42,0.6),0 6px 14px rgba(0,0,0,0.28);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
+      ".layer-scrubber-range.start::-webkit-slider-thumb{background:linear-gradient(180deg,rgba(186,230,253,0.98),rgba(56,189,248,0.94));}" +
+      ".layer-scrubber-range:hover::-webkit-slider-thumb,.layer-scrubber-range:focus-visible::-webkit-slider-thumb{transform:scale(1.04);box-shadow:0 0 0 3px rgba(15,23,42,0.68),0 0 0 5px rgba(125,211,200,0.16),0 8px 18px rgba(0,0,0,0.34);background:linear-gradient(180deg,rgba(204,251,241,1),rgba(94,234,212,0.96));}" +
+      ".layer-scrubber-range.start:hover::-webkit-slider-thumb,.layer-scrubber-range.start:focus-visible::-webkit-slider-thumb{background:linear-gradient(180deg,rgba(224,242,254,1),rgba(125,211,252,0.96));}" +
+      ".layer-scrubber-range::-moz-range-track{width:8px;border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
+      ".layer-scrubber-range:hover::-moz-range-track,.layer-scrubber-range:focus-visible::-moz-range-track{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(148,163,184,0.52),rgba(100,116,139,0.62));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.34),0 0 0 1px rgba(125,211,200,0.1),0 0 10px rgba(125,211,200,0.16);}" +
+      ".layer-scrubber-range::-moz-range-thumb{width:18px;height:18px;border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 3px rgba(15,23,42,0.6),0 6px 14px rgba(0,0,0,0.28);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
+      ".layer-scrubber-range.start::-moz-range-thumb{background:linear-gradient(180deg,rgba(186,230,253,0.98),rgba(56,189,248,0.94));}" +
+      ".layer-scrubber-range:hover::-moz-range-thumb,.layer-scrubber-range:focus-visible::-moz-range-thumb{transform:scale(1.04);box-shadow:0 0 0 3px rgba(15,23,42,0.68),0 0 0 5px rgba(125,211,200,0.16),0 8px 18px rgba(0,0,0,0.34);background:linear-gradient(180deg,rgba(204,251,241,1),rgba(94,234,212,0.96));}" +
+      ".layer-scrubber-range.start:hover::-moz-range-thumb,.layer-scrubber-range.start:focus-visible::-moz-range-thumb{background:linear-gradient(180deg,rgba(224,242,254,1),rgba(125,211,252,0.96));}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -508,7 +568,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='configuration-row'>" +
       "<div class='configuration-row-top'><div class='configuration-copy'><div class='configuration-title'>Build Volume</div><div class='configuration-desc'>Render the printer volume grid and volume frame behind the toolpath.</div></div><button id='build-volume-toggle-button' class='button' type='button'>On</button></div>" +
       "<div class='configuration-input-grid'><label class='configuration-input-stack'><span class='configuration-label'>Volume X</span><input id='build-volume-x-input' class='configuration-number' type='number' min='1' max='512' step='1' value='256'></label><label class='configuration-input-stack'><span class='configuration-label'>Volume Y</span><input id='build-volume-y-input' class='configuration-number' type='number' min='1' max='512' step='1' value='256'></label></div>" +
-      "<div class='configuration-slider'><input id='build-volume-z-range' type='range' min='50' max='512' step='1' value='256'><div class='configuration-slider-meta'><span>Volume Z</span><span id='build-volume-z-value'>256</span></div></div>" +
+      "<div class='configuration-slider'><input id='build-volume-z-range' type='range' min='0' max='512' step='1' value='256'><div class='configuration-slider-meta'><span>Volume Z</span><span id='build-volume-z-value'>256</span></div></div>" +
       "<div class='configuration-inline-note'>X and Y default to inferred job dimensions when available, otherwise 256 mm.</div>" +
       "</div>" +
       "<div class='configuration-row'>" +
@@ -537,10 +597,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "</div>" +
       "</div>" +
       "<div id='layer-scrubber' class='layer-scrubber'>" +
-      "<button id='layer-scrubber-top-button' class='button ghost layer-scrubber-button' type='button'>Top Down</button>" +
-      "<div class='layer-scrubber-track'><input id='layer-scrubber-range' class='layer-scrubber-range' type='range' min='1' max='1' step='1' value='1'></div>" +
-      "<button id='layer-scrubber-bottom-button' class='button ghost layer-scrubber-button' type='button'>Bottom Up</button>" +
-      "<div class='layer-scrubber-meta'><span id='layer-scrubber-value'>Full</span><span class='layer-scrubber-label'>Layers</span></div>" +
+      "<div class='layer-scrubber-track'>" +
+      "<div class='layer-scrubber-rail'></div>" +
+      "<div id='layer-scrubber-selection' class='layer-scrubber-selection'></div>" +
+      "<div class='layer-scrubber-cap top'></div>" +
+      "<div class='layer-scrubber-cap bottom'></div>" +
+      "<input id='layer-scrubber-end-range' class='layer-scrubber-range end' type='range' min='1' max='1' step='1' value='1' aria-label='End layer'>" +
+      "<input id='layer-scrubber-start-range' class='layer-scrubber-range start' type='range' min='1' max='1' step='1' value='1' aria-label='Start layer'>" +
+      "</div>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='stage-status' class='stage-status' aria-live='polite'>" +
@@ -637,10 +701,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._travelColorInput = this.shadowRoot.getElementById("travel-color-input");
     this._gradientToggleButton = this.shadowRoot.getElementById("gradient-toggle-button");
     this._layerScrubberPanel = this.shadowRoot.getElementById("layer-scrubber");
-    this._layerScrubberRange = this.shadowRoot.getElementById("layer-scrubber-range");
-    this._layerScrubberValue = this.shadowRoot.getElementById("layer-scrubber-value");
-    this._layerScrubberTopButton = this.shadowRoot.getElementById("layer-scrubber-top-button");
-    this._layerScrubberBottomButton = this.shadowRoot.getElementById("layer-scrubber-bottom-button");
+    this._layerScrubberStartRange = this.shadowRoot.getElementById("layer-scrubber-start-range");
+    this._layerScrubberEndRange = this.shadowRoot.getElementById("layer-scrubber-end-range");
+    this._layerScrubberSelection = this.shadowRoot.getElementById("layer-scrubber-selection");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -672,46 +735,43 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._buildVolumeYInput.addEventListener("change", this._boundBuildVolumeDimensionInputHandler);
     }
     if (this._buildVolumeZRange) {
-      this._buildVolumeZRange.addEventListener("input", this._boundBuildVolumeZInputHandler);
+      this._buildVolumeZRange.addEventListener("change", this._boundBuildVolumeZInputHandler);
     }
     if (this._backgroundColorInput) {
-      this._backgroundColorInput.addEventListener("input", this._boundBackgroundColorInputHandler);
+      this._backgroundColorInput.addEventListener("change", this._boundBackgroundColorInputHandler);
     }
     if (this._gridColorInput) {
-      this._gridColorInput.addEventListener("input", this._boundGridColorInputHandler);
+      this._gridColorInput.addEventListener("change", this._boundGridColorInputHandler);
     }
     if (this._tubeToggleButton) {
       this._tubeToggleButton.addEventListener("click", this._boundTubeToggleHandler);
     }
     if (this._tubeWidthRange) {
-      this._tubeWidthRange.addEventListener("input", this._boundTubeWidthInputHandler);
+      this._tubeWidthRange.addEventListener("change", this._boundTubeWidthInputHandler);
     }
     if (this._lineWidthRange) {
-      this._lineWidthRange.addEventListener("input", this._boundLineWidthInputHandler);
+      this._lineWidthRange.addEventListener("change", this._boundLineWidthInputHandler);
     }
     if (this._lineHeightToggleButton) {
       this._lineHeightToggleButton.addEventListener("click", this._boundLineHeightToggleHandler);
     }
     if (this._lineHeightRange) {
-      this._lineHeightRange.addEventListener("input", this._boundLineHeightInputHandler);
+      this._lineHeightRange.addEventListener("change", this._boundLineHeightInputHandler);
     }
     if (this._travelToggleButton) {
       this._travelToggleButton.addEventListener("click", this._boundTravelToggleHandler);
     }
     if (this._travelColorInput) {
-      this._travelColorInput.addEventListener("input", this._boundTravelColorInputHandler);
+      this._travelColorInput.addEventListener("change", this._boundTravelColorInputHandler);
     }
     if (this._gradientToggleButton) {
       this._gradientToggleButton.addEventListener("click", this._boundGradientToggleHandler);
     }
-    if (this._layerScrubberRange) {
-      this._layerScrubberRange.addEventListener("input", this._boundLayerScrubberInputHandler);
+    if (this._layerScrubberStartRange) {
+      this._layerScrubberStartRange.addEventListener("input", this._boundLayerScrubberInputHandler);
     }
-    if (this._layerScrubberTopButton) {
-      this._layerScrubberTopButton.addEventListener("click", this._boundLayerScrubberTopHandler);
-    }
-    if (this._layerScrubberBottomButton) {
-      this._layerScrubberBottomButton.addEventListener("click", this._boundLayerScrubberBottomHandler);
+    if (this._layerScrubberEndRange) {
+      this._layerScrubberEndRange.addEventListener("input", this._boundLayerScrubberInputHandler);
     }
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
@@ -765,11 +825,25 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _reloadForViewerSettings(message) {
+    this._pendingCameraState = this._captureCameraState(this._preview);
     this._loadedSignature = "";
     this._disposePreview();
     this._setStageStatus("Updating viewer", "Re-rendering the preview with the selected viewer configuration.");
     this._setStatus(message || "Updating viewer configuration...");
     this._maybeLoad();
+  }
+
+  _handleWindowPointerDown(event) {
+    if (!this._configurationPanelOpen) {
+      return;
+    }
+    const path = event && typeof event.composedPath === "function" ? event.composedPath() : [];
+    const clickedToggle = path.indexOf(this._configurationButton) >= 0;
+    const clickedPanel = path.indexOf(this._configurationPanel) >= 0;
+    if (!clickedToggle && !clickedPanel) {
+      this._configurationPanelOpen = false;
+      this._updateConfigurationControls();
+    }
   }
 
   _formatViewerSettingValue(value, decimals) {
@@ -795,7 +869,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return {
       x: this._clampNumber(this._viewerSettings.buildVolumeX, 1, 512, this._resolvedBuildVolume.x),
       y: this._clampNumber(this._viewerSettings.buildVolumeY, 1, 512, this._resolvedBuildVolume.y),
-      z: this._clampNumber(this._viewerSettings.buildVolumeZ, 1, 512, this._resolvedBuildVolume.z),
+      z: this._clampNumber(this._viewerSettings.buildVolumeZ, 0, 512, this._resolvedBuildVolume.z),
     };
   }
 
@@ -807,15 +881,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._clampNumber(this._viewerSettings.extrusionWidth, 0.2, 1.0, this._effectiveNozzleDiameter());
   }
 
-  _layerScrubberValueLabel() {
-    if (!this._totalLayers) {
-      return "No layers";
-    }
-    const selectedLayer = this._clampNumber(this._viewerSettings.selectedLayer, 1, this._totalLayers, this._totalLayers);
-    if (selectedLayer >= this._totalLayers) {
-      return "Full";
-    }
-    return `${selectedLayer}/${this._totalLayers}`;
+  _effectiveLayerWindow() {
+    const maxLayer = Math.max(this._totalLayers, 1);
+    const startLayer = this._clampNumber(this._viewerSettings.startLayer, 1, maxLayer, 1);
+    const endLayer = this._clampNumber(this._viewerSettings.endLayer, startLayer, maxLayer, maxLayer);
+    return {
+      startLayer,
+      endLayer,
+    };
   }
 
   _resolvePreviewLayerCount(preview) {
@@ -848,24 +921,97 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if ("endLayer" in target) {
       target.endLayer = endLayer;
     }
-    if (typeof preview.render === "function") {
-      preview.render();
-    } else if (target !== preview && typeof target.render === "function") {
-      target.render();
+  }
+
+  _updateLayerScrubberSelection() {
+    if (!this._layerScrubberSelection || !this._totalLayers) {
+      if (this._layerScrubberSelection) {
+        this._layerScrubberSelection.style.top = "";
+        this._layerScrubberSelection.style.bottom = "";
+      }
+      return;
     }
+    const window = this._effectiveLayerWindow();
+    const topPercent = ((window.startLayer - 1) / this._totalLayers) * 100;
+    const bottomPercent = ((this._totalLayers - window.endLayer) / this._totalLayers) * 100;
+    this._layerScrubberSelection.style.top = `${topPercent}%`;
+    this._layerScrubberSelection.style.bottom = `${bottomPercent}%`;
   }
 
   _applyLayerScrubberState() {
     if (!this._preview || !this._totalLayers) {
       return;
     }
-    const selectedLayer = this._clampNumber(this._viewerSettings.selectedLayer, 1, this._totalLayers, this._totalLayers);
-    this._viewerSettings.selectedLayer = selectedLayer;
-    if (this._viewerSettings.layerScrubDirection === "top-down") {
-      this._setPreviewLayerWindow(this._preview, Math.max(1, this._totalLayers - selectedLayer + 1), undefined);
+    const window = this._effectiveLayerWindow();
+    this._viewerSettings.startLayer = window.startLayer;
+    this._viewerSettings.endLayer = window.endLayer;
+    this._setPreviewLayerWindow(this._preview, window.startLayer, window.endLayer);
+    this._updateLayerScrubberSelection();
+  }
+
+  _scheduleLayerScrubberApply() {
+    this._clearTimer("_layerScrubberTimer");
+    this._layerScrubberTimer = setTimeout(() => {
+      this._layerScrubberTimer = null;
+      this._applyLayerScrubberState();
+      this._syncLoadedSignature();
+    }, 60);
+  }
+
+  _applySceneManagerSettings() {
+    const sceneManager = this._preview && this._preview.sceneManager ? this._preview.sceneManager : null;
+    if (!sceneManager) {
+      return false;
+    }
+
+    sceneManager.backgroundColor = this._viewerSettings.backgroundColor;
+    sceneManager.travelColor = this._viewerSettings.travelColor;
+
+    if (this._viewerSettings.renderBuildVolume) {
+      sceneManager.buildVolume = {
+        x: this._effectiveBuildVolume().x,
+        y: this._effectiveBuildVolume().y,
+        z: this._effectiveBuildVolume().z,
+        smallGrid: true,
+      };
+    } else {
+      sceneManager.buildVolume = undefined;
+    }
+
+    this._applySceneManagerColors(this._preview);
+    return true;
+  }
+
+  _schedulePreviewRerender(message, delay) {
+    if (!this._preview || !this._preview.sceneManager) {
+      this._reloadForViewerSettings(message);
       return;
     }
-    this._setPreviewLayerWindow(this._preview, undefined, selectedLayer);
+
+    this._clearTimer("_previewRerenderTimer");
+    this._previewRerenderTimer = setTimeout(() => {
+      const preview = this._preview;
+      this._previewRerenderTimer = null;
+      if (!preview || !preview.sceneManager) {
+        return;
+      }
+      const sceneManager = preview.sceneManager;
+      const cameraState = this._captureCameraState(preview);
+      sceneManager.renderTravel = this._viewerSettings.showTravelMoves;
+      sceneManager.renderTubes = this._viewerSettings.renderTubes;
+      sceneManager.extrusionWidth = this._viewerSettings.renderTubes ? this._effectiveTubeWidth() : undefined;
+      sceneManager.lineWidth = this._viewerSettings.renderTubes ? undefined : this._viewerSettings.lineWidth;
+      sceneManager.lineHeight = this._viewerSettings.useFixedLineHeight ? this._viewerSettings.lineHeight : 0.2;
+      sceneManager.disableGradient = !this._viewerSettings.useColorGradient;
+      this._applySceneManagerSettings();
+      preview.render();
+      this._restoreCameraState(preview, cameraState);
+      this._applyLayerScrubberState();
+      this._syncLoadedSignature();
+      if (message) {
+        this._setStatus(message);
+      }
+    }, Number.isFinite(delay) ? delay : 140);
   }
 
   _handleConfigurationPanelToggle() {
@@ -876,35 +1022,34 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleLayerScrubberToggle() {
     this._viewerSettings.showLayerScrubber = !this._viewerSettings.showLayerScrubber;
     if (!this._viewerSettings.showLayerScrubber && this._totalLayers) {
-      this._viewerSettings.selectedLayer = this._totalLayers;
+      this._viewerSettings.startLayer = 1;
+      this._viewerSettings.endLayer = this._totalLayers;
       this._applyLayerScrubberState();
     }
+    this._syncLoadedSignature();
     this._updateConfigurationControls();
   }
 
   _handleLayerScrubberInput(event) {
-    const value = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.selectedLayer, 1, this._totalLayers || 1, this._totalLayers || 1);
-    this._viewerSettings.selectedLayer = value;
+    const target = event && event.target;
+    const maxLayer = Math.max(this._totalLayers, 1);
+    const current = this._effectiveLayerWindow();
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    if (target.id === "layer-scrubber-start-range") {
+      this._viewerSettings.startLayer = this._clampNumber(target.value, 1, current.endLayer, 1);
+    } else {
+      this._viewerSettings.endLayer = this._clampNumber(target.value, current.startLayer, maxLayer, maxLayer);
+    }
     this._updateConfigurationControls();
-    this._applyLayerScrubberState();
-  }
-
-  _handleLayerScrubberTop() {
-    this._viewerSettings.layerScrubDirection = "top-down";
-    this._updateConfigurationControls();
-    this._applyLayerScrubberState();
-  }
-
-  _handleLayerScrubberBottom() {
-    this._viewerSettings.layerScrubDirection = "bottom-up";
-    this._updateConfigurationControls();
-    this._applyLayerScrubberState();
+    this._scheduleLayerScrubberApply();
   }
 
   _handleBuildVolumeToggle() {
     this._viewerSettings.renderBuildVolume = !this._viewerSettings.renderBuildVolume;
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(
+    this._schedulePreviewRerender(
       this._viewerSettings.renderBuildVolume
         ? "Build volume rendering is enabled."
         : "Build volume rendering is hidden."
@@ -923,25 +1068,29 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._viewerSettings.buildVolumeY = nextValue;
     }
     this._updateConfigurationControls();
-    this._reloadForViewerSettings("Updated the configured build volume footprint.");
+    this._schedulePreviewRerender("Updated the configured build volume footprint.");
   }
 
   _handleBuildVolumeZInput(event) {
-    this._viewerSettings.buildVolumeZ = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.buildVolumeZ, 1, 512, this._resolvedBuildVolume.z);
+    this._viewerSettings.buildVolumeZ = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.buildVolumeZ, 0, 512, this._resolvedBuildVolume.z);
     this._updateConfigurationControls();
-    this._reloadForViewerSettings("Updated the configured build volume height.");
+    this._schedulePreviewRerender("Updated the configured build volume height.");
   }
 
   _handleBackgroundColorInput(event) {
     this._viewerSettings.backgroundColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.backgroundColor, "#08101A");
     this._updateConfigurationControls();
-    this._reloadForViewerSettings("Updated the stage background color.");
+    this._applySceneManagerSettings();
+    this._syncLoadedSignature();
+    this._setStatus("Updated the stage background color.");
   }
 
   _handleGridColorInput(event) {
     this._viewerSettings.gridColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.gridColor, "#888888");
     this._updateConfigurationControls();
-    this._reloadForViewerSettings("Updated the build volume grid color.");
+    this._applySceneManagerSettings();
+    this._syncLoadedSignature();
+    this._setStatus("Updated the build volume grid color.");
   }
 
   _handleTubeToggle() {
@@ -950,7 +1099,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._viewerSettings.extrusionWidth = this._effectiveNozzleDiameter();
     }
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(
+    this._schedulePreviewRerender(
       this._viewerSettings.renderTubes
         ? "Tube extrusion rendering is enabled."
         : "Tube extrusion rendering is disabled."
@@ -960,19 +1109,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleTubeWidthInput(event) {
     this._viewerSettings.extrusionWidth = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.extrusionWidth, 0.2, 1.0, this._effectiveNozzleDiameter());
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(`Updated tube nozzle width to ${this._formatViewerSettingValue(this._viewerSettings.extrusionWidth, 2)}.`);
+    this._schedulePreviewRerender(`Updated tube nozzle width to ${this._formatViewerSettingValue(this._viewerSettings.extrusionWidth, 2)}.`);
   }
 
   _handleLineWidthInput(event) {
     this._viewerSettings.lineWidth = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.lineWidth, 1, 10, 1);
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(`Updated line width to ${this._formatViewerSettingValue(this._viewerSettings.lineWidth, 1)}.`);
+    this._schedulePreviewRerender(`Updated line width to ${this._formatViewerSettingValue(this._viewerSettings.lineWidth, 1)}.`);
   }
 
   _handleLineHeightToggle() {
     this._viewerSettings.useFixedLineHeight = !this._viewerSettings.useFixedLineHeight;
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(
+    this._schedulePreviewRerender(
       this._viewerSettings.useFixedLineHeight
         ? `Applied fixed line height (${this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2)}).`
         : "Reverted to the default line height behavior."
@@ -982,13 +1131,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleLineHeightInput(event) {
     this._viewerSettings.lineHeight = this._clampNumber(event && event.target ? event.target.value : this._viewerSettings.lineHeight, 0.05, 0.4, 0.2);
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(`Updated fixed line height to ${this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2)}.`);
+    this._schedulePreviewRerender(`Updated fixed line height to ${this._formatViewerSettingValue(this._viewerSettings.lineHeight, 2)}.`);
   }
 
   _handleTravelToggle() {
     this._viewerSettings.showTravelMoves = !this._viewerSettings.showTravelMoves;
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(
+    this._schedulePreviewRerender(
       this._viewerSettings.showTravelMoves
         ? "Travel moves are visible in the preview."
         : "Travel moves are hidden in the preview."
@@ -998,13 +1147,15 @@ class PrintHistory3dViewerCard extends HTMLElement {
   _handleTravelColorInput(event) {
     this._viewerSettings.travelColor = this._normalizeColorValue(event && event.target ? event.target.value : this._viewerSettings.travelColor, "#990000");
     this._updateConfigurationControls();
-    this._reloadForViewerSettings("Updated the travel move color.");
+    this._applySceneManagerSettings();
+    this._syncLoadedSignature();
+    this._setStatus("Updated the travel move color.");
   }
 
   _handleGradientToggle() {
     this._viewerSettings.useColorGradient = !this._viewerSettings.useColorGradient;
     this._updateConfigurationControls();
-    this._reloadForViewerSettings(
+    this._schedulePreviewRerender(
       this._viewerSettings.useColorGradient
         ? "Color gradient shading is enabled."
         : "Flat filament colors are enabled."
@@ -1037,21 +1188,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._layerScrubberPanel) {
       this._layerScrubberPanel.hidden = !this._viewerSettings.showLayerScrubber;
     }
-    if (this._layerScrubberRange) {
-      this._layerScrubberRange.min = this._totalLayers ? "1" : "0";
-      this._layerScrubberRange.max = String(Math.max(this._totalLayers, 1));
-      this._layerScrubberRange.value = String(this._clampNumber(this._viewerSettings.selectedLayer, 1, Math.max(this._totalLayers, 1), Math.max(this._totalLayers, 1)));
-      this._layerScrubberRange.disabled = this._totalLayers <= 1;
+    const maxLayer = Math.max(this._totalLayers, 1);
+    const layerWindow = this._effectiveLayerWindow();
+    if (this._layerScrubberStartRange) {
+      this._layerScrubberStartRange.min = this._totalLayers ? "1" : "0";
+      this._layerScrubberStartRange.max = String(maxLayer);
+      this._layerScrubberStartRange.value = String(layerWindow.startLayer);
+      this._layerScrubberStartRange.disabled = this._totalLayers <= 1;
     }
-    if (this._layerScrubberValue) {
-      this._layerScrubberValue.textContent = this._layerScrubberValueLabel();
+    if (this._layerScrubberEndRange) {
+      this._layerScrubberEndRange.min = this._totalLayers ? "1" : "0";
+      this._layerScrubberEndRange.max = String(maxLayer);
+      this._layerScrubberEndRange.value = String(layerWindow.endLayer);
+      this._layerScrubberEndRange.disabled = this._totalLayers <= 1;
     }
-    if (this._layerScrubberTopButton) {
-      this._layerScrubberTopButton.className = this._viewerSettings.layerScrubDirection === "top-down" ? "button toggle-on layer-scrubber-button" : "button ghost layer-scrubber-button";
-    }
-    if (this._layerScrubberBottomButton) {
-      this._layerScrubberBottomButton.className = this._viewerSettings.layerScrubDirection === "bottom-up" ? "button toggle-on layer-scrubber-button" : "button ghost layer-scrubber-button";
-    }
+    this._updateLayerScrubberSelection();
     const effectiveBuildVolume = this._effectiveBuildVolume();
     if (this._buildVolumeXInput) {
       this._buildVolumeXInput.value = String(Math.round(effectiveBuildVolume.x));
@@ -2509,11 +2660,17 @@ class PrintHistory3dViewerCard extends HTMLElement {
         preview.processGCode(previewGcode);
         this._applySceneManagerColors(preview);
         this._totalLayers = this._resolvePreviewLayerCount(preview);
-        if (!Number.isFinite(this._viewerSettings.selectedLayer) || this._viewerSettings.selectedLayer == null || this._viewerSettings.selectedLayer > this._totalLayers) {
-          this._viewerSettings.selectedLayer = this._totalLayers;
+        if (!Number.isFinite(this._viewerSettings.startLayer) || this._viewerSettings.startLayer == null) {
+          this._viewerSettings.startLayer = 1;
         }
+        if (!Number.isFinite(this._viewerSettings.endLayer) || this._viewerSettings.endLayer == null || this._viewerSettings.endLayer > this._totalLayers) {
+          this._viewerSettings.endLayer = this._totalLayers;
+        }
+        this._restoreCameraState(preview, this._pendingCameraState);
+        this._pendingCameraState = null;
         this._applyLayerScrubberState();
         this._updateConfigurationControls();
+        this._syncLoadedSignature();
         if (renderAnimated) {
           if (typeof preview.renderAnimated === "function") {
             preview.renderAnimated();
