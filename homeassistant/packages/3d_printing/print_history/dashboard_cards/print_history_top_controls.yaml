@@ -37,6 +37,8 @@ card:
       // depend on generated sub-button DOM positions inside bubble-card.
       const byIcon = (icon) => `.bubble-sub-button:has(ha-icon[icon="${icon}"])`;
       const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
+      const activeVariant = states['input_select.print_history_card_variant']?.state || '';
+      const isMediaVariant = activeVariant === 'Media';
       const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
       const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
       const atFirstPage = currentPage <= 1;
@@ -121,6 +123,9 @@ card:
         ${layoutStateSelector} {
           display: none !important;
         }
+        ${isMediaVariant ? `${imagesSelector} {
+          display: none !important;
+        }` : ''}
         ${disabledSelectors.length ? `${disabledSelectors.join(',\n        ')} {
           opacity: 0.42 !important;
           pointer-events: none !important;

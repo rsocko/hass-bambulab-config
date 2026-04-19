@@ -588,6 +588,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _renderArchiveCard(variant, archive) {
     var normalized = this._normalizeArchive(archive || {});
     var showImages = this._showImages();
+    var mediaShowsImages = variant === 'Media' ? true : showImages;
     var baseUrl = this._apiBaseUrl();
     var hasImage = showImages && !!normalized.thumbnailUrl(baseUrl);
     var archiveJson = this._escapeAttribute(JSON.stringify(archive || {}));
@@ -626,7 +627,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
         : this._mediaPreferredGalleryIndex(archive, mediaImageUrls, baseUrl))
       : 0;
     var mediaCurrentImageUrl = mediaGalleryCount > 0 ? mediaImageUrls[mediaGalleryIndex] : '';
-    var mediaPlaceholderLabel = this._showImages()
+    var mediaPlaceholderLabel = mediaShowsImages
       ? 'No preview image available'
       : 'Images hidden';
     var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';
