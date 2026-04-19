@@ -218,18 +218,25 @@ save_print_history_archive_popup_edits:
               {% else %}
                 __NULL__
               {% endif %}
-        - action: rest_command.bambuddy_update_archive
+        - action: bambuddy.update_print_history_archive
           data:
             archive_id: "{{ resolved_archive_id }}"
             print_name: "{{ resolved_print_name }}"
             tags: "{{ merged_tags }}"
             notes: "{{ merged_notes }}"
-            project_id: "{{ merged_project_id }}"
+            project_id: >-
+              {% if merged_project_id == '__NULL__' %}
+                {{ none }}
+              {% else %}
+                {{ merged_project_id | int(0) }}
+              {% endif %}
             status: "{{ resolved_status }}"
-            failure_reason: "{{ resolved_failure_reason }}"
-        - action: bambuddy.refresh_print_history_archive_detail
-          data:
-            archive_id: "{{ resolved_archive_id }}"
+            failure_reason: >-
+              {% if resolved_failure_reason == '__NULL__' %}
+                {{ none }}
+              {% else %}
+                {{ resolved_failure_reason }}
+              {% endif %}
         - if:
             - condition: template
               value_template: "{{ should_refresh_browser }}"

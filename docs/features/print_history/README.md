@@ -206,9 +206,7 @@ homeassistant/packages/3d_printing/print_history/
 │   ├── bambuddy_event_history_refresh.yaml        # webhook/native lifecycle events → refresh REST sensor + reset browser page; integration refresh is internal
 │   └── print_history_reset_page_on_filter_change.yaml # reset browser page on filter/sort changes
 ├── rest_commands/
-│   ├── bambuddy_delete_archive_photo.yaml         # DELETE /archives/{id}/photos/{filename} (store-backed review flow)
 │   ├── bambuddy_get_archive_detail.yaml           # GET /archives/{id} for upload verification and future detail flows
-│   ├── bambuddy_set_archive_cover.yaml            # PATCH /archives/{id} — optional Bambuddy cover sync, still unverified
 │   ├── bambuddy_update_archive.yaml               # PATCH /archives/{id} — enrichment + popup edit fields
 │   └── bambuddy_query_recent_archive.yaml         # GET /archives — fallback archive_id resolution
 ├── scripts/
@@ -324,9 +322,7 @@ input_select: !include_dir_merge_named helpers/input_select
 
 | Service | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `rest_command.bambuddy_delete_archive_photo` | DELETE | `/api/v1/archives/{id}/photos/{filename}` | Filename-based delete used by the shipped store-backed photo-review flow |
 | `rest_command.bambuddy_get_archive_detail` | GET | `/api/v1/archives/{id}` | Point lookup used for upload verification and future detail flows |
-| `rest_command.bambuddy_set_archive_cover` | PATCH | `/api/v1/archives/{id}` | Advanced review placeholder; cover contract still needs live verification |
 | `rest_command.bambuddy_update_archive` | PATCH | `/api/v1/archives/{id}` | Update archive metadata such as name, notes, tags, project, favorite state, cost, status, and failure reason; payload fields are intentionally optional for safe bulk updates |
 | `rest_command.bambuddy_query_recent_archive` | GET | `/api/v1/archives/?limit=1` | Fallback archive_id resolution |
 

@@ -160,6 +160,89 @@ get_print_history_archive_detail:
           min: 1
           mode: box
 
+update_print_history_archive:
+  name: Update Print History Archive
+  description: Update one Bambuddy archive through the integration connection, then refresh the local Variant 3 store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    print_name:
+      name: Print Name
+      required: false
+      selector:
+        text:
+    tags:
+      name: Tags
+      description: Comma-separated archive tags.
+      required: false
+      selector:
+        text:
+    notes:
+      name: Notes
+      required: false
+      selector:
+        text:
+    cost:
+      name: Cost
+      required: false
+      selector:
+        number:
+          min: 0
+          mode: box
+    status:
+      name: Status
+      required: false
+      selector:
+        text:
+    failure_reason:
+      name: Failure Reason
+      description: Leave blank to clear the current value.
+      required: false
+      selector:
+        text:
+    project_id:
+      name: Project ID
+      description: Project ID to assign. Leave blank to clear the current project.
+      required: false
+      selector:
+        text:
+
+set_print_history_archive_favorite:
+  name: Set Print History Archive Favorite
+  description: Ensure one Bambuddy archive is favorited or unfavorited through the integration connection.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to update.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    is_favorite:
+      name: Favorite State
+      required: true
+      selector:
+        boolean:
+
 refresh_print_history_archive_detail:
   name: Refresh Print History Archive Detail
   description: Fetch one archive from Bambuddy and immediately upsert it into the local Variant 3 store.

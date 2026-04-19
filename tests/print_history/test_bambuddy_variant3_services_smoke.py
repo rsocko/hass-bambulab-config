@@ -248,6 +248,8 @@ class FakeApiClient:
     uploaded_photos: list[dict[str, object]] = []
     uploaded_replacements: list[dict[str, object]] = []
     deleted_archives: list[int] = []
+    updated_archives: list[dict[str, object]] = []
+    toggled_favorites: list[int] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -333,6 +335,33 @@ class FakeApiClient:
 
     async def async_delete_archive(self, archive_id: int) -> None:
         type(self).deleted_archives.append(int(archive_id))
+
+    async def async_update_archive(self, archive_id: int, payload: dict[str, object]) -> dict[str, object]:
+        normalized_archive_id = int(archive_id)
+        for index, item in enumerate(type(self).archives):
+            if int(item.get("id", 0)) != normalized_archive_id:
+                continue
+            updated = dict(item)
+            for key, value in payload.items():
+                updated[key] = value
+            if payload.get("project_id") is None:
+                updated["project_name"] = ""
+            type(self).archives[index] = updated
+            type(self).updated_archives.append({"archive_id": normalized_archive_id, "payload": dict(payload)})
+            return dict(updated)
+        raise RuntimeError("Bambuddy returned HTTP 404")
+
+    async def async_toggle_archive_favorite(self, archive_id: int) -> dict[str, object]:
+        normalized_archive_id = int(archive_id)
+        for index, item in enumerate(type(self).archives):
+            if int(item.get("id", 0)) != normalized_archive_id:
+                continue
+            updated = dict(item)
+            updated["is_favorite"] = not bool(updated.get("is_favorite", False))
+            type(self).archives[index] = updated
+            type(self).toggled_favorites.append(normalized_archive_id)
+            return dict(updated)
+        raise RuntimeError("Bambuddy returned HTTP 404")
 
 
 class FakeRuntimeRepairClient:
@@ -645,6 +674,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_APPEND_PRINT_HISTORY_EVENT) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REVIEW_STATE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO) in registered
@@ -666,10 +697,14 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
     init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
     init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
     FakeApiClient.archives = manager.archives
     FakeApiClient.deleted_archives = []
+    FakeApiClient.updated_archives = []
+    FakeApiClient.toggled_favorites = []
 
     try:
         query_response = asyncio.run(
@@ -685,6 +720,16 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         detail_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
                 SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        update_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE)(
+                SimpleNamespace(data={"archive_id": 101, "tags": "display,verified"})
+            )
+        )
+        favorite_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE)(
+                SimpleNamespace(data={"archive_id": 202, "is_favorite": True})
             )
         )
         primary_photo_response = asyncio.run(
@@ -769,6 +814,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     finally:
         init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
         init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
 
     assert query_response["entry_id"] == "entry-1"
     assert query_response["archives"][0]["id"] == 101
@@ -781,6 +827,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
     assert detail_response["archive"]["primary_photo_path"] == ""
+    assert update_response["archive"]["tags"] == "display,verified"
+    assert favorite_response["archive"]["is_favorite"] is True
     assert primary_photo_response["primary_photo_selection"]["photo_path"] == "topdown-closeup.jpg"
     assert primary_photo_response["archive"]["primary_photo_path"] == "topdown-closeup.jpg"
     assert append_event_response["event_timeline"][0]["type"] == "photo_captured"
@@ -791,6 +839,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert delete_response["deleted"] == 1
     assert delete_archive_response["deleted"] == 1
     assert FakeApiClient.deleted_archives == [202]
+    assert FakeApiClient.updated_archives == [{"archive_id": 101, "payload": {"tags": "display,verified"}}]
+    assert FakeApiClient.toggled_favorites == [202]
     assert manager.store.load_archive(202) is None
     assert manager.last_refresh_store_total_count == 1
     assert manager.last_refresh_archive_total_count == 1
@@ -800,7 +850,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 7
+    assert manager.mutation_stats["count"] == 11
     assert manager.mutation_stats["last_operation"] == "delete_print_history_archive"
 
 

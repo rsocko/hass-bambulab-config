@@ -37,7 +37,7 @@ bulk_set_print_history_archive_favorite:
         - repeat:
             for_each: "{{ archive_ids_json | from_json }}"
             sequence:
-              - action: rest_command.bambuddy_update_archive
+              - action: bambuddy.set_print_history_archive_favorite
                 data:
                   archive_id: "{{ repeat.item }}"
                   is_favorite: "{{ target_favorite }}"

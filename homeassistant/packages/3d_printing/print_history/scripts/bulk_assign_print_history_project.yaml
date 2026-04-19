@@ -37,10 +37,15 @@ bulk_assign_print_history_project:
         - repeat:
             for_each: "{{ archive_ids_json | from_json }}"
             sequence:
-              - action: rest_command.bambuddy_update_archive
+              - action: bambuddy.update_print_history_archive
                 data:
                   archive_id: "{{ repeat.item }}"
-                  project_id: "{{ resolved_project_id }}"
+                  project_id: >-
+                    {% if resolved_project_id == '__NULL__' %}
+                      {{ none }}
+                    {% else %}
+                      {{ resolved_project_id | int(0) }}
+                    {% endif %}
         - if:
             - condition: template
               value_template: "{{ should_refresh_browser }}"

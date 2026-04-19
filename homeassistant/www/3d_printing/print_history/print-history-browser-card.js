@@ -1079,6 +1079,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
     });
   }
 
+  async _completeBulkActionAndExitMode() {
+    this._clearLocalMultiSelectState();
+    if (this._hass) {
+      await this._hass.callService("script", "cancel_print_history_multi_select_mode", {});
+    }
+    this._renderBody();
+  }
+
   async _consumePendingMultiSelectRequest() {
     if (!this._hass || !this._isMultiSelectMode()) {
       return;
@@ -1167,7 +1175,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
           project_id: projectValue || "__NULL__",
         });
       }
-      this._closeBulkDialog();
+      await this._completeBulkActionAndExitMode();
     } catch (error) {
       this._bulkActionBusy = false;
       this._renderBulkDialog();
@@ -1191,8 +1199,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       }
       return archive;
     });
-    this._syncMultiSelectSummary();
-    this._renderBody();
+    await this._completeBulkActionAndExitMode();
   }
 
   async _runBulkDelete() {
@@ -1213,9 +1220,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._response.archives = (Array.isArray(this._response.archives) ? this._response.archives : []).filter(function (archive) {
       return selectedIds.indexOf(String(archive && archive.id || "")) === -1;
     });
-    this._clearLocalMultiSelectState();
-    await this._hass.callService("script", "cancel_print_history_multi_select_mode", {});
-    this._renderBody();
+    await this._completeBulkActionAndExitMode();
   }
 
   _renderFilamentDot(chip) {

@@ -40,6 +40,7 @@ from .const import (
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
+    SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE,
     SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
     SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE,
     SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE,
@@ -51,6 +52,7 @@ from .const import (
     SERVICE_SET_PRINT_HISTORY_PRIMARY_PHOTO,
     SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
+    SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
     RESTORE_UPLOAD_DISCOVER_URL,
 )
 from .manager import PrintHistoryBrowserManager
@@ -228,6 +230,26 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
+SERVICE_UPDATE_ARCHIVE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("print_name"): str,
+        vol.Optional("tags"): str,
+        vol.Optional("notes"): str,
+        vol.Optional("cost"): vol.Coerce(float),
+        vol.Optional("status"): str,
+        vol.Optional("failure_reason"): vol.Any(None, str),
+        vol.Optional("project_id"): vol.Any(None, vol.Coerce(int), str),
+    }
+)
+SERVICE_SET_ARCHIVE_FAVORITE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Required("is_favorite"): bool,
+    }
+)
 SERVICE_APPEND_EVENT_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -933,6 +955,114 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         )
         if refreshed is None:
             raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+
+    async def async_handle_update_archive(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        update_payload: dict[str, Any] = {}
+        for field in ("print_name", "tags", "notes", "cost", "status", "failure_reason", "project_id"):
+            if field not in call.data:
+                continue
+            value = call.data.get(field)
+            if field == "project_id":
+                update_payload[field] = None if value in (None, "", "__NULL__") else int(value)
+            elif field == "failure_reason":
+                update_payload[field] = None if value in (None, "", "__NULL__") else str(value)
+            else:
+                update_payload[field] = value
+
+        if not update_payload:
+            raise HomeAssistantError("At least one archive field must be provided")
+
+        started = perf_counter()
+        session = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyApiClient(
+            session,
+            manager.base_url,
+            manager.api_key,
+            manager.fetch_timeout_seconds,
+        )
+        try:
+            await client.async_update_archive(archive_id, update_payload)
+            refreshed = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="service_update_archive",
+                extra_details={"updated_fields": sorted(update_payload.keys())},
+            )
+        except RuntimeError as error:
+            raise HomeAssistantError(str(error)) from error
+
+        if refreshed is None:
+            raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+
+        manager.record_mutation(
+            operation="update_print_history_archive",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={"updated_fields": sorted(update_payload.keys())},
+        )
+
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
+    async def async_handle_set_archive_favorite(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        target_favorite = bool(call.data["is_favorite"])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        current_detail = manager.build_archive_detail_response(archive_id)
+        if current_detail is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        current_favorite = bool(current_detail.get("archive", {}).get("is_favorite", False))
+
+        started = perf_counter()
+        if current_favorite != target_favorite:
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            try:
+                await client.async_toggle_archive_favorite(archive_id)
+            except RuntimeError as error:
+                raise HomeAssistantError(str(error)) from error
+
+        refreshed = await manager.async_refresh_archive_detail(
+            archive_id,
+            operation="service_set_archive_favorite",
+            extra_details={"target_favorite": target_favorite, "changed": current_favorite != target_favorite},
+        )
+        if refreshed is None:
+            raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+        if bool(refreshed.get("is_favorite", False)) != target_favorite:
+            raise HomeAssistantError(
+                f"Archive {archive_id} favorite state remained {bool(refreshed.get('is_favorite', False))} after requesting {target_favorite}"
+            )
+
+        manager.record_mutation(
+            operation="set_print_history_archive_favorite",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={"target_favorite": target_favorite, "changed": current_favorite != target_favorite},
+        )
+
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response[CONF_ENTRY_ID] = entry_id
+        response[CONF_ARCHIVE_ID] = archive_id
+        return response
 
     async def async_handle_append_event(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
@@ -1824,6 +1954,22 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
             async_handle_detail,
             schema=SERVICE_DETAIL_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
+            async_handle_update_archive,
+            schema=SERVICE_UPDATE_ARCHIVE_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE,
+            async_handle_set_archive_favorite,
+            schema=SERVICE_SET_ARCHIVE_FAVORITE_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL):

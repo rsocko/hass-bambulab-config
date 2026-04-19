@@ -207,8 +207,6 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_REST_COMMANDS = [
-        "bambuddy_delete_archive_photo.yaml",
-        "bambuddy_set_archive_cover.yaml",
         "bambuddy_update_archive.yaml",
         "bambuddy_query_recent_archive.yaml",
         "bambuddy_get_archive_detail.yaml",
@@ -2496,10 +2494,11 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("regex_findall('\\d+')", tag_content)
         self.assertIn("bambuddy.get_print_history_archive_detail", tag_content)
         self.assertIn("preserved_system_tags", tag_content)
-        self.assertIn("rest_command.bambuddy_update_archive", tag_content)
+        self.assertIn("bambuddy.update_print_history_archive", tag_content)
         self.assertIn("regex_findall('\\d+')", project_content)
-        self.assertIn('project_id: "{{ resolved_project_id }}"', project_content)
+        self.assertIn("bambuddy.update_print_history_archive", project_content)
         self.assertIn("regex_findall('\\d+')", favorite_content)
+        self.assertIn("bambuddy.set_print_history_archive_favorite", favorite_content)
         self.assertIn('is_favorite: "{{ target_favorite }}"', favorite_content)
         self.assertIn("regex_findall('\\d+')", delete_content)
         self.assertIn("bambuddy.delete_print_history_archive", delete_content)
@@ -2523,6 +2522,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("bulk_assign_print_history_project", content)
         self.assertIn("bulk_set_print_history_archive_favorite", content)
         self.assertIn("bulk_delete_print_history_archives", content)
+        self.assertGreaterEqual(content.count("_completeBulkActionAndExitMode()"), 3)
+        self.assertIn('await this._hass.callService("script", "cancel_print_history_multi_select_mode", {});', content)
         self.assertIn("Type DELETE to permanently remove the selected prints.", content)
 
     def test_print_history_append_event_calls_capture_response_data(self):

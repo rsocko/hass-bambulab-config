@@ -300,5 +300,5 @@ Optional later work:
 | 1 | Should `archive_media_review_state` stay separate from `archive_review_state` long-term? | Affects schema clarity and future workflow coupling | No for current implementation; keep separate unless later workflows prove otherwise |
 | 2 | How should the chip resolve the target archive when several reviews are pending? | Affects popup entry behavior | Yes |
 | 3 | Can replace safely map a newly captured local file back to one logical reviewed photo slot? | Affects replace UX and deletion safety | No for delete/dismiss first slice |
-| 4 | Is Bambuddy `cover_photo_id` worth implementing if local primary-photo override already solves the HA UX? | Affects scope and whether `rest_command.bambuddy_set_archive_cover` is retained | No |
+| 4 | Is Bambuddy `cover_photo_id` worth implementing if local primary-photo override already solves the HA UX? | Affects scope and whether any upstream cover-sync path is worth reintroducing later | No |
 | 5 | Should timelapse share the same media-review table or add a sibling table later? | Affects long-term schema shape | No for first slice |
