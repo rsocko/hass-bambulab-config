@@ -19,6 +19,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadInProgress = false;
     this._rendererMode = "gcode";
     this._renderAnimated = false;
+    this._viewerSettings = {
+      bambuddyGeometry: true,
+      hideTravelMoves: true,
+      compactToolRemap: true,
+    };
+    this._comparePanelOpen = false;
     this._cropMode = false;
     this._cropAspectPreset = "square";
     this._cropRect = null;
@@ -26,6 +32,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._globalListenersAttached = false;
     this._refreshButton = null;
     this._animateButton = null;
+    this._compareButton = null;
+    this._comparePanel = null;
+    this._compareGeometryButton = null;
+    this._compareTravelButton = null;
+    this._compareToolMapButton = null;
     this._captureButton = null;
     this._cropToggleButton = null;
     this._cropAspectSelect = null;
@@ -37,6 +48,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._uploadCaptureButton = null;
     this._boundRefreshHandler = this._handleRefresh.bind(this);
     this._boundAnimateHandler = this._handleAnimate.bind(this);
+    this._boundComparePanelToggleHandler = this._handleComparePanelToggle.bind(this);
+    this._boundCompareGeometryHandler = this._handleCompareGeometryToggle.bind(this);
+    this._boundCompareTravelHandler = this._handleCompareTravelToggle.bind(this);
+    this._boundCompareToolMapHandler = this._handleCompareToolMapToggle.bind(this);
     this._boundCaptureHandler = this._handleCapture.bind(this);
     this._boundCropToggleHandler = this._handleCropToggle.bind(this);
     this._boundCropAspectChangeHandler = this._handleCropAspectChange.bind(this);
@@ -100,6 +115,22 @@ class PrintHistory3dViewerCard extends HTMLElement {
     if (this._animateButton) {
       this._animateButton.removeEventListener("click", this._boundAnimateHandler);
       this._animateButton = null;
+    }
+    if (this._compareButton) {
+      this._compareButton.removeEventListener("click", this._boundComparePanelToggleHandler);
+      this._compareButton = null;
+    }
+    if (this._compareGeometryButton) {
+      this._compareGeometryButton.removeEventListener("click", this._boundCompareGeometryHandler);
+      this._compareGeometryButton = null;
+    }
+    if (this._compareTravelButton) {
+      this._compareTravelButton.removeEventListener("click", this._boundCompareTravelHandler);
+      this._compareTravelButton = null;
+    }
+    if (this._compareToolMapButton) {
+      this._compareToolMapButton.removeEventListener("click", this._boundCompareToolMapHandler);
+      this._compareToolMapButton = null;
     }
     if (this._captureButton) {
       this._captureButton.removeEventListener("click", this._boundCaptureHandler);
@@ -172,6 +203,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const signature = JSON.stringify({
       config: this._config,
       renderAnimated: this._renderAnimated,
+      viewerSettings: this._viewerSettings,
     });
     if (signature === this._loadedSignature) {
       return;
@@ -221,6 +253,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".stage-toolbar .button{min-height:38px;padding:0 14px;backdrop-filter:blur(8px);}" +
       ".button.toggle-on{border-color:rgba(125,211,200,0.36);background:linear-gradient(180deg,rgba(20,66,67,0.96),rgba(8,29,33,0.98));color:#ecfeff;}" +
       ".button.toggle-on:hover,.button.toggle-on:focus-visible{border-color:rgba(153,246,228,0.52);background:linear-gradient(180deg,rgba(28,88,87,0.98),rgba(10,41,45,0.98));}" +
+      ".button.toggle-off{border-color:rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(30,41,59,0.9),rgba(15,23,42,0.96));color:#cbd5e1;}" +
+      ".compare-panel{position:absolute;left:16px;top:64px;display:grid;gap:10px;min-width:min(340px,calc(100% - 32px));padding:14px;border-radius:18px;border:1px solid rgba(125,211,200,0.16);background:linear-gradient(180deg,rgba(9,18,29,0.96),rgba(14,24,37,0.98));box-shadow:0 18px 44px rgba(0,0,0,0.28);backdrop-filter:blur(12px);z-index:4;}" +
+      ".compare-panel[hidden]{display:none;}" +
+      ".compare-panel-header{display:grid;gap:4px;}" +
+      ".compare-panel-title{font-size:0.93rem;font-weight:700;color:#f8fafc;}" +
+      ".compare-panel-copy{font-size:0.82rem;line-height:1.45;color:#9fb0c0;}" +
+      ".compare-panel-grid{display:grid;gap:8px;}" +
+      ".compare-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.03);}" +
+      ".compare-toggle-copy{display:grid;gap:3px;min-width:0;}" +
+      ".compare-toggle-title{font-size:0.86rem;font-weight:700;color:#f8fafc;}" +
+      ".compare-toggle-desc{font-size:0.77rem;line-height:1.4;color:#9fb0c0;}" +
+      ".compare-toggle .button{flex:0 0 auto;min-height:34px;padding:0 12px;font-size:0.78rem;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -301,7 +345,28 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='stage-toolbar'>" +
       "<button id='refresh-button' class='button ghost' type='button'>Refresh</button>" +
       "<button id='animate-button' class='button ghost' type='button' aria-pressed='false'>Animate</button>" +
+      "<button id='compare-button' class='button ghost' type='button' aria-expanded='false'>Compare</button>" +
       "<a id='download-link' class='button ghost' href='#' download='archive.gcode'>Download G-code</a>" +
+      "</div>" +
+      "<div id='compare-panel' class='compare-panel' hidden>" +
+      "<div class='compare-panel-header'>" +
+      "<div class='compare-panel-title'>Viewer Comparison Controls</div>" +
+      "<div class='compare-panel-copy'>Toggle Bambuddy-aligned geometry, travel visibility, and tool remapping independently so you can compare outputs side by side.</div>" +
+      "</div>" +
+      "<div class='compare-panel-grid'>" +
+      "<div class='compare-toggle'>" +
+      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Bambuddy Line Geometry</div><div class='compare-toggle-desc'>Uses the thicker line width and fixed line height from Bambuddy.</div></div>" +
+      "<button id='compare-geometry-button' class='button' type='button'>On</button>" +
+      "</div>" +
+      "<div class='compare-toggle'>" +
+      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Hide Travel Moves</div><div class='compare-toggle-desc'>Suppresses non-extrusion travel paths so the preview focuses on printed material.</div></div>" +
+      "<button id='compare-travel-button' class='button' type='button'>On</button>" +
+      "</div>" +
+      "<div class='compare-toggle'>" +
+      "<div class='compare-toggle-copy'><div class='compare-toggle-title'>Compact Tool Remap</div><div class='compare-toggle-desc'>Uses the newer contiguous tool remap while preserving T1000 and T255 handling.</div></div>" +
+      "<button id='compare-toolmap-button' class='button' type='button'>On</button>" +
+      "</div>" +
+      "</div>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
       "<div id='stage-status' class='stage-status' aria-live='polite'>" +
@@ -376,6 +441,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     this._refreshButton = this.shadowRoot.getElementById("refresh-button");
     this._animateButton = this.shadowRoot.getElementById("animate-button");
+    this._compareButton = this.shadowRoot.getElementById("compare-button");
+    this._comparePanel = this.shadowRoot.getElementById("compare-panel");
+    this._compareGeometryButton = this.shadowRoot.getElementById("compare-geometry-button");
+    this._compareTravelButton = this.shadowRoot.getElementById("compare-travel-button");
+    this._compareToolMapButton = this.shadowRoot.getElementById("compare-toolmap-button");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -390,6 +460,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._animateButton) {
       this._animateButton.addEventListener("click", this._boundAnimateHandler);
+    }
+    if (this._compareButton) {
+      this._compareButton.addEventListener("click", this._boundComparePanelToggleHandler);
+    }
+    if (this._compareGeometryButton) {
+      this._compareGeometryButton.addEventListener("click", this._boundCompareGeometryHandler);
+    }
+    if (this._compareTravelButton) {
+      this._compareTravelButton.addEventListener("click", this._boundCompareTravelHandler);
+    }
+    if (this._compareToolMapButton) {
+      this._compareToolMapButton.addEventListener("click", this._boundCompareToolMapHandler);
     }
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
@@ -416,6 +498,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._uploadCaptureButton.addEventListener("click", this._boundUploadCaptureHandler);
     }
     this._updateAnimateButton();
+    this._updateCompareControls();
     this._updateCapturePanel();
   }
 
@@ -439,6 +522,71 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setStatus("Redrawing G-code preview with animated path build...");
     this._loadedSignature = "";
     this._maybeLoad();
+  }
+
+  _reloadForViewerSettings(message) {
+    this._loadedSignature = "";
+    this._disposePreview();
+    this._setStageStatus("Updating comparison view", "Re-rendering the preview with the selected comparison settings.");
+    this._setStatus(message || "Updating viewer comparison settings...");
+    this._maybeLoad();
+  }
+
+  _handleComparePanelToggle() {
+    this._comparePanelOpen = !this._comparePanelOpen;
+    this._updateCompareControls();
+  }
+
+  _handleCompareGeometryToggle() {
+    this._viewerSettings.bambuddyGeometry = !this._viewerSettings.bambuddyGeometry;
+    this._updateCompareControls();
+    this._reloadForViewerSettings(
+      this._viewerSettings.bambuddyGeometry
+        ? "Enabled Bambuddy line geometry for the comparison render."
+        : "Reverted to the legacy line geometry defaults for the comparison render."
+    );
+  }
+
+  _handleCompareTravelToggle() {
+    this._viewerSettings.hideTravelMoves = !this._viewerSettings.hideTravelMoves;
+    this._updateCompareControls();
+    this._reloadForViewerSettings(
+      this._viewerSettings.hideTravelMoves
+        ? "Travel moves are hidden for the comparison render."
+        : "Travel moves are now visible for the comparison render."
+    );
+  }
+
+  _handleCompareToolMapToggle() {
+    this._viewerSettings.compactToolRemap = !this._viewerSettings.compactToolRemap;
+    this._updateCompareControls();
+    this._reloadForViewerSettings(
+      this._viewerSettings.compactToolRemap
+        ? "Enabled compact tool remapping for the comparison render."
+        : "Reverted to the legacy tool remapping path for the comparison render."
+    );
+  }
+
+  _updateCompareToggleButton(button, isEnabled) {
+    if (!button) {
+      return;
+    }
+    button.textContent = isEnabled ? "On" : "Off";
+    button.className = isEnabled ? "button toggle-on" : "button toggle-off";
+    button.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+  }
+
+  _updateCompareControls() {
+    if (this._compareButton) {
+      this._compareButton.className = this._comparePanelOpen ? "button toggle-on" : "button ghost";
+      this._compareButton.setAttribute("aria-expanded", this._comparePanelOpen ? "true" : "false");
+    }
+    if (this._comparePanel) {
+      this._comparePanel.hidden = !this._comparePanelOpen;
+    }
+    this._updateCompareToggleButton(this._compareGeometryButton, !!this._viewerSettings.bambuddyGeometry);
+    this._updateCompareToggleButton(this._compareTravelButton, !!this._viewerSettings.hideTravelMoves);
+    this._updateCompareToggleButton(this._compareToolMapButton, !!this._viewerSettings.compactToolRemap);
   }
 
   _setStageStatus(label, copy, mode) {
@@ -1357,6 +1505,18 @@ class PrintHistory3dViewerCard extends HTMLElement {
     return this._normalizeColors(capabilities.filament_colors);
   }
 
+  _buildLegacyPreviewToolState(colors, initialToolIndex) {
+    const palette = this._normalizeColors(colors);
+    const normalizedInitialTool = Number.isInteger(initialToolIndex) && initialToolIndex >= 0 ? initialToolIndex : 0;
+    return {
+      mode: "legacy",
+      defaultToolIndex: normalizedInitialTool,
+      maxKnownTool: palette.length ? palette.length - 1 : null,
+      previewPalette: palette,
+      toolMap: {},
+    };
+  }
+
   _buildPreviewToolState(colors, gcodeText, initialToolIndex) {
     const palette = this._normalizeColors(colors);
     const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
@@ -1380,9 +1540,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
         }
       }
       return {
+        mode: "compact",
         defaultToolIndex: 0,
         previewPalette: previewPalette.filter(Boolean),
         toolMap,
+        maxKnownTool: null,
       };
     }
 
@@ -1408,9 +1570,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
       : 0;
 
     return {
+      mode: "compact",
       defaultToolIndex,
       previewPalette: previewPalette.filter(Boolean),
       toolMap,
+      maxKnownTool: null,
     };
   }
 
@@ -1421,12 +1585,16 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
 
     const normalizedToolState = toolState && typeof toolState === "object" ? toolState : {};
+    const mode = normalizedToolState.mode === "legacy" ? "legacy" : "compact";
     const toolMap = normalizedToolState.toolMap && typeof normalizedToolState.toolMap === "object"
       ? normalizedToolState.toolMap
       : {};
     const defaultToolIndex = Number.isInteger(normalizedToolState.defaultToolIndex) && normalizedToolState.defaultToolIndex >= 0
       ? normalizedToolState.defaultToolIndex
       : 0;
+    const maxKnownTool = Number.isInteger(normalizedToolState.maxKnownTool) && normalizedToolState.maxKnownTool >= 0
+      ? normalizedToolState.maxKnownTool
+      : null;
     const lines = source.split("\n");
     const toolPattern = /^T(\d+)\s*$/;
     let currentTool = null;
@@ -1445,7 +1613,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
 
       let normalizedTool = defaultToolIndex;
-      if (tool === 1000) {
+      if (mode === "legacy") {
+        if (maxKnownTool != null) {
+          if (tool >= 0 && tool <= maxKnownTool) {
+            normalizedTool = tool;
+          } else if (tool === 1000) {
+            normalizedTool = defaultToolIndex;
+          } else if (tool === 255 && currentTool != null) {
+            normalizedTool = currentTool;
+          } else if (currentTool != null) {
+            normalizedTool = currentTool;
+          }
+        }
+      } else if (tool === 1000) {
         normalizedTool = defaultToolIndex;
       } else if (tool === 255 && currentTool != null) {
         normalizedTool = currentTool;
@@ -1532,6 +1712,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
       `<span class='chip'>${renderAnimated ? "Animated Preview" : "Static Preview"}</span>`,
+      `<span class='chip'>${this._viewerSettings.bambuddyGeometry ? "Bambuddy Geometry" : "Legacy Geometry"}</span>`,
+      `<span class='chip'>${this._viewerSettings.hideTravelMoves ? "Travel Hidden" : "Travel Visible"}</span>`,
+      `<span class='chip'>${this._viewerSettings.compactToolRemap ? "Compact Remap" : "Legacy Remap"}</span>`,
     ].filter(Boolean);
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
@@ -1648,7 +1831,9 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
       const colors = this._resolvePreviewColors(capabilities, gcodeText);
       const initialToolIndex = this._resolveInitialToolIndex(colors, gcodeText);
-      const toolState = this._buildPreviewToolState(colors, gcodeText, initialToolIndex);
+      const toolState = this._viewerSettings.compactToolRemap
+        ? this._buildPreviewToolState(colors, gcodeText, initialToolIndex)
+        : this._buildLegacyPreviewToolState(colors, initialToolIndex);
       const previewColors = toolState.previewPalette.length ? toolState.previewPalette : colors;
       const previewGcode = this._normalizePreviewGcode(gcodeText, toolState);
       this._renderCapabilityChips(capabilities, previewColors);
@@ -1672,12 +1857,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
           buildVolume: this._normalizeBuildVolume(capabilities.build_volume),
           extrusionColor: previewColors.length ? previewColors : ["#7DD3C8", "#F59E0B", "#38BDF8", "#F97316"],
           disableGradient: true,
-          lineHeight: 0.2,
-          lineWidth: 2,
+          lineHeight: this._viewerSettings.bambuddyGeometry ? 0.2 : undefined,
+          lineWidth: this._viewerSettings.bambuddyGeometry ? 2 : undefined,
           backgroundColor: "#08101a",
           gridColor: "rgba(125, 211, 200, 0.18)",
           allowDragNDrop: false,
-          renderTravel: false,
+          renderTravel: !this._viewerSettings.hideTravelMoves,
           renderExtrusion: true,
           renderAnimated,
           RenderAnimated: renderAnimated,
