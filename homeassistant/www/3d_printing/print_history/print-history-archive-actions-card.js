@@ -542,18 +542,52 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '</button>';
   }
 
+  _renderActionSection(title, body, options) {
+    var sectionOptions = options || {};
+    var classes = ["action-section"];
+    if (sectionOptions.tone) {
+      classes.push(sectionOptions.tone);
+    }
+    return '<section class="' + classes.join(" ") + '">' +
+      '<div class="section-title">' + this._escapeHtml(title) + '</div>' +
+      body +
+      '</section>';
+  }
+
   _renderMain(archive) {
     var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = String((archive && archive.makerworld_url) || "").trim() ? "View on MakerWorld" : "View Designer";
-    return '<div class="actions-grid">' +
+    var fileActions = '<div class="actions-grid">' +
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
       (hasSource ? this._renderActionButton("download-source-3mf", "Download 3MF", "mdi:file-download-outline", { disabled: this._busy }) : "") +
-      this._renderActionButton("open-makerworld", makerworldLabel, "mdi:earth", { disabled: !makerworldUrl || this._busy }) +
       this._renderActionButton("upload-source-3mf", hasSource ? "Replace Source 3MF" : "Upload Source 3MF", "mdi:upload", { disabled: this._busy }) +
-      this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
-      this._renderActionButton("delete-archive", "Delete Archive", "mdi:delete-outline", { tone: "danger", wide: true, disabled: this._busy }) +
+      '</div>';
+    var linkActions = this._renderActionSection(
+      "Links",
+      '<div class="actions-grid">' +
+        this._renderActionButton("open-makerworld", makerworldLabel, "mdi:earth", { disabled: !makerworldUrl || this._busy }) +
+      '</div>'
+    );
+    var maintenanceActions = this._renderActionSection(
+      "Archive",
+      '<div class="actions-grid single-column">' +
+        this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
+      '</div>'
+    );
+    var dangerActions = this._renderActionSection(
+      "Danger Zone",
+      '<div class="actions-grid single-column">' +
+        this._renderActionButton("delete-archive", "Delete Archive", "mdi:delete-outline", { tone: "danger", disabled: this._busy }) +
+      '</div>',
+      { tone: "danger" }
+    );
+    return '<div class="section-stack">' +
+      this._renderActionSection("Files", fileActions) +
+      linkActions +
+      maintenanceActions +
+      dangerActions +
       '</div>';
   }
 
@@ -591,14 +625,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.status.info{background:rgba(33,150,243,0.10);color:var(--primary-text-color);}' +
       '.status.success{background:rgba(46,125,50,0.14);color:var(--primary-text-color);}' +
       '.status.error{background:rgba(183,28,28,0.14);color:var(--primary-text-color);}' +
+      '.section-stack{display:flex;flex-direction:column;gap:12px;}' +
+      '.action-section{border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.025);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;}' +
+      '.action-section.danger{border-color:rgba(239,68,68,0.18);background:rgba(183,28,28,0.05);}' +
+      '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
       '.actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
-      '.action-button{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;transition:background 120ms ease,border-color 120ms ease,transform 120ms ease;}' +
-      '.action-button:hover:not(:disabled){background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.14);transform:translateY(-1px);}' +
-      '.action-button:disabled{opacity:0.45;cursor:default;transform:none;}' +
+      '.actions-grid.single-column{grid-template-columns:1fr;}' +
+      '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,box-shadow 120ms ease,opacity 120ms ease;}' +
+      '.action-button:hover:not(:disabled),.action-button:focus-visible:not(:disabled){background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 10px 24px rgba(15,23,42,0.16);outline:none;}' +
+      '.action-button:active:not(:disabled){background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);box-shadow:0 0 0 1px rgba(255,255,255,0.04),inset 0 2px 8px rgba(15,23,42,0.22);}' +
+      '.action-button:disabled{opacity:0.45;cursor:default;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);}' +
       '.action-button ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}' +
       '.action-button.warning{background:rgba(239,108,0,0.14);border-color:rgba(255,167,38,0.22);}' +
       '.action-button.danger{background:rgba(183,28,28,0.14);border-color:rgba(239,68,68,0.24);}' +
-      '.action-button.wide{grid-column:1 / -1;}' +
       '.confirm-copy{padding:4px 2px 2px;font-size:14px;line-height:1.55;color:var(--primary-text-color);}' +
       '.confirm-grid{grid-template-columns:1fr;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +

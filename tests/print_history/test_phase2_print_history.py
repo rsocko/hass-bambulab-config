@@ -825,10 +825,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=52", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=5", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -844,7 +844,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', content)
         self.assertIn('window.__printHistoryArchiveActionsCardPromise', content)
-        self.assertIn('print-history-archive-actions-card.js?v=3', content)
+        self.assertIn('print-history-archive-actions-card.js?v=5', content)
+        self.assertIn('Files', action_content)
+        self.assertIn('Links', action_content)
+        self.assertIn('Archive', action_content)
+        self.assertIn('Danger Zone', action_content)
         self.assertIn('Source 3MF attached:', action_content)
         self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', action_content)
         self.assertIn('Download Gcode file', action_content)
