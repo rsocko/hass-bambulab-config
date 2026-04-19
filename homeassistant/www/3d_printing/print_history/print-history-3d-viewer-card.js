@@ -454,21 +454,19 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".layer-scrubber{position:absolute;right:18px;top:92px;bottom:92px;width:30px;display:flex;align-items:center;justify-content:center;z-index:5;}" +
       ".layer-scrubber[hidden]{display:none;}" +
       ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:30px;padding:6px 0;}" +
-      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:8px;transform:translateX(-50%);border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
+      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:8px;transform:translateX(-50%);border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);pointer-events:none;}" +
       ".layer-scrubber-selection{position:absolute;left:50%;width:10px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 1px rgba(255,255,255,0.18),0 0 10px rgba(45,212,191,0.16);pointer-events:none;}" +
-      ".layer-scrubber-cap{position:absolute;left:50%;width:16px;height:16px;transform:translateX(-50%);border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(148,163,184,0.5),rgba(71,85,105,0.72));box-shadow:0 0 0 3px rgba(15,23,42,0.58),0 4px 10px rgba(0,0,0,0.22);pointer-events:none;}" +
-      ".layer-scrubber-cap.top{top:4px;}" +
-      ".layer-scrubber-cap.bottom{bottom:4px;}" +
       ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:slider-vertical;width:30px;height:100%;min-height:220px;writing-mode:bt-lr;background:transparent;cursor:pointer;}" +
       ".layer-scrubber-range:hover,.layer-scrubber-range:focus-visible{outline:none;filter:brightness(1.08);}" +
-      ".layer-scrubber-range::-webkit-slider-runnable-track{width:8px;border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
-      ".layer-scrubber-range:hover::-webkit-slider-runnable-track,.layer-scrubber-range:focus-visible::-webkit-slider-runnable-track{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(148,163,184,0.52),rgba(100,116,139,0.62));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.34),0 0 0 1px rgba(125,211,200,0.1),0 0 10px rgba(125,211,200,0.16);}" +
+      ".layer-scrubber-range::-webkit-slider-runnable-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
+      ".layer-scrubber-range:hover::-webkit-slider-runnable-track,.layer-scrubber-range:focus-visible::-webkit-slider-runnable-track{border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:-5px;border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 3px rgba(15,23,42,0.6),0 6px 14px rgba(0,0,0,0.28);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
       ".layer-scrubber-range.start::-webkit-slider-thumb{background:linear-gradient(180deg,rgba(186,230,253,0.98),rgba(56,189,248,0.94));}" +
       ".layer-scrubber-range:hover::-webkit-slider-thumb,.layer-scrubber-range:focus-visible::-webkit-slider-thumb{transform:scale(1.04);box-shadow:0 0 0 3px rgba(15,23,42,0.68),0 0 0 5px rgba(125,211,200,0.16),0 8px 18px rgba(0,0,0,0.34);background:linear-gradient(180deg,rgba(204,251,241,1),rgba(94,234,212,0.96));}" +
       ".layer-scrubber-range.start:hover::-webkit-slider-thumb,.layer-scrubber-range.start:focus-visible::-webkit-slider-thumb{background:linear-gradient(180deg,rgba(224,242,254,1),rgba(125,211,252,0.96));}" +
-      ".layer-scrubber-range::-moz-range-track{width:8px;border-radius:999px;border:1px solid rgba(203,213,225,0.28);background:linear-gradient(180deg,rgba(148,163,184,0.38),rgba(71,85,105,0.48));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.38),0 0 0 1px rgba(255,255,255,0.05);}" +
-      ".layer-scrubber-range:hover::-moz-range-track,.layer-scrubber-range:focus-visible::-moz-range-track{border-color:rgba(125,211,200,0.42);background:linear-gradient(180deg,rgba(148,163,184,0.52),rgba(100,116,139,0.62));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.34),0 0 0 1px rgba(125,211,200,0.1),0 0 10px rgba(125,211,200,0.16);}" +
+      ".layer-scrubber-range::-moz-range-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
+      ".layer-scrubber-range:hover::-moz-range-track,.layer-scrubber-range:focus-visible::-moz-range-track{border-color:transparent;background:transparent;box-shadow:none;}" +
+      ".layer-scrubber-range::-moz-range-progress{background:transparent;}" +
       ".layer-scrubber-range::-moz-range-thumb{width:18px;height:18px;border-radius:999px;border:2px solid rgba(255,255,255,0.92);background:linear-gradient(180deg,rgba(153,246,228,0.98),rgba(45,212,191,0.94));box-shadow:0 0 0 3px rgba(15,23,42,0.6),0 6px 14px rgba(0,0,0,0.28);transition:transform 0.16s ease,box-shadow 0.16s ease,background 0.16s ease;}" +
       ".layer-scrubber-range.start::-moz-range-thumb{background:linear-gradient(180deg,rgba(186,230,253,0.98),rgba(56,189,248,0.94));}" +
       ".layer-scrubber-range:hover::-moz-range-thumb,.layer-scrubber-range:focus-visible::-moz-range-thumb{transform:scale(1.04);box-shadow:0 0 0 3px rgba(15,23,42,0.68),0 0 0 5px rgba(125,211,200,0.16),0 8px 18px rgba(0,0,0,0.34);background:linear-gradient(180deg,rgba(204,251,241,1),rgba(94,234,212,0.96));}" +
@@ -600,8 +598,6 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='layer-scrubber-track'>" +
       "<div class='layer-scrubber-rail'></div>" +
       "<div id='layer-scrubber-selection' class='layer-scrubber-selection'></div>" +
-      "<div class='layer-scrubber-cap top'></div>" +
-      "<div class='layer-scrubber-cap bottom'></div>" +
       "<input id='layer-scrubber-end-range' class='layer-scrubber-range end' type='range' min='1' max='1' step='1' value='1' aria-label='End layer'>" +
       "<input id='layer-scrubber-start-range' class='layer-scrubber-range start' type='range' min='1' max='1' step='1' value='1' aria-label='Start layer'>" +
       "</div>" +
