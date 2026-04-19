@@ -1864,7 +1864,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_DELETE_PRINT_HISTORY_ARCHIVE,
             async_handle_delete_archive,
             schema=SERVICE_DELETE_ARCHIVE_SCHEMA,
-            supports_response=SupportsResponse.ONLY,
+            supports_response=SupportsResponse.OPTIONAL,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_PRINT_HISTORY_MEDIA_REVIEW_STATE):
         hass.services.async_register(
