@@ -2139,8 +2139,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
     const explicitToolIds = this._extractToolIdsFromGcode(gcodeText);
     const explicitSet = {};
+    const explicitPaletteColors = [];
     explicitToolIds.forEach((toolId) => {
       explicitSet[String(toolId)] = true;
+      if (palette[toolId]) {
+        explicitPaletteColors.push(palette[toolId]);
+      }
     });
 
     const candidateIds = [];
@@ -2151,6 +2155,30 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (candidateIds.length === 1) {
       return candidateIds[0];
+    }
+
+    const unmatchedColorCandidates = candidateIds.filter((candidateId) => {
+      const candidateColor = palette[candidateId];
+      return candidateColor && explicitPaletteColors.indexOf(candidateColor) < 0;
+    });
+    if (unmatchedColorCandidates.length === 1) {
+      return unmatchedColorCandidates[0];
+    }
+
+    const paletteColorCounts = {};
+    palette.forEach((color) => {
+      if (!color) {
+        return;
+      }
+      paletteColorCounts[color] = (paletteColorCounts[color] || 0) + 1;
+    });
+
+    const uniqueColorCandidates = candidateIds.filter((candidateId) => {
+      const candidateColor = palette[candidateId];
+      return candidateColor && paletteColorCounts[candidateColor] === 1;
+    });
+    if (uniqueColorCandidates.length === 1) {
+      return uniqueColorCandidates[0];
     }
 
     const usedColors = this._archiveUsedColors();

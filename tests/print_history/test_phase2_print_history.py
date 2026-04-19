@@ -2022,7 +2022,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=2", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=24", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=49", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
@@ -2228,6 +2228,11 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('archive: this._parseArchiveConfig(config.archive_json || config.archive || null),', script)
         self.assertIn('_archiveUsedColors()', script)
         self.assertIn('_resolveInitialToolIndex(colors, gcodeText)', script)
+        self.assertIn('const explicitPaletteColors = [];', script)
+        self.assertIn('const unmatchedColorCandidates = candidateIds.filter((candidateId) => {', script)
+        self.assertIn('explicitPaletteColors.indexOf(candidateColor) < 0', script)
+        self.assertIn('const uniqueColorCandidates = candidateIds.filter((candidateId) => {', script)
+        self.assertIn('paletteColorCounts[candidateColor] === 1', script)
         self.assertIn('_singleArchiveFallbackColor()', script)
         self.assertIn('const archiveFallbackColor = this._singleArchiveFallbackColor();', script)
         self.assertIn('_extractFilamentColorsFromGcode(gcodeText)', script)
