@@ -207,9 +207,12 @@ async def _build_archive_action_response(
     if not await manager.async_ensure_archive_loaded(archive_id):
         raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
 
-    archive = manager.build_archive_detail_response(archive_id)
-    if archive is None:
+    detail = manager.build_archive_detail_response(archive_id)
+    if detail is None:
         raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+    archive = detail.get("archive") if isinstance(detail, dict) else None
+    if not isinstance(archive, dict):
+        raise HomeAssistantError(f"Archive {archive_id} detail payload is missing archive data")
 
     resource = _resolve_archive_model_resource(archive)
     resource_type = resource["resource_type"]

@@ -827,28 +827,35 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=51", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=37", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=37", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=1", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
         ).read_text("utf-8")
+        action_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-actions-card.js"
+        ).read_text("utf-8")
 
         self.assertIn('action === "advanced-actions"', content)
         self.assertIn('data-action="advanced-actions"', content)
         self.assertIn('icon="mdi:dots-horizontal"', content)
-        self.assertIn('label: "Repair Archive"', content)
-        self.assertIn('label: "Delete Archive"', content)
-        self.assertIn('Archive ID #', content)
-        self.assertIn('grid-template-columns": "104px minmax(0, 1fr)"', content)
-        self.assertIn('width:104px;height:58px', content)
-        self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', content)
-        self.assertIn('Yes, Continue to Delete', content)
-        self.assertIn('**PERMANENTLY REMOVES**', content)
-        self.assertIn('var title = secondLevel ? "Delete Archive Permanently" : "Confirm Archive Delete";', content)
-        self.assertIn('service: "bambuddy.delete_print_history_archive"', content)
-        self.assertIn('No thumbnail or photos are available for this archive yet.', content)
+        self.assertIn('type: "custom:print-history-archive-actions-card"', content)
+        self.assertIn('Source 3MF attached:', action_content)
+        self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', action_content)
+        self.assertIn('Download Source 3MF', action_content)
+        self.assertIn('Replace Source 3MF', action_content)
+        self.assertIn('View on MakerWorld', action_content)
+        self.assertIn('View Designer', action_content)
+        self.assertIn('Open in Slicer', action_content)
+        self.assertIn('PERMANENTLY REMOVES', action_content)
+        self.assertIn('bambuddy/print_history_archive_action', action_content)
+        self.assertIn('/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload', action_content)
+        self.assertIn('bambustudioopen://', action_content)
+        self.assertIn('bambustudio://open?file=', action_content)
+        self.assertIn('delete_print_history_archive', action_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")

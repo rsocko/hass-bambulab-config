@@ -1001,40 +1001,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       title: "Advanced Actions",
       size: "normal",
       content: {
-        type: "vertical-stack",
-        cards: [
-          this._buildArchiveSummaryCard(archive),
-          this._buildPopupActionCard({
-            label: "Repair Archive",
-            icon: "mdi:wrench-cog",
-            background: "rgba(239,108,0,0.18)",
-            border: "1px solid rgba(255,167,38,0.22)",
-            icon_color: "#FFE0B2",
-            tap_action: {
-              action: "fire-dom-event",
-              browser_mod: {
-                service: "browser_mod.sequence",
-                data: {
-                  sequence: this._buildRepairSequence(archive),
-                },
-              },
-            },
-          }),
-          this._buildPopupActionCard({
-            label: "Delete Archive",
-            icon: "mdi:delete-outline",
-            background: "rgba(183,28,28,0.16)",
-            border: "1px solid rgba(239,68,68,0.28)",
-            icon_color: "#FFCDD2",
-            tap_action: {
-              action: "fire-dom-event",
-              browser_mod: {
-                service: "browser_mod.popup",
-                data: this._buildDeleteArchiveConfirmPopup(archive, 1),
-              },
-            },
-          }),
-        ],
+        type: "custom:print-history-archive-actions-card",
+        archive_json: JSON.stringify(archive),
+        detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
+        api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
       },
     });
   }

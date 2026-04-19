@@ -143,7 +143,7 @@ def _install_homeassistant_stubs() -> None:
     websocket_api_module.ActiveConnection = ActiveConnection
     websocket_api_module.websocket_command = lambda _schema: (lambda func: func)
     websocket_api_module.async_response = lambda func: func
-    websocket_api_module.async_register_command = lambda hass, handler: None
+    websocket_api_module.async_register_command = lambda hass, handler: getattr(hass, "websocket_handlers", []).append(handler)
     helpers_module.aiohttp_client = aiohttp_client_module
     util_module.dt = util_dt_module
     http_module.HomeAssistantView = HomeAssistantView
@@ -246,10 +246,13 @@ class FakeApiClient:
     archive_stats: dict[str, object] = {}
     last_fetch_archives_kwargs: dict[str, object] = {}
     uploaded_photos: list[dict[str, object]] = []
+    uploaded_source_3mfs: list[dict[str, object]] = []
     uploaded_replacements: list[dict[str, object]] = []
     deleted_archives: list[int] = []
     updated_archives: list[dict[str, object]] = []
     toggled_favorites: list[int] = []
+    archive_slicer_tokens: list[int] = []
+    source_slicer_tokens: list[int] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -313,6 +316,41 @@ class FakeApiClient:
         }
         type(self).uploaded_photos.append(record)
         return record
+
+    async def async_upload_archive_source_3mf(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, object]:
+        normalized_archive_id = int(archive_id)
+        record = {
+            "archive_id": normalized_archive_id,
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "byte_count": len(content),
+        }
+        type(self).uploaded_source_3mfs.append(record)
+        for index, item in enumerate(type(self).archives):
+            if int(item.get("id", 0)) != normalized_archive_id:
+                continue
+            updated = dict(item)
+            updated["source_3mf_path"] = f"archive_sources/{normalized_archive_id}/{file_name}"
+            type(self).archives[index] = updated
+            break
+        return record
+
+    async def async_create_archive_slicer_token(self, archive_id: int) -> str:
+        normalized_archive_id = int(archive_id)
+        type(self).archive_slicer_tokens.append(normalized_archive_id)
+        return f"archive-{normalized_archive_id}-token"
+
+    async def async_create_source_slicer_token(self, archive_id: int) -> str:
+        normalized_archive_id = int(archive_id)
+        type(self).source_slicer_tokens.append(normalized_archive_id)
+        return f"source-{normalized_archive_id}-token"
 
     async def async_upload_archive_replacement(
         self,
@@ -429,6 +467,7 @@ class FakeHass:
         self.bus = FakeBus()
         self.http = FakeHttp()
         self.data: dict[str, object] = {}
+        self.websocket_handlers: list[object] = []
 
     async def async_add_executor_job(self, func, *args):
         return func(*args)
@@ -458,6 +497,48 @@ class FakeLoop:
         handle = FakeTimerHandle(callback)
         self.handles.append(handle)
         return handle
+
+
+class FakeMultipartPart:
+    def __init__(self, name: str, *, filename: str | None = None, text: str = "", content: bytes = b"", content_type: str = "application/octet-stream") -> None:
+        self.name = name
+        self.filename = filename
+        self._text = text
+        self._content = content
+        self._read = False
+        self.headers = {"Content-Type": content_type}
+
+    async def text(self) -> str:
+        return self._text
+
+    async def read_chunk(self, size: int = 64 * 1024) -> bytes:
+        if self._read:
+            return b""
+        self._read = True
+        return self._content[:size]
+
+
+class FakeMultipartReader:
+    def __init__(self, parts: list[FakeMultipartPart]) -> None:
+        self._parts = list(parts)
+        self._index = 0
+
+    async def next(self):
+        if self._index >= len(self._parts):
+            return None
+        part = self._parts[self._index]
+        self._index += 1
+        return part
+
+
+class FakeMultipartRequest:
+    def __init__(self, hass: FakeHass, archive_id: int, parts: list[FakeMultipartPart]) -> None:
+        self.app = {"hass": hass}
+        self.match_info = {"archive_id": str(archive_id)}
+        self._reader = FakeMultipartReader(parts)
+
+    async def multipart(self):
+        return self._reader
 
 
 def _default_state_map() -> dict[str, str]:
@@ -694,6 +775,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     view_urls = {getattr(view, "url", "") for view in hass.http.views}
     assert const_module.RESTORE_UPLOAD_DISCOVER_URL in view_urls
     assert const_module.ARCHIVE_VIEWER_GCODE_URL in view_urls
+    assert const_module.SOURCE_3MF_UPLOAD_URL in view_urls
+    websocket_handler_names = {getattr(handler, "__name__", "") for handler in hass.websocket_handlers}
+    assert "websocket_handle_archive_action" in websocket_handler_names
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     original_api_client = init_module.BambuddyApiClient
@@ -705,6 +789,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     FakeApiClient.deleted_archives = []
     FakeApiClient.updated_archives = []
     FakeApiClient.toggled_favorites = []
+    FakeApiClient.archive_slicer_tokens = []
+    FakeApiClient.source_slicer_tokens = []
+    FakeApiClient.uploaded_source_3mfs = []
 
     try:
         query_response = asyncio.run(
@@ -899,6 +986,137 @@ def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> Non
     assert gcode_response.status == 200
     assert gcode_response.content_type == "text/plain"
     assert "G1 X42 Y42 E10" in gcode_response.text
+
+
+def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    action_handler = next(handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_action")
+    connection = sys.modules["homeassistant.components.websocket_api"].ActiveConnection()
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.archive_slicer_tokens = []
+    FakeApiClient.source_slicer_tokens = []
+
+    try:
+        asyncio.run(
+            action_handler(
+                hass,
+                connection,
+                {"id": 1, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 101, "intent": "download"},
+            )
+        )
+        asyncio.run(
+            action_handler(
+                hass,
+                connection,
+                {"id": 2, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION, "archive_id": 202, "intent": "open_in_slicer"},
+            )
+        )
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert not connection.errors
+    first_result = connection.results[0][1]
+    second_result = connection.results[1][1]
+    assert first_result["resource_type"] == "file"
+    assert "/api/v1/archives/101/dl/archive-101-token/" in first_result["download_url"]
+    assert second_result["resource_type"] == "source"
+    assert "/api/v1/archives/202/source-dl/source-202-token/" in second_result["download_url"]
+    assert FakeApiClient.archive_slicer_tokens == [101]
+    assert FakeApiClient.source_slicer_tokens == [202]
+
+
+def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.SOURCE_3MF_UPLOAD_URL)
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.uploaded_source_3mfs = []
+
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart(
+                "file",
+                filename="source-model.3mf",
+                content=b"fake-3mf-bytes",
+                content_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            ),
+        ],
+    )
+
+    try:
+        response = asyncio.run(upload_view.post(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["archive"]["source_3mf_path"] == "archive_sources/101/source-model.3mf"
+    assert manager.store.load_archive(101)["source_3mf_path"] == "archive_sources/101/source-model.3mf"
+    assert FakeApiClient.uploaded_source_3mfs == [
+        {
+            "archive_id": 101,
+            "file_name": "source-model.3mf",
+            "mime_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            "byte_count": 14,
+        }
+    ]
 
 
 def test_variant3_restore_workflow_services_manage_upload_plan_verify_and_clear(tmp_path: Path) -> None:
