@@ -1116,7 +1116,6 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     }
 
     var active = this._images[this._activeIndex];
-    var subtitle = this._subtitleForImages(this._images);
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
     var viewerAction = this._buildViewerAction("icon-action viewer");
 
@@ -1128,10 +1127,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       stageImage.decoding = "async";
     }
 
-    Array.from(this.shadowRoot.querySelectorAll(".badge"))
-      .forEach(function (badge, index) {
-        badge.textContent = index === 0 ? active.label : subtitle;
-      });
+    var stageBadge = this.shadowRoot.querySelector(".stage-badge");
+    if (stageBadge) {
+      stageBadge.textContent = active.label;
+    }
 
     var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
     if (topbarActions) {
@@ -1302,7 +1301,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
       ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
       ".icon-action.viewer:active{transform:translateY(0);}" +
-      ".badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
+      ".stage-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,0.58);color:#fff;font-size:11px;font-weight:700;backdrop-filter:blur(10px);}" +
       ".nav{appearance:none;border:none;position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:999px;background:rgba(0,0,0,0.54);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);}" +
       ".nav.prev{left:12px;}" +
       ".nav.next{right:12px;}" +
@@ -1337,8 +1336,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       '<img class="stage-image" src="' + this._escapeHtml(active.src) + '" alt="' + this._escapeHtml(active.filename || active.label || archiveName) + '" loading="eager" decoding="async">' +
       "</button>" +
       '<div class="topbar">' +
-      '<div class="topbar-left"><span class="badge">' + this._escapeHtml(active.label) + "</span>" +
-      '<span class="badge">' + this._escapeHtml(subtitle) + "</span></div>" +
+      '<div class="topbar-left"><span class="stage-badge">' + this._escapeHtml(active.label) + "</span></div>" +
       '<div class="topbar-actions">' + viewerAction + '</div>' +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
