@@ -186,7 +186,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<style>" +
       ":host{display:block;}" +
       "ha-card{padding:0;overflow:hidden;border-radius:24px;background:linear-gradient(180deg,#071019 0%,#09111b 100%);color:#f8fafc;}" +
-      ".shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:18px;}" +
+      ".shell{display:grid;grid-template-rows:auto auto auto;gap:14px;min-height:720px;padding:22px 18px 18px;}" +
       ".panel{border:1px solid rgba(125,211,200,0.18);border-radius:20px;background:rgba(13,23,35,0.94);box-shadow:0 18px 50px rgba(0,0,0,0.22);backdrop-filter:blur(10px);}" +
       ".header{display:grid;gap:12px;padding:18px 20px 16px;}" +
       ".eyebrow{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#7dd3c8;font-weight:700;margin-bottom:6px;}" +
@@ -280,7 +280,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "@keyframes stageSpinner{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}" +
       "@media (max-width:1100px){.viewer-workbench{grid-template-columns:minmax(0,1.35fr) minmax(300px,0.95fr);}}" +
       "@media (max-width:900px){.viewer-workbench{grid-template-columns:1fr;grid-template-areas:'capture' 'stage';}.capture-panel{position:relative;top:auto;min-height:auto;height:auto;}}" +
-      "@media (max-width:720px){.shell{padding:12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
+      "@media (max-width:720px){.shell{padding:16px 12px 12px;min-height:600px;}.header{padding:16px;}.fallback,.capture-panel{padding-left:16px;padding-right:16px;}.capture-panel{padding-top:16px;padding-bottom:16px;}.stage{min-height:58vh;height:58vh;}.stage-toolbar{left:12px;top:12px;right:12px;}.overlay{inset:14px 14px auto auto;max-width:calc(100% - 28px);}.capture-title-row{align-items:stretch;}.capture-actions{width:100%;justify-content:flex-start;}}" +
       "</style>" +
       "<ha-card>" +
       "<div class='shell'>" +
@@ -1450,6 +1450,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
   }
 
+  _archiveChipMarkup() {
+    const archiveId = this._config && this._config.archive_id ? String(this._config.archive_id).trim() : "";
+    if (!archiveId) {
+      return "";
+    }
+    return `<span class='chip'>Archive #${this._escapeHtml(archiveId)}</span>`;
+  }
+
   _renderCapabilityChips(capabilities, colors) {
     const chips = this.shadowRoot && this.shadowRoot.getElementById("capability-chips");
     if (!chips) {
@@ -1458,11 +1466,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
     const buildVolume = this._normalizeBuildVolume(capabilities.build_volume);
     const renderAnimated = this._renderAnimated;
     const chipMarkup = [
+      this._archiveChipMarkup(),
       `<span class='chip${capabilities.has_gcode ? "" : " warn"}'>G-code ${capabilities.has_gcode ? "Available" : "Unavailable"}</span>`,
       `<span class='chip${capabilities.has_model ? "" : " warn"}'>3D Model ${capabilities.has_model ? "Available" : "Unavailable"}</span>`,
       `<span class='chip'>Build ${buildVolume.x} x ${buildVolume.y} x ${buildVolume.z}</span>`,
       `<span class='chip'>${renderAnimated ? "Animated Preview" : "Static Preview"}</span>`,
-    ];
+    ].filter(Boolean);
     if (capabilities.has_source) {
       chipMarkup.push("<span class='chip'>Source 3MF Attached</span>");
     }
@@ -1535,7 +1544,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       return;
     }
 
-    this._setTitle(archiveTitle, `Archive #${archiveId}`);
+    this._setTitle(archiveTitle, "Bambuddy archive preview.");
     this._disposePreview();
     this._hideFallback();
     this._setStageStatus("Loading 3D viewer", "Preparing archive preview inside the render stage.");
