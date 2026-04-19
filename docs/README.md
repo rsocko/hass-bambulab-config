@@ -70,6 +70,7 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 
 ## Repo Docs
 
+- `repo/deployment-workflow-reference.md` — End-to-end reference for the deploy workflow, auto-dispatch wrapper, allowlists, auto-deploy env file, and helper scripts under `.github/scripts/`.
 - `repo/deployment-structure.md` — Deployment profiles, package scope, and workflow safety guards.
 - `repo/dashboard-deployment-behavior.md` — Dashboard/reload behavior and JS cache-bust procedure.
 - `repo/custom-integration-strategy.md` — Architectural guidance for what should become a custom integration versus remain YAML, blueprints, or UI composition.

@@ -7,6 +7,7 @@ This document defines the expected directory structure for this repository so it
 Related operational note:
 
 - [Dashboard Deploy and Reload Behavior](./dashboard-deployment-behavior.md)
+- [Deployment Workflow Reference](./deployment-workflow-reference.md)
 - [Third-Party Attribution](./third-party-attribution.md)
 
 ## Deployment Profiles

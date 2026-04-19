@@ -6,8 +6,8 @@
 #
 # HA uses storage mode for Lovelace resources by default — YAML package
 # definitions under lovelace.resources are silently ignored.  This script
-# bridges the gap by reading the repo manifest and creating missing resource
-# entries via the HA Supervisor CLI (`ha core api`) over SSH.
+# bridges the gap by reading the repo manifest and reconciling the HA storage
+# file over SSH before the workflow's forced Core restart.
 #
 # Usage:
 #   sync_lovelace_resources.sh [--dry-run]
@@ -17,12 +17,12 @@
 #   SSH_OPTS             - SSH option string for connecting to HA
 #   HA_SSH_USER          - SSH user
 #   HA_HOST              - HA host
-#   HA_SUPERVISOR_TOKEN  - (optional) Supervisor API token
+#   HA_CONFIG_PATH       - (optional) Home Assistant config path on target
 #
 # The script:
 #   1. Parses url/type pairs from the manifest (no YAML library needed).
 #   2. Filters to repo-owned resource prefixes only (defaults to /local/3d_printing/).
-#   3. SSHes into HA and fetches existing Lovelace resources via the API.
+#   3. SSHes into HA and loads the Lovelace storage registry from .storage.
 #   4. Creates missing resources and updates managed resources when only the versioned URL changed.
 #   5. Reports created/updated/skipped counts.
 
@@ -144,176 +144,195 @@ else
   echo "=== Syncing Lovelace resources to HA storage ==="
 fi
 
-SUPERVISOR_TOKEN_INPUT="${HA_SUPERVISOR_TOKEN:-}"
+HA_CONFIG_PATH_INPUT="${HA_CONFIG_PATH:-/config}"
 
 set +e
-SYNC_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$SUPERVISOR_TOKEN_INPUT\" \"$DESIRED_SERIALIZED\" \"$DRY_RUN\" \"$STRICT\"" <<'REMOTE_SYNC'
+SYNC_OUTPUT="$(ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "bash -s -- \"$DESIRED_SERIALIZED\" \"$DRY_RUN\" \"$STRICT\" \"$HA_CONFIG_PATH_INPUT\"" <<'REMOTE_SYNC'
 set -euo pipefail
 
-input_token="${1:-}"
-desired_input="${2:-}"
-dry_run="${3:-false}"
-strict="${4:-false}"
+desired_input="${1:-}"
+dry_run="${2:-false}"
+strict="${3:-false}"
+ha_config_path="${4:-/config}"
 
-# Resolve Supervisor token
-if [ -n "$input_token" ]; then
-  export SUPERVISOR_TOKEN="$input_token"
-fi
-if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
-  for token_file in \
-    /run/s6/container_environment/SUPERVISOR_TOKEN \
-    /run/secrets/supervisor_token \
-    /data/supervisor_token
-  do
-    if [ -r "$token_file" ]; then
-      export SUPERVISOR_TOKEN="$(cat "$token_file" 2>/dev/null || true)"
-      [ -n "${SUPERVISOR_TOKEN:-}" ] && break
-    fi
-  done
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required on the Home Assistant host to sync Lovelace resources."
+  exit 1
 fi
 
-# Fetch existing resources
-existing_json="$(ha core api get /api/config/lovelace/resources 2>/dev/null || echo '[]')"
+storage_path="$ha_config_path/.storage/lovelace_resources"
+if [ ! -e "$storage_path" ] && [ -e "/config/.storage/lovelace_resources" ]; then
+  storage_path="/config/.storage/lovelace_resources"
+fi
 
-# Build lookup of existing resources by base URL (without query string)
-declare -A existing_urls=()
-declare -A existing_ids=()
-declare -A existing_types=()
+python3 - "$desired_input" "$dry_run" "$strict" "$storage_path" <<'PY'
+from __future__ import annotations
 
-if command -v python3 >/dev/null 2>&1; then
-  while IFS='|' read -r existing_id existing_url existing_type; do
-    [ -z "$existing_url" ] && continue
-    base_url="${existing_url%%\?*}"
-    existing_urls["$base_url"]="$existing_url"
-    existing_ids["$base_url"]="$existing_id"
-    existing_types["$base_url"]="$existing_type"
-  done < <(python3 - "$existing_json" <<'PY'
 import json
+import os
 import sys
+import tempfile
+import uuid
 
-raw = sys.argv[1] if len(sys.argv) > 1 else "[]"
-try:
-    data = json.loads(raw)
-except Exception:
-    data = []
 
-if not isinstance(data, list):
-    data = []
+def parse_desired(serialized: str) -> list[tuple[str, str]]:
+    desired: list[tuple[str, str]] = []
+    for raw_entry in serialized.split(";"):
+        entry = raw_entry.strip()
+        if not entry:
+            continue
+        try:
+            url, res_type = entry.split("|", 1)
+        except ValueError as error:
+            raise RuntimeError(f"Invalid desired resource entry: {entry}") from error
+        desired.append((url.strip(), res_type.strip()))
+    return desired
 
-for item in data:
+
+def base_url(url: str) -> str:
+    return url.split("?", 1)[0]
+
+
+def load_store(path: str) -> dict:
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Lovelace storage file is not a JSON object: {path}")
+        return data
+
+    return {
+        "key": "lovelace_resources",
+        "version": 1,
+        "data": {"items": []},
+    }
+
+
+def ensure_items(store: dict) -> list[dict]:
+    data = store.setdefault("data", {})
+    if not isinstance(data, dict):
+        raise RuntimeError("Lovelace storage data field is not a JSON object")
+    items = data.setdefault("items", [])
+    if not isinstance(items, list):
+        raise RuntimeError("Lovelace storage items field is not a JSON array")
+    return items
+
+
+def write_store_atomic(path: str, store: dict) -> None:
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(prefix="lovelace_resources.", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(store, handle, ensure_ascii=True, separators=(",", ":"))
+            handle.write("\n")
+        os.replace(temp_path, path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+        raise
+
+
+desired_input = sys.argv[1] if len(sys.argv) > 1 else ""
+dry_run = (sys.argv[2] if len(sys.argv) > 2 else "false").lower() == "true"
+strict = (sys.argv[3] if len(sys.argv) > 3 else "false").lower() == "true"
+storage_path = sys.argv[4] if len(sys.argv) > 4 else "/config/.storage/lovelace_resources"
+
+desired_resources = parse_desired(desired_input)
+store = load_store(storage_path)
+items = ensure_items(store)
+
+print(f"Using Lovelace storage file: {storage_path}")
+
+created_urls: list[str] = []
+updated_urls: list[str] = []
+failed_urls: list[str] = []
+created = 0
+updated = 0
+skipped = 0
+
+lookup: dict[str, dict] = {}
+for item in items:
     if not isinstance(item, dict):
         continue
-    rid = str(item.get("id", ""))
-    url = str(item.get("url", ""))
-    rtype = str(item.get("res_type", item.get("type", "module")))
-    print(f"{rid}|{url}|{rtype}")
+    url = str(item.get("url", "") or "")
+    if not url:
+        continue
+    lookup.setdefault(base_url(url), item)
+
+for url, res_type in desired_resources:
+    resource = lookup.get(base_url(url))
+
+    if resource is None:
+        if dry_run:
+            print(f"WOULD CREATE: {url} (type={res_type})")
+        else:
+            print(f"CREATING: {url} (type={res_type})")
+            new_item = {
+                "id": uuid.uuid4().hex,
+                "type": res_type,
+                "url": url,
+            }
+            items.append(new_item)
+            lookup[base_url(url)] = new_item
+            created_urls.append(url)
+        created += 1
+        continue
+
+    existing_url = str(resource.get("url", "") or "")
+    existing_type = str(resource.get("type", "") or "module")
+
+    if existing_url == url and existing_type == res_type:
+        print(f"SKIP (exists): {url}")
+        skipped += 1
+        continue
+
+    if dry_run:
+        print(f"WOULD UPDATE: {existing_url} -> {url} (type={existing_type} -> {res_type})")
+    else:
+        print(f"UPDATING: {existing_url} -> {url} (type={existing_type} -> {res_type}, id={resource.get('id', '')})")
+        resource["url"] = url
+        resource["type"] = res_type
+        updated_urls.append(url)
+    updated += 1
+
+drift_count = created + updated + len(failed_urls)
+
+if not dry_run and drift_count > 0:
+    try:
+        write_store_atomic(storage_path, store)
+    except Exception as error:
+        for url in created_urls + updated_urls:
+            if url not in failed_urls:
+                failed_urls.append(url)
+        print(f"ERROR: Failed to write Lovelace storage file: {error}")
+        print("One or more Lovelace resource sync operations failed.")
+        sys.exit(1)
+
+if dry_run:
+    print(f"Dry-run summary: {created} would be created, {updated} would be updated, {skipped} already registered.")
+    if strict and drift_count > 0:
+        print("Strict drift check failed: Lovelace storage does not match the managed manifest.")
+        sys.exit(2)
+else:
+    print(f"Resource sync complete: {created} created, {updated} updated, {skipped} already registered, {len(failed_urls)} failed.")
+    if created_urls:
+        print("Created resources:")
+        for url in created_urls:
+            print(f"  - {url}")
+    if updated_urls:
+        print("Updated resources:")
+        for url in updated_urls:
+            print(f"  - {url}")
+    if failed_urls:
+        print("Failed resources:")
+        for url in failed_urls:
+            print(f"  - {url}")
+        print("One or more Lovelace resource sync operations failed.")
+        sys.exit(1)
 PY
-)
-else
-  while IFS= read -r existing_url; do
-    [ -z "$existing_url" ] && continue
-    base_url="${existing_url%%\?*}"
-    existing_urls["$base_url"]="$existing_url"
-  done < <(echo "$existing_json" | grep -o '"url"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/"url"[[:space:]]*:[[:space:]]*"//;s/"$//')
-fi
-
-created=0
-updated=0
-skipped=0
-failed=0
-declare -a created_urls=()
-declare -a updated_urls=()
-declare -a failed_urls=()
-
-IFS=';' read -ra entries <<< "$desired_input"
-for entry in "${entries[@]}"; do
-  [ -z "$entry" ] && continue
-  IFS='|' read -r url res_type <<< "$entry"
-
-  base_url="${url%%\?*}"
-
-  if [ -n "${existing_urls[$base_url]+x}" ]; then
-    existing_url="${existing_urls[$base_url]}"
-    existing_id="${existing_ids[$base_url]:-}"
-
-    if [ "$existing_url" = "$url" ]; then
-      echo "SKIP (exists): $url"
-      skipped=$((skipped + 1))
-      continue
-    fi
-
-    if [ "$dry_run" = "true" ]; then
-      echo "WOULD UPDATE: $existing_url -> $url"
-      updated=$((updated + 1))
-      continue
-    fi
-
-    if [ -z "$existing_id" ]; then
-      echo "WARN: Existing resource URL differs, but ID is unavailable in this shell context. Skipping update: $existing_url -> $url"
-      skipped=$((skipped + 1))
-      continue
-    fi
-
-    echo "UPDATING: $existing_url -> $url (type=$res_type, id=$existing_id)"
-    update_result="$(ha core api post \
-      --raw-json "{\"url\":\"$url\",\"res_type\":\"$res_type\"}" \
-      "/api/config/lovelace/resources/$existing_id" 2>&1)" || {
-      echo "  ERROR: $update_result"
-      failed=$((failed + 1))
-      failed_urls+=("$url")
-      continue
-    }
-    echo "  OK"
-    updated=$((updated + 1))
-    updated_urls+=("$url")
-    continue
-  fi
-
-  if [ "$dry_run" = "true" ]; then
-    echo "WOULD CREATE: $url (type=$res_type)"
-    created=$((created + 1))
-    continue
-  fi
-
-  echo "CREATING: $url (type=$res_type)"
-  result="$(ha core api post \
-    --raw-json "{\"url\":\"$url\",\"res_type\":\"$res_type\"}" \
-    /api/config/lovelace/resources 2>&1)" || {
-    echo "  ERROR: $result"
-    failed=$((failed + 1))
-    failed_urls+=("$url")
-    continue
-  }
-  echo "  OK"
-  created=$((created + 1))
-  created_urls+=("$url")
-done
-
-if [ "$dry_run" = "true" ]; then
-  echo "Dry-run summary: $created would be created, $updated would be updated, $skipped already registered."
-  if [ "$strict" = "true" ] && [ $((created + updated + failed)) -gt 0 ]; then
-    echo "Strict drift check failed: Lovelace storage does not match the managed manifest."
-    exit 2
-  fi
-else
-  echo "Resource sync complete: $created created, $updated updated, $skipped already registered, $failed failed."
-  if [ "${#created_urls[@]}" -gt 0 ]; then
-    echo "Created resources:"
-    printf '  - %s\n' "${created_urls[@]}"
-  fi
-  if [ "${#updated_urls[@]}" -gt 0 ]; then
-    echo "Updated resources:"
-    printf '  - %s\n' "${updated_urls[@]}"
-  fi
-  if [ "${#failed_urls[@]}" -gt 0 ]; then
-    echo "Failed resources:"
-    printf '  - %s\n' "${failed_urls[@]}"
-  fi
-  if [ "$failed" -gt 0 ]; then
-    echo "One or more Lovelace resource sync operations failed."
-    exit 1
-  fi
-fi
 REMOTE_SYNC
 2>&1)"
 SYNC_EXIT=$?

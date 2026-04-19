@@ -78,6 +78,7 @@ This repo is a collection of the configuration and automation that I use within 
 This repository is organized to work with the HAOS deployment workflow and allowlist profiles in `.github/workflows/deploy-homeassistant-template.yml`.
 
 - Structure guide: [docs/repo/repo-layout.md](docs/repo/repo-layout.md)
+- Workflow and script reference: [docs/repo/deployment-workflow-reference.md](docs/repo/deployment-workflow-reference.md)
 - Profile summary:
   - `yaml_only`: deploy all `*.yaml` / `*.yml`
   - `packages_only`: deploy only `packages/**/*.yaml` / `packages/**/*.yml`

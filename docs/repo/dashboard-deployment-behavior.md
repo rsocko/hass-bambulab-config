@@ -58,7 +58,14 @@ Resources must be registered through one of:
 
 The file `common/dashboards/_resources.yaml` is kept as a **reference manifest** of custom
 resources this repo provides. It is not loaded by HA at runtime but documents which
-`/local/...` URLs need to be registered in the HA UI/storage after deployment.
+`/local/...` URLs need to be registered in the HA UI/storage after deployment. In this
+repo it is also part of the deploy/resource-sync contract for versioned JS resource URLs.
+
+Operational rule for this repo:
+
+1. When a tracked custom JS resource changes, also increment its URL in `common/dashboards/_resources.yaml`.
+2. The changed `?v=` value is what tells the deploy/resource sync that the resource URL changed and should be updated in HA storage.
+3. After deploy, recommend a browser hard refresh so the frontend fetches the new module URL immediately.
 
 #### Automated resource registration (workflow)
 
@@ -85,6 +92,13 @@ Script: [.github/scripts/sync_lovelace_resources.sh](../../.github/scripts/sync_
 2. Add an entry to `common/dashboards/_resources.yaml`.
 3. Deploy with a `www`-enabled profile — the workflow registers it automatically.
 
+**Updating an existing JS resource in the repo:**
+
+1. Edit the `.js` file under `homeassistant/www/3d_printing/<feature>/`.
+2. Increment that resource's URL in `common/dashboards/_resources.yaml` by changing the `?v=` cache-bust suffix.
+3. Deploy with a `www`-enabled profile so the workflow updates HA storage to the new URL.
+4. Recommend a browser hard refresh after deploy.
+
 #### Manual resource registration (fallback)
 
 If the automated sync fails (for example, Supervisor token issue), register manually:
@@ -95,6 +109,8 @@ If the automated sync fails (for example, Supervisor token issue), register manu
 4. Hard refresh browser (`Ctrl+F5`)
 
 If a registered JS resource still fails to load, verify the underlying static file exists at the corresponding `/config/www/...` path (served as `/local/...`). Registration in HA storage and file deployment are separate steps; a missing file will produce a browser 404 even when the resource entry exists.
+
+Even when the automated sync succeeds, JS resource updates should still be followed by a user hard refresh to clear any stale frontend module cache.
 
 ## 4) Restart required or not?
 
@@ -186,8 +202,9 @@ UI steps:
 
 Notes:
 
+- In normal repo workflow, do this by incrementing the matching entry in `common/dashboards/_resources.yaml` before deploy, not by relying on a manual post-deploy UI edit.
 - Use this as a break-glass step when normal refresh/restart did not pick up JS updates.
-- Resources are managed in HA storage (UI/API), not in YAML. The file `common/dashboards/_resources.yaml` serves as a reference manifest only.
+- Resources are managed in HA storage (UI/API), not in YAML. The file `common/dashboards/_resources.yaml` is not runtime-loaded directly, but it is still the repo-side source of truth the deploy workflow uses to sync versioned resource URLs into HA storage.
 
 ## 9.1) Auto-dispatch behavior for JS resource changes
 
