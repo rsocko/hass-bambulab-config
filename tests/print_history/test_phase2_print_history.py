@@ -818,7 +818,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=36", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=28", content)
-        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -1651,6 +1651,18 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("if (rightTray) {", content)
         self.assertIn("return 1;", content)
 
+    def test_archive_filament_breakdown_card_compact_header_aligns_total_and_sort_toggle(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "common" / "print-filament-breakdown-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('const headerSideHtml = `<div class="header-side${sortToggleHtml ? " has-sort-toggle" : ""}"><div class="total">${this._escapeHtml(view.totalLabel)}</div>${sortToggleHtml}</div>`;', content)
+        self.assertIn('.header-side {', content)
+        self.assertIn('justify-content: flex-end;', content)
+        self.assertIn('.header-compact .header-side {', content)
+        self.assertIn('justify-content: space-between;', content)
+        self.assertNotIn('header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>', content)
+
     def test_popup_timeline_uses_mobile_responsive_layout(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
         self.assertIn(".print-history-popup-timeline{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:\"start duration end\" \"track track track\";", content)
@@ -2080,7 +2092,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('preview.sceneManager.renderAnimated()', script)
         self.assertIn('Animated Preview', script)
         self.assertIn('Static Preview', script)
+        self.assertIn('"<div class=\'eyebrow\'>3D Viewer</div>" +', script)
         self.assertIn('"<h1 id=\'viewer-title\'>3D Viewer</h1>" +', script)
+        self.assertNotIn('Print History Viewer', script)
         self.assertIn('this._setTitle("3D Viewer", `${archiveTitle} · Archive #${archiveId}`);', script)
         self.assertIn("Rendered Bambuddy G-code preview. Use drag, pan, and zoom inside the canvas.", script)
         self.assertIn('scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })', script)

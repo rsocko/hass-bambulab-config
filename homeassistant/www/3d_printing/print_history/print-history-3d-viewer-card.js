@@ -290,7 +290,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<section class='panel'>" +
       "<div class='header'>" +
       "<div>" +
-      "<div class='eyebrow'>Print History Viewer</div>" +
+        "<div class='eyebrow'>3D Viewer</div>" +
       "<h1 id='viewer-title'>3D Viewer</h1>" +
       "</div>" +
       "<div class='header-meta'>" +
