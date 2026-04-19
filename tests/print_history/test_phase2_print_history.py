@@ -1465,6 +1465,33 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("sensor.print_history_filter_tags_summary", browser_yaml_content)
         self.assertIn("script.clear_print_history_tag_filter", browser_yaml_content)
 
+    def test_tag_filter_summary_prefers_single_tag_labels_and_plural_mode_summary(self):
+        summary_content = (HISTORY / "template_sensors" / "print_history_filter_tags_summary.yaml").read_text("utf-8")
+
+        self.assertIn("{% set normalized_mode = mode if mode in ['Any', 'All'] else 'Any' %}", summary_content)
+        self.assertIn("{% set ns = namespace(values=[], labels=[]) %}", summary_content)
+        self.assertIn("{{ ns.labels[0] }}", summary_content)
+        self.assertIn("{{ normalized_mode }} of {{ ns.values | count }} Tags", summary_content)
+        self.assertIn("selected_tags_preview", summary_content)
+        self.assertIn("selected_tags_tooltip", summary_content)
+        self.assertIn("Show only prints without user tags.", summary_content)
+
+    def test_tag_filter_popup_uses_compact_toggle_buttons(self):
+        browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")
+
+        self.assertIn("type: custom:config-template-card", browser_yaml_content)
+        self.assertIn("title: Selected Tags", browser_yaml_content)
+        self.assertIn("helper: Choose one or more tags. Untagged is a separate toggle.", browser_yaml_content)
+        self.assertIn("name: Untagged", browser_yaml_content)
+        self.assertIn("action: toggle", browser_yaml_content)
+        self.assertIn("name: Clear Tags", browser_yaml_content)
+        self.assertIn("service: script.clear_print_history_tag_filter", browser_yaml_content)
+        self.assertIn("name: Any", browser_yaml_content)
+        self.assertIn("option: Any", browser_yaml_content)
+        self.assertIn("name: All", browser_yaml_content)
+        self.assertIn("option: All", browser_yaml_content)
+        self.assertIn("**Current:**", browser_yaml_content)
+
     def test_archive_error_filter_wired_into_browser_contract(self):
         browser_card_content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
         browser_yaml_content = (HISTORY / "dashboard_cards" / "print_history_browser.yaml").read_text("utf-8")

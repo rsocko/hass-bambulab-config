@@ -10,13 +10,15 @@
       state: >-
         {% set raw = states('input_text.print_history_filter_tags') | string %}
         {% set mode = states('input_select.print_history_filter_tags_mode') | string | trim %}
+        {% set normalized_mode = mode if mode in ['Any', 'All'] else 'Any' %}
         {% set untagged_only = is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') %}
         {% set cleaned = raw.split(',') | map('trim') | reject('equalto', '') | list %}
-        {% set ns = namespace(values=[]) %}
+        {% set ns = namespace(values=[], labels=[]) %}
         {% for tag in cleaned %}
           {% set lowered = tag | lower %}
           {% if lowered not in ns.values %}
             {% set ns.values = ns.values + [lowered] %}
+            {% set ns.labels = ns.labels + [tag] %}
           {% endif %}
         {% endfor %}
         {% if untagged_only %}
@@ -24,9 +26,9 @@
         {% elif ns.values | count == 0 %}
           All
         {% elif ns.values | count == 1 %}
-          1 {{ mode if mode in ['Any', 'All'] else 'Any' }}
+          {{ ns.labels[0] }}
         {% else %}
-          {{ ns.values | count }} {{ mode if mode in ['Any', 'All'] else 'Any' }}
+          {{ normalized_mode }} of {{ ns.values | count }} Tags
         {% endif %}
       attributes:
         selected_count: >-
@@ -41,3 +43,42 @@
           {{ ns.values | count }}
         mode: "{{ states('input_select.print_history_filter_tags_mode') | string | trim }}"
         untagged_only: "{{ is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') }}"
+        selected_tags_preview: >-
+          {% set cleaned = states('input_text.print_history_filter_tags').split(',') | map('trim') | reject('equalto', '') | list %}
+          {% set ns = namespace(values=[], labels=[]) %}
+          {% for tag in cleaned %}
+            {% set lowered = tag | lower %}
+            {% if lowered not in ns.values %}
+              {% set ns.values = ns.values + [lowered] %}
+              {% set ns.labels = ns.labels + [tag] %}
+            {% endif %}
+          {% endfor %}
+          {% if is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') %}
+            Untagged only
+          {% elif ns.labels | count == 0 %}
+            All tags
+          {% else %}
+            {% set preview = ns.labels[:4] | join(', ') %}
+            {{ preview }}{% if ns.labels | count > 4 %} + {{ ns.labels | count - 4 }} more{% endif %}
+          {% endif %}
+        selected_tags_tooltip: >-
+          {% set cleaned = states('input_text.print_history_filter_tags').split(',') | map('trim') | reject('equalto', '') | list %}
+          {% set mode = states('input_select.print_history_filter_tags_mode') | string | trim %}
+          {% set normalized_mode = mode if mode in ['Any', 'All'] else 'Any' %}
+          {% set ns = namespace(values=[], labels=[]) %}
+          {% for tag in cleaned %}
+            {% set lowered = tag | lower %}
+            {% if lowered not in ns.values %}
+              {% set ns.values = ns.values + [lowered] %}
+              {% set ns.labels = ns.labels + [tag] %}
+            {% endif %}
+          {% endfor %}
+          {% if is_state('input_boolean.print_history_filter_tags_untagged_only', 'on') %}
+            Show only prints without user tags.
+          {% elif ns.labels | count == 0 %}
+            No tag filter active.
+          {% elif ns.labels | count == 1 %}
+            Filtered to tag {{ ns.labels[0] }}.
+          {% else %}
+            {{ normalized_mode }} match across {{ ns.labels | count }} tags: {% set preview = ns.labels[:4] | join(', ') %}{{ preview }}{% if ns.labels | count > 4 %} + {{ ns.labels | count - 4 }} more{% endif %}.
+          {% endif %}
