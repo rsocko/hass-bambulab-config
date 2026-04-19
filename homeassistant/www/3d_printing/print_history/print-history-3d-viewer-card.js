@@ -60,7 +60,14 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._lineHeightValue = null;
     this._layerScrubberToggleButton = null;
     this._layerScrubberPanel = null;
+    this._layerScrubberTrack = null;
     this._layerScrubberEndRange = null;
+    this._layerScrubberHandle = null;
+    this._layerScrubberTooltip = null;
+    this._layerScrubberTooltipVisible = false;
+    this._layerScrubberHovering = false;
+    this._layerScrubberFocused = false;
+    this._layerScrubberDragging = false;
     this._buildVolumeToggleButton = null;
     this._buildVolumeXInput = null;
     this._buildVolumeYInput = null;
@@ -91,6 +98,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._boundLineHeightInputHandler = this._handleLineHeightInput.bind(this);
     this._boundLayerScrubberToggleHandler = this._handleLayerScrubberToggle.bind(this);
     this._boundLayerScrubberInputHandler = this._handleLayerScrubberInput.bind(this);
+    this._boundLayerScrubberPointerEnterHandler = this._handleLayerScrubberPointerEnter.bind(this);
+    this._boundLayerScrubberPointerLeaveHandler = this._handleLayerScrubberPointerLeave.bind(this);
+    this._boundLayerScrubberPointerDownHandler = this._handleLayerScrubberPointerDown.bind(this);
+    this._boundLayerScrubberFocusHandler = this._handleLayerScrubberFocus.bind(this);
+    this._boundLayerScrubberBlurHandler = this._handleLayerScrubberBlur.bind(this);
     this._boundBuildVolumeToggleHandler = this._handleBuildVolumeToggle.bind(this);
     this._boundBuildVolumeDimensionInputHandler = this._handleBuildVolumeDimensionInput.bind(this);
     this._boundBuildVolumeZInputHandler = this._handleBuildVolumeZInput.bind(this);
@@ -196,7 +208,21 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.removeEventListener("input", this._boundLayerScrubberInputHandler);
+      this._layerScrubberEndRange.removeEventListener("pointerenter", this._boundLayerScrubberPointerEnterHandler);
+      this._layerScrubberEndRange.removeEventListener("pointerleave", this._boundLayerScrubberPointerLeaveHandler);
+      this._layerScrubberEndRange.removeEventListener("pointerdown", this._boundLayerScrubberPointerDownHandler);
+      this._layerScrubberEndRange.removeEventListener("focus", this._boundLayerScrubberFocusHandler);
+      this._layerScrubberEndRange.removeEventListener("blur", this._boundLayerScrubberBlurHandler);
       this._layerScrubberEndRange = null;
+    }
+    if (this._layerScrubberTrack) {
+      this._layerScrubberTrack = null;
+    }
+    if (this._layerScrubberHandle) {
+      this._layerScrubberHandle = null;
+    }
+    if (this._layerScrubberTooltip) {
+      this._layerScrubberTooltip = null;
     }
     if (this._buildVolumeToggleButton) {
       this._buildVolumeToggleButton.removeEventListener("click", this._boundBuildVolumeToggleHandler);
@@ -455,21 +481,25 @@ class PrintHistory3dViewerCard extends HTMLElement {
       ".configuration-number,.configuration-color{width:100%;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid rgba(125,211,200,0.18);background:linear-gradient(180deg,rgba(24,37,50,0.96),rgba(10,18,29,0.98));color:#f8fafc;box-sizing:border-box;}" +
       ".configuration-color{padding:4px 6px;}" +
       ".configuration-inline-note{font-size:0.74rem;line-height:1.45;color:#8fa5b6;}" +
-      ".layer-scrubber{position:absolute;right:18px;top:92px;bottom:92px;width:30px;display:flex;align-items:center;justify-content:center;z-index:5;}" +
+      ".layer-scrubber{position:absolute;right:16px;top:92px;bottom:92px;width:44px;display:flex;align-items:center;justify-content:center;z-index:5;}" +
       ".layer-scrubber[hidden]{display:none;}" +
-      ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:24px;padding:8px 0;}" +
-      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:4px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(148,163,184,0.24),rgba(71,85,105,0.3));pointer-events:none;}" +
-      ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:none;width:24px;height:100%;min-height:220px;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer;}" +
+      ".layer-scrubber-track{position:relative;display:flex;align-items:center;justify-content:center;min-height:0;height:100%;width:28px;padding:8px 0;}" +
+      ".layer-scrubber-rail{position:absolute;top:12px;bottom:12px;left:50%;width:6px;transform:translateX(-50%);border-radius:999px;background:linear-gradient(180deg,rgba(203,213,225,0.46),rgba(100,116,139,0.62));box-shadow:inset 0 0 0 1px rgba(15,23,42,0.34),0 0 0 1px rgba(255,255,255,0.05);pointer-events:none;}" +
+      ".layer-scrubber-range{position:absolute;inset:0;appearance:none;-webkit-appearance:none;width:28px;height:100%;min-height:220px;writing-mode:vertical-lr;direction:rtl;background:transparent;cursor:pointer;z-index:2;}" +
       ".layer-scrubber-range:hover,.layer-scrubber-range:focus-visible{outline:none;filter:brightness(1.08);}" +
       ".layer-scrubber-range::-webkit-slider-runnable-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range:hover::-webkit-slider-runnable-track,.layer-scrubber-range:focus-visible::-webkit-slider-runnable-track{border-color:transparent;background:transparent;box-shadow:none;}" +
-      ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-left:0;border-radius:999px;border:none;background:#38bdf8;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease;}" +
-      ".layer-scrubber-range:hover::-webkit-slider-thumb,.layer-scrubber-range:focus-visible::-webkit-slider-thumb{transform:scale(1.04);box-shadow:0 0 0 2px rgba(8,15,26,0.86),0 0 0 4px rgba(125,211,252,0.12),0 4px 12px rgba(0,0,0,0.28);}" +
+      ".layer-scrubber-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-left:0;border-radius:999px;border:none;background:transparent;box-shadow:none;}" +
+      ".layer-scrubber-range:hover::-webkit-slider-thumb,.layer-scrubber-range:focus-visible::-webkit-slider-thumb{transform:none;box-shadow:none;}" +
       ".layer-scrubber-range::-moz-range-track{width:8px;border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range:hover::-moz-range-track,.layer-scrubber-range:focus-visible::-moz-range-track{border-color:transparent;background:transparent;box-shadow:none;}" +
       ".layer-scrubber-range::-moz-range-progress{background:transparent;}" +
-      ".layer-scrubber-range::-moz-range-thumb{width:12px;height:12px;border-radius:999px;border:none;background:#38bdf8;box-shadow:0 0 0 2px rgba(8,15,26,0.82),0 2px 8px rgba(0,0,0,0.22);transition:transform 0.16s ease,box-shadow 0.16s ease;}" +
-      ".layer-scrubber-range:hover::-moz-range-thumb,.layer-scrubber-range:focus-visible::-moz-range-thumb{transform:scale(1.04);box-shadow:0 0 0 2px rgba(8,15,26,0.86),0 0 0 4px rgba(125,211,252,0.12),0 4px 12px rgba(0,0,0,0.28);}" +
+      ".layer-scrubber-range::-moz-range-thumb{width:18px;height:18px;border-radius:999px;border:none;background:transparent;box-shadow:none;}" +
+      ".layer-scrubber-range:hover::-moz-range-thumb,.layer-scrubber-range:focus-visible::-moz-range-thumb{transform:none;box-shadow:none;}" +
+      ".layer-scrubber-handle{position:absolute;left:50%;top:12px;width:14px;height:14px;border-radius:999px;border:none;background:#38bdf8;box-shadow:0 0 0 2px rgba(8,15,26,0.88),0 0 0 4px rgba(56,189,248,0.12),0 6px 14px rgba(0,0,0,0.28);transform:translate(-50%,-50%);pointer-events:none;z-index:1;transition:top 0.06s linear,transform 0.16s ease,box-shadow 0.16s ease;}" +
+      ".layer-scrubber:hover .layer-scrubber-handle,.layer-scrubber-range:focus-visible ~ .layer-scrubber-handle{transform:translate(-50%,-50%) scale(1.04);box-shadow:0 0 0 2px rgba(8,15,26,0.9),0 0 0 5px rgba(125,211,252,0.14),0 8px 18px rgba(0,0,0,0.34);}" +
+      ".layer-scrubber-tooltip{position:absolute;left:-12px;top:12px;display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;border:1px solid rgba(125,211,200,0.24);background:linear-gradient(180deg,rgba(14,25,39,0.96),rgba(8,16,27,0.98));box-shadow:0 12px 24px rgba(0,0,0,0.24);color:#f8fafc;font-size:0.76rem;font-weight:700;letter-spacing:0.01em;white-space:nowrap;transform:translate(calc(-100% - 4px),-50%);pointer-events:none;z-index:3;}" +
+      ".layer-scrubber-tooltip[hidden]{display:none;}" +
       ".overlay{position:absolute;inset:18px 18px auto auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:calc(100% - 36px);pointer-events:none;}" +
       ".overlay .chip{pointer-events:auto;}" +
       ".crop-layer{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 0.14s ease;z-index:3;}" +
@@ -597,6 +627,8 @@ class PrintHistory3dViewerCard extends HTMLElement {
       "<div class='layer-scrubber-track'>" +
       "<div class='layer-scrubber-rail'></div>" +
       "<input id='layer-scrubber-end-range' class='layer-scrubber-range' type='range' min='1' max='1' step='1' value='1' aria-label='Visible layers'>" +
+      "<div id='layer-scrubber-handle' class='layer-scrubber-handle' aria-hidden='true'></div>" +
+      "<div id='layer-scrubber-tooltip' class='layer-scrubber-tooltip' hidden></div>" +
       "</div>" +
       "</div>" +
       "<canvas id='viewer-canvas' class='canvas'></canvas>" +
@@ -694,7 +726,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._travelColorInput = this.shadowRoot.getElementById("travel-color-input");
     this._gradientToggleButton = this.shadowRoot.getElementById("gradient-toggle-button");
     this._layerScrubberPanel = this.shadowRoot.getElementById("layer-scrubber");
+    this._layerScrubberTrack = this.shadowRoot.querySelector(".layer-scrubber-track");
     this._layerScrubberEndRange = this.shadowRoot.getElementById("layer-scrubber-end-range");
+    this._layerScrubberHandle = this.shadowRoot.getElementById("layer-scrubber-handle");
+    this._layerScrubberTooltip = this.shadowRoot.getElementById("layer-scrubber-tooltip");
     this._captureButton = this.shadowRoot.getElementById("capture-button");
     this._cropToggleButton = this.shadowRoot.getElementById("crop-toggle-button");
     this._cropAspectSelect = this.shadowRoot.getElementById("crop-aspect-select");
@@ -760,6 +795,11 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     if (this._layerScrubberEndRange) {
       this._layerScrubberEndRange.addEventListener("input", this._boundLayerScrubberInputHandler);
+      this._layerScrubberEndRange.addEventListener("pointerenter", this._boundLayerScrubberPointerEnterHandler);
+      this._layerScrubberEndRange.addEventListener("pointerleave", this._boundLayerScrubberPointerLeaveHandler);
+      this._layerScrubberEndRange.addEventListener("pointerdown", this._boundLayerScrubberPointerDownHandler);
+      this._layerScrubberEndRange.addEventListener("focus", this._boundLayerScrubberFocusHandler);
+      this._layerScrubberEndRange.addEventListener("blur", this._boundLayerScrubberBlurHandler);
     }
     if (this._captureButton) {
       this._captureButton.addEventListener("click", this._boundCaptureHandler);
@@ -879,6 +919,12 @@ class PrintHistory3dViewerCard extends HTMLElement {
     };
   }
 
+  _layerScrubberLabel() {
+    const totalLayers = Math.max(this._totalLayers, 0);
+    const layerWindow = this._effectiveLayerWindow();
+    return `Layer ${totalLayers ? layerWindow.endLayer : 0} / ${totalLayers}`;
+  }
+
   _resolvePreviewLayerCount(preview) {
     if (!preview) {
       return 0;
@@ -912,7 +958,62 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _updateLayerScrubberSelection() {
-    return;
+    this._updateLayerScrubberVisuals();
+  }
+
+  _updateLayerScrubberVisuals() {
+    const range = this._layerScrubberEndRange;
+    const track = this._layerScrubberTrack;
+    const handle = this._layerScrubberHandle;
+    const tooltip = this._layerScrubberTooltip;
+    if (!range || !track || !handle || !tooltip) {
+      return;
+    }
+
+    const minValue = Number(range.min || 0);
+    const maxValue = Number(range.max || 1);
+    const currentValue = Number(range.value || maxValue);
+    const trackTop = 12;
+    const trackBottom = 12;
+    const usableHeight = Math.max(track.clientHeight - trackTop - trackBottom, 0);
+    const progress = maxValue > minValue ? (maxValue - currentValue) / (maxValue - minValue) : 0;
+    const offsetTop = trackTop + (usableHeight * progress);
+
+    handle.style.top = `${offsetTop}px`;
+    tooltip.style.top = `${offsetTop}px`;
+    tooltip.textContent = this._layerScrubberLabel();
+    tooltip.hidden = !this._viewerSettings.showLayerScrubber || !this._layerScrubberTooltipVisible;
+    range.setAttribute("aria-valuetext", this._layerScrubberLabel());
+  }
+
+  _syncLayerScrubberTooltipVisibility() {
+    this._layerScrubberTooltipVisible = this._layerScrubberHovering || this._layerScrubberFocused || this._layerScrubberDragging;
+    this._updateLayerScrubberVisuals();
+  }
+
+  _handleLayerScrubberPointerEnter() {
+    this._layerScrubberHovering = true;
+    this._syncLayerScrubberTooltipVisibility();
+  }
+
+  _handleLayerScrubberPointerLeave() {
+    this._layerScrubberHovering = false;
+    this._syncLayerScrubberTooltipVisibility();
+  }
+
+  _handleLayerScrubberPointerDown() {
+    this._layerScrubberDragging = true;
+    this._syncLayerScrubberTooltipVisibility();
+  }
+
+  _handleLayerScrubberFocus() {
+    this._layerScrubberFocused = true;
+    this._syncLayerScrubberTooltipVisibility();
+  }
+
+  _handleLayerScrubberBlur() {
+    this._layerScrubberFocused = false;
+    this._syncLayerScrubberTooltipVisibility();
   }
 
   _applyLayerScrubberState() {
@@ -923,6 +1024,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._viewerSettings.endLayer = window.endLayer;
     this._setPreviewLayerWindow(this._preview, window.startLayer, window.endLayer);
     this._renderPreviewInPlace();
+    this._updateLayerScrubberVisuals();
   }
 
   _scheduleLayerScrubberApply() {
@@ -1027,6 +1129,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
     }
     this._viewerSettings.endLayer = this._clampNumber(target.value, 1, maxLayer, maxLayer);
     this._updateConfigurationControls();
+    this._syncLayerScrubberTooltipVisibility();
     this._scheduleLayerScrubberApply();
   }
 
@@ -1184,6 +1287,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       this._layerScrubberEndRange.value = String(layerWindow.endLayer);
       this._layerScrubberEndRange.disabled = this._totalLayers <= 1;
     }
+    this._updateLayerScrubberVisuals();
     if (this._buildVolumeXInput) {
       this._buildVolumeXInput.value = String(Math.round(effectiveBuildVolume.x));
     }
@@ -1759,6 +1863,10 @@ class PrintHistory3dViewerCard extends HTMLElement {
   }
 
   _handleWindowPointerUp() {
+    if (this._layerScrubberDragging) {
+      this._layerScrubberDragging = false;
+      this._syncLayerScrubberTooltipVisibility();
+    }
     if (!this._cropDrag) {
       return;
     }
@@ -1767,6 +1875,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
 
   _handleWindowResize() {
     this._syncViewerCanvasSize();
+    this._updateLayerScrubberVisuals();
     if (!this._cropMode) {
       return;
     }
