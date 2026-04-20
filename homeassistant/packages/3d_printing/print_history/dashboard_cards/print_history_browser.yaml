@@ -153,40 +153,55 @@ cards:
               title: Print History Settings
               size: normal
               content:
-                type: entities
-                show_header_toggle: false
-                entities:
-                  - entity: input_boolean.capture_at_start
-                    name: At Start
-                  - entity: input_boolean.capture_at_midprint
-                    name: Mid-Print
-                  - entity: input_boolean.capture_near_complete
-                    name: Near Complete
-                  - entity: input_boolean.capture_on_complete
-                    name: On Complete
-                  - entity: input_boolean.capture_on_error
-                    name: On Error
-                  - type: divider
-                  - entity: input_number.midprint_capture_percent
-                    name: Mid-Print %
-                  - entity: input_text.bambuddy_capture_camera_entities
-                    name: Capture Cameras
-                  - entity: script.set_print_history_capture_cameras
-                    name: Configure Capture Cameras
-                  - type: divider
-                  - entity: input_boolean.bambuddy_history_sync_enabled
-                    name: History Sync
-                  - entity: input_number.print_history_max_archives
-                    name: Max Cached
-                  - entity: input_text.print_history_filter_start_date
-                    name: Filter Start Date (YYYY-MM-DD)
-                  - entity: input_text.print_history_filter_end_date
-                    name: Filter End Date (YYYY-MM-DD)
-                  - entity: input_number.photo_review_timeout_hours
-                    name: Review Timeout (hrs)
-                  - type: divider
-                  - entity: input_boolean.print_history_debug_instrumentation
-                    name: Debug Instrumentation
+                  type: vertical-stack
+                  cards:
+                    - type: markdown
+                      content: |
+                        Tune archive capture, browser retention, and debug behavior without exposing runtime-only workflow state.
+                    - type: entities
+                      title: Capture Timing
+                      show_header_toggle: false
+                      entities:
+                        - entity: input_boolean.capture_at_start
+                          name: Capture at Start
+                        - entity: input_boolean.capture_at_midprint
+                          name: Capture Mid-Print
+                        - entity: input_number.midprint_capture_percent
+                          name: Mid-Print Threshold (%)
+                        - entity: input_boolean.capture_near_complete
+                          name: Capture Near Complete
+                        - entity: input_boolean.capture_on_complete
+                          name: Capture on Complete
+                        - entity: input_boolean.capture_on_error
+                          name: Capture on Error
+                    - type: entities
+                      title: Cameras
+                      show_header_toggle: false
+                      entities:
+                        - entity: input_text.bambuddy_capture_camera_entities
+                          name: Capture Cameras
+                        - entity: script.set_print_history_capture_cameras
+                          name: Configure Capture Cameras
+                    - type: entities
+                      title: History Browser
+                      show_header_toggle: false
+                      entities:
+                        - entity: input_boolean.bambuddy_history_sync_enabled
+                          name: History Sync Enabled
+                        - entity: input_number.print_history_max_archives
+                          name: Max Cached Archives
+                        - entity: input_text.print_history_filter_start_date
+                          name: Filter Start Date (YYYY-MM-DD)
+                        - entity: input_text.print_history_filter_end_date
+                          name: Filter End Date (YYYY-MM-DD)
+                    - type: entities
+                      title: Review and Diagnostics
+                      show_header_toggle: false
+                      entities:
+                        - entity: input_number.photo_review_timeout_hours
+                          name: Review Timeout (hrs)
+                        - entity: input_boolean.print_history_debug_instrumentation
+                          name: Debug Instrumentation
     styles: |
       .bubble-sub-button-container,
       .bubble-sub-buttons-container {

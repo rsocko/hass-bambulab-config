@@ -636,13 +636,16 @@ Popup launched from `Settings` button:
 ```
 ┌─────────────────────────────────────────────┐
 │  Print History Settings                     │
-│  At Start [✓]  Mid-Print [✓]  Near End [✓] │
-│  On Error [✓]  Mid-Print Threshold   50%   │
-│  Capture Cameras      [stored list helper] │
-│  Configure Capture Cameras      [selector] │
-│  History Sync                        [✓]   │
-│  Max Cached Archives                175    │
-│  Review Timeout (hrs)                24    │
+│  Capture Timing                             │
+│  Start [✓]  Mid-Print [✓]  Near End [✓]    │
+│  Complete [✓]  Error [✓]  Threshold   50%  │
+│  Cameras                                    │
+│  Capture Cameras      [stored list helper]  │
+│  Configure Capture Cameras      [selector]  │
+│  History Browser                            │
+│  History Sync [✓]   Max Cached Archives 175 │
+│  Review and Diagnostics                     │
+│  Review Timeout (hrs) 24   Debug [off/on]   │
 └─────────────────────────────────────────────┘
 ```
 
@@ -656,7 +659,7 @@ The settings popup remains off-canvas on both desktop and mobile so the primary 
 
 1. **One full-width browser flow** — The photo review chip, browser header, archive cards, and both control strips live inside one `panel: true` vertical stack. This prevents navigation or layout controls from jumping into a secondary column.
 
-2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused and also scales better on mobile.
+2. **Settings move to popup, not a permanent column** — Photo-capture and history/view settings are still important, but they are configuration controls rather than daily browsing content. Moving them into a popup keeps the page focused, scales better on mobile, and allows the controls to be grouped by task instead of shown as one long helper list.
 
 3. **Archive card variants are a first-class view choice** — The page should support at least three presentation modes: compact card, media-first card, and list card. This allows the same data layer to support quick scanning and richer visual review.
 
