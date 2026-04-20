@@ -968,6 +968,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       day.singleMultiColor = this._buildSingleMultiColor(day);
       day.singleMultiLabel = this._buildSingleMultiLabel(day);
       day.enrichmentColor = this._buildEnrichmentColor(day);
+      day.enrichmentBackground = this._buildEnrichmentBackground(day);
       day.enrichmentLabel = this._buildEnrichmentLabel(day);
       day.hasFullDayPrinting = Number(day.durationHours || 0) >= 24;
       day.archives.sort(function (left, right) {
@@ -1128,6 +1129,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         outcomeColor: stats ? stats.outcomeColor : "",
         outcomeLabel: stats ? this._buildOutcomeLabel(stats) : "",
         enrichmentColor: stats ? stats.enrichmentColor || "" : "",
+        enrichmentBackground: stats ? stats.enrichmentBackground || "" : "",
         enrichmentLabel: stats ? stats.enrichmentLabel || "" : "",
         enrichmentCompleteCount: stats ? (stats.enrichmentCounts.complete || 0) : 0,
         enrichmentNearCompleteCount: stats ? (stats.enrichmentCounts["near complete"] || 0) : 0,
@@ -1730,7 +1732,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     var title = meta ? this._buildHeatmapTitle(meta, mode) : "";
-    var style = point && point.fillColor ? ' style="background:' + this._escapeHtml(point.fillColor) + ';"' : "";
+    var backgroundStyle = mode === "Enrichment Status" && meta && meta.enrichmentBackground
+      ? meta.enrichmentBackground
+      : point && point.fillColor ? point.fillColor : "";
+    var style = backgroundStyle ? ' style="background:' + this._escapeHtml(backgroundStyle) + ';"' : "";
     var disabled = meta && meta.isFuture ? " disabled" : "";
 
     return '<button class="' + this._escapeHtml(classes.join(" ")) + '" type="button"' +
@@ -1886,7 +1891,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         startLabel: "Unavailable",
         endLabel: "Complete",
         colors: ["#546E7A", "#EF6C00", "#6A1B9A", "#1565C0", "#2E7D32"],
-        note: "Mixed days blend the enrichment tiers.",
+        note: "Mixed days use diagonal stripes; widths are proportional for smaller mixes.",
       };
     }
 
@@ -2451,6 +2456,32 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return this._rgbToHex(rgb.r, rgb.g, rgb.b);
   }
 
+  _buildEnrichmentBackground(day) {
+    var segments = this._enrichmentSegments(day);
+    if (!segments.length) {
+      return this._emptyCellColor();
+    }
+    if (segments.length === 1) {
+      return segments[0].color;
+    }
+    var total = segments.reduce(function (sum, segment) {
+      return sum + Number(segment.count || 0);
+    }, 0);
+    var proportional = segments.length <= 3 && total > 0;
+    var cursor = 0;
+    var stops = [];
+    segments.forEach(function (segment, index) {
+      var width = proportional
+        ? (Number(segment.count || 0) / total) * 100
+        : 100 / segments.length;
+      var end = index === segments.length - 1 ? 100 : cursor + width;
+      stops.push(segment.color + " " + this._formatGradientStop(cursor));
+      stops.push(segment.color + " " + this._formatGradientStop(end));
+      cursor = end;
+    }.bind(this));
+    return "linear-gradient(135deg, " + stops.join(", ") + ")";
+  }
+
   _buildEnrichmentLabel(day) {
     var counts = day && day.enrichmentCounts ? day.enrichmentCounts : this._emptyEnrichmentCounts();
     var total = Object.keys(counts).reduce(function (sum, key) {
@@ -2476,6 +2507,48 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }, null);
     var label = this._enrichmentStatusLabel(dominant && dominant.key ? dominant.key : "not defined");
     return dominant && dominant.count === total ? label : (this._formatCount(dominant && dominant.count ? dominant.count : 0) + "/" + this._formatCount(total) + " " + label);
+  }
+
+  _enrichmentSegments(day) {
+    var counts = day && day.enrichmentCounts ? day.enrichmentCounts : this._emptyEnrichmentCounts();
+    var palette = {
+      complete: "#2E7D32",
+      "near complete": "#1565C0",
+      "mostly complete": "#6A1B9A",
+      "partially complete": "#EF6C00",
+      unavailable: "#546E7A",
+      "not defined": "#546E7A",
+    };
+    var ranking = {
+      complete: 5,
+      "near complete": 4,
+      "mostly complete": 3,
+      "partially complete": 2,
+      unavailable: 1,
+      "not defined": 0,
+    };
+    return Object.keys(counts)
+      .map(function (key) {
+        return {
+          key: key,
+          count: Number(counts[key] || 0),
+          color: palette[key] || this._emptyCellColor(),
+          rank: ranking[key] || 0,
+        };
+      }.bind(this))
+      .filter(function (entry) {
+        return entry.count > 0;
+      })
+      .sort(function (left, right) {
+        if (left.rank !== right.rank) {
+          return left.rank - right.rank;
+        }
+        return right.count - left.count;
+      });
+  }
+
+  _formatGradientStop(value) {
+    return this._formatDecimal(Math.max(0, Math.min(100, value)), 2) + "%";
   }
 
   _enrichmentStatusLabel(status) {
