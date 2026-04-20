@@ -2277,7 +2277,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=36", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
@@ -2411,11 +2411,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('Replacement upload did not return an upload_session_id', content)
         self.assertIn('archive_json: config?.archive_json || "{}",', content)
         self.assertIn('const configArchive = this._archiveFromConfig();', content)
-        self.assertIn('if (typeof input.showPicker === "function") {', content)
-        self.assertIn('const input = document.createElement("input");', content)
-        self.assertIn('document.body.appendChild(input);', content)
-        self.assertIn('await this._handleUploadSelected({ target: input });', content)
-        self.assertIn('openUpload.onclick = () => this._openReplacementUploadPicker();', content)
+        self.assertIn('class="action primary upload-action', content)
+        self.assertIn('<input id="replacement-upload-input" class="upload-input" type="file" accept=".3mf,.gcode.3mf"', content)
+        self.assertIn('.upload-action .upload-input{position:absolute;inset:0;opacity:0;cursor:pointer;}', content)
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 

@@ -5,7 +5,6 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     this._hass = null;
     this._config = null;
     this._uploadInput = null;
-    this._activeUploadPickerCleanup = null;
     this._busy = false;
     this._message = "";
     this._error = "";
@@ -38,10 +37,6 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("change", this._boundUploadChange);
-    if (typeof this._activeUploadPickerCleanup === "function") {
-      this._activeUploadPickerCleanup();
-      this._activeUploadPickerCleanup = null;
-    }
   }
 
   getCardSize() {
@@ -305,70 +300,22 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     }
   }
 
-  _openReplacementUploadPicker() {
-    if (this._busy || !document || !document.body) {
-      return;
-    }
-
-    if (typeof this._activeUploadPickerCleanup === "function") {
-      this._activeUploadPickerCleanup();
-      this._activeUploadPickerCleanup = null;
-    }
-
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".3mf,.gcode.3mf";
-    input.tabIndex = -1;
-    input.setAttribute("aria-hidden", "true");
-    input.style.position = "absolute";
-    input.style.left = "-9999px";
-    input.style.width = "1px";
-    input.style.height = "1px";
-    input.style.opacity = "0";
-    input.style.pointerEvents = "none";
-
-    const cleanup = () => {
-      if (input.parentNode) {
-        input.parentNode.removeChild(input);
-      }
-      if (this._activeUploadPickerCleanup === cleanup) {
-        this._activeUploadPickerCleanup = null;
-      }
-    };
-
-    input.addEventListener("change", async () => {
-      try {
-        await this._handleUploadSelected({ target: input });
-      } finally {
-        cleanup();
-      }
-    }, { once: true });
-
-    document.body.appendChild(input);
-    this._activeUploadPickerCleanup = cleanup;
-    input.value = "";
-    try {
-      if (typeof input.showPicker === "function") {
-        input.showPicker();
-        return;
-      }
-    } catch (_error) {
-      // Fall back to click() when showPicker() is unavailable or blocked.
-    }
-    input.click();
-  }
-
   _button(label, action, disabled = false, tone = "") {
     return `<button class="action ${tone}" data-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
+  }
+
+  _uploadButton(disabled = false) {
+    return `
+      <label class="action primary upload-action${disabled ? " disabled" : ""}">
+        <span>Upload Replacement 3MF</span>
+        <input id="replacement-upload-input" class="upload-input" type="file" accept=".3mf,.gcode.3mf" ${disabled ? "disabled" : ""} />
+      </label>
+    `;
   }
 
   _bindActions() {
     const fileInput = this.shadowRoot.getElementById("replacement-upload-input");
     this._uploadInput = fileInput;
-    const openUpload = this.shadowRoot.getElementById("open-upload");
-    if (openUpload) {
-      openUpload.onclick = () => this._openReplacementUploadPicker();
-    }
     this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
       button.onclick = async () => {
         const action = button.getAttribute("data-action");
@@ -465,6 +412,9 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
         .action.warn{background:rgba(239,108,0,0.22);}
         .action.danger{background:rgba(198,40,40,0.22);}
         .action:disabled{opacity:0.45;cursor:default;}
+        .upload-action{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;}
+        .upload-action.disabled{opacity:0.45;cursor:default;pointer-events:none;}
+        .upload-action .upload-input{position:absolute;inset:0;opacity:0;cursor:pointer;}
         .status{font-size:13px;line-height:1.5;}
         .status.error{color:var(--error-color);}
         .status.ok{color:var(--secondary-text-color);}
@@ -486,7 +436,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
             <div class="title">Replacement Upload</div>
             <div class="meta">Use a sliced replacement .gcode.3mf. The browser uploads directly to Home Assistant via multipart HTTP and HA stages the file on disk.</div>
             <div class="actions" style="margin-top:10px;">
-              <button id="open-upload" class="action primary" ${this._busy ? "disabled" : ""}>Upload Replacement 3MF</button>
+              ${this._uploadButton(this._busy)}
               ${this._button("Create Replacement Archive", "create", !uploadSessionId || !!targetArchiveId || this._busy, "primary")}
             </div>
             <div class="meta" style="margin-top:8px;">Upload session: ${uploadSessionId || "none"}</div>
