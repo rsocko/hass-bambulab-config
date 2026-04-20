@@ -1,0 +1,61 @@
+# Refresh popup project options from Bambuddy and re-seed the open popup helper.
+refresh_print_history_popup_projects:
+  alias: Refresh Print History Popup Projects
+  sequence:
+    - variables:
+        selected_project_label: "{{ states('input_select.print_history_popup_project') | default('No Project', true) | string | trim }}"
+        selected_project_id: >-
+          {% set options = state_attr('sensor.bambuddy_print_history_browser_status', 'project_options') | default([], true) %}
+          {% if selected_project_label in ['', 'No Project'] %}
+            {{ '' }}
+          {% else %}
+            {% set ns = namespace(value='') %}
+            {% for option in options if option is mapping %}
+              {% set label = option.label | default('', true) | string | trim %}
+              {% set option_id = option.id | default('', true) | string | trim %}
+              {% if ns.value == '' and label == selected_project_label and option_id != '' %}
+                {% set ns.value = option_id %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.value }}
+          {% endif %}
+    - action: bambuddy.refresh_print_history_browser
+      data:
+        immediate: true
+    - variables:
+        refreshed_options: "{{ state_attr('sensor.bambuddy_print_history_browser_status', 'project_options') | default([], true) }}"
+        refreshed_labels: >-
+          {% set ns = namespace(values=['No Project']) %}
+          {% for option in refreshed_options if option is mapping %}
+            {% set label = option.label | default('', true) | string | trim %}
+            {% if label != '' and label not in ns.values %}
+              {% set ns.values = ns.values + [label] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.values | tojson | from_json }}
+        resolved_selection: >-
+          {% set labels = refreshed_labels %}
+          {% if selected_project_id | default('', true) | string | trim != '' %}
+            {% set ns = namespace(value='') %}
+            {% for option in refreshed_options if option is mapping %}
+              {% set option_id = option.id | default('', true) | string | trim %}
+              {% set label = option.label | default('', true) | string | trim %}
+              {% if ns.value == '' and option_id == (selected_project_id | string | trim) and label != '' %}
+                {% set ns.value = label %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.value if ns.value != '' else ('No Project' if 'No Project' in labels else (labels[0] if labels | count > 0 else 'No Project')) }}
+          {% elif selected_project_label in labels %}
+            {{ selected_project_label }}
+          {% else %}
+            {{ 'No Project' if 'No Project' in labels else (labels[0] if labels | count > 0 else 'No Project') }}
+          {% endif %}
+    - action: input_select.set_options
+      data:
+        entity_id: input_select.print_history_popup_project
+        options: "{{ refreshed_labels }}"
+    - action: input_select.select_option
+      data:
+        entity_id: input_select.print_history_popup_project
+        option: "{{ resolved_selection }}"
+  mode: restart

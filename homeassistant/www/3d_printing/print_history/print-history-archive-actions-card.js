@@ -104,6 +104,53 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._render();
   }
 
+  _describeError(error, fallbackMessage) {
+    if (!error) {
+      return fallbackMessage;
+    }
+
+    if (typeof error === "string") {
+      var textError = error.trim();
+      return textError || fallbackMessage;
+    }
+
+    if (error.message && String(error.message).trim()) {
+      return String(error.message).trim();
+    }
+
+    if (error.code && error.code !== "unknown_error") {
+      var codeMessage = String(error.code).trim();
+      if (error.details && String(error.details).trim()) {
+        return codeMessage + ": " + String(error.details).trim();
+      }
+      return codeMessage;
+    }
+
+    if (error.body && typeof error.body === "object") {
+      if (error.body.message && String(error.body.message).trim()) {
+        return String(error.body.message).trim();
+      }
+      if (error.body.error && String(error.body.error).trim()) {
+        return String(error.body.error).trim();
+      }
+    }
+
+    if (error.details && String(error.details).trim()) {
+      return String(error.details).trim();
+    }
+
+    try {
+      var serialized = JSON.stringify(error);
+      if (serialized && serialized !== "{}") {
+        return serialized;
+      }
+    } catch (_jsonError) {
+      // Ignore JSON serialization issues and fall through to the fallback.
+    }
+
+    return fallbackMessage;
+  }
+
   _handleClick(event) {
     var target = event.target;
     if (!target || !target.closest) {
@@ -405,7 +452,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setStatus("Opening in slicer...", "success");
     } catch (error) {
       this._busy = false;
-      this._setStatus(error && error.message ? error.message : "Could not open the archive in slicer", "error");
+      this._setStatus(this._describeError(error, "Could not open the archive in slicer"), "error");
     }
   }
 
@@ -422,7 +469,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setStatus(successMessage || "Download started.", "success");
     } catch (error) {
       this._busy = false;
-      this._setStatus(error && error.message ? error.message : "Could not start the download", "error");
+      this._setStatus(this._describeError(error, "Could not start the download"), "error");
     }
   }
 
@@ -529,7 +576,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setStatus("Source 3MF uploaded.", "success");
     } catch (error) {
       this._busy = false;
-      this._setStatus(error && error.message ? error.message : "Source 3MF upload failed", "error");
+      this._setStatus(this._describeError(error, "Source 3MF upload failed"), "error");
     }
   }
 
@@ -582,7 +629,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       await this._hass.callService("browser_mod", "close_popup", {});
     } catch (error) {
       this._busy = false;
-      this._setStatus(error && error.message ? error.message : "Archive delete failed", "error");
+      this._setStatus(this._describeError(error, "Archive delete failed"), "error");
     }
   }
 

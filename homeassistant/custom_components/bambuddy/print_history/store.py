@@ -28,6 +28,7 @@ try:
         has_active_filters,
         local_timezone,
         normalize_filter_date_value,
+        normalize_enrichment_status_value,
         normalize_hex,
         note_payload_rows,
         payload_hash as compute_payload_hash,
@@ -36,6 +37,7 @@ try:
         resolve_printer_filter_ids,
         selected_colors,
         split_tags,
+        enrichment_status_display_label,
         with_effective_duration_seconds,
     )
 except ImportError:  # pragma: no cover - direct-path test import fallback
@@ -54,6 +56,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         has_active_filters,
         local_timezone,
         normalize_filter_date_value,
+        normalize_enrichment_status_value,
         normalize_hex,
         note_payload_rows,
         payload_hash as compute_payload_hash,
@@ -62,6 +65,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         resolve_printer_filter_ids,
         selected_colors,
         split_tags,
+        enrichment_status_display_label,
         with_effective_duration_seconds,
     )
 
@@ -2588,39 +2592,246 @@ class PrintHistoryStore:
                 """,
                 normalized_ids,
             ).fetchone()
+            metric_archive_count = 0 if row is None else as_int(row[0])
+            active_day_count = 0 if row is None else as_int(row[1])
+            total_filament_used_grams = 0.0 if row is None else as_float(row[2])
+            total_object_count = 0 if row is None else as_int(row[3])
+            total_cost = 0.0 if row is None else as_float(row[4])
+            total_duration_seconds = 0 if row is None else as_int(row[5])
+            total_slot_count = 0 if row is None else as_int(row[6])
+            completed_count = 0 if row is None else as_int(row[7])
+            failed_count = 0 if row is None else as_int(row[8])
 
-        metric_archive_count = 0 if row is None else as_int(row[0])
-        active_day_count = 0 if row is None else as_int(row[1])
-        total_filament_used_grams = 0.0 if row is None else as_float(row[2])
-        total_object_count = 0 if row is None else as_int(row[3])
-        total_cost = 0.0 if row is None else as_float(row[4])
-        total_duration_seconds = 0 if row is None else as_int(row[5])
-        total_slot_count = 0 if row is None else as_int(row[6])
-        completed_count = 0 if row is None else as_int(row[7])
-        failed_count = 0 if row is None else as_int(row[8])
+            if activity_mode == "Filament Weight":
+                total_label, total_compact_label = activity_filament_weight_total_labels(total_filament_used_grams)
+            elif activity_mode == "Number of Printed Objects":
+                total_label, total_compact_label = f"{total_object_count:,} objects", f"{total_object_count:,}"
+            elif activity_mode == "Cost of Prints":
+                total_label = total_compact_label = f"${total_cost:,.2f}"
+            elif activity_mode == "Filaments Used":
+                total_label, total_compact_label = f"{total_slot_count:,} slots", f"{total_slot_count:,}"
+            elif activity_mode == "Number of Unique Tags":
+                total_unique_tags = self._load_metric_unique_tag_count(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{total_unique_tags:,} {'tag' if total_unique_tags == 1 else 'tags'}", f"{total_unique_tags:,}"
+            elif activity_mode == "Single vs Multi-Color Prints":
+                single_count, multi_count = self._load_metric_single_multi_counts(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{single_count:,} single / {multi_count:,} multi", f"{single_count:,}/{multi_count:,}"
+            elif activity_mode == "Number of Unique Filaments":
+                total_unique_filaments = self._load_metric_unique_filament_count(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{total_unique_filaments:,} {'filament' if total_unique_filaments == 1 else 'filaments'}", f"{total_unique_filaments:,}"
+            elif activity_mode == "Enrichment Status":
+                dominant_status, dominant_count = self._load_metric_dominant_enrichment_status(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = (
+                    f"{dominant_count}/{metric_archive_count} {enrichment_status_display_label(dominant_status)}",
+                    f"{dominant_count}/{metric_archive_count}",
+                ) if metric_archive_count > 0 else ("0 prints", "0")
+            elif activity_mode == "Number of Favorites":
+                total_favorites = self._load_metric_favorite_count(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{total_favorites:,} {'favorite' if total_favorites == 1 else 'favorites'}", f"{total_favorites:,}"
+            elif activity_mode == "Total Time Printing":
+                total_hours = total_duration_seconds / 3600
+                total_label = total_compact_label = f"{total_hours:,.1f} h"
+            elif activity_mode == "Outcome":
+                total_label, total_compact_label = f"{completed_count} ok / {failed_count} failed", f"{completed_count}/{failed_count}"
+            else:
+                total_label, total_compact_label = f"{metric_archive_count:,} prints", f"{metric_archive_count:,}"
 
-        if activity_mode == "Filament Weight":
-            total_label, total_compact_label = activity_filament_weight_total_labels(total_filament_used_grams)
-        elif activity_mode == "Number of Printed Objects":
-            total_label, total_compact_label = f"{total_object_count:,} objects", f"{total_object_count:,}"
-        elif activity_mode == "Cost of Prints":
-            total_label = total_compact_label = f"${total_cost:,.2f}"
-        elif activity_mode == "Filaments Used":
-            total_label, total_compact_label = f"{total_slot_count:,} slots", f"{total_slot_count:,}"
-        elif activity_mode == "Total Time Printing":
-            total_hours = total_duration_seconds / 3600
-            total_label = total_compact_label = f"{total_hours:,.1f} h"
-        elif activity_mode == "Outcome":
-            total_label, total_compact_label = f"{completed_count} ok / {failed_count} failed", f"{completed_count}/{failed_count}"
-        else:
-            total_label, total_compact_label = f"{metric_archive_count:,} prints", f"{metric_archive_count:,}"
+            return {
+                "metric_archive_count": metric_archive_count,
+                "active_day_count": active_day_count,
+                "total_label": total_label,
+                "total_compact_label": total_compact_label,
+            }
 
-        return {
-            "metric_archive_count": metric_archive_count,
-            "active_day_count": active_day_count,
-            "total_label": total_label,
-            "total_compact_label": total_compact_label,
+    def _load_metric_unique_tag_count(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        if not archive_ids:
+            return 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                SELECT COUNT(DISTINCT normalized_tag)
+                FROM archive_tags
+                WHERE archive_id IN ({placeholders}) AND is_system = 0
+                """,
+                archive_ids,
+            ).fetchone()
+        return 0 if row is None else as_int(row[0])
+
+    def _load_metric_favorite_count(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        if not archive_ids:
+            return 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                SELECT COALESCE(SUM(CASE WHEN is_favorite = 1 THEN 1 ELSE 0 END), 0)
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                """,
+                archive_ids,
+            ).fetchone()
+        return 0 if row is None else as_int(row[0])
+
+    def _load_metric_unique_filament_count(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        if not archive_ids:
+            return 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        identity_sql = """
+            CASE
+                WHEN TRIM(COALESCE(filament_id, '')) != '' THEN 'f:' || LOWER(TRIM(filament_id))
+                WHEN TRIM(COALESCE(spool_id, '')) != '' THEN 's:' || LOWER(TRIM(spool_id))
+                ELSE 'n:' || LOWER(TRIM(COALESCE(name, ''))) || '|' || LOWER(TRIM(COALESCE(color, ''))) || '|' || LOWER(TRIM(COALESCE(type, '')))
+            END
+        """
+        params = archive_ids + archive_ids
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                SELECT COUNT(DISTINCT identity_key)
+                FROM (
+                    SELECT {identity_sql} AS identity_key
+                    FROM archive_note_payload_rows
+                    WHERE archive_id IN ({placeholders})
+                      AND (
+                          TRIM(COALESCE(filament_id, '')) != ''
+                          OR TRIM(COALESCE(spool_id, '')) != ''
+                          OR TRIM(COALESCE(name, '')) != ''
+                          OR TRIM(COALESCE(color, '')) != ''
+                          OR TRIM(COALESCE(type, '')) != ''
+                      )
+                    UNION
+                    SELECT {identity_sql} AS identity_key
+                    FROM archive_filament_rows fr
+                    WHERE fr.archive_id IN ({placeholders})
+                      AND NOT EXISTS (
+                          SELECT 1 FROM archive_note_payload_rows nr WHERE nr.archive_id = fr.archive_id
+                      )
+                      AND (
+                          TRIM(COALESCE(fr.filament_id, '')) != ''
+                          OR TRIM(COALESCE(fr.spool_id, '')) != ''
+                          OR TRIM(COALESCE(fr.name, '')) != ''
+                          OR TRIM(COALESCE(fr.color, '')) != ''
+                          OR TRIM(COALESCE(fr.type, '')) != ''
+                      )
+                )
+                """,
+                params,
+            ).fetchone()
+        return 0 if row is None else as_int(row[0])
+
+    def _load_metric_single_multi_counts(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> tuple[int, int]:
+        if not archive_ids:
+            return 0, 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        identity_sql = """
+            CASE
+                WHEN TRIM(COALESCE(filament_id, '')) != '' THEN 'f:' || LOWER(TRIM(filament_id))
+                WHEN TRIM(COALESCE(spool_id, '')) != '' THEN 's:' || LOWER(TRIM(spool_id))
+                ELSE 'n:' || LOWER(TRIM(COALESCE(name, ''))) || '|' || LOWER(TRIM(COALESCE(color, ''))) || '|' || LOWER(TRIM(COALESCE(type, '')))
+            END
+        """
+        params = archive_ids + archive_ids + archive_ids
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                WITH per_archive AS (
+                    SELECT archive_id, COUNT(DISTINCT identity_key) AS filament_count
+                    FROM (
+                        SELECT archive_id, {identity_sql} AS identity_key
+                        FROM archive_note_payload_rows
+                        WHERE archive_id IN ({placeholders})
+                          AND (
+                              TRIM(COALESCE(filament_id, '')) != ''
+                              OR TRIM(COALESCE(spool_id, '')) != ''
+                              OR TRIM(COALESCE(name, '')) != ''
+                              OR TRIM(COALESCE(color, '')) != ''
+                              OR TRIM(COALESCE(type, '')) != ''
+                          )
+                        UNION ALL
+                        SELECT fr.archive_id, {identity_sql} AS identity_key
+                        FROM archive_filament_rows fr
+                        WHERE fr.archive_id IN ({placeholders})
+                          AND NOT EXISTS (
+                              SELECT 1 FROM archive_note_payload_rows nr WHERE nr.archive_id = fr.archive_id
+                          )
+                          AND (
+                              TRIM(COALESCE(fr.filament_id, '')) != ''
+                              OR TRIM(COALESCE(fr.spool_id, '')) != ''
+                              OR TRIM(COALESCE(fr.name, '')) != ''
+                              OR TRIM(COALESCE(fr.color, '')) != ''
+                              OR TRIM(COALESCE(fr.type, '')) != ''
+                          )
+                    )
+                    GROUP BY archive_id
+                )
+                SELECT
+                    COALESCE(SUM(CASE WHEN COALESCE(per_archive.filament_count, 0) = 1 THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN COALESCE(per_archive.filament_count, 0) > 1 THEN 1 ELSE 0 END), 0)
+                FROM archives a
+                LEFT JOIN per_archive ON per_archive.archive_id = a.archive_id
+                WHERE a.archive_id IN ({placeholders})
+                """,
+                params,
+            ).fetchone()
+        if row is None:
+            return 0, 0
+        return as_int(row[0]), as_int(row[1])
+
+    def _load_metric_dominant_enrichment_status(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> tuple[str, int]:
+        if not archive_ids:
+            return "not defined", 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                f"""
+                SELECT enrichment_status, COUNT(*)
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                GROUP BY enrichment_status
+                """,
+                archive_ids,
+            ).fetchall()
+        counts = {
+            normalize_enrichment_status_value(row[0]): as_int(row[1])
+            for row in rows
         }
+        if not counts:
+            return "not defined", 0
+        ranking = {
+            "complete": 5,
+            "near complete": 4,
+            "mostly complete": 3,
+            "partially complete": 2,
+            "unavailable": 1,
+            "not defined": 0,
+        }
+        return max(counts.items(), key=lambda item: (item[1], ranking.get(item[0], -1)))
 
     def _metric_total_labels(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
         if activity_mode == "Filament Weight":
@@ -2634,6 +2845,16 @@ class PrintHistoryStore:
         if activity_mode == "Filaments Used":
             total_slots = sum(row["slot_count"] for row in metric_rows)
             return f"{total_slots:,} slots", f"{total_slots:,}"
+        if activity_mode == "Number of Unique Tags":
+            return "0 tags", "0"
+        if activity_mode == "Single vs Multi-Color Prints":
+            return "0 single / 0 multi", "0/0"
+        if activity_mode == "Number of Unique Filaments":
+            return "0 filaments", "0"
+        if activity_mode == "Enrichment Status":
+            return "0 prints", "0"
+        if activity_mode == "Number of Favorites":
+            return "0 favorites", "0"
         if activity_mode == "Total Time Printing":
             total_hours = sum(effective_duration_seconds(row) for row in metric_rows) / 3600
             total = f"{total_hours:,.1f} h"

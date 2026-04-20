@@ -825,10 +825,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=107", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=42", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=108", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=43", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=11", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=12", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -852,6 +852,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('title: "Advanced Actions"', browser_content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', browser_content)
         self.assertIn('.icon-action.advanced:hover,.icon-action.advanced:focus-visible', browser_content)
+        self.assertIn('data-action="open-projects-page"', browser_content)
+        self.assertIn('data-action="refresh-project-options"', browser_content)
+        self.assertIn('window.open(url, "_blank", "noopener")', browser_content)
+        self.assertIn('service: "script.refresh_print_history_popup_projects"', browser_content)
         self.assertNotIn('window.__printHistoryArchiveActionsCardPromise', content)
         self.assertNotIn('print-history-archive-actions-card.js?v=5', content)
         self.assertIn('Files', action_content)
@@ -880,6 +884,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('type: "bambuddy/print_history_upload_source_3mf"', action_content)
         self.assertIn('content_base64: await this._fileToBase64(file),', action_content)
         self.assertIn('reader.readAsDataURL(file);', action_content)
+        self.assertIn('_describeError(error, "Source 3MF upload failed")', action_content)
+        self.assertIn('if (error.body && typeof error.body === "object")', action_content)
+        self.assertIn('var serialized = JSON.stringify(error);', action_content)
         self.assertIn('transition:none;', action_content)
         self.assertNotIn('auth.fetchWithAuth', action_content)
         self.assertNotIn('Source 3MF upload failed (HTTP ', action_content)
@@ -973,11 +980,28 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('type: "bambuddy/print_history_query"', content)
         self.assertIn('include_activity_rows: true', content)
         self.assertIn('input.mode === "Filaments Used"', content)
+        self.assertIn('input.mode === "Number of Unique Tags"', content)
+        self.assertIn('input.mode === "Single vs Multi-Color Prints"', content)
+        self.assertIn('input.mode === "Number of Unique Filaments"', content)
+        self.assertIn('input.mode === "Enrichment Status"', content)
+        self.assertIn('input.mode === "Number of Favorites"', content)
         self.assertIn('"filaments used": "Filaments Used"', content)
+        self.assertIn('"number of unique tags": "Number of Unique Tags"', content)
+        self.assertIn('"single vs multi-color prints": "Single vs Multi-Color Prints"', content)
+        self.assertIn('"number of unique filaments": "Number of Unique Filaments"', content)
+        self.assertIn('"enrichment status": "Enrichment Status"', content)
+        self.assertIn('"number of favorites": "Number of Favorites"', content)
         self.assertNotIn('"filament uses": "Filaments Used"', content)
         self.assertNotIn('"number of different filaments": "Filaments Used"', content)
         self.assertNotIn('"outcome mix": "Outcome"', content)
         self.assertNotIn('"by outcome": "Outcome"', content)
+
+    def test_heatmap_card_parses_new_metric_inputs_once_per_archive(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('var enrichmentPayload = this._extractEnrichmentPayload(archive && archive.notes);', content)
+        self.assertIn('filamentIdentityKeys: filamentIdentityKeys,', content)
+        self.assertIn('day.enrichmentCounts[archive.enrichmentStatus || "not defined"]', content)
+        self.assertIn('day.uniqueTags[String(tag).toLowerCase()] = true;', content)
 
     def test_heatmap_card_formats_large_totals_with_locale_grouping(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -993,6 +1017,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("activity_metric_total_label", content)
         self.assertIn("totalLabel.endsWith('kg')", content)
         self.assertIn("return 'mdi:weight-kilogram';", content)
+        self.assertIn("'Number of Unique Tags': 'mdi:tag-multiple-outline'", content)
+        self.assertIn("'Single vs Multi-Color Prints': 'mdi:compare-horizontal'", content)
+        self.assertIn("'Number of Unique Filaments': 'mdi:palette-swatch-variant'", content)
+        self.assertIn("'Enrichment Status': 'mdi:layers-triple-outline'", content)
+        self.assertIn("'Number of Favorites': 'mdi:star'", content)
 
 
 # =============================================================================
@@ -1121,6 +1150,11 @@ class TestHelpers(unittest.TestCase):
                 if isinstance(val, dict) and "options" in val:
                     options = val["options"]
                     self.assertIn("Filaments Used", options)
+                    self.assertIn("Number of Unique Tags", options)
+                    self.assertIn("Single vs Multi-Color Prints", options)
+                    self.assertIn("Number of Unique Filaments", options)
+                    self.assertIn("Enrichment Status", options)
+                    self.assertIn("Number of Favorites", options)
                     self.assertNotIn("Filament Uses", options)
                     self.assertNotIn("Number of Different Filaments", options)
 
@@ -2143,10 +2177,21 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=11", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=12", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=107", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=108", content)
+
+    def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "refresh_print_history_popup_projects.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("alias: Refresh Print History Popup Projects", content)
+        self.assertIn("action: bambuddy.refresh_print_history_browser", content)
+        self.assertIn("immediate: true", content)
+        self.assertIn("entity_id: input_select.print_history_popup_project", content)
+        self.assertIn("state_attr('sensor.bambuddy_print_history_browser_status', 'project_options')", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
         browser_card_content = (

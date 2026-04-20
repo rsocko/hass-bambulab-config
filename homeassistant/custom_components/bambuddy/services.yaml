@@ -8,6 +8,12 @@ refresh_print_history_browser:
       required: false
       selector:
         text:
+    immediate:
+      name: Immediate
+      description: Run the refresh immediately instead of using the normal coalesced delay.
+      required: false
+      selector:
+        boolean:
 
 query_print_history_browser:
   name: Query Print History Browser

@@ -1531,6 +1531,120 @@ def test_variant3_store_activity_metric_total_uses_kg_for_large_filament_totals(
     assert result.activity_metric_total_compact_label == "1.01 kg"
 
 
+def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
+    archives = [
+        {
+            "tags": "Display,Hueforge,f:9,s:12",
+            "is_favorite": True,
+            "enrichment_status": "c",
+            "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":10.0}],"s":"c"}',
+            "filament_slots": [],
+        },
+        {
+            "tags": "Display,Workshop",
+            "is_favorite": False,
+            "enrichment_status": "p",
+            "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":4.0},{"f":15,"n":"White","h":"#FFFFFF","type":"PLA","w":3.0}],"s":"p"}',
+            "filament_slots": [],
+        },
+    ]
+
+    assert activity_metric_total_labels(archives, "Number of Unique Tags") == ("3 tags", "3")
+    assert activity_metric_total_labels(archives, "Single vs Multi-Color Prints") == ("1 single / 1 multi", "1/1")
+    assert activity_metric_total_labels(archives, "Number of Unique Filaments") == ("2 filaments", "2")
+    assert activity_metric_total_labels(archives, "Enrichment Status") == ("1/2 Complete", "1/2")
+    assert activity_metric_total_labels(archives, "Number of Favorites") == ("1 favorite", "1")
+
+
+def test_variant3_store_activity_metric_total_uses_new_modes_without_full_payload_scans(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = [
+        project_archive(
+            {
+                "id": 501,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Single Color Favorite",
+                "actual_time_seconds": 900,
+                "print_time_seconds": 900,
+                "filament_used_grams": 12.0,
+                "filament_type": "PLA",
+                "filament_color": "#0078BF",
+                "status": "completed",
+                "started_at": "2026-04-12T10:00:00Z",
+                "completed_at": "2026-04-12T10:15:00Z",
+                "created_at": "2026-04-12T10:00:00Z",
+                "cost": 0.5,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": True,
+                "tags": "Display,Desk,f:9,s:12",
+                "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":12.0}],"s":"c"}',
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+        project_archive(
+            {
+                "id": 502,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Multi Color Print",
+                "actual_time_seconds": 1200,
+                "print_time_seconds": 1200,
+                "filament_used_grams": 18.0,
+                "filament_type": "PLA",
+                "filament_color": "#0078BF,#FFFFFF",
+                "status": "completed",
+                "started_at": "2026-04-13T10:00:00Z",
+                "completed_at": "2026-04-13T10:20:00Z",
+                "created_at": "2026-04-13T10:00:00Z",
+                "cost": 0.7,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": False,
+                "tags": "Display,Shelf,f:9,s:12,f:15",
+                "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":11.0},{"f":15,"n":"White","h":"#FFFFFF","type":"PLA","w":7.0}],"s":"p"}',
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+    ]
+    store.replace_archives(archives)
+
+    base_states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    unique_filaments = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Number of Unique Filaments"}))
+    enrichment = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Enrichment Status"}))
+    single_multi = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Single vs Multi-Color Prints"}))
+    favorites = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Number of Favorites"}))
+
+    assert unique_filaments.activity_metric_total_label == "2 filaments"
+    assert enrichment.activity_metric_total_label == "1/2 Near Complete"
+    assert single_multi.activity_metric_total_label == "1 single / 1 multi"
+    assert favorites.activity_metric_total_label == "1 favorite"
+
+
 def test_variant3_store_selected_day_uses_shared_local_day_projection(tmp_path: Path, monkeypatch) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

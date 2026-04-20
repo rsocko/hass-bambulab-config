@@ -9,5 +9,10 @@ print_history_activity_metric:
     - Number of Printed Objects
     - Cost of Prints
     - Filaments Used
+    - Number of Unique Tags
+    - Single vs Multi-Color Prints
+    - Number of Unique Filaments
+    - Enrichment Status
+    - Number of Favorites
     - Total Time Printing
   initial: Print Count

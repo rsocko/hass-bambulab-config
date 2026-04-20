@@ -16,6 +16,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._handledMultiSelectRequest = "";
     this._bulkDialog = null;
     this._bulkActionBusy = false;
+    this._projectOptionsRefreshBusy = false;
     this._normalizedArchiveCache = {};
     this._mediaGalleryIndices = {};
     this._mediaSwipe = null;
@@ -59,6 +60,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._handledMultiSelectRequest = "";
     this._bulkDialog = null;
     this._bulkActionBusy = false;
+    this._projectOptionsRefreshBusy = false;
     this._normalizedArchiveCache = {};
     this._renderShell();
     this._queueRefresh();
@@ -320,9 +322,13 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".bulk-dialog-backdrop{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,0.56);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}" +
       ".bulk-dialog{width:min(520px,100%);max-height:min(90vh,780px);overflow:auto;border-radius:24px;border:1px solid rgba(255,255,255,0.12);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 94%, rgba(255,255,255,0.06)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 98%, rgba(255,255,255,0.02)));box-shadow:0 18px 44px rgba(15,23,42,0.28);padding:22px;box-sizing:border-box;}" +
       ".bulk-dialog-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}" +
+      ".bulk-dialog-header-main{display:grid;gap:6px;min-width:0;flex:1 1 auto;}" +
       ".bulk-dialog-title{font-size:18px;font-weight:700;line-height:1.2;}" +
       ".bulk-dialog-subtle{font-size:12px;color:var(--secondary-text-color);line-height:1.45;}" +
       ".bulk-dialog-body{display:grid;gap:14px;}" +
+      ".bulk-dialog-project-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:14px;background:rgba(148,163,184,0.10);border:1px solid rgba(148,163,184,0.16);}" +
+      ".bulk-dialog-project-tools-copy{font-size:12px;color:var(--secondary-text-color);line-height:1.45;flex:1 1 220px;}" +
+      ".bulk-dialog-utility-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;flex:0 0 auto;}" +
       ".bulk-dialog-field{display:grid;gap:6px;}" +
       ".bulk-dialog-field label{font-size:12px;font-weight:700;color:var(--secondary-text-color);}" +
       ".bulk-dialog-field input,.bulk-dialog-field select{width:100%;min-height:42px;border-radius:14px;border:1px solid rgba(148,163,184,0.34);background:var(--card-background-color,var(--ha-card-background,var(--primary-background-color)));color:var(--primary-text-color);padding:0 14px;box-sizing:border-box;font:inherit;}" +
@@ -333,6 +339,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".bulk-dialog-button{appearance:none;-webkit-appearance:none;border:none;border-radius:999px;min-height:38px;padding:0 16px;background:rgba(255,255,255,0.08);color:var(--primary-text-color);font:inherit;font-weight:700;cursor:pointer;transition:transform .16s ease,background .16s ease,box-shadow .16s ease;}" +
       ".bulk-dialog-button:hover,.bulk-dialog-button:focus-visible{outline:none;transform:translateY(-1px);background:rgba(255,255,255,0.12);box-shadow:0 0 0 1px rgba(255,255,255,0.12);}" +
       ".bulk-dialog-button:active{transform:translateY(0);}" +
+      ".bulk-dialog-button.subtle{background:rgba(255,255,255,0.04);border:1px solid rgba(148,163,184,0.18);}" +
       ".bulk-dialog-button.primary{background:color-mix(in srgb, var(--primary-color, #1976d2) 88%, rgba(255,255,255,0.12));color:#fff;}" +
       ".bulk-dialog-button.danger{background:rgba(198,40,40,0.18);color:#ffd7d7;}" +
       ".bulk-dialog-button[disabled]{opacity:.52;pointer-events:none;cursor:default;transform:none;box-shadow:none;}" +
@@ -996,10 +1003,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
-    return '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive="' + archiveJson + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
-      + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
-      + photoAction;
+      + photoAction
+      + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive="' + archiveJson + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
   }
 
   _renderFavoriteButton(normalized, archiveJson) {
@@ -1039,8 +1046,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var helperText = this._bulkDialog.type === "project"
       ? "Assign one project to all selected prints. This replaces the current project assignment for each selected archive."
       : "Only user tags are changed. Add tags are appended, remove tags are stripped, and Bambuddy system tags are preserved.";
+    var projectToolsMarkup = this._bulkDialog.type === "project"
+      ? '<div class="bulk-dialog-project-tools">'
+        + '<div class="bulk-dialog-project-tools-copy">Open Bambuddy projects in a new tab, then refresh to pull the latest project names into Home Assistant.</div>'
+        + '<div class="bulk-dialog-utility-actions">'
+          + '<button class="bulk-dialog-button subtle" data-action="open-projects-page"' + (this._bulkActionBusy || this._projectOptionsRefreshBusy ? ' disabled' : '') + '>Projects Page</button>'
+          + '<button class="bulk-dialog-button subtle" data-action="refresh-project-options"' + (this._bulkActionBusy || this._projectOptionsRefreshBusy ? ' disabled' : '') + '>' + this._escapeHtml(this._projectOptionsRefreshBusy ? 'Refreshing...' : 'Refresh Projects') + '</button>'
+        + '</div>'
+      + '</div>'
+      : '';
     var bodyMarkup = this._bulkDialog.type === "project"
-      ? '<div class="bulk-dialog-field"><label for="bulk-project-select">Project</label><select id="bulk-project-select">' + this._bulkProjectChoices().map(function (choice) {
+      ? projectToolsMarkup + '<div class="bulk-dialog-field"><label for="bulk-project-select">Project</label><select id="bulk-project-select">' + this._bulkProjectChoices().map(function (choice) {
         return '<option value="' + this._escapeAttribute(choice.value) + '"' + (choice.value === this._bulkDialog.projectValue ? ' selected' : '') + '>' + this._escapeHtml(choice.label) + '</option>';
       }.bind(this)).join("") + '</select></div>'
       : '<div class="bulk-dialog-field"><div id="bulk-tag-add-editor-host"></div></div>'
@@ -1049,7 +1065,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       '<div class="bulk-dialog-backdrop">' +
         '<div class="bulk-dialog" role="dialog" aria-modal="true" aria-label="' + this._escapeAttribute(dialogTitle) + '">' +
           '<div class="bulk-dialog-header">' +
-            '<div>' +
+            '<div class="bulk-dialog-header-main">' +
               '<div class="bulk-dialog-title">' + this._escapeHtml(dialogTitle) + '</div>' +
               '<div class="bulk-dialog-subtle">' + this._escapeHtml(String(selectedCount) + (selectedCount === 1 ? ' print selected. ' : ' prints selected. ') + helperText) + '</div>' +
             '</div>' +
@@ -1136,6 +1152,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!this._selectedArchiveCount()) {
       return;
     }
+    this._projectOptionsRefreshBusy = false;
     this._bulkDialog = { type: "project", projectValue: "__NULL__" };
     this._renderBulkDialog();
   }
@@ -1143,7 +1160,61 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _closeBulkDialog() {
     this._bulkDialog = null;
     this._bulkActionBusy = false;
+    this._projectOptionsRefreshBusy = false;
     this._renderBulkDialog();
+  }
+
+  _projectsPageUrl() {
+    var baseUrl = this._apiBaseUrl();
+    return baseUrl ? baseUrl + "/projects" : "";
+  }
+
+  _openProjectsPage() {
+    var url = this._projectsPageUrl();
+    if (!url || typeof window === "undefined" || typeof window.open !== "function") {
+      return;
+    }
+    window.open(url, "_blank", "noopener");
+  }
+
+  _projectOptionsSignature() {
+    var attributes = this._statusEntityAttributes();
+    return JSON.stringify({
+      browserRevision: attributes.browser_revision || "",
+      lastRefresh: attributes.last_refresh || "",
+      projectOptions: Array.isArray(attributes.project_options) ? attributes.project_options : [],
+    });
+  }
+
+  async _waitForProjectOptionsRefresh(previousSignature, timeoutMs) {
+    var started = Date.now();
+    while ((Date.now() - started) < timeoutMs) {
+      if (this._projectOptionsSignature() !== previousSignature) {
+        return true;
+      }
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 120);
+      });
+    }
+    return false;
+  }
+
+  async _refreshProjectOptions() {
+    if (!this._hass || this._projectOptionsRefreshBusy) {
+      return;
+    }
+    this._projectOptionsRefreshBusy = true;
+    this._renderBulkDialog();
+    var previousSignature = this._projectOptionsSignature();
+    try {
+      await this._hass.callService("bambuddy", "refresh_print_history_browser", {
+        immediate: true,
+      });
+      await this._waitForProjectOptionsRefresh(previousSignature, 4000);
+    } finally {
+      this._projectOptionsRefreshBusy = false;
+      this._renderBulkDialog();
+    }
   }
 
   _clearMultiSelectRequest() {
@@ -2218,6 +2289,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "open-projects-page") {
+      this._openProjectsPage();
+      return;
+    }
+
+    if (action === "refresh-project-options") {
+      await this._refreshProjectOptions();
+      return;
+    }
+
     if (action === "favorite") {
       await this._toggleFavorite(archive);
       return;
@@ -2619,6 +2700,40 @@ class PrintHistoryBrowserCard extends HTMLElement {
         title: "Tags",
         placeholder: "Add a tag and press Enter",
         helper: "Reuse an existing tag or create a new one. Press Enter or comma to add.",
+      },
+      {
+        type: "grid",
+        columns: 2,
+        square: false,
+        cards: [
+          this._buildPopupActionButton(
+            "Projects",
+            "mdi:open-in-new",
+            "rgba(21,101,192,0.18)",
+            {
+              action: "fire-dom-event",
+              browser_mod: {
+                service: "browser_mod.javascript",
+                data: {
+                  code: [
+                    "const base = hass.states['input_text.bambuddy_api_base_url']?.state || '';",
+                    "const normalized = base.endsWith('/') ? base.slice(0, -1) : base;",
+                    "const url = normalized ? `${normalized}/projects` : '';",
+                    "if (url) {",
+                    "  window.open(url, '_blank', 'noopener');",
+                    "}",
+                  ].join("\n"),
+                },
+              },
+            }
+          ),
+          this._buildPopupActionButton(
+            "Refresh Projects",
+            "mdi:refresh",
+            "rgba(46,125,50,0.18)",
+            { action: "call-service", service: "script.refresh_print_history_popup_projects" }
+          ),
+        ],
       },
       {
         type: "entities",

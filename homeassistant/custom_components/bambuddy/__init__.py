@@ -332,7 +332,12 @@ def _archive_duration_for_runtime_repair(archive: dict[str, Any], explicit_durat
     )
 
 
-SERVICE_REFRESH_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str})
+SERVICE_REFRESH_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Optional("immediate"): bool,
+    }
+)
 SERVICE_QUERY_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -1505,6 +1510,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection: websocket_api.ActiveConnection,
         msg: dict[str, Any],
     ) -> None:
+        archive_id = 0
+        file_name = str(msg.get("file_name", "")).strip()
+        byte_count = 0
         try:
             entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
             archive_id = int(msg[CONF_ARCHIVE_ID])
@@ -1517,12 +1525,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
             if not content:
                 raise HomeAssistantError("Upload payload is empty")
+            byte_count = len(content)
             if len(content) > manager.restore_uploads.max_upload_bytes:
                 raise HomeAssistantError(
                     f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
                 )
 
-            file_name = str(msg.get("file_name", "")).strip()
             if not file_name.lower().endswith(".3mf"):
                 raise HomeAssistantError("Source upload only accepts .3mf files")
 
@@ -1567,14 +1575,51 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 response["upload_response"] = upload_response
             connection.send_result(msg["id"], response)
         except HomeAssistantError as err:
+            if "manager" in locals():
+                manager.record_mutation(
+                    operation="upload_archive_source_3mf_failed",
+                    archive_id=archive_id,
+                    duration_ms=0.0,
+                    details={
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                        "message": str(err),
+                    },
+                )
+            _LOGGER.warning(
+                "Archive source 3MF websocket upload failed for archive %s (%s bytes, file=%s): %s",
+                archive_id,
+                byte_count,
+                file_name,
+                err,
+            )
             connection.send_error(msg["id"], "upload_failed", str(err))
         except RuntimeError as err:
+            if "manager" in locals():
+                manager.record_mutation(
+                    operation="upload_archive_source_3mf_failed",
+                    archive_id=archive_id,
+                    duration_ms=0.0,
+                    details={
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                        "message": str(err),
+                    },
+                )
+            _LOGGER.warning(
+                "Archive source 3MF websocket upload runtime error for archive %s (%s bytes, file=%s): %s",
+                archive_id,
+                byte_count,
+                file_name,
+                err,
+            )
             connection.send_error(msg["id"], "upload_failed", str(err))
 
     websocket_api.async_register_command(hass, websocket_handle_upload_source_3mf)
 
     async def async_handle_refresh(call: ServiceCall) -> None:
         entry_id = call.data.get(CONF_ENTRY_ID)
+        immediate = bool(call.data.get("immediate", False))
         managers = []
         if entry_id:
             entry_data = hass.data[DOMAIN].get(entry_id)
@@ -1584,7 +1629,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             managers.extend(data[DATA_MANAGER] for data in hass.data[DOMAIN].values())
 
         for manager in managers:
-            await manager.async_request_refresh("service", delay_seconds=1.0)
+            await manager.async_request_refresh("service", delay_seconds=0.0 if immediate else 1.0)
 
     async def async_handle_query(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))

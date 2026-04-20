@@ -1149,6 +1149,121 @@ def activity_filament_weight_total_labels(total_grams: float) -> tuple[str, str]
     return total, total
 
 
+def normalize_enrichment_status_value(value: Any) -> str:
+    normalized = as_text(value).strip().lower()
+    return {
+        "c": "complete",
+        "complete": "complete",
+        "t": "near complete",
+        "near complete": "near complete",
+        "m": "mostly complete",
+        "n": "mostly complete",
+        "mostly complete": "mostly complete",
+        "p": "partially complete",
+        "partial": "partially complete",
+        "partially complete": "partially complete",
+        "u": "unavailable",
+        "unavailable": "unavailable",
+        "not defined": "not defined",
+    }.get(normalized, "not defined")
+
+
+def enrichment_status_display_label(value: Any) -> str:
+    normalized = normalize_enrichment_status_value(value)
+    if normalized == "not defined":
+        return "Not Defined"
+    return normalized.title()
+
+
+def user_tags(raw_tags: str) -> list[str]:
+    values: list[str] = []
+    seen: set[str] = set()
+    for tag in split_tags(raw_tags):
+        normalized = tag.lower()
+        if normalized in SYSTEM_TAG_VALUES:
+            continue
+        if any(normalized.startswith(prefix) for prefix in SYSTEM_TAG_PREFIXES):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        values.append(tag)
+    return values
+
+
+def filament_identity_key(row: dict[str, Any]) -> str:
+    filament_id = as_text(row.get("filament_id")).strip()
+    if filament_id:
+        return f"f:{filament_id}"
+    spool_id = as_text(row.get("spool_id")).strip()
+    if spool_id:
+        return f"s:{spool_id}"
+    name = as_text(row.get("name")).strip().lower()
+    color = normalize_hex(row.get("color")).lower()
+    material = as_text(row.get("type")).strip().lower()
+    fallback = "|".join([name or "no-name", color or "no-color", material or "no-type"])
+    return f"n:{fallback}"
+
+
+def archive_filament_identity_keys(archive: dict[str, Any]) -> set[str]:
+    keys: set[str] = set()
+    payload_rows = note_payload_rows(archive)
+    if payload_rows:
+        for row in payload_rows:
+            key = filament_identity_key(row)
+            if key:
+                keys.add(key)
+        return keys
+
+    for slot in archive.get("filament_slots", []):
+        if not isinstance(slot, dict):
+            continue
+        used_grams = as_float(slot.get("used_g") if slot.get("used_g") is not None else slot.get("used_grams"))
+        if used_grams <= 0:
+            continue
+        key = filament_identity_key(
+            {
+                "filament_id": slot.get("filament_id"),
+                "spool_id": slot.get("spool_id"),
+                "name": slot.get("name"),
+                "type": slot.get("type"),
+                "color": slot.get("color"),
+            }
+        )
+        if key:
+            keys.add(key)
+
+    if keys:
+        return keys
+
+    for color in as_text(archive.get("filament_color")).split(","):
+        normalized = normalize_hex(color)
+        if normalized:
+            keys.add(f"n:no-name|{normalized.lower()}|{as_text(archive.get('filament_type')).strip().lower() or 'no-type'}")
+    return keys
+
+
+def archive_single_multi_state(archive: dict[str, Any]) -> str:
+    filament_count = len(archive_filament_identity_keys(archive))
+    if filament_count > 1:
+        return "multi"
+    if filament_count == 1:
+        return "single"
+    return ""
+
+
+def activity_enrichment_status_totals(sorted_matches: list[dict[str, Any]]) -> tuple[str, str]:
+    counts = Counter(normalize_enrichment_status_value(archive.get("enrichment_status")) for archive in sorted_matches)
+    if not counts:
+        return "0 prints", "0"
+    top_status, top_count = max(
+        counts.items(),
+        key=lambda item: (item[1], {"complete": 5, "near complete": 4, "mostly complete": 3, "partially complete": 2, "unavailable": 1, "not defined": 0}.get(item[0], -1)),
+    )
+    total = len(sorted_matches)
+    return f"{top_count}/{total} {enrichment_status_display_label(top_status)}", f"{top_count}/{total}"
+
+
 def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
     if activity_mode == "Filament Weight":
         return activity_filament_weight_total_labels(
@@ -1166,6 +1281,21 @@ def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_
             for archive in sorted_matches
         )
         return f"{total_slots:,} slots", f"{total_slots:,}"
+    if activity_mode == "Number of Unique Tags":
+        total_tags = len({tag.lower() for archive in sorted_matches for tag in user_tags(as_text(archive.get("tags")))})
+        return f"{total_tags:,} {'tag' if total_tags == 1 else 'tags'}", f"{total_tags:,}"
+    if activity_mode == "Single vs Multi-Color Prints":
+        single_count = sum(1 for archive in sorted_matches if archive_single_multi_state(archive) == "single")
+        multi_count = sum(1 for archive in sorted_matches if archive_single_multi_state(archive) == "multi")
+        return f"{single_count:,} single / {multi_count:,} multi", f"{single_count:,}/{multi_count:,}"
+    if activity_mode == "Number of Unique Filaments":
+        total_filaments = len({key for archive in sorted_matches for key in archive_filament_identity_keys(archive)})
+        return f"{total_filaments:,} {'filament' if total_filaments == 1 else 'filaments'}", f"{total_filaments:,}"
+    if activity_mode == "Enrichment Status":
+        return activity_enrichment_status_totals(sorted_matches)
+    if activity_mode == "Number of Favorites":
+        total_favorites = sum(1 for archive in sorted_matches if bool(archive.get("is_favorite")))
+        return f"{total_favorites:,} {'favorite' if total_favorites == 1 else 'favorites'}", f"{total_favorites:,}"
     if activity_mode == "Total Time Printing":
         total_hours = sum(effective_duration_seconds(archive) for archive in sorted_matches) / 3600
         total = f"{total_hours:,.1f} h"

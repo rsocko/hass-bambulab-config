@@ -57,6 +57,11 @@ cards:
                 'Number of Printed Objects': 'mdi:cube-outline',
                 'Cost of Prints': 'mdi:currency-usd',
                 'Filaments Used': 'mdi:palette-swatch-outline',
+                'Number of Unique Tags': 'mdi:tag-multiple-outline',
+                'Single vs Multi-Color Prints': 'mdi:compare-horizontal',
+                'Number of Unique Filaments': 'mdi:palette-swatch-variant',
+                'Enrichment Status': 'mdi:layers-triple-outline',
+                'Number of Favorites': 'mdi:star',
                 'Total Time Printing': 'mdi:timer-outline',
               };
               if (mode === 'Filament Weight' && totalLabel.endsWith('kg')) {
