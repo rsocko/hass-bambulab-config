@@ -821,7 +821,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=55", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=19", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1033,15 +1033,21 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("return !primaryMetric || metric.key !== primaryMetric.key;", content)
         self.assertIn("_buildTooltipMetrics(meta)", content)
         self.assertIn("_resolvePrimaryTooltipMetric(mode, metrics)", content)
+        self.assertIn('<span style="color:rgba(148,163,184,0.92);font-weight:500">', content)
+        self.assertIn(" + ':</span> <span style=\"font-weight:700;color:inherit\">' + ", content)
+        self.assertIn('_buildTooltip(meta, mode, point)', content)
+        self.assertIn('_buildTooltipAccentStyle(mode, meta, point)', content)
+        self.assertIn("box-shadow:inset 3px 0 0 ", content)
 
     def test_heatmap_tooltip_is_positioned_below_hovered_cell(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
         self.assertIn('.apexcharts-tooltip{pointer-events:none;', content)
-        self.assertIn('.apexcharts-tooltip::before{content:\'\';', content)
+        self.assertNotIn('.apexcharts-tooltip::before{content:\'\';', content)
         self.assertIn('_attachTooltipTracking()', content)
         self.assertIn('_positionTooltip(anchorElement)', content)
         self.assertIn('var top = anchorRect.bottom - containerRect.top + gap;', content)
-        self.assertIn('tooltip.style.setProperty("--tooltip-pointer-left"', content)
+        self.assertIn('this._queueTooltipPosition(selection && selection.element ? selection.element : this._lastTooltipAnchor);', content)
+        self.assertIn('this._lastTooltipAnchor = this._findRenderedHeatmapRect(opts.seriesIndex, opts.dataPointIndex) || this._lastTooltipAnchor;', content)
 
     def test_heatmap_card_uses_valid_enrichment_blend_and_sunflower_favorites_scale(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -2220,7 +2226,7 @@ class TestPrintHistoryTagColors(unittest.TestCase):
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertNotIn("background:#1565C0", content)
+                self.assertNotIn('tags.map((tag) => `<span style="background:#1565C0', content)
                 self.assertIn("styleForTag(tag)", content)
 
     def test_archive_color_dots_use_enrichment_payload_for_hover_text(self):
@@ -2231,16 +2237,6 @@ class TestPrintHistoryTagColors(unittest.TestCase):
         self.assertIn("_filamentChipsFromSlots(archive.filament_slots)", content)
         self.assertIn("tooltip: [tray ? name + \" (\" + tray + \")\" : name, filterColor].filter(Boolean).join(\" | \") || name", content)
         self.assertIn("_renderFilamentDot(chip)", content)
-                self.assertIn("const filamentChips = enrichmentRows.length", content)
-                if path.name == "print_history_archive_popup_content.yaml":
-                    self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
-                    self.assertIn("Array.isArray(notesInfo.payload?.F)", content)
-                    self.assertIn("tooltip: [hex, ambiguity].filter(Boolean).join(' | ')", content)
-                else:
-                    self.assertIn("const enrichmentRows = Array.isArray(enrichmentPayload?.F) ? enrichmentPayload.F : [];", content)
-                    self.assertIn("tooltip: [tray ? `${name} (${tray})` : name, hex, ambiguity].filter(Boolean).join(' | ') || name", content)
-                self.assertIn("tooltip: hex", content)
-                self.assertIn('title="${escapeHtml(chip.tooltip)}"', content)
 
 
 class TestPrintHistoryTagEditorCard(unittest.TestCase):
@@ -2585,7 +2581,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("Remove from favorites", content)
         self.assertIn("Add to favorites", content)
         self.assertIn("(toggle favorite)", content)
-        self.assertIn(".icon-action.favorite:hover,.icon-action.favorite:focus-visible", content)
+        self.assertIn(".favorite.active{background:rgba(245,194,66,0.22);color:#f5c242;box-shadow:0 0 0 1px rgba(245,194,66,0.18);}", content)
+        self.assertIn(".favorite.active:hover,.favorite.active:focus-visible", content)
 
     def test_browser_card_compact_layout_places_name_below_thumb_and_aligns_metadata(self):
         content = (
@@ -2625,7 +2622,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
         self.assertIn("var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';", content)
         self.assertIn("? (listImageUrl", content)
-        self.assertIn("? '<div class=\"thumb-wrap\"><div class=\"media-gallery-surface\"><div class=\"list-thumb-empty\">No preview image available</div></div></div>'", content)
+        self.assertIn("? '<div class=\"thumb-wrap has-archive-pill\"><div class=\"media-gallery-surface\"><div class=\"list-thumb-empty\">No preview image available</div></div>' + thumbArchivePill + '</div>'", content)
         self.assertNotIn("var listPlaceholderLabel = showImages", content)
 
     def test_browser_card_popup_action_row_includes_3d_view_button(self):

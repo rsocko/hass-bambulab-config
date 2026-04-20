@@ -4,9 +4,11 @@
 # Configure in Bambuddy → Settings → Notifications → Webhook (Custom):
 #   URL: http(s)://<ha-host>/api/webhook/bambuddy_events
 #
-# Handles two Bambuddy payload formats:
+# Handles Bambuddy payload formats:
 #   1. API format (structured): { "event": "...", "data": { "archive_id": ..., ... } }
-#   2. Notifications format (flat): { "event": "...", "print_name": "...", ... }
+#   2. Legacy generic notifications: { "title": "...", "message": "...", "timestamp": "...", "source": "..." }
+#   3. v0.2.3+ generic notifications: legacy generic fields plus top-level
+#      structured event/variables such as { "event": "print_start", "filename": "...", "printer": "..." }
 #
 # Downstream automations listen for `bambuddy_webhook_event` — NOT raw webhooks.
 # Docs: docs/features/bambuddy_common/README.md
@@ -31,6 +33,9 @@
   actions:
     # Detect which format we received and extract fields consistently.
     # API format puts details inside a `data` object; notification format is flat.
+    # Bambuddy v0.2.3 generic webhook notifications now include structured
+    # event data as top-level flattened variables without nesting them under
+    # `data`, so keep the receiver tolerant of both shapes.
     - variables:
         is_api_format: "{{ trigger.json.data is defined and trigger.json.data is mapping }}"
         raw_event_name: >-
@@ -75,7 +80,9 @@
           {% if is_api_format %}
             {{ trigger.json.data.archive_id | default('') }}
           {% else %}
-            {{ trigger.json.archive_id | default('') }}
+            {{ trigger.json.archive_id
+               | default(trigger.json.id, true)
+               | default('') }}
           {% endif %}
         print_name: >-
           {% if is_api_format %}
@@ -84,6 +91,10 @@
             {{ trigger.json.print_name }}
           {% elif trigger.json.task_name is defined and trigger.json.task_name not in ['', none] %}
             {{ trigger.json.task_name }}
+          {% elif trigger.json.filename is defined and trigger.json.filename not in ['', none] %}
+            {{ trigger.json.filename }}
+          {% elif trigger.json.name is defined and trigger.json.name not in ['', none] %}
+            {{ trigger.json.name }}
           {% else %}
             {{ '' }}
           {% endif %}
@@ -92,6 +103,8 @@
             {{ trigger.json.data.printer_name | default('') }}
           {% elif trigger.json.printer_name is defined and trigger.json.printer_name not in ['', none] %}
             {{ trigger.json.printer_name }}
+          {% elif trigger.json.printer is defined and trigger.json.printer not in ['', none] %}
+            {{ trigger.json.printer }}
           {% else %}
             {{ generic_source }}
           {% endif %}
@@ -99,13 +112,17 @@
           {% if is_api_format %}
             {{ trigger.json.data.status | default('') }}
           {% else %}
-            {{ trigger.json.status | default('') }}
+            {{ trigger.json.status
+               | default(trigger.json.state, true)
+               | default('') }}
           {% endif %}
         printer_id: >-
           {% if is_api_format %}
             {{ trigger.json.data.printer_id | default('') }}
           {% else %}
-            {{ trigger.json.printer_id | default('') }}
+            {{ trigger.json.printer_id
+               | default(trigger.json.printerId, true)
+               | default('') }}
           {% endif %}
 
     - action: logbook.log

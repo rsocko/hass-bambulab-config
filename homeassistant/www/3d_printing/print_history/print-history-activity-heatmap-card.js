@@ -189,8 +189,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".refresh-indicator.hidden{display:none;}" +
       ".refresh-indicator.error{background:rgba(127,29,29,0.88);border-color:rgba(254,202,202,0.28);color:#fee2e2;}" +
       ".refresh-dot{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:0.9;}" +
-      ".apexcharts-tooltip{pointer-events:none;border:1px solid rgba(148,163,184,0.18);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,0.22);overflow:visible;}" +
-      ".apexcharts-tooltip::before{content:'';position:absolute;top:-7px;left:var(--tooltip-pointer-left,50%);width:14px;height:14px;background:inherit;border-left:1px solid rgba(148,163,184,0.18);border-top:1px solid rgba(148,163,184,0.18);transform:translateX(-50%) rotate(45deg);border-top-left-radius:3px;}" +
+      ".apexcharts-tooltip{pointer-events:none;border:1px solid rgba(148,163,184,0.18);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,0.22);overflow:hidden;}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
       ".month-spacer{height:14px;}" +
@@ -658,9 +657,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var minLeft = 8;
     var maxLeft = Math.max(minLeft, containerRect.width - tooltipRect.width - 8);
     var clampedLeft = Math.max(minLeft, Math.min(maxLeft, left));
-    var pointerLeft = anchorRect.left - containerRect.left + anchorRect.width / 2 - clampedLeft;
-    var minPointerLeft = 14;
-    var maxPointerLeft = Math.max(minPointerLeft, tooltipRect.width - 14);
     var top = anchorRect.bottom - containerRect.top + gap;
 
     tooltip.style.left = this._formatDecimal(clampedLeft, 3) + "px";
@@ -668,7 +664,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     tooltip.style.right = "auto";
     tooltip.style.bottom = "auto";
     tooltip.style.transform = "none";
-    tooltip.style.setProperty("--tooltip-pointer-left", this._formatDecimal(Math.max(minPointerLeft, Math.min(maxPointerLeft, pointerLeft)), 3) + "px");
   }
 
   _getScopedArchives() {
@@ -1365,7 +1360,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           var point = opts && opts.w && opts.w.config && opts.w.config.series && opts.w.config.series[opts.seriesIndex]
             ? opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex]
             : null;
-          return self._buildTooltip(point && point.meta ? point.meta : null, dataset.mode);
+          return self._buildTooltip(point && point.meta ? point.meta : null, dataset.mode, point);
         },
       },
       grid: {
@@ -1405,6 +1400,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var selection = await this._applySelectedPointState(dataset);
     this._applyEnrichmentPatternFills(dataset);
     this._positionSelectedOverlay(selection ? selection.element : null, selection ? selection.indexes : null, dataset);
+    this._queueTooltipPosition(selection && selection.element ? selection.element : this._lastTooltipAnchor);
   }
 
   _applyEnrichmentPatternFills(dataset) {
@@ -2045,6 +2041,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    this._lastTooltipAnchor = this._findRenderedHeatmapRect(opts.seriesIndex, opts.dataPointIndex) || this._lastTooltipAnchor;
+    this._queueTooltipPosition(this._lastTooltipAnchor);
+
     this._handleDateSelection(meta.dateKey);
   }
 
@@ -2321,7 +2320,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }.bind(this)).join("") + "</div>";
   }
 
-  _buildTooltip(meta, mode) {
+  _buildTooltip(meta, mode, point) {
     if (!meta || !meta.dateKey) {
       return "";
     }
@@ -2331,14 +2330,18 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var secondaryMetrics = metrics.filter(function (metric) {
       return !primaryMetric || metric.key !== primaryMetric.key;
     });
+    var accentStyle = this._buildTooltipAccentStyle(mode, meta, point);
     var lines = [
       '<div style="padding:8px 10px;min-width:220px">',
-      '<div style="font-weight:700;margin-bottom:6px">' + this._escapeHtml(meta.label) + "</div>",
+      '<div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:6px">' +
+      (accentStyle ? '<span style="width:12px;height:12px;border-radius:3px;flex:0 0 auto;background:' + this._escapeHtml(accentStyle) + ';box-shadow:inset 0 0 0 1px rgba(255,255,255,0.28)"></span>' : '') +
+      '<span>' + this._escapeHtml(meta.label) + '</span>' +
+      "</div>",
     ];
 
     if (primaryMetric) {
       lines.push(
-        '<div style="margin-bottom:8px;padding:8px 10px;border-radius:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22)">' +
+        '<div style="margin-bottom:8px;padding:8px 10px;border-radius:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);' + (accentStyle ? ('box-shadow:inset 3px 0 0 ' + accentStyle + ';') : '') + '">' +
         '<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:0.72">' + this._escapeHtml(primaryMetric.label) + '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">' +
         (primaryMetric.swatch ? '<span style="width:12px;height:12px;border-radius:999px;background:' + this._escapeHtml(primaryMetric.swatch) + ';display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.32)"></span>' : '') +
@@ -2351,7 +2354,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (secondaryMetrics.length) {
       lines.push('<div style="display:grid;gap:4px;font-size:12px;line-height:1.35">');
       secondaryMetrics.forEach(function (metric) {
-        lines.push('<div>' + this._escapeHtml(metric.label) + ': <strong>' + this._escapeHtml(metric.value) + '</strong></div>');
+        lines.push('<div><span style="color:rgba(148,163,184,0.92);font-weight:500">' + this._escapeHtml(metric.label) + ':</span> <span style="font-weight:700;color:inherit">' + this._escapeHtml(metric.value) + '</span></div>');
       }.bind(this));
       lines.push('</div>');
     }
@@ -2361,6 +2364,22 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
     lines.push("</div>");
     return lines.join("");
+  }
+
+  _buildTooltipAccentStyle(mode, meta, point) {
+    if (mode === "Enrichment Status" && meta && meta.enrichmentBackground) {
+      return meta.enrichmentBackground;
+    }
+    if (point && point.fillColor) {
+      return point.fillColor;
+    }
+    if (meta && meta.outcomeColor) {
+      return meta.outcomeColor;
+    }
+    if (meta && meta.dominantColor) {
+      return meta.dominantColor;
+    }
+    return "";
   }
 
   _buildTooltipMetrics(meta) {

@@ -16,9 +16,12 @@ DIAGNOSTICS_PATH = COMPONENT_ROOT / "diagnostics.py"
 def _install_homeassistant_stubs() -> None:
     voluptuous_module = ModuleType("voluptuous")
     aiohttp_module = ModuleType("aiohttp")
+    aiohttp_web_module = ModuleType("aiohttp.web")
     homeassistant_module = ModuleType("homeassistant")
     components_module = ModuleType("homeassistant.components")
     components_diagnostics_module = ModuleType("homeassistant.components.diagnostics")
+    components_http_module = ModuleType("homeassistant.components.http")
+    components_websocket_api_module = ModuleType("homeassistant.components.websocket_api")
     config_entries_module = ModuleType("homeassistant.config_entries")
     const_module = ModuleType("homeassistant.const")
     core_module = ModuleType("homeassistant.core")
@@ -86,6 +89,36 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self, total=None) -> None:
             self.total = total
 
+    class FormData:
+        def __init__(self, *args, **kwargs) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+    class Request:
+        pass
+
+    class Response:
+        def __init__(self, text=None, *, content_type=None, charset=None, status=200) -> None:
+            self.text = text
+            self.content_type = content_type
+            self.charset = charset
+            self.status = status
+
+    class HomeAssistantView:
+        pass
+
+    class ActiveConnection:
+        pass
+
+    def _identity_decorator(*_args, **_kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def _json_response(data, status=200):
+        return {"data": data, "status": status}
+
     voluptuous_module.Schema = lambda value: value
     voluptuous_module.Required = lambda key, default=None: key
     voluptuous_module.Optional = lambda key, default=None: key
@@ -93,12 +126,23 @@ def _install_homeassistant_stubs() -> None:
     voluptuous_module.Range = lambda **kwargs: kwargs
     voluptuous_module.Any = lambda *validators: validators
     voluptuous_module.Coerce = lambda type_: type_
+    voluptuous_module.In = lambda values: values
 
     aiohttp_module.ClientResponseError = ClientResponseError
     aiohttp_module.ClientSession = ClientSession
     aiohttp_module.ClientTimeout = ClientTimeout
+    aiohttp_module.FormData = FormData
+    aiohttp_web_module.Request = Request
+    aiohttp_web_module.Response = Response
+    aiohttp_web_module.json_response = _json_response
+    aiohttp_module.web = aiohttp_web_module
 
     components_diagnostics_module.async_redact_data = lambda value, to_redact: value
+    components_http_module.HomeAssistantView = HomeAssistantView
+    components_websocket_api_module.ActiveConnection = ActiveConnection
+    components_websocket_api_module.websocket_command = _identity_decorator
+    components_websocket_api_module.async_response = lambda func: func
+    components_websocket_api_module.async_register_command = lambda *args, **kwargs: None
     config_entries_module.ConfigFlow = ConfigFlow
     config_entries_module.OptionsFlow = OptionsFlow
     config_entries_module.ConfigEntry = ConfigEntry
@@ -130,9 +174,12 @@ def _install_homeassistant_stubs() -> None:
 
     sys.modules["voluptuous"] = voluptuous_module
     sys.modules["aiohttp"] = aiohttp_module
+    sys.modules["aiohttp.web"] = aiohttp_web_module
     sys.modules["homeassistant"] = homeassistant_module
     sys.modules["homeassistant.components"] = components_module
     sys.modules["homeassistant.components.diagnostics"] = components_diagnostics_module
+    sys.modules["homeassistant.components.http"] = components_http_module
+    sys.modules["homeassistant.components.websocket_api"] = components_websocket_api_module
     sys.modules["homeassistant.config_entries"] = config_entries_module
     sys.modules["homeassistant.const"] = const_module
     sys.modules["homeassistant.core"] = core_module

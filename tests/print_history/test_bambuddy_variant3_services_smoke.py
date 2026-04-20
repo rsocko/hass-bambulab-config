@@ -1824,7 +1824,7 @@ def test_variant3_manager_refresh_backfills_printer_names_from_printers_api(tmp_
         manager_module.BambuddyApiClient = original_client
 
     assert manager.archives[0]["printer_name"] == "Workshop P1S"
-    assert manager.project_options == [{"id": "77", "name": "Wall Art", "status": "active", "label": "Wall Art"}]
+    assert manager.project_options == [{"id": "77", "name": "Wall Art", "status": "active", "color": "", "label": "Wall Art"}]
     assert manager.last_refresh_archive_total_count == 1
     printer_option_calls = [
         call for call in hass.services.calls if call[0] == "input_select" and call[1] == "set_options"
@@ -2112,7 +2112,7 @@ def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path:
     )
 
     assert options == [
-        {"id": "100", "name": "Controller Box", "status": "active", "label": "Controller Box [100]"},
-        {"id": "200", "name": "Controller Box", "status": "archived", "label": "Controller Box [200]"},
-        {"id": "300", "name": "Moon Lamp", "status": "active", "label": "Moon Lamp"},
+        {"id": "100", "name": "Controller Box", "status": "active", "color": "", "label": "Controller Box [100]"},
+        {"id": "200", "name": "Controller Box", "status": "archived", "color": "", "label": "Controller Box [200]"},
+        {"id": "300", "name": "Moon Lamp", "status": "active", "color": "", "label": "Moon Lamp"},
     ]
