@@ -828,7 +828,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=111", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=45", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=13", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=14", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -897,7 +897,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
         self.assertIn('var formData = new FormData();', action_content)
         self.assertIn('formData.append("file", file, file.name);', action_content)
-        self.assertIn('headers.Authorization = "Bearer " + accessToken;', action_content)
+        self.assertIn('if (auth && typeof auth.fetchWithAuth === "function")', action_content)
+        self.assertIn('return auth.fetchWithAuth(url, requestOptions);', action_content)
+        self.assertIn('requestOptions.headers = await this._authHeaders(false);', action_content)
+        self.assertIn('if (response.status === 401)', action_content)
         self.assertIn('credentials: "same-origin"', action_content)
         self.assertIn('payload.message || payload.error', action_content)
         self.assertIn('_describeError(error, "Source 3MF upload failed")', action_content)
@@ -2200,10 +2203,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=13", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=14", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=110", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=111", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (

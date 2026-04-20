@@ -547,6 +547,44 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     });
   }
 
+  async _authHeaders(forceRefresh) {
+    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    if (!auth) {
+      return {};
+    }
+
+    if (forceRefresh && typeof auth.refreshAccessToken === "function") {
+      try {
+        await auth.refreshAccessToken();
+      } catch (_error) {
+        // Fall through and use the last known token if refresh fails.
+      }
+    }
+
+    var accessToken = auth.accessToken || (auth.data ? auth.data.accessToken : "");
+    return accessToken ? { Authorization: "Bearer " + accessToken } : {};
+  }
+
+  async _authenticatedFetch(url, options, forceRefresh) {
+    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    var requestOptions = Object.assign({ credentials: "same-origin" }, options || {});
+
+    if (auth && forceRefresh && typeof auth.refreshAccessToken === "function") {
+      try {
+        await auth.refreshAccessToken();
+      } catch (_error) {
+        // Fall through and let the request use the last known auth state.
+      }
+    }
+
+    if (auth && typeof auth.fetchWithAuth === "function") {
+      return auth.fetchWithAuth(url, requestOptions);
+    }
+
+    requestOptions.headers = await this._authHeaders(false);
+    return fetch(url, requestOptions);
+  }
+
   async _postSourceUpload(file, archiveId) {
     var formData = new FormData();
     formData.append("file", file, file.name);
@@ -554,22 +592,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       formData.append("entry_id", String(this._config.entry_id));
     }
 
-    var headers = {};
-    var accessToken = this._hass && this._hass.auth && this._hass.auth.data
-      ? this._hass.auth.data.accessToken
-      : "";
-    if (accessToken) {
-      headers.Authorization = "Bearer " + accessToken;
-    }
-
     var uploadEndpoint = String(this._config.upload_endpoint || "")
       .replace("{archive_id}", encodeURIComponent(String(archiveId)));
-    var response = await fetch(uploadEndpoint, {
+    var response = await this._authenticatedFetch(uploadEndpoint, {
       method: "POST",
       body: formData,
-      headers: headers,
-      credentials: "same-origin",
-    });
+    }, false);
+    if (response.status === 401) {
+      response = await this._authenticatedFetch(uploadEndpoint, {
+        method: "POST",
+        body: formData,
+      }, true);
+    }
 
     var payload = {};
     try {
