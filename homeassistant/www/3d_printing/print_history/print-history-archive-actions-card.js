@@ -176,9 +176,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     if (error.message && String(error.message).trim()) {
+      var normalizedMessage = String(error.message).trim();
+      var httpDetailMatch = normalizedMessage.match(/^Bambuddy returned HTTP \d+:\s*(.+)$/i);
+      if (httpDetailMatch && httpDetailMatch[1]) {
+        normalizedMessage = String(httpDetailMatch[1]).trim();
+      }
       return diagnosticsMessage
-        ? String(error.message).trim() + " [" + diagnosticsMessage + "]"
-        : String(error.message).trim();
+        ? normalizedMessage + " [" + diagnosticsMessage + "]"
+        : normalizedMessage;
     }
 
     if (error.code && error.code !== "unknown_error") {
@@ -450,14 +455,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   async _callArchiveDetailService(archiveId) {
-    if (!this._hass || typeof this._hass.callService !== "function" || archiveId <= 0) {
+    if (!this._hass || archiveId <= 0) {
       throw new Error("Archive action context is unavailable");
     }
     var payload = { archive_id: archiveId };
     if (this._config && this._config.entry_id) {
       payload.entry_id = String(this._config.entry_id);
     }
-    return this._hass.callService("bambuddy", "get_print_history_archive_detail", payload, undefined, true);
+    return this._callServiceWithResponse("bambuddy", "get_print_history_archive_detail", payload);
   }
 
   async _openMetadataViewer(forceRefresh) {
@@ -870,6 +875,59 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return accessToken ? { Authorization: "Bearer " + accessToken } : {};
   }
 
+  _normalizeServiceResponse(payload) {
+    if (payload && typeof payload === "object") {
+      if (payload.service_response && typeof payload.service_response === "object") {
+        return payload.service_response;
+      }
+      if (payload.response && typeof payload.response === "object") {
+        return payload.response;
+      }
+    }
+    return payload && typeof payload === "object" ? payload : {};
+  }
+
+  async _callServiceWithResponse(domain, service, data) {
+    if (!this._hass) {
+      throw new Error("Home Assistant context is unavailable");
+    }
+    var endpoint = "/api/services/" + encodeURIComponent(String(domain || "")) + "/" + encodeURIComponent(String(service || "")) + "?return_response";
+    var requestBody = JSON.stringify(data && typeof data === "object" ? data : {});
+    var response = await fetch(endpoint, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(false)),
+      credentials: "same-origin",
+      body: requestBody,
+    });
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, await this._authHeaders(true)),
+        credentials: "same-origin",
+        body: requestBody,
+      });
+    }
+
+    var payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw payload && typeof payload === "object"
+        ? {
+            message: String(payload.message || payload.error || ("Service call failed (HTTP " + String(response.status) + ")")),
+            body: payload,
+            status: response.status,
+          }
+        : new Error("Service call failed (HTTP " + String(response.status) + ")");
+    }
+
+    return this._normalizeServiceResponse(payload);
+  }
+
   _buildSourceUploadFormData(file) {
     var formData = new FormData();
     formData.append("file", file, file.name);
@@ -1229,7 +1287,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (this._config && this._config.entry_id) {
       payload.entry_id = String(this._config.entry_id);
     }
-    return this._hass.callService("bambuddy", service, payload, undefined, true);
+    return this._callServiceWithResponse("bambuddy", service, payload);
   }
 
   async _fetchArchiveStorageMetrics(forceRefresh) {

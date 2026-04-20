@@ -108,6 +108,53 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
   }
 
+  _normalizeServiceResponse(payload) {
+    if (payload && typeof payload === "object") {
+      if (payload.service_response && typeof payload.service_response === "object") {
+        return payload.service_response;
+      }
+      if (payload.response && typeof payload.response === "object") {
+        return payload.response;
+      }
+    }
+    return payload && typeof payload === "object" ? payload : {};
+  }
+
+  async _callServiceWithResponse(domain, service, data) {
+    if (!this._hass) {
+      throw new Error("Home Assistant context is unavailable");
+    }
+    const endpoint = `/api/services/${encodeURIComponent(String(domain || ""))}/${encodeURIComponent(String(service || ""))}?return_response`;
+    const requestBody = JSON.stringify(data && typeof data === "object" ? data : {});
+    let response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await this._authHeaders(false)) },
+      credentials: "same-origin",
+      body: requestBody,
+    });
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await this._authHeaders(true)) },
+        credentials: "same-origin",
+        body: requestBody,
+      });
+    }
+
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.message || payload?.error || `Service call failed (HTTP ${response.status})`);
+    }
+
+    return this._normalizeServiceResponse(payload);
+  }
+
   async _materializeUploadFile(file) {
     if (!file) {
       throw new Error("No replacement 3MF file was selected");
@@ -189,7 +236,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     this._error = "";
     this._render();
     try {
-      const response = await this._hass.callService("bambuddy", service, data, undefined, true);
+      const response = await this._callServiceWithResponse("bambuddy", service, data);
       this._message = response?.message || "";
       if (response?.target_archive_id) {
         await this._setHelper(this._config.target_archive_helper, response.target_archive_id);

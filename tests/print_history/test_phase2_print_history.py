@@ -820,10 +820,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=114", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=25", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=1", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
@@ -933,7 +933,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('credentials: "same-origin"', action_content)
         self.assertIn('payload.message || payload.error', action_content)
         self.assertIn('var diagnosticsMessage = this._formatUploadDiagnostics(error && error.body ? error.body.diagnostics : null);', action_content)
-        self.assertIn('String(error.message).trim() + " [" + diagnosticsMessage + "]"', action_content)
+        self.assertIn('var httpDetailMatch = normalizedMessage.match(/^Bambuddy returned HTTP \\d+:\\s*(.+)$/i);', action_content)
+        self.assertIn('normalizedMessage + " [" + diagnosticsMessage + "]"', action_content)
         self.assertIn('_formatUploadDiagnostics(diagnostics)', action_content)
         self.assertIn('summary.push("request=" + String(diagnostics.request_content_type));', action_content)
         self.assertIn('summary.push("chunks=" + String(diagnostics.chunk_count));', action_content)
@@ -2275,10 +2276,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=25", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=32", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=33", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=114", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
@@ -2405,7 +2406,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-restore-card.js"
         ).read_text("utf-8")
-        self.assertIn('this._hass.callService("bambuddy", service, data, undefined, true);', content)
+        self.assertIn('this._hass.callService("bambuddy", service, data, undefined, true, true);', content)
         self.assertIn('await auth.refreshAccessToken();', content)
         self.assertIn('Replacement upload did not return an upload_session_id', content)
         self.assertIn('archive_json: config?.archive_json || "{}",', content)

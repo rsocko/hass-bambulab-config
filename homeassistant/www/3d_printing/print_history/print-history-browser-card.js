@@ -1462,7 +1462,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       archive_ids: this._selectedArchiveIdsCsv(),
       include_other_files: true,
       include_extension_breakdown: false,
-    }, undefined, true);
+    }, undefined, true, true);
     await this._completeBulkActionAndExitMode();
   }
 
