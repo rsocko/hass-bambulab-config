@@ -2247,7 +2247,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=20", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=31", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
 
@@ -2377,6 +2377,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-restore-card.js"
         ).read_text("utf-8")
         self.assertIn('this._hass.callService("bambuddy", service, data, undefined, true);', content)
+        self.assertIn('await auth.refreshAccessToken();', content)
+        self.assertIn('Replacement upload did not return an upload_session_id', content)
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 

@@ -274,6 +274,50 @@ async def _build_archive_action_response(
         manager.fetch_timeout_seconds,
     )
 
+    if intent == "scan_timelapse":
+        started = perf_counter()
+        scan_result = await client.async_scan_archive_timelapse(archive_id) or {}
+        scan_status = str(scan_result.get("status") or "unknown").strip() or "unknown"
+        scan_message = str(scan_result.get("message") or "").strip()
+        available_files = scan_result.get("available_files")
+        available_file_count = len(available_files) if isinstance(available_files, list) else 0
+
+        refreshed = await manager.async_refresh_archive_detail(
+            archive_id,
+            operation="scan_archive_timelapse",
+            extra_details={
+                "scan_status": scan_status,
+                "available_file_count": available_file_count,
+            },
+        )
+        if refreshed is None:
+            raise HomeAssistantError(f"Archive {archive_id} could not be refreshed from Bambuddy")
+
+        manager.record_mutation(
+            operation="scan_archive_timelapse",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "scan_status": scan_status,
+                "available_file_count": available_file_count,
+            },
+        )
+
+        response = manager.build_archive_detail_response(archive_id)
+        if response is None:
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        response.update(
+            {
+                CONF_ENTRY_ID: entry_id,
+                CONF_ARCHIVE_ID: archive_id,
+                "intent": intent,
+                "status": scan_status,
+                "message": scan_message,
+                "scan_result": scan_result,
+            }
+        )
+        return response
+
     try:
         if resource_type == "source":
             token = await client.async_create_source_slicer_token(archive_id)
@@ -997,6 +1041,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
 
     async def post(self, request: web.Request) -> web.Response:
         hass = request.app["hass"]
+        started = perf_counter()
 
         try:
             reader = await request.multipart()
@@ -1008,6 +1053,8 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
         file_content_type = "application/octet-stream"
         file_chunks: list[bytes] = []
         file_byte_count = 0
+        file_chunk_count = 0
+        first_chunk_size = 0
         while True:
             part = await reader.next()
             if part is None:
@@ -1015,7 +1062,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
             if part.name == "file":
                 file_name = str(getattr(part, "filename", "") or "").strip()
                 file_content_type = str(part.headers.get("Content-Type", "application/octet-stream"))
-                file_chunks, file_byte_count, _file_chunk_count, _first_chunk_size = await _read_uploaded_file_part(part)
+                file_chunks, file_byte_count, file_chunk_count, first_chunk_size = await _read_uploaded_file_part(part)
                 continue
             fields[part.name] = await part.text()
 
@@ -1111,8 +1158,42 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 source_archive_id=source_archive_id,
                 message=str(error),
             )
+            manager.record_mutation(
+                operation="stage_replacement_upload_failed",
+                archive_id=source_archive_id,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                details={
+                    CONF_PRINTER_ID: printer_id,
+                    "file_name": file_name,
+                    "byte_count": file_byte_count,
+                    "chunk_count": file_chunk_count,
+                    "message": str(error),
+                },
+            )
             manager._notify_listeners()
-            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=400)
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=file_byte_count,
+                chunk_count=file_chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
+            _LOGGER.warning(
+                "Replacement archive upload failed for source archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
+                source_archive_id,
+                file_byte_count,
+                file_chunk_count,
+                first_chunk_size,
+                file_name,
+                file_content_type,
+                error,
+            )
+            return web.json_response(
+                {"success": False, "error": "upload_failed", "message": str(error), "diagnostics": diagnostics},
+                status=400,
+            )
         except OSError as error:
             manager.restore_uploads.discard_session(session_id)
             manager.restore_workflow.set_error(
@@ -1120,9 +1201,45 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 source_archive_id=source_archive_id,
                 message=f"Unable to stage uploaded file: {error}",
             )
+            manager.record_mutation(
+                operation="stage_replacement_upload_failed",
+                archive_id=source_archive_id,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                details={
+                    CONF_PRINTER_ID: printer_id,
+                    "file_name": file_name,
+                    "byte_count": file_byte_count,
+                    "chunk_count": file_chunk_count,
+                    "message": str(error),
+                },
+            )
             manager._notify_listeners()
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=file_byte_count,
+                chunk_count=file_chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
+            _LOGGER.warning(
+                "Replacement archive upload staging failed for source archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
+                source_archive_id,
+                file_byte_count,
+                file_chunk_count,
+                first_chunk_size,
+                file_name,
+                file_content_type,
+                error,
+            )
             return web.json_response(
-                {"success": False, "error": "upload_io_failed", "message": f"Unable to stage uploaded file: {error}"},
+                {
+                    "success": False,
+                    "error": "upload_io_failed",
+                    "message": f"Unable to stage uploaded file: {error}",
+                    "diagnostics": diagnostics,
+                },
                 status=500,
             )
 
@@ -1475,7 +1592,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION,
             vol.Optional(CONF_ENTRY_ID): str,
             vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
-            vol.Required("intent"): vol.In({"download", "download_gcode", "download_source_3mf", "open_in_slicer"}),
+            vol.Required("intent"): vol.In({"download", "download_gcode", "download_source_3mf", "open_in_slicer", "scan_timelapse"}),
         }
     )
     @websocket_api.async_response

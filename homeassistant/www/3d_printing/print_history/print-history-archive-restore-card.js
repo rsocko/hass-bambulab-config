@@ -72,6 +72,93 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     return this._parseJson(detail?.attributes?.archive_json || "{}", {});
   }
 
+  async _authHeaders(forceRefresh = false) {
+    const auth = this._hass?.auth || null;
+    if (!auth) {
+      return {};
+    }
+    if (forceRefresh && typeof auth.refreshAccessToken === "function") {
+      try {
+        await auth.refreshAccessToken();
+      } catch (_error) {
+        // Fall through and use the last known token if refresh fails.
+      }
+    }
+    const accessToken = auth.accessToken || auth.data?.accessToken || "";
+    return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+  }
+
+  async _materializeUploadFile(file) {
+    if (!file) {
+      throw new Error("No replacement 3MF file was selected");
+    }
+    if (typeof file.arrayBuffer !== "function") {
+      return file;
+    }
+
+    const buffer = await file.arrayBuffer();
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error("The selected replacement 3MF file is empty");
+    }
+
+    const contentType = String(file.type || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml").trim()
+      || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml";
+    if (typeof File === "function") {
+      return new File([buffer], String(file.name || "replacement.gcode.3mf"), {
+        type: contentType,
+        lastModified: typeof file.lastModified === "number" ? file.lastModified : Date.now(),
+      });
+    }
+
+    return new Blob([buffer], { type: contentType });
+  }
+
+  _buildUploadFormData(file, sourceArchiveId, printerId) {
+    const formData = new FormData();
+    if (this._config?.entry_id) {
+      formData.append("entry_id", String(this._config.entry_id));
+    }
+    formData.append("source_archive_id", String(sourceArchiveId));
+    formData.append("printer_id", String(printerId));
+    formData.append("file", file, file.name);
+    return formData;
+  }
+
+  async _postReplacementUpload(file, sourceArchiveId, printerId) {
+    if (!file || file.size === 0) {
+      throw new Error("The selected replacement 3MF file is empty");
+    }
+
+    const uploadFile = await this._materializeUploadFile(file);
+    let response = await fetch(this._config.upload_endpoint, {
+      method: "POST",
+      body: this._buildUploadFormData(uploadFile, sourceArchiveId, printerId),
+      headers: await this._authHeaders(false),
+      credentials: "same-origin",
+    });
+    if (response.status === 401) {
+      response = await fetch(this._config.upload_endpoint, {
+        method: "POST",
+        body: this._buildUploadFormData(uploadFile, sourceArchiveId, printerId),
+        headers: await this._authHeaders(true),
+        credentials: "same-origin",
+      });
+    }
+
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok || payload?.success === false) {
+      throw new Error(payload?.message || payload?.error || `Replacement upload failed (HTTP ${response.status})`);
+    }
+
+    return payload && typeof payload === "object" ? payload : {};
+  }
+
   async _setHelper(entityId, value) {
     await this._hass.callService("input_text", "set_value", { entity_id: entityId, value: String(value || "") });
   }
@@ -115,36 +202,28 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
       input.value = "";
       return;
     }
+    if (!/\.3mf$/i.test(String(file.name || ""))) {
+      this._error = "Replacement upload only accepts .3mf files.";
+      this._render();
+      input.value = "";
+      return;
+    }
 
     this._busy = true;
     this._message = "";
     this._error = "";
     this._render();
     try {
-      const formData = new FormData();
-      formData.append("source_archive_id", String(sourceArchiveId));
-      formData.append("printer_id", String(printerId));
-      formData.append("file", file, file.name);
-      const headers = {};
-      const accessToken = this._hass?.auth?.data?.accessToken;
-      if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-      }
-      const response = await fetch(this._config.upload_endpoint, {
-        method: "POST",
-        body: formData,
-        headers,
-        credentials: "same-origin",
-      });
-      const payload = await response.json();
-      if (!response.ok || payload?.success === false) {
-        throw new Error(payload?.message || `Upload failed with HTTP ${response.status}`);
-      }
+      const payload = await this._postReplacementUpload(file, sourceArchiveId, printerId);
       const upload = payload?.upload || payload;
+      if (!upload?.upload_session_id) {
+        throw new Error("Replacement upload did not return an upload_session_id");
+      }
       await this._setHelper(this._config.source_archive_helper, upload.source_archive_id || sourceArchiveId);
       await this._setHelper(this._config.target_archive_helper, "");
       await this._setHelper(this._config.upload_session_helper, upload.upload_session_id || "");
-      this._message = `Staged ${upload.filename || file.name}`;
+      const warnings = Array.isArray(upload?.warnings) ? upload.warnings.filter(Boolean) : [];
+      this._message = `Staged ${upload.filename || file.name}${warnings.length ? ` (${warnings.join(" | ")})` : ""}`;
     } catch (error) {
       this._error = error?.message || String(error);
     } finally {
