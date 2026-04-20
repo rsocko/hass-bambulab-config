@@ -570,6 +570,23 @@ def test_variant3_store_persists_archives_and_side_tables(tmp_path: Path) -> Non
     assert loaded[0]["photos"] == ["finish-overview.webp", "topdown-closeup.jpg", "detail-angle.png"]
 
 
+def test_variant3_store_upsert_archive_aliases_replace_archive(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+
+    archive = _projected_archives()[0]
+
+    first = store.upsert_archive(archive)
+    second = store.upsert_archive(archive)
+    loaded = store.load_archive(archive["id"])
+
+    assert first["inserted_count"] == 1
+    assert first["updated_count"] == 0
+    assert second["unchanged_count"] == 1
+    assert loaded is not None
+    assert loaded["project_name"] == "Wall Art"
+
+
 def test_variant3_store_quarantine_helper_renames_cache_files(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store._db_path.write_text("broken-cache", encoding="utf-8")

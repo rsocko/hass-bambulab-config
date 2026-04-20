@@ -507,6 +507,9 @@ class PrintHistoryStore:
             **preparation_stats,
         }
 
+    def upsert_archive(self, archive: dict[str, Any]) -> dict[str, Any]:
+        return self.replace_archive(archive)
+
     def _prepare_archives_for_sync(
         self,
         archives: list[dict[str, Any]],
@@ -2888,6 +2891,7 @@ class PrintHistoryStore:
                     printer_name,
                     print_name,
                     status,
+                    enrichment_status,
                     started_at,
                     completed_at,
                     created_at,
@@ -2914,21 +2918,22 @@ class PrintHistoryStore:
                 "printer_name": as_text(row[2]).strip(),
                 "print_name": as_text(row[3]).strip(),
                 "status": as_text(row[4]).strip().lower(),
-                "started_at": as_text(row[5]).strip(),
-                "completed_at": as_text(row[6]).strip(),
-                "created_at": as_text(row[7]).strip(),
-                "actual_time_seconds": as_int(row[8]),
-                "print_time_seconds": as_int(row[9]),
-                "filament_used_grams": as_float(row[10]),
-                "filament_type": as_text(row[11]).strip(),
-                "filament_color": as_text(row[12]).strip(),
-                "cost": as_float(row[13]),
-                "designer": as_text(row[14]).strip(),
-                "is_favorite": as_int(row[15]),
-                "object_count": max(1, as_int(row[16], 1)),
-                "layer_height": as_text(row[17]).strip(),
-                "tags": as_text(row[18]).strip(),
-                "thumbnail_path": as_text(row[19]).strip(),
+                "enrichment_status": normalize_enrichment_status_value(row[5]),
+                "started_at": as_text(row[6]).strip(),
+                "completed_at": as_text(row[7]).strip(),
+                "created_at": as_text(row[8]).strip(),
+                "actual_time_seconds": as_int(row[9]),
+                "print_time_seconds": as_int(row[10]),
+                "filament_used_grams": as_float(row[11]),
+                "filament_type": as_text(row[12]).strip(),
+                "filament_color": as_text(row[13]).strip(),
+                "cost": as_float(row[14]),
+                "designer": as_text(row[15]).strip(),
+                "is_favorite": as_int(row[16]),
+                "object_count": max(1, as_int(row[17], 1)),
+                "layer_height": as_text(row[18]).strip(),
+                "tags": as_text(row[19]).strip(),
+                "thumbnail_path": as_text(row[20]).strip(),
             }
             for row in rows
         }

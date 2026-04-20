@@ -828,7 +828,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=47", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=15", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=16", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -899,9 +899,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('var formData = new FormData();', action_content)
         self.assertIn('if (file.size === 0)', action_content)
         self.assertIn('body: this._buildSourceUploadFormData(file),', action_content)
-        self.assertIn('if (auth && typeof auth.fetchWithAuth === "function")', action_content)
-        self.assertIn('return auth.fetchWithAuth(url, requestOptions);', action_content)
-        self.assertIn('requestOptions.headers = await this._authHeaders(false);', action_content)
+        self.assertIn('headers: await this._authHeaders(false),', action_content)
+        self.assertIn('headers: await this._authHeaders(true),', action_content)
         self.assertIn('if (response.status === 401)', action_content)
         self.assertIn('credentials: "same-origin"', action_content)
         self.assertIn('payload.message || payload.error', action_content)
@@ -910,6 +909,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('var serialized = JSON.stringify(error);', action_content)
         self.assertIn('transition:none;', action_content)
         self.assertNotIn('type: "bambuddy/print_history_upload_source_3mf"', action_content)
+        self.assertNotIn('auth.fetchWithAuth', action_content)
         self.assertNotIn('data-source-upload-input="true"', action_content)
         self.assertIn('delete_print_history_archive', action_content)
 
@@ -2209,7 +2209,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=15", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=16", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)

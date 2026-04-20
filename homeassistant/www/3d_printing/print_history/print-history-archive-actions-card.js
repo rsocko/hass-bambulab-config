@@ -565,26 +565,6 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return accessToken ? { Authorization: "Bearer " + accessToken } : {};
   }
 
-  async _authenticatedFetch(url, options, forceRefresh) {
-    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
-    var requestOptions = Object.assign({ credentials: "same-origin" }, options || {});
-
-    if (auth && forceRefresh && typeof auth.refreshAccessToken === "function") {
-      try {
-        await auth.refreshAccessToken();
-      } catch (_error) {
-        // Fall through and let the request use the last known auth state.
-      }
-    }
-
-    if (auth && typeof auth.fetchWithAuth === "function") {
-      return auth.fetchWithAuth(url, requestOptions);
-    }
-
-    requestOptions.headers = await this._authHeaders(false);
-    return fetch(url, requestOptions);
-  }
-
   _buildSourceUploadFormData(file) {
     var formData = new FormData();
     formData.append("file", file, file.name);
@@ -601,15 +581,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
     var uploadEndpoint = String(this._config.upload_endpoint || "")
       .replace("{archive_id}", encodeURIComponent(String(archiveId)));
-    var response = await this._authenticatedFetch(uploadEndpoint, {
+    var response = await fetch(uploadEndpoint, {
       method: "POST",
       body: this._buildSourceUploadFormData(file),
-    }, false);
+      headers: await this._authHeaders(false),
+      credentials: "same-origin",
+    });
     if (response.status === 401) {
-      response = await this._authenticatedFetch(uploadEndpoint, {
+      response = await fetch(uploadEndpoint, {
         method: "POST",
         body: this._buildSourceUploadFormData(file),
-      }, true);
+        headers: await this._authHeaders(true),
+        credentials: "same-origin",
+      });
     }
 
     var payload = {};
