@@ -2277,7 +2277,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=33", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=34", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
@@ -2406,11 +2406,13 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-restore-card.js"
         ).read_text("utf-8")
-        self.assertIn('this._hass.callService("bambuddy", service, data, undefined, true, true);', content)
+        self.assertIn('const endpoint = `/api/services/${encodeURIComponent(String(domain || ""))}/${encodeURIComponent(String(service || ""))}?return_response`;', content)
         self.assertIn('await auth.refreshAccessToken();', content)
         self.assertIn('Replacement upload did not return an upload_session_id', content)
         self.assertIn('archive_json: config?.archive_json || "{}",', content)
         self.assertIn('const configArchive = this._archiveFromConfig();', content)
+        self.assertIn('if (typeof input.showPicker === "function") {', content)
+        self.assertIn('openUpload.onclick = () => this._openReplacementUploadPicker();', content)
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 

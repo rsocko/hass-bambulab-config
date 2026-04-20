@@ -300,6 +300,26 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     }
   }
 
+  _openReplacementUploadPicker() {
+    if (this._busy || !this.shadowRoot) {
+      return;
+    }
+    const input = this.shadowRoot.getElementById("replacement-upload-input");
+    if (!input) {
+      return;
+    }
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch (_error) {
+      // Fall back to click() when showPicker() is unavailable or blocked.
+    }
+    input.click();
+  }
+
   _button(label, action, disabled = false, tone = "") {
     return `<button class="action ${tone}" data-action="${action}" ${disabled ? "disabled" : ""}>${label}</button>`;
   }
@@ -309,7 +329,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     this._uploadInput = fileInput;
     const openUpload = this.shadowRoot.getElementById("open-upload");
     if (openUpload) {
-      openUpload.onclick = () => fileInput?.click();
+      openUpload.onclick = () => this._openReplacementUploadPicker();
     }
     this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
       button.onclick = async () => {
