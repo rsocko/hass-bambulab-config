@@ -960,6 +960,11 @@ class PrintHistoryStore:
                     "print_name": base["print_name"],
                     "status": base["status"],
                     "enrichment_status": base["enrichment_status"],
+                    "project_id": base["project_id"],
+                    "project_name": base["project_name"],
+                    "duplicate_count": base["duplicate_count"],
+                    "duplicate_sequence": base["duplicate_sequence"],
+                    "original_archive_id": base["original_archive_id"],
                     "started_at": base["started_at"],
                     "completed_at": base["completed_at"],
                     "created_at": base["created_at"],
@@ -2622,6 +2627,12 @@ class PrintHistoryStore:
             elif activity_mode == "Number of Unique Filaments":
                 total_unique_filaments = self._load_metric_unique_filament_count(normalized_ids, connection=active_connection)
                 total_label, total_compact_label = f"{total_unique_filaments:,} {'filament' if total_unique_filaments == 1 else 'filaments'}", f"{total_unique_filaments:,}"
+            elif activity_mode == "In a Project vs Not in a Project":
+                in_project_count = self._load_metric_project_membership_count(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{in_project_count:,} in project / {metric_archive_count - in_project_count:,} not", f"{in_project_count:,}/{metric_archive_count - in_project_count:,}"
+            elif activity_mode == "Number of Duplicates / Similar":
+                total_duplicate_similar = self._load_metric_duplicate_similar_count(normalized_ids, connection=active_connection)
+                total_label, total_compact_label = f"{total_duplicate_similar:,} duplicate/similar {'match' if total_duplicate_similar == 1 else 'matches'}", f"{total_duplicate_similar:,}"
             elif activity_mode == "Enrichment Status":
                 dominant_status, dominant_count = self._load_metric_dominant_enrichment_status(normalized_ids, connection=active_connection)
                 total_label, total_compact_label = (
@@ -2735,6 +2746,52 @@ class PrintHistoryStore:
                 )
                 """,
                 params,
+            ).fetchone()
+        return 0 if row is None else as_int(row[0])
+
+    def _load_metric_project_membership_count(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        if not archive_ids:
+            return 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                SELECT COALESCE(SUM(CASE WHEN TRIM(COALESCE(project_name, '')) != '' OR TRIM(COALESCE(project_id, '')) != '' THEN 1 ELSE 0 END), 0)
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                """,
+                archive_ids,
+            ).fetchone()
+        return 0 if row is None else as_int(row[0])
+
+    def _load_metric_duplicate_similar_count(
+        self,
+        archive_ids: list[int],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> int:
+        if not archive_ids:
+            return 0
+        placeholders = ",".join("?" for _ in archive_ids)
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                f"""
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN COALESCE(duplicate_sequence, 0) > 0 THEN 1
+                        WHEN COALESCE(original_archive_id, 0) > 0 AND COALESCE(original_archive_id, 0) != archive_id THEN 1
+                        ELSE COALESCE(duplicate_count, 0)
+                    END
+                ), 0)
+                FROM archives
+                WHERE archive_id IN ({placeholders})
+                """,
+                archive_ids,
             ).fetchone()
         return 0 if row is None else as_int(row[0])
 
@@ -2854,6 +2911,10 @@ class PrintHistoryStore:
             return "0 single / 0 multi", "0/0"
         if activity_mode == "Number of Unique Filaments":
             return "0 filaments", "0"
+        if activity_mode == "In a Project vs Not in a Project":
+            return "0 in project / 0 not", "0/0"
+        if activity_mode == "Number of Duplicates / Similar":
+            return "0 duplicate/similar matches", "0"
         if activity_mode == "Enrichment Status":
             return "0 prints", "0"
         if activity_mode == "Number of Favorites":
@@ -2892,6 +2953,11 @@ class PrintHistoryStore:
                     print_name,
                     status,
                     enrichment_status,
+                    project_id,
+                    project_name,
+                    duplicate_count,
+                    duplicate_sequence,
+                    original_archive_id,
                     started_at,
                     completed_at,
                     created_at,
@@ -2919,21 +2985,26 @@ class PrintHistoryStore:
                 "print_name": as_text(row[3]).strip(),
                 "status": as_text(row[4]).strip().lower(),
                 "enrichment_status": normalize_enrichment_status_value(row[5]),
-                "started_at": as_text(row[6]).strip(),
-                "completed_at": as_text(row[7]).strip(),
-                "created_at": as_text(row[8]).strip(),
-                "actual_time_seconds": as_int(row[9]),
-                "print_time_seconds": as_int(row[10]),
-                "filament_used_grams": as_float(row[11]),
-                "filament_type": as_text(row[12]).strip(),
-                "filament_color": as_text(row[13]).strip(),
-                "cost": as_float(row[14]),
-                "designer": as_text(row[15]).strip(),
-                "is_favorite": as_int(row[16]),
-                "object_count": max(1, as_int(row[17], 1)),
-                "layer_height": as_text(row[18]).strip(),
-                "tags": as_text(row[19]).strip(),
-                "thumbnail_path": as_text(row[20]).strip(),
+                "project_id": row[6],
+                "project_name": as_text(row[7]).strip(),
+                "duplicate_count": as_int(row[8]),
+                "duplicate_sequence": as_int(row[9]),
+                "original_archive_id": as_int(row[10]) if as_int(row[10]) > 0 else None,
+                "started_at": as_text(row[11]).strip(),
+                "completed_at": as_text(row[12]).strip(),
+                "created_at": as_text(row[13]).strip(),
+                "actual_time_seconds": as_int(row[14]),
+                "print_time_seconds": as_int(row[15]),
+                "filament_used_grams": as_float(row[16]),
+                "filament_type": as_text(row[17]).strip(),
+                "filament_color": as_text(row[18]).strip(),
+                "cost": as_float(row[19]),
+                "designer": as_text(row[20]).strip(),
+                "is_favorite": as_int(row[21]),
+                "object_count": max(1, as_int(row[22], 1)),
+                "layer_height": as_text(row[23]).strip(),
+                "tags": as_text(row[24]).strip(),
+                "thumbnail_path": as_text(row[25]).strip(),
             }
             for row in rows
         }

@@ -1039,6 +1039,8 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["status"] == "completed"
     assert rows[0]["enrichment_status"] == _projected_archives()[0]["enrichment_status"]
+    assert rows[0]["project_name"] == "Wall Art"
+    assert rows[0]["duplicate_count"] == 2
     assert "notes" not in rows[0]
     assert "payload_hash" not in rows[0]
 
@@ -1554,6 +1556,11 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
         {
             "tags": "Display,Hueforge,f:9,s:12",
             "is_favorite": True,
+            "project_name": "Wall Art",
+            "duplicate_count": 2,
+            "duplicate_sequence": 0,
+            "original_archive_id": 101,
+            "id": 101,
             "enrichment_status": "c",
             "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":10.0}],"s":"c"}',
             "filament_slots": [],
@@ -1561,6 +1568,11 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
         {
             "tags": "Display,Workshop",
             "is_favorite": False,
+            "project_name": "",
+            "duplicate_count": 2,
+            "duplicate_sequence": 1,
+            "original_archive_id": 101,
+            "id": 202,
             "enrichment_status": "p",
             "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":4.0},{"f":15,"n":"White","h":"#FFFFFF","type":"PLA","w":3.0}],"s":"p"}',
             "filament_slots": [],
@@ -1570,6 +1582,8 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
     assert activity_metric_total_labels(archives, "Number of Unique Tags") == ("3 tags", "3")
     assert activity_metric_total_labels(archives, "Single vs Multi-Color Prints") == ("1 single / 1 multi", "1/1")
     assert activity_metric_total_labels(archives, "Number of Unique Filaments") == ("2 filaments", "2")
+    assert activity_metric_total_labels(archives, "In a Project vs Not in a Project") == ("1 in project / 1 not", "1/1")
+    assert activity_metric_total_labels(archives, "Number of Duplicates / Similar") == ("3 duplicate/similar matches", "3")
     assert activity_metric_total_labels(archives, "Enrichment Status") == ("1/2 Complete", "1/2")
     assert activity_metric_total_labels(archives, "Number of Favorites") == ("1 favorite", "1")
 
@@ -1656,11 +1670,15 @@ def test_variant3_store_activity_metric_total_uses_new_modes_without_full_payloa
     enrichment = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Enrichment Status"}))
     single_multi = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Single vs Multi-Color Prints"}))
     favorites = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Number of Favorites"}))
+    project_mix = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "In a Project vs Not in a Project"}))
+    duplicates = store.load_query_result(dict(base_states, **{"input_select.print_history_activity_metric": "Number of Duplicates / Similar"}))
 
     assert unique_filaments.activity_metric_total_label == "2 filaments"
     assert enrichment.activity_metric_total_label == "1/2 Near Complete"
     assert single_multi.activity_metric_total_label == "1 single / 1 multi"
     assert favorites.activity_metric_total_label == "1 favorite"
+    assert project_mix.activity_metric_total_label == "0 in project / 2 not"
+    assert duplicates.activity_metric_total_label == "0 duplicate/similar matches"
 
 
 def test_variant3_store_selected_day_uses_shared_local_day_projection(tmp_path: Path, monkeypatch) -> None:

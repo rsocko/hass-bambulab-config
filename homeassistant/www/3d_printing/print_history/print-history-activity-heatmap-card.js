@@ -201,9 +201,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".legend{display:flex;justify-content:flex-end;align-items:center;min-height:18px;margin-top:2px;}" +
       ".legend.hidden{display:none;}" +
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
+      ".legend-main{display:inline-flex;align-items:center;gap:8px;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
       ".legend-swatch{width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
-      ".legend-note{font-size:11px;color:var(--secondary-text-color);margin-left:10px;opacity:0.9;}" +
+      ".legend-note{font-size:11px;color:var(--secondary-text-color);opacity:0.9;}" +
+      ".legend-separator{opacity:0.7;}" +
       ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
       ".chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(148,163,184,0.16);color:var(--primary-text-color);}" +
       ".details{margin-top:14px;}" +
@@ -711,8 +713,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       filamentType: archive && archive.filament_type ? String(archive.filament_type) : "",
       designer: archive && archive.designer ? String(archive.designer) : "",
       projectName: archive && archive.project_name ? String(archive.project_name) : "",
+      hasProject: this._archiveHasProject(archive),
       failureReason: archive && archive.failure_reason ? String(archive.failure_reason) : "",
       isFavorite: !!(archive && archive.is_favorite),
+      duplicateSimilarCount: this._archiveDuplicateSimilarCount(archive),
       status: this._normalizeStatus(archive && archive.status),
       rawStatus: archive && archive.status ? String(archive.status) : "",
       enrichmentStatus: this._normalizeEnrichmentStatus(archive && archive.enrichment_status, enrichmentRows),
@@ -865,6 +869,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             uniqueTagCount: 0,
             uniqueFilamentCount: 0,
             favoriteCount: 0,
+            inProjectCount: 0,
+            notInProjectCount: 0,
+            duplicateSimilarCount: 0,
             singleColorCount: 0,
             multiColorCount: 0,
             durationHours: 0,
@@ -890,6 +897,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         day.durationHours += archive.durationHours;
         day.filamentCount += archive.filamentCount;
         day.favoriteCount += archive.isFavorite ? 1 : 0;
+        day.inProjectCount += archive.hasProject ? 1 : 0;
+        day.notInProjectCount += archive.hasProject ? 0 : 1;
+        day.duplicateSimilarCount += Number(archive.duplicateSimilarCount || 0);
 
         (archive.userTags || []).forEach(function (tag) {
           day.uniqueTags[String(tag).toLowerCase()] = true;
@@ -949,6 +959,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var maxUniqueTagCount = 0;
     var maxUniqueFilamentCount = 0;
     var maxFavoriteCount = 0;
+    var maxDuplicateSimilarCount = 0;
 
     keys.forEach(function (key) {
       var day = grouped[key];
@@ -963,11 +974,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       maxUniqueTagCount = Math.max(maxUniqueTagCount, day.uniqueTagCount || 0);
       maxUniqueFilamentCount = Math.max(maxUniqueFilamentCount, day.uniqueFilamentCount || 0);
       maxFavoriteCount = Math.max(maxFavoriteCount, day.favoriteCount || 0);
+      maxDuplicateSimilarCount = Math.max(maxDuplicateSimilarCount, day.duplicateSimilarCount || 0);
       day.dominantColor = this._findDominantColor(day.colorWeights);
       day.outcomeColor = this._buildOutcomeColor(day);
       day.outcomeBand = this._buildOutcomeBand(day);
       day.singleMultiColor = this._buildSingleMultiColor(day);
       day.singleMultiLabel = this._buildSingleMultiLabel(day);
+      day.projectMembershipColor = this._buildProjectMembershipColor(day);
+      day.projectMembershipLabel = this._buildProjectMembershipLabel(day);
       day.enrichmentColor = this._buildEnrichmentColor(day);
       day.enrichmentBackground = this._buildEnrichmentBackground(day);
       day.enrichmentLabel = this._buildEnrichmentLabel(day);
@@ -1005,6 +1019,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           maxUniqueTagCount: maxUniqueTagCount,
           maxUniqueFilamentCount: maxUniqueFilamentCount,
           maxFavoriteCount: maxFavoriteCount,
+          maxDuplicateSimilarCount: maxDuplicateSimilarCount,
           isFuture: isFuture,
         });
 
@@ -1029,6 +1044,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         maxUniqueTagCount: maxUniqueTagCount,
         maxUniqueFilamentCount: maxUniqueFilamentCount,
         maxFavoriteCount: maxFavoriteCount,
+        maxDuplicateSimilarCount: maxDuplicateSimilarCount,
       }),
       weekKeys: weekKeys,
       rangeStart: rangeStart,
@@ -1085,6 +1101,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       } else if (input.mode === "Number of Unique Filaments") {
         value = Number(stats.uniqueFilamentCount || 0);
         color = this._buildIntensityColor(value, input.maxUniqueFilamentCount || 0, "#E0E7FF", "#4338CA");
+      } else if (input.mode === "In a Project vs Not in a Project") {
+        value = Number(stats.count || 0);
+        color = stats.projectMembershipColor || this._emptyCellColor();
+      } else if (input.mode === "Number of Duplicates / Similar") {
+        value = Number(stats.duplicateSimilarCount || 0);
+        color = this._buildIntensityColor(value, input.maxDuplicateSimilarCount || 0, "#FFE4E6", "#BE123C");
       } else if (input.mode === "Enrichment Status") {
         value = Number(stats.count || 0);
         color = stats.enrichmentColor || this._emptyCellColor();
@@ -1122,9 +1144,13 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         uniqueTagCount: stats ? stats.uniqueTagCount : 0,
         uniqueFilamentCount: stats ? stats.uniqueFilamentCount : 0,
         favoriteCount: stats ? stats.favoriteCount : 0,
+        inProjectCount: stats ? stats.inProjectCount : 0,
+        notInProjectCount: stats ? stats.notInProjectCount : 0,
+        duplicateSimilarCount: stats ? stats.duplicateSimilarCount : 0,
         singleColorCount: stats ? stats.singleColorCount : 0,
         multiColorCount: stats ? stats.multiColorCount : 0,
         singleMultiLabel: stats ? stats.singleMultiLabel || "" : "",
+        projectMembershipLabel: stats ? stats.projectMembershipLabel || "" : "",
         durationHours: stats ? stats.durationHours : 0,
         dominantColor: stats ? stats.dominantColor || "" : "",
         outcomeColor: stats ? stats.outcomeColor : "",
@@ -1672,7 +1698,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }));
     }
 
-    if (mode === "Outcome" || mode === "Single vs Multi-Color Prints" || mode === "Enrichment Status") {
+    if (mode === "Outcome" || mode === "Single vs Multi-Color Prints" || mode === "In a Project vs Not in a Project" || mode === "Enrichment Status") {
       return ranges.concat(this._buildCategoricalColorRanges(series, function (point) {
         if (!point || !point.meta) {
           return emptyColor;
@@ -1681,6 +1707,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           return point.meta.outcomeColor ? point.meta.outcomeColor : emptyColor;
         }
         if (mode === "Single vs Multi-Color Prints") {
+          return point.fillColor || emptyColor;
+        }
+        if (mode === "In a Project vs Not in a Project") {
           return point.fillColor || emptyColor;
         }
         return point.meta.enrichmentColor ? point.meta.enrichmentColor : emptyColor;
@@ -1716,6 +1745,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
     if (mode === "Number of Unique Filaments") {
       return { maxValue: maxima.maxUniqueFilamentCount || 0, startColor: "#E0E7FF", endColor: "#4338CA" };
+    }
+    if (mode === "Number of Duplicates / Similar") {
+      return { maxValue: maxima.maxDuplicateSimilarCount || 0, startColor: "#FFE4E6", endColor: "#BE123C" };
     }
     if (mode === "Number of Favorites") {
       return { maxValue: maxima.maxFavoriteCount || 0, startColor: "#6B4F00", endColor: "#FACC15" };
@@ -1867,6 +1899,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       'Unique tags: ' + this._formatCount(meta.uniqueTagCount || 0),
       'Unique filaments: ' + this._formatCount(meta.uniqueFilamentCount || 0),
       'Favorites: ' + this._formatCount(meta.favoriteCount || 0),
+      'Project mix: ' + (meta.projectMembershipLabel || 'No project data'),
+      'Duplicate/similar: ' + this._formatCount(meta.duplicateSimilarCount || 0),
       'Time: ' + this._formatHours(meta.durationHours || 0),
       'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.archivedCount || 0) + ' archived, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
       'Color mix: ' + (meta.singleMultiLabel || 'No color mode data'),
@@ -1881,8 +1915,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       title.push('Outcome: ' + meta.outcomeLabel);
     }
 
+    if (mode === 'In a Project vs Not in a Project' && meta.projectMembershipLabel) {
+      title.push('Project membership: ' + meta.projectMembershipLabel);
+    }
+
     if (mode === 'Enrichment Status' && meta.enrichmentLabel) {
       title.push('Status blend: ' + meta.enrichmentLabel);
+    }
+
+    if (mode === 'Number of Duplicates / Similar') {
+      title.push('Duplicate/similar matches: ' + this._formatCount(meta.duplicateSimilarCount || 0));
     }
 
     if (mode === 'Total Time Printing' && meta.hasFullDayPrinting) {
@@ -1965,12 +2007,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._legendContainer.className = "legend";
     this._legendContainer.innerHTML =
       '<div class="legend-scale">' +
+      (legend.note ? '<span class="legend-note">' + this._escapeHtml(legend.note) + '</span><span class="legend-separator" aria-hidden="true">|</span>' : "") +
+      '<span class="legend-main">' +
       '<span>' + this._escapeHtml(legend.startLabel) + '</span>' +
       '<span class="legend-swatches">' + legend.colors.map(function (color) {
         return '<span class="legend-swatch" style="background:' + this._escapeHtml(color) + '"></span>';
       }.bind(this)).join("") + '</span>' +
       '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
-      (legend.note ? '<span class="legend-note">' + this._escapeHtml(legend.note) + '</span>' : "") +
+      '</span>' +
       '</div>';
   }
 
@@ -2001,7 +2045,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         startLabel: "Unavailable",
         endLabel: "Complete",
         colors: ["#546E7A", "#EF6C00", "#6A1B9A", "#1565C0", "#2E7D32"],
-        note: "Mixed days use diagonal stripes; widths are proportional for smaller mixes.",
+      };
+    }
+
+    if (mode === "In a Project vs Not in a Project") {
+      return {
+        startLabel: "More in a project",
+        endLabel: "More not in a project",
+        colors: ["#2563EB", "#4F8FE0", "#7BB8CC", "#B7C78B", "#FACC15"],
       };
     }
 
@@ -2078,8 +2129,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Number of Unique Filaments") {
       return this._formatCount(this._collectUniqueArchiveFilaments(archives).length) + " unique filaments";
     }
+    if (mode === "In a Project vs Not in a Project") {
+      return this._buildProjectMembershipArchiveSummary(archives);
+    }
     if (mode === "Enrichment Status") {
       return this._buildEnrichmentArchiveSummary(archives);
+    }
+    if (mode === "Number of Duplicates / Similar") {
+      return this._formatCount(this._totalDuplicateSimilarArchives(archives)) + " duplicate/similar";
     }
     if (mode === "Number of Favorites") {
       return this._formatCount(archives.filter(function (archive) { return !!archive.isFavorite; }).length) + " favorites";
@@ -2201,6 +2258,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<div>Unique tags: <strong>' + this._escapeHtml(this._formatCount(meta.uniqueTagCount || 0)) + "</strong></div>",
       '<div>Unique filaments: <strong>' + this._escapeHtml(this._formatCount(meta.uniqueFilamentCount || 0)) + "</strong></div>",
       '<div>Favorites: <strong>' + this._escapeHtml(this._formatCount(meta.favoriteCount || 0)) + "</strong></div>",
+      '<div>Project mix: <strong>' + this._escapeHtml(meta.projectMembershipLabel || 'No project data') + '</strong></div>',
+      '<div>Duplicate/similar: <strong>' + this._escapeHtml(this._formatCount(meta.duplicateSimilarCount || 0)) + '</strong></div>',
       '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
       '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.archivedCount) + " archived, " + this._formatCount(meta.failedCount) + " failed, " + this._formatCount(meta.cancelledCount) + " cancelled") + "</strong></div>",
       '<div>Color mix: <strong>' + this._escapeHtml(meta.singleMultiLabel || 'No color mode data') + '</strong></div>',
@@ -2213,8 +2272,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Outcome" && meta.outcomeLabel) {
       lines.push('<div style="margin-top:4px">Outcome band: <strong>' + this._escapeHtml(meta.outcomeLabel) + '</strong></div>');
     }
+    if (mode === "In a Project vs Not in a Project" && meta.projectMembershipLabel) {
+      lines.push('<div style="margin-top:4px">Project membership: <strong>' + this._escapeHtml(meta.projectMembershipLabel) + '</strong></div>');
+    }
     if (mode === "Enrichment Status" && meta.enrichmentLabel) {
       lines.push('<div style="margin-top:4px">Status blend: <strong>' + this._escapeHtml(meta.enrichmentLabel) + '</strong></div>');
+    }
+    if (mode === "Number of Duplicates / Similar") {
+      lines.push('<div style="margin-top:4px">Duplicate/similar matches: <strong>' + this._escapeHtml(this._formatCount(meta.duplicateSimilarCount || 0)) + '</strong></div>');
     }
     if (mode === "Total Time Printing" && meta.hasFullDayPrinting) {
       lines.push('<div style="margin-top:4px">Printed all 24 hours.</div>');
@@ -2333,11 +2398,33 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "single vs multi-color prints": "Single vs Multi-Color Prints",
       "single vs multicolor prints": "Single vs Multi-Color Prints",
       "number of unique filaments": "Number of Unique Filaments",
+      "in a project vs not in a project": "In a Project vs Not in a Project",
+      "project vs not in a project": "In a Project vs Not in a Project",
+      "number of duplicates / similar": "Number of Duplicates / Similar",
+      "number of duplicates or similar": "Number of Duplicates / Similar",
       "enrichment status": "Enrichment Status",
       "number of favorites": "Number of Favorites",
       "total time printing": "Total Time Printing",
     };
       return aliases[normalized] || "Print Count";
+  }
+
+  _archiveHasProject(archive) {
+    return !!((archive && archive.project_name && String(archive.project_name).trim()) || (archive && archive.project_id != null && String(archive.project_id).trim()));
+  }
+
+  _archiveDuplicateSimilarCount(archive) {
+    var duplicateSequence = this._toNumber(archive && archive.duplicate_sequence);
+    var duplicateCount = this._toNumber(archive && archive.duplicate_count);
+    var originalArchiveId = this._toNumber(archive && archive.original_archive_id);
+    var archiveId = this._toNumber(archive && archive.id);
+    if (duplicateSequence > 0) {
+      return 1;
+    }
+    if (originalArchiveId > 0 && archiveId > 0 && originalArchiveId !== archiveId) {
+      return 1;
+    }
+    return Math.max(0, duplicateCount);
   }
 
   _userTags(raw) {
@@ -2537,6 +2624,34 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return "No color mode data";
     }
     return this._formatCount(singleCount) + " single-color, " + this._formatCount(multiCount) + " multi-color";
+  }
+
+  _buildProjectMembershipColor(day) {
+    var classified = Number(day.inProjectCount || 0) + Number(day.notInProjectCount || 0);
+    if (classified <= 0) {
+      return this._emptyCellColor();
+    }
+    return this._mixHexColors("#2563EB", "#FACC15", Math.min(1, Math.max(0, Number(day.notInProjectCount || 0) / classified)));
+  }
+
+  _buildProjectMembershipLabel(day) {
+    var inProjectCount = Number(day.inProjectCount || 0);
+    var notInProjectCount = Number(day.notInProjectCount || 0);
+    if (inProjectCount <= 0 && notInProjectCount <= 0) {
+      return "No project data";
+    }
+    return this._formatCount(inProjectCount) + " in project, " + this._formatCount(notInProjectCount) + " not in project";
+  }
+
+  _buildProjectMembershipArchiveSummary(archives) {
+    var inProjectCount = archives.filter(function (archive) { return !!archive.hasProject; }).length;
+    return this._formatCount(inProjectCount) + " in project / " + this._formatCount(archives.length - inProjectCount) + " not";
+  }
+
+  _totalDuplicateSimilarArchives(archives) {
+    return archives.reduce(function (sum, archive) {
+      return sum + Number(archive.duplicateSimilarCount || 0);
+    }, 0);
   }
 
   _buildEnrichmentColor(day) {

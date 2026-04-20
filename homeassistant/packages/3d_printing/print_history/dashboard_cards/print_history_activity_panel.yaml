@@ -60,6 +60,8 @@ cards:
                 'Number of Unique Tags': 'mdi:tag-multiple-outline',
                 'Single vs Multi-Color Prints': 'mdi:compare-horizontal',
                 'Number of Unique Filaments': 'mdi:palette-swatch-variant',
+                'In a Project vs Not in a Project': 'mdi:folder-swap-outline',
+                'Number of Duplicates / Similar': 'mdi:content-copy',
                 'Enrichment Status': 'mdi:layers-triple-outline',
                 'Number of Favorites': 'mdi:star',
                 'Total Time Printing': 'mdi:timer-outline',

@@ -941,6 +941,27 @@ def _workflow_response(entry_id: str, workflow) -> dict[str, Any]:
     return response
 
 
+def _build_upload_diagnostics(
+    *,
+    request: web.Request,
+    fields: dict[str, Any],
+    file_name: str,
+    file_content_type: str,
+    byte_count: int,
+    chunk_count: int,
+    first_chunk_size: int,
+) -> dict[str, Any]:
+    return {
+        "request_content_type": str(getattr(request, "headers", {}).get("Content-Type", "") or ""),
+        "fields_present": sorted(str(key) for key in fields.keys()),
+        "file_name": file_name,
+        "file_content_type": file_content_type,
+        "byte_count": byte_count,
+        "chunk_count": chunk_count,
+        "first_chunk_size": first_chunk_size,
+    }
+
+
 class ReplacementArchiveDiscoverView(HomeAssistantView):
     url = RESTORE_UPLOAD_DISCOVER_URL
     name = "api:bambuddy:print-history:archive-repair:replacement:discover"
@@ -1115,6 +1136,10 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                 status=400,
             )
 
+        file_content_type = str(
+            file_part.headers.get("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml")
+        )
+
         try:
             resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
             if not await manager.async_ensure_archive_loaded(archive_id_value):
@@ -1123,12 +1148,17 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
             return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
 
         byte_count = 0
+        chunk_count = 0
+        first_chunk_size = 0
         chunks: list[bytes] = []
         try:
             while True:
                 chunk = await file_part.read_chunk(size=64 * 1024)
                 if not chunk:
                     break
+                chunk_count += 1
+                if first_chunk_size <= 0:
+                    first_chunk_size = len(chunk)
                 byte_count += len(chunk)
                 if byte_count > manager.restore_uploads.max_upload_bytes:
                     raise HomeAssistantError(
@@ -1136,7 +1166,7 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                     )
                 chunks.append(chunk)
             if byte_count <= 0:
-                raise HomeAssistantError("Upload payload is empty")
+                raise HomeAssistantError("Upload payload is empty after multipart parsing")
 
             session = aiohttp_client.async_get_clientsession(hass)
             client = BambuddyApiClient(
@@ -1148,7 +1178,7 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
             upload_response = await client.async_upload_archive_source_3mf(
                 archive_id_value,
                 file_name=file_name,
-                mime_type=str(file_part.headers.get("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml")),
+                mime_type=file_content_type,
                 content=b"".join(chunks),
             )
             refreshed_archive = await manager.async_refresh_archive_detail(
@@ -1157,6 +1187,7 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                 extra_details={
                     "file_name": file_name,
                     "byte_count": byte_count,
+                    "chunk_count": chunk_count,
                 },
             )
             if refreshed_archive is None:
@@ -1186,17 +1217,38 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                     details={
                         "file_name": file_name,
                         "byte_count": byte_count,
+                        "chunk_count": chunk_count,
                         "message": str(error),
                     },
                 )
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=byte_count,
+                chunk_count=chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
             _LOGGER.warning(
-                "Archive source 3MF upload failed for archive %s (%s bytes, file=%s): %s",
+                "Archive source 3MF upload failed for archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
                 archive_id_value,
                 byte_count,
+                chunk_count,
+                first_chunk_size,
                 file_name,
+                file_content_type,
                 error,
             )
-            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=400)
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "upload_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=400,
+            )
         except RuntimeError as error:
             if "manager" in locals():
                 manager.record_mutation(
@@ -1206,17 +1258,38 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                     details={
                         "file_name": file_name,
                         "byte_count": byte_count,
+                        "chunk_count": chunk_count,
                         "message": str(error),
                     },
                 )
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=byte_count,
+                chunk_count=chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
             _LOGGER.warning(
-                "Archive source 3MF upload proxy received runtime error for archive %s (%s bytes, file=%s): %s",
+                "Archive source 3MF upload proxy received runtime error for archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
                 archive_id_value,
                 byte_count,
+                chunk_count,
+                first_chunk_size,
                 file_name,
+                file_content_type,
                 error,
             )
-            return web.json_response({"success": False, "error": "upload_failed", "message": str(error)}, status=502)
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "upload_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=502,
+            )
 
 
 async def _resolve_archive_viewer_request(

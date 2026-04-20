@@ -12,6 +12,8 @@ print_history_activity_metric:
     - Number of Unique Tags
     - Single vs Multi-Color Prints
     - Number of Unique Filaments
+    - In a Project vs Not in a Project
+    - Number of Duplicates / Similar
     - Enrichment Status
     - Number of Favorites
     - Total Time Printing

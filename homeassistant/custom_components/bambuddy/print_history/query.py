@@ -561,6 +561,16 @@ def is_duplicate_original(archive: dict[str, Any]) -> bool:
     return duplicate_count(archive.get("duplicate_count")) > 0 and (is_duplicate_source(archive) or not is_duplicate_archive(archive))
 
 
+def archive_has_project(archive: dict[str, Any]) -> bool:
+    return bool(as_text(archive.get("project_name")).strip() or as_text(archive.get("project_id")).strip())
+
+
+def archive_duplicate_similar_count(archive: dict[str, Any]) -> int:
+    if is_duplicate_archive(archive):
+        return 1
+    return duplicate_count(archive.get("duplicate_count"))
+
+
 def project_filament_slots(extra_data: Any) -> list[dict[str, Any]]:
     if not isinstance(extra_data, dict):
         return []
@@ -873,6 +883,11 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
             for slot in archive.get("filament_slots", [])
             if isinstance(slot, dict)
         ],
+        "project_id": archive.get("project_id"),
+        "project_name": as_text(archive.get("project_name")).strip(),
+        "duplicate_count": duplicate_count(archive.get("duplicate_count")),
+        "duplicate_sequence": duplicate_sequence(archive.get("duplicate_sequence")),
+        "original_archive_id": original_archive_id(archive.get("original_archive_id")),
     }
 
 
@@ -1265,6 +1280,18 @@ def activity_enrichment_status_totals(sorted_matches: list[dict[str, Any]]) -> t
     return f"{top_count}/{total} {enrichment_status_display_label(top_status)}", f"{top_count}/{total}"
 
 
+def activity_project_membership_totals(sorted_matches: list[dict[str, Any]]) -> tuple[str, str]:
+    in_project_count = sum(1 for archive in sorted_matches if archive_has_project(archive))
+    not_in_project_count = len(sorted_matches) - in_project_count
+    return f"{in_project_count:,} in project / {not_in_project_count:,} not", f"{in_project_count:,}/{not_in_project_count:,}"
+
+
+def activity_duplicate_similar_totals(sorted_matches: list[dict[str, Any]]) -> tuple[str, str]:
+    total_duplicates = sum(archive_duplicate_similar_count(archive) for archive in sorted_matches)
+    label = "match" if total_duplicates == 1 else "matches"
+    return f"{total_duplicates:,} duplicate/similar {label}", f"{total_duplicates:,}"
+
+
 def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
     if activity_mode == "Filament Weight":
         return activity_filament_weight_total_labels(
@@ -1292,6 +1319,10 @@ def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_
     if activity_mode == "Number of Unique Filaments":
         total_filaments = len({key for archive in sorted_matches for key in archive_filament_identity_keys(archive)})
         return f"{total_filaments:,} {'filament' if total_filaments == 1 else 'filaments'}", f"{total_filaments:,}"
+    if activity_mode == "In a Project vs Not in a Project":
+        return activity_project_membership_totals(sorted_matches)
+    if activity_mode == "Number of Duplicates / Similar":
+        return activity_duplicate_similar_totals(sorted_matches)
     if activity_mode == "Enrichment Status":
         return activity_enrichment_status_totals(sorted_matches)
     if activity_mode == "Number of Favorites":

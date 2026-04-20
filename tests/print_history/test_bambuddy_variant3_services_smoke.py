@@ -533,8 +533,9 @@ class FakeMultipartReader:
 
 
 class FakeMultipartRequest:
-    def __init__(self, hass: FakeHass, archive_id: int, parts: list[FakeMultipartPart]) -> None:
+    def __init__(self, hass: FakeHass, archive_id: int, parts: list[FakeMultipartPart], headers: dict[str, str] | None = None) -> None:
         self.app = {"hass": hass}
+        self.headers = headers or {"Content-Type": "multipart/form-data; boundary=fake-boundary"}
         self.match_info = {"archive_id": str(archive_id)}
         self._reader = FakeMultipartReader(parts)
 
@@ -947,6 +948,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert len(activity_query_response["activity_rows"]) == 2
     assert activity_query_response["activity_rows"][0]["effective_duration_seconds"] == 14400
     assert activity_query_response["activity_rows"][0]["enrichment_status"] == "partially complete"
+    assert activity_query_response["activity_rows"][0]["project_name"] == "Wall Art"
+    assert activity_query_response["activity_rows"][0]["duplicate_count"] == 2
     assert activity_query_response["activity_rows"][0]["primary_photo_path"] == ""
     assert detail_response["archive_id"] == 101
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
@@ -1188,6 +1191,62 @@ def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path
             "byte_count": 14,
         }
     ]
+
+
+def test_variant3_source_3mf_upload_view_returns_diagnostics_for_empty_payload(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.SOURCE_3MF_UPLOAD_URL)
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart(
+                "file",
+                filename="empty-source.3mf",
+                content=b"",
+                content_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            ),
+        ],
+        headers={"Content-Type": "multipart/form-data; boundary=diagnostic-boundary"},
+    )
+
+    response = asyncio.run(upload_view.post(request))
+
+    payload = response["payload"]
+    assert response["status"] == 400
+    assert payload["success"] is False
+    assert payload["message"] == "Upload payload is empty after multipart parsing"
+    assert payload["diagnostics"] == {
+        "request_content_type": "multipart/form-data; boundary=diagnostic-boundary",
+        "fields_present": ["entry_id"],
+        "file_name": "empty-source.3mf",
+        "file_content_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+        "byte_count": 0,
+        "chunk_count": 0,
+        "first_chunk_size": 0,
+    }
 
 
 def test_variant3_source_3mf_upload_websocket_refreshes_archive_detail(tmp_path: Path) -> None:
