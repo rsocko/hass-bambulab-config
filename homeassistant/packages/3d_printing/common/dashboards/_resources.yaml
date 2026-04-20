@@ -10,15 +10,15 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-tag-editor-card.js?v=10
   type: module
-- url: /local/3d_printing/print_history/print-history-browser-card.js?v=108
+- url: /local/3d_printing/print_history/print-history-browser-card.js?v=110
   type: module
 - url: /local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63
   type: module
-- url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=43
+- url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=44
   type: module
 - url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55
   type: module
-- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=12
+- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=13
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=30
   type: module

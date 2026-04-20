@@ -547,6 +547,46 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     });
   }
 
+  async _postSourceUpload(file, archiveId) {
+    var formData = new FormData();
+    formData.append("file", file, file.name);
+    if (this._config && this._config.entry_id) {
+      formData.append("entry_id", String(this._config.entry_id));
+    }
+
+    var headers = {};
+    var accessToken = this._hass && this._hass.auth && this._hass.auth.data
+      ? this._hass.auth.data.accessToken
+      : "";
+    if (accessToken) {
+      headers.Authorization = "Bearer " + accessToken;
+    }
+
+    var uploadEndpoint = String(this._config.upload_endpoint || "")
+      .replace("{archive_id}", encodeURIComponent(String(archiveId)));
+    var response = await fetch(uploadEndpoint, {
+      method: "POST",
+      body: formData,
+      headers: headers,
+      credentials: "same-origin",
+    });
+
+    var payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok || payload.success === false) {
+      throw payload && (payload.message || payload.error)
+        ? new Error(String(payload.message || payload.error))
+        : new Error("Source 3MF upload failed (HTTP " + String(response.status) + ")");
+    }
+
+    return payload && typeof payload === "object" ? payload : {};
+  }
+
   async _uploadSource3mf(file) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -560,13 +600,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
     try {
       this._setBusy(true, "Uploading source 3MF...", "info");
-      var response = await this._hass.callWS({
-        type: "bambuddy/print_history_upload_source_3mf",
-        archive_id: archiveId,
-        file_name: String(file.name || "").trim(),
-        mime_type: String(file.type || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml").trim(),
-        content_base64: await this._fileToBase64(file),
-      });
+      var response = await this._postSourceUpload(file, archiveId);
       var payload = response && typeof response === "object" ? response : {};
       var nextArchive = payload && payload.archive && typeof payload.archive === "object"
         ? payload.archive

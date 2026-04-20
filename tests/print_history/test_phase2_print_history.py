@@ -825,11 +825,20 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=108", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=43", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=110", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=44", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=12", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=13", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
+
+    def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn("_groupArchivesByDate(archives)", content)
+        self.assertIn("enrichmentCounts: this._emptyEnrichmentCounts()", content)
+        self.assertIn("}.bind(this),", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
         content = (
@@ -852,10 +861,15 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('title: "Advanced Actions"', browser_content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', browser_content)
         self.assertIn('.icon-action.advanced:hover,.icon-action.advanced:focus-visible', browser_content)
+        self.assertIn('.action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;margin-right:-4px;}', browser_content)
+        self.assertIn('.media-thumb-overlay{position:absolute;inset:12px 8px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}', browser_content)
+        self.assertIn('.media-thumb-overlay .action-buttons{pointer-events:auto;margin-right:-2px;}', browser_content)
         self.assertIn('data-action="open-projects-page"', browser_content)
         self.assertIn('data-action="refresh-project-options"', browser_content)
         self.assertIn('window.open(url, "_blank", "noopener")', browser_content)
         self.assertIn('service: "script.refresh_print_history_popup_projects"', browser_content)
+        self.assertIn('columns: archiveStatus === "printing" ? 6 : 7,', browser_content)
+        self.assertNotIn('type: "grid",\n        columns: 2,\n        square: false,\n        cards: [\n          this._buildPopupActionButton(\n            "Projects"', browser_content)
         self.assertNotIn('window.__printHistoryArchiveActionsCardPromise', content)
         self.assertNotIn('print-history-archive-actions-card.js?v=5', content)
         self.assertIn('Files', action_content)
@@ -881,15 +895,16 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('this._lastRenderSignature = "";', action_content)
         self.assertIn('var nextSignature = this._computeRenderSignature(hass);', action_content)
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
-        self.assertIn('type: "bambuddy/print_history_upload_source_3mf"', action_content)
-        self.assertIn('content_base64: await this._fileToBase64(file),', action_content)
-        self.assertIn('reader.readAsDataURL(file);', action_content)
+        self.assertIn('var formData = new FormData();', action_content)
+        self.assertIn('formData.append("file", file, file.name);', action_content)
+        self.assertIn('headers.Authorization = "Bearer " + accessToken;', action_content)
+        self.assertIn('credentials: "same-origin"', action_content)
+        self.assertIn('payload.message || payload.error', action_content)
         self.assertIn('_describeError(error, "Source 3MF upload failed")', action_content)
         self.assertIn('if (error.body && typeof error.body === "object")', action_content)
         self.assertIn('var serialized = JSON.stringify(error);', action_content)
         self.assertIn('transition:none;', action_content)
-        self.assertNotIn('auth.fetchWithAuth', action_content)
-        self.assertNotIn('Source 3MF upload failed (HTTP ', action_content)
+        self.assertNotIn('type: "bambuddy/print_history_upload_source_3mf"', action_content)
         self.assertNotIn('data-source-upload-input="true"', action_content)
         self.assertIn('delete_print_history_archive', action_content)
 
@@ -2177,10 +2192,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=12", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=13", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=108", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=110", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (

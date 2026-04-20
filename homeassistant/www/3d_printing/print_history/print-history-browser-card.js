@@ -184,8 +184,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".media-gallery-surface .thumb.list-thumb{display:block;width:100%;}" +
       ".media-thumb-empty{height:228px;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);}" +
       ".list-thumb-empty{height:116px;display:flex;align-items:center;justify-content:center;padding:14px;text-align:center;color:var(--secondary-text-color);background:rgba(255,255,255,0.04);font-size:12px;}" +
-      ".media-thumb-overlay{position:absolute;inset:12px 12px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}" +
-      ".media-thumb-overlay .action-buttons{pointer-events:auto;}" +
+      ".media-thumb-overlay{position:absolute;inset:12px 8px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}" +
+      ".media-thumb-overlay .action-buttons{pointer-events:auto;margin-right:-2px;}" +
       ".media-thumb-overlay .icon-action,.media-thumb-overlay .chip.icon-chip{background:rgba(15,23,42,0.56);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);}" +
       ".media-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;max-width:100%;}" +
       ".media-gallery-nav{position:absolute;left:10px;right:10px;top:50%;display:flex;align-items:center;justify-content:space-between;transform:translateY(-50%);pointer-events:none;z-index:2;}" +
@@ -216,7 +216,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".content.compact-details{grid-area:details;gap:10px;min-width:0;}" +
       ".content-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;}" +
       ".content-top.compact{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;min-width:0;}" +
-      ".action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;}" +
+      ".action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;margin-right:-4px;}" +
       ".action-buttons.compact-actions{width:100%;justify-content:flex-end;}" +
       ".role-emblem{display:inline-flex;align-items:center;gap:6px;margin:0 0 2px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.1;text-transform:uppercase;letter-spacing:0.05em;max-width:max-content;}" +
       ".role-emblem.source{background:rgba(21,101,192,0.14);color:#1565C0;}" +
@@ -358,7 +358,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v107</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v110</span>';
     }
   }
 
@@ -2702,10 +2702,38 @@ class PrintHistoryBrowserCard extends HTMLElement {
         helper: "Reuse an existing tag or create a new one. Press Enter or comma to add.",
       },
       {
+        type: "entities",
+        show_header_toggle: false,
+        card_mod: this._popupTextFieldCardMod(),
+        entities: [
+          { entity: "input_text.print_history_popup_print_name", name: "Print Name", icon: "mdi:printer-3d" },
+          { entity: "input_select.print_history_popup_project", name: "Project", icon: "mdi:folder-outline" },
+          { entity: "input_select.print_history_popup_status", name: "Status", icon: "mdi:list-status" },
+          {
+            type: "conditional",
+            conditions: [{
+              condition: "or",
+              conditions: [
+                { condition: "state", entity: "input_select.print_history_popup_status", state: "Failed" },
+                { condition: "state", entity: "input_select.print_history_popup_status", state: "Cancelled" },
+              ],
+            }],
+            row: { entity: "input_select.print_history_popup_failure_reason", name: "Failure Reason", icon: "mdi:alert-circle-outline" },
+          },
+          { entity: "input_text.print_history_popup_notes", name: "Notes", icon: "mdi:text-box-outline" },
+        ],
+      },
+      {
         type: "grid",
-        columns: 2,
+        columns: archiveStatus === "printing" ? 6 : 7,
         square: false,
         cards: [
+          ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
+            "Re-Enrich",
+            "mdi:refresh-circle",
+            "rgba(46,125,50,0.18)",
+            { action: "call-service", service: "script.reenrich_print_history_archive", data: { archive_id: String(archiveId) } }
+          )]),
           this._buildPopupActionButton(
             "Projects",
             "mdi:open-in-new",
@@ -2733,41 +2761,6 @@ class PrintHistoryBrowserCard extends HTMLElement {
             "rgba(46,125,50,0.18)",
             { action: "call-service", service: "script.refresh_print_history_popup_projects" }
           ),
-        ],
-      },
-      {
-        type: "entities",
-        show_header_toggle: false,
-        card_mod: this._popupTextFieldCardMod(),
-        entities: [
-          { entity: "input_text.print_history_popup_print_name", name: "Print Name", icon: "mdi:printer-3d" },
-          { entity: "input_select.print_history_popup_project", name: "Project", icon: "mdi:folder-outline" },
-          { entity: "input_select.print_history_popup_status", name: "Status", icon: "mdi:list-status" },
-          {
-            type: "conditional",
-            conditions: [{
-              condition: "or",
-              conditions: [
-                { condition: "state", entity: "input_select.print_history_popup_status", state: "Failed" },
-                { condition: "state", entity: "input_select.print_history_popup_status", state: "Cancelled" },
-              ],
-            }],
-            row: { entity: "input_select.print_history_popup_failure_reason", name: "Failure Reason", icon: "mdi:alert-circle-outline" },
-          },
-          { entity: "input_text.print_history_popup_notes", name: "Notes", icon: "mdi:text-box-outline" },
-        ],
-      },
-      {
-        type: "grid",
-        columns: archiveStatus === "printing" ? 4 : 5,
-        square: false,
-        cards: [
-          ...(archiveStatus === "printing" ? [] : [this._buildPopupActionButton(
-            "Re-Enrich",
-            "mdi:refresh-circle",
-            "rgba(46,125,50,0.18)",
-            { action: "call-service", service: "script.reenrich_print_history_archive", data: { archive_id: String(archiveId) } }
-          )]),
           this._buildPopupActionButton(
             "3D View",
             "mdi:cube-scan",

@@ -924,7 +924,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         });
 
         return accumulator;
-      },
+      }.bind(this),
       {}
     );
   }
