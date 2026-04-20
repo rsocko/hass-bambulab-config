@@ -22,7 +22,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-timelapse-card.js?v=1
   type: module
-- url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=35
+- url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=36
   type: module
 - url: /local/3d_printing/common/print-filament-breakdown-card.js?v=4
   type: module

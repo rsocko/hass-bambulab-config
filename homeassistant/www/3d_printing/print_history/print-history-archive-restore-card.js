@@ -5,6 +5,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     this._hass = null;
     this._config = null;
     this._uploadInput = null;
+    this._activeUploadPickerCleanup = null;
     this._busy = false;
     this._message = "";
     this._error = "";
@@ -37,6 +38,10 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("change", this._boundUploadChange);
+    if (typeof this._activeUploadPickerCleanup === "function") {
+      this._activeUploadPickerCleanup();
+      this._activeUploadPickerCleanup = null;
+    }
   }
 
   getCardSize() {
@@ -301,13 +306,46 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
   }
 
   _openReplacementUploadPicker() {
-    if (this._busy || !this.shadowRoot) {
+    if (this._busy || !document || !document.body) {
       return;
     }
-    const input = this.shadowRoot.getElementById("replacement-upload-input");
-    if (!input) {
-      return;
+
+    if (typeof this._activeUploadPickerCleanup === "function") {
+      this._activeUploadPickerCleanup();
+      this._activeUploadPickerCleanup = null;
     }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".3mf,.gcode.3mf";
+    input.tabIndex = -1;
+    input.setAttribute("aria-hidden", "true");
+    input.style.position = "absolute";
+    input.style.left = "-9999px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.style.opacity = "0";
+    input.style.pointerEvents = "none";
+
+    const cleanup = () => {
+      if (input.parentNode) {
+        input.parentNode.removeChild(input);
+      }
+      if (this._activeUploadPickerCleanup === cleanup) {
+        this._activeUploadPickerCleanup = null;
+      }
+    };
+
+    input.addEventListener("change", async () => {
+      try {
+        await this._handleUploadSelected({ target: input });
+      } finally {
+        cleanup();
+      }
+    }, { once: true });
+
+    document.body.appendChild(input);
+    this._activeUploadPickerCleanup = cleanup;
     input.value = "";
     try {
       if (typeof input.showPicker === "function") {
@@ -430,7 +468,6 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
         .status{font-size:13px;line-height:1.5;}
         .status.error{color:var(--error-color);}
         .status.ok{color:var(--secondary-text-color);}
-        .hidden-file-input{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}
       </style>
       <ha-card>
         <div class="stack">
@@ -452,7 +489,6 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
               <button id="open-upload" class="action primary" ${this._busy ? "disabled" : ""}>Upload Replacement 3MF</button>
               ${this._button("Create Replacement Archive", "create", !uploadSessionId || !!targetArchiveId || this._busy, "primary")}
             </div>
-            <input id="replacement-upload-input" class="hidden-file-input" type="file" accept=".3mf,.gcode.3mf" tabindex="-1" aria-hidden="true" />
             <div class="meta" style="margin-top:8px;">Upload session: ${uploadSessionId || "none"}</div>
           </div>
 
