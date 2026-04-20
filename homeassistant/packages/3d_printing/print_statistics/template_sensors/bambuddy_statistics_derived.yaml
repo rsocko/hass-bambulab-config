@@ -153,3 +153,29 @@
             {% endfor %}
           {% endif %}
           {{ ns.mapped | tojson }}
+        failures_by_filament_json: >-
+          {% set raw = state_attr('sensor.bambuddy_failure_analysis', 'failures_by_filament') %}
+          {% set ns = namespace(mapped={}) %}
+          {% if raw is mapping %}
+            {% for key, value in raw.items() %}
+              {% set label = key | string | replace('_', ' ') | title %}
+              {% set ns.mapped = ns.mapped | combine({label: value | int(0)}) %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.mapped | tojson }}
+        failures_by_printer_json: >-
+          {% set raw = state_attr('sensor.bambuddy_failure_analysis', 'failures_by_printer') %}
+          {% set ns = namespace(mapped={}) %}
+          {% if raw is mapping %}
+            {% for key, value in raw.items() %}
+              {% set label = key | string %}
+              {% set ns.mapped = ns.mapped | combine({label: value | int(0)}) %}
+            {% endfor %}
+          {% endif %}
+          {{ ns.mapped | tojson }}
+        failure_trend_json: >-
+          {% set raw = state_attr('sensor.bambuddy_failure_analysis', 'trend') %}
+          {{ (raw if raw is sequence and raw is not string else []) | tojson }}
+        recent_failures_json: >-
+          {% set raw = state_attr('sensor.bambuddy_failure_analysis', 'recent_failures') %}
+          {{ (raw if raw is sequence and raw is not string else []) | tojson }}

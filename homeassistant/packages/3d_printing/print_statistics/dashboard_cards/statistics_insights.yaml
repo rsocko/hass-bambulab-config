@@ -8,3 +8,7 @@ cards:
     cards:
       - !include insights/chart_failure_reasons.yaml
       - !include insights/chart_time_accuracy_by_printer.yaml
+  - type: horizontal-stack
+    cards:
+      - !include insights/chart_failures_by_filament_type.yaml
+      - !include insights/failure_recent_summary.yaml

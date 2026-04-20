@@ -70,6 +70,8 @@ class TestPrintStatisticsPackage(unittest.TestCase):
             STATS / "dashboard_cards" / "insights" / "chart_prints_by_filament_type.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_prints_by_printer.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_failure_reasons.yaml",
+            STATS / "dashboard_cards" / "insights" / "chart_failures_by_filament_type.yaml",
+            STATS / "dashboard_cards" / "insights" / "failure_recent_summary.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_time_accuracy_by_printer.yaml",
             STATS / "dashboard_views" / "view_print_statistics.yaml",
         ]
@@ -81,6 +83,26 @@ class TestPrintStatisticsPackage(unittest.TestCase):
         for path in sorted(STATS.rglob("*.yaml")):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertIsNotNone(_load_yaml_safe(path))
+
+    def test_failure_analysis_sensor_uses_current_bambuddy_contract(self):
+        content = (STATS / "rest_sensors" / "bambuddy_statistics_sensor.yaml").read_text(encoding="utf-8")
+        self.assertIn("{{ value_json.failure_rate | default(0) | float(0) | round(1) }}", content)
+        self.assertIn("- recent_failures", content)
+        self.assertIn("- trend", content)
+        self.assertIn("- period_days", content)
+        self.assertNotIn("weekly_trend", content)
+        self.assertNotIn("* 100", content)
+
+    def test_failure_analysis_metrics_passthrough_exists(self):
+        content = (STATS / "template_sensors" / "bambuddy_statistics_derived.yaml").read_text(encoding="utf-8")
+        self.assertIn("failures_by_filament_json", content)
+        self.assertIn("failures_by_printer_json", content)
+        self.assertIn("failure_trend_json", content)
+        self.assertIn("recent_failures_json", content)
+        self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'failures_by_filament')", content)
+        self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'failures_by_printer')", content)
+        self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'trend')", content)
+        self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'recent_failures')", content)
 
 
 if __name__ == "__main__":

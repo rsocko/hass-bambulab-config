@@ -1,0 +1,23 @@
+type: custom:apex-direct-bar-card
+title: Failures by Material
+chart_type: donut
+height: 300
+value_name: failures
+source_entity: sensor.bambuddy_statistics_metrics
+source_attribute: failures_by_filament_json
+max_items: 10
+group_small_into_other: true
+other_label: Other
+other_color: '#90A4AE'
+legend_position: right
+legend_show: true
+legend_font_size: 13px
+legend_max_width: 250
+default_color: '#C62828'
+color_map:
+  Pla: '#42A5F5'
+  Petg: '#66BB6A'
+  Tpu: '#26A69A'
+  Abs: '#FFA726'
+  Asa: '#FFB74D'
+  Unknown: '#90A4AE'

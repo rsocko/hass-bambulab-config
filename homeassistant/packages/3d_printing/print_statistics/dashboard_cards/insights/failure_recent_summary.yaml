@@ -1,0 +1,26 @@
+type: markdown
+title: Recent Failures
+content: >-
+  {% set failures = state_attr('sensor.bambuddy_failure_analysis', 'recent_failures') %}
+  {% set trend = state_attr('sensor.bambuddy_failure_analysis', 'trend') %}
+  {% if failures is sequence and failures is not string and failures %}
+  {% set latest = failures[0] %}
+  {% set previous = trend[-2] if trend is sequence and trend is not string and trend | count > 1 else none %}
+  {% set current = trend[-1] if trend is sequence and trend is not string and trend else none %}
+  **Latest failure**: {{ latest.print_name | default('Unknown print', true) }}
+
+  Reason: {{ latest.failure_reason | default('Unknown', true) | replace('_', ' ') | title }}
+
+  Material: {{ latest.filament_type | default('Unknown', true) }}
+
+  Created: {{ latest.created_at | default('Unknown', true) }}
+
+  {% if current %}
+  **Current period rate**: {{ current.failure_rate | default(0) }}%
+  {% endif %}
+  {% if previous and current %}
+  **Previous period rate**: {{ previous.failure_rate | default(0) }}%
+  {% endif %}
+  {% else %}
+  No recent failures are present in the Bambuddy failure-analysis payload.
+  {% endif %}

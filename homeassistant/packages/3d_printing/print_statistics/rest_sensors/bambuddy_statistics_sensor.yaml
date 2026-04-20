@@ -80,8 +80,9 @@
     Content-Type: application/json
   method: GET
   value_template: >-
-    {{ ((value_json.failure_rate | default(0) | float(0)) * 100) | round(1) }}
+    {{ value_json.failure_rate | default(0) | float(0) | round(1) }}
   json_attributes:
+    - period_days
     - total_prints
     - failed_prints
     - failure_rate
@@ -89,6 +90,7 @@
     - failures_by_filament
     - failures_by_printer
     - failures_by_hour
-    - weekly_trend
+    - recent_failures
+    - trend
   scan_interval: 1800
   icon: mdi:alert-circle-outline

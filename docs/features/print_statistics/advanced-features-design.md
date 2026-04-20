@@ -31,22 +31,39 @@ This document should now be read as the follow-on backlog after that shipped bas
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/archives/analysis/failures` | Failure rate, failures by reason/filament/printer, time-of-day distribution, weekly trend |
+| `GET` | `/archives/analysis/failures` | Failure rate, failures by reason/filament/printer, time-of-day distribution, recent failures, and week-bucket trend |
 
 ### Response Shape
 
 ```json
 {
+  "period_days": 30,
   "total_prints": 500,
   "failed_prints": 45,
-  "failure_rate": 0.09,
+  "failure_rate": 9.0,
   "failures_by_reason": {"spaghetti_detection": 12, "user_stopped": 20, "filament_runout": 8, "other": 5},
   "failures_by_filament": {"PLA": 30, "PETG": 15},
-  "failures_by_printer": {"1": 25, "2": 20},
+  "failures_by_printer": {"Printer 1": 25, "Printer 2": 20},
   "failures_by_hour": {"0": 2, "1": 0, "2": 1, "..": "...", "23": 3},
-  "weekly_trend": [{"week": "2026-W12", "failures": 5, "total": 50}]
+  "recent_failures": [
+    {
+      "id": 456,
+      "print_name": "Benchy",
+      "failure_reason": "spaghetti_detection",
+      "filament_type": "PLA",
+      "printer_id": 1,
+      "created_at": "2026-04-18T14:32:00+00:00"
+    }
+  ],
+  "trend": [{"week_start": "2026-04-07", "failed_prints": 5, "total_prints": 50, "failure_rate": 10.0}]
 }
 ```
+
+### Ownership And Launch
+
+- Treat this endpoint as a `print_statistics` concern, not a `print_history` concern.
+- Use the existing REST sensor for the default aggregate view.
+- If interactive filters such as `days`, `date_from`, `date_to`, `printer_id`, or `project_id` are needed later, add a Bambuddy response service plus websocket command instead of multiplying REST sensors.
 
 ### Use Cases
 
@@ -69,11 +86,13 @@ resource: "{{ base_url }}/api/v1/archives/analysis/failures"
 scan_interval: 3600  # hourly
 value_template: "{{ value_json.failure_rate | round(1) }}"
 json_attributes:
+  - period_days
   - failures_by_reason
   - failures_by_filament
   - failures_by_printer
   - failures_by_hour
-  - weekly_trend
+  - recent_failures
+  - trend
   - total_prints
   - failed_prints
 ```
@@ -87,6 +106,7 @@ json_attributes:
 - Row 2: Failures by reason (horizontal bar chart)
 - Row 3: Time-of-day heatmap (ApexCharts)
 - Row 4: Weekly trend line (ApexCharts)
+- Row 5: Recent failures list or drill-in affordance
 
 **Automation: `bambuddy_failure_rate_alert`** — Daily check:
 ```yaml
@@ -94,8 +114,8 @@ trigger:
   - platform: time
     at: "08:00:00"
 condition:
-  - "{{ state_attr('sensor.bambuddy_failure_analysis', 'weekly_trend')[-1].failures / 
-        state_attr('sensor.bambuddy_failure_analysis', 'weekly_trend')[-1].total > 0.15 }}"
+  - "{{ state_attr('sensor.bambuddy_failure_analysis', 'trend')[-1].failed_prints / 
+        state_attr('sensor.bambuddy_failure_analysis', 'trend')[-1].total_prints > 0.15 }}"
 action:
   - notify with failure rate and top reason
 ```

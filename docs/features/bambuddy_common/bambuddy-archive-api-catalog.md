@@ -101,7 +101,7 @@ Alternatively, `PATCH /{id}` with `{"is_favorite": true}` sets it directly witho
 |--------|----------|-------------|--------------|
 | `GET` | `/stats` | Aggregate stats: total_prints, successful/failed counts, success_rate, total_time, filament_used, cost, energy. Filterable by date range. | **Core** — print_statistics package |
 | `GET` | `/stats/export` | Export stats to CSV/XLSX | Not from HA |
-| `GET` | `/analysis/failures` | Failure analysis: rate, failures by reason/filament/printer, time-of-day distribution, weekly trend | **Useful** — failure alerts/dashboard |
+| `GET` | `/analysis/failures` | Failure analysis: percent failure rate, failures by reason/filament/printer, time-of-day distribution, recent failures, and trend buckets | **Useful** — print_statistics failure dashboard and alerts |
 | `GET` | `/export` | Export archives to CSV/XLSX with field selection | Not from HA |
 
 ### Stats Response Shape

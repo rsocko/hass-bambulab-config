@@ -44,8 +44,10 @@ homeassistant/packages/3d_printing/print_statistics/
 │   ├── statistics_insights.yaml
 │   └── insights/
 │       ├── chart_failure_reasons.yaml
+│       ├── chart_failures_by_filament_type.yaml
 │       ├── chart_prints_by_filament_type.yaml
 │       ├── chart_prints_by_printer.yaml
+│       ├── failure_recent_summary.yaml
 │       └── chart_time_accuracy_by_printer.yaml
 └── dashboard_views/
     └── view_print_statistics.yaml
@@ -73,9 +75,11 @@ recorder:
 | `sensor.bambuddy_statistics` | `GET /api/v1/archives/stats` | 10 min | `total_prints` |
 | `sensor.bambuddy_statistics_this_week` | `GET /api/v1/archives/stats?date_from=<monday>` | 15 min | `total_prints` |
 | `sensor.bambuddy_statistics_this_month` | `GET /api/v1/archives/stats?date_from=<month_start>` | 30 min | `total_prints` |
-| `sensor.bambuddy_failure_analysis` | `GET /api/v1/archives/analysis/failures` | 30 min | `failure_rate * 100` |
+| `sensor.bambuddy_failure_analysis` | `GET /api/v1/archives/analysis/failures` | 30 min | `failure_rate` |
 
 > **OpenAPI note**: The endpoint is `/api/v1/archives/stats` (NOT `/api/v1/statistics`). No trailing slash needed (not a collection). Optional query params: `date_from`, `date_to` (YYYY-MM-DD format).
+
+> **Failure-analysis contract note**: Bambuddy's failure-analysis payload already returns `failure_rate` as a percentage value and exposes `trend` plus `recent_failures`. HA should mirror that payload directly instead of multiplying the rate again or expecting a `weekly_trend` field.
 
 Attributes from `ArchiveStats` schema:
 - `total_prints`, `successful_prints`, `failed_prints`, `stopped_prints`
@@ -107,6 +111,8 @@ Attributes from `ArchiveStats` schema:
 > - `success_rate_percent` does NOT exist in `ArchiveStats`. Compute via Jinja: `{{ (attr.successful_prints / attr.total_prints * 100) | round(1) }}`
 > - `total_filament_used_grams` → actual field is `total_filament_grams` (no `_used_`)
 > - `prints_this_week` and `prints_this_month` do NOT exist as direct fields. The implemented package uses separate date-windowed stats sensors.
+> - `failure_rate` from `GET /api/v1/archives/analysis/failures` is already a percent value; do not multiply it by 100 in HA.
+> - failure analysis uses `trend` and `recent_failures`, not `weekly_trend`.
 > - `stopped_prints`, `average_time_accuracy`, `time_accuracy_by_printer`, `total_energy_kwh`, `total_energy_cost`, `prints_by_filament_type`, and `prints_by_printer` are already surfaced in the first production slice.
 
 ### Automations
@@ -146,6 +152,10 @@ Displays the first reusable chart slice:
 - prints by printer
 - failure reasons
 - time accuracy by printer
+- failures by material
+- recent failure summary with current versus prior trend bucket
+
+The current implementation only charts failure reasons. Trend and recent-failure payloads are now passed through in `sensor.bambuddy_failure_analysis` and `sensor.bambuddy_statistics_metrics` for the next failure-analysis card slice.
 
 ## Dependencies
 
