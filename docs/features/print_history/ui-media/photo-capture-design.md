@@ -185,10 +185,11 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 **`script.resolve_current_archive_id`** is called when archive_id is empty, or when the currently stored archive_id fails validation against the current task (webhook missed, stale helper state, or flat webhook format without archive_id):
 
 ```
-1. Query GET /api/v1/archives/?limit=1  (trailing slash required, no sort param)
-2. Compare the returned archive `print_name` and `filename` with current sensor.*_task_name
-3. If match → store archive_id in input_text.bambuddy_current_archive_id
-4. If no match → log warning, skip upload (local photo still saved)
+1. Query a recent archive window from `GET /api/v1/archives/`
+2. Filter candidates to the configured Bambuddy printer when printer id is available
+3. Keep only archives that are currently `printing`
+4. Prefer an exact task-name match, then a loose task-name match, then a unique active archive only when it is still unambiguous
+5. If no safe match exists → log warning, publish degraded binding state, and skip archive writes rather than binding the wrong archive
 ```
 
 > **OpenAPI note**: The `sort` param does not exist on `GET /archives/`. Default ordering appears newest-first. The endpoint requires a trailing slash. Response is a flat `ArchiveResponse[]` array.
@@ -197,10 +198,10 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 
 ### What the Archive Pull Is Good Enough For
 
-The current archive list pull is good enough to answer two narrow questions in the common single-printer case:
+The current archive list pull is good enough to answer two narrow questions in the common configured-printer case:
 
 1. What is the newest archive in Bambuddy right now?
-2. What archive is probably associated with the currently running print, if the task name matches and Bambuddy's newest-first ordering holds?
+2. What archive is most likely associated with the currently running print, if Bambuddy exposes one active `printing` archive for the configured printer and the task context validates cleanly enough?
 
 That is why the current manual and in-print upload flow can work without webhook configuration.
 
@@ -210,7 +211,7 @@ The archive pull is not a full replacement for webhook events in the current pac
 
 - It does not provide a start-of-print event to reset `counter.bambuddy_captured_photo_count`, clear `input_text.bambuddy_last_photo_upload_result`, snapshot the tray map, and reset review state.
 - It does not provide a completion/failure event to trigger finish capture, completion enrichment, or immediate history refresh.
-- It is heuristic rather than exact: the current fallback only asks for `?limit=1` and matches by current task name substring against the archive `print_name` or `filename`. That is usually acceptable for one active printer, but it is weaker for multiple printers or repeated/similar print names.
+- It is still heuristic rather than exact: the current fallback narrows by printer id, active `printing` status, and task context, but it is still resolving from recent archive data instead of using a server-issued binding token. Repeated or highly similar print names can still remain ambiguous.
 
 ### Stale Archive Guard
 

@@ -10,6 +10,12 @@ Shared infrastructure for all Bambuddy feature packages. Provides API configurat
 
 **HA Role**: Configuration layer — holds API base URL/printer ID, fires normalized events from Bambuddy webhooks, and subscribes to Bambuddy's MQTT status topic for real-time printer state. Archive-specific commands (photo upload, delete, cover, enrichment) live in `print_history`.
 
+## Related Design Notes
+
+- [Archive Binding And Potential PostgreSQL Migration Guidance](archive-binding-and-postgres-guidance.md)
+- [Print History Photo Capture Design](../print_history/ui-media/photo-capture-design.md)
+- [Print History Runtime Repair Sidecar API Draft](../print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+
 ## Is Webhook Required?
 
 Not for every Bambuddy-related feature.
@@ -139,7 +145,7 @@ event_data:
   raw_payload: { ... }           # full original payload preserved
 ```
 
-> **Open Item**: Need to confirm which format HA receives when configured as "Webhook (Custom)" provider in Bambuddy settings. The receiver handles both formats, but the primary path (archive_id from payload) only works with the API format. If flat format is received, downstream features use the fallback archive_id lookup.
+> **Current conclusion**: the generic custom webhook path can send flattened top-level fields that are still useful for event normalization, but it does not reliably solve archive binding. Keep the receiver tolerant of both shapes. Treat `archive_id` in payload as the exact path when present, and keep API fallback for operational archive resolution when it is absent.
 
 ### Current Practical Value
 
@@ -221,5 +227,6 @@ Bambuddy publishes printer events and real-time status to an MQTT broker. HA sub
 
 | # | Item | Impact | Blocking? |
 |---|---|---|---|
-| 1 | Confirm webhook format received by "Webhook (Custom)" provider | Determines if archive_id is available in payload or requires fallback | No — both paths designed |
-| 2 | Clean up orphaned `sensor.bambuddy_printer_status` REST entity after deploy | Old REST entity stays in registry as unavailable; delete from Settings → Entities | No |
+| 1 | Decide whether full print-history lifecycle should remain webhook-triggered or be refactored further toward native or API-driven triggers | Affects how much webhook remains a hard dependency for finish, failure, enrichment, and immediate refresh flows | No |
+| 2 | Keep potential upstream PostgreSQL migration scoped to Bambuddy or repair-sidecar boundaries rather than HA automations or the HA local cache | Avoids coupling HA feature logic to upstream DB engine changes | No |
+| 3 | Clean up orphaned `sensor.bambuddy_printer_status` REST entity after deploy | Old REST entity stays in registry as unavailable; delete from Settings → Entities | No |
