@@ -26,6 +26,7 @@ from .const import (
     DATA_MANAGER,
     DATA_RESTORE_UPLOADS,
     DATA_RESTORE_WORKFLOW,
+    DEFAULT_RESTORE_UPLOAD_MAX_BYTES,
     DOMAIN,
     PLATFORMS,
     SERVICE_APPEND_PRINT_HISTORY_EVENT,
@@ -962,6 +963,33 @@ def _build_upload_diagnostics(
     }
 
 
+async def _read_uploaded_file_part(
+    part: Any,
+    *,
+    max_upload_bytes: int = DEFAULT_RESTORE_UPLOAD_MAX_BYTES,
+) -> tuple[list[bytes], int, int, int]:
+    chunks: list[bytes] = []
+    byte_count = 0
+    chunk_count = 0
+    first_chunk_size = 0
+
+    while True:
+        chunk = await part.read_chunk(size=64 * 1024)
+        if not chunk:
+            break
+        chunk_count += 1
+        if first_chunk_size <= 0:
+            first_chunk_size = len(chunk)
+        byte_count += len(chunk)
+        if byte_count > max(1, int(max_upload_bytes)):
+            raise HomeAssistantError(
+                f"Upload payload exceeds the configured limit of {max(1, int(max_upload_bytes))} bytes"
+            )
+        chunks.append(chunk)
+
+    return chunks, byte_count, chunk_count, first_chunk_size
+
+
 class ReplacementArchiveDiscoverView(HomeAssistantView):
     url = RESTORE_UPLOAD_DISCOVER_URL
     name = "api:bambuddy:print-history:archive-repair:replacement:discover"
@@ -976,13 +1004,18 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
             return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
 
         fields: dict[str, Any] = {}
-        file_part = None
+        file_name = ""
+        file_content_type = "application/octet-stream"
+        file_chunks: list[bytes] = []
+        file_byte_count = 0
         while True:
             part = await reader.next()
             if part is None:
                 break
             if part.name == "file":
-                file_part = part
+                file_name = str(getattr(part, "filename", "") or "").strip()
+                file_content_type = str(part.headers.get("Content-Type", "application/octet-stream"))
+                file_chunks, file_byte_count, _file_chunk_count, _first_chunk_size = await _read_uploaded_file_part(part)
                 continue
             fields[part.name] = await part.text()
 
@@ -1000,7 +1033,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 {"success": False, "error": "printer_id_required", "message": "printer_id is required."},
                 status=400,
             )
-        if file_part is None or not getattr(file_part, "filename", ""):
+        if not file_name:
             return web.json_response(
                 {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
                 status=400,
@@ -1013,20 +1046,23 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
         except HomeAssistantError as error:
             return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
 
+        if file_byte_count > manager.restore_uploads.max_upload_bytes:
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "upload_failed",
+                    "message": f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes",
+                },
+                status=400,
+            )
+
         manager.restore_uploads.cleanup_expired()
-        session_id, file_path, normalized_file_name = manager.restore_uploads.prepare_session_file_path(file_part.filename)
+        session_id, file_path, normalized_file_name = manager.restore_uploads.prepare_session_file_path(file_name)
         size_bytes = 0
         try:
             with file_path.open("wb") as handle:
-                while True:
-                    chunk = await file_part.read_chunk(size=64 * 1024)
-                    if not chunk:
-                        break
+                for chunk in file_chunks:
                     size_bytes += len(chunk)
-                    if size_bytes > manager.restore_uploads.max_upload_bytes:
-                        raise HomeAssistantError(
-                            f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
-                        )
                     handle.write(chunk)
 
             if size_bytes <= 0:
@@ -1038,7 +1074,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 source_archive_id=source_archive_id,
                 printer_id=printer_id,
                 file_name=normalized_file_name,
-                content_type=str(file_part.headers.get("Content-Type", "application/octet-stream")),
+                content_type=file_content_type,
                 size_bytes=size_bytes,
                 file_path=file_path,
             )
@@ -1112,33 +1148,37 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
             return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
 
         fields: dict[str, Any] = {}
-        file_part = None
+        file_name = ""
+        file_content_type = "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
+        chunks: list[bytes] = []
+        byte_count = 0
+        chunk_count = 0
+        first_chunk_size = 0
         while True:
             part = await reader.next()
             if part is None:
                 break
             if part.name == "file":
-                file_part = part
+                file_name = str(getattr(part, "filename", "") or "").strip()
+                file_content_type = str(
+                    part.headers.get("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml")
+                )
+                chunks, byte_count, chunk_count, first_chunk_size = await _read_uploaded_file_part(part)
                 continue
             fields[part.name] = await part.text()
 
         entry_id_raw = str(fields.get(CONF_ENTRY_ID, "")).strip() or None
-        if file_part is None or not getattr(file_part, "filename", ""):
+        if not file_name:
             return web.json_response(
                 {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
                 status=400,
             )
 
-        file_name = str(file_part.filename or "").strip()
         if not file_name.lower().endswith(".3mf"):
             return web.json_response(
                 {"success": False, "error": "invalid_file_type", "message": "File must be a .3mf file."},
                 status=400,
             )
-
-        file_content_type = str(
-            file_part.headers.get("Content-Type", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml")
-        )
 
         try:
             resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
@@ -1147,24 +1187,11 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
         except HomeAssistantError as error:
             return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
 
-        byte_count = 0
-        chunk_count = 0
-        first_chunk_size = 0
-        chunks: list[bytes] = []
         try:
-            while True:
-                chunk = await file_part.read_chunk(size=64 * 1024)
-                if not chunk:
-                    break
-                chunk_count += 1
-                if first_chunk_size <= 0:
-                    first_chunk_size = len(chunk)
-                byte_count += len(chunk)
-                if byte_count > manager.restore_uploads.max_upload_bytes:
-                    raise HomeAssistantError(
-                        f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
-                    )
-                chunks.append(chunk)
+            if byte_count > manager.restore_uploads.max_upload_bytes:
+                raise HomeAssistantError(
+                    f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
+                )
             if byte_count <= 0:
                 raise HomeAssistantError("Upload payload is empty after multipart parsing")
 

@@ -1124,10 +1124,11 @@ class TestScripts(unittest.TestCase):
 
     def test_capture_script_handles_secondary_camera(self):
         content = (HISTORY / "scripts" / "capture_and_upload_snapshot.yaml").read_text("utf-8")
-        self.assertIn("secondary_camera", content)
-        self.assertIn("secondary_camera_state", content)
-        self.assertIn("has_secondary", content)
-        self.assertIn("invalid_secondary", content)
+        self.assertIn("configured_cameras_raw", content)
+        self.assertIn("configured_cameras", content)
+        self.assertIn("active_cameras", content)
+        self.assertIn("camera_selection_mode", content)
+        self.assertIn("repeat:\n            for_each: \"{{ active_cameras }}\"", content)
 
     def test_capture_script_handles_snapshot_light(self):
         """Script should turn light on before capture and off after."""
@@ -1503,7 +1504,8 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("opened_ts", content)
         self.assertIn("first_used_ts", content)
         self.assertIn("last_used_ts", content)
-        self.assertIn("archived_ts", content)
+        self.assertIn("archive_completed_ts", content)
+        self.assertIn("candidate.archived | default(false, true)", content)
         self.assertIn("ns_match.match_method = 't_hist'", content)
         self.assertIn("ns_row.pm = 't_hist'", content)
         self.assertIn("Multiple Spoolman spools matched the archive time window.", content)
@@ -1788,7 +1790,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
 
     def test_browser_card_enrichment_chip_includes_status_tooltips(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
-        self.assertIn("title=\"' + enrichmentChipTitle + '\"", content)
+        self.assertIn("_enrichmentTooltip(enrichmentStatus)", content)
+        self.assertIn("_buildFilterActionTooltip('Enrichment: ' + normalized.enrichmentLabel, 'Click to filter by this enrichment status')", content)
         self.assertIn('"near complete": "May be missing Tray information"', content)
         self.assertIn('"mostly complete": "Missing Spool ID(s)"', content)
         self.assertIn('"partially complete": "Missing Filament ID(s)"', content)
@@ -2157,17 +2160,16 @@ class TestPrintHistoryTagColors(unittest.TestCase):
 
     def test_archive_cards_use_shared_tag_color_helper(self):
         files = [
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js",
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js",
         ]
 
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertIn("const tagColorHelper = window.PrintHistoryTagColors;", content)
-                self.assertIn("const tagColor = (tag) =>", content)
-                self.assertIn("tagColorHelper.colorForTag(tag)", content)
+                self.assertIn("PrintHistoryTagColors", content)
+                self.assertIn("styleForTag(tag)", content)
+                self.assertIn("colorForTag(tag)", content)
                 self.assertNotIn("const tagPalette =", content)
 
     def test_shared_tag_color_helper_uses_prefix_hashing_and_thirty_six_colors(self):
@@ -2211,28 +2213,24 @@ class TestPrintHistoryTagColors(unittest.TestCase):
 
     def test_tag_rendering_no_longer_uses_single_hardcoded_blue(self):
         files = [
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js",
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-tag-editor-card.js",
         ]
 
         for path in files:
             content = path.read_text("utf-8")
             with self.subTest(file=path.relative_to(ROOT)):
-                self.assertNotIn('tags.map((tag) => `<span style="background:#1565C0', content)
-                self.assertIn('tags.map((tag) => `<span style="background:${tagColor(tag)}', content)
+                self.assertNotIn("background:#1565C0", content)
+                self.assertIn("styleForTag(tag)", content)
 
     def test_archive_color_dots_use_enrichment_payload_for_hover_text(self):
-        files = [
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_media.yaml",
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_detail.yaml",
-        ]
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
 
-        for path in files:
-            content = path.read_text("utf-8")
-            with self.subTest(file=path.relative_to(ROOT)):
-                self.assertIn("const ENRICHMENT_MARKER = '+>';", content)
+        self.assertIn("_filamentChipsFromSlots(archive.filament_slots)", content)
+        self.assertIn("tooltip: [tray ? name + \" (\" + tray + \")\" : name, filterColor].filter(Boolean).join(\" | \") || name", content)
+        self.assertIn("_renderFilamentDot(chip)", content)
                 self.assertIn("const filamentChips = enrichmentRows.length", content)
                 if path.name == "print_history_archive_popup_content.yaml":
                     self.assertIn("const enrichmentRows = Array.isArray(archive?.enrichment_filaments)", content)
@@ -2602,7 +2600,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("compact-meta-line", content)
         self.assertIn("color-enrichment-row", content)
         self.assertIn("photoAction", content)
-        self.assertIn("project-chip span{display:inline-flex;align-items:center;min-width:0;", content)
+        self.assertIn(".project-chip span{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}", content)
 
     def test_browser_card_primary_actions_share_same_order_across_variants(self):
         content = (
@@ -2636,7 +2634,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         ).read_text("utf-8")
 
         self.assertIn('"3D View"', content)
-        self.assertIn('title: "3D View · " + archiveName', content)
+        self.assertIn('title: "3D Viewer"', content)
         self.assertIn('type: "vertical-stack"', content)
         self.assertIn('cards: [this._buildArchiveViewerCardConfig(archive)]', content)
         self.assertIn('content: this._buildArchiveViewerPopupContent(archive)', content)
@@ -2654,12 +2652,12 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
     def test_popup_favorite_button_updates_helper_before_backend_toggle(self):
         content = (
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_favorite_button.yaml"
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
         ).read_text("utf-8")
-        self.assertIn("service: browser_mod.sequence", content)
-        self.assertIn("return isFavorite ? 'input_boolean.turn_off' : 'input_boolean.turn_on';", content)
-        self.assertIn("entity_id: input_boolean.print_history_popup_is_favorite", content)
-        self.assertIn("service: script.toggle_print_history_archive_favorite", content)
+        self.assertIn('service: isFavorite ? \'input_boolean.turn_off\' : \'input_boolean.turn_on\'', content)
+        self.assertIn("entity_id: 'input_boolean.print_history_popup_is_favorite'", content)
+        self.assertIn("service: 'script.toggle_print_history_archive_favorite'", content)
+        self.assertIn('service:"browser_mod.sequence"', content)
 
     def test_toggle_favorite_script_sets_popup_helper_from_archive_detail(self):
         content = (
@@ -2817,19 +2815,16 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
     def test_compact_card_implements_issue_809_metadata_and_height_contract(self):
         content = (
-            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_card_compact.yaml"
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
         ).read_text("utf-8")
 
-        self.assertIn("const enrichmentStatusCode = String(enrichmentPayload?.s || '').toLowerCase();", content)
-        self.assertIn("const archiveIdLabel = archiveId !== undefined && archiveId !== null && archiveId !== '' ? `Archive #${archiveId}` : 'Archive unavailable';", content)
-        self.assertIn("Enrichment ${escapeHtml(enrichmentStatusLabel)}", content)
-        self.assertIn("const tagColorHelper = window.PrintHistoryTagColors;", content)
-        self.assertIn("tagColorHelper.colorForTag(tag)", content)
-        self.assertIn("const tagLimit = 3;", content)
-        self.assertIn("const hiddenTagCount = Math.max(0, allTags.length - tagLimit);", content)
-        self.assertIn("… +${hiddenTagCount}", content)
-        self.assertIn("- min-height: 320px", content)
-        self.assertIn("- height: 100%", content)
+        self.assertIn('archiveIdLabel: archive.id != null && archive.id !== "" ? ("Archive #" + archive.id) : "Archive unavailable"', content)
+        self.assertIn("Enrichment ' + this._escapeHtml(normalized.enrichmentLabel)", content)
+        self.assertIn("window.PrintHistoryTagColors", content)
+        self.assertIn("var hiddenTagCount = Math.max(0, normalized.userTags.length - tags.length);", content)
+        self.assertIn("… +' + hiddenTagCount", content)
+        self.assertIn("grid-template-areas:'thumb summary' 'name name' 'details details'", content)
+        self.assertIn(".card-shell.compact .thumb{height:136px;}", content)
 
     def test_print_history_dashboard_uses_direct_browser_card(self):
         content = (

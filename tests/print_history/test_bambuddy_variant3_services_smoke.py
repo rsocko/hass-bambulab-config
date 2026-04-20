@@ -518,17 +518,27 @@ class FakeMultipartPart:
         self._read = True
         return self._content[:size]
 
+    def discard_unread(self) -> None:
+        if self._read:
+            return
+        self._read = True
+        self._content = b""
+
 
 class FakeMultipartReader:
     def __init__(self, parts: list[FakeMultipartPart]) -> None:
         self._parts = list(parts)
         self._index = 0
+        self._last_part: FakeMultipartPart | None = None
 
     async def next(self):
+        if self._last_part is not None:
+            self._last_part.discard_unread()
         if self._index >= len(self._parts):
             return None
         part = self._parts[self._index]
         self._index += 1
+        self._last_part = part
         return part
 
 
@@ -1247,6 +1257,65 @@ def test_variant3_source_3mf_upload_view_returns_diagnostics_for_empty_payload(t
         "chunk_count": 0,
         "first_chunk_size": 0,
     }
+
+
+def test_variant3_source_3mf_upload_view_reads_file_before_advancing_multipart_reader(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.SOURCE_3MF_UPLOAD_URL)
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.uploaded_source_3mfs = []
+
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart(
+                "file",
+                filename="source-first.3mf",
+                content=b"file-before-entry-id",
+                content_type="application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            ),
+            FakeMultipartPart("entry_id", text="entry-1"),
+        ],
+    )
+
+    try:
+        response = asyncio.run(upload_view.post(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["archive"]["source_3mf_path"] == "archive_sources/101/source-first.3mf"
+    assert FakeApiClient.uploaded_source_3mfs[-1]["byte_count"] == len(b"file-before-entry-id")
 
 
 def test_variant3_source_3mf_upload_websocket_refreshes_archive_detail(tmp_path: Path) -> None:
