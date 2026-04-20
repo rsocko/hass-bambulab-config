@@ -823,9 +823,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=28", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=2", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=29", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=3", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=2", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -902,6 +902,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('Timelapse upload only accepts .mp4, .avi, or .mkv files.', action_content)
         self.assertIn('type: "custom:print-history-timelapse-card"', action_content)
         self.assertIn('return Object.assign({}, parsed, detailState.attributes.archive);', action_content)
+        self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', action_content)
         self.assertNotIn('View Designer', action_content)
         self.assertNotIn('Open in Slicer', action_content)
         self.assertIn('PERMANENTLY REMOVES', action_content)
@@ -993,11 +994,13 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('/timelapse/info', viewer_content)
         self.assertIn('Playback Speed', viewer_content)
         self.assertIn('print-history-timelapse-processed', viewer_content)
+        self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', viewer_content)
         self.assertIn('Load Editor Tools', editor_content)
         self.assertIn('/timelapse/thumbnails', editor_content)
         self.assertIn('/timelapse/process', editor_content)
         self.assertIn('Save Timelapse Changes', editor_content)
         self.assertIn('editor data stays on-demand and out of Layer 1', editor_content)
+        self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', editor_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")
@@ -2325,7 +2328,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=28", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=29", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)

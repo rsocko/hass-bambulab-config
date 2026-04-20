@@ -1189,7 +1189,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     try {
-      this._setBusyState(true, String((archive && archive.timelapse_path) || "").trim() ? "Replacing timelapse..." : "Uploading timelapse...", "info", "upload-timelapse");
+      this._setBusyState(true, this._timelapsePath(archive) ? "Replacing timelapse..." : "Uploading timelapse...", "info", "upload-timelapse");
       var response = await this._postTimelapseUpload(file, archiveId);
       var payload = response && typeof response === "object" ? response : {};
       var nextArchive = payload && payload.archive && typeof payload.archive === "object"
@@ -1298,9 +1298,22 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     };
   }
 
+  _timelapsePath(archive) {
+    var directPath = String(archive && archive.timelapse_path || "").trim();
+    if (directPath) {
+      return directPath;
+    }
+    var storagePath = archive
+      && archive.storage_metrics
+      && archive.storage_metrics.artifacts
+      && archive.storage_metrics.artifacts.timelapse_path
+      && archive.storage_metrics.artifacts.timelapse_path.relative_path;
+    return String(storagePath || "").trim();
+  }
+
   _openTimelapsePopup() {
     var archive = this._resolveArchive();
-    var timelapsePath = String(archive && archive.timelapse_path || "").trim();
+    var timelapsePath = this._timelapsePath(archive);
     if (!archive || archive.id == null || !timelapsePath) {
       return;
     }
@@ -1582,7 +1595,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Untitled Archive";
     var sourceName = String((archive && archive.source_3mf_path) || "").trim();
-    var timelapseName = String((archive && archive.timelapse_path) || "").trim();
+    var timelapseName = this._timelapsePath(archive);
     var storageSummary = this._storageMetricsSummaryLine(archive);
     var sourceBadge = sourceName
       ? '<div class="summary-note">Source 3MF attached: ' + this._escapeHtml(sourceName.split(/[\\/]/).pop()) + "</div>"
@@ -2153,7 +2166,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _renderMain(archive) {
     var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
-    var hasTimelapse = !!String((archive && archive.timelapse_path) || "").trim();
+    var hasTimelapse = !!this._timelapsePath(archive);
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = "View on MakerWorld";
     var relationActions = this._renderActionSection(

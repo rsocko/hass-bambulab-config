@@ -112,7 +112,16 @@ class PrintHistoryTimelapseCard extends HTMLElement {
   }
 
   _timelapsePath(archive) {
-    return String(archive && archive.timelapse_path || "").trim();
+    var directPath = String(archive && archive.timelapse_path || "").trim();
+    if (directPath) {
+      return directPath;
+    }
+    var storagePath = archive
+      && archive.storage_metrics
+      && archive.storage_metrics.artifacts
+      && archive.storage_metrics.artifacts.timelapse_path
+      && archive.storage_metrics.artifacts.timelapse_path.relative_path;
+    return String(storagePath || "").trim();
   }
 
   _timelapseUrl(archive) {
