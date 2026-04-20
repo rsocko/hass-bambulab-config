@@ -585,23 +585,30 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return fetch(url, requestOptions);
   }
 
-  async _postSourceUpload(file, archiveId) {
+  _buildSourceUploadFormData(file) {
     var formData = new FormData();
     formData.append("file", file, file.name);
     if (this._config && this._config.entry_id) {
       formData.append("entry_id", String(this._config.entry_id));
+    }
+    return formData;
+  }
+
+  async _postSourceUpload(file, archiveId) {
+    if (file.size === 0) {
+      throw new Error("The selected 3MF file is empty") ;
     }
 
     var uploadEndpoint = String(this._config.upload_endpoint || "")
       .replace("{archive_id}", encodeURIComponent(String(archiveId)));
     var response = await this._authenticatedFetch(uploadEndpoint, {
       method: "POST",
-      body: formData,
+      body: this._buildSourceUploadFormData(file),
     }, false);
     if (response.status === 401) {
       response = await this._authenticatedFetch(uploadEndpoint, {
         method: "POST",
-        body: formData,
+        body: this._buildSourceUploadFormData(file),
       }, true);
     }
 

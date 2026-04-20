@@ -349,7 +349,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           return self._renderCard();
         })
         .catch(function (err) {
-          self._showError(err && err.message ? err.message : String(err));
+          self._showError(self._describeRenderError(err));
         })
         .then(function () {
           self._renderQueued = false;
@@ -3049,6 +3049,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }
       await new Promise(function (resolve) { setTimeout(resolve, 100); });
     }
+  }
+
+  _describeRenderError(error) {
+    var message = error && error.message ? String(error.message).trim() : "";
+    if (!message) {
+      try {
+        message = String(error || "").trim();
+      } catch (_stringError) {
+        message = "";
+      }
+    }
+    if (!message || message === "[object Object]" || message.toLowerCase() === "unknown error") {
+      message = "Heatmap query failed.";
+    }
+    if (/ERR_CONNECTION_REFUSED|websocket|networkerror|failed to fetch|connection (?:closed|lost|refused)|not connected/i.test(message)) {
+      return "Home Assistant websocket unavailable. Retry after the connection recovers.";
+    }
+    return message;
   }
 
   _showError(message) {
