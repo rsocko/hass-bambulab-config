@@ -2010,7 +2010,9 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("existing_payload", content)
         self.assertIn("resolved_project_label", content)
         self.assertIn("state_attr('sensor.bambuddy_print_history_browser_status', 'project_options')", content)
-        self.assertIn("project_id: \"{{ merged_project_id }}\"", content)
+        self.assertIn("merged_project_id", content)
+        self.assertIn("{% if merged_project_id == '__NULL__' %}", content)
+        self.assertIn("{{ merged_project_id | int(0) }}", content)
         self.assertIn("existing_tags_raw.split(',')", content)
         self.assertIn("lowered.startswith('s:')", content)
         self.assertIn("lowered.startswith('vendor:')", content)
@@ -2020,6 +2022,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("resolved_user_tags + preserved_system_tags", content)
         self.assertIn("existing_recovery_block | length > 0", content)
         self.assertIn("existing_payload is mapping and existing_payload.s is defined", content)
+        self.assertNotIn("response_variable: save_archive_response", content)
 
     def test_save_script_supports_optional_browser_refresh(self):
         content = (HISTORY / "scripts" / "save_print_history_archive_popup_edits.yaml").read_text("utf-8")
