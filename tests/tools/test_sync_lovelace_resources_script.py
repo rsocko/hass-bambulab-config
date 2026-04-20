@@ -13,6 +13,8 @@ def test_sync_script_reconciles_storage_file_atomically() -> None:
     assert ".storage/lovelace_resources" in content
     assert "write_store_atomic" in content
     assert "os.replace(temp_path, path)" in content
+    assert "Retrying Lovelace resource sync with sudo -n python3" in content
+    assert "run_sync_python sudo -n python3" in content
 
 
 def test_sync_script_no_longer_mutates_lovelace_resources_via_ha_core_api() -> None:
