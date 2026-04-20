@@ -170,7 +170,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.list.no-image{grid-template-columns:minmax(0,1fr);}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
       ".thumb-wrap.has-archive-pill{position:relative;}" +
-      ".thumb-wrap.has-archive-pill .card-archive-pill{position:absolute;left:12px;top:12px;z-index:2;max-width:calc(100% - 24px);}" +
+      ".thumb-wrap.has-archive-pill .card-archive-pill{position:absolute;left:0;top:0;z-index:2;max-width:100%;}" +
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".card-shell.media .thumb-wrap{position:relative;}" +
@@ -348,7 +348,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v105</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v106</span>';
     }
   }
 
