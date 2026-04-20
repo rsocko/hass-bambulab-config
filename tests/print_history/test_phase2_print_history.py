@@ -828,7 +828,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=48", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=16", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=17", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -889,9 +889,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('download_source_3mf', action_content)
         self.assertIn('download_gcode', action_content)
         self.assertIn('/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload', action_content)
-        self.assertIn('this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);', action_content)
-        self.assertIn('input = this._ensureSourceUploadInput();', action_content)
-        self.assertIn('doc.body.appendChild(input);', action_content)
+        self.assertIn('this.shadowRoot.addEventListener("change", this._boundSourceUploadChangeHandler);', action_content)
+        self.assertIn('if (!input || input.id !== "source-upload-input")', action_content)
+        self.assertIn('this.shadowRoot ? this.shadowRoot.getElementById("source-upload-input") : null;', action_content)
+        self.assertIn('<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">', action_content)
         self.assertIn('this._lastRenderSignature = "";', action_content)
         self.assertIn('var nextSignature = this._computeRenderSignature(hass);', action_content)
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
@@ -910,7 +911,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('transition:none;', action_content)
         self.assertNotIn('type: "bambuddy/print_history_upload_source_3mf"', action_content)
         self.assertNotIn('auth.fetchWithAuth', action_content)
-        self.assertNotIn('data-source-upload-input="true"', action_content)
+        self.assertIn('.hidden-file-input{display:none;}', action_content)
         self.assertIn('delete_print_history_archive', action_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -2210,7 +2211,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=16", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=17", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)

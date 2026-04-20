@@ -12,7 +12,6 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
-    this._sourceUploadInput = null;
   }
 
   setConfig(config) {
@@ -47,14 +46,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   connectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.addEventListener("click", this._boundClickHandler);
+      this.shadowRoot.addEventListener("change", this._boundSourceUploadChangeHandler);
     }
   }
 
   disconnectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundClickHandler);
+      this.shadowRoot.removeEventListener("change", this._boundSourceUploadChangeHandler);
     }
-    this._destroySourceUploadInput();
   }
 
   getCardSize() {
@@ -210,52 +210,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _handleSourceUploadChange(event) {
     var input = event && event.target ? event.target : null;
+    if (!input || input.id !== "source-upload-input") {
+      return;
+    }
     var files = input && input.files ? input.files : null;
     var file = files && files.length ? files[0] : null;
-    if (input) {
-      input.value = "";
-    }
     if (file) {
       this._uploadSource3mf(file);
     }
-  }
-
-  _ensureSourceUploadInput() {
-    if (this._sourceUploadInput) {
-      return this._sourceUploadInput;
-    }
-
-    var doc = this.ownerDocument || document;
-    if (!doc || !doc.body) {
-      return null;
-    }
-
-    var input = doc.createElement("input");
-    input.type = "file";
-    input.accept = ".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml";
-    input.tabIndex = -1;
-    input.setAttribute("aria-hidden", "true");
-    input.style.position = "fixed";
-    input.style.left = "-9999px";
-    input.style.width = "1px";
-    input.style.height = "1px";
-    input.style.opacity = "0";
-    input.style.pointerEvents = "none";
-    input.addEventListener("change", this._boundSourceUploadChangeHandler);
-    doc.body.appendChild(input);
-    this._sourceUploadInput = input;
-    return input;
-  }
-
-  _destroySourceUploadInput() {
-    if (!this._sourceUploadInput) {
-      return;
-    }
-    this._sourceUploadInput.removeEventListener("change", this._boundSourceUploadChangeHandler);
-    if (this._sourceUploadInput.parentNode) {
-      this._sourceUploadInput.parentNode.removeChild(this._sourceUploadInput);
-    }
-    this._sourceUploadInput = null;
+    input.value = "";
   }
 
   _getBaseUrl() {
@@ -516,7 +479,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (this._busy) {
       return;
     }
-    var input = this._ensureSourceUploadInput();
+    var input = this.shadowRoot ? this.shadowRoot.getElementById("source-upload-input") : null;
     if (!input) {
       return;
     }
@@ -792,6 +755,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       linkActions +
       maintenanceActions +
       dangerActions +
+      '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">' +
       '</div>';
   }
 
@@ -829,6 +793,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.status.info{background:rgba(33,150,243,0.10);color:var(--primary-text-color);}' +
       '.status.success{background:rgba(46,125,50,0.14);color:var(--primary-text-color);}' +
       '.status.error{background:rgba(183,28,28,0.14);color:var(--primary-text-color);}' +
+      '.hidden-file-input{display:none;}' +
       '.section-stack{display:flex;flex-direction:column;gap:12px;}' +
       '.action-section{border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.025);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;}' +
       '.action-section.danger{border-color:rgba(239,68,68,0.18);background:rgba(183,28,28,0.05);}' +
