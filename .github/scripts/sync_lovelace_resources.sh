@@ -165,7 +165,8 @@ if [ ! -e "$storage_path" ] && [ -e "/config/.storage/lovelace_resources" ]; the
   storage_path="/config/.storage/lovelace_resources"
 fi
 
-python3 - "$desired_input" "$dry_run" "$strict" "$storage_path" <<'PY'
+run_sync_python() {
+  "$@" - "$desired_input" "$dry_run" "$strict" "$storage_path" <<'PY'
 from __future__ import annotations
 
 import json
@@ -333,6 +334,24 @@ else:
         print("One or more Lovelace resource sync operations failed.")
         sys.exit(1)
 PY
+}
+
+set +e
+PYTHON_SYNC_OUTPUT="$(run_sync_python python3 2>&1)"
+PYTHON_SYNC_EXIT=$?
+set -e
+
+if [ $PYTHON_SYNC_EXIT -ne 0 ] && printf '%s' "$PYTHON_SYNC_OUTPUT" | grep -qi 'permission denied'; then
+  if sudo -n python3 --version >/dev/null 2>&1; then
+    echo "$PYTHON_SYNC_OUTPUT"
+    echo "Retrying Lovelace resource sync with sudo -n python3 because direct storage write was denied."
+    run_sync_python sudo -n python3
+    exit 0
+  fi
+fi
+
+echo "$PYTHON_SYNC_OUTPUT"
+exit $PYTHON_SYNC_EXIT
 REMOTE_SYNC
 2>&1)"
 SYNC_EXIT=$?
