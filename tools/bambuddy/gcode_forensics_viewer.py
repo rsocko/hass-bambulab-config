@@ -51,6 +51,7 @@ SOURCE_IMPORT_MODES = (
     "attach_source_only",
     "wrap_raw_gcode_experimental",
 )
+DEFAULT_SEARCH_HORIZON_HOURS = 48
 
 
 def load_json(path: Path):
@@ -214,6 +215,14 @@ def from_datetime_local_value(value: str | None) -> str | None:
     return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def parse_positive_int(value: Any, *, default: int, minimum: int = 1, maximum: int = 24 * 30) -> int:
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, parsed))
+
+
 def normalize_candidate_name(value: str) -> str:
     normalized = value.lower().replace("\\", "/")
     normalized = re.sub(r"\.gcode\.3mf$", "", normalized)
@@ -226,6 +235,90 @@ def normalize_candidate_name(value: str) -> str:
 
 def tokenize_candidate_name(value: str) -> list[str]:
     return [token for token in normalize_candidate_name(value).split() if token]
+
+
+def parse_estimated_print_time_seconds(value: str | None) -> int | None:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    normalized = text.replace(",", " ")
+    matches = re.findall(r"(\d+)\s*([dhms]|day|days|hour|hours|hr|hrs|minute|minutes|min|mins|second|seconds|sec|secs)", normalized)
+    if not matches:
+        colon_match = re.fullmatch(r"(?:(\d+):)?(\d{1,2}):(\d{1,2})", text)
+        if colon_match:
+            hours = int(colon_match.group(1) or 0)
+            minutes = int(colon_match.group(2) or 0)
+            seconds = int(colon_match.group(3) or 0)
+            return (hours * 3600) + (minutes * 60) + seconds
+        return None
+    total = 0
+    unit_map = {
+        "d": 86400,
+        "day": 86400,
+        "days": 86400,
+        "h": 3600,
+        "hour": 3600,
+        "hours": 3600,
+        "hr": 3600,
+        "hrs": 3600,
+        "m": 60,
+        "minute": 60,
+        "minutes": 60,
+        "min": 60,
+        "mins": 60,
+        "s": 1,
+        "second": 1,
+        "seconds": 1,
+        "sec": 1,
+        "secs": 1,
+    }
+    for amount, unit in matches:
+        total += int(amount) * unit_map[unit]
+    return total or None
+
+
+def classify_time_relation(reference_time: datetime | None, candidate_time: datetime | None) -> dict[str, Any]:
+    if reference_time is None or candidate_time is None:
+        return {
+            "time_bucket": "unknown",
+            "day_relation": None,
+            "seconds_delta": None,
+            "hours_delta": None,
+            "is_same_day_window": False,
+            "is_adjacent_day_window": False,
+        }
+    delta_seconds = int(abs((candidate_time - reference_time).total_seconds()))
+    hours_delta = round(delta_seconds / 3600.0, 2)
+    reference_date = reference_time.date()
+    candidate_date = candidate_time.date()
+    if candidate_date == reference_date:
+        day_relation = "same_day"
+    elif candidate_date == (reference_date.fromordinal(reference_date.toordinal() - 1)):
+        day_relation = "previous_day"
+    elif candidate_date == (reference_date.fromordinal(reference_date.toordinal() + 1)):
+        day_relation = "next_day"
+    else:
+        day_relation = None
+    if delta_seconds <= 2 * 3600:
+        time_bucket = "within_2h"
+    elif delta_seconds <= 12 * 3600:
+        time_bucket = "within_12h"
+    elif delta_seconds <= 24 * 3600:
+        time_bucket = "within_24h"
+    elif day_relation == "same_day":
+        time_bucket = "same_day"
+    elif day_relation in {"previous_day", "next_day"}:
+        time_bucket = day_relation
+    else:
+        time_bucket = "outside_window"
+    return {
+        "time_bucket": time_bucket,
+        "day_relation": day_relation,
+        "seconds_delta": delta_seconds,
+        "hours_delta": hours_delta,
+        "is_same_day_window": day_relation == "same_day",
+        "is_adjacent_day_window": day_relation in {"previous_day", "next_day"},
+    }
 
 
 def inspect_zip_artifact(path: Path) -> dict[str, Any]:
@@ -353,12 +446,28 @@ def score_search_match(record: dict[str, object], path: Path) -> int:
         score += 8
     elif artifact_extension(path) == ".3mf":
         score += 4
+    reference_time = parse_timestamp(str(record.get("last_write") or ""))
+    candidate_time = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+    relation = classify_time_relation(reference_time, candidate_time)
+    time_bucket = relation["time_bucket"]
+    if time_bucket == "within_2h":
+        score += 60
+    elif time_bucket == "within_12h":
+        score += 40
+    elif time_bucket == "within_24h":
+        score += 28
+    elif time_bucket == "same_day":
+        score += 20
+    elif time_bucket in {"previous_day", "next_day"}:
+        score += 12
     return score
 
 
-def search_local_source_candidates(record: dict[str, object], roots: list[str], limit: int = 24) -> list[dict[str, Any]]:
+def search_local_source_candidates(record: dict[str, object], roots: list[str], *, horizon_hours: int = DEFAULT_SEARCH_HORIZON_HOURS, limit: int = 36) -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
+    reference_time = parse_timestamp(str(record.get("last_write") or ""))
+    horizon_seconds = max(1, horizon_hours) * 3600
     for root_text in roots:
         root = Path(root_text).expanduser()
         if not root.exists() or not root.is_dir():
@@ -374,10 +483,24 @@ def search_local_source_candidates(record: dict[str, object], roots: list[str], 
                 continue
             seen_paths.add(lowered)
             score = score_search_match(record, candidate)
-            if score <= 0:
+            candidate_time = datetime.fromtimestamp(candidate.stat().st_mtime, tz=timezone.utc)
+            relation = classify_time_relation(reference_time, candidate_time)
+            within_horizon = relation["seconds_delta"] is not None and int(relation["seconds_delta"]) <= horizon_seconds
+            adjacent_day = bool(relation["is_same_day_window"] or relation["is_adjacent_day_window"])
+            if score <= 0 and not within_horizon and not adjacent_day:
                 continue
-            matches.append(inspect_local_artifact(candidate.resolve(), source_kind="search_match", match_score=score))
-    matches.sort(key=lambda item: (-int(item.get("match_score") or 0), str(item.get("display_name") or "").lower()))
+            inspected = inspect_local_artifact(candidate.resolve(), source_kind="search_match", match_score=score)
+            inspected.update(relation)
+            inspected["search_horizon_hours"] = horizon_hours
+            inspected["within_search_horizon"] = within_horizon
+            matches.append(inspected)
+    matches.sort(
+        key=lambda item: (
+            -int(item.get("match_score") or 0),
+            int(item.get("seconds_delta") or 10**12),
+            str(item.get("display_name") or "").lower(),
+        )
+    )
     return matches[:limit]
 
 
@@ -395,6 +518,7 @@ def build_import_requirements(record: dict[str, object], selected_source: dict[s
     elif source_type == "raw_gcode_file":
         requirements.append("Raw .gcode is not accepted by the current archive upload flow.")
         requirements.append("A valid Bambu-style package would need more than the gcode stream: at minimum package structure plus slice/project metadata files and expected archive-side naming conventions.")
+        requirements.append("If the gcode headers do not already carry them, expect to supply or infer printer model, filament slot-to-type/color mapping, and any archive-facing preview/plate metadata needed by downstream tooling.")
     inferred_started_at = str((record.get("decision") or {}).get("import_plan", {}).get("inferred_started_at") or record.get("last_write") or "").strip()
     if inferred_started_at:
         requirements.append(f"Current inferred started_at/created_at default comes from the original gcode last-write timestamp: {inferred_started_at}.")
@@ -623,7 +747,21 @@ class DecisionStore:
                 raw_value = raw_row.get(key)
                 if raw_value not in (None, ""):
                     row[key] = int(raw_value)
+            for key in ("seconds_delta",):
+                raw_value = raw_row.get(key)
+                if raw_value not in (None, ""):
+                    row[key] = int(raw_value)
+            for key in ("hours_delta",):
+                raw_value = raw_row.get(key)
+                if raw_value not in (None, ""):
+                    row[key] = float(raw_value)
             for key in ("has_embedded_gcode", "has_slice_info", "is_zip"):
+                if key in raw_row:
+                    row[key] = bool(raw_row.get(key))
+            for key in ("time_bucket", "day_relation"):
+                if raw_row.get(key) not in (None, ""):
+                    row[key] = str(raw_row.get(key))
+            for key in ("within_search_horizon", "is_same_day_window", "is_adjacent_day_window"):
                 if key in raw_row:
                     row[key] = bool(raw_row.get(key))
             if "header_metadata" in raw_row and isinstance(raw_row.get("header_metadata"), dict):
@@ -648,6 +786,10 @@ class DecisionStore:
             "override_started_at": str(value.get("override_started_at") or "").strip() or None,
             "inferred_created_at": str(value.get("inferred_created_at") or "").strip() or None,
             "override_created_at": str(value.get("override_created_at") or "").strip() or None,
+            "inferred_completed_at": str(value.get("inferred_completed_at") or "").strip() or None,
+            "override_completed_at": str(value.get("override_completed_at") or "").strip() or None,
+            "inferred_duration_seconds": int(value.get("inferred_duration_seconds")) if value.get("inferred_duration_seconds") not in (None, "") else None,
+            "search_horizon_hours": parse_positive_int(value.get("search_horizon_hours"), default=DEFAULT_SEARCH_HORIZON_HOURS),
             "notes": str(value.get("notes") or "").strip(),
             "missing_requirements": normalize_string_list(value.get("missing_requirements")),
         }
@@ -656,10 +798,13 @@ class DecisionStore:
                 normalized["mode"] != "undecided",
                 normalized["override_started_at"],
                 normalized["override_created_at"],
+                normalized["override_completed_at"],
                 normalized["notes"],
                 normalized["missing_requirements"],
                 normalized["inferred_started_at"],
                 normalized["inferred_created_at"],
+                normalized["inferred_completed_at"],
+                normalized["inferred_duration_seconds"] is not None,
             ]
         ):
             return None
@@ -969,20 +1114,21 @@ class ForensicsDataset:
         )
         return self.sync_record_decision(gcode_name, entry)
 
-    def search_source_candidates(self, gcode_name: str, roots: list[str], *, select_best: bool = False) -> dict[str, object]:
+    def search_source_candidates(self, gcode_name: str, roots: list[str], *, horizon_hours: int = DEFAULT_SEARCH_HORIZON_HOURS, select_best: bool = False) -> dict[str, object]:
         record = self.record_map.get(gcode_name)
         if record is None:
             raise ValueError("Unknown gcode name.")
         normalized_roots = [str(Path(root).expanduser()) for root in normalize_string_list(roots)]
         entry = self.decision_store.set_search_roots(gcode_name, normalized_roots)
         self.sync_record_decision(gcode_name, entry)
-        matches = search_local_source_candidates(record, normalized_roots)
+        matches = search_local_source_candidates(record, normalized_roots, horizon_hours=horizon_hours)
         for index, match in enumerate(matches):
             entry = self.decision_store.upsert_source_candidate(gcode_name, match, select=select_best and index == 0)
             self.sync_record_decision(gcode_name, entry)
         return {
             "matches": matches,
             "search_roots": normalized_roots,
+            "search_horizon_hours": horizon_hours,
             "entry": self.record_map[gcode_name].get("decision"),
         }
 
@@ -1170,6 +1316,16 @@ def build_effective_import_plan(record: dict[str, object], selected_source: dict
     stored = decision.get("import_plan") or {}
     inferred_started_at = str(stored.get("inferred_started_at") or record.get("last_write") or "").strip() or None
     inferred_created_at = str(stored.get("inferred_created_at") or record.get("last_write") or "").strip() or None
+    inferred_duration_seconds = stored.get("inferred_duration_seconds")
+    if inferred_duration_seconds in (None, ""):
+        inferred_duration_seconds = parse_estimated_print_time_seconds((record.get("header_metadata") or {}).get("print_time"))
+    inferred_completed_at = str(stored.get("inferred_completed_at") or "").strip() or None
+    effective_started_at = str(stored.get("override_started_at") or inferred_started_at or "").strip() or None
+    if inferred_completed_at is None and effective_started_at and inferred_duration_seconds:
+        started_dt = parse_timestamp(effective_started_at)
+        if started_dt is not None:
+            completed_ts = started_dt.timestamp() + int(inferred_duration_seconds)
+            inferred_completed_at = datetime.fromtimestamp(float(completed_ts), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     mode = str(stored.get("mode") or "").strip()
     if mode not in SOURCE_IMPORT_MODES or mode == "undecided":
         mode = str((selected_source or {}).get("suggested_import_mode") or "undecided")
@@ -1181,6 +1337,10 @@ def build_effective_import_plan(record: dict[str, object], selected_source: dict
         "override_started_at": str(stored.get("override_started_at") or "").strip() or None,
         "inferred_created_at": inferred_created_at,
         "override_created_at": str(stored.get("override_created_at") or "").strip() or None,
+        "inferred_completed_at": inferred_completed_at,
+        "override_completed_at": str(stored.get("override_completed_at") or "").strip() or None,
+        "inferred_duration_seconds": inferred_duration_seconds,
+        "search_horizon_hours": parse_positive_int(stored.get("search_horizon_hours"), default=DEFAULT_SEARCH_HORIZON_HOURS),
         "notes": str(stored.get("notes") or "").strip(),
         "missing_requirements": build_import_requirements(record, selected_source),
     }
@@ -1216,11 +1376,23 @@ def render_source_candidates(record: dict[str, object], selected_source_path: st
             badges.append('<span class="badge keep">archive-ready</span>')
         if row.get("match_score") not in (None, ""):
             badges.append(f'<span class="badge warn">score {html.escape(str(row.get("match_score")))}</span>')
+        if row.get("time_bucket") not in (None, "", "unknown", "outside_window"):
+            badges.append(f'<span class="badge">{html.escape(str(row.get("time_bucket")).replace("_", " "))}</span>')
+        if row.get("within_search_horizon"):
+            badges.append('<span class="badge keep">within horizon</span>')
         if is_selected:
             badges.append('<span class="badge keep">selected</span>')
         warning_markup = "".join(f'<li>{html.escape(warning)}</li>' for warning in warnings)
         header_metadata = row.get("header_metadata") if isinstance(row.get("header_metadata"), dict) else None
         header_markup = f'<pre>{escape_json_for_html(header_metadata)}</pre>' if header_metadata else ''
+        time_detail_parts: list[str] = []
+        if row.get("modified_at"):
+            time_detail_parts.append(f'modified {row.get("modified_at")}')
+        if row.get("hours_delta") not in (None, ""):
+            time_detail_parts.append(f'Δ {row.get("hours_delta")}h')
+        if row.get("day_relation"):
+            time_detail_parts.append(str(row.get("day_relation")).replace("_", " "))
+        time_detail_markup = html.escape(" | ".join(time_detail_parts)) if time_detail_parts else ""
         markup.append(
             f'''<div class="source-card {"selected" if is_selected else ""}">
   <div class="source-title">
@@ -1229,6 +1401,7 @@ def render_source_candidates(record: dict[str, object], selected_source_path: st
   </div>
   <div class="source-path mono">{html.escape(path_text)}</div>
   <div class="status">{html.escape(str(row.get("classification_reason") or "No classification details recorded."))}</div>
+    {f'<div class="status">{time_detail_markup}</div>' if time_detail_markup else ''}
   <div class="button-row">
     <button class="secondary" type="button" data-source-action="select" data-path="{html.escape(path_text, quote=True)}">Select</button>
     <button class="secondary" type="button" data-source-action="open" data-path="{html.escape(path_text, quote=True)}">Open File</button>
@@ -1398,9 +1571,13 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                     Search Roots
                     <textarea name="roots" placeholder="C:\\Projects\\Bambu\nD:\\Recovered Prints">{html.escape(search_root_text)}</textarea>
                 </label>
+                <label>
+                    Time Horizon (Hours)
+                    <input name="horizon_hours" type="number" min="1" max="720" value="{html.escape(str(effective_import_plan['search_horizon_hours']))}" />
+                </label>
                 <div class="button-row">
                     <button type="submit">Find Matching 3MF Files</button>
-                    <div class="status">Search runs on this machine and scores candidates by gcode name and prefix similarity.</div>
+                    <div class="status">Search runs on this machine, scores by name and prefix similarity, and also keeps same-day plus prior/next-day candidates around the selected horizon.</div>
                 </div>
             </form>
             <div class="status" id="source-status"></div>
@@ -1429,6 +1606,10 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                     Override created_at
                     <input name="override_created_at" type="datetime-local" value="{html.escape(to_datetime_local_value(effective_import_plan['override_created_at']))}" />
                 </label>
+                <label>
+                    Override completed_at
+                    <input name="override_completed_at" type="datetime-local" value="{html.escape(to_datetime_local_value(effective_import_plan['override_completed_at']))}" />
+                </label>
             </div>
             <div class="support-grid">
                 <div class="support-card">
@@ -1438,6 +1619,14 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                 <div class="support-card">
                     <h4>Inferred created_at</h4>
                     <div class="status mono">{html.escape(str(effective_import_plan['inferred_created_at'] or ''))}</div>
+                </div>
+                <div class="support-card">
+                    <h4>Inferred completed_at</h4>
+                    <div class="status mono">{html.escape(str(effective_import_plan['inferred_completed_at'] or ''))}</div>
+                </div>
+                <div class="support-card">
+                    <h4>Inferred duration</h4>
+                    <div class="status mono">{html.escape(str(effective_import_plan['inferred_duration_seconds'] or ''))}</div>
                 </div>
             </div>
             <label>
@@ -1565,7 +1754,8 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
         try {{
             const data = await postJson('/api/source/search', {{
                 gcode_name: selectedGcode,
-                roots: formData.get('roots') || ''
+                roots: formData.get('roots') || '',
+                horizon_hours: formData.get('horizon_hours') || {DEFAULT_SEARCH_HORIZON_HOURS}
             }});
             const count = Array.isArray(data.matches) ? data.matches.length : 0;
             setSourceStatus(`Search complete. ${count} candidate(s) queued.`);
@@ -1585,6 +1775,7 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                 mode: formData.get('mode') || 'undecided',
                 override_started_at: formData.get('override_started_at') || '',
                 override_created_at: formData.get('override_created_at') || '',
+                override_completed_at: formData.get('override_completed_at') || '',
                 notes: formData.get('notes') || ''
             }});
             setImportPlanStatus(data.message || 'Import plan saved.');
@@ -1926,7 +2117,11 @@ class ForensicsHandler(BaseHTTPRequestHandler):
                     return
 
                 if parsed.path == "/api/source/search":
-                    result = self.dataset.search_source_candidates(gcode_name, normalize_string_list(payload.get("roots")))
+                    result = self.dataset.search_source_candidates(
+                        gcode_name,
+                        normalize_string_list(payload.get("roots")),
+                        horizon_hours=parse_positive_int(payload.get("horizon_hours"), default=DEFAULT_SEARCH_HORIZON_HOURS),
+                    )
                     self.send_json(200, {"message": "Source search completed.", **result})
                     return
 
@@ -1966,6 +2161,10 @@ class ForensicsHandler(BaseHTTPRequestHandler):
                         "override_started_at": from_datetime_local_value(str(payload.get("override_started_at") or "")),
                         "inferred_created_at": str((record.get("decision") or {}).get("import_plan", {}).get("inferred_created_at") or record.get("last_write") or "").strip() or None,
                         "override_created_at": from_datetime_local_value(str(payload.get("override_created_at") or "")),
+                        "inferred_completed_at": build_effective_import_plan(record, resolve_source_candidate(record)).get("inferred_completed_at"),
+                        "override_completed_at": from_datetime_local_value(str(payload.get("override_completed_at") or "")),
+                        "inferred_duration_seconds": build_effective_import_plan(record, resolve_source_candidate(record)).get("inferred_duration_seconds"),
+                        "search_horizon_hours": build_effective_import_plan(record, resolve_source_candidate(record)).get("search_horizon_hours"),
                         "notes": str(payload.get("notes") or "").strip(),
                         "missing_requirements": build_import_requirements(record, selected_source),
                     }
