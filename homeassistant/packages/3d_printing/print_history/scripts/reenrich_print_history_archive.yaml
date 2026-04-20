@@ -13,8 +13,11 @@ reenrich_print_history_archive:
       selector:
         text:
     slot_overrides:
-      name: Slot Overrides
-      description: Optional JSON or shorthand text such as SLOT=1 TRAY=B2. Overrides are persisted into the hidden payload and used before heuristic matching.
+      name: Slot Overrides (JSON Preferred)
+      description: >-
+        Preferred input is a JSON array or object, for example [{"slot_id":"1","tray":"B2"}].
+        Raw shorthand such as SLOT=1 TRAY=B2 is only intended for unquoted text entry and may be treated literally by some Developer Tools form paths.
+        Overrides are persisted into the hidden payload and used before heuristic matching.
       required: false
       selector:
         text:

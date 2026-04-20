@@ -125,6 +125,8 @@ Rules:
 
 `slot_overrides` is the operator-friendly form of the managed per-slot override subset.
 
+Preferred input shape is a JSON array of row objects. That is the most reliable form for Home Assistant Developer Tools and scripts.
+
 Each row must include:
 
 - `slot_id`
@@ -150,6 +152,12 @@ Shorthand text is also accepted for quick operator entry:
 SLOT=1 TRAY=B2
 SLOT=0 TRAY=A2 SPOOL=252 FILAMENT=25
 ```
+
+Important UI note:
+
+- in Home Assistant Developer Tools, prefer JSON array input such as `[{"slot_id":"1","tray":"B2"}]`
+- raw shorthand is only appropriate when the value is passed as unquoted text
+- some Developer Tools form paths wrap shorthand text in quotes before the script receives it, which causes the shorthand parser to see a literal string and ignore the requested override
 
 Rules:
 
@@ -198,8 +206,9 @@ Recommended UI behavior:
 - call the read service with `mode = ALL` to obtain the canonical editable object
 - optionally use `filtered_payload_rows` from a second read or from the same response for focused review
 - when saving, send the full `tag_metadata` or full `note_metadata` object back
-- when saving slot overrides, send the full `slot_overrides` array back
+- when saving slot overrides, send the full `slot_overrides` JSON array back
 - do not send only filtered rows from `MISSING_SPOOL` or `MISSING_FILAMENT` mode
+- in Home Assistant Developer Tools, prefer YAML mode or a structured JSON value for slot overrides rather than quoted shorthand text
 
 ## Relationship To Manual Re-Enrich
 

@@ -263,20 +263,20 @@ update_print_history_archive_enrichment_metadata:
           min: 1
           mode: box
     tag_metadata:
-      name: Tag Metadata
+      name: Tag Metadata (JSON Object)
       description: Full replacement for the system-managed enrichment tags. Pass a JSON object containing system_tags.
       required: false
       selector:
         text:
     note_metadata:
-      name: Note Metadata
+      name: Note Metadata (JSON Object)
       description: Full replacement for the system-managed hidden note data. Pass a JSON object containing payload and optionally recovery_block and slot_overrides.
       required: false
       selector:
         text:
     slot_overrides:
-      name: Slot Overrides
-      description: Optional JSON array of slot override rows. Each row must include slot_id and at least one of tray, spool_id, or filament_id.
+      name: Slot Overrides (JSON Array)
+      description: Optional JSON array of slot override rows such as [{"slot_id":"1","tray":"B2"}]. Each row must include slot_id and at least one of tray, spool_id, or filament_id.
       required: false
       selector:
         text:

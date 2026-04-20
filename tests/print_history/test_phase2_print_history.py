@@ -828,7 +828,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=103", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=6", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=7", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -862,6 +862,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('download_source_3mf', action_content)
         self.assertIn('download_gcode', action_content)
         self.assertIn('/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload', action_content)
+        self.assertIn('this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);', action_content)
+        self.assertIn('input = this._ensureSourceUploadInput();', action_content)
+        self.assertIn('doc.body.appendChild(input);', action_content)
+        self.assertNotIn('data-source-upload-input="true"', action_content)
         self.assertIn('delete_print_history_archive', action_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -2121,7 +2125,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=6", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=7", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=103", content)
