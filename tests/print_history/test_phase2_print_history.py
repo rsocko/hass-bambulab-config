@@ -823,7 +823,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=19", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=20", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -2246,7 +2246,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=19", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=20", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)

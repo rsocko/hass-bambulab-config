@@ -104,6 +104,27 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._render();
   }
 
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
+  }
+
   _describeError(error, fallbackMessage) {
     if (!error) {
       return fallbackMessage;
@@ -664,38 +685,65 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
+  _buildRepairSequence(archiveId, archiveName) {
+    return [
+      {
+        service: "browser_mod.close_popup",
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_source_archive_id",
+          value: String(archiveId),
+        },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_target_archive_id",
+          value: "",
+        },
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_restore_upload_session_id",
+          value: "",
+        },
+      },
+      {
+        service: "bambuddy.clear_print_history_archive_restore",
+        data: {
+          source_archive_id: archiveId,
+        },
+      },
+      {
+        service: "browser_mod.popup",
+        data: {
+          title: "Repair " + archiveName,
+          size: "wide",
+          content: {
+            type: "custom:print-history-archive-restore-card",
+            workflow_entity: "sensor.print_history_popup_restore_workflow",
+            detail_entity: "sensor.print_history_popup_archive_detail",
+            source_archive_helper: "input_text.print_history_restore_source_archive_id",
+            target_archive_helper: "input_text.print_history_restore_target_archive_id",
+            upload_session_helper: "input_text.print_history_restore_upload_session_id",
+          },
+        },
+      },
+    ];
+  }
+
   async _handleRepair() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive";
-    if (!this._hass || typeof this._hass.callService !== "function" || archiveId <= 0) {
+    if (archiveId <= 0) {
       return;
     }
-    await this._hass.callService("browser_mod", "sequence", {
-      sequence: [
-        { service: "browser_mod.close_popup" },
-        {
-          service: "bambuddy.clear_print_history_archive_restore",
-          data: {
-            source_archive_id: archiveId,
-          },
-        },
-        {
-          service: "browser_mod.popup",
-          data: {
-            title: "Repair " + archiveName,
-            size: "wide",
-            content: {
-              type: "custom:print-history-archive-restore-card",
-              workflow_entity: "sensor.print_history_popup_restore_workflow",
-              detail_entity: "sensor.print_history_popup_archive_detail",
-              source_archive_helper: "input_text.print_history_restore_source_archive_id",
-              target_archive_helper: "input_text.print_history_restore_target_archive_id",
-              upload_session_helper: "input_text.print_history_restore_upload_session_id",
-            },
-          },
-        },
-      ],
+    this._fireBrowserModEvent("browser_mod.sequence", {
+      sequence: this._buildRepairSequence(archiveId, archiveName),
     });
   }
 
