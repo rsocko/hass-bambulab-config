@@ -9,6 +9,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._busy = false;
     this._status = "";
     this._statusTone = "info";
+    this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
     this._sourceUploadInput = null;
@@ -29,11 +30,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._busy = false;
     this._status = "";
     this._statusTone = "info";
+    this._lastRenderSignature = "";
     this._render();
   }
 
   set hass(hass) {
+    var nextSignature = this._computeRenderSignature(hass);
     this._hass = hass;
+    if (nextSignature === this._lastRenderSignature) {
+      return;
+    }
+    this._lastRenderSignature = nextSignature;
     this._render();
   }
 
@@ -76,12 +83,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _setArchive(archive) {
     this._archiveOverride = archive && typeof archive === "object" ? archive : null;
+    this._lastRenderSignature = "";
     this._render();
   }
 
   _setStatus(message, tone) {
     this._status = String(message || "").trim();
     this._statusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
+    this._lastRenderSignature = "";
     this._render();
   }
 
@@ -91,6 +100,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setStatus(message, tone);
       return;
     }
+    this._lastRenderSignature = "";
     this._render();
   }
 
@@ -210,6 +220,35 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return "";
     }
     return String(entity.state || "").trim().replace(/\/$/, "");
+  }
+
+  _computeRenderSignature(hass) {
+    if (!this._config || !hass || !hass.states) {
+      return "";
+    }
+
+    var parts = [
+      typeof this._config.archive_json === "string"
+        ? this._config.archive_json
+        : JSON.stringify(this._config.archive_json || {}),
+      JSON.stringify(this._archiveOverride || {}),
+      this._mode,
+      this._busy ? "1" : "0",
+      this._status,
+      this._statusTone,
+    ];
+
+    var detailEntityId = this._config.detail_entity || "";
+    var detailState = detailEntityId ? hass.states[detailEntityId] : null;
+    parts.push(detailState ? String(detailState.state || "") : "");
+    parts.push(detailState ? String(detailState.last_updated || detailState.last_changed || "") : "");
+
+    var baseEntityId = this._config.api_base_entity || "input_text.bambuddy_api_base_url";
+    var baseState = hass.states[baseEntityId];
+    parts.push(baseState ? String(baseState.state || "") : "");
+    parts.push(baseState ? String(baseState.last_updated || baseState.last_changed || "") : "");
+
+    return parts.join("|");
   }
 
   _archiveKey(archive) {
@@ -387,16 +426,34 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
+  _decodeHtmlEntities(value) {
+    if (!value) {
+      return "";
+    }
+    var textarea = document.createElement("textarea");
+    textarea.innerHTML = String(value);
+    return textarea.value;
+  }
+
   _makerWorldUrl(archive) {
     var directUrl = String((archive && archive.makerworld_url) || "").trim();
-    if (directUrl) {
-      return directUrl;
+    if (!directUrl) {
+      return "";
     }
-    var designer = String((archive && archive.designer) || "").trim().replace(/^@+/, "");
-    if (designer) {
-      return "https://makerworld.com/en/@" + encodeURIComponent(designer);
+    var decodedUrl = directUrl;
+    for (var index = 0; index < 3; index += 1) {
+      var nextValue = this._decodeHtmlEntities(decodedUrl).trim();
+      if (!nextValue || nextValue === decodedUrl) {
+        break;
+      }
+      decodedUrl = nextValue;
     }
-    return "";
+    var urlMatch = decodedUrl.match(/https?:\/\/makerworld\.com\/[^\s"'<>]+/i);
+    var normalizedUrl = urlMatch ? String(urlMatch[0]).trim() : "";
+    if (!normalizedUrl || !/\/models\/\d+/i.test(normalizedUrl)) {
+      return "";
+    }
+    return normalizedUrl;
   }
 
   _handleMakerWorld() {
@@ -460,6 +517,24 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return "Source 3MF upload failed (HTTP " + String(response.status) + ")";
   }
 
+  async _authHeaders(forceRefresh) {
+    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    if (!auth) {
+      return {};
+    }
+
+    if (forceRefresh && typeof auth.refreshAccessToken === "function") {
+      try {
+        await auth.refreshAccessToken();
+      } catch (_error) {
+        // Fall through and use the last known token if refresh fails.
+      }
+    }
+
+    var accessToken = auth.data ? auth.data.accessToken : "";
+    return accessToken ? { Authorization: "Bearer " + accessToken } : {};
+  }
+
   async _uploadSource3mf(file) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -475,18 +550,21 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setBusy(true, "Uploading source 3MF...", "info");
       var formData = new FormData();
       formData.append("file", file, file.name);
-      var headers = {};
-      var accessToken = this._hass && this._hass.auth && this._hass.auth.data ? this._hass.auth.data.accessToken : "";
-      if (accessToken) {
-        headers.Authorization = "Bearer " + accessToken;
-      }
       var uploadEndpoint = String(this._config.upload_endpoint || "").replace("{archive_id}", encodeURIComponent(String(archiveId)));
       var response = await fetch(uploadEndpoint, {
         method: "POST",
         body: formData,
-        headers: headers,
+        headers: await this._authHeaders(false),
         credentials: "same-origin",
       });
+      if (response.status === 401) {
+        response = await fetch(uploadEndpoint, {
+          method: "POST",
+          body: formData,
+          headers: await this._authHeaders(true),
+          credentials: "same-origin",
+        });
+      }
       var rawBody = await response.text().catch(function () {
         return "";
       });
@@ -629,7 +707,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
     var makerworldUrl = this._makerWorldUrl(archive);
-    var makerworldLabel = String((archive && archive.makerworld_url) || "").trim() ? "View on MakerWorld" : "View Designer";
+    var makerworldLabel = "View on MakerWorld";
     var fileActions = '<div class="actions-grid">' +
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
       (hasSource ? this._renderActionButton("download-source-3mf", "Download 3MF", "mdi:file-download-outline", { disabled: this._busy }) : "") +
