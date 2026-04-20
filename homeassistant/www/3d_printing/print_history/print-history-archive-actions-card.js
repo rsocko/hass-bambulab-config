@@ -428,6 +428,38 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     input.click();
   }
 
+  _parseResponsePayload(rawPayload) {
+    if (!rawPayload) {
+      return {};
+    }
+    if (typeof rawPayload === "string") {
+      try {
+        var parsed = JSON.parse(rawPayload);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_error) {
+        return {};
+      }
+    }
+    return typeof rawPayload === "object" ? rawPayload : {};
+  }
+
+  _buildUploadFailureMessage(response, payload, rawBody) {
+    var payloadMessage = payload && payload.message ? String(payload.message).trim() : "";
+    if (payloadMessage) {
+      return payloadMessage;
+    }
+
+    var bodyText = String(rawBody || "").trim();
+    if (bodyText) {
+      var compactBody = bodyText.replace(/\s+/g, " ").trim();
+      if (compactBody) {
+        return "Source 3MF upload failed (HTTP " + String(response.status) + "): " + compactBody.slice(0, 180);
+      }
+    }
+
+    return "Source 3MF upload failed (HTTP " + String(response.status) + ")";
+  }
+
   async _uploadSource3mf(file) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -455,11 +487,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         headers: headers,
         credentials: "same-origin",
       });
-      var payload = await response.json().catch(function () {
-        return {};
+      var rawBody = await response.text().catch(function () {
+        return "";
       });
+      var payload = this._parseResponsePayload(rawBody);
       if (!response.ok || payload.success === false) {
-        throw new Error(payload && payload.message ? payload.message : "Source 3MF upload failed");
+        throw new Error(this._buildUploadFailureMessage(response, payload, rawBody));
       }
       var nextArchive = payload && payload.archive && typeof payload.archive === "object"
         ? payload.archive
@@ -669,10 +702,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
       '.actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
       '.actions-grid.single-column{grid-template-columns:1fr;}' +
-      '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,box-shadow 120ms ease,opacity 120ms ease;}' +
-      '.action-button:hover:not(:disabled),.action-button:focus-visible:not(:disabled){background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);box-shadow:0 0 0 1px rgba(255,255,255,0.06),0 10px 24px rgba(15,23,42,0.16);outline:none;}' +
-      '.action-button:active:not(:disabled){background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);box-shadow:0 0 0 1px rgba(255,255,255,0.04),inset 0 2px 8px rgba(15,23,42,0.22);}' +
-      '.action-button:disabled{opacity:0.45;cursor:default;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);}' +
+      '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:none;color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,color 120ms ease,opacity 120ms ease;}' +
+      '.action-button:hover:not(:disabled),.action-button:focus-visible:not(:disabled){background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);outline:none;}' +
+      '.action-button:active:not(:disabled){background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);}' +
+      '.action-button:disabled{opacity:0.45;cursor:default;box-shadow:none;}' +
       '.action-button ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}' +
       '.action-button.warning{background:rgba(239,108,0,0.14);border-color:rgba(255,167,38,0.22);}' +
       '.action-button.danger{background:rgba(183,28,28,0.14);border-color:rgba(239,68,68,0.24);}' +
