@@ -47,6 +47,11 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     return this._hass?.states?.[entityId] || null;
   }
 
+  _helperState(entityId) {
+    const value = this._entity(entityId)?.state;
+    return value == null ? "" : String(value);
+  }
+
   _workflow() {
     return this._entity(this._config.workflow_entity);
   }
@@ -58,6 +63,31 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
   _workflowAttr(name, fallback = "") {
     const entity = this._workflow();
     return entity?.attributes?.[name] ?? fallback;
+  }
+
+  _sourceArchiveId() {
+    return String(
+      this._helperState(this._config?.source_archive_helper)
+      || this._workflowAttr("source_archive_id", "")
+      || this._sourceArchive()?.id
+      || "",
+    ).trim();
+  }
+
+  _targetArchiveId() {
+    return String(
+      this._helperState(this._config?.target_archive_helper)
+      || this._workflowAttr("target_archive_id", "")
+      || "",
+    ).trim();
+  }
+
+  _uploadSessionId() {
+    return String(
+      this._helperState(this._config?.upload_session_helper)
+      || this._workflowAttr("upload_session_id", "")
+      || "",
+    ).trim();
   }
 
   _parseJson(value, fallback) {
@@ -77,7 +107,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
 
   _sourceArchive() {
     const detail = this._detail();
-    const sourceArchiveId = String(this._workflowAttr("source_archive_id", "") || "").trim();
+    const sourceArchiveId = this._sourceArchiveId();
     const detailArchive = this._parseJson(detail?.attributes?.archive_json || "{}", {});
     const configArchive = this._archiveFromConfig();
     if (detailArchive?.id != null && (!sourceArchiveId || String(detailArchive.id) === sourceArchiveId)) {
@@ -262,7 +292,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
       return;
     }
     const file = input.files[0];
-    const sourceArchiveId = this._workflowAttr("source_archive_id", this._sourceArchive().id || "");
+    const sourceArchiveId = this._sourceArchiveId();
     const sourceArchive = this._sourceArchive();
     const printerId = sourceArchive?.printer_id || this._workflowAttr("printer_id", "");
     if (!sourceArchiveId) {
@@ -324,12 +354,15 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
   _bindActions() {
     const fileInput = this.shadowRoot.getElementById("replacement-upload-input");
     this._uploadInput = fileInput;
+    if (fileInput) {
+      fileInput.onchange = this._boundUploadChange;
+    }
     this.shadowRoot.querySelectorAll("button[data-action]").forEach((button) => {
       button.onclick = async () => {
         const action = button.getAttribute("data-action");
-        const sourceArchiveId = this._workflowAttr("source_archive_id", this._sourceArchive().id || "");
-        const targetArchiveId = this._workflowAttr("target_archive_id", "");
-        const uploadSessionId = this._workflowAttr("upload_session_id", "");
+        const sourceArchiveId = this._sourceArchiveId();
+        const targetArchiveId = this._targetArchiveId();
+        const uploadSessionId = this._uploadSessionId();
         try {
           if (action === "create") {
             const response = await this._callRestoreService("create_print_history_archive_replacement_from_upload", {
@@ -392,9 +425,9 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     const workflowEntity = this._workflow();
     const workflowState = workflowEntity?.state || "idle";
     const sourceArchive = this._sourceArchive();
-    const sourceArchiveId = this._workflowAttr("source_archive_id", sourceArchive?.id || "");
-    const targetArchiveId = this._workflowAttr("target_archive_id", "");
-    const uploadSessionId = this._workflowAttr("upload_session_id", "");
+    const sourceArchiveId = this._sourceArchiveId();
+    const targetArchiveId = this._targetArchiveId();
+    const uploadSessionId = this._uploadSessionId();
     const lastError = String(this._workflowAttr("last_error", "") || this._error || "");
     const lastMessage = String(this._message || this._workflowAttr("summary_json", ""));
     const planWarnings = Number(this._workflowAttr("plan_warning_count", 0) || 0);
