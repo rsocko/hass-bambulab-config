@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib
 import sqlite3
 import sys
@@ -1177,6 +1178,74 @@ def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path
     assert response["status"] == 200
     assert payload["success"] is True
     assert payload["archive"]["source_3mf_path"] == "archive_sources/101/source-model.3mf"
+    assert manager.store.load_archive(101)["source_3mf_path"] == "archive_sources/101/source-model.3mf"
+    assert FakeApiClient.uploaded_source_3mfs == [
+        {
+            "archive_id": 101,
+            "file_name": "source-model.3mf",
+            "mime_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            "byte_count": 14,
+        }
+    ]
+
+
+def test_variant3_source_3mf_upload_websocket_refreshes_archive_detail(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_handler = next(
+        handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_upload_source_3mf"
+    )
+    connection = sys.modules["homeassistant.components.websocket_api"].ActiveConnection()
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.uploaded_source_3mfs = []
+
+    try:
+        asyncio.run(
+            upload_handler(
+                hass,
+                connection,
+                {
+                    "id": 1,
+                    "type": init_module.WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF,
+                    "archive_id": 101,
+                    "file_name": "source-model.3mf",
+                    "mime_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+                    "content_base64": base64.b64encode(b"fake-3mf-bytes").decode("ascii"),
+                },
+            )
+        )
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert not connection.errors
+    result = connection.results[0][1]
+    assert result["archive"]["source_3mf_path"] == "archive_sources/101/source-model.3mf"
     assert manager.store.load_archive(101)["source_3mf_path"] == "archive_sources/101/source-model.3mf"
     assert FakeApiClient.uploaded_source_3mfs == [
         {

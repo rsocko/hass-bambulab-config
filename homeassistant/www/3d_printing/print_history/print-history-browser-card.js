@@ -303,6 +303,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".icon-action{position:static;width:30px;height:30px;border:none;border-radius:999px;background:rgba(255,255,255,0.06);color:var(--secondary-text-color);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;flex:0 0 auto;transition:background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease;}" +
       ".icon-action:hover,.icon-action:focus-visible{background:rgba(148,163,184,0.18);color:var(--primary-text-color);box-shadow:0 0 0 1px rgba(255,255,255,0.10);transform:translateY(-1px);outline:none;}" +
       ".icon-action:active{transform:translateY(0);}" +
+      ".icon-action.advanced{border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.78);color:var(--primary-text-color);}" +
+      ".icon-action.advanced:hover,.icon-action.advanced:focus-visible{background:rgba(30,41,59,0.96);color:var(--primary-text-color);border-color:rgba(148,163,184,0.54);box-shadow:0 0 0 1px rgba(255,255,255,0.16),0 8px 20px rgba(15,23,42,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.advanced:active{transform:translateY(0);}" +
       ".icon-action.viewer{background:rgba(0,137,123,0.16);color:#7dd3c8;}" +
       ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(0,137,123,0.28);color:#b6fff3;box-shadow:0 0 0 1px rgba(125,211,200,0.26);transform:translateY(-1px);outline:none;}" +
       ".icon-action.viewer:active{transform:translateY(0);}" +
@@ -348,7 +351,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v106</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v107</span>';
     }
   }
 
@@ -993,7 +996,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
-    return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+    return '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive="' + archiveJson + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+      + '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
       + favoriteButton
       + photoAction;
   }
@@ -1002,6 +1006,22 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var isFavorite = !!(normalized && normalized.isFavorite);
     var buttonTitle = this._favoriteButtonTitle(isFavorite);
     return '<button class="icon-action favorite' + (isFavorite ? ' active' : '') + '" data-action="favorite" data-archive-id="' + this._escapeAttribute(String(normalized && normalized.id || "")) + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute(buttonTitle) + '" aria-pressed="' + (isFavorite ? 'true' : 'false') + '" title="' + this._escapeAttribute(buttonTitle + ' (toggle favorite)') + '"><ha-icon icon="' + (isFavorite ? 'mdi:star' : 'mdi:star-outline') + '"></ha-icon></button>';
+  }
+
+  _openAdvancedActions(archive) {
+    if (!archive || archive.id == null) {
+      return;
+    }
+
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Advanced Actions",
+      size: "normal",
+      content: {
+        type: "custom:print-history-archive-actions-card",
+        archive_json: JSON.stringify(archive),
+        api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+      },
+    });
   }
 
   _renderBulkDialog() {
@@ -2210,6 +2230,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     if (action === "viewer") {
       this._openArchiveViewerPopup(archive);
+      return;
+    }
+
+    if (action === "advanced-actions") {
+      this._openAdvancedActions(archive);
       return;
     }
 

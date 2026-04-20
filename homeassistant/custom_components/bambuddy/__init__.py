@@ -95,6 +95,7 @@ ENRICHMENT_SLOT_OVERRIDE_ROW_KEYS = ("slot_id", "tray", "spool_id", "filament_id
 
 WS_TYPE_PRINT_HISTORY_QUERY = "bambuddy/print_history_query"
 WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
+WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF = "bambuddy/print_history_upload_source_3mf"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION = "bambuddy/print_history_archive_action"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
@@ -1487,6 +1488,90 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             connection.send_error(msg["id"], "upload_failed", str(err))
 
     websocket_api.async_register_command(hass, websocket_handle_upload_photo)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+            vol.Required("file_name"): str,
+            vol.Required("mime_type"): str,
+            vol.Required("content_base64"): str,
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_upload_source_3mf(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            archive_id = int(msg[CONF_ARCHIVE_ID])
+            if not await manager.async_ensure_archive_loaded(archive_id):
+                raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+            try:
+                content = base64.b64decode(str(msg.get("content_base64", "")), validate=True)
+            except (ValueError, binascii.Error) as error:
+                raise HomeAssistantError("Upload payload is not valid base64") from error
+
+            if not content:
+                raise HomeAssistantError("Upload payload is empty")
+            if len(content) > manager.restore_uploads.max_upload_bytes:
+                raise HomeAssistantError(
+                    f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
+                )
+
+            file_name = str(msg.get("file_name", "")).strip()
+            if not file_name.lower().endswith(".3mf"):
+                raise HomeAssistantError("Source upload only accepts .3mf files")
+
+            mime_type = str(msg.get("mime_type", "")).strip() or "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"
+
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            upload_response = await client.async_upload_archive_source_3mf(
+                archive_id,
+                file_name=file_name,
+                mime_type=mime_type,
+                content=content,
+            )
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="upload_archive_source_3mf",
+                extra_details={
+                    "file_name": file_name,
+                    "mime_type": mime_type,
+                    "byte_count": len(content),
+                },
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id} could not be refreshed after upload")
+
+            response = manager.build_archive_detail_response(archive_id)
+            if response is None:
+                raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+            response[CONF_ENTRY_ID] = entry_id
+            response[CONF_ARCHIVE_ID] = archive_id
+            response["upload"] = {
+                "file_name": file_name,
+                "mime_type": mime_type,
+                "byte_count": len(content),
+            }
+            if upload_response:
+                response["upload_response"] = upload_response
+            connection.send_result(msg["id"], response)
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "upload_failed", str(err))
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "upload_failed", str(err))
+
+    websocket_api.async_register_command(hass, websocket_handle_upload_source_3mf)
 
     async def async_handle_refresh(call: ServiceCall) -> None:
         entry_id = call.data.get(CONF_ENTRY_ID)

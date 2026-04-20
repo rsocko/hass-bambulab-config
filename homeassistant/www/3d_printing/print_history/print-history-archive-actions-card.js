@@ -485,54 +485,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     input.click();
   }
 
-  _parseResponsePayload(rawPayload) {
-    if (!rawPayload) {
-      return {};
-    }
-    if (typeof rawPayload === "string") {
-      try {
-        var parsed = JSON.parse(rawPayload);
-        return parsed && typeof parsed === "object" ? parsed : {};
-      } catch (_error) {
-        return {};
-      }
-    }
-    return typeof rawPayload === "object" ? rawPayload : {};
-  }
-
-  _buildUploadFailureMessage(response, payload, rawBody) {
-    var payloadMessage = payload && payload.message ? String(payload.message).trim() : "";
-    if (payloadMessage) {
-      return payloadMessage;
-    }
-
-    var bodyText = String(rawBody || "").trim();
-    if (bodyText) {
-      var compactBody = bodyText.replace(/\s+/g, " ").trim();
-      if (compactBody) {
-        return "Source 3MF upload failed (HTTP " + String(response.status) + "): " + compactBody.slice(0, 180);
-      }
-    }
-
-    return "Source 3MF upload failed (HTTP " + String(response.status) + ")";
-  }
-
-  async _authHeaders(forceRefresh) {
-    var auth = this._hass && this._hass.auth ? this._hass.auth : null;
-    if (!auth) {
-      return {};
-    }
-
-    if (forceRefresh && typeof auth.refreshAccessToken === "function") {
-      try {
-        await auth.refreshAccessToken();
-      } catch (_error) {
-        // Fall through and use the last known token if refresh fails.
-      }
-    }
-
-    var accessToken = auth.data ? auth.data.accessToken : "";
-    return accessToken ? { Authorization: "Bearer " + accessToken } : {};
+  _fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = String(reader.result || "");
+        var commaIndex = result.indexOf(",");
+        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+      };
+      reader.onerror = function () {
+        reject(new Error("Could not read the selected 3MF file"));
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   async _uploadSource3mf(file) {
@@ -548,30 +513,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
     try {
       this._setBusy(true, "Uploading source 3MF...", "info");
-      var formData = new FormData();
-      formData.append("file", file, file.name);
-      var uploadEndpoint = String(this._config.upload_endpoint || "").replace("{archive_id}", encodeURIComponent(String(archiveId)));
-      var response = await fetch(uploadEndpoint, {
-        method: "POST",
-        body: formData,
-        headers: await this._authHeaders(false),
-        credentials: "same-origin",
+      var response = await this._hass.callWS({
+        type: "bambuddy/print_history_upload_source_3mf",
+        archive_id: archiveId,
+        file_name: String(file.name || "").trim(),
+        mime_type: String(file.type || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml").trim(),
+        content_base64: await this._fileToBase64(file),
       });
-      if (response.status === 401) {
-        response = await fetch(uploadEndpoint, {
-          method: "POST",
-          body: formData,
-          headers: await this._authHeaders(true),
-          credentials: "same-origin",
-        });
-      }
-      var rawBody = await response.text().catch(function () {
-        return "";
-      });
-      var payload = this._parseResponsePayload(rawBody);
-      if (!response.ok || payload.success === false) {
-        throw new Error(this._buildUploadFailureMessage(response, payload, rawBody));
-      }
+      var payload = response && typeof response === "object" ? response : {};
       var nextArchive = payload && payload.archive && typeof payload.archive === "object"
         ? payload.archive
         : payload;
@@ -780,7 +729,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
       '.actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
       '.actions-grid.single-column{grid-template-columns:1fr;}' +
-      '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:none;color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:background-color 120ms ease,border-color 120ms ease,color 120ms ease,opacity 120ms ease;}' +
+      '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:none;color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:none;}' +
       '.action-button:hover:not(:disabled),.action-button:focus-visible:not(:disabled){background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);outline:none;}' +
       '.action-button:active:not(:disabled){background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.22);}' +
       '.action-button:disabled{opacity:0.45;cursor:default;box-shadow:none;}' +

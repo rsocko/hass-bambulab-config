@@ -10,7 +10,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-tag-editor-card.js?v=10
   type: module
-- url: /local/3d_printing/print_history/print-history-browser-card.js?v=106
+- url: /local/3d_printing/print_history/print-history-browser-card.js?v=107
   type: module
 - url: /local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63
   type: module
@@ -18,7 +18,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55
   type: module
-- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=9
+- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=11
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=30
   type: module
