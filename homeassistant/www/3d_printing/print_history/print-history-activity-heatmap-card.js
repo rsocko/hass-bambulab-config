@@ -434,6 +434,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._chartContainer.innerHTML = "";
       this._chart = new ApexChartsCtor(this._chartContainer, options);
       await this._chart.render();
+      this._applyEnrichmentPatternFills(dataset);
       await this._ensureChartVisible(dataset);
       await this._applySelectedVisualState(dataset);
       this._hideRefreshIndicator();
@@ -1274,7 +1275,116 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     var selection = await this._applySelectedPointState(dataset);
+    this._applyEnrichmentPatternFills(dataset);
     this._positionSelectedOverlay(selection ? selection.element : null, selection ? selection.indexes : null, dataset);
+  }
+
+  _applyEnrichmentPatternFills(dataset) {
+    if (!this._chartContainer || !dataset || dataset.mode !== "Enrichment Status") {
+      return;
+    }
+
+    var svg = this._chartContainer.querySelector("svg");
+    if (!svg) {
+      return;
+    }
+
+    var defs = this._ensureSvgDefs(svg);
+    if (!defs) {
+      return;
+    }
+
+    Array.from(defs.querySelectorAll("pattern[data-print-history-enrichment='true']")).forEach(function (pattern) {
+      pattern.remove();
+    });
+
+    dataset.series.forEach(function (row, seriesIndex) {
+      (row && Array.isArray(row.data) ? row.data : []).forEach(function (point, dataPointIndex) {
+        var meta = point && point.meta ? point.meta : null;
+        var rect = this._findRenderedHeatmapRect(seriesIndex, dataPointIndex);
+        if (!rect || !meta || meta.isFuture) {
+          return;
+        }
+
+        var segments = this._enrichmentSegmentsFromMeta(meta);
+        if (segments.length <= 1) {
+          rect.setAttribute("fill", point && point.fillColor ? point.fillColor : this._emptyCellColor());
+          return;
+        }
+
+        var patternId = this._createEnrichmentPattern(defs, seriesIndex, dataPointIndex, segments);
+        if (patternId) {
+          rect.setAttribute("fill", "url(#" + patternId + ")");
+        }
+      }.bind(this));
+    }.bind(this));
+  }
+
+  _ensureSvgDefs(svg) {
+    if (!svg) {
+      return null;
+    }
+    var defs = svg.querySelector("defs");
+    if (defs) {
+      return defs;
+    }
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    svg.insertBefore(defs, svg.firstChild || null);
+    return defs;
+  }
+
+  _findRenderedHeatmapRect(seriesIndex, dataPointIndex) {
+    var seriesElement = this._findSeriesElement(seriesIndex);
+    if (!seriesElement) {
+      return null;
+    }
+    return seriesElement.querySelector('.apexcharts-heatmap-rect[j="' + String(dataPointIndex) + '"]');
+  }
+
+  _createEnrichmentPattern(defs, seriesIndex, dataPointIndex, segments) {
+    if (!defs || !segments.length) {
+      return "";
+    }
+
+    var patternId = [
+      "print-history-enrichment",
+      this._chart && this._chart.w && this._chart.w.globals ? this._chart.w.globals.cuid : "chart",
+      String(seriesIndex),
+      String(dataPointIndex),
+    ].join("-");
+    var pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
+    var tileWidth = 16;
+    var tileHeight = 16;
+    var proportional = segments.length <= 3;
+    var total = segments.reduce(function (sum, segment) {
+      return sum + Number(segment.count || 0);
+    }, 0);
+    var cursor = 0;
+
+    pattern.setAttribute("id", patternId);
+    pattern.setAttribute("data-print-history-enrichment", "true");
+    pattern.setAttribute("patternUnits", "userSpaceOnUse");
+    pattern.setAttribute("width", String(tileWidth));
+    pattern.setAttribute("height", String(tileHeight));
+    pattern.setAttribute("patternTransform", "rotate(135)");
+
+    segments.forEach(function (segment, index) {
+      var width = proportional && total > 0
+        ? (Number(segment.count || 0) / total) * tileWidth
+        : tileWidth / segments.length;
+      var end = index === segments.length - 1 ? tileWidth : cursor + width;
+      var rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", this._formatDecimal(cursor, 3));
+      rect.setAttribute("y", "0");
+      rect.setAttribute("width", this._formatDecimal(Math.max(0, end - cursor), 3));
+      rect.setAttribute("height", String(tileHeight));
+      rect.setAttribute("fill", segment.color);
+      pattern.appendChild(rect);
+      cursor = end;
+    }.bind(this));
+
+    defs.appendChild(pattern);
+    return patternId;
   }
 
   async _applySelectedPointState(dataset) {
@@ -2545,6 +2655,19 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         }
         return right.count - left.count;
       });
+  }
+
+  _enrichmentSegmentsFromMeta(meta) {
+    return this._enrichmentSegments({
+      enrichmentCounts: {
+        complete: meta ? Number(meta.enrichmentCompleteCount || 0) : 0,
+        "near complete": meta ? Number(meta.enrichmentNearCompleteCount || 0) : 0,
+        "mostly complete": meta ? Number(meta.enrichmentMostlyCompleteCount || 0) : 0,
+        "partially complete": meta ? Number(meta.enrichmentPartialCount || 0) : 0,
+        unavailable: meta ? Number(meta.enrichmentUnavailableCount || 0) : 0,
+        "not defined": meta ? Number(meta.enrichmentNotDefinedCount || 0) : 0,
+      },
+    });
   }
 
   _formatGradientStop(value) {

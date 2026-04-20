@@ -537,23 +537,49 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return formData;
   }
 
+  async _materializeSourceUploadFile(file) {
+    if (!file) {
+      throw new Error("No 3MF file was selected");
+    }
+    if (typeof file.arrayBuffer !== "function") {
+      return file;
+    }
+
+    var buffer = await file.arrayBuffer();
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error("The selected 3MF file is empty");
+    }
+
+    var contentType = String(file.type || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml").trim() || "application/vnd.ms-package.3dmanufacturing-3dmodel+xml";
+    if (typeof File === "function") {
+      return new File([buffer], String(file.name || "upload.3mf"), {
+        type: contentType,
+        lastModified: typeof file.lastModified === "number" ? file.lastModified : Date.now(),
+      });
+    }
+
+    return new Blob([buffer], { type: contentType });
+  }
+
   async _postSourceUpload(file, archiveId) {
     if (file.size === 0) {
       throw new Error("The selected 3MF file is empty") ;
     }
 
+    var uploadFile = await this._materializeSourceUploadFile(file);
+
     var uploadEndpoint = String(this._config.upload_endpoint || "")
       .replace("{archive_id}", encodeURIComponent(String(archiveId)));
     var response = await fetch(uploadEndpoint, {
       method: "POST",
-      body: this._buildSourceUploadFormData(file),
+      body: this._buildSourceUploadFormData(uploadFile),
       headers: await this._authHeaders(false),
       credentials: "same-origin",
     });
     if (response.status === 401) {
       response = await fetch(uploadEndpoint, {
         method: "POST",
-        body: this._buildSourceUploadFormData(file),
+        body: this._buildSourceUploadFormData(uploadFile),
         headers: await this._authHeaders(true),
         credentials: "same-origin",
       });

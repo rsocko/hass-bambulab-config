@@ -826,9 +826,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=49", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=50", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=17", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=18", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -897,9 +897,12 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('var nextSignature = this._computeRenderSignature(hass);', action_content)
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
         self.assertIn('_buildSourceUploadFormData(file)', action_content)
+        self.assertIn('var uploadFile = await this._materializeSourceUploadFile(file);', action_content)
+        self.assertIn('var buffer = await file.arrayBuffer();', action_content)
+        self.assertIn('return new File([buffer], String(file.name || "upload.3mf")', action_content)
         self.assertIn('var formData = new FormData();', action_content)
         self.assertIn('if (file.size === 0)', action_content)
-        self.assertIn('body: this._buildSourceUploadFormData(file),', action_content)
+        self.assertIn('body: this._buildSourceUploadFormData(uploadFile),', action_content)
         self.assertIn('headers: await this._authHeaders(false),', action_content)
         self.assertIn('headers: await this._authHeaders(true),', action_content)
         self.assertIn('if (response.status === 401)', action_content)
@@ -1030,6 +1033,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('mode === "Enrichment Status" && meta && meta.enrichmentBackground', content)
         self.assertIn('return "linear-gradient(135deg, " + stops.join(", ") + ")";', content)
         self.assertIn('Mixed days use diagonal stripes; widths are proportional for smaller mixes.', content)
+        self.assertIn('this._applyEnrichmentPatternFills(dataset);', content)
+        self.assertIn('return seriesElement.querySelector(\'.apexcharts-heatmap-rect[j="\' + String(dataPointIndex) + \'"]\');', content)
+        self.assertIn('pattern.setAttribute("patternTransform", "rotate(135)");', content)
+        self.assertIn('rect.setAttribute("fill", "url(#" + patternId + ")");', content)
 
     def test_heatmap_card_parses_new_metric_inputs_once_per_archive(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
@@ -2215,7 +2222,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=17", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=18", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
