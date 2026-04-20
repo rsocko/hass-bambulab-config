@@ -381,7 +381,7 @@ Behavior:
 - persist local row
 - return refreshed result
 
-### `bambuddy.refresh_print_history_storage_metrics_batch`
+### `bambuddy.refresh_print_history_archive_storage_metrics_batch`
 
 Input:
 
@@ -393,6 +393,12 @@ Behavior:
 - call sidecar batch scan
 - persist updated rows
 - schedule browser recompute only after the batch finishes
+
+Current implementation status:
+
+- implemented as an explicit archive-ID batch refresh service
+- suitable for multi-select UI actions, manual operator backfills, and scripted maintenance jobs
+- not yet wired to discover stale or recently changed archives automatically
 
 ## Query-Surface Guidance
 
@@ -462,10 +468,32 @@ Default recommendation:
 - use a shorter TTL such as 1 hour for partial or error rows
 - invalidate immediately when archive detail changes a relevant asset-path field
 
+Current implementation status:
+
+- popup reads from cache and can refresh a single archive on demand
+- explicit multi-select batch refresh exists for operator-driven refreshes
+- archive delete cleanup removes the local storage-metrics row
+- mutation-triggered invalidation or recompute is not yet wired for photo add/delete, source 3MF upload/replace, or timelapse attach/replace/scan-attach
+
+Recommended mutation policy:
+
+- primary-photo selection changes should not affect storage metrics
+- photo add/delete should mark the row stale or refresh it immediately
+- source 3MF attach/replace should mark the row stale or refresh it immediately
+- timelapse attach/replace/scan-attach should mark the row stale or refresh it immediately
+- delete should continue removing the row entirely
+
 Optional background behavior:
 
 - low-priority nightly backfill for missing/stale rows
 - manual operator-triggered full refresh
+
+If scheduled maintenance is added later, prefer:
+
+- nightly refresh of `missing`, `partial`, `error`, or `stale` rows
+- or nightly refresh of recently touched archives
+
+Avoid using a nightly full-library rescan as the default steady-state path unless archive count remains small.
 
 ## Scan Classification Rules
 

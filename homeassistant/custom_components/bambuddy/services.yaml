@@ -168,7 +168,7 @@ get_print_history_archive_detail:
 
 get_print_history_archive_storage_metrics:
   name: Get Print History Archive Storage Metrics
-  description: Return cached per-archive storage metrics from the local store, optionally refreshing them from the Bambuddy sidecar first.
+  description: Return cached per-archive storage metrics from the local store, optionally refreshing them from the Bambuddy sidecar first. This service does not automatically run when photos, timelapses, or source 3MF assets change.
   fields:
     entry_id:
       name: Entry ID
@@ -205,7 +205,7 @@ get_print_history_archive_storage_metrics:
 
 refresh_print_history_archive_storage_metrics:
   name: Refresh Print History Archive Storage Metrics
-  description: Refresh per-archive storage metrics from the Bambuddy sidecar and store the result locally.
+  description: Refresh per-archive storage metrics from the Bambuddy sidecar and store the result locally. Use this after asset mutations when an immediate recompute is desired.
   fields:
     entry_id:
       name: Entry ID
@@ -236,7 +236,7 @@ refresh_print_history_archive_storage_metrics:
 
 refresh_print_history_archive_storage_metrics_batch:
   name: Refresh Print History Archive Storage Metrics Batch
-  description: Refresh per-archive storage metrics for multiple archives from the Bambuddy sidecar and store the results locally.
+  description: Refresh per-archive storage metrics for multiple explicit archive IDs from the Bambuddy sidecar and store the results locally. Intended for multi-select UI actions, backfills, or operator-driven maintenance.
   fields:
     entry_id:
       name: Entry ID
