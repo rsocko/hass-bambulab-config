@@ -146,16 +146,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".grid.loading{pointer-events:none;}" +
       ".card{position:relative;z-index:0;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:visible;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease, z-index .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
-      ".card::after{content:'';position:absolute;left:1px;top:1px;bottom:1px;width:4px;border-radius:21px 0 0 21px;opacity:0;transition:opacity .16s ease, background .16s ease;pointer-events:none;}" +
+      ".card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease, box-shadow .16s ease;pointer-events:none;}" +
       ".card:hover,.card:focus-visible,.card:focus-within{z-index:3;border-color:color-mix(in srgb, var(--secondary-text-color) 22%, var(--divider-color));box-shadow:0 0 0 1px rgba(255,255,255,0.05), 0 10px 22px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 86%, rgba(148,163,184,0.18)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 92%, rgba(148,163,184,0.10)));}" +
       ".card:hover::before,.card:focus-visible::before,.card:focus-within::before{opacity:1;}" +
       ".card:active{box-shadow:0 0 0 1px rgba(255,255,255,0.06), 0 6px 14px rgba(15,23,42,0.10);background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 82%, rgba(148,163,184,0.20)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 90%, rgba(148,163,184,0.12)));}" +
       ".card:focus-visible{outline:none;}" +
-      ".card.archive-error-warning::after{opacity:1;background:#EF6C00;}" +
-      ".card.archive-error-error::after{opacity:1;background:#C62828;}" +
-      ".card.duplicate-source::after{opacity:1;background:#1565C0;}" +
-      ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
-      ".card.related-match::after{opacity:1;background:#6D4C41;}" +
+      ".card.archive-error-warning::after{opacity:1;box-shadow:inset 5px 0 0 #EF6C00;}" +
+      ".card.archive-error-error::after{opacity:1;box-shadow:inset 5px 0 0 #C62828;}" +
+      ".card.duplicate-source::after{opacity:1;box-shadow:inset 5px 0 0 #1565C0;}" +
+      ".card.duplicate-copy::after{opacity:1;box-shadow:inset 5px 0 0 #00897B;}" +
+      ".card.related-match::after{opacity:1;box-shadow:inset 5px 0 0 #6D4C41;}" +
       ".card.has-archive-pill.no-thumb .card-shell.compact,.card.has-archive-pill.no-thumb .card-shell.list{padding-top:52px;}" +
       ".card-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}" +
       ".card-archive-pill.card-level{position:absolute;left:12px;top:12px;z-index:2;max-width:calc(100% - 96px);}" +
@@ -355,7 +355,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v111</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v112</span>';
     }
   }
 

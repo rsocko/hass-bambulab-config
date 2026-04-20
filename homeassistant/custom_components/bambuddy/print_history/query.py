@@ -848,6 +848,7 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
         "printer_name": as_text(archive.get("printer_name")).strip(),
         "print_name": as_text(archive.get("print_name")).strip(),
         "status": normalize_status(archive.get("status")),
+        "enrichment_status": normalize_enrichment_status_value(archive.get("enrichment_status")),
         "started_at": as_text(archive.get("started_at")).strip(),
         "completed_at": as_text(archive.get("completed_at")).strip(),
         "created_at": as_text(archive.get("created_at")).strip(),

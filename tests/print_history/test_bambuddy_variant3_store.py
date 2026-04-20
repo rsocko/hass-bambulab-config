@@ -1021,6 +1021,7 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     assert rows[0]["print_name"] == "Hueforge Batman"
     assert rows[0]["printer_name"] == "Workshop P1S"
     assert rows[0]["status"] == "completed"
+    assert rows[0]["enrichment_status"] == _projected_archives()[0]["enrichment_status"]
     assert "notes" not in rows[0]
     assert "payload_hash" not in rows[0]
 
@@ -1783,6 +1784,7 @@ def test_variant3_store_primary_photo_selection_updates_archive_reads(tmp_path: 
     assert updated_archive["selected_primary_photo_path"] == "topdown-closeup.jpg"
     assert updated_archive["has_primary_photo_override"] is True
     assert updated_archive["photo_items"][1]["is_primary"] is True
+    assert activity_rows[0]["enrichment_status"] == updated_archive["enrichment_status"]
     assert activity_rows[0]["primary_photo_path"] == "topdown-closeup.jpg"
     assert activity_rows[0]["has_primary_photo_override"] is True
 

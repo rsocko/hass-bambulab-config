@@ -2277,8 +2277,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       unavailable: "unavailable",
       "not defined": "not defined",
     })[normalized] || "";
+    if (mapped) {
+      return mapped;
+    }
     if (!Array.isArray(enrichmentRows) || !enrichmentRows.length) {
-      return mapped || "not defined";
+      return "not defined";
     }
     if (enrichmentRows.some(function (item) {
       return !this._hasResolvedEntityId(item && item.f);
