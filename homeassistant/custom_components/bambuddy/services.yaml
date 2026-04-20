@@ -166,6 +166,74 @@ get_print_history_archive_detail:
           min: 1
           mode: box
 
+get_print_history_archive_storage_metrics:
+  name: Get Print History Archive Storage Metrics
+  description: Return cached per-archive storage metrics from the local store, optionally refreshing them from the Bambuddy sidecar first.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to inspect.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    refresh:
+      name: Refresh First
+      description: Fetch fresh filesystem metrics from the sidecar before returning the stored result.
+      required: false
+      selector:
+        boolean:
+    include_other_files:
+      name: Include Other Files
+      description: Include unclassified files under the archive folder in the total and other-bytes buckets.
+      required: false
+      selector:
+        boolean:
+    include_extension_breakdown:
+      name: Include Extension Breakdown
+      description: Include an extension-to-bytes breakdown for unclassified files.
+      required: false
+      selector:
+        boolean:
+
+refresh_print_history_archive_storage_metrics:
+  name: Refresh Print History Archive Storage Metrics
+  description: Refresh per-archive storage metrics from the Bambuddy sidecar and store the result locally.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive identifier to refresh.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    include_other_files:
+      name: Include Other Files
+      description: Include unclassified files under the archive folder in the total and other-bytes buckets.
+      required: false
+      selector:
+        boolean:
+    include_extension_breakdown:
+      name: Include Extension Breakdown
+      description: Include an extension-to-bytes breakdown for unclassified files.
+      required: false
+      selector:
+        boolean:
+
 get_print_history_archive_enrichment_metadata:
   name: Get Print History Archive Enrichment Metadata
   description: Return the system-managed enrichment tags and hidden note payload for one archive, plus a filtered row view for operator review.

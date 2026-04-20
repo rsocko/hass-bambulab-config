@@ -290,12 +290,40 @@ class PrintHistoryStore:
                 review_note TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS archive_storage_metrics (
+                archive_id INTEGER PRIMARY KEY,
+                scan_status TEXT NOT NULL DEFAULT '',
+                scan_basis TEXT NOT NULL DEFAULT '',
+                resolved_archive_dir TEXT NOT NULL DEFAULT '',
+                archive_3mf_bytes INTEGER NOT NULL DEFAULT 0,
+                thumbnail_bytes INTEGER NOT NULL DEFAULT 0,
+                source_3mf_bytes INTEGER NOT NULL DEFAULT 0,
+                timelapse_bytes INTEGER NOT NULL DEFAULT 0,
+                f3d_bytes INTEGER NOT NULL DEFAULT 0,
+                photo_bytes INTEGER NOT NULL DEFAULT 0,
+                photo_count INTEGER NOT NULL DEFAULT 0,
+                other_bytes INTEGER NOT NULL DEFAULT 0,
+                other_file_count INTEGER NOT NULL DEFAULT 0,
+                files_missing_count INTEGER NOT NULL DEFAULT 0,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                extension_breakdown_json TEXT NOT NULL DEFAULT '',
+                artifacts_json TEXT NOT NULL DEFAULT '',
+                source_snapshot_hash TEXT NOT NULL DEFAULT '',
+                computed_at TEXT NOT NULL DEFAULT '',
+                scan_duration_ms REAL NOT NULL DEFAULT 0,
+                scan_error TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
             """
         )
         self._ensure_archive_columns(connection)
         self._ensure_note_payload_columns(connection)
         self._ensure_event_timeline_columns(connection)
+        self._ensure_archive_storage_metrics_columns(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_storage_metrics_computed_at ON archive_storage_metrics(computed_at)")
 
     def _ensure_archive_columns(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -385,6 +413,41 @@ class PrintHistoryStore:
                 continue
             _LOGGER.info("Adding missing archive_note_payload_rows.%s column to Bambuddy local store", column_name)
             connection.execute(f"ALTER TABLE archive_note_payload_rows ADD COLUMN {column_name} {definition}")
+
+    def _ensure_archive_storage_metrics_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(archive_storage_metrics)").fetchall()
+            if len(row) > 1
+        }
+        required_columns = {
+            "scan_status": "TEXT NOT NULL DEFAULT ''",
+            "scan_basis": "TEXT NOT NULL DEFAULT ''",
+            "resolved_archive_dir": "TEXT NOT NULL DEFAULT ''",
+            "archive_3mf_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "thumbnail_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "source_3mf_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "timelapse_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "f3d_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "photo_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "photo_count": "INTEGER NOT NULL DEFAULT 0",
+            "other_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "other_file_count": "INTEGER NOT NULL DEFAULT 0",
+            "files_missing_count": "INTEGER NOT NULL DEFAULT 0",
+            "total_bytes": "INTEGER NOT NULL DEFAULT 0",
+            "extension_breakdown_json": "TEXT NOT NULL DEFAULT ''",
+            "artifacts_json": "TEXT NOT NULL DEFAULT ''",
+            "source_snapshot_hash": "TEXT NOT NULL DEFAULT ''",
+            "computed_at": "TEXT NOT NULL DEFAULT ''",
+            "scan_duration_ms": "REAL NOT NULL DEFAULT 0",
+            "scan_error": "TEXT NOT NULL DEFAULT ''",
+            "updated_at": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column_name, definition in required_columns.items():
+            if column_name in columns:
+                continue
+            _LOGGER.info("Adding missing archive_storage_metrics.%s column to Bambuddy local store", column_name)
+            connection.execute(f"ALTER TABLE archive_storage_metrics ADD COLUMN {column_name} {definition}")
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> dict[str, Any]:
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -1996,6 +2059,10 @@ class PrintHistoryStore:
             lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
             review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
             media_review_count = active_connection.execute("SELECT COUNT(*) FROM archive_media_review_state").fetchone()[0]
+            storage_metrics_count = active_connection.execute("SELECT COUNT(*) FROM archive_storage_metrics").fetchone()[0]
+            storage_metrics_total_bytes = active_connection.execute(
+                "SELECT COALESCE(SUM(total_bytes), 0) FROM archive_storage_metrics"
+            ).fetchone()[0]
             primary_photo_selection_count = active_connection.execute(
                 "SELECT COUNT(*) FROM archive_primary_photo_selection"
             ).fetchone()[0]
@@ -2012,6 +2079,8 @@ class PrintHistoryStore:
             "repair_lineage_count": lineage_count,
             "review_state_count": review_count,
             "media_review_state_count": media_review_count,
+            "archive_storage_metrics_count": storage_metrics_count,
+            "archive_storage_metrics_total_bytes": storage_metrics_total_bytes,
             "primary_photo_selection_count": primary_photo_selection_count,
             "last_synced_at": last_synced_at or "",
             "connection_open_count": diagnostics.get("open_count", 0),
@@ -2042,9 +2111,198 @@ class PrintHistoryStore:
                 "review_state": self.load_review_state(archive_id, connection=connection),
                 "media_review": self.load_media_review_state(archive_id, connection=connection),
                 "repair_lineage": self.load_repair_lineage(archive_id, connection=connection),
+                "storage_metrics": self.load_archive_storage_metrics(archive_id, connection=connection),
                 "sync": self.load_sync_metadata(archive_id, connection=connection),
                 "store": self.load_store_stats(connection=connection),
             }
+
+    def save_archive_storage_metrics(
+        self,
+        archive_id: int,
+        payload: dict[str, Any],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+
+        metrics = payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {}
+        timestamp = datetime.now(timezone.utc).isoformat()
+        row = {
+            "archive_id": normalized_archive_id,
+            "scan_status": as_text(payload.get("scan_status")).strip(),
+            "scan_basis": as_text(payload.get("scan_basis")).strip(),
+            "resolved_archive_dir": as_text(payload.get("resolved_archive_dir")).strip(),
+            "archive_3mf_bytes": as_int(metrics.get("archive_3mf_bytes")),
+            "thumbnail_bytes": as_int(metrics.get("thumbnail_bytes")),
+            "source_3mf_bytes": as_int(metrics.get("source_3mf_bytes")),
+            "timelapse_bytes": as_int(metrics.get("timelapse_bytes")),
+            "f3d_bytes": as_int(metrics.get("f3d_bytes")),
+            "photo_bytes": as_int(metrics.get("photo_bytes")),
+            "photo_count": as_int(metrics.get("photo_count")),
+            "other_bytes": as_int(metrics.get("other_bytes")),
+            "other_file_count": as_int(metrics.get("other_file_count")),
+            "files_missing_count": as_int(metrics.get("files_missing_count")),
+            "total_bytes": as_int(metrics.get("total_bytes")),
+            "extension_breakdown_json": self._payload_json(payload.get("extension_breakdown") or {}),
+            "artifacts_json": self._payload_json(payload.get("artifacts") or {}),
+            "source_snapshot_hash": as_text(payload.get("source_snapshot_hash")).strip(),
+            "computed_at": as_text(payload.get("computed_at")).strip(),
+            "scan_duration_ms": as_float(payload.get("scan_duration_ms")),
+            "scan_error": as_text(payload.get("scan_error")).strip(),
+            "updated_at": timestamp,
+        }
+
+        with self._borrow_connection(connection) as active_connection:
+            self._ensure_schema(active_connection)
+            active_connection.execute(
+                """
+                INSERT INTO archive_storage_metrics (
+                    archive_id,
+                    scan_status,
+                    scan_basis,
+                    resolved_archive_dir,
+                    archive_3mf_bytes,
+                    thumbnail_bytes,
+                    source_3mf_bytes,
+                    timelapse_bytes,
+                    f3d_bytes,
+                    photo_bytes,
+                    photo_count,
+                    other_bytes,
+                    other_file_count,
+                    files_missing_count,
+                    total_bytes,
+                    extension_breakdown_json,
+                    artifacts_json,
+                    source_snapshot_hash,
+                    computed_at,
+                    scan_duration_ms,
+                    scan_error,
+                    updated_at
+                ) VALUES (
+                    :archive_id,
+                    :scan_status,
+                    :scan_basis,
+                    :resolved_archive_dir,
+                    :archive_3mf_bytes,
+                    :thumbnail_bytes,
+                    :source_3mf_bytes,
+                    :timelapse_bytes,
+                    :f3d_bytes,
+                    :photo_bytes,
+                    :photo_count,
+                    :other_bytes,
+                    :other_file_count,
+                    :files_missing_count,
+                    :total_bytes,
+                    :extension_breakdown_json,
+                    :artifacts_json,
+                    :source_snapshot_hash,
+                    :computed_at,
+                    :scan_duration_ms,
+                    :scan_error,
+                    :updated_at
+                )
+                ON CONFLICT(archive_id) DO UPDATE SET
+                    scan_status = excluded.scan_status,
+                    scan_basis = excluded.scan_basis,
+                    resolved_archive_dir = excluded.resolved_archive_dir,
+                    archive_3mf_bytes = excluded.archive_3mf_bytes,
+                    thumbnail_bytes = excluded.thumbnail_bytes,
+                    source_3mf_bytes = excluded.source_3mf_bytes,
+                    timelapse_bytes = excluded.timelapse_bytes,
+                    f3d_bytes = excluded.f3d_bytes,
+                    photo_bytes = excluded.photo_bytes,
+                    photo_count = excluded.photo_count,
+                    other_bytes = excluded.other_bytes,
+                    other_file_count = excluded.other_file_count,
+                    files_missing_count = excluded.files_missing_count,
+                    total_bytes = excluded.total_bytes,
+                    extension_breakdown_json = excluded.extension_breakdown_json,
+                    artifacts_json = excluded.artifacts_json,
+                    source_snapshot_hash = excluded.source_snapshot_hash,
+                    computed_at = excluded.computed_at,
+                    scan_duration_ms = excluded.scan_duration_ms,
+                    scan_error = excluded.scan_error,
+                    updated_at = excluded.updated_at
+                """,
+                row,
+            )
+        return self.load_archive_storage_metrics(normalized_archive_id) or {}
+
+    def load_archive_storage_metrics(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            return None
+
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                """
+                SELECT
+                    archive_id,
+                    scan_status,
+                    scan_basis,
+                    resolved_archive_dir,
+                    archive_3mf_bytes,
+                    thumbnail_bytes,
+                    source_3mf_bytes,
+                    timelapse_bytes,
+                    f3d_bytes,
+                    photo_bytes,
+                    photo_count,
+                    other_bytes,
+                    other_file_count,
+                    files_missing_count,
+                    total_bytes,
+                    extension_breakdown_json,
+                    artifacts_json,
+                    source_snapshot_hash,
+                    computed_at,
+                    scan_duration_ms,
+                    scan_error,
+                    updated_at
+                FROM archive_storage_metrics
+                WHERE archive_id = ?
+                """,
+                (normalized_archive_id,),
+            ).fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "archive_id": as_int(row[0]),
+            "scan_status": as_text(row[1]).strip(),
+            "scan_basis": as_text(row[2]).strip(),
+            "resolved_archive_dir": as_text(row[3]).strip(),
+            "metrics": {
+                "archive_3mf_bytes": as_int(row[4]),
+                "thumbnail_bytes": as_int(row[5]),
+                "source_3mf_bytes": as_int(row[6]),
+                "timelapse_bytes": as_int(row[7]),
+                "f3d_bytes": as_int(row[8]),
+                "photo_bytes": as_int(row[9]),
+                "photo_count": as_int(row[10]),
+                "other_bytes": as_int(row[11]),
+                "other_file_count": as_int(row[12]),
+                "files_missing_count": as_int(row[13]),
+                "total_bytes": as_int(row[14]),
+            },
+            "extension_breakdown": self._parse_payload_json(as_text(row[15])),
+            "artifacts": self._parse_payload_json(as_text(row[16])),
+            "source_snapshot_hash": as_text(row[17]).strip(),
+            "computed_at": as_text(row[18]).strip(),
+            "scan_duration_ms": as_float(row[19]),
+            "scan_error": as_text(row[20]).strip(),
+            "updated_at": as_text(row[21]).strip(),
+        }
 
     def _payload_json(self, payload: Any | None) -> str:
         if payload in (None, "", {}):

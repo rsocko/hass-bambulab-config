@@ -24,6 +24,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         config && config.upload_endpoint
           ? config.upload_endpoint
           : "/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload",
+      timelapse_upload_endpoint:
+        config && config.timelapse_upload_endpoint
+          ? config.timelapse_upload_endpoint
+          : "/api/bambuddy/print-history/archive/{archive_id}/timelapse/upload",
     };
     this._archiveOverride = null;
     this._mode = "main";
@@ -245,6 +249,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._openSourceUploadPicker();
       return;
     }
+    if (action === "upload-timelapse") {
+      this._openTimelapseUploadPicker();
+      return;
+    }
     if (action === "scan-timelapse") {
       this._handleScanTimelapse();
       return;
@@ -279,13 +287,20 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _handleSourceUploadChange(event) {
     var input = event && event.target ? event.target : null;
-    if (!input || input.id !== "source-upload-input") {
+    if (!input) {
+      return;
+    }
+    if (input.id !== "source-upload-input" && input.id !== "timelapse-upload-input") {
       return;
     }
     var files = input && input.files ? input.files : null;
     var file = files && files.length ? files[0] : null;
     if (file) {
-      this._uploadSource3mf(file);
+      if (input.id === "timelapse-upload-input") {
+        this._uploadTimelapse(file);
+      } else {
+        this._uploadSource3mf(file);
+      }
     }
     input.value = "";
   }
@@ -564,6 +579,26 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     input.click();
   }
 
+  _openTimelapseUploadPicker() {
+    if (this._busy) {
+      return;
+    }
+    var input = this.shadowRoot ? this.shadowRoot.getElementById("timelapse-upload-input") : null;
+    if (!input) {
+      return;
+    }
+    input.value = "";
+    try {
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+      }
+    } catch (_error) {
+      // Fall back to click().
+    }
+    input.click();
+  }
+
   _fileToBase64(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -630,6 +665,51 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return new Blob([buffer], { type: contentType });
   }
 
+  _normalizeTimelapseFileName(fileName) {
+    var rawName = String(fileName || "").trim().replace(/[\\/]+/g, "/").split("/").pop() || "timelapse.mp4";
+    var match = rawName.match(/^(.*?)(\.[^.]+)$/);
+    if (!match) {
+      return rawName;
+    }
+    return match[1] + match[2].toLowerCase();
+  }
+
+  _timelapseMimeTypeForFile(fileName, fileType) {
+    var lowerName = String(fileName || "").toLowerCase();
+    if (/\.avi$/i.test(lowerName)) {
+      return "video/x-msvideo";
+    }
+    if (/\.mkv$/i.test(lowerName)) {
+      return "video/x-matroska";
+    }
+    return String(fileType || "video/mp4").trim() || "video/mp4";
+  }
+
+  async _materializeTimelapseUploadFile(file) {
+    if (!file) {
+      throw new Error("No timelapse file was selected");
+    }
+    if (typeof file.arrayBuffer !== "function") {
+      return file;
+    }
+
+    var normalizedName = this._normalizeTimelapseFileName(file.name || "timelapse.mp4");
+    var buffer = await file.arrayBuffer();
+    if (!buffer || buffer.byteLength === 0) {
+      throw new Error("The selected timelapse file is empty");
+    }
+
+    var contentType = this._timelapseMimeTypeForFile(normalizedName, file.type);
+    if (typeof File === "function") {
+      return new File([buffer], normalizedName, {
+        type: contentType,
+        lastModified: typeof file.lastModified === "number" ? file.lastModified : Date.now(),
+      });
+    }
+
+    return new Blob([buffer], { type: contentType });
+  }
+
   async _postSourceUpload(file, archiveId) {
     if (file.size === 0) {
       throw new Error("The selected 3MF file is empty") ;
@@ -674,6 +754,58 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return payload && typeof payload === "object" ? payload : {};
   }
 
+  _buildTimelapseUploadFormData(file) {
+    var formData = new FormData();
+    formData.append("file", file, file.name);
+    if (this._config && this._config.entry_id) {
+      formData.append("entry_id", String(this._config.entry_id));
+    }
+    return formData;
+  }
+
+  async _postTimelapseUpload(file, archiveId) {
+    if (file.size === 0) {
+      throw new Error("The selected timelapse file is empty");
+    }
+
+    var uploadFile = await this._materializeTimelapseUploadFile(file);
+    var uploadEndpoint = String(this._config.timelapse_upload_endpoint || "")
+      .replace("{archive_id}", encodeURIComponent(String(archiveId)));
+    var response = await fetch(uploadEndpoint, {
+      method: "POST",
+      body: this._buildTimelapseUploadFormData(uploadFile),
+      headers: await this._authHeaders(false),
+      credentials: "same-origin",
+    });
+    if (response.status === 401) {
+      response = await fetch(uploadEndpoint, {
+        method: "POST",
+        body: this._buildTimelapseUploadFormData(uploadFile),
+        headers: await this._authHeaders(true),
+        credentials: "same-origin",
+      });
+    }
+
+    var payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok || payload.success === false) {
+      throw payload && typeof payload === "object"
+        ? {
+            message: String(payload.message || payload.error || ("Timelapse upload failed (HTTP " + String(response.status) + ")")),
+            body: payload,
+            status: response.status,
+          }
+        : new Error("Timelapse upload failed (HTTP " + String(response.status) + ")");
+    }
+
+    return payload && typeof payload === "object" ? payload : {};
+  }
+
   async _uploadSource3mf(file) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -701,10 +833,49 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
-  _buildRepairSequence(archiveId, archiveName) {
+  async _uploadTimelapse(file) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (!file || archiveId <= 0) {
+      return;
+    }
+    if (!/\.(mp4|avi|mkv)$/i.test(String(file.name || ""))) {
+      this._setStatus("Timelapse upload only accepts .mp4, .avi, or .mkv files.", "error");
+      return;
+    }
+
+    try {
+      this._setBusyState(true, String((archive && archive.timelapse_path) || "").trim() ? "Replacing timelapse..." : "Uploading timelapse...", "info", "upload-timelapse");
+      var response = await this._postTimelapseUpload(file, archiveId);
+      var payload = response && typeof response === "object" ? response : {};
+      var nextArchive = payload && payload.archive && typeof payload.archive === "object"
+        ? payload.archive
+        : payload;
+      this._busy = false;
+      this._busyContext = "";
+      this._setArchive(nextArchive);
+      this._setStatus(payload && payload.upload && payload.upload.replaced_existing ? "Timelapse replaced." : "Timelapse uploaded.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(this._describeError(error, "Timelapse upload failed"), "error");
+    }
+  }
+
+  _buildRepairSequence(archive) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive";
+    var archiveJson = archive ? JSON.stringify(archive) : "{}";
     return [
       {
         service: "browser_mod.close_popup",
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_archive_id",
+          value: String(archiveId),
+        },
       },
       {
         service: "input_text.set_value",
@@ -740,6 +911,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
           size: "wide",
           content: {
             type: "custom:print-history-archive-restore-card",
+            archive_json: archiveJson,
             workflow_entity: "sensor.print_history_popup_restore_workflow",
             detail_entity: "sensor.print_history_popup_archive_detail",
             source_archive_helper: "input_text.print_history_restore_source_archive_id",
@@ -827,12 +999,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   async _handleRepair() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
-    var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive";
     if (archiveId <= 0) {
       return;
     }
     this._fireBrowserModEvent("browser_mod.sequence", {
-      sequence: this._buildRepairSequence(archiveId, archiveName),
+      sequence: this._buildRepairSequence(archive),
     });
   }
 
@@ -896,6 +1067,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     var busyCopy = this._busy && this._busyContext === "scan-timelapse"
       ? '<div class="status-detail">Bambuddy does not stream scan progress. This waits until printer folders have been checked and a matching file is downloaded or ruled out.</div>'
+      : this._busy && this._busyContext === "upload-timelapse"
+        ? '<div class="status-detail">Only one timelapse is tracked per archive. Upload accepts .mp4, .avi, or .mkv and large files can take a while before the refreshed archive detail comes back.</div>'
       : "";
     return '<div class="status ' + this._escapeHtml(this._statusTone) + (this._busy ? ' busy' : '') + '"><div class="status-main">' + this._escapeHtml(this._status) + '</div>' + busyCopy + '</div>';
   }
@@ -947,15 +1120,16 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     );
     var timelapseActions = this._renderActionSection(
       "Timelapse",
-      '<div class="actions-grid single-column">' +
+      '<div class="actions-grid">' +
         (hasTimelapse
           ? this._renderActionButton("view-timelapse", "View Timelapse", "mdi:movie-open-play-outline", { disabled: this._busy })
           : this._renderActionButton("scan-timelapse", "Scan Printer for Timelapse", "mdi:movie-search-outline", { disabled: this._busy })) +
+        this._renderActionButton("upload-timelapse", hasTimelapse ? "Replace Timelapse" : "Upload Timelapse", "mdi:movie-open-plus-outline", { disabled: this._busy }) +
       '</div>' +
       '<div class="section-copy">' + this._escapeHtml(
         hasTimelapse
-          ? "This archive already has an attached timelapse. Open it in a popup viewer."
-          : "Ask Bambuddy to check the printer timelapse folders and attach the best match if it finds one."
+          ? "This archive already has an attached timelapse. You can view it or replace it with a new .mp4, .avi, or .mkv upload. Only one timelapse is tracked per archive."
+          : "Ask Bambuddy to scan the printer for a matching timelapse, or upload one manually as .mp4, .avi, or .mkv. If the archive is missing a printer and Bambuddy only has one configured printer, the scan will assign it automatically first. Only one timelapse is tracked per archive."
       ) + '</div>'
     );
     var maintenanceActions = this._renderActionSection(
@@ -978,6 +1152,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       maintenanceActions +
       dangerActions +
       '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">' +
+        '<input id="timelapse-upload-input" class="hidden-file-input" type="file" accept=".mp4,.avi,.mkv,video/mp4,video/x-msvideo,video/x-matroska">' +
       '</div>';
   }
 

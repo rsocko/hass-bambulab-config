@@ -13,6 +13,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
+      archive_json: config?.archive_json || "{}",
       workflow_entity: config?.workflow_entity || "sensor.print_history_popup_restore_workflow",
       detail_entity: config?.detail_entity || "sensor.print_history_popup_archive_detail",
       source_archive_helper: config?.source_archive_helper || "input_text.print_history_restore_source_archive_id",
@@ -67,9 +68,28 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     }
   }
 
+  _archiveFromConfig() {
+    if (this._config?.archive_json && typeof this._config.archive_json === "object") {
+      return this._config.archive_json;
+    }
+    return this._parseJson(this._config?.archive_json || "{}", {});
+  }
+
   _sourceArchive() {
     const detail = this._detail();
-    return this._parseJson(detail?.attributes?.archive_json || "{}", {});
+    const sourceArchiveId = String(this._workflowAttr("source_archive_id", "") || "").trim();
+    const detailArchive = this._parseJson(detail?.attributes?.archive_json || "{}", {});
+    const configArchive = this._archiveFromConfig();
+    if (detailArchive?.id != null && (!sourceArchiveId || String(detailArchive.id) === sourceArchiveId)) {
+      return detailArchive;
+    }
+    if (configArchive?.id != null && (!sourceArchiveId || String(configArchive.id) === sourceArchiveId)) {
+      return configArchive;
+    }
+    if (detailArchive && Object.keys(detailArchive).length) {
+      return detailArchive;
+    }
+    return configArchive && typeof configArchive === "object" ? configArchive : {};
   }
 
   async _authHeaders(forceRefresh = false) {

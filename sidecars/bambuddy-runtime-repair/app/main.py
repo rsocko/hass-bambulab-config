@@ -10,8 +10,14 @@ from fastapi import FastAPI, Header, HTTPException
 from app.inspection import inspect_archive_spool_linkage
 from app.partial_usage import consume_archive_partial_usage, estimate_archive_partial_usage
 from app.repair import restore_archive_from_source, restore_verify_after_merge
+from app.storage import scan_archive_storage, scan_archive_storage_batch, summarize_archive_storage
 from tools.bambuddy.runtime_repair_core import RepairValues, repair_archive_runtime
 from app.models import (
+    ArchiveStorageScanBatchRequest,
+    ArchiveStorageScanBatchResponse,
+    ArchiveStorageScanRequest,
+    ArchiveStorageScanResponse,
+    ArchiveStorageSummaryResponse,
     ArchivePartialUsageConsumeRequest,
     ArchivePartialUsageConsumeResponse,
     ArchivePartialUsageEstimateRequest,
@@ -242,4 +248,54 @@ def archive_restore_verify(
             request.target_archive_id,
             exc,
         )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-storage/scan", response_model=ArchiveStorageScanResponse)
+def archive_storage_scan(
+    request: ArchiveStorageScanRequest,
+    authorization: str | None = Header(default=None),
+) -> ArchiveStorageScanResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Archive storage scan request archive_id=%s include_other_files=%s include_extension_breakdown=%s",
+            request.archive_id,
+            request.include_other_files,
+            request.include_extension_breakdown,
+        )
+        return scan_archive_storage(db_path=_db_path(), request=request)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Archive storage scan rejected archive_id=%s error=%s", request.archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-storage/scan-batch", response_model=ArchiveStorageScanBatchResponse)
+def archive_storage_scan_batch(
+    request: ArchiveStorageScanBatchRequest,
+    authorization: str | None = Header(default=None),
+) -> ArchiveStorageScanBatchResponse:
+    _require_token(authorization)
+
+    logger.info(
+        "Archive storage scan batch request archive_count=%s include_other_files=%s include_extension_breakdown=%s",
+        len(request.archive_ids),
+        request.include_other_files,
+        request.include_extension_breakdown,
+    )
+    return scan_archive_storage_batch(db_path=_db_path(), request=request)
+
+
+@app.get("/admin/archive-storage/summary", response_model=ArchiveStorageSummaryResponse)
+def archive_storage_summary(
+    authorization: str | None = Header(default=None),
+) -> ArchiveStorageSummaryResponse:
+    _require_token(authorization)
+
+    logger.info("Archive storage summary request")
+    try:
+        return summarize_archive_storage(db_path=_db_path())
+    except FileNotFoundError as exc:
+        logger.warning("Archive storage summary rejected error=%s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc

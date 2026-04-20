@@ -40,10 +40,13 @@ from .const import (
     SERVICE_ESTIMATE_PARTIAL_USAGE,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
+    SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
+    TIMELAPSE_UPLOAD_URL,
     SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
+    SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
     SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE,
     SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
@@ -276,11 +279,34 @@ async def _build_archive_action_response(
 
     if intent == "scan_timelapse":
         started = perf_counter()
+        auto_assigned_printer_id = 0
+        archive_printer_id = str(archive.get("printer_id") or "").strip()
+        if not archive_printer_id:
+            raw_printers = await client.async_fetch_printers()
+            available_printers = [printer for printer in raw_printers if isinstance(printer, dict)]
+            if len(available_printers) == 1:
+                only_printer = available_printers[0]
+                only_printer_id = int(only_printer.get("id") or only_printer.get("printer_id") or 0)
+                if only_printer_id > 0:
+                    await _async_apply_archive_update(
+                        hass,
+                        manager,
+                        archive_id=archive_id,
+                        update_payload={"printer_id": only_printer_id},
+                        operation="assign_archive_printer_for_timelapse_scan",
+                    )
+                    auto_assigned_printer_id = only_printer_id
         scan_result = await client.async_scan_archive_timelapse(archive_id) or {}
         scan_status = str(scan_result.get("status") or "unknown").strip() or "unknown"
         scan_message = str(scan_result.get("message") or "").strip()
         available_files = scan_result.get("available_files")
         available_file_count = len(available_files) if isinstance(available_files, list) else 0
+        if auto_assigned_printer_id > 0:
+            scan_result["auto_assigned_printer_id"] = auto_assigned_printer_id
+            if scan_message:
+                scan_message = f"Assigned sole printer {auto_assigned_printer_id} before scan. {scan_message}"
+            else:
+                scan_message = f"Assigned sole printer {auto_assigned_printer_id} before scan."
 
         refreshed = await manager.async_refresh_archive_detail(
             archive_id,
@@ -288,6 +314,7 @@ async def _build_archive_action_response(
             extra_details={
                 "scan_status": scan_status,
                 "available_file_count": available_file_count,
+                "auto_assigned_printer_id": auto_assigned_printer_id,
             },
         )
         if refreshed is None:
@@ -300,6 +327,7 @@ async def _build_archive_action_response(
             details={
                 "scan_status": scan_status,
                 "available_file_count": available_file_count,
+                "auto_assigned_printer_id": auto_assigned_printer_id,
             },
         )
 
@@ -414,6 +442,15 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
+SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("refresh", default=False): bool,
+        vol.Optional("include_other_files", default=True): bool,
+        vol.Optional("include_extension_breakdown", default=False): bool,
+    }
+)
 SERVICE_ENRICHMENT_METADATA_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -1490,6 +1527,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
         hass.http.register_view(ReplacementArchiveDiscoverView())
         hass.http.register_view(ArchiveSource3mfUploadView())
+        hass.http.register_view(ArchiveTimelapseUploadView())
         hass.http.register_view(ArchiveViewerGcodeView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
@@ -1868,6 +1906,103 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         response[CONF_ENTRY_ID] = entry_id
         response[CONF_ARCHIVE_ID] = archive_id
         return response
+
+    async def _async_get_archive_storage_metrics(
+        *,
+        entry_id: str,
+        manager: PrintHistoryBrowserManager,
+        archive_id: int,
+        refresh: bool,
+        include_other_files: bool,
+        include_extension_breakdown: bool,
+    ) -> ServiceResponse:
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        cached_metrics = await hass.async_add_executor_job(
+            manager.store.load_archive_storage_metrics,
+            archive_id,
+        )
+        refreshed = False
+        source = "cache"
+
+        if refresh or cached_metrics is None:
+            client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+            if error_response is not None:
+                error_response[CONF_ARCHIVE_ID] = archive_id
+                error_response["storage_metrics"] = cached_metrics
+                return error_response
+
+            started = perf_counter()
+            payload = {
+                "archive_id": archive_id,
+                "force": bool(refresh),
+                "include_other_files": bool(include_other_files),
+                "include_extension_breakdown": bool(include_extension_breakdown),
+            }
+            try:
+                sidecar_response = await client.async_scan_archive_storage(payload)
+            except RuntimeError as error:
+                return {
+                    "success": False,
+                    CONF_ENTRY_ID: entry_id,
+                    CONF_ARCHIVE_ID: archive_id,
+                    "error": "archive_storage_scan_failed",
+                    "message": str(error),
+                    "storage_metrics": cached_metrics,
+                }
+
+            cached_metrics = await hass.async_add_executor_job(
+                manager.store.save_archive_storage_metrics,
+                archive_id,
+                sidecar_response,
+            )
+            refreshed = True
+            source = "sidecar"
+            manager.record_mutation(
+                operation="refresh_archive_storage_metrics",
+                archive_id=archive_id,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                details={
+                    "include_other_files": bool(include_other_files),
+                    "include_extension_breakdown": bool(include_extension_breakdown),
+                    "scan_status": str(sidecar_response.get("scan_status", "")),
+                    "total_bytes": int(
+                        (sidecar_response.get("metrics") or {}).get("total_bytes", 0)
+                    ),
+                },
+            )
+
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            CONF_ARCHIVE_ID: archive_id,
+            "refreshed": refreshed,
+            "source": source,
+            "storage_metrics": cached_metrics,
+        }
+
+    async def async_handle_get_archive_storage_metrics(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        return await _async_get_archive_storage_metrics(
+            entry_id=entry_id,
+            manager=manager,
+            archive_id=int(call.data[CONF_ARCHIVE_ID]),
+            refresh=bool(call.data.get("refresh", False)),
+            include_other_files=bool(call.data.get("include_other_files", True)),
+            include_extension_breakdown=bool(call.data.get("include_extension_breakdown", False)),
+        )
+
+    async def async_handle_refresh_archive_storage_metrics(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        return await _async_get_archive_storage_metrics(
+            entry_id=entry_id,
+            manager=manager,
+            archive_id=int(call.data[CONF_ARCHIVE_ID]),
+            refresh=True,
+            include_other_files=bool(call.data.get("include_other_files", True)),
+            include_extension_breakdown=bool(call.data.get("include_extension_breakdown", False)),
+        )
 
     async def async_handle_get_enrichment_metadata(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
@@ -2971,6 +3106,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             schema=SERVICE_DETAIL_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
+            async_handle_get_archive_storage_metrics,
+            schema=SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA):
         hass.services.async_register(
             DOMAIN,
@@ -3009,6 +3152,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL,
             async_handle_refresh_archive_detail,
             schema=SERVICE_DETAIL_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
+            async_handle_refresh_archive_storage_metrics,
+            schema=SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_APPEND_PRINT_HISTORY_EVENT):
         hass.services.async_register(

@@ -18,6 +18,21 @@ class BambuddyApiClient:
         self._api_key = api_key.strip()
         self._timeout = ClientTimeout(total=max(1, timeout_seconds))
 
+    async def _raise_for_status_with_detail(self, response) -> None:
+        try:
+            response.raise_for_status()
+        except ClientResponseError as error:
+            detail = ""
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                payload = None
+            if isinstance(payload, dict):
+                detail = str(payload.get("detail") or payload.get("message") or payload.get("error") or "").strip()
+            if detail:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}: {detail}") from error
+            raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
     async def async_fetch_printers(self) -> list[dict[str, Any]]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
@@ -307,6 +322,26 @@ class BambuddyApiClient:
             except ClientResponseError as error:
                 raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
 
+    async def async_delete_archive_timelapse(self, archive_id: int) -> None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.delete(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            try:
+                response.raise_for_status()
+            except ClientResponseError as error:
+                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+
     async def async_create_archive_slicer_token(self, archive_id: int) -> str:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
@@ -372,6 +407,53 @@ class BambuddyApiClient:
         async with self._session.post(
             f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse/scan",
             headers={"X-API-Key": self._api_key, "Content-Type": "application/json"},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
+
+    async def async_upload_archive_timelapse(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        normalized_file_name = str(file_name or "").strip().replace("\r", "_").replace("\n", "_")
+        normalized_file_name = normalized_file_name.replace("\\", "/").split("/")[-1].replace('"', "")
+        normalized_mime_type = str(mime_type or "application/octet-stream").strip().replace("\r", "").replace("\n", "")
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+        if not normalized_file_name:
+            raise RuntimeError("Upload file_name is empty")
+        if not content:
+            raise RuntimeError("Upload content is empty")
+
+        form = FormData()
+        form.add_field(
+            "file",
+            content,
+            filename=normalized_file_name,
+            content_type=normalized_mime_type or "application/octet-stream",
+        )
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse/upload",
+            headers={"X-API-Key": self._api_key},
+            data=form,
             timeout=self._timeout,
         ) as response:
             try:
@@ -580,3 +662,6 @@ class BambuddyRuntimeRepairClient:
 
     async def async_restore_verify(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._async_post_json("/admin/archive-restore-verify", payload)
+
+    async def async_scan_archive_storage(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-storage/scan", payload)

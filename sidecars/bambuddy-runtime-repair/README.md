@@ -134,6 +134,16 @@ PowerShell smoke-test helper:
 pwsh -File tools/bambuddy/Test-RuntimeRepairSidecar.ps1 -BaseUrl http://127.0.0.1:8818
 ```
 
+## Storage Scan Endpoints
+
+The sidecar also exposes authenticated archive storage inspection endpoints:
+
+- `POST /admin/archive-storage/scan`
+- `POST /admin/archive-storage/scan-batch`
+- `GET /admin/archive-storage/summary`
+
+These endpoints read Bambuddy archive metadata from `BAMBUDDY_DB_PATH` and scan the shared archive volume under the same data root.
+
 ## Repair Request Example
 
 ```bash

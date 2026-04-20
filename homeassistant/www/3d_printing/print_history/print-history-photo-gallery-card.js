@@ -897,9 +897,17 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
   _buildRepairSequence(archive) {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Archive";
+    var archiveJson = archive ? JSON.stringify(archive) : "{}";
     return [
       {
         service: "browser_mod.close_popup",
+      },
+      {
+        service: "input_text.set_value",
+        data: {
+          entity_id: "input_text.print_history_popup_archive_id",
+          value: String(archiveId),
+        },
       },
       {
         service: "input_text.set_value",
@@ -935,6 +943,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           size: "wide",
           content: {
             type: "custom:print-history-archive-restore-card",
+            archive_json: archiveJson,
             workflow_entity: "sensor.print_history_popup_restore_workflow",
             detail_entity: "sensor.print_history_popup_archive_detail",
             source_archive_helper: "input_text.print_history_restore_source_archive_id",

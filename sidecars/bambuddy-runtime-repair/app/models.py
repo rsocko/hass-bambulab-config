@@ -79,6 +79,82 @@ class HealthResponse(BaseModel):
     db_path: str
 
 
+class ArchiveStorageScanRequest(BaseModel):
+    archive_id: int
+    force: bool = False
+    include_other_files: bool = True
+    include_extension_breakdown: bool = False
+    max_other_entries: int = 2000
+
+
+class ArchiveStorageScanBatchRequest(BaseModel):
+    archive_ids: list[int] = Field(default_factory=list)
+    force: bool = False
+    include_other_files: bool = True
+    include_extension_breakdown: bool = False
+    max_other_entries: int = 2000
+    max_archives: int = 100
+
+
+class ArchiveStorageArtifactFile(BaseModel):
+    relative_path: str = ""
+    exists: bool = False
+    bytes: int = 0
+
+
+class ArchiveStorageArtifactSet(BaseModel):
+    file_path: ArchiveStorageArtifactFile = Field(default_factory=ArchiveStorageArtifactFile)
+    thumbnail_path: ArchiveStorageArtifactFile = Field(default_factory=ArchiveStorageArtifactFile)
+    source_3mf_path: ArchiveStorageArtifactFile = Field(default_factory=ArchiveStorageArtifactFile)
+    timelapse_path: ArchiveStorageArtifactFile = Field(default_factory=ArchiveStorageArtifactFile)
+    f3d_path: ArchiveStorageArtifactFile = Field(default_factory=ArchiveStorageArtifactFile)
+    photos: list[ArchiveStorageArtifactFile] = Field(default_factory=list)
+
+
+class ArchiveStorageMetrics(BaseModel):
+    total_bytes: int = 0
+    archive_3mf_bytes: int = 0
+    thumbnail_bytes: int = 0
+    source_3mf_bytes: int = 0
+    timelapse_bytes: int = 0
+    f3d_bytes: int = 0
+    photo_bytes: int = 0
+    photo_count: int = 0
+    other_bytes: int = 0
+    other_file_count: int = 0
+    files_missing_count: int = 0
+
+
+class ArchiveStorageScanResponse(BaseModel):
+    archive_id: int
+    scan_status: str
+    scan_basis: str
+    base_dir: str
+    resolved_archive_dir: str = ""
+    metrics: ArchiveStorageMetrics = Field(default_factory=ArchiveStorageMetrics)
+    artifacts: ArchiveStorageArtifactSet = Field(default_factory=ArchiveStorageArtifactSet)
+    extension_breakdown: dict[str, int] = Field(default_factory=dict)
+    source_snapshot_hash: str = ""
+    computed_at: str
+    scan_duration_ms: float = 0.0
+
+
+class ArchiveStorageScanBatchResponse(BaseModel):
+    requested_count: int
+    completed_count: int
+    failed_count: int
+    results: list[ArchiveStorageScanResponse] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+    computed_at: str
+
+
+class ArchiveStorageSummaryResponse(BaseModel):
+    archive_count: int
+    failed_count: int = 0
+    totals: ArchiveStorageMetrics = Field(default_factory=ArchiveStorageMetrics)
+    computed_at: str
+
+
 class ArchivePartialUsageEstimateRequest(BaseModel):
     archive_id: int
     printer_id: int | None = None
