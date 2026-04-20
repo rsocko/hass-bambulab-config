@@ -10,7 +10,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._status = "";
     this._statusTone = "info";
     this._boundClickHandler = this._handleClick.bind(this);
-    this._boundChangeHandler = this._handleChange.bind(this);
+    this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
+    this._sourceUploadInput = null;
   }
 
   setConfig(config) {
@@ -39,15 +40,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   connectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.addEventListener("click", this._boundClickHandler);
-      this.shadowRoot.addEventListener("change", this._boundChangeHandler);
     }
   }
 
   disconnectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundClickHandler);
-      this.shadowRoot.removeEventListener("change", this._boundChangeHandler);
     }
+    this._destroySourceUploadInput();
   }
 
   getCardSize() {
@@ -151,17 +151,54 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
-  _handleChange(event) {
-    var target = event.target;
-    if (!target || !target.matches || !target.matches("input[data-source-upload-input='true']")) {
-      return;
-    }
-    var files = target.files;
+  _handleSourceUploadChange(event) {
+    var input = event && event.target ? event.target : null;
+    var files = input && input.files ? input.files : null;
     var file = files && files.length ? files[0] : null;
-    target.value = "";
+    if (input) {
+      input.value = "";
+    }
     if (file) {
       this._uploadSource3mf(file);
     }
+  }
+
+  _ensureSourceUploadInput() {
+    if (this._sourceUploadInput) {
+      return this._sourceUploadInput;
+    }
+
+    var doc = this.ownerDocument || document;
+    if (!doc || !doc.body) {
+      return null;
+    }
+
+    var input = doc.createElement("input");
+    input.type = "file";
+    input.accept = ".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml";
+    input.tabIndex = -1;
+    input.setAttribute("aria-hidden", "true");
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.style.opacity = "0";
+    input.style.pointerEvents = "none";
+    input.addEventListener("change", this._boundSourceUploadChangeHandler);
+    doc.body.appendChild(input);
+    this._sourceUploadInput = input;
+    return input;
+  }
+
+  _destroySourceUploadInput() {
+    if (!this._sourceUploadInput) {
+      return;
+    }
+    this._sourceUploadInput.removeEventListener("change", this._boundSourceUploadChangeHandler);
+    if (this._sourceUploadInput.parentNode) {
+      this._sourceUploadInput.parentNode.removeChild(this._sourceUploadInput);
+    }
+    this._sourceUploadInput = null;
   }
 
   _getBaseUrl() {
@@ -372,13 +409,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _openSourceUploadPicker() {
-    if (this._busy || !this.shadowRoot) {
+    if (this._busy) {
       return;
     }
-    var input = this.shadowRoot.querySelector("input[data-source-upload-input='true']");
+    var input = this._ensureSourceUploadInput();
     if (!input) {
       return;
     }
+    input.value = "";
     try {
       if (typeof input.showPicker === "function") {
         input.showPicker();
@@ -647,7 +685,6 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._renderSummary(archive) +
       this._renderStatus() +
       (confirmDelete ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2") : this._renderMain(archive)) +
-      '<input class="visually-hidden" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml" data-source-upload-input="true">' +
       '</div>';
   }
 }

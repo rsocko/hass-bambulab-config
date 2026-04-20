@@ -157,8 +157,9 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
       ".card.related-match{border-color:color-mix(in srgb, #6D4C41 34%, var(--divider-color));}" +
       ".card.related-match::after{opacity:1;background:#6D4C41;}" +
-      ".card.has-archive-pill .card-shell.compact,.card.has-archive-pill .card-shell.list{padding-top:52px;}" +
-      ".card-archive-pill{position:absolute;left:12px;top:12px;z-index:2;display:inline-flex;align-items:center;min-height:28px;max-width:calc(100% - 96px);padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}" +
+      ".card.has-archive-pill.no-thumb .card-shell.compact,.card.has-archive-pill.no-thumb .card-shell.list{padding-top:52px;}" +
+      ".card-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}" +
+      ".card-archive-pill.card-level{position:absolute;left:12px;top:12px;z-index:2;max-width:calc(100% - 96px);}" +
       ".card-shell{display:grid;gap:16px;padding:18px;min-width:0;}" +
       ".card-shell.compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);align-items:start;}" +
       ".card-shell.compact.no-image{grid-template-columns:minmax(0,1fr);}" +
@@ -168,6 +169,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card-shell.list{grid-template-columns:minmax(112px,132px) minmax(0,1fr);align-items:center;column-gap:14px;row-gap:8px;min-height:148px;}" +
       ".card-shell.list.no-image{grid-template-columns:minmax(0,1fr);}" +
       ".thumb-wrap{width:100%;min-width:0;}" +
+      ".thumb-wrap.has-archive-pill{position:relative;}" +
+      ".thumb-wrap.has-archive-pill .card-archive-pill{position:absolute;left:12px;top:12px;z-index:2;max-width:calc(100% - 24px);}" +
       ".card-shell.compact .thumb-wrap{grid-area:thumb;align-self:start;}" +
       ".thumb{width:100%;height:132px;object-fit:cover;border-radius:16px;display:block;background:rgba(15,23,42,0.18);}" +
       ".card-shell.media .thumb-wrap{position:relative;}" +
@@ -335,7 +338,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".archive-error-text.error{color:#FFB4AB;}" +
       ".failure{font-size:12px;color:#ffb4ab;line-height:1.4;overflow-wrap:anywhere;}" +
       "@media (max-width: 760px){.card-shell.compact{grid-template-columns:minmax(132px,164px) minmax(0,1fr);}.header.compact,.chip-row.compact-primary,.tag-project-row,.media-header,.list-header{grid-template-columns:minmax(0,1fr);}.metrics.compact-tight{grid-template-columns:repeat(auto-fit,minmax(102px,1fr));}.tag-project-row .project-chip{justify-self:start;}.media-status-line,.list-status-line{justify-content:flex-start;}.list-chip-mobile-hide{display:none;}.list-inline-tag-project .project-chip{max-width:140px;}.list-subheader{justify-content:flex-start;}}" +
-      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}.card-shell.list{grid-template-columns:92px minmax(0,1fr);column-gap:10px;padding:14px;}.thumb.list-thumb,.list-thumb-empty{height:92px;}.list-row-mobile-hide{display:none;}.metrics.list{grid-template-columns:1fr;}.card.has-archive-pill .card-shell.compact,.card.has-archive-pill .card-shell.list{padding-top:50px;}}" +
+      "@media (max-width: 560px){.card-shell.compact{grid-template-columns:1fr;grid-template-areas:'summary' 'thumb' 'name' 'details';}.card-shell.compact .thumb{max-width:188px;}.action-buttons.compact-actions{justify-content:flex-start;}.tag-project-row .project-chip{max-width:100%;}.card-shell.list{grid-template-columns:92px minmax(0,1fr);column-gap:10px;padding:14px;}.thumb.list-thumb,.list-thumb-empty{height:92px;}.list-row-mobile-hide{display:none;}.metrics.list{grid-template-columns:1fr;}.card.has-archive-pill.no-thumb .card-shell.compact,.card.has-archive-pill.no-thumb .card-shell.list{padding-top:50px;}}" +
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
@@ -345,7 +348,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v104</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v105</span>';
     }
   }
 
@@ -711,9 +714,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (variant === "List") {
       return '' +
         '<article class="card skeleton-card has-archive-pill" aria-hidden="true">' +
-          '<span class="card-archive-pill"><span class="skeleton skeleton-pill" style="width:62px;"></span></span>' +
           '<div class="card-shell list">' +
-            '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="skeleton skeleton-thumb list"></div></div></div>' +
+            '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><div class="skeleton skeleton-thumb list"></div></div><span class="card-archive-pill"><span class="skeleton skeleton-pill" style="width:62px;"></span></span></div>' +
             '<div class="content list-content">' +
               '<div class="list-header"><div class="list-title-wrap"><div class="skeleton skeleton-text title"></div></div><div class="skeleton-actions">' + this._renderSkeletonIcons(2) + '</div></div>' +
               '<div class="list-subheader"><div class="skeleton skeleton-text subtitle"></div><div class="list-status-line"><span class="skeleton skeleton-pill" style="width:108px;"></span></div></div>' +
@@ -726,9 +728,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     return '' +
       '<article class="card skeleton-card has-archive-pill" aria-hidden="true">' +
-        '<span class="card-archive-pill"><span class="skeleton skeleton-pill" style="width:64px;"></span></span>' +
         '<div class="card-shell compact">' +
-          '<div class="thumb-wrap"><div class="skeleton skeleton-thumb"></div></div>' +
+          '<div class="thumb-wrap has-archive-pill"><span class="card-archive-pill"><span class="skeleton skeleton-pill" style="width:64px;"></span></span><div class="skeleton skeleton-thumb"></div></div>' +
           '<div class="content compact-summary"><div class="content-top compact"><div class="skeleton-actions">' + this._renderSkeletonIcons(2) + '</div></div><div class="chip-row compact-status-line"><span class="skeleton skeleton-text subtitle"></span><span class="skeleton skeleton-pill" style="width:102px;"></span></div></div>' +
           '<div class="content compact-name"><div class="skeleton skeleton-text title"></div></div>' +
           '<div class="content compact-details"><div class="skeleton-metrics compact">' + this._renderSkeletonMetric() + this._renderSkeletonMetric() + this._renderSkeletonMetric() + '</div><div class="color-enrichment-row"><div class="skeleton-chip-group">' + this._renderSkeletonDots(3) + '</div><span class="skeleton skeleton-pill" style="width:122px;"></span></div></div>' +
@@ -775,8 +776,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     var projectChip = normalized.projectLabel
       ? '<button class="chip project-chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="project_set" data-filter-value="' + this._escapeAttribute(normalized.projectLabel) + '" style="--project-chip-color:' + this._escapeAttribute(normalized.projectColor) + ';--project-chip-background:' + this._escapeAttribute(normalized.projectBackground) + ';--interactive-chip-border:' + this._escapeAttribute(normalized.projectColor) + ';" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Project: ' + normalized.projectLabel, 'Click to filter by this project')) + '" aria-label="' + this._escapeAttribute('Project ' + normalized.projectLabel + '. Click to filter by this project.') + '"><ha-icon icon="mdi:folder-outline"></ha-icon><span>' + this._escapeHtml(normalized.projectLabel) + '</span></button>'
       : '';
-    var overlayArchivePill = normalized.compactArchiveIdLabel && variant !== 'Media'
-      ? '<span class="card-archive-pill">' + this._escapeHtml(normalized.compactArchiveIdLabel) + '</span>'
+    var overlayArchivePillLabel = normalized.compactArchiveIdLabel && variant !== 'Media'
+      ? this._escapeHtml(normalized.compactArchiveIdLabel)
       : '';
     var noteInline = normalized.noteText
       ? '<span class="name-note-inline" title="' + this._escapeAttribute(normalized.noteText) + '"><ha-icon icon="mdi:note-text-outline"></ha-icon></span>'
@@ -806,6 +807,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ? 'No preview image available'
       : 'Images hidden';
     var listImageUrl = showImages ? normalized.thumbnailUrl(baseUrl) : '';
+    var supportsThumbOverlay = !!overlayArchivePillLabel && (
+      (variant === 'Compact' && hasImage) ||
+      (variant === 'List' && showImages)
+    );
+    var thumbArchivePill = supportsThumbOverlay
+      ? '<span class="card-archive-pill">' + overlayArchivePillLabel + '</span>'
+      : '';
+    var cardArchivePill = overlayArchivePillLabel && !supportsThumbOverlay
+      ? '<span class="card-archive-pill card-level">' + overlayArchivePillLabel + '</span>'
+      : '';
     var printerChip = normalized.printerFilterValue
       ? '<button class="chip interactive-chip" type="button" data-action="apply-filter" data-filter-action="printer_set" data-filter-value="' + this._escapeAttribute(normalized.printerFilterValue) + '" title="' + this._escapeAttribute(this._buildFilterActionTooltip('Printer: ' + normalized.printerLabel, 'Click to filter by this printer')) + '" aria-label="' + this._escapeAttribute('Printer ' + normalized.printerLabel + '. Click to filter by this printer.') + '">' + this._escapeHtml(normalized.printerLabel) + '</button>'
       : (normalized.printerLabel ? '<span class="chip">' + this._escapeHtml(normalized.printerLabel) + '</span>' : '');
@@ -954,17 +965,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
         + '</div></div>'
       : (variant === 'List'
         ? (listImageUrl
-          ? '<div class="thumb-wrap"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div></div>'
+          ? '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><img class="thumb list-thumb" src="' + this._escapeAttribute(listImageUrl) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>' + thumbArchivePill + '</div>'
           : (showImages
-            ? '<div class="thumb-wrap"><div class="media-gallery-surface"><div class="list-thumb-empty">No preview image available</div></div></div>'
+            ? '<div class="thumb-wrap has-archive-pill"><div class="media-gallery-surface"><div class="list-thumb-empty">No preview image available</div></div>' + thumbArchivePill + '</div>'
             : ''))
         : (hasImage
-        ? '<div class="thumb-wrap"><img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
+        ? '<div class="thumb-wrap has-archive-pill">' + thumbArchivePill + '<img class="thumb ' + (variant === "Media" ? 'media' : '') + '" src="' + this._escapeAttribute(normalized.thumbnailUrl(baseUrl)) + '" alt="' + this._escapeAttribute(normalized.printName) + '"></div>'
         : ''));
 
     return "" +
-      '<article class="' + cardClass + (overlayArchivePill ? ' has-archive-pill' : '') + '" tabindex="0" role="' + (selectionMode ? 'checkbox' : 'button') + '" data-action="' + (selectionMode ? 'select-archive' : 'open') + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute((selectionMode ? 'Select ' : 'Open details for ') + normalized.printName) + '"' + (selectionMode ? (' aria-checked="' + (isSelected ? 'true' : 'false') + '"') : '') + '>' +
-      overlayArchivePill +
+      '<article class="' + cardClass + (overlayArchivePillLabel ? ' has-archive-pill' : '') + (cardArchivePill ? ' no-thumb' : '') + '" tabindex="0" role="' + (selectionMode ? 'checkbox' : 'button') + '" data-action="' + (selectionMode ? 'select-archive' : 'open') + '" data-archive="' + archiveJson + '" aria-label="' + this._escapeAttribute((selectionMode ? 'Select ' : 'Open details for ') + normalized.printName) + '"' + (selectionMode ? (' aria-checked="' + (isSelected ? 'true' : 'false') + '"') : '') + '>' +
+      cardArchivePill +
       '<div class="card-shell ' + variant.toLowerCase() + (hasImage ? '' : ' no-image') + '">' +
       thumbMarkup +
       summaryContent +
