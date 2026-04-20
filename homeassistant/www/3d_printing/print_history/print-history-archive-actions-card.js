@@ -105,19 +105,22 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return this._archiveOverride;
     }
 
+    var parsed = {};
+    try {
+      parsed = JSON.parse(this._config && this._config.archive_json ? this._config.archive_json : "{}");
+      parsed = parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_error) {
+      parsed = {};
+    }
+
     if (this._hass && this._config && this._config.detail_entity) {
       var detailState = this._hass.states && this._hass.states[this._config.detail_entity];
       if (detailState && detailState.attributes && detailState.attributes.archive && typeof detailState.attributes.archive === "object") {
-        return detailState.attributes.archive;
+        return Object.assign({}, parsed, detailState.attributes.archive);
       }
     }
 
-    try {
-      var parsed = JSON.parse(this._config && this._config.archive_json ? this._config.archive_json : "{}");
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch (_error) {
-      return {};
-    }
+    return parsed;
   }
 
   _setArchive(archive) {
