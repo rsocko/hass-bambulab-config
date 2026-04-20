@@ -28,6 +28,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._loading = false;
     this._refreshing = false;
     this._renderModel = null;
+    this._tooltipFrame = 0;
+    this._lastTooltipAnchor = null;
+    this._boundTooltipMoveHandler = null;
+    this._boundTooltipLeaveHandler = null;
     this._debugStats = {
       scheduledRenders: 0,
       executedRenders: 0,
@@ -120,6 +124,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       clearTimeout(this._renderTimer);
       this._renderTimer = null;
     }
+    this._detachTooltipTracking();
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
       this._chart = null;
@@ -184,6 +189,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".refresh-indicator.hidden{display:none;}" +
       ".refresh-indicator.error{background:rgba(127,29,29,0.88);border-color:rgba(254,202,202,0.28);color:#fee2e2;}" +
       ".refresh-dot{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:0.9;}" +
+      ".apexcharts-tooltip{pointer-events:none;border:1px solid rgba(148,163,184,0.18);border-radius:14px;box-shadow:0 18px 40px rgba(15,23,42,0.22);overflow:visible;}" +
+      ".apexcharts-tooltip::before{content:'';position:absolute;top:-7px;left:var(--tooltip-pointer-left,50%);width:14px;height:14px;background:inherit;border-left:1px solid rgba(148,163,184,0.18);border-top:1px solid rgba(148,163,184,0.18);transform:translateX(-50%) rotate(45deg);border-top-left-radius:3px;}" +
       ".heatmap{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:10px;align-items:start;background:var(--chart-gap-background,transparent);}" +
       ".month-row{display:grid;grid-template-columns:repeat(var(--week-count,53),minmax(var(--cell-size,10px),1fr));column-gap:4px;margin-bottom:6px;padding-right:2px;}" +
       ".month-spacer{height:14px;}" +
@@ -378,6 +385,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (this._detailsContainer) {
         this._detailsContainer.innerHTML = "";
       }
+      this._detachTooltipTracking();
       this._hideRefreshIndicator();
       this._loading = false;
       this._refreshing = false;
@@ -421,6 +429,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       var ApexChartsCtor = await this._ensureApexCharts();
       if (!ApexChartsCtor) {
         this._renderHeatmap(dataset);
+        this._detachTooltipTracking();
         this._hideRefreshIndicator();
         return;
       }
@@ -436,6 +445,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       this._chartContainer.innerHTML = "";
       this._chart = new ApexChartsCtor(this._chartContainer, options);
       await this._chart.render();
+      this._attachTooltipTracking();
       this._applyEnrichmentPatternFills(dataset);
       await this._ensureChartVisible(dataset);
       await this._applySelectedVisualState(dataset);
@@ -502,6 +512,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _destroyChart() {
+    this._detachTooltipTracking();
     this._hideSelectedOverlay();
     if (this._chart && typeof this._chart.destroy === "function") {
       this._chart.destroy();
@@ -567,6 +578,97 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
 
     return !!this._chartContainer.querySelector(".apexcharts-canvas, svg, canvas");
+  }
+
+  _attachTooltipTracking() {
+    if (!this._chartContainer) {
+      return;
+    }
+
+    this._detachTooltipTracking();
+
+    this._boundTooltipMoveHandler = function (event) {
+      var target = event && event.target && typeof event.target.closest === "function"
+        ? event.target.closest(".apexcharts-heatmap-rect")
+        : null;
+      if (!target) {
+        return;
+      }
+      this._lastTooltipAnchor = target;
+      this._queueTooltipPosition(target);
+    }.bind(this);
+
+    this._boundTooltipLeaveHandler = function () {
+      this._lastTooltipAnchor = null;
+    }.bind(this);
+
+    this._chartContainer.addEventListener("mousemove", this._boundTooltipMoveHandler);
+    this._chartContainer.addEventListener("mouseleave", this._boundTooltipLeaveHandler);
+  }
+
+  _detachTooltipTracking() {
+    if (this._tooltipFrame) {
+      cancelAnimationFrame(this._tooltipFrame);
+      this._tooltipFrame = 0;
+    }
+
+    if (this._chartContainer && this._boundTooltipMoveHandler) {
+      this._chartContainer.removeEventListener("mousemove", this._boundTooltipMoveHandler);
+    }
+    if (this._chartContainer && this._boundTooltipLeaveHandler) {
+      this._chartContainer.removeEventListener("mouseleave", this._boundTooltipLeaveHandler);
+    }
+
+    this._boundTooltipMoveHandler = null;
+    this._boundTooltipLeaveHandler = null;
+    this._lastTooltipAnchor = null;
+  }
+
+  _queueTooltipPosition(anchorElement) {
+    if (this._tooltipFrame) {
+      cancelAnimationFrame(this._tooltipFrame);
+    }
+
+    this._tooltipFrame = requestAnimationFrame(function () {
+      this._tooltipFrame = 0;
+      this._positionTooltip(anchorElement || this._lastTooltipAnchor);
+    }.bind(this));
+  }
+
+  _positionTooltip(anchorElement) {
+    if (!this._chartContainer || !anchorElement) {
+      return;
+    }
+
+    var tooltip = this._chartContainer.querySelector(".apexcharts-tooltip.apexcharts-active");
+    if (!tooltip) {
+      return;
+    }
+
+    var containerRect = this._chartContainer.getBoundingClientRect();
+    var anchorRect = anchorElement.getBoundingClientRect();
+    var tooltipRect = tooltip.getBoundingClientRect();
+
+    if (!containerRect.width || !anchorRect.width || !tooltipRect.width || !tooltipRect.height) {
+      return;
+    }
+
+    var gap = 10;
+    var left = anchorRect.left - containerRect.left + anchorRect.width / 2 - tooltipRect.width / 2;
+    var minLeft = 8;
+    var maxLeft = Math.max(minLeft, containerRect.width - tooltipRect.width - 8);
+    var clampedLeft = Math.max(minLeft, Math.min(maxLeft, left));
+    var pointerLeft = anchorRect.left - containerRect.left + anchorRect.width / 2 - clampedLeft;
+    var minPointerLeft = 14;
+    var maxPointerLeft = Math.max(minPointerLeft, tooltipRect.width - 14);
+    var top = anchorRect.bottom - containerRect.top + gap;
+
+    tooltip.style.left = this._formatDecimal(clampedLeft, 3) + "px";
+    tooltip.style.top = this._formatDecimal(top, 3) + "px";
+    tooltip.style.right = "auto";
+    tooltip.style.bottom = "auto";
+    tooltip.style.transform = "none";
+    tooltip.style.setProperty("--tooltip-pointer-left", this._formatDecimal(Math.max(minPointerLeft, Math.min(maxPointerLeft, pointerLeft)), 3) + "px");
   }
 
   _getScopedArchives() {

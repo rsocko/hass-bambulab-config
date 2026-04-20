@@ -127,7 +127,6 @@ class TestLoaderWiring(unittest.TestCase):
         self.assertIsNotNone(data, "Loader file must parse")
         required_domains = {
             "automation",
-            "rest",
             "rest_command",
             "shell_command",
             "script",
@@ -137,6 +136,7 @@ class TestLoaderWiring(unittest.TestCase):
             "input_boolean",
             "input_number",
             "input_select",
+            "recorder",
         }
         actual_domains = set(data.keys()) if isinstance(data, dict) else set()
         missing = required_domains - actual_domains
@@ -176,11 +176,14 @@ class TestFileInventory(unittest.TestCase):
     """All expected files in the Phase 2 package must exist."""
 
     EXPECTED_AUTOMATIONS = [
+        "bambuddy_archive_binding_guard.yaml",
         "bambuddy_capture_archive_id.yaml",
+        "bambuddy_capture_error_photos.yaml",
+        "bambuddy_capture_pause_resume_timeline.yaml",
         "bambuddy_capture_print_photos.yaml",
         "bambuddy_enrich_archive_on_complete.yaml",
-        "bambuddy_capture_error_photos.yaml",
         "bambuddy_event_history_refresh.yaml",
+        "print_history_normalize_tag_filter_state.yaml",
         "print_history_reset_page_on_filter_change.yaml",
     ]
 
@@ -189,27 +192,36 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_SCRIPTS = [
+        "apply_print_history_card_filter_action.yaml",
+        "backfill_print_history_archive_enrichment.yaml",
         "bulk_assign_print_history_project.yaml",
         "bulk_delete_print_history_archives.yaml",
         "bulk_set_print_history_archive_favorite.yaml",
         "bulk_update_print_history_user_tags.yaml",
-        "backfill_print_history_archive_enrichment.yaml",
         "cancel_print_history_multi_select_mode.yaml",
         "capture_and_upload_snapshot.yaml",
+        "clear_print_history_filters.yaml",
+        "clear_print_history_tag_filter.yaml",
         "enter_print_history_multi_select_mode.yaml",
-        "resolve_current_archive_id.yaml",
         "load_history_page.yaml",
         "navigate_history.yaml",
-        "refresh_print_history_archives.yaml",
-        "clear_print_history_filters.yaml",
         "print_history_payload_self_test.yaml",
+        "reenrich_print_history_archive.yaml",
+        "refresh_print_history_archives.yaml",
+        "refresh_print_history_popup_projects.yaml",
         "request_print_history_multi_select_action.yaml",
+        "resolve_current_archive_id.yaml",
+        "save_print_history_archive_popup_edits.yaml",
+        "set_print_history_capture_cameras.yaml",
+        "toggle_print_history_archive_favorite.yaml",
+        "toggle_print_history_color_filter.yaml",
     ]
 
     EXPECTED_REST_COMMANDS = [
-        "bambuddy_update_archive.yaml",
-        "bambuddy_query_recent_archive.yaml",
         "bambuddy_get_archive_detail.yaml",
+        "bambuddy_query_recent_archive.yaml",
+        "bambuddy_toggle_favorite.yaml",
+        "bambuddy_update_archive.yaml",
     ]
 
     EXPECTED_LEGACY_REST_COMMANDS = [
@@ -217,7 +229,9 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_TEMPLATE_SENSORS = [
+        "active_print_display_name.yaml",
         "print_history_filter_date_chip.yaml",
+        "print_history_filter_tags_summary.yaml",
         "print_history_payload_diagnostics.yaml",
         "print_history_popup_archive_detail.yaml",
         "print_history_popup_restore_workflow.yaml",
@@ -230,13 +244,22 @@ class TestFileInventory(unittest.TestCase):
     ]
 
     EXPECTED_HELPERS_INPUT_TEXT = [
+        "input_text_bambuddy_archive_binding_source.yaml",
+        "input_text_bambuddy_archive_binding_task.yaml",
+        "input_text_bambuddy_capture_camera_entities.yaml",
         "input_text_bambuddy_current_archive_id.yaml",
         "input_text_bambuddy_last_photo_upload_result.yaml",
         "input_text_bambuddy_tray_map_snapshot.yaml",
         "input_text_print_history_activity_selected_date.yaml",
+        "input_text_print_history_filter_colors.yaml",
         "input_text_print_history_filter_end_date.yaml",
         "input_text_print_history_filter_start_date.yaml",
+        "input_text_print_history_filter_tags.yaml",
         "input_text_print_history_multi_select_request.yaml",
+        "input_text_print_history_popup_archive_id.yaml",
+        "input_text_print_history_popup_notes.yaml",
+        "input_text_print_history_popup_print_name.yaml",
+        "input_text_print_history_popup_tags.yaml",
         "input_text_print_history_restore_source_archive_id.yaml",
         "input_text_print_history_restore_target_archive_id.yaml",
         "input_text_print_history_restore_upload_session_id.yaml",
@@ -253,50 +276,56 @@ class TestFileInventory(unittest.TestCase):
         "input_boolean_capture_at_midprint.yaml",
         "input_boolean_capture_near_complete.yaml",
         "input_boolean_capture_on_error.yaml",
+        "input_boolean_print_history_debug_instrumentation.yaml",
+        "input_boolean_print_history_filter_favorites_only.yaml",
+        "input_boolean_print_history_filter_tags_untagged_only.yaml",
         "input_boolean_print_history_multi_select_all_favorites.yaml",
         "input_boolean_print_history_multi_select_mode.yaml",
+        "input_boolean_print_history_popup_is_favorite.yaml",
         "input_boolean_print_history_show_activity_heatmap.yaml",
+        "input_boolean_print_history_show_images.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_NUMBER = [
-        "input_number_bambuddy_history_limit.yaml",
         "input_number_history_current_page.yaml",
         "input_number_midprint_capture_percent.yaml",
         "input_number_photo_review_timeout_hours.yaml",
+        "input_number_print_history_max_archives.yaml",
         "input_number_print_history_multi_select_count.yaml",
         "input_number_print_history_page_size.yaml",
-        "input_number_print_history_max_archives.yaml",
     ]
 
     EXPECTED_HELPERS_INPUT_SELECT = [
         "input_select_bambuddy_photo_review_state.yaml",
         "input_select_print_history_activity_metric.yaml",
-        "input_select_print_history_filter_status.yaml",
         "input_select_print_history_filter_archive_error.yaml",
-        "input_select_print_history_filter_enrichment_status.yaml",
-        "input_select_print_history_filter_material.yaml",
         "input_select_print_history_filter_color.yaml",
-        "input_select_print_history_filter_duplicates.yaml",
-        "input_select_print_history_filter_printer.yaml",
         "input_select_print_history_filter_date_range.yaml",
         "input_select_print_history_filter_designer.yaml",
-        "input_select_print_history_filter_project.yaml",
+        "input_select_print_history_filter_duplicates.yaml",
+        "input_select_print_history_filter_enrichment_status.yaml",
         "input_select_print_history_filter_layer_height.yaml",
-        "input_select_print_history_sort.yaml",
+        "input_select_print_history_filter_material.yaml",
+        "input_select_print_history_filter_printer.yaml",
+        "input_select_print_history_filter_project.yaml",
+        "input_select_print_history_filter_status.yaml",
+        "input_select_print_history_filter_tag.yaml",
+        "input_select_print_history_filter_tags_mode.yaml",
         "input_select_print_history_card_variant.yaml",
-    ]
-
-    EXPECTED_REST_SENSORS = [
-        "bambuddy_print_history_sensor.yaml",
+        "input_select_print_history_popup_failure_reason.yaml",
+        "input_select_print_history_popup_project.yaml",
+        "input_select_print_history_popup_status.yaml",
+        "input_select_print_history_sort.yaml",
     ]
 
     EXPECTED_DASHBOARD_CARDS = [
+        "photo_review_chip.yaml",
+        "print_history.yaml",
         "print_history_activity_heatmap.yaml",
         "print_history_activity_panel.yaml",
-        "print_history.yaml",
         "print_history_browser.yaml",
+        "print_history_pagination.yaml",
         "print_history_top_controls.yaml",
-        "photo_review_chip.yaml",
     ]
 
     EXPECTED_DASHBOARD_VIEWS = [
@@ -333,8 +362,14 @@ class TestFileInventory(unittest.TestCase):
     def test_legacy_browser_template_sensors_exist(self):
         self._check_files(LEGACY_BROWSER, "template_sensors", self.EXPECTED_LEGACY_TEMPLATE_SENSORS)
 
-    def test_rest_sensors_exist(self):
-        self._check_files(HISTORY, "rest_sensors", self.EXPECTED_REST_SENSORS)
+    def test_rest_sensors_retired_for_frontend_query_browser(self):
+        directory = HISTORY / "rest_sensors"
+        self.assertTrue(directory.exists())
+        self.assertEqual(
+            list(directory.iterdir()),
+            [],
+            "Variant 3 browser should not ship legacy print-history REST sensors",
+        )
 
     def test_helpers_input_text_exist(self):
         self._check_files(HISTORY, "helpers/input_text", self.EXPECTED_HELPERS_INPUT_TEXT)
@@ -554,82 +589,43 @@ class TestPayloadDiagnostics(unittest.TestCase):
 
 
 # =============================================================================
-# 7. REST SENSOR CONFIGURATION
+# 7. ACTIVE VARIANT 3 BROWSER CONTRACT
 # =============================================================================
 
-class TestRestSensor(unittest.TestCase):
-    """The print history REST sensor must be correctly configured."""
+class TestFrontendBrowserContract(unittest.TestCase):
+    """The active print history browser uses summary entities plus websocket queries."""
 
-    def setUp(self):
-        self.sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
-        self.data = _load_yaml_safe(self.sensor_path)
-        # rest: integration format: top-level is a list of resource blocks
-        self.resource = self.data[0] if isinstance(self.data, list) else self.data
-        # Sensors are nested under the resource's 'sensor' key
-        self.sensors = self.resource.get("sensor", [])
-        self.sensor_by_uid = {
-            s.get("unique_id"): s for s in self.sensors if isinstance(s, dict)
-        }
+    def test_rest_sensor_layer_is_retired(self):
+        rest_sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
+        self.assertFalse(rest_sensor_path.exists())
 
-    def test_has_unique_id(self):
-        self.assertIn("bambuddy_print_history", self.sensor_by_uid)
+    def test_payload_diagnostics_marks_frontend_only_layers(self):
+        path = HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn("layer_1_status", content)
+        self.assertIn("layer_2_status", content)
+        self.assertIn("layer_3_status", content)
+        self.assertIn("frontend_only", content)
+        self.assertIn("frontend_query_transport: websocket", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_status", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_page_info", content)
 
-    def test_uses_api_key_secret(self):
-        content = self.sensor_path.read_text(encoding="utf-8")
-        self.assertIn("!secret bambuddy_api_key", content)
+    def test_browser_card_uses_websocket_query_type(self):
+        path = ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn('type: "bambuddy/print_history_query"', content)
+        self.assertIn("browser_status_entity", content)
+        self.assertIn("filtered_entity", content)
+        self.assertIn("page_info_entity", content)
 
-    def test_has_reasonable_scan_interval(self):
-        interval = self.resource.get("scan_interval", 0)
-        self.assertGreaterEqual(interval, 60, "Scan interval too aggressive (< 60s)")
-        self.assertLessEqual(interval, 3600, "Scan interval too slow (> 1h)")
-
-    def test_resource_template_references_base_url(self):
-        content = self.sensor_path.read_text(encoding="utf-8")
-        self.assertIn("input_text.bambuddy_api_base_url", content)
-        self.assertIn("/api/v1/archives", content)
-
-    def test_inline_derived_sensors_defined(self):
-        """The rest: block must define derived sensors for last-print fields."""
-        expected = {
-            "bambuddy_last_print_name",
-            "bambuddy_last_print_status",
-            "bambuddy_last_print_duration",
-            "bambuddy_last_print_image_url",
-        }
-        missing = expected - set(self.sensor_by_uid.keys())
-        self.assertFalse(missing, f"Missing inline sensors: {missing}")
-
-    def test_resource_template_no_conditional_guard(self):
-        """resource_template must not conditionally return empty — this
-        causes the REST platform to skip sensor creation at boot and orphan
-        the entity.  Regression for the 'no longer provided by rest' bug."""
-        content = self.sensor_path.read_text(encoding="utf-8")
-        # Extract the resource_template block
-        in_block = False
-        block_lines: list[str] = []
-        for line in content.splitlines():
-            if "resource_template" in line:
-                in_block = True
-                continue
-            if in_block:
-                if line and not line[0].isspace():
-                    break  # exited the block
-                block_lines.append(line)
-        block = "\n".join(block_lines)
-        self.assertNotIn(
-            "{% if",
-            block,
-            "resource_template must not use an {% if %} guard that can return empty",
-        )
-
-    def test_uses_rest_integration_format(self):
-        """File must use the rest: integration (not sensor: platform: rest)."""
-        content = self.sensor_path.read_text(encoding="utf-8")
-        self.assertNotIn(
-            "platform: rest", content,
-            "Should use rest: integration, not sensor platform: rest",
-        )
-        self.assertIn("sensor:", content, "Must define nested sensor: block")
+    def test_integration_defines_browser_summary_entities(self):
+        path = ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn('ENTITY_STATUS = "bambuddy_print_history_browser_status"', content)
+        self.assertIn('ENTITY_FILTERED = "bambuddy_print_history_browser_filtered"', content)
+        self.assertIn('ENTITY_PAGE_INFO = "bambuddy_print_history_browser_page_info"', content)
+        self.assertIn('ENTITY_ACTIVITY = "bambuddy_print_history_browser_activity"', content)
 
 
 # =============================================================================
@@ -696,7 +692,7 @@ class TestRestCommands(unittest.TestCase):
 # =============================================================================
 
 class TestTemplateSensors(unittest.TestCase):
-    """Template sensors derive from the REST sensor and have unique IDs."""
+    """Template sensors bind the active summary entities and legacy references safely."""
 
     def _load_template_sensor(self, filename: str):
         path = HISTORY / "template_sensors" / filename
@@ -718,17 +714,12 @@ class TestTemplateSensors(unittest.TestCase):
                     f"{f.name}: template sensor must have a unique_id",
                 )
 
-    def test_inline_sensors_use_correct_api_fields(self):
-        """Inline derived sensors must use actual API field names."""
-        sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
-        content = sensor_path.read_text(encoding="utf-8")
-        # Correct field names from the Bambuddy API
-        self.assertIn("print_name", content, "Must use API field 'print_name'")
-        self.assertIn("print_time_seconds", content, "Must use API field 'print_time_seconds'")
-        self.assertIn("/thumbnail", content, "Must construct a thumbnail endpoint URL")
-        # Must NOT use the old wrong field names
-        self.assertNotIn("duration_seconds", content, "Wrong field: use print_time_seconds")
-        self.assertNotIn(".photo_url", content, "Wrong field: use thumbnail_path")
+    def test_payload_diagnostics_tracks_summary_entities(self):
+        content = (HISTORY / "template_sensors" / "print_history_payload_diagnostics.yaml").read_text("utf-8")
+        self.assertIn("sensor.bambuddy_print_history_browser_filtered", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_page_info", content)
+        self.assertIn("sensor.bambuddy_print_history_browser_status", content)
+        self.assertIn("payload_chars: >-\n          0", content)
 
     def test_page_info_references_page_helpers(self):
         content = (LEGACY_BROWSER / "template_sensors" / "print_history_page_info.yaml").read_text("utf-8")
@@ -744,16 +735,11 @@ class TestTemplateSensors(unittest.TestCase):
         self.assertNotIn("{{ start }} <>", content)
         self.assertNotIn("<> {{ end }}", content)
 
-    def test_image_url_prepends_base_url(self):
-        """Image URL sensor must combine base_url + photo path for full URL."""
-        sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
-        content = sensor_path.read_text("utf-8")
-        self.assertIn("bambuddy_api_base_url", content)
-
-    def test_duration_is_in_hours(self):
-        sensor_path = HISTORY / "rest_sensors" / "bambuddy_print_history_sensor.yaml"
-        content = sensor_path.read_text("utf-8")
-        self.assertIn("3600", content, "Duration conversion must divide by 3600")
+    def test_popup_detail_sensors_bind_to_browser_status_entity(self):
+        detail_content = (HISTORY / "template_sensors" / "print_history_popup_archive_detail.yaml").read_text("utf-8")
+        restore_content = (HISTORY / "template_sensors" / "print_history_popup_restore_workflow.yaml").read_text("utf-8")
+        self.assertIn("sensor.bambuddy_print_history_browser_status", detail_content)
+        self.assertIn("sensor.bambuddy_print_history_browser_status", restore_content)
 
     def test_archive_projection_includes_object_count_and_omits_quantity(self):
         content = (LEGACY_BROWSER / "template_sensors" / "print_history_archives.yaml").read_text("utf-8")
@@ -835,7 +821,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=54", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=55", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=19", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1047,6 +1033,15 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("return !primaryMetric || metric.key !== primaryMetric.key;", content)
         self.assertIn("_buildTooltipMetrics(meta)", content)
         self.assertIn("_resolvePrimaryTooltipMetric(mode, metrics)", content)
+
+    def test_heatmap_tooltip_is_positioned_below_hovered_cell(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn('.apexcharts-tooltip{pointer-events:none;', content)
+        self.assertIn('.apexcharts-tooltip::before{content:\'\';', content)
+        self.assertIn('_attachTooltipTracking()', content)
+        self.assertIn('_positionTooltip(anchorElement)', content)
+        self.assertIn('var top = anchorRect.bottom - containerRect.top + gap;', content)
+        self.assertIn('tooltip.style.setProperty("--tooltip-pointer-left"', content)
 
     def test_heatmap_card_uses_valid_enrichment_blend_and_sunflower_favorites_scale(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
