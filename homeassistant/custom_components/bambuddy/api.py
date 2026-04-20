@@ -665,3 +665,6 @@ class BambuddyRuntimeRepairClient:
 
     async def async_scan_archive_storage(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._async_post_json("/admin/archive-storage/scan", payload)
+
+    async def async_scan_archive_storage_batch(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-storage/scan-batch", payload)

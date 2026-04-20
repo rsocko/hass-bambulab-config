@@ -32,6 +32,14 @@ This document covers the Home Assistant interaction model and rollout sequence f
 - inferred-timing review and `update to inferred times` actions for imports or recovered records
 - feature-local ownership of the popup/card templates under `print_history`; the live implementation still uses the shared button-card template registry under `common`
 
+Already shipped but documented in a sibling media doc rather than this popup rollout note:
+
+- advanced-actions timelapse scan and manual upload/replace
+- conditional popup media-header timelapse viewer button when `timelapse_path` exists
+- dedicated `custom:print-history-timelapse-card` popup viewer
+
+See `timelapse-actions-and-viewer.md` for the current timelapse contract and constraints.
+
 ### Design adjustment from the earlier draft
 
 The final shipped path does use a custom Lovelace JavaScript card. The browser card now owns row rendering and popup launch behavior because that proved more reliable than keeping the archive-grid interaction in shared YAML templates.
@@ -237,6 +245,8 @@ What is live now:
 - per-archive tap targets in `Compact`, `Media`, and `List`
 - read-only popup content rendered from the projected archive payload already present on the page
 - thumbnail, status, timestamps, duration, filament used, cost, object count, material, layer height, nozzle, total layers, printer, designer, tags, notes, and failure reason
+- top-right popup media actions for 3D view, gallery expand, and conditional timelapse viewing when `timelapse_path` is present
+- popup access to the advanced-actions card, which now owns scan/upload/view entry points for timelapse alongside the other archive actions
 
 What is still being tuned inside Phase 1:
 

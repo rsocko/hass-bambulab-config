@@ -820,10 +820,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=114", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=24", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=25", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=1", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
@@ -887,6 +887,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('View Timelapse', action_content)
         self.assertIn('Upload Timelapse', action_content)
         self.assertIn('Replace Timelapse', action_content)
+        self.assertIn('View Archive Metadata', action_content)
+        self.assertIn('get_print_history_archive_detail', action_content)
+        self.assertIn('data-action="copy-json"', action_content)
+        self.assertIn('json-panel', action_content)
+        self.assertIn('json-gutter', action_content)
         self.assertIn('this._requestArchiveAction("scan_timelapse")', action_content)
         self.assertIn('Bambuddy does not stream scan progress.', action_content)
         self.assertIn('Only one timelapse is tracked per archive.', action_content)
@@ -908,6 +913,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('this.shadowRoot ? this.shadowRoot.getElementById("timelapse-upload-input") : null;', action_content)
         self.assertIn('<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">', action_content)
         self.assertIn('<input id="timelapse-upload-input" class="hidden-file-input" type="file" accept=".mp4,.avi,.mkv,video/mp4,video/x-msvideo,video/x-matroska">', action_content)
+
+        init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+        self.assertIn('class ArchiveTimelapseUploadView(HomeAssistantView):', init_content)
+        self.assertIn('hass.http.register_view(ArchiveTimelapseUploadView())', init_content)
         self.assertIn('this._lastRenderSignature = "";', action_content)
         self.assertIn('var nextSignature = this._computeRenderSignature(hass);', action_content)
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
@@ -2266,10 +2275,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=24", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=25", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=32", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=114", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (

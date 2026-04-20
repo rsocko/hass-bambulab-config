@@ -6,10 +6,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._config = null;
     this._archiveOverride = null;
     this._mode = "main";
+    this._metadataBundle = null;
+    this._metadataArchiveId = "";
+    this._metadataError = "";
+    this._metadataRevision = 0;
+    this._jsonClipboard = {};
     this._busy = false;
     this._busyContext = "";
     this._status = "";
     this._statusTone = "info";
+    this._storageMetricsRequestKey = "";
+    this._storageMetricsLoadedKey = "";
     this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
@@ -20,6 +27,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
+      entry_id: config && config.entry_id ? config.entry_id : "",
       upload_endpoint:
         config && config.upload_endpoint
           ? config.upload_endpoint
@@ -31,10 +39,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     };
     this._archiveOverride = null;
     this._mode = "main";
+    this._metadataBundle = null;
+    this._metadataArchiveId = "";
+    this._metadataError = "";
+    this._metadataRevision = 0;
+    this._jsonClipboard = {};
     this._busy = false;
     this._busyContext = "";
     this._status = "";
     this._statusTone = "info";
+    this._storageMetricsRequestKey = "";
+    this._storageMetricsLoadedKey = "";
     this._lastRenderSignature = "";
     this._render();
   }
@@ -43,10 +58,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var nextSignature = this._computeRenderSignature(hass);
     this._hass = hass;
     if (nextSignature === this._lastRenderSignature) {
+      this._maybeLoadStorageMetrics();
       return;
     }
     this._lastRenderSignature = nextSignature;
     this._render();
+    this._maybeLoadStorageMetrics();
   }
 
   connectedCallback() {
@@ -91,6 +108,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._archiveOverride = archive && typeof archive === "object" ? archive : null;
     this._lastRenderSignature = "";
     this._render();
+    this._maybeLoadStorageMetrics();
+  }
+
+  _mergeArchivePatch(patch) {
+    var currentArchive = this._resolveArchive();
+    if (!currentArchive || typeof currentArchive !== "object") {
+      return;
+    }
+    this._setArchive(Object.assign({}, currentArchive, patch && typeof patch === "object" ? patch : {}));
   }
 
   _setStatus(message, tone) {
@@ -265,6 +291,27 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._handleRepair();
       return;
     }
+    if (action === "refresh-storage-metrics") {
+      this._handleRefreshStorageMetrics();
+      return;
+    }
+    if (action === "view-metadata") {
+      this._openMetadataViewer(false);
+      return;
+    }
+    if (action === "refresh-metadata") {
+      this._openMetadataViewer(true);
+      return;
+    }
+    if (action === "back-main") {
+      this._mode = "main";
+      this._render();
+      return;
+    }
+    if (action === "copy-json") {
+      this._handleCopyJson(button.getAttribute("data-copy-target") || "", button.getAttribute("data-copy-label") || "JSON");
+      return;
+    }
     if (action === "delete-archive") {
       this._mode = "confirm-delete-1";
       this._render();
@@ -336,6 +383,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var detailState = detailEntityId ? hass.states[detailEntityId] : null;
     parts.push(detailState ? String(detailState.state || "") : "");
     parts.push(detailState ? String(detailState.last_updated || detailState.last_changed || "") : "");
+    parts.push(String(this._metadataArchiveId || ""));
+    parts.push(String(this._metadataError || ""));
+    parts.push(String(this._metadataRevision || 0));
 
     var baseEntityId = this._config.api_base_entity || "input_text.bambuddy_api_base_url";
     var baseState = hass.states[baseEntityId];
@@ -380,6 +430,194 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return normalizedUrl;
     }
     return normalizedUrl + (normalizedUrl.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(cacheKey);
+  }
+
+  _setMetadataState(bundle, error, archiveId) {
+    this._metadataBundle = bundle && typeof bundle === "object" ? bundle : null;
+    this._metadataError = String(error || "").trim();
+    this._metadataArchiveId = archiveId != null ? String(archiveId) : "";
+    this._metadataRevision += 1;
+    this._lastRenderSignature = "";
+    this._render();
+  }
+
+  _matchingMetadataBundle(archiveId) {
+    var normalizedArchiveId = archiveId != null ? String(archiveId) : "";
+    if (!normalizedArchiveId || !this._metadataBundle || this._metadataArchiveId !== normalizedArchiveId) {
+      return null;
+    }
+    return this._metadataBundle;
+  }
+
+  async _callArchiveDetailService(archiveId) {
+    if (!this._hass || typeof this._hass.callService !== "function" || archiveId <= 0) {
+      throw new Error("Archive action context is unavailable");
+    }
+    var payload = { archive_id: archiveId };
+    if (this._config && this._config.entry_id) {
+      payload.entry_id = String(this._config.entry_id);
+    }
+    return this._hass.callService("bambuddy", "get_print_history_archive_detail", payload, undefined, true);
+  }
+
+  async _openMetadataViewer(forceRefresh) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (archiveId <= 0) {
+      this._setStatus("Archive metadata is unavailable for this print.", "error");
+      return;
+    }
+
+    this._mode = "metadata";
+    this._render();
+
+    if (!forceRefresh && this._matchingMetadataBundle(archiveId)) {
+      return;
+    }
+
+    try {
+      this._setBusyState(true, forceRefresh ? "Refreshing archive metadata..." : "Loading archive metadata...", "info", "metadata");
+      var response = await this._callArchiveDetailService(archiveId);
+      this._busy = false;
+      this._busyContext = "";
+      this._setMetadataState(response && typeof response === "object" ? response : {}, "", archiveId);
+      this._setStatus(forceRefresh ? "Archive metadata refreshed." : "Archive metadata loaded.", "success");
+    } catch (error) {
+      var message = this._describeError(error, "Could not load archive metadata");
+      this._busy = false;
+      this._busyContext = "";
+      this._setMetadataState(null, message, archiveId);
+      this._setStatus(message, "error");
+    }
+  }
+
+  async _handleCopyJson(copyTarget, copyLabel) {
+    var key = String(copyTarget || "").trim();
+    var label = String(copyLabel || "JSON").trim() || "JSON";
+    var text = key ? this._jsonClipboard[key] : "";
+    if (!text) {
+      this._setStatus("Nothing is available to copy for " + label + ".", "error");
+      return;
+    }
+
+    try {
+      if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(text);
+      } else {
+        var textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "readonly");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        textarea.style.pointerEvents = "none";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      this._setStatus(label + " copied to the clipboard.", "success");
+    } catch (_error) {
+      this._setStatus("Could not copy " + label + " to the clipboard.", "error");
+    }
+  }
+
+  _prettyJson(value) {
+    try {
+      return JSON.stringify(value == null ? null : value, null, 2);
+    } catch (error) {
+      return JSON.stringify({
+        error: "Could not serialize JSON payload",
+        message: error && error.message ? String(error.message) : String(error || "Unknown error"),
+      }, null, 2);
+    }
+  }
+
+  _formatJsonLine(line) {
+    var escaped = this._escapeHtml(line);
+    return escaped.replace(
+      /("(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"\s*:|"(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
+      function (match) {
+        var tokenClass = "number";
+        if (/^".*":$/.test(match)) {
+          tokenClass = "key";
+        } else if (/^"/.test(match)) {
+          tokenClass = "string";
+        } else if (match === "true" || match === "false") {
+          tokenClass = "boolean";
+        } else if (match === "null") {
+          tokenClass = "null";
+        }
+        return '<span class="token ' + tokenClass + '">' + match + '</span>';
+      }
+    );
+  }
+
+  _renderJsonCodeBlock(copyKey, value) {
+    var text = this._prettyJson(value);
+    var lines = text.split("\n");
+    this._jsonClipboard[copyKey] = text;
+    return {
+      text: text,
+      lineCount: lines.length,
+      html: '<div class="json-code">' + lines.map(function (line, index) {
+        return '<div class="json-line"><span class="json-gutter">' + String(index + 1) + '</span><span class="json-line-content">' + this._formatJsonLine(line) + '</span></div>';
+      }.bind(this)).join("") + '</div>',
+    };
+  }
+
+  _renderMetadataPanel(title, subtitle, copyKey, copyLabel, value, openByDefault) {
+    var block = this._renderJsonCodeBlock(copyKey, value);
+    return '<details class="json-panel"' + (openByDefault ? ' open' : '') + '>' +
+      '<summary class="json-panel-summary">' +
+      '<div class="json-panel-heading">' +
+      '<div class="json-panel-title">' + this._escapeHtml(title) + '</div>' +
+      '<div class="json-panel-meta">' + this._escapeHtml(String(block.lineCount)) + ' lines · ' + this._escapeHtml(String(block.text.length)) + ' chars</div>' +
+      '</div>' +
+      '<button class="json-copy-button" type="button" data-action="copy-json" data-copy-target="' + this._escapeHtml(copyKey) + '" data-copy-label="' + this._escapeHtml(copyLabel) + '">Copy</button>' +
+      '</summary>' +
+      (subtitle ? '<div class="json-panel-copy">' + this._escapeHtml(subtitle) + '</div>' : '') +
+      '<div class="json-frame">' + block.html + '</div>' +
+      '</details>';
+  }
+
+  _renderMetadataView(archive) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var bundle = this._matchingMetadataBundle(archiveId);
+    var localDetailPayload = bundle || {
+      archive_id: archiveId,
+      status: this._busy ? "loading" : "unavailable",
+      error: this._metadataError || "Archive metadata has not been loaded yet.",
+    };
+    return '<div class="section-stack metadata-view">' +
+      this._renderActionSection(
+        "Metadata",
+        '<div class="actions-grid metadata-toolbar">' +
+          this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+          this._renderActionButton("refresh-metadata", "Refresh Metadata", "mdi:refresh", { disabled: this._busy }) +
+        '</div>' +
+        '<div class="section-copy">View-only debug payloads for this print. The archive payload is the hydrated record currently rendered by the UI. The local detail bundle comes from bambuddy.get_print_history_archive_detail and includes sync, provenance, review, and timeline rows stored in Home Assistant.</div>'
+      ) +
+      this._renderMetadataPanel(
+        "Archive Payload",
+        "Current archive object used by the print-history cards.",
+        "archive-payload",
+        "Archive payload JSON",
+        archive || {},
+        true
+      ) +
+      this._renderMetadataPanel(
+        "Local Detail Bundle",
+        bundle
+          ? "Local store detail bundle returned by the Bambuddy archive-detail service."
+          : this._metadataError
+            ? "The archive-detail service did not return data."
+            : "Load or refresh to fetch the local store detail bundle for this archive.",
+        "local-detail-bundle",
+        "Local detail bundle JSON",
+        localDetailPayload,
+        true
+      ) +
+      '</div>';
   }
 
   _resolveArchivePreviewImage(archive) {
@@ -976,6 +1214,84 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return "error";
   }
 
+  async _callStorageMetricsService(service, archiveId, forceRefresh) {
+    if (!this._hass || typeof this._hass.callService !== "function" || archiveId <= 0) {
+      throw new Error("Archive action context is unavailable");
+    }
+    var payload = {
+      archive_id: archiveId,
+      include_other_files: true,
+      include_extension_breakdown: false,
+    };
+    if (service === "get_print_history_archive_storage_metrics") {
+      payload.refresh = !!forceRefresh;
+    }
+    if (this._config && this._config.entry_id) {
+      payload.entry_id = String(this._config.entry_id);
+    }
+    return this._hass.callService("bambuddy", service, payload, undefined, true);
+  }
+
+  async _fetchArchiveStorageMetrics(forceRefresh) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (archiveId <= 0) {
+      throw new Error("Archive action context is unavailable");
+    }
+    var response = await this._callStorageMetricsService(
+      forceRefresh ? "refresh_print_history_archive_storage_metrics" : "get_print_history_archive_storage_metrics",
+      archiveId,
+      forceRefresh
+    );
+    if (!response || response.success === false) {
+      throw new Error((response && (response.message || response.error)) || "Storage metrics request failed");
+    }
+    var metricsPayload = response && response.storage_metrics && typeof response.storage_metrics === "object"
+      ? response.storage_metrics
+      : null;
+    if (!metricsPayload) {
+      throw new Error("Storage metrics response did not include a metrics payload");
+    }
+    this._storageMetricsLoadedKey = String(archiveId);
+    this._storageMetricsRequestKey = "";
+    this._mergeArchivePatch({ storage_metrics: metricsPayload });
+    return metricsPayload;
+  }
+
+  _maybeLoadStorageMetrics() {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (!archiveId || this._busy) {
+      return;
+    }
+    if (archive && archive.storage_metrics && typeof archive.storage_metrics === "object") {
+      this._storageMetricsLoadedKey = String(archiveId);
+      return;
+    }
+    if (this._storageMetricsLoadedKey === String(archiveId) || this._storageMetricsRequestKey === String(archiveId)) {
+      return;
+    }
+    this._storageMetricsRequestKey = String(archiveId);
+    this._fetchArchiveStorageMetrics(false).catch(function () {
+      this._storageMetricsRequestKey = "";
+    }.bind(this));
+  }
+
+  async _handleRefreshStorageMetrics() {
+    try {
+      this._setBusyState(true, "Refreshing storage metrics...", "info", "storage-metrics");
+      var storageMetrics = await this._fetchArchiveStorageMetrics(true);
+      var totalBytes = storageMetrics && storageMetrics.metrics ? Number(storageMetrics.metrics.total_bytes || 0) : 0;
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(totalBytes > 0 ? ("Storage metrics refreshed. Total tracked storage: " + this._formatBytes(totalBytes) + ".") : "Storage metrics refreshed.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(this._describeError(error, "Storage metrics refresh failed"), "error");
+    }
+  }
+
   async _handleScanTimelapse() {
     try {
       this._setBusyState(true, "Scanning printer for timelapse...", "info", "scan-timelapse");
@@ -1034,17 +1350,128 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       .replace(/'/g, "&#39;");
   }
 
+  _storageMetricsData(archive) {
+    return archive && archive.storage_metrics && typeof archive.storage_metrics === "object"
+      ? archive.storage_metrics
+      : null;
+  }
+
+  _formatBytes(value) {
+    var bytes = Number(value || 0);
+    if (!isFinite(bytes) || bytes <= 0) {
+      return "0 B";
+    }
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    var unitIndex = 0;
+    var normalized = bytes;
+    while (normalized >= 1024 && unitIndex < units.length - 1) {
+      normalized /= 1024;
+      unitIndex += 1;
+    }
+    var precision = normalized >= 100 || unitIndex === 0 ? 0 : normalized >= 10 ? 1 : 2;
+    return normalized.toFixed(precision) + " " + units[unitIndex];
+  }
+
+  _storageMetricsSummaryLine(archive) {
+    var storage = this._storageMetricsData(archive);
+    if (!storage) {
+      return "";
+    }
+    var metrics = storage.metrics && typeof storage.metrics === "object" ? storage.metrics : {};
+    var totalBytes = Number(metrics.total_bytes || 0);
+    if (isFinite(totalBytes) && totalBytes > 0) {
+      return "Tracked storage: " + this._formatBytes(totalBytes);
+    }
+    if (storage.scan_status === "partial") {
+      return "Storage metrics are partial for this archive.";
+    }
+    if (storage.scan_status === "missing") {
+      return "Storage scan found no archive files.";
+    }
+    return "";
+  }
+
+  _storageBreakdownRows(archive) {
+    var storage = this._storageMetricsData(archive);
+    var metrics = storage && storage.metrics && typeof storage.metrics === "object" ? storage.metrics : {};
+    return [
+      { label: "Archive 3MF", value: this._formatBytes(metrics.archive_3mf_bytes || 0) },
+      { label: "Thumbnail", value: this._formatBytes(metrics.thumbnail_bytes || 0) },
+      { label: "Source 3MF", value: this._formatBytes(metrics.source_3mf_bytes || 0) },
+      { label: "Timelapse", value: this._formatBytes(metrics.timelapse_bytes || 0) },
+      { label: "F3D", value: this._formatBytes(metrics.f3d_bytes || 0) },
+      {
+        label: "Photos",
+        value: this._formatBytes(metrics.photo_bytes || 0) + (Number(metrics.photo_count || 0) > 0 ? " · " + String(Number(metrics.photo_count || 0)) + " files" : ""),
+      },
+      {
+        label: "Other Files",
+        value: this._formatBytes(metrics.other_bytes || 0) + (Number(metrics.other_file_count || 0) > 0 ? " · " + String(Number(metrics.other_file_count || 0)) + " files" : ""),
+      },
+      { label: "Total", value: this._formatBytes(metrics.total_bytes || 0), accent: true },
+    ];
+  }
+
+  _renderStorageSection(archive) {
+    var storage = this._storageMetricsData(archive);
+    var metrics = storage && storage.metrics && typeof storage.metrics === "object" ? storage.metrics : {};
+    var scanStatus = storage && storage.scan_status ? String(storage.scan_status) : "not_scanned";
+    var computedAt = storage && storage.computed_at ? String(storage.computed_at) : "";
+    var scanError = storage && storage.scan_error ? String(storage.scan_error) : "";
+    var missingCount = Number(metrics.files_missing_count || 0);
+    var summaryCopy = !storage
+      ? "Load the cached storage scan for this archive or refresh it from the Bambuddy sidecar. This helps break down space usage across the archive 3MF, source file, photos, timelapse, and unclassified leftovers."
+      : scanStatus === "complete"
+        ? "This breakdown comes from the local storage metrics cache backed by the Bambuddy sidecar filesystem scan."
+        : scanStatus === "partial"
+          ? "This archive has a partial storage scan. Some files were missing or the archive folder could not be fully resolved."
+          : scanStatus === "missing"
+            ? "The sidecar did not find tracked files for this archive."
+            : "The storage scan cache is present but not complete yet.";
+    var rowsMarkup = !storage
+      ? '<div class="section-copy">No storage metrics are cached for this archive yet.</div>'
+      : '<div class="storage-grid">' + this._storageBreakdownRows(archive).map(function (row) {
+          return '<div class="storage-metric' + (row.accent ? ' accent' : '') + '">' +
+            '<div class="storage-metric-label">' + this._escapeHtml(row.label) + '</div>' +
+            '<div class="storage-metric-value">' + this._escapeHtml(row.value) + '</div>' +
+          '</div>';
+        }.bind(this)).join("") + '</div>';
+    var metaParts = [];
+    if (computedAt) {
+      metaParts.push("Scanned " + computedAt.replace("T", " ").replace("Z", " UTC"));
+    }
+    if (missingCount > 0) {
+      metaParts.push(String(missingCount) + " missing file" + (missingCount === 1 ? "" : "s"));
+    }
+    if (scanError) {
+      metaParts.push(scanError);
+    }
+    return this._renderActionSection(
+      "Storage",
+      '<div class="actions-grid single-column">' +
+        this._renderActionButton("refresh-storage-metrics", storage ? "Refresh Storage Metrics" : "Load Storage Metrics", "mdi:database-sync-outline", { disabled: this._busy }) +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml(summaryCopy) + '</div>' +
+      rowsMarkup +
+      (metaParts.length ? '<div class="storage-meta">' + this._escapeHtml(metaParts.join(" · ")) + '</div>' : '')
+    );
+  }
+
   _renderSummary(archive) {
     var previewImage = this._resolveArchivePreviewImage(archive);
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Untitled Archive";
     var sourceName = String((archive && archive.source_3mf_path) || "").trim();
     var timelapseName = String((archive && archive.timelapse_path) || "").trim();
+    var storageSummary = this._storageMetricsSummaryLine(archive);
     var sourceBadge = sourceName
       ? '<div class="summary-note">Source 3MF attached: ' + this._escapeHtml(sourceName.split(/[\\/]/).pop()) + "</div>"
       : "";
     var timelapseBadge = timelapseName
       ? '<div class="summary-note">Timelapse attached: ' + this._escapeHtml(timelapseName.split(/[\\/]/).pop()) + "</div>"
+      : "";
+    var storageBadge = storageSummary
+      ? '<div class="summary-note">' + this._escapeHtml(storageSummary) + '</div>'
       : "";
     return '<section class="summary-card">' +
       '<div class="summary-grid">' +
@@ -1056,6 +1483,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '<div class="summary-id">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>' +
       sourceBadge +
       timelapseBadge +
+        storageBadge +
       '</div>' +
       '</div>' +
       '</section>';
@@ -1132,10 +1560,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
           : "Ask Bambuddy to scan the printer for a matching timelapse, or upload one manually as .mp4, .avi, or .mkv. If the archive is missing a printer and Bambuddy only has one configured printer, the scan will assign it automatically first. Only one timelapse is tracked per archive."
       ) + '</div>'
     );
+    var storageActions = this._renderStorageSection(archive);
     var maintenanceActions = this._renderActionSection(
       "Archive",
-      '<div class="actions-grid single-column">' +
+      '<div class="actions-grid">' +
         this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
+        this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
       '</div>'
     );
     var dangerActions = this._renderActionSection(
@@ -1149,6 +1579,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._renderActionSection("Files", fileActions) +
       linkActions +
       timelapseActions +
+      storageActions +
       maintenanceActions +
       dangerActions +
       '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">' +
@@ -1174,6 +1605,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     var archive = this._resolveArchive();
     var confirmDelete = this._mode === "confirm-delete-1" || this._mode === "confirm-delete-2";
+    this._jsonClipboard = {};
     this.shadowRoot.innerHTML = '<style>' +
       ':host{display:block;color:var(--primary-text-color);}' +
       '.shell{display:flex;flex-direction:column;gap:12px;}' +
@@ -1200,6 +1632,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.action-section.danger{border-color:rgba(239,68,68,0.18);background:rgba(183,28,28,0.05);}' +
       '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
       '.section-copy{padding:0 2px;font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
+      '.storage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
+      '.storage-metric{border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:10px 12px;display:grid;gap:4px;}' +
+      '.storage-metric.accent{border-color:rgba(56,189,248,0.32);background:rgba(56,189,248,0.08);}' +
+      '.storage-metric-label{font-size:11px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);}' +
+      '.storage-metric-value{font-size:14px;font-weight:700;line-height:1.35;word-break:break-word;}' +
+      '.storage-meta{padding:0 2px;font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
       '.actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
       '.actions-grid.single-column{grid-template-columns:1fr;}' +
       '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:none;color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:none;}' +
@@ -1211,14 +1649,40 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.action-button.danger{background:rgba(183,28,28,0.14);border-color:rgba(239,68,68,0.24);}' +
       '.confirm-copy{padding:4px 2px 2px;font-size:14px;line-height:1.55;color:var(--primary-text-color);}' +
       '.confirm-grid{grid-template-columns:1fr;}' +
+      '.metadata-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}' +
+      '.json-panel{border:1px solid rgba(255,255,255,0.08);background:rgba(9,14,23,0.78);border-radius:18px;overflow:hidden;}' +
+      '.json-panel[open]{border-color:rgba(96,165,250,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}' +
+      '.json-panel-summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.03);cursor:pointer;}' +
+      '.json-panel-summary::-webkit-details-marker{display:none;}' +
+      '.json-panel-heading{display:flex;flex-direction:column;gap:4px;min-width:0;}' +
+      '.json-panel-title{font-size:13px;font-weight:700;line-height:1.35;word-break:break-word;}' +
+      '.json-panel-meta{font-size:11px;line-height:1.35;color:var(--secondary-text-color);}' +
+      '.json-copy-button{appearance:none;-webkit-appearance:none;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);border-radius:999px;padding:8px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;flex:0 0 auto;}' +
+      '.json-copy-button:hover,.json-copy-button:focus-visible{background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);outline:none;}' +
+      '.json-panel-copy{padding:0 14px 12px;font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
+      '.json-frame{border-top:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(5,10,18,0.96),rgba(10,15,24,0.98));max-height:440px;overflow:auto;}' +
+      '.json-code{font-family:Consolas,"SFMono-Regular",Menlo,monospace;font-size:12px;line-height:1.6;padding:10px 0;min-width:max-content;}' +
+      '.json-line{display:grid;grid-template-columns:56px minmax(0,1fr);align-items:start;}' +
+      '.json-line:hover{background:rgba(255,255,255,0.03);}' +
+      '.json-gutter{padding:0 12px 0 0;text-align:right;color:rgba(148,163,184,0.72);user-select:none;border-right:1px solid rgba(255,255,255,0.06);}' +
+      '.json-line-content{display:block;padding:0 14px;white-space:pre;color:#d4d4d4;}' +
+      '.token.key{color:#9cdcfe;}' +
+      '.token.string{color:#ce9178;}' +
+      '.token.number{color:#b5cea8;}' +
+      '.token.boolean{color:#569cd6;}' +
+      '.token.null{color:#c586c0;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
       '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}}' +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +
       this._renderStatus() +
-      (confirmDelete ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2") : this._renderMain(archive)) +
+      (confirmDelete
+        ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
+        : this._mode === "metadata"
+          ? this._renderMetadataView(archive)
+          : this._renderMain(archive)) +
       '</div>';
   }
 }
@@ -1232,6 +1696,6 @@ if (!window.customCards.some(function (card) { return card && card.type === "pri
   window.customCards.push({
     type: "print-history-archive-actions-card",
     name: "Print History Archive Actions Card",
-    description: "Advanced print-history archive actions for slicer, MakerWorld, download, source upload, repair, and delete.",
+    description: "Advanced print-history archive actions for downloads, metadata inspection, source upload, storage metrics, repair, and delete.",
   });
 }

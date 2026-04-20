@@ -41,6 +41,7 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
+    SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
     TIMELAPSE_UPLOAD_URL,
     SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
@@ -447,6 +448,14 @@ SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA = vol.Schema(
         vol.Optional(CONF_ENTRY_ID): str,
         vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
         vol.Optional("refresh", default=False): bool,
+        vol.Optional("include_other_files", default=True): bool,
+        vol.Optional("include_extension_breakdown", default=False): bool,
+    }
+)
+SERVICE_ARCHIVE_STORAGE_METRICS_BATCH_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required("archive_ids"): vol.Any(str, [vol.Coerce(int)]),
         vol.Optional("include_other_files", default=True): bool,
         vol.Optional("include_extension_breakdown", default=False): bool,
     }
@@ -1017,6 +1026,23 @@ def _normalize_restore_request_payload(call_data: dict[str, Any], *, dry_run: bo
     return payload
 
 
+def _normalize_archive_ids(raw_value: Any) -> list[int]:
+    if isinstance(raw_value, list):
+        values = raw_value
+    else:
+        values = [part.strip() for part in str(raw_value or "").split(",")]
+
+    archive_ids: list[int] = []
+    seen: set[int] = set()
+    for item in values:
+        normalized = _extract_archive_id(item)
+        if normalized <= 0 or normalized in seen:
+            continue
+        seen.add(normalized)
+        archive_ids.append(normalized)
+    return archive_ids
+
+
 def _workflow_response(entry_id: str, workflow) -> dict[str, Any]:
     response = workflow.to_response()
     response[CONF_ENTRY_ID] = entry_id
@@ -1454,6 +1480,178 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
             )
             _LOGGER.warning(
                 "Archive source 3MF upload proxy received runtime error for archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
+                archive_id_value,
+                byte_count,
+                chunk_count,
+                first_chunk_size,
+                file_name,
+                file_content_type,
+                error,
+            )
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "upload_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=502,
+            )
+
+
+class ArchiveTimelapseUploadView(HomeAssistantView):
+    url = TIMELAPSE_UPLOAD_URL
+    name = "api:bambuddy:print-history:archive:timelapse:upload"
+    requires_auth = True
+
+    async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        hass = request.app["hass"]
+        started = perf_counter()
+        archive_id_value = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID) or archive_id)
+        if archive_id_value is None:
+            return web.json_response(
+                {"success": False, "error": "archive_id_required", "message": "archive_id must be a positive integer."},
+                status=400,
+            )
+
+        try:
+            reader = await request.multipart()
+        except ValueError as error:
+            return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
+
+        fields: dict[str, Any] = {}
+        file_name = ""
+        file_content_type = "application/octet-stream"
+        chunks: list[bytes] = []
+        byte_count = 0
+        chunk_count = 0
+        first_chunk_size = 0
+        while True:
+            part = await reader.next()
+            if part is None:
+                break
+            if part.name == "file":
+                file_name = str(getattr(part, "filename", "") or "").strip()
+                file_content_type = str(part.headers.get("Content-Type", "application/octet-stream"))
+                chunks, byte_count, chunk_count, first_chunk_size = await _read_uploaded_file_part(part)
+                continue
+            fields[part.name] = await part.text()
+
+        entry_id_raw = str(fields.get(CONF_ENTRY_ID, "")).strip() or None
+        if not file_name:
+            return web.json_response(
+                {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
+                status=400,
+            )
+
+        normalized_name = file_name.lower()
+        if not normalized_name.endswith((".mp4", ".avi", ".mkv")):
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "invalid_file_type",
+                    "message": "Timelapse upload only accepts .mp4, .avi, or .mkv files.",
+                },
+                status=400,
+            )
+
+        try:
+            resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+            if not await manager.async_ensure_archive_loaded(archive_id_value):
+                raise HomeAssistantError(f"Archive {archive_id_value} was not found in the Bambuddy local store")
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+        try:
+            if byte_count > manager.restore_uploads.max_upload_bytes:
+                raise HomeAssistantError(
+                    f"Upload payload exceeds the configured limit of {manager.restore_uploads.max_upload_bytes} bytes"
+                )
+            if byte_count <= 0:
+                raise HomeAssistantError("Upload payload is empty after multipart parsing")
+
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            upload_response = await client.async_upload_archive_timelapse(
+                archive_id_value,
+                file_name=file_name,
+                mime_type=file_content_type,
+                content=b"".join(chunks),
+            )
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id_value,
+                operation="upload_archive_timelapse",
+                extra_details={
+                    "file_name": file_name,
+                    "byte_count": byte_count,
+                    "chunk_count": chunk_count,
+                },
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
+
+            response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response.update(
+                {
+                    "success": True,
+                    CONF_ENTRY_ID: resolved_entry_id,
+                    CONF_ARCHIVE_ID: archive_id_value,
+                    "upload": {
+                        "file_name": file_name,
+                        "byte_count": byte_count,
+                        "replaced_existing": bool(upload_response and upload_response.get("replaced_existing")),
+                    },
+                }
+            )
+            if upload_response:
+                response["upload_response"] = upload_response
+            return web.json_response(response)
+        except HomeAssistantError as error:
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=byte_count,
+                chunk_count=chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
+            _LOGGER.warning(
+                "Archive timelapse upload failed for archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
+                archive_id_value,
+                byte_count,
+                chunk_count,
+                first_chunk_size,
+                file_name,
+                file_content_type,
+                error,
+            )
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "upload_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=400,
+            )
+        except RuntimeError as error:
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=file_name,
+                file_content_type=file_content_type,
+                byte_count=byte_count,
+                chunk_count=chunk_count,
+                first_chunk_size=first_chunk_size,
+            )
+            _LOGGER.warning(
+                "Archive timelapse upload proxy received runtime error for archive %s (%s bytes, chunks=%s, first_chunk=%s, file=%s, content_type=%s): %s",
                 archive_id_value,
                 byte_count,
                 chunk_count,
@@ -2003,6 +2201,76 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             include_other_files=bool(call.data.get("include_other_files", True)),
             include_extension_breakdown=bool(call.data.get("include_extension_breakdown", False)),
         )
+
+    async def async_handle_refresh_archive_storage_metrics_batch(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_ids = _normalize_archive_ids(call.data.get("archive_ids"))
+        if not archive_ids:
+            raise HomeAssistantError("archive_ids must include at least one positive archive ID")
+
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response["archive_ids"] = archive_ids
+            return error_response
+
+        include_other_files = bool(call.data.get("include_other_files", True))
+        include_extension_breakdown = bool(call.data.get("include_extension_breakdown", False))
+        started = perf_counter()
+        try:
+            sidecar_response = await client.async_scan_archive_storage_batch(
+                {
+                    "archive_ids": archive_ids,
+                    "force": True,
+                    "include_other_files": include_other_files,
+                    "include_extension_breakdown": include_extension_breakdown,
+                }
+            )
+        except RuntimeError as error:
+            return {
+                "success": False,
+                CONF_ENTRY_ID: entry_id,
+                "archive_ids": archive_ids,
+                "error": "archive_storage_scan_batch_failed",
+                "message": str(error),
+            }
+
+        results = sidecar_response.get("results") if isinstance(sidecar_response.get("results"), list) else []
+        persisted_results: list[dict[str, Any]] = []
+        for item in results:
+            if not isinstance(item, dict):
+                continue
+            archive_id = _extract_archive_id(item.get("archive_id"))
+            if archive_id <= 0:
+                continue
+            persisted = await hass.async_add_executor_job(
+                manager.store.save_archive_storage_metrics,
+                archive_id,
+                item,
+            )
+            persisted_results.append(persisted)
+
+        manager.record_mutation(
+            operation="refresh_archive_storage_metrics_batch",
+            archive_id=archive_ids[0],
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "archive_count": len(archive_ids),
+                "completed_count": int(sidecar_response.get("completed_count", len(persisted_results))),
+                "failed_count": int(sidecar_response.get("failed_count", 0)),
+                "include_other_files": include_other_files,
+                "include_extension_breakdown": include_extension_breakdown,
+            },
+        )
+
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            "archive_ids": archive_ids,
+            "completed_count": int(sidecar_response.get("completed_count", len(persisted_results))),
+            "failed_count": int(sidecar_response.get("failed_count", 0)),
+            "errors": sidecar_response.get("errors") if isinstance(sidecar_response.get("errors"), list) else [],
+            "results": persisted_results,
+        }
 
     async def async_handle_get_enrichment_metadata(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
@@ -3159,6 +3427,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
             async_handle_refresh_archive_storage_metrics,
             schema=SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH,
+            async_handle_refresh_archive_storage_metrics_batch,
+            schema=SERVICE_ARCHIVE_STORAGE_METRICS_BATCH_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_APPEND_PRINT_HISTORY_EVENT):

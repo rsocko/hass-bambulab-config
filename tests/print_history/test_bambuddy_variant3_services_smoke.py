@@ -406,6 +406,8 @@ class FakeApiClient:
 class FakeRuntimeRepairClient:
     restore_from_calls: list[dict[str, object]] = []
     restore_verify_calls: list[dict[str, object]] = []
+    storage_scan_calls: list[dict[str, object]] = []
+    storage_scan_batch_calls: list[dict[str, object]] = []
 
     def __init__(self, _session, _base_url: str, _token: str, _timeout_seconds: int) -> None:
         pass
@@ -449,6 +451,58 @@ class FakeRuntimeRepairClient:
             "removable": True,
             "blocking_difference_count": 0,
             "remaining_difference_count": 0,
+        }
+
+    async def async_scan_archive_storage(self, payload: dict[str, object]) -> dict[str, object]:
+        type(self).storage_scan_calls.append(dict(payload))
+        archive_id = int(payload["archive_id"])
+        return {
+            "archive_id": archive_id,
+            "computed_at": "2026-04-18T19:30:00Z",
+            "scan_status": "complete",
+            "metrics": {
+                "archive_3mf_bytes": 98304,
+                "thumbnail_bytes": 4096,
+                "source_3mf_bytes": 32768,
+                "timelapse_bytes": 5242880,
+                "f3d_bytes": 0,
+                "photo_bytes": 204800,
+                "photo_count": 2,
+                "other_bytes": 1024,
+                "other_file_count": 1,
+                "files_missing_count": 0,
+                "total_bytes": 5583872,
+            },
+        }
+
+    async def async_scan_archive_storage_batch(self, payload: dict[str, object]) -> dict[str, object]:
+        type(self).storage_scan_batch_calls.append(dict(payload))
+        archive_ids = [int(value) for value in payload.get("archive_ids", [])]
+        return {
+            "completed_count": len(archive_ids),
+            "failed_count": 0,
+            "errors": [],
+            "results": [
+                {
+                    "archive_id": archive_id,
+                    "computed_at": "2026-04-18T19:35:00Z",
+                    "scan_status": "complete",
+                    "metrics": {
+                        "archive_3mf_bytes": 1000 + archive_id,
+                        "thumbnail_bytes": 100,
+                        "source_3mf_bytes": 200,
+                        "timelapse_bytes": 300,
+                        "f3d_bytes": 0,
+                        "photo_bytes": 400,
+                        "photo_count": 1,
+                        "other_bytes": 50,
+                        "other_file_count": 1,
+                        "files_missing_count": 0,
+                        "total_bytes": 2050 + archive_id,
+                    },
+                }
+                for archive_id in archive_ids
+            ],
         }
 
 
@@ -767,6 +821,9 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA) in registered
@@ -806,6 +863,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     FakeApiClient.archive_slicer_tokens = []
     FakeApiClient.source_slicer_tokens = []
     FakeApiClient.uploaded_source_3mfs = []
+    FakeRuntimeRepairClient.storage_scan_calls = []
+    FakeRuntimeRepairClient.storage_scan_batch_calls = []
 
     try:
         query_response = asyncio.run(
@@ -821,6 +880,21 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         detail_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
                 SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        storage_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS)(
+                SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        storage_refresh_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS)(
+                SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        storage_batch_refresh_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH)(
+                SimpleNamespace(data={"archive_ids": [101, 202]})
             )
         )
         enrichment_metadata_response = asyncio.run(
@@ -965,6 +1039,15 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
     assert detail_response["archive"]["primary_photo_path"] == ""
+    assert storage_response["success"] is True
+    assert storage_response["source"] == "sidecar"
+    assert storage_response["storage_metrics"]["metrics"]["total_bytes"] == 5583872
+    assert storage_refresh_response["success"] is True
+    assert storage_refresh_response["refreshed"] is True
+    assert storage_refresh_response["storage_metrics"]["metrics"]["photo_count"] == 2
+    assert storage_batch_refresh_response["success"] is True
+    assert storage_batch_refresh_response["completed_count"] == 2
+    assert len(storage_batch_refresh_response["results"]) == 2
     assert enrichment_metadata_response["tag_metadata"]["system_tags"] == ["s:123"]
     assert enrichment_metadata_response["tag_metadata"]["user_tags"] == ["display", "hueforge"]
     assert enrichment_metadata_response["mode"] == "MISSING_SPOOL"
@@ -1008,10 +1091,19 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert estimate_response["success"] is True
     assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
+    assert FakeRuntimeRepairClient.storage_scan_calls == [
+        {"archive_id": 101, "force": False, "include_other_files": True, "include_extension_breakdown": False},
+        {"archive_id": 101, "force": True, "include_other_files": True, "include_extension_breakdown": False},
+    ]
+    assert FakeRuntimeRepairClient.storage_scan_batch_calls == [
+        {"archive_ids": [101, 202], "force": True, "include_other_files": True, "include_extension_breakdown": False}
+    ]
+    assert manager.store.load_archive_storage_metrics(101)["metrics"]["total_bytes"] == 2151
+    assert manager.store.load_archive_storage_metrics(202) is None
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 13
+    assert manager.mutation_stats["count"] == 16
     assert manager.mutation_stats["last_operation"] == "delete_print_history_archive"
 
 

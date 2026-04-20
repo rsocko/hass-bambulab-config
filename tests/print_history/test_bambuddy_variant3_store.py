@@ -1957,6 +1957,45 @@ def test_variant3_store_closes_connections_after_repeated_access(tmp_path: Path)
     assert diagnostics["max_open_count"] >= 1
 
 
+def test_variant3_store_persists_archive_storage_metrics_and_exposes_detail_bundle(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    persisted = store.save_archive_storage_metrics(
+        101,
+        {
+            "archive_id": 101,
+            "computed_at": "2026-04-18T19:30:00Z",
+            "scan_status": "complete",
+            "metrics": {
+                "archive_3mf_bytes": 98304,
+                "thumbnail_bytes": 4096,
+                "source_3mf_bytes": 32768,
+                "timelapse_bytes": 5242880,
+                "f3d_bytes": 0,
+                "photo_bytes": 204800,
+                "photo_count": 2,
+                "other_bytes": 1024,
+                "other_file_count": 1,
+                "files_missing_count": 0,
+                "total_bytes": 5583872,
+            },
+        },
+    )
+
+    loaded = store.load_archive_storage_metrics(101)
+    detail_bundle = store.load_archive_detail_bundle(101)
+    stats = store.load_store_stats()
+
+    assert persisted["metrics"]["total_bytes"] == 5583872
+    assert loaded["scan_status"] == "complete"
+    assert loaded["metrics"]["photo_count"] == 2
+    assert detail_bundle["storage_metrics"]["metrics"]["timelapse_bytes"] == 5242880
+    assert stats["archive_storage_metrics_count"] == 1
+    assert stats["archive_storage_metrics_total_bytes"] == 5583872
+
+
 def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

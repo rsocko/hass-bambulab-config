@@ -144,6 +144,8 @@ The sidecar also exposes authenticated archive storage inspection endpoints:
 
 These endpoints read Bambuddy archive metadata from `BAMBUDDY_DB_PATH` and scan the shared archive volume under the same data root.
 
+Home Assistant now consumes the single and batch scan endpoints to cache per-archive storage metrics in the local Variant 3 store.
+
 ## Repair Request Example
 
 ```bash

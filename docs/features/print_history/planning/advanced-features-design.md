@@ -24,7 +24,7 @@ Status below reflects the current state of this repository as of 2026-04-16. `Pa
 | 2.6   | Energy cost enrichment                                              | Medium | High                                            | Partial     | Archive enrichment already writes overall print cost, but measured energy delta capture and dedicated energy enrichment are not implemented. |
 | 2.7   | Rich print notifications                                            | Low    | Medium                                          | Partial     | Print started/completed notifications already exist, but they are still basic and do not use the richer Bambuddy archive data described here. |
 | 2.8   | Spool usage provenance                                              | Medium | Medium                                          | Partial     | Hidden enrichment payload already preserves per-archive spool/filament provenance, but there is no searchable provenance feature or dashboard surfacing yet. |
-| 2.9   | Timelapse lifecycle management                                      | Medium | High                                            | Not started | Photo capture/review exists separately, but no timelapse lifecycle commands, sensors, or review UI are implemented yet. |
+| 2.9   | Timelapse lifecycle management                                      | Medium | High                                            | Partial     | Popup viewer plus advanced-actions scan and upload/replace are now shipped, but candidate selection, delete/reprocess flows, thumbnails/info UI, and review-state integration are still deferred. |
 | 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Partial     | Archive-error state, review/repair-lineage storage, and partial-usage estimation groundwork exist, but no rescan, capability, or admin-repair UX is wired yet. |
 | 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          | Complete    | Archive detail popup and edit/save flows for the initial field set, including project assignment, are implemented. |
 | 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
@@ -521,6 +521,29 @@ This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag st
 
 ## Phase 2.9: Timelapse Lifecycle Management
 
+### Current implementation slice
+
+This phase is no longer purely planned work.
+
+Already shipped in the current popup/advanced-actions stack:
+
+- conditional popup media-header timelapse viewer entry when `timelapse_path` exists
+- dedicated `custom:print-history-timelapse-card` popup viewer
+- advanced-actions `Scan Printer for Timelapse`
+- advanced-actions `Upload Timelapse` and `Replace Timelapse`
+- Home Assistant integration refresh of the local print-history store after scan or upload
+- single-printer fallback that assigns the sole Bambuddy printer to an unassigned archive before scan
+
+Still deferred within Phase 2.9:
+
+- manual `select from candidates` UI when Bambuddy scan returns `available_files`
+- timelapse delete from the popup/action card
+- `info`, `thumbnails`, and `process` UI
+- dedicated timelapse review queue or shared media-review lifecycle work
+- post-process presets such as trim or speed workflows
+
+Authoritative implementation notes for the shipped slice live in `../ui-media/timelapse-actions-and-viewer.md`.
+
 ### API
 
 | Method | Endpoint | Description |
@@ -546,8 +569,16 @@ This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag st
 
 ### Implementation
 
-**REST commands**:
-- `bambuddy_scan_timelapse`
+Current shipped path uses the `bambuddy` custom integration rather than YAML-only REST commands.
+
+Current implementation primitives:
+
+- `bambuddy/print_history_archive_action` websocket intent `scan_timelapse`
+- authenticated HA multipart proxy for `POST /archives/{id}/timelapse/upload`
+- popup viewer card backed by `GET /archives/{id}/timelapse`
+
+Likely follow-on commands or services for the deferred portion:
+
 - `bambuddy_get_timelapse_info`
 - `bambuddy_delete_timelapse`
 - `bambuddy_process_timelapse`

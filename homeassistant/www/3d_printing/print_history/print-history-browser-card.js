@@ -1331,6 +1331,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       await this._runBulkFavoriteToggle();
       return;
     }
+    if (action === "storage") {
+      await this._runBulkStorageMetricsRefresh();
+      return;
+    }
     if (action === "delete") {
       await this._runBulkDelete();
     }
@@ -1447,6 +1451,18 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._response.archives = (Array.isArray(this._response.archives) ? this._response.archives : []).filter(function (archive) {
       return selectedIds.indexOf(String(archive && archive.id || "")) === -1;
     });
+    await this._completeBulkActionAndExitMode();
+  }
+
+  async _runBulkStorageMetricsRefresh() {
+    if (!this._hass || !this._selectedArchiveCount()) {
+      return;
+    }
+    await this._hass.callService("bambuddy", "refresh_print_history_archive_storage_metrics_batch", {
+      archive_ids: this._selectedArchiveIdsCsv(),
+      include_other_files: true,
+      include_extension_breakdown: false,
+    }, undefined, true);
     await this._completeBulkActionAndExitMode();
   }
 

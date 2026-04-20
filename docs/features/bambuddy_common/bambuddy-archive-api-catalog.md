@@ -171,12 +171,21 @@ Alternatively, `PATCH /{id}` with `{"is_favorite": true}` sets it directly witho
 |--------|----------|-------------|--------------|
 | `GET` | `/{id}/timelapse` | Get timelapse video (unauthenticated) | Display/link |
 | `DELETE` | `/{id}/timelapse` | Delete timelapse | Unlikely |
-| `POST` | `/{id}/timelapse/scan` | Scan printer for matching timelapse and attach | Potentially useful automation |
-| `POST` | `/{id}/timelapse/select` | Manually select timelapse file from printer | Not from HA |
-| `POST` | `/{id}/timelapse/upload` | Upload timelapse video | Not from HA |
-| `GET` | `/{id}/timelapse/info` | Get video metadata for editor | Not from HA |
+| `POST` | `/{id}/timelapse/scan` | Scan printer for matching timelapse and attach | **Shipped from HA popup** via integration websocket action |
+| `POST` | `/{id}/timelapse/select` | Manually select timelapse file from printer | Not yet from HA |
+| `POST` | `/{id}/timelapse/upload` | Upload timelapse video | **Shipped from HA popup** via authenticated multipart proxy |
+| `GET` | `/{id}/timelapse/info` | Get video metadata for editor | Not yet from HA |
 | `GET` | `/{id}/timelapse/thumbnails` | Generate timeline thumbnail frames | Not from HA |
 | `POST` | `/{id}/timelapse/process` | Process timelapse (trim, speed, audio) | Not from HA |
+
+### Timelapse Notes
+
+- Bambuddy stores a single `timelapse_path` on the archive, so HA must treat upload as `replace`, not multi-file append.
+- The upload route currently validates file extension only and accepts `.mp4`, `.avi`, and `.mkv`.
+- The scan route requires the archive to have `printer_id`. In this repo's HA integration, the scan action now patches the archive with the sole configured Bambuddy printer first when the archive is unassigned and Bambuddy only has one printer.
+- The scan route does not stream progress. HA should show a busy state rather than a fake progress bar.
+- Scan returns `available_files` when no confident match is found, but HA does not yet implement the follow-on manual-select UI for that result.
+- Non-MP4 uploads may be background-converted by Bambuddy after attach for browser compatibility.
 
 ---
 

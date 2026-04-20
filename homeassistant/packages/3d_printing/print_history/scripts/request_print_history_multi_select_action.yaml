@@ -3,7 +3,7 @@ request_print_history_multi_select_action:
   alias: Request Print History Multi Select Action
   fields:
     action:
-      description: Request key such as select_all, tag, project, favorite, or delete.
+      description: Request key such as select_all, tag, project, favorite, storage, or delete.
       required: true
       selector:
         text:

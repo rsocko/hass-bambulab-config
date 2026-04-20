@@ -78,6 +78,7 @@ card:
       const tagSelector = byIcon('mdi:tag-multiple-outline');
       const projectSelector = byIcon('mdi:folder-multiple-outline');
       const favoriteSelector = byIcon('mdi:star-circle-outline');
+      const storageSelector = byIcon('mdi:database-sync-outline');
       const deleteSelector = byIcon('mdi:trash-can-outline');
       const multiModeSelectors = [
         selectedCountSelector,
@@ -86,6 +87,7 @@ card:
         tagSelector,
         projectSelector,
         favoriteSelector,
+        storageSelector,
         deleteSelector,
       ];
       const hiddenNormalSelectors = [
@@ -105,7 +107,7 @@ card:
         ...(atFirstPage ? [firstSelector, prevSelector] : []),
         ...(atLastPage ? [nextSelector, lastSelector] : []),
       ];
-      const multiDisabledSelectors = hasSelection ? [] : [tagSelector, projectSelector, favoriteSelector, deleteSelector];
+      const multiDisabledSelectors = hasSelection ? [] : [tagSelector, projectSelector, favoriteSelector, storageSelector, deleteSelector];
       return `
         ha-card {
           overflow: visible !important;
@@ -504,6 +506,18 @@ card:
               perform_action: script.request_print_history_multi_select_action
               data:
                 action: favorite
+          - name: Storage
+            icon: mdi:database-sync-outline
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: storage
           - name: Delete
             icon: mdi:trash-can-outline
             show_icon: true

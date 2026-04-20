@@ -234,6 +234,35 @@ refresh_print_history_archive_storage_metrics:
       selector:
         boolean:
 
+refresh_print_history_archive_storage_metrics_batch:
+  name: Refresh Print History Archive Storage Metrics Batch
+  description: Refresh per-archive storage metrics for multiple archives from the Bambuddy sidecar and store the results locally.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    archive_ids:
+      name: Archive IDs
+      description: Comma-separated archive IDs or an array of archive IDs to refresh.
+      required: true
+      selector:
+        text:
+    include_other_files:
+      name: Include Other Files
+      description: Include unclassified files under each archive folder in the total and other-bytes buckets.
+      required: false
+      selector:
+        boolean:
+    include_extension_breakdown:
+      name: Include Extension Breakdown
+      description: Include an extension-to-bytes breakdown for unclassified files.
+      required: false
+      selector:
+        boolean:
+
 get_print_history_archive_enrichment_metadata:
   name: Get Print History Archive Enrichment Metadata
   description: Return the system-managed enrichment tags and hidden note payload for one archive, plus a filtered row view for operator review.
