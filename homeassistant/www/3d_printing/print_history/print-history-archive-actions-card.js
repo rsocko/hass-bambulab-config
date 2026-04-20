@@ -116,7 +116,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (this._hass && this._config && this._config.detail_entity) {
       var detailState = this._hass.states && this._hass.states[this._config.detail_entity];
       if (detailState && detailState.attributes && detailState.attributes.archive && typeof detailState.attributes.archive === "object") {
-        return Object.assign({}, parsed, detailState.attributes.archive);
+        var detailArchive = detailState.attributes.archive;
+        var parsedId = parsed && parsed.id != null ? String(parsed.id) : "";
+        var detailId = detailArchive && detailArchive.id != null ? String(detailArchive.id) : "";
+        if (!parsedId || !detailId || parsedId === detailId) {
+          return Object.assign({}, parsed, detailArchive);
+        }
       }
     }
 
