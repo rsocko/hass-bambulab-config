@@ -2277,7 +2277,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=34", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
@@ -2413,6 +2413,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('const configArchive = this._archiveFromConfig();', content)
         self.assertIn('if (typeof input.showPicker === "function") {', content)
         self.assertIn('openUpload.onclick = () => this._openReplacementUploadPicker();', content)
+        self.assertIn('.hidden-file-input{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}', content)
+        self.assertIn('<input id="replacement-upload-input" class="hidden-file-input" type="file" accept=".3mf,.gcode.3mf" tabindex="-1" aria-hidden="true" />', content)
         self.assertIn('if (!customElements.get("print-history-archive-restore-card")) {', content)
         self.assertIn('customElements.define("print-history-archive-restore-card", PrintHistoryArchiveRestoreCard);', content)
 

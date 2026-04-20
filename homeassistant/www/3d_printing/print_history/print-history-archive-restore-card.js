@@ -430,7 +430,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
         .status{font-size:13px;line-height:1.5;}
         .status.error{color:var(--error-color);}
         .status.ok{color:var(--secondary-text-color);}
-        .hidden{display:none;}
+        .hidden-file-input{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}
       </style>
       <ha-card>
         <div class="stack">
@@ -452,7 +452,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
               <button id="open-upload" class="action primary" ${this._busy ? "disabled" : ""}>Upload Replacement 3MF</button>
               ${this._button("Create Replacement Archive", "create", !uploadSessionId || !!targetArchiveId || this._busy, "primary")}
             </div>
-            <input id="replacement-upload-input" class="hidden" type="file" accept=".3mf,.gcode.3mf" />
+            <input id="replacement-upload-input" class="hidden-file-input" type="file" accept=".3mf,.gcode.3mf" tabindex="-1" aria-hidden="true" />
             <div class="meta" style="margin-top:8px;">Upload session: ${uploadSessionId || "none"}</div>
           </div>
 
