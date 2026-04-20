@@ -9,6 +9,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._selectionSignature = "";
     this._queryToken = 0;
     this._refreshTimer = null;
+    this._refreshIndicatorSignature = "";
     this._loading = false;
     this._error = "";
     this._response = { archives: [], query: {} };
@@ -56,6 +57,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._querySignature = "";
     this._viewSignature = "";
     this._selectionSignature = "";
+    this._refreshIndicatorSignature = "";
     this._selectedArchiveIds = {};
     this._handledMultiSelectRequest = "";
     this._bulkDialog = null;
@@ -71,6 +73,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
     if (!this._config) {
       return;
     }
+
+    this._syncRefreshIndicator();
 
     var nextQuerySignature = this._buildQuerySignature(hass);
     var nextViewSignature = this._buildViewSignature(hass);
@@ -93,6 +97,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       this._selectionSignature = nextSelectionSignature;
       this._applySelectionOnlyState();
     }
+
+    this._syncRefreshIndicator();
   }
 
   connectedCallback() {
@@ -139,11 +145,17 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".title-version{display:inline-flex;align-items:center;min-height:20px;padding:0 8px;border-radius:999px;background:rgba(21,101,192,0.14);color:#1565C0;font-size:11px;font-weight:800;letter-spacing:0.04em;line-height:1.1;text-transform:uppercase;}" +
       ".status{padding:18px;border-radius:18px;background:rgba(148,163,184,0.12);color:var(--secondary-text-color);line-height:1.5;}" +
       ".status.error{color:var(--error-color);}" +
+      ".body-host{position:relative;}" +
       ".grid{display:grid;gap:16px;}" +
       ".grid.compact{grid-template-columns:repeat(auto-fit,minmax(360px,1fr));}" +
       ".grid.media{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}" +
       ".grid.list{grid-template-columns:1fr;}" +
       ".grid.loading{pointer-events:none;}" +
+      ".grid.refreshing{opacity:0.98;}" +
+      ".refresh-indicator{position:absolute;top:12px;right:12px;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:999px;background:rgba(15,23,42,0.68);border:1px solid rgba(255,255,255,0.10);backdrop-filter:blur(8px);color:#fff;font-size:11px;font-weight:700;line-height:1.1;letter-spacing:0.01em;z-index:6;pointer-events:none;box-shadow:0 8px 18px rgba(15,23,42,0.16);opacity:1;transition:opacity .16s ease,transform .16s ease;}" +
+      ".refresh-indicator.hidden{opacity:0;transform:translateY(-4px);}" +
+      ".refresh-dot{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:0.9;animation:printHistoryRefreshPulse 1.1s ease-in-out infinite;}" +
+      "@keyframes printHistoryRefreshPulse{0%{transform:scale(0.82);opacity:0.55;}50%{transform:scale(1);opacity:1;}100%{transform:scale(0.82);opacity:0.55;}}" +
       ".card{position:relative;z-index:0;border:1px solid color-mix(in srgb, var(--divider-color) 78%, rgba(255,255,255,0.12));border-radius:22px;background:linear-gradient(180deg, color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 95%, rgba(255,255,255,0.04)), color-mix(in srgb, var(--ha-card-background,var(--card-background-color)) 99%, rgba(255,255,255,0.01)));overflow:visible;cursor:pointer;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease, z-index .16s ease;}" +
       ".card::before{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);opacity:0;transition:opacity .16s ease;pointer-events:none;}" +
       ".card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:transparent;box-shadow:inset 5px 0 0 transparent;opacity:0;transition:opacity .16s ease, box-shadow .16s ease;pointer-events:none;}" +
@@ -349,14 +361,16 @@ class PrintHistoryBrowserCard extends HTMLElement {
       "</style>" +
       "<ha-card>" +
       (this._config && this._config.hide_title ? "" : '<div class="title"></div>') +
-      '<div id="body" class="status">Loading print history…</div>' +
+      '<div class="body-host"><div id="body" class="status">Loading print history…</div><div id="refresh-indicator" class="refresh-indicator hidden" aria-live="polite"><span class="refresh-dot"></span><span>Refreshing print history…</span></div></div>' +
       '<div id="dialog-host"></div>' +
       "</ha-card>";
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v112</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v113</span>';
     }
+
+    this._syncRefreshIndicator(true);
   }
 
   _buildQuerySignature(hass) {
@@ -425,7 +439,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     this._loading = true;
     this._error = "";
-    this._renderBody();
+    if (Array.isArray(this._response.archives) && this._response.archives.length) {
+      this._syncRefreshIndicator(true);
+    } else {
+      this._renderBody();
+    }
     this._refreshTimer = setTimeout(function () {
       this._refreshTimer = null;
       this._debugStats.executedRefreshes += 1;
@@ -456,6 +474,55 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._loading = false;
     this._viewSignature = this._buildViewSignature(this._hass);
     this._renderBody();
+    this._syncRefreshIndicator(true);
+  }
+
+  _backendRefreshState() {
+    var entity = this._hass && this._hass.states ? this._hass.states[this._config.browser_status_entity] : null;
+    var state = entity ? String(entity.state || "").trim().toLowerCase() : "";
+    var attributes = entity && entity.attributes ? entity.attributes : {};
+    return {
+      state: state,
+      message: String(attributes.message || "").trim(),
+      lastRefreshStartedAt: String(attributes.last_refresh_started_at || "").trim(),
+      lastRefresh: String(attributes.last_refresh || "").trim(),
+    };
+  }
+
+  _refreshIndicatorText() {
+    var backend = this._backendRefreshState();
+    if (backend.state === "refreshing") {
+      return "Refreshing print history...";
+    }
+    if (this._loading) {
+      return "Updating print history...";
+    }
+    return "";
+  }
+
+  _syncRefreshIndicator(force) {
+    var indicator = this.shadowRoot && this.shadowRoot.getElementById("refresh-indicator");
+    if (!indicator) {
+      return;
+    }
+    var backend = this._backendRefreshState();
+    var message = this._refreshIndicatorText();
+    var shouldShow = !!message;
+    var signature = JSON.stringify({
+      loading: this._loading,
+      backendState: backend.state,
+      backendMessage: backend.message,
+      lastRefreshStartedAt: backend.lastRefreshStartedAt,
+      lastRefresh: backend.lastRefresh,
+      visible: shouldShow,
+      message: message,
+    });
+    if (!force && signature === this._refreshIndicatorSignature) {
+      return;
+    }
+    this._refreshIndicatorSignature = signature;
+    indicator.className = "refresh-indicator" + (shouldShow ? "" : " hidden");
+    indicator.innerHTML = '<span class="refresh-dot"></span><span>' + this._escapeHtml(message || "Refreshing print history...") + '</span>';
   }
 
   _debugEnabled() {
@@ -658,11 +725,14 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
 
-    if (this._loading) {
+    var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
+
+    if (this._loading && !archives.length) {
       var loadingVariant = this._variant();
       body.className = "grid " + loadingVariant.toLowerCase() + " loading";
       body.innerHTML = this._renderSkeletonGrid(loadingVariant);
       this._renderBulkDialog();
+      this._syncRefreshIndicator(true);
       return;
     }
 
@@ -670,23 +740,25 @@ class PrintHistoryBrowserCard extends HTMLElement {
       body.className = "status error";
       body.textContent = this._error;
       this._renderBulkDialog();
+      this._syncRefreshIndicator(true);
       return;
     }
 
-    var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
     this._reconcileMultiSelectState(archives);
     if (!archives.length && this._config.show_empty_state) {
       body.className = "status";
       body.textContent = "No matching archives. Adjust filters or refresh the archive cache.";
       this._renderBulkDialog();
+      this._syncRefreshIndicator(true);
       return;
     }
 
     var variant = this._variant();
     var variantClass = variant.toLowerCase();
-    body.className = "grid " + variantClass;
+    body.className = "grid " + variantClass + (this._loading ? " refreshing" : "");
     body.innerHTML = archives.map(this._renderArchiveCard.bind(this, variant)).join("");
     this._renderBulkDialog();
+    this._syncRefreshIndicator(true);
   }
 
   _renderSkeletonGrid(variant) {

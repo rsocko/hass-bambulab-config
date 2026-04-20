@@ -442,28 +442,25 @@ class PrintHistoryStore:
             "updated_count": updated_count,
             "unchanged_count": len(unchanged_ids),
             "removed_count": len(removed_ids),
-                    enrichment_status,
             **preparation_stats,
         }
         _LOGGER.info(
             "Delta-synced Bambuddy print history store: total=%s inserted=%s updated=%s unchanged=%s removed=%s fast_unchanged=%s serialized=%s",
             stats["total_count"],
-                "enrichment_status": normalize_enrichment_status_value(row[5]),
-                "started_at": as_text(row[6]).strip(),
-                "completed_at": as_text(row[7]).strip(),
-                "created_at": as_text(row[8]).strip(),
-                "actual_time_seconds": as_int(row[9]),
-                "print_time_seconds": as_int(row[10]),
-                "filament_used_grams": as_float(row[11]),
-                "filament_type": as_text(row[12]).strip(),
-                "filament_color": as_text(row[13]).strip(),
-                "cost": as_float(row[14]),
-                "designer": as_text(row[15]).strip(),
-                "is_favorite": as_int(row[16]),
-                "object_count": max(1, as_int(row[17], 1)),
-                "layer_height": as_text(row[18]).strip(),
-                "tags": as_text(row[19]).strip(),
-                "thumbnail_path": as_text(row[20]).strip(),
+            stats["inserted_count"],
+            stats["updated_count"],
+            stats["unchanged_count"],
+            stats["removed_count"],
+            stats["fast_unchanged_count"],
+            stats["serialized_count"],
+        )
+        return stats
+
+    def replace_archive(self, archive: dict[str, Any]) -> dict[str, Any]:
+        archive_id = as_int(archive.get("id"))
+        if archive_id <= 0:
+            raise ValueError("archive.id must be a positive integer")
+        timestamp = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             self._ensure_schema(connection)
             existing_row = connection.execute(

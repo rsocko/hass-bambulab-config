@@ -7,6 +7,7 @@ entities:
   - input_number.print_history_multi_select_count
   - input_boolean.print_history_multi_select_all_favorites
   - input_text.print_history_multi_select_request
+  - sensor.bambuddy_print_history_browser_status
   - sensor.bambuddy_print_history_browser_page_info
   - sensor.bambuddy_print_history_browser_filtered
 card_mod:
@@ -43,6 +44,7 @@ card:
       const pageInfoAttrs = states['sensor.bambuddy_print_history_browser_page_info']?.attributes || {};
       const activeVariant = states['input_select.print_history_card_variant']?.state || '';
       const isMediaVariant = activeVariant === 'Media';
+      const browserRefreshing = states['sensor.bambuddy_print_history_browser_status']?.state === 'refreshing';
       const multiSelectMode = states['input_boolean.print_history_multi_select_mode']?.state === 'on';
       const selectedCount = Math.max(0, Number(states['input_number.print_history_multi_select_count']?.state || 0) || 0);
       const hasSelection = selectedCount > 0;
@@ -147,11 +149,24 @@ card:
           min-width: 0 !important;
           flex: 0 0 auto !important;
         }
+        @keyframes printHistoryToolbarSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
         ${multiSelectMode ? `${hiddenNormalSelectors.join(',\n        ')} {
           display: none !important;
         }` : `${multiModeSelectors.join(',\n        ')} {
           display: none !important;
         }`}
+        ${browserRefreshing ? `${refreshSelector} {
+          background: rgba(21, 101, 192, 0.18) !important;
+          box-shadow: inset 0 0 0 1px rgba(21, 101, 192, 0.32) !important;
+        }
+        ${refreshSelector} ha-icon {
+          color: #1565c0 !important;
+          animation: printHistoryToolbarSpin 1s linear infinite;
+          transform-origin: center;
+        }` : ''}
         ${layoutButtonSelector},
         ${layoutButtonSelector} *,
         ${layoutButtonSelector} .bubble-dropdown-arrow,
