@@ -12,6 +12,12 @@ reenrich_print_history_archive:
       required: false
       selector:
         text:
+    slot_overrides:
+      name: Slot Overrides
+      description: Optional JSON or shorthand text such as SLOT=1 TRAY=B2. Overrides are persisted into the hidden payload and used before heuristic matching.
+      required: false
+      selector:
+        text:
     refresh_browser:
       name: Refresh Browser
       description: Refresh the print-history browser after saving. Defaults to true.
@@ -28,6 +34,7 @@ reenrich_print_history_archive:
             enrichment_marker: "+>"
             recovery_marker: "[RECOVERY_AUDIT_V1]"
             requested_archive_id: "{{ archive_id | string | trim if archive_id is defined else '' }}"
+            requested_slot_overrides_raw: "{{ slot_overrides if slot_overrides is defined else '' }}"
             resolved_archive_id: "{{ requested_archive_id | string | trim if (requested_archive_id | string | trim != '') else (states('input_text.print_history_popup_archive_id') | default('', true) | string | trim) }}"
             debug_enabled: "{{ states('input_boolean.print_history_debug_instrumentation') == 'on' }}"
             reenrich_started_ts: "{{ as_timestamp(now()) | float(0) }}"
@@ -130,6 +137,80 @@ reenrich_print_history_archive:
                     {% endif %}
                   {% endfor %}
                   {{ ns.items | tojson | from_json }}
+                requested_slot_overrides: >-
+                  {% set raw = requested_slot_overrides_raw %}
+                  {% if raw is mapping %}
+                    {% set rows = [raw] %}
+                  {% elif raw is iterable and raw is not string and raw is not mapping %}
+                    {% set rows = raw %}
+                  {% else %}
+                    {% set text = raw | string | trim %}
+                    {% if text | length == 0 %}
+                      {% set rows = [] %}
+                    {% elif text.startswith('[') or text.startswith('{') %}
+                      {% set parsed = text | from_json([]) %}
+                      {% if parsed is mapping %}
+                        {% set rows = [parsed] %}
+                      {% elif parsed is iterable and parsed is not string and parsed is not mapping %}
+                        {% set rows = parsed %}
+                      {% else %}
+                        {% set rows = [] %}
+                      {% endif %}
+                    {% else %}
+                      {% set ns = namespace(items=[]) %}
+                      {% for chunk in text.replace(';', '\n').split('\n') %}
+                        {% set line = chunk | string | trim %}
+                        {% if line | length > 0 %}
+                          {% set row = namespace(value={}) %}
+                          {% for token in line.replace(',', ' ').split() %}
+                            {% if '=' in token %}
+                              {% set pair = token.split('=', 1) %}
+                              {% set key = pair[0] | string | lower | trim %}
+                              {% set value = pair[1] | string | trim %}
+                              {% if value | length > 0 %}
+                                {% if key in ['slot', 'slot_id'] %}
+                                  {% set row.value = dict(row.value, slot_id=value) %}
+                                {% elif key == 'tray' %}
+                                  {% set row.value = dict(row.value, tray=value) %}
+                                {% elif key in ['spool', 'spool_id'] %}
+                                  {% set row.value = dict(row.value, spool_id=value | int(0)) %}
+                                {% elif key in ['filament', 'filament_id'] %}
+                                  {% set row.value = dict(row.value, filament_id=value | int(0)) %}
+                                {% endif %}
+                              {% endif %}
+                            {% endif %}
+                          {% endfor %}
+                          {% if row.value.slot_id is defined %}
+                            {% set ns.items = ns.items + [row.value] %}
+                          {% endif %}
+                        {% endif %}
+                      {% endfor %}
+                      {% set rows = ns.items %}
+                    {% endif %}
+                  {% endif %}
+                  {% set ns = namespace(items=[]) %}
+                  {% for item in rows if item is mapping %}
+                    {% set slot_id = item.slot_id | default('', true) | string | trim %}
+                    {% if slot_id | length > 0 %}
+                      {% set row = {'slot_id': slot_id} %}
+                      {% set tray_value = item.tray | default('', true) | string | trim %}
+                      {% if tray_value | length > 0 %}
+                        {% set row = dict(row, tray=tray_value) %}
+                      {% endif %}
+                      {% if item.spool_id is defined and item.spool_id is not none and (item.spool_id | string | trim) | length > 0 %}
+                        {% set row = dict(row, spool_id=item.spool_id | int(0)) %}
+                      {% endif %}
+                      {% if item.filament_id is defined and item.filament_id is not none and (item.filament_id | string | trim) | length > 0 %}
+                        {% set row = dict(row, filament_id=item.filament_id | int(0)) %}
+                      {% endif %}
+                      {% if row | count > 1 %}
+                        {% set ns.items = ns.items + [row] %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                  {{ ns.items | tojson | from_json }}
+                effective_slot_overrides: >-
+                  {{ (requested_slot_overrides if requested_slot_overrides | count > 0 else existing_slot_overrides) | tojson | from_json }}
                 existing_user_tags: >-
                   {% set ns = namespace(result=[]) %}
                   {% for tag in existing_tags_raw.split(',') %}
@@ -265,19 +346,74 @@ reenrich_print_history_archive:
                   {% endif %}
                   {{ ns.rows | tojson | from_json }}
                 archive_slot_rows_with_overrides: >-
+                  {% set extra = archive_detail.extra_data | default({}, true) %}
+                  {% set print_data = extra.get('_print_data', {}) if extra is mapping else {} %}
+                  {% set raw_data = print_data.get('raw_data', {}) if print_data is mapping else {} %}
+                  {% set raw_ams = raw_data.get('ams', []) if raw_data is mapping else [] %}
+                  {% set tray_candidates = namespace(items=[]) %}
+                  {% for ams in raw_ams if ams is mapping %}
+                    {% set ams_index = ams.id | default(loop.index0, true) | int(loop.index0) %}
+                    {% for tray in ams.tray | default([], true) if tray is mapping %}
+                      {% set tray_index = tray.id | default(loop.index0, true) | int(loop.index0) %}
+                      {% if ams_index == 0 %}
+                        {% set tray_code = 'A' ~ (tray_index + 1) %}
+                      {% elif ams_index == 1 %}
+                        {% set tray_code = 'B' ~ (tray_index + 1) %}
+                      {% else %}
+                        {% set tray_code = 'AMS' ~ (ams_index + 1) ~ '-' ~ (tray_index + 1) %}
+                      {% endif %}
+                      {% set color_raw = tray.tray_color | default('', true) | string | trim | replace('#', '') | replace('"', '') %}
+                      {% if color_raw | length == 8 %}
+                        {% set color_raw = color_raw[0:6] %}
+                      {% endif %}
+                      {% set color_value = '#' ~ color_raw.upper() if color_raw | length == 6 else none %}
+                      {% set sub_brand = tray.tray_sub_brands | default('', true) | string | trim %}
+                      {% set profile_name = 'Bambu ' ~ sub_brand if sub_brand | length > 0 and not sub_brand.startswith('Bambu') else sub_brand %}
+                      {% set uuid_value = tray.tray_uuid | default('', true) | string | trim('"') %}
+                      {% set tray_candidates.items = tray_candidates.items + [{
+                        'tray_code': tray_code,
+                        'tray_uuid': uuid_value,
+                        'tray_type': tray.tray_type | default('', true) | string,
+                        'color_hex': color_value,
+                        'profile_name': profile_name,
+                        'vendor_hint': 'Bambu Lab' if (uuid_value | length > 0 and not uuid_value | lower | regex_match('^0+$')) or profile_name.startswith('Bambu') else ''
+                      }] %}
+                    {% endfor %}
+                  {% endfor %}
                   {% set ns = namespace(rows=[]) %}
                   {% for slot in archive_slot_rows %}
                     {% set override = namespace(value={}) %}
                     {% set slot_key = slot.slot_id | default('', true) | string | trim %}
-                    {% for item in existing_slot_overrides if item is mapping %}
+                    {% for item in effective_slot_overrides if item is mapping %}
                       {% if slot_key | length > 0 and item.slot_id | default('', true) | string | trim == slot_key %}
                         {% set override.value = item %}
                       {% endif %}
                     {% endfor %}
                     {% if override.value is mapping and override.value | count > 0 %}
                       {% set row = dict(slot) %}
+                      {% set override_tray = override.value.tray | default('', true) | string | trim %}
+                      {% set override_tray_candidate = namespace(value={}) %}
+                      {% if override_tray | length > 0 %}
+                        {% for tray_candidate in tray_candidates.items %}
+                          {% if tray_candidate.tray_code == override_tray and not (override_tray_candidate.value is mapping and override_tray_candidate.value.tray_code is defined) %}
+                            {% set override_tray_candidate.value = tray_candidate %}
+                          {% endif %}
+                        {% endfor %}
+                      {% endif %}
                       {% if override.value.tray is defined %}
                         {% set row = dict(row, tray=override.value.tray | string) %}
+                      {% endif %}
+                      {% if override_tray_candidate.value is mapping and override_tray_candidate.value.tray_code is defined %}
+                        {% set row = dict(
+                          row,
+                          tray_uuid=override_tray_candidate.value.tray_uuid | default('', true),
+                          type=override_tray_candidate.value.tray_type | default(row.type | default('', true), true),
+                          color_hex=override_tray_candidate.value.color_hex | default(row.color_hex | default(none, true), true),
+                          profile_name=override_tray_candidate.value.profile_name | default(row.profile_name | default('', true), true),
+                          vendor_hint=override_tray_candidate.value.vendor_hint | default(row.vendor_hint | default('', true), true),
+                          name_hint=(override_tray_candidate.value.profile_name | default(row.name_hint | default('', true), true)),
+                          am=''
+                        ) %}
                       {% endif %}
                       {% if override.value.spool_id is defined %}
                         {% set row = dict(row, spool_id=override.value.spool_id | int(0)) %}
@@ -835,6 +971,9 @@ reenrich_print_history_archive:
                     's': candidate_payload_status,
                     'F': candidate_filaments
                   } %}
+                  {% if effective_slot_overrides | count > 0 %}
+                    {% set payload = dict(payload, slot_overrides=effective_slot_overrides) %}
+                  {% endif %}
                   {% if archive_row_source != 'unavailable' %}
                     {% set payload = dict(payload, src=archive_row_source) %}
                   {% endif %}

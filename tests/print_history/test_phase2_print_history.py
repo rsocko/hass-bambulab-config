@@ -825,10 +825,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=102", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=103", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=42", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=54", content)
-        self.assertNotIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=5", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=6", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_photo_gallery_uses_top_left_advanced_actions_menu_and_delete_confirmations(self):
@@ -843,8 +843,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('data-action="advanced-actions"', content)
         self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', content)
-        self.assertIn('window.__printHistoryArchiveActionsCardPromise', content)
-        self.assertIn('print-history-archive-actions-card.js?v=5', content)
+        self.assertNotIn('window.__printHistoryArchiveActionsCardPromise', content)
+        self.assertNotIn('print-history-archive-actions-card.js?v=5', content)
         self.assertIn('Files', action_content)
         self.assertIn('Links', action_content)
         self.assertIn('Archive', action_content)
@@ -1332,7 +1332,11 @@ class TestManualReEnrichFallbacks(unittest.TestCase):
         self.assertIn("dict(payload, src=archive_row_source)", content)
         self.assertIn("dict(payload, reason=archive_row_reason)", content)
         self.assertIn("existing_slot_overrides", content)
+        self.assertIn("requested_slot_overrides", content)
+        self.assertIn("effective_slot_overrides", content)
         self.assertIn("archive_slot_rows_with_overrides", content)
+        self.assertIn("override_tray_candidate", content)
+        self.assertIn("tray_candidate.tray_code == override_tray", content)
         self.assertIn("manual slot overrides", content)
         self.assertIn("Print History Re-Enrich Saved Diagnostic Only", content)
         self.assertIn("hidden enrichment payload was updated with a", content)
@@ -1976,6 +1980,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("MISSING_SPOOL", content)
         self.assertIn("system-managed enrichment tags", content)
         self.assertIn("Slot Overrides", content)
+        self.assertIn("slot_id and at least one of tray, spool_id, or filament_id", content)
 
         const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
         self.assertIn(
@@ -1992,6 +1997,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("async_handle_update_enrichment_metadata", init_content)
         self.assertIn("ENRICHMENT_METADATA_MODES", init_content)
         self.assertIn("slot_overrides", init_content)
+        self.assertIn("SLOT=1 TRAY=B2", init_content)
 
     def test_popup_project_helper_uses_no_project_default(self):
         popup_path = HISTORY / "helpers" / "input_select" / "input_select_print_history_popup_project.yaml"
@@ -2115,9 +2121,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=6", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=30", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=102", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=103", content)
 
     def test_tag_mode_all_is_preserved_for_browser_and_heatmap_queries(self):
         browser_card_content = (

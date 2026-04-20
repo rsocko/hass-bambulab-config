@@ -144,11 +144,19 @@ Example:
 ]
 ```
 
+Shorthand text is also accepted for quick operator entry:
+
+```text
+SLOT=1 TRAY=B2
+SLOT=0 TRAY=A2 SPOOL=252 FILAMENT=25
+```
+
 Rules:
 
 - `slot_overrides` can be sent either as a top-level service field or inside `note_metadata`
 - the override list is stored inside the managed hidden payload so review UIs only need one canonical note object
 - an empty list removes the managed slot override subset
+- when only `tray` is supplied, manual re-enrich dereferences archived AMS tray metadata for that tray code and uses the archived UUID/profile details to continue spool and filament matching
 
 ## Why Full Replacement
 

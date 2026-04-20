@@ -842,12 +842,10 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                                         "h": "#112233",
                                     }
                                 ],
-                                "slot_overrides": [
-                                    {"slot_id": "0", "tray": "A1", "spool_id": 999, "filament_id": 555}
-                                ],
                             },
                             "recovery_block": "[RECOVERY_AUDIT_V1]\nupdated by test",
                         },
+                        "slot_overrides": "SLOT=0 TRAY=A1 SPOOL=999 FILAMENT=555",
                     }
                 )
             )

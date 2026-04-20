@@ -4,6 +4,7 @@ import base64
 import binascii
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
@@ -667,10 +668,40 @@ def _parse_slot_override_rows(value: Any) -> list[dict[str, Any]]:
         raw = value.strip()
         if not raw:
             return []
-        try:
-            value = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise HomeAssistantError("slot_overrides must be valid JSON") from error
+        if raw.startswith("[") or raw.startswith("{"):
+            try:
+                value = json.loads(raw)
+            except json.JSONDecodeError as error:
+                raise HomeAssistantError("slot_overrides must be valid JSON") from error
+        else:
+            rows: list[dict[str, Any]] = []
+            for row_index, chunk in enumerate(re.split(r"[;\r\n]+", raw)):
+                normalized_chunk = chunk.strip()
+                if not normalized_chunk:
+                    continue
+                row: dict[str, Any] = {}
+                for token in re.split(r"[\s,]+", normalized_chunk):
+                    if "=" not in token:
+                        continue
+                    key, raw_token_value = token.split("=", 1)
+                    normalized_key = key.strip().lower()
+                    token_value = raw_token_value.strip()
+                    if not token_value:
+                        continue
+                    if normalized_key in {"slot", "slot_id"}:
+                        row["slot_id"] = token_value
+                    elif normalized_key == "tray":
+                        row["tray"] = token_value
+                    elif normalized_key in {"spool", "spool_id"}:
+                        row["spool_id"] = token_value
+                    elif normalized_key in {"filament", "filament_id"}:
+                        row["filament_id"] = token_value
+                if not row:
+                    raise HomeAssistantError(
+                        f"slot_overrides shorthand row {row_index + 1} must contain key=value pairs like SLOT=1 TRAY=B2"
+                    )
+                rows.append(row)
+            value = rows
 
     if value in (None, ""):
         return []
@@ -1607,7 +1638,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             updated_fields.append("notes")
 
         if "slot_overrides" in call.data:
-            current_note_parts = split_enrichment_notes(str(current_archive.get("notes", "")))
+            note_source = update_payload.get("notes", current_archive.get("notes", ""))
+            current_note_parts = split_enrichment_notes(str(note_source))
             payload_value = current_note_parts.get("payload")
             if not isinstance(payload_value, dict):
                 raise HomeAssistantError("slot_overrides requires an existing hidden note payload or note_metadata.payload")
