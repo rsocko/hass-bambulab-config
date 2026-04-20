@@ -186,7 +186,9 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
       formData.append("entry_id", String(this._config.entry_id));
     }
     formData.append("source_archive_id", String(sourceArchiveId));
-    formData.append("printer_id", String(printerId));
+    if (printerId != null && String(printerId).trim() !== "") {
+      formData.append("printer_id", String(printerId));
+    }
     formData.append("file", file, file.name);
     return formData;
   }
@@ -263,8 +265,8 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
     const sourceArchiveId = this._workflowAttr("source_archive_id", this._sourceArchive().id || "");
     const sourceArchive = this._sourceArchive();
     const printerId = sourceArchive?.printer_id || this._workflowAttr("printer_id", "");
-    if (!sourceArchiveId || !printerId) {
-      this._error = "Source archive or printer context is missing.";
+    if (!sourceArchiveId) {
+      this._error = "Source archive context is missing.";
       this._render();
       input.value = "";
       return;
@@ -290,7 +292,13 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
       await this._setHelper(this._config.target_archive_helper, "");
       await this._setHelper(this._config.upload_session_helper, upload.upload_session_id || "");
       const warnings = Array.isArray(upload?.warnings) ? upload.warnings.filter(Boolean) : [];
-      this._message = `Staged ${upload.filename || file.name}${warnings.length ? ` (${warnings.join(" | ")})` : ""}`;
+      const autoAssignedPrinterId = payload?.auto_assigned_printer_id || upload?.auto_assigned_printer_id || "";
+      const notes = [];
+      if (autoAssignedPrinterId) {
+        notes.push(`assigned printer ${autoAssignedPrinterId}`);
+      }
+      notes.push(...warnings);
+      this._message = `Staged ${upload.filename || file.name}${notes.length ? ` (${notes.join(" | ")})` : ""}`;
     } catch (error) {
       this._error = error?.message || String(error);
     } finally {

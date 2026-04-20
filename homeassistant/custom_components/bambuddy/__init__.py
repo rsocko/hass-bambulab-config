@@ -280,23 +280,13 @@ async def _build_archive_action_response(
 
     if intent == "scan_timelapse":
         started = perf_counter()
-        auto_assigned_printer_id = 0
-        archive_printer_id = str(archive.get("printer_id") or "").strip()
-        if not archive_printer_id:
-            raw_printers = await client.async_fetch_printers()
-            available_printers = [printer for printer in raw_printers if isinstance(printer, dict)]
-            if len(available_printers) == 1:
-                only_printer = available_printers[0]
-                only_printer_id = int(only_printer.get("id") or only_printer.get("printer_id") or 0)
-                if only_printer_id > 0:
-                    await _async_apply_archive_update(
-                        hass,
-                        manager,
-                        archive_id=archive_id,
-                        update_payload={"printer_id": only_printer_id},
-                        operation="assign_archive_printer_for_timelapse_scan",
-                    )
-                    auto_assigned_printer_id = only_printer_id
+        _resolved_printer_id, auto_assigned_printer_id = await _async_resolve_archive_printer_id(
+            hass,
+            manager,
+            archive_id=archive_id,
+            printer_id=_extract_archive_id(archive.get("printer_id")),
+            operation="assign_archive_printer_for_timelapse_scan",
+        )
         scan_result = await client.async_scan_archive_timelapse(archive_id) or {}
         scan_status = str(scan_result.get("status") or "unknown").strip() or "unknown"
         scan_message = str(scan_result.get("message") or "").strip()
@@ -956,6 +946,55 @@ async def _async_apply_archive_update(
     return refreshed
 
 
+async def _async_resolve_archive_printer_id(
+    hass: HomeAssistant,
+    manager: PrintHistoryBrowserManager,
+    *,
+    archive_id: int,
+    printer_id: int | None,
+    operation: str,
+) -> tuple[int | None, int]:
+    resolved_printer_id = _extract_archive_id(printer_id)
+    if resolved_printer_id is not None:
+        return resolved_printer_id, 0
+
+    detail = manager.build_archive_detail_response(archive_id) or {}
+    archive = detail.get("archive") if isinstance(detail, dict) else {}
+    archive_printer_id = _extract_archive_id((archive or {}).get("printer_id"))
+    if archive_printer_id is not None:
+        return archive_printer_id, 0
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+    try:
+        raw_printers = await client.async_fetch_printers()
+    except RuntimeError as error:
+        raise HomeAssistantError(str(error)) from error
+
+    available_printers = [printer for printer in raw_printers if isinstance(printer, dict)]
+    if len(available_printers) != 1:
+        return None, 0
+
+    only_printer = available_printers[0]
+    only_printer_id = int(only_printer.get("id") or only_printer.get("printer_id") or 0)
+    if only_printer_id <= 0:
+        return None, 0
+
+    await _async_apply_archive_update(
+        hass,
+        manager,
+        archive_id=archive_id,
+        update_payload={"printer_id": only_printer_id},
+        operation=operation,
+    )
+    return only_printer_id, only_printer_id
+
+
 def _build_runtime_repair_client(
     hass: HomeAssistant,
     entry_id: str,
@@ -1138,11 +1177,6 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 {"success": False, "error": "source_archive_id_required", "message": "source_archive_id is required."},
                 status=400,
             )
-        if printer_id is None:
-            return web.json_response(
-                {"success": False, "error": "printer_id_required", "message": "printer_id is required."},
-                status=400,
-            )
         if not file_name:
             return web.json_response(
                 {"success": False, "error": "file_required", "message": "multipart field 'file' is required."},
@@ -1153,6 +1187,15 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
             resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
             if not await manager.async_ensure_archive_loaded(source_archive_id):
                 raise HomeAssistantError(f"Archive {source_archive_id} was not found in the Bambuddy local store")
+            printer_id, auto_assigned_printer_id = await _async_resolve_archive_printer_id(
+                hass,
+                manager,
+                archive_id=source_archive_id,
+                printer_id=printer_id,
+                operation="assign_archive_printer_for_replacement_upload",
+            )
+            if printer_id is None:
+                raise HomeAssistantError("Archive printer is missing and no sole configured printer could be inferred")
         except HomeAssistantError as error:
             return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
 
@@ -1201,6 +1244,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 details={
                     CONF_UPLOAD_SESSION_ID: session.session_id,
                     CONF_PRINTER_ID: printer_id,
+                    "auto_assigned_printer_id": auto_assigned_printer_id,
                     "filename": session.file_name,
                     "size_bytes": session.size_bytes,
                 },
@@ -1212,6 +1256,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                     CONF_ENTRY_ID: resolved_entry_id,
                     "upload": session.to_response(),
                     "workflow": workflow.to_response(),
+                    "auto_assigned_printer_id": auto_assigned_printer_id,
                 }
             )
         except HomeAssistantError as error:
@@ -1227,6 +1272,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 duration_ms=round((perf_counter() - started) * 1000, 1),
                 details={
                     CONF_PRINTER_ID: printer_id,
+                    "auto_assigned_printer_id": auto_assigned_printer_id,
                     "file_name": file_name,
                     "byte_count": file_byte_count,
                     "chunk_count": file_chunk_count,
@@ -1270,6 +1316,7 @@ class ReplacementArchiveDiscoverView(HomeAssistantView):
                 duration_ms=round((perf_counter() - started) * 1000, 1),
                 details={
                     CONF_PRINTER_ID: printer_id,
+                    "auto_assigned_printer_id": auto_assigned_printer_id,
                     "file_name": file_name,
                     "byte_count": file_byte_count,
                     "chunk_count": file_chunk_count,
