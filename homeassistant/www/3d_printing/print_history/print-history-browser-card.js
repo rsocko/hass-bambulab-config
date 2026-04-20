@@ -153,11 +153,8 @@ class PrintHistoryBrowserCard extends HTMLElement {
       ".card:focus-visible{outline:none;}" +
       ".card.archive-error-warning::after{opacity:1;background:#EF6C00;}" +
       ".card.archive-error-error::after{opacity:1;background:#C62828;}" +
-      ".card.duplicate-source{border-color:color-mix(in srgb, #1565C0 34%, var(--divider-color));}" +
       ".card.duplicate-source::after{opacity:1;background:#1565C0;}" +
-      ".card.duplicate-copy{border-color:color-mix(in srgb, #00897B 34%, var(--divider-color));}" +
       ".card.duplicate-copy::after{opacity:1;background:#00897B;}" +
-      ".card.related-match{border-color:color-mix(in srgb, #6D4C41 34%, var(--divider-color));}" +
       ".card.related-match::after{opacity:1;background:#6D4C41;}" +
       ".card.has-archive-pill.no-thumb .card-shell.compact,.card.has-archive-pill.no-thumb .card-shell.list{padding-top:52px;}" +
       ".card-archive-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(15,23,42,0.58);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(8px);color:#fff;font-size:12px;font-weight:700;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}" +
@@ -358,7 +355,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v110</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v111</span>';
     }
   }
 
