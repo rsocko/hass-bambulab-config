@@ -1889,43 +1889,20 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   }
 
   _buildHeatmapTitle(meta, mode) {
-    var title = [
-      meta.label,
-      'Prints: ' + this._formatCount(meta.count || 0),
-      'Objects: ' + this._formatCount(meta.objectCount || 0),
-      'Weight: ' + this._formatWeight(meta.weight || 0),
-      'Cost: ' + this._formatCost(meta.cost || 0),
-      'Filaments: ' + this._formatCount(meta.filamentCount || 0),
-      'Unique tags: ' + this._formatCount(meta.uniqueTagCount || 0),
-      'Unique filaments: ' + this._formatCount(meta.uniqueFilamentCount || 0),
-      'Favorites: ' + this._formatCount(meta.favoriteCount || 0),
-      'Project mix: ' + (meta.projectMembershipLabel || 'No project data'),
-      'Duplicate/similar: ' + this._formatCount(meta.duplicateSimilarCount || 0),
-      'Time: ' + this._formatHours(meta.durationHours || 0),
-      'Status: ' + this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.archivedCount || 0) + ' archived, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
-      'Color mix: ' + (meta.singleMultiLabel || 'No color mode data'),
-      'Enrichment: ' + this._buildEnrichmentMetaBreakdown(meta),
-    ];
+    var metrics = this._buildTooltipMetrics(meta);
+    var primaryMetric = this._resolvePrimaryTooltipMetric(mode, metrics);
+    var title = [meta.label];
 
-    if (mode === 'Dominant Color' && meta.dominantColor) {
-      title.push('Dominant color: ' + meta.dominantColor.toUpperCase());
+    if (primaryMetric) {
+      title.push(primaryMetric.label + ': ' + primaryMetric.value);
     }
 
-    if (mode === 'Outcome' && meta.outcomeLabel) {
-      title.push('Outcome: ' + meta.outcomeLabel);
-    }
-
-    if (mode === 'In a Project vs Not in a Project' && meta.projectMembershipLabel) {
-      title.push('Project membership: ' + meta.projectMembershipLabel);
-    }
-
-    if (mode === 'Enrichment Status' && meta.enrichmentLabel) {
-      title.push('Status blend: ' + meta.enrichmentLabel);
-    }
-
-    if (mode === 'Number of Duplicates / Similar') {
-      title.push('Duplicate/similar matches: ' + this._formatCount(meta.duplicateSimilarCount || 0));
-    }
+    metrics.forEach(function (metric) {
+      if (!metric || (primaryMetric && metric.key === primaryMetric.key)) {
+        return;
+      }
+      title.push(metric.label + ': ' + metric.value);
+    });
 
     if (mode === 'Total Time Printing' && meta.hasFullDayPrinting) {
       title.push('Printed all 24 hours');
@@ -2247,45 +2224,85 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return "";
     }
 
+    var metrics = this._buildTooltipMetrics(meta);
+    var primaryMetric = this._resolvePrimaryTooltipMetric(mode, metrics);
+    var secondaryMetrics = metrics.filter(function (metric) {
+      return !primaryMetric || metric.key !== primaryMetric.key;
+    });
     var lines = [
-      '<div style="padding:8px 10px;min-width:180px">',
-      '<div style="font-weight:700;margin-bottom:4px">' + this._escapeHtml(meta.label) + "</div>",
-      '<div>Prints: <strong>' + this._escapeHtml(this._formatCount(meta.count || 0)) + "</strong></div>",
-      '<div>Objects: <strong>' + this._escapeHtml(this._formatCount(meta.objectCount || 0)) + "</strong></div>",
-      '<div>Weight: <strong>' + this._escapeHtml(this._formatWeight(meta.weight || 0)) + "</strong></div>",
-      '<div>Cost: <strong>' + this._escapeHtml(this._formatCost(meta.cost || 0)) + "</strong></div>",
-      '<div>Filaments: <strong>' + this._escapeHtml(this._formatCount(meta.filamentCount || 0)) + "</strong></div>",
-      '<div>Unique tags: <strong>' + this._escapeHtml(this._formatCount(meta.uniqueTagCount || 0)) + "</strong></div>",
-      '<div>Unique filaments: <strong>' + this._escapeHtml(this._formatCount(meta.uniqueFilamentCount || 0)) + "</strong></div>",
-      '<div>Favorites: <strong>' + this._escapeHtml(this._formatCount(meta.favoriteCount || 0)) + "</strong></div>",
-      '<div>Project mix: <strong>' + this._escapeHtml(meta.projectMembershipLabel || 'No project data') + '</strong></div>',
-      '<div>Duplicate/similar: <strong>' + this._escapeHtml(this._formatCount(meta.duplicateSimilarCount || 0)) + '</strong></div>',
-      '<div>Time: <strong>' + this._escapeHtml(this._formatHours(meta.durationHours || 0)) + "</strong></div>",
-      '<div>Status: <strong>' + this._escapeHtml(this._formatCount(meta.successCount) + " completed, " + this._formatCount(meta.archivedCount) + " archived, " + this._formatCount(meta.failedCount) + " failed, " + this._formatCount(meta.cancelledCount) + " cancelled") + "</strong></div>",
-      '<div>Color mix: <strong>' + this._escapeHtml(meta.singleMultiLabel || 'No color mode data') + '</strong></div>',
-      '<div>Enrichment: <strong>' + this._escapeHtml(this._buildEnrichmentMetaBreakdown(meta)) + '</strong></div>',
+      '<div style="padding:8px 10px;min-width:220px">',
+      '<div style="font-weight:700;margin-bottom:6px">' + this._escapeHtml(meta.label) + "</div>",
     ];
 
-    if (mode === "Dominant Color" && meta.dominantColor) {
-      lines.push('<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="width:12px;height:12px;border-radius:999px;background:' + this._escapeHtml(meta.dominantColor) + ';display:inline-block"></span><span>Dominant color</span></div>');
+    if (primaryMetric) {
+      lines.push(
+        '<div style="margin-bottom:8px;padding:8px 10px;border-radius:12px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22)">' +
+        '<div style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:0.72">' + this._escapeHtml(primaryMetric.label) + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">' +
+        (primaryMetric.swatch ? '<span style="width:12px;height:12px;border-radius:999px;background:' + this._escapeHtml(primaryMetric.swatch) + ';display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.32)"></span>' : '') +
+        '<span style="font-size:15px;font-weight:800;line-height:1.2">' + this._escapeHtml(primaryMetric.value) + '</span>' +
+        '</div>' +
+        '</div>'
+      );
     }
-    if (mode === "Outcome" && meta.outcomeLabel) {
-      lines.push('<div style="margin-top:4px">Outcome band: <strong>' + this._escapeHtml(meta.outcomeLabel) + '</strong></div>');
+
+    if (secondaryMetrics.length) {
+      lines.push('<div style="display:grid;gap:4px;font-size:12px;line-height:1.35">');
+      secondaryMetrics.forEach(function (metric) {
+        lines.push('<div>' + this._escapeHtml(metric.label) + ': <strong>' + this._escapeHtml(metric.value) + '</strong></div>');
+      }.bind(this));
+      lines.push('</div>');
     }
-    if (mode === "In a Project vs Not in a Project" && meta.projectMembershipLabel) {
-      lines.push('<div style="margin-top:4px">Project membership: <strong>' + this._escapeHtml(meta.projectMembershipLabel) + '</strong></div>');
-    }
-    if (mode === "Enrichment Status" && meta.enrichmentLabel) {
-      lines.push('<div style="margin-top:4px">Status blend: <strong>' + this._escapeHtml(meta.enrichmentLabel) + '</strong></div>');
-    }
-    if (mode === "Number of Duplicates / Similar") {
-      lines.push('<div style="margin-top:4px">Duplicate/similar matches: <strong>' + this._escapeHtml(this._formatCount(meta.duplicateSimilarCount || 0)) + '</strong></div>');
-    }
+
     if (mode === "Total Time Printing" && meta.hasFullDayPrinting) {
       lines.push('<div style="margin-top:4px">Printed all 24 hours.</div>');
     }
     lines.push("</div>");
     return lines.join("");
+  }
+
+  _buildTooltipMetrics(meta) {
+    var printCountText = 'Prints: ' + this._formatCount(meta.count || 0);
+
+    return [
+      { key: 'Print Count', label: 'Prints', value: printCountText.slice(8) },
+      { key: 'Number of Printed Objects', label: 'Objects', value: this._formatCount(meta.objectCount || 0) },
+      { key: 'Filament Weight', label: 'Weight', value: this._formatWeight(meta.weight || 0) },
+      { key: 'Cost of Prints', label: 'Cost', value: this._formatCost(meta.cost || 0) },
+      { key: 'Filaments Used', label: 'Filaments', value: this._formatCount(meta.filamentCount || 0) },
+      { key: 'Number of Unique Tags', label: 'Unique tags', value: this._formatCount(meta.uniqueTagCount || 0) },
+      { key: 'Number of Unique Filaments', label: 'Unique filaments', value: this._formatCount(meta.uniqueFilamentCount || 0) },
+      { key: 'Number of Favorites', label: 'Favorites', value: this._formatCount(meta.favoriteCount || 0) },
+      { key: 'In a Project vs Not in a Project', label: 'Project mix', value: meta.projectMembershipLabel || 'No project data' },
+      { key: 'Number of Duplicates / Similar', label: 'Duplicate/similar', value: this._formatCount(meta.duplicateSimilarCount || 0) },
+      { key: 'Total Time Printing', label: 'Time', value: this._formatHours(meta.durationHours || 0) },
+      {
+        key: 'Status',
+        label: 'Status',
+        value: this._formatCount(meta.successCount || 0) + ' completed, ' + this._formatCount(meta.archivedCount || 0) + ' archived, ' + this._formatCount(meta.failedCount || 0) + ' failed, ' + this._formatCount(meta.cancelledCount || 0) + ' cancelled',
+      },
+      { key: 'Single vs Multi-Color Prints', label: 'Color mix', value: meta.singleMultiLabel || 'No color mode data' },
+      { key: 'Enrichment Status', label: 'Enrichment', value: this._buildEnrichmentMetaBreakdown(meta) },
+      { key: 'Outcome', label: 'Outcome band', value: meta.outcomeLabel || 'No outcome data' },
+      { key: 'Dominant Color', label: 'Dominant color', value: meta.dominantColor ? meta.dominantColor.toUpperCase() : 'No dominant color', swatch: meta.dominantColor || '' },
+    ];
+  }
+
+  _resolvePrimaryTooltipMetric(mode, metrics) {
+    var selectedMode = String(mode || '').trim() || 'Print Count';
+    var primaryMetric = Array.isArray(metrics)
+      ? metrics.find(function (metric) {
+        return metric && metric.key === selectedMode;
+      })
+      : null;
+    if (primaryMetric) {
+      return primaryMetric;
+    }
+    return Array.isArray(metrics)
+      ? metrics.find(function (metric) {
+        return metric && metric.key === 'Print Count';
+      }) || null
+      : null;
   }
 
   _buildChipHtml(text) {
@@ -2406,6 +2423,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       "number of favorites": "Number of Favorites",
       "total time printing": "Total Time Printing",
     };
+
       return aliases[normalized] || "Print Count";
   }
 

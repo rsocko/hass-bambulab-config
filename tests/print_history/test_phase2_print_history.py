@@ -517,6 +517,15 @@ class TestAutomationStructure(unittest.TestCase):
         self.assertIn("is_api_format", content)
         self.assertIn("trigger.json.data", content)
 
+    def test_webhook_receiver_supports_v023_flattened_generic_fields(self):
+        """v0.2.3 generic webhooks flatten structured variables into top-level fields."""
+        path = COMMON / "automations" / "bambuddy_webhook_receiver.yaml"
+        content = path.read_text(encoding="utf-8")
+        self.assertIn("trigger.json.filename", content)
+        self.assertIn("trigger.json.printer", content)
+        self.assertIn("trigger.json.state", content)
+        self.assertIn('raw in [\'print_started\', \'print_start\']', content)
+
 
 # =============================================================================
 # 6. PAYLOAD DIAGNOSTICS
@@ -826,7 +835,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=53", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=54", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=18", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1023,6 +1032,13 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertNotIn('"number of different filaments": "Filaments Used"', content)
         self.assertNotIn('"outcome mix": "Outcome"', content)
         self.assertNotIn('"by outcome": "Outcome"', content)
+
+    def test_heatmap_tooltip_prioritizes_selected_metric_without_duplicate_rows(self):
+        content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
+        self.assertIn("var primaryMetric = this._resolvePrimaryTooltipMetric(mode, metrics);", content)
+        self.assertIn("return !primaryMetric || metric.key !== primaryMetric.key;", content)
+        self.assertIn("_buildTooltipMetrics(meta)", content)
+        self.assertIn("_resolvePrimaryTooltipMetric(mode, metrics)", content)
 
     def test_heatmap_card_uses_valid_enrichment_blend_and_sunflower_favorites_scale(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
