@@ -2,6 +2,7 @@
 
 This folder holds the canonical-runtime repair and sidecar-backed restore docs.
 
+- `archive-metadata-correction-design.md` - design for sidecar-backed single-archive metadata correction from Advanced Actions
 - `archive-runtime-db-repair-guide.md` - direct DB repair guidance
 - `archive-runtime-field-impact-matrix.md` - field-level impact analysis
 - `archive-runtime-ha-contract.md` - Home Assistant repair contract guidance, including `bambuddy.repair_print_history_archive_from_start`

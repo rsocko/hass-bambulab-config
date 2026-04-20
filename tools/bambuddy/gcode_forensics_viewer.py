@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import functools
+import hashlib
 import html
 import json
 import mimetypes
+import os
 import re
+import subprocess
 import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
+from zipfile import BadZipFile, ZipFile
 
 
 GENERIC_MULTI_PLATE_PREFIXES = {
@@ -36,6 +42,15 @@ SVG_PALETTE = [
 ]
 
 GCODE_PREVIEW_MODULE_URL = "https://esm.sh/gcode-preview@2.18.0?bundle"
+
+LOCAL_SOURCE_EXTENSIONS = (".3mf", ".gcode.3mf", ".gcode")
+SEARCHABLE_SOURCE_EXTENSIONS = (".3mf", ".gcode.3mf")
+SOURCE_IMPORT_MODES = (
+    "undecided",
+    "create_archive_upload",
+    "attach_source_only",
+    "wrap_raw_gcode_experimental",
+)
 
 
 def load_json(path: Path):
@@ -115,6 +130,275 @@ def parse_archive_id(value: str | int | None) -> int | None:
     if value in (None, ""):
         return None
     return int(str(value).strip())
+
+
+def artifact_extension(path: Path) -> str:
+    lower_name = path.name.lower()
+    for extension in LOCAL_SOURCE_EXTENSIONS:
+        if lower_name.endswith(extension):
+            return extension
+    return path.suffix.lower()
+
+
+def normalize_path_text(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    return str(Path(text).expanduser())
+
+
+def coerce_existing_file_path(path_text: str | None) -> Path:
+    normalized = normalize_path_text(path_text)
+    if not normalized:
+        raise ValueError("A file path is required.")
+    candidate = Path(normalized)
+    if not candidate.exists():
+        raise ValueError(f"File does not exist: {candidate}")
+    if not candidate.is_file():
+        raise ValueError(f"Path is not a file: {candidate}")
+    extension = artifact_extension(candidate)
+    if extension not in LOCAL_SOURCE_EXTENSIONS:
+        raise ValueError("Supported local source files are .3mf, .gcode.3mf, and .gcode.")
+    return candidate.resolve()
+
+
+def normalize_string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        parts = re.split(r"[\r\n]+", value)
+        return [part.strip() for part in parts if part.strip()]
+    if isinstance(value, list):
+        results: list[str] = []
+        for item in value:
+            results.extend(normalize_string_list(item))
+        return results
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        lowered = value.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        ordered.append(value)
+    return ordered
+
+
+def path_key(path_text: str) -> str:
+    return hashlib.sha1(path_text.lower().encode("utf-8")).hexdigest()[:16]
+
+
+def format_file_timestamp(timestamp_seconds: float) -> str:
+    return datetime.fromtimestamp(timestamp_seconds, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def to_datetime_local_value(value: str | None) -> str:
+    parsed = parse_timestamp(value)
+    if parsed is None:
+        return ""
+    return parsed.astimezone().strftime("%Y-%m-%dT%H:%M")
+
+
+def from_datetime_local_value(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        parsed = parsed.astimezone()
+    return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def normalize_candidate_name(value: str) -> str:
+    normalized = value.lower().replace("\\", "/")
+    normalized = re.sub(r"\.gcode\.3mf$", "", normalized)
+    normalized = re.sub(r"\.gcode$", "", normalized)
+    normalized = re.sub(r"\.3mf$", "", normalized)
+    normalized = re.sub(r"_plate_\d+$", "", normalized)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    return normalized.strip()
+
+
+def tokenize_candidate_name(value: str) -> list[str]:
+    return [token for token in normalize_candidate_name(value).split() if token]
+
+
+def inspect_zip_artifact(path: Path) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "is_zip": False,
+        "has_embedded_gcode": False,
+        "has_slice_info": False,
+        "project_object_count": 0,
+        "plate_preview_count": 0,
+        "zip_entry_count": 0,
+        "warnings": [],
+    }
+    try:
+        with ZipFile(path) as archive:
+            result["is_zip"] = True
+            names = archive.namelist()
+            result["zip_entry_count"] = len(names)
+            result["has_embedded_gcode"] = any(name.startswith("Metadata/") and name.endswith(".gcode") for name in names)
+            result["has_slice_info"] = "Metadata/slice_info.config" in names
+            result["project_object_count"] = sum(1 for name in names if name.startswith("3D/Objects/") and name.endswith(".model"))
+            result["plate_preview_count"] = sum(
+                1
+                for name in names
+                if name.startswith("Metadata/") and name.endswith(".png") and ("plate_" in name or "top_" in name)
+            )
+            return result
+    except (BadZipFile, OSError):
+        result["warnings"] = ["File could not be opened as a 3MF/ZIP package."]
+        return result
+
+
+def inspect_local_artifact(path: Path, *, source_kind: str, match_score: int | None = None, staged_path: str | None = None) -> dict[str, Any]:
+    extension = artifact_extension(path)
+    stat = path.stat()
+    inspection: dict[str, Any] = {
+        "path": str(path),
+        "path_key": path_key(str(path)),
+        "display_name": path.name,
+        "source_kind": source_kind,
+        "file_extension": extension,
+        "exists": True,
+        "size_bytes": int(stat.st_size),
+        "modified_at": format_file_timestamp(stat.st_mtime),
+        "added_at": utc_now_iso(),
+        "warnings": [],
+        "staged_path": staged_path,
+        "staged_copy": bool(staged_path),
+    }
+    if match_score is not None:
+        inspection["match_score"] = int(match_score)
+
+    if extension == ".gcode":
+        inspection.update(
+            {
+                "source_type": "raw_gcode_file",
+                "canonical_archive_ready": False,
+                "suggested_import_mode": "wrap_raw_gcode_experimental",
+                "classification_reason": "Raw gcode may help forensic recovery, but the current Bambuddy archive upload flow does not accept raw .gcode inputs.",
+                "header_metadata": parse_gcode_header(path),
+                "warnings": [
+                    "Raw .gcode is not a supported direct archive input in the current Bambuddy flow.",
+                    "Wrapping .gcode into a Bambu-style .gcode.3mf would require additional Bambu-specific package metadata.",
+                ],
+            }
+        )
+        return inspection
+
+    zip_info = inspect_zip_artifact(path)
+    inspection.update(zip_info)
+    if inspection["has_embedded_gcode"] or inspection["has_slice_info"]:
+        inspection.update(
+            {
+                "source_type": "bambu_studio_exported_sliced_3mf",
+                "canonical_archive_ready": True,
+                "suggested_import_mode": "create_archive_upload",
+                "classification_reason": "This 3MF looks sliced and archive-ready because it carries embedded gcode or slice metadata.",
+            }
+        )
+    elif inspection["project_object_count"]:
+        inspection.update(
+            {
+                "source_type": "bambu_studio_source_3mf",
+                "canonical_archive_ready": False,
+                "suggested_import_mode": "attach_source_only",
+                "classification_reason": "This looks like a source/project 3MF. It is useful provenance, but canonical archive recreation still needs a sliced export.",
+            }
+        )
+    else:
+        inspection.update(
+            {
+                "source_type": "bambu_studio_source_3mf",
+                "canonical_archive_ready": False,
+                "suggested_import_mode": "attach_source_only",
+                "classification_reason": "This 3MF does not show strong sliced signals, so treat it as source-level provenance until proven otherwise.",
+            }
+        )
+    return inspection
+
+
+def score_search_match(record: dict[str, object], path: Path) -> int:
+    file_name = path.name
+    normalized_name = normalize_candidate_name(file_name)
+    gcode_name = str(record.get("gcode_name") or "")
+    prefix = str(record.get("prefix") or "")
+    gcode_normalized = normalize_candidate_name(gcode_name)
+    prefix_normalized = normalize_candidate_name(prefix)
+    file_tokens = set(tokenize_candidate_name(file_name))
+    gcode_tokens = set(tokenize_candidate_name(gcode_name))
+    prefix_tokens = set(tokenize_candidate_name(prefix))
+
+    score = 0
+    if normalized_name == gcode_normalized:
+        score += 120
+    if prefix_normalized and normalized_name == prefix_normalized:
+        score += 110
+    if prefix_normalized and normalized_name.startswith(prefix_normalized):
+        score += 70
+    if gcode_normalized and gcode_normalized in normalized_name:
+        score += 65
+    if prefix_normalized and prefix_normalized in normalized_name:
+        score += 55
+    shared_tokens = len(file_tokens & (gcode_tokens | prefix_tokens))
+    score += shared_tokens * 10
+    if artifact_extension(path) == ".gcode.3mf":
+        score += 8
+    elif artifact_extension(path) == ".3mf":
+        score += 4
+    return score
+
+
+def search_local_source_candidates(record: dict[str, object], roots: list[str], limit: int = 24) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+    for root_text in roots:
+        root = Path(root_text).expanduser()
+        if not root.exists() or not root.is_dir():
+            continue
+        for candidate in root.rglob("*"):
+            if not candidate.is_file():
+                continue
+            if artifact_extension(candidate) not in SEARCHABLE_SOURCE_EXTENSIONS:
+                continue
+            resolved_text = str(candidate.resolve())
+            lowered = resolved_text.lower()
+            if lowered in seen_paths:
+                continue
+            seen_paths.add(lowered)
+            score = score_search_match(record, candidate)
+            if score <= 0:
+                continue
+            matches.append(inspect_local_artifact(candidate.resolve(), source_kind="search_match", match_score=score))
+    matches.sort(key=lambda item: (-int(item.get("match_score") or 0), str(item.get("display_name") or "").lower()))
+    return matches[:limit]
+
+
+def build_import_requirements(record: dict[str, object], selected_source: dict[str, Any] | None) -> list[str]:
+    if selected_source is None:
+        return ["Select a local source candidate before planning import or export steps."]
+    source_type = str(selected_source.get("source_type") or "")
+    requirements: list[str] = []
+    if source_type == "bambu_studio_exported_sliced_3mf":
+        requirements.append("This file should be usable for canonical Bambuddy archive creation via POST /archives/upload.")
+        requirements.append("You still need the target printer ID for the eventual upload runner.")
+    elif source_type == "bambu_studio_source_3mf":
+        requirements.append("This is source-level provenance. To create a canonical archive you still need a sliced .3mf or .gcode.3mf export.")
+        requirements.append("If you only attach it as source_3mf_path, Bambuddy keeps provenance but does not rebuild archive-side slicer metadata.")
+    elif source_type == "raw_gcode_file":
+        requirements.append("Raw .gcode is not accepted by the current archive upload flow.")
+        requirements.append("A valid Bambu-style package would need more than the gcode stream: at minimum package structure plus slice/project metadata files and expected archive-side naming conventions.")
+    inferred_started_at = str((record.get("decision") or {}).get("import_plan", {}).get("inferred_started_at") or record.get("last_write") or "").strip()
+    if inferred_started_at:
+        requirements.append(f"Current inferred started_at/created_at default comes from the original gcode last-write timestamp: {inferred_started_at}.")
+    return requirements
 
 
 def parse_gcode_header(gcode_path: Path) -> dict[str, str]:
@@ -283,31 +567,140 @@ class DecisionStore:
         note = str(entry.get("note") or "").strip()
         archive_id = parse_archive_id(entry.get("archive_id")) if entry.get("archive_id") not in (None, "") else None
         related_relative_path = str(entry.get("related_relative_path") or "").strip() or None
-        if not disposition and archive_id is None and not note and not related_relative_path:
+        source_files = self._normalize_source_files(entry.get("source_files"))
+        search_roots = self._normalize_search_roots(entry.get("search_roots"))
+        selected_source_path = normalize_path_text(str(entry.get("selected_source_path") or ""))
+        import_plan = self._normalize_import_plan(entry.get("import_plan"))
+        external_actions = self._normalize_external_actions(entry.get("external_actions"))
+        if not disposition and archive_id is None and not note and not related_relative_path and not source_files and not search_roots and selected_source_path is None and import_plan is None and external_actions is None:
             return None
         normalized: dict[str, object] = {
             "disposition": disposition,
             "archive_id": archive_id,
             "note": note,
             "related_relative_path": related_relative_path,
+            "source_files": source_files,
+            "search_roots": search_roots,
+            "selected_source_path": selected_source_path,
+            "import_plan": import_plan,
+            "external_actions": external_actions,
             "updated_at": str(entry.get("updated_at") or utc_now_iso()),
         }
         return normalized
 
+    def _normalize_source_files(self, value: object) -> list[dict[str, object]]:
+        rows = value if isinstance(value, list) else []
+        normalized_rows: list[dict[str, object]] = []
+        seen_paths: set[str] = set()
+        for raw_row in rows:
+            if not isinstance(raw_row, dict):
+                continue
+            path_text = normalize_path_text(str(raw_row.get("path") or ""))
+            if path_text is None:
+                continue
+            lowered = path_text.lower()
+            if lowered in seen_paths:
+                continue
+            seen_paths.add(lowered)
+            row: dict[str, object] = {
+                "path": path_text,
+                "path_key": str(raw_row.get("path_key") or path_key(path_text)),
+                "display_name": str(raw_row.get("display_name") or Path(path_text).name),
+                "source_kind": str(raw_row.get("source_kind") or "linked_path"),
+                "file_extension": str(raw_row.get("file_extension") or artifact_extension(Path(path_text))),
+                "source_type": str(raw_row.get("source_type") or "unknown"),
+                "classification_reason": str(raw_row.get("classification_reason") or "").strip(),
+                "canonical_archive_ready": bool(raw_row.get("canonical_archive_ready")),
+                "suggested_import_mode": str(raw_row.get("suggested_import_mode") or "undecided"),
+                "exists": bool(raw_row.get("exists", True)),
+                "staged_copy": bool(raw_row.get("staged_copy")),
+                "staged_path": normalize_path_text(str(raw_row.get("staged_path") or "")),
+                "modified_at": str(raw_row.get("modified_at") or "").strip(),
+                "added_at": str(raw_row.get("added_at") or utc_now_iso()),
+                "warnings": normalize_string_list(raw_row.get("warnings")),
+            }
+            for key in ("size_bytes", "match_score", "project_object_count", "plate_preview_count", "zip_entry_count"):
+                raw_value = raw_row.get(key)
+                if raw_value not in (None, ""):
+                    row[key] = int(raw_value)
+            for key in ("has_embedded_gcode", "has_slice_info", "is_zip"):
+                if key in raw_row:
+                    row[key] = bool(raw_row.get(key))
+            if "header_metadata" in raw_row and isinstance(raw_row.get("header_metadata"), dict):
+                row["header_metadata"] = dict(raw_row["header_metadata"])
+            normalized_rows.append(row)
+        normalized_rows.sort(key=lambda item: (-int(item.get("match_score") or 0), str(item.get("display_name") or "").lower()))
+        return normalized_rows
+
+    def _normalize_search_roots(self, value: object) -> list[str]:
+        roots = [str(Path(root).expanduser()) for root in normalize_string_list(value)]
+        return dedupe_preserve_order(roots)
+
+    def _normalize_import_plan(self, value: object) -> dict[str, object] | None:
+        if not isinstance(value, dict):
+            return None
+        mode = str(value.get("mode") or "undecided").strip()
+        if mode not in SOURCE_IMPORT_MODES:
+            mode = "undecided"
+        normalized = {
+            "mode": mode,
+            "inferred_started_at": str(value.get("inferred_started_at") or "").strip() or None,
+            "override_started_at": str(value.get("override_started_at") or "").strip() or None,
+            "inferred_created_at": str(value.get("inferred_created_at") or "").strip() or None,
+            "override_created_at": str(value.get("override_created_at") or "").strip() or None,
+            "notes": str(value.get("notes") or "").strip(),
+            "missing_requirements": normalize_string_list(value.get("missing_requirements")),
+        }
+        if not any(
+            [
+                normalized["mode"] != "undecided",
+                normalized["override_started_at"],
+                normalized["override_created_at"],
+                normalized["notes"],
+                normalized["missing_requirements"],
+                normalized["inferred_started_at"],
+                normalized["inferred_created_at"],
+            ]
+        ):
+            return None
+        return normalized
+
+    def _normalize_external_actions(self, value: object) -> dict[str, object] | None:
+        if not isinstance(value, dict):
+            return None
+        normalized: dict[str, object] = {}
+        for action_name in ("last_open", "last_export"):
+            action_value = value.get(action_name)
+            if not isinstance(action_value, dict):
+                continue
+            row = {
+                "status": str(action_value.get("status") or "").strip(),
+                "message": str(action_value.get("message") or "").strip(),
+                "at": str(action_value.get("at") or "").strip() or utc_now_iso(),
+                "path": normalize_path_text(str(action_value.get("path") or "")),
+                "command": str(action_value.get("command") or "").strip(),
+                "stdout": str(action_value.get("stdout") or "").strip(),
+                "stderr": str(action_value.get("stderr") or "").strip(),
+            }
+            if action_value.get("exit_code") not in (None, ""):
+                row["exit_code"] = int(action_value.get("exit_code"))
+            normalized[action_name] = row
+        return normalized or None
+
     def get(self, gcode_name: str) -> dict[str, object] | None:
         return self.entries.get(gcode_name)
 
-    def save(self, gcode_name: str, disposition: str | None, archive_id: int | None, note: str, related_relative_path: str | None) -> dict[str, object] | None:
-        entry = self._normalize_entry(
-            {
-                "gcode_name": gcode_name,
-                "disposition": disposition,
-                "archive_id": archive_id,
-                "note": note,
-                "related_relative_path": related_relative_path,
-                "updated_at": utc_now_iso(),
-            }
-        )
+    def patch(self, gcode_name: str, updates: dict[str, object]) -> dict[str, object] | None:
+        merged = dict(self.entries.get(gcode_name) or {})
+        for key, value in updates.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                nested = dict(merged[key])
+                nested.update(value)
+                merged[key] = nested
+            else:
+                merged[key] = value
+        merged["updated_at"] = utc_now_iso()
+        entry = self._normalize_entry(merged)
         if entry is None:
             self.entries.pop(gcode_name, None)
         else:
@@ -316,6 +709,55 @@ class DecisionStore:
         if self.manifest_writeback:
             self.write_manifest()
         return self.entries.get(gcode_name)
+
+    def upsert_source_candidate(self, gcode_name: str, candidate: dict[str, object], *, select: bool = False) -> dict[str, object] | None:
+        current = dict(self.entries.get(gcode_name) or {})
+        existing = list(current.get("source_files") or [])
+        normalized_candidate = self._normalize_source_files([candidate])
+        if not normalized_candidate:
+            raise ValueError("Candidate path is required.")
+        candidate_row = normalized_candidate[0]
+        existing = [row for row in existing if str(row.get("path") or "").lower() != str(candidate_row.get("path") or "").lower()]
+        existing.append(candidate_row)
+        return self.patch(
+            gcode_name,
+            {
+                "source_files": existing,
+                "selected_source_path": candidate_row["path"] if select else current.get("selected_source_path"),
+            },
+        )
+
+    def set_selected_source_path(self, gcode_name: str, path_text: str | None) -> dict[str, object] | None:
+        normalized = normalize_path_text(path_text)
+        if normalized is None:
+            return self.patch(gcode_name, {"selected_source_path": None})
+        entry = self.entries.get(gcode_name) or {}
+        available_paths = {str(row.get("path") or "") for row in entry.get("source_files") or []}
+        if normalized not in available_paths:
+            raise ValueError("Selected source path is not queued for this gcode.")
+        return self.patch(gcode_name, {"selected_source_path": normalized})
+
+    def set_search_roots(self, gcode_name: str, roots: list[str]) -> dict[str, object] | None:
+        return self.patch(gcode_name, {"search_roots": roots})
+
+    def set_import_plan(self, gcode_name: str, plan: dict[str, object]) -> dict[str, object] | None:
+        return self.patch(gcode_name, {"import_plan": plan})
+
+    def record_external_action(self, gcode_name: str, action_name: str, payload: dict[str, object]) -> dict[str, object] | None:
+        if action_name not in {"last_open", "last_export"}:
+            raise ValueError("Unsupported action name.")
+        return self.patch(gcode_name, {"external_actions": {action_name: payload}})
+
+    def save(self, gcode_name: str, disposition: str | None, archive_id: int | None, note: str, related_relative_path: str | None) -> dict[str, object] | None:
+        return self.patch(
+            gcode_name,
+            {
+                "disposition": disposition,
+                "archive_id": archive_id,
+                "note": note,
+                "related_relative_path": related_relative_path,
+            },
+        )
 
     def export_payload(self) -> dict[str, object]:
         counts = {key: 0 for key in DISPOSITIONS}
@@ -487,6 +929,75 @@ class ForensicsDataset:
         self.summary = self._build_summary()
         return entry
 
+    def get_selected_source(self, record: dict[str, object]) -> dict[str, object] | None:
+        decision = record.get("decision") or {}
+        selected_path = str(decision.get("selected_source_path") or "").strip()
+        source_files = decision.get("source_files") or []
+        if selected_path:
+            for source in source_files:
+                if str(source.get("path") or "") == selected_path:
+                    return source
+        return source_files[0] if source_files else None
+
+    def sync_record_decision(self, gcode_name: str, entry: dict[str, object] | None) -> dict[str, object] | None:
+        if gcode_name in self.record_map:
+            self.record_map[gcode_name]["decision"] = entry
+        self.summary = self._build_summary()
+        return entry
+
+    def queue_source_path(self, gcode_name: str, path_text: str, *, source_kind: str = "linked_path", select: bool = True) -> dict[str, object] | None:
+        source_path = coerce_existing_file_path(path_text)
+        entry = self.decision_store.upsert_source_candidate(gcode_name, inspect_local_artifact(source_path, source_kind=source_kind), select=select)
+        return self.sync_record_decision(gcode_name, entry)
+
+    def queue_uploaded_source(self, gcode_name: str, *, file_name: str, content_base64: str, staging_dir: Path, select: bool = True) -> dict[str, object] | None:
+        if not file_name:
+            raise ValueError("A file name is required.")
+        extension = artifact_extension(Path(file_name))
+        if extension not in LOCAL_SOURCE_EXTENSIONS:
+            raise ValueError("Uploaded file must be .3mf, .gcode.3mf, or .gcode.")
+        raw_bytes = base64.b64decode(content_base64.encode("utf-8"), validate=True)
+        safe_name = re.sub(r"[^A-Za-z0-9._ -]+", "_", Path(file_name).name).strip(" .") or "uploaded-source"
+        staged_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{path_key(safe_name)}_{safe_name}"
+        staged_path = staging_dir / gcode_name / staged_name
+        staged_path.parent.mkdir(parents=True, exist_ok=True)
+        staged_path.write_bytes(raw_bytes)
+        entry = self.decision_store.upsert_source_candidate(
+            gcode_name,
+            inspect_local_artifact(staged_path.resolve(), source_kind="uploaded_copy", staged_path=str(staged_path.resolve())),
+            select=select,
+        )
+        return self.sync_record_decision(gcode_name, entry)
+
+    def search_source_candidates(self, gcode_name: str, roots: list[str], *, select_best: bool = False) -> dict[str, object]:
+        record = self.record_map.get(gcode_name)
+        if record is None:
+            raise ValueError("Unknown gcode name.")
+        normalized_roots = [str(Path(root).expanduser()) for root in normalize_string_list(roots)]
+        entry = self.decision_store.set_search_roots(gcode_name, normalized_roots)
+        self.sync_record_decision(gcode_name, entry)
+        matches = search_local_source_candidates(record, normalized_roots)
+        for index, match in enumerate(matches):
+            entry = self.decision_store.upsert_source_candidate(gcode_name, match, select=select_best and index == 0)
+            self.sync_record_decision(gcode_name, entry)
+        return {
+            "matches": matches,
+            "search_roots": normalized_roots,
+            "entry": self.record_map[gcode_name].get("decision"),
+        }
+
+    def select_source(self, gcode_name: str, path_text: str | None) -> dict[str, object] | None:
+        entry = self.decision_store.set_selected_source_path(gcode_name, path_text)
+        return self.sync_record_decision(gcode_name, entry)
+
+    def update_import_plan(self, gcode_name: str, plan: dict[str, object]) -> dict[str, object] | None:
+        entry = self.decision_store.set_import_plan(gcode_name, plan)
+        return self.sync_record_decision(gcode_name, entry)
+
+    def record_external_action(self, gcode_name: str, action_name: str, payload: dict[str, object]) -> dict[str, object] | None:
+        entry = self.decision_store.record_external_action(gcode_name, action_name, payload)
+        return self.sync_record_decision(gcode_name, entry)
+
 
 def render_page(dataset: ForensicsDataset, view: str, selected_name: str | None, writeback_enabled: bool, export_path: Path) -> str:
     visible_records = dataset.filtered_records(view)
@@ -582,6 +1093,18 @@ def render_page(dataset: ForensicsDataset, view: str, selected_name: str | None,
     button {{ padding: 10px 14px; border-radius: 999px; border: 0; cursor: pointer; background: var(--accent); color: white; font-weight: 600; }}
     button.secondary {{ background: var(--panel-strong); color: var(--ink); border: 1px solid var(--border); }}
     .status {{ font-size: 13px; color: var(--muted); }}
+    .button-row {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
+    .source-list {{ display: grid; gap: 10px; }}
+    .source-card {{ border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--panel); display: grid; gap: 8px; }}
+    .source-card.selected {{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 109, 119, 0.12); }}
+    .source-title {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }}
+    .source-path {{ font-size: 12px; color: var(--muted); word-break: break-all; }}
+    .drop-zone {{ border: 1px dashed var(--border); border-radius: 14px; padding: 14px; background: #fff8ef; color: var(--muted); text-align: center; }}
+    .drop-zone.dragover {{ border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }}
+    .support-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }}
+    .support-card {{ background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }}
+    .support-card h4 {{ margin: 0 0 8px; font-size: 13px; }}
+    .mono {{ font-family: Consolas, "SFMono-Regular", monospace; }}
     .viewer-shell {{ display: grid; gap: 12px; }}
     .viewer-canvas-wrap {{ display: none; height: 560px; background: #1a1a1a; border-radius: 14px; overflow: hidden; }}
     .viewer-canvas-wrap.active {{ display: block; }}
@@ -642,12 +1165,110 @@ def render_list_item(record: dict[str, object], view: str, selected_record: dict
     )
 
 
+def build_effective_import_plan(record: dict[str, object], selected_source: dict[str, Any] | None) -> dict[str, object]:
+    decision = record.get("decision") or {}
+    stored = decision.get("import_plan") or {}
+    inferred_started_at = str(stored.get("inferred_started_at") or record.get("last_write") or "").strip() or None
+    inferred_created_at = str(stored.get("inferred_created_at") or record.get("last_write") or "").strip() or None
+    mode = str(stored.get("mode") or "").strip()
+    if mode not in SOURCE_IMPORT_MODES or mode == "undecided":
+        mode = str((selected_source or {}).get("suggested_import_mode") or "undecided")
+        if mode not in SOURCE_IMPORT_MODES:
+            mode = "undecided"
+    return {
+        "mode": mode,
+        "inferred_started_at": inferred_started_at,
+        "override_started_at": str(stored.get("override_started_at") or "").strip() or None,
+        "inferred_created_at": inferred_created_at,
+        "override_created_at": str(stored.get("override_created_at") or "").strip() or None,
+        "notes": str(stored.get("notes") or "").strip(),
+        "missing_requirements": build_import_requirements(record, selected_source),
+    }
+
+
+def get_selected_source_from_record(record: dict[str, object]) -> dict[str, Any] | None:
+    decision = record.get("decision") or {}
+    selected_path = str(decision.get("selected_source_path") or "").strip()
+    source_files = decision.get("source_files") or []
+    if selected_path:
+        for source in source_files:
+            if str(source.get("path") or "") == selected_path:
+                return source
+    return source_files[0] if source_files else None
+
+
+def render_source_candidates(record: dict[str, object], selected_source_path: str | None) -> str:
+    decision = record.get("decision") or {}
+    rows = decision.get("source_files") or []
+    if not rows:
+        return '<div class="empty">No local source candidates queued yet. Paste a path, browse/drag a file, or search configured roots.</div>'
+    markup: list[str] = []
+    for row in rows:
+        path_text = str(row.get("path") or "")
+        is_selected = bool(selected_source_path and path_text == selected_source_path)
+        warnings = normalize_string_list(row.get("warnings"))
+        badges = [
+            f'<span class="badge emphasis">{html.escape(str(row.get("source_type") or "unknown"))}</span>',
+            f'<span class="badge">{html.escape(str(row.get("source_kind") or "linked_path"))}</span>',
+            f'<span class="badge">{html.escape(str(row.get("file_extension") or ""))}</span>',
+        ]
+        if row.get("canonical_archive_ready"):
+            badges.append('<span class="badge keep">archive-ready</span>')
+        if row.get("match_score") not in (None, ""):
+            badges.append(f'<span class="badge warn">score {html.escape(str(row.get("match_score")))}</span>')
+        if is_selected:
+            badges.append('<span class="badge keep">selected</span>')
+        warning_markup = "".join(f'<li>{html.escape(warning)}</li>' for warning in warnings)
+        header_metadata = row.get("header_metadata") if isinstance(row.get("header_metadata"), dict) else None
+        header_markup = f'<pre>{escape_json_for_html(header_metadata)}</pre>' if header_metadata else ''
+        markup.append(
+            f'''<div class="source-card {"selected" if is_selected else ""}">
+  <div class="source-title">
+    <strong>{html.escape(str(row.get("display_name") or Path(path_text).name))}</strong>
+    <div class="badges">{"".join(badges)}</div>
+  </div>
+  <div class="source-path mono">{html.escape(path_text)}</div>
+  <div class="status">{html.escape(str(row.get("classification_reason") or "No classification details recorded."))}</div>
+  <div class="button-row">
+    <button class="secondary" type="button" data-source-action="select" data-path="{html.escape(path_text, quote=True)}">Select</button>
+    <button class="secondary" type="button" data-source-action="open" data-path="{html.escape(path_text, quote=True)}">Open File</button>
+    <button class="secondary" type="button" data-source-action="export" data-path="{html.escape(path_text, quote=True)}">Run Export Command</button>
+  </div>
+  {f'<ul>{warning_markup}</ul>' if warning_markup else ''}
+  {header_markup}
+</div>'''
+        )
+    return "".join(markup)
+
+
+def render_external_action_status(record: dict[str, object]) -> str:
+    decision = record.get("decision") or {}
+    actions = decision.get("external_actions") or {}
+    rows: list[str] = []
+    for label, key in (("Last Open", "last_open"), ("Last Export", "last_export")):
+        action = actions.get(key)
+        if not isinstance(action, dict):
+            continue
+        parts = [html.escape(str(action.get("status") or "unknown"))]
+        if action.get("message"):
+            parts.append(html.escape(str(action.get("message"))))
+        if action.get("command"):
+            parts.append(f'cmd: {html.escape(str(action.get("command")))}')
+        if action.get("exit_code") not in (None, ""):
+            parts.append(f'exit {html.escape(str(action.get("exit_code")))}')
+        rows.append(f'<div class="support-card"><h4>{label}</h4><div class="status">{" | ".join(parts)}</div></div>')
+    return "".join(rows) or '<div class="empty">No open/export actions recorded yet.</div>'
+
+
 def render_detail_panel(record: dict[str, object] | None, view: str, writeback_enabled: bool) -> str:
     if record is None:
         return '<div class="panel empty">No matching record.</div>'
     preview_info = build_preview_payload(str(record["gcode_path"])) if record["has_gcode"] else {"segment_count": 0, "layer_count": 0}
     decision = record.get("decision") or {}
     related_relative_path = decision.get("related_relative_path") or ""
+    selected_source_row = get_selected_source_from_record(record)
+    selected_source_path = str((selected_source_row or {}).get("path") or decision.get("selected_source_path") or "") or None
+    effective_import_plan = build_effective_import_plan(record, selected_source_row)
     manifest_links = record["manifest_links"]
     image_markup = "".join(
         f'<figure class="image-card"><img src="/image/{quote(image["name"])}" alt="{html.escape(image["name"])}" />'
@@ -682,6 +1303,13 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
             ("Static Preview Layers", str(preview_info["layer_count"])),
         ]
     )
+    source_candidates_markup = render_source_candidates(record, selected_source_path)
+    action_status_markup = render_external_action_status(record)
+    search_root_text = "\n".join(decision.get("search_roots") or [])
+    selected_source_summary = html.escape(str((selected_source_row or {}).get("classification_reason") or "No source file selected yet."))
+    import_requirement_markup = "".join(
+        f'<li>{html.escape(item)}</li>' for item in effective_import_plan["missing_requirements"]
+    ) or '<li>No extra requirements recorded.</li>'
     preview_src = "/preview.svg?" + urlencode({"gcode": record["gcode_name"]})
     interactive_notice = "Writes decisions into the export file only." if not writeback_enabled else "Writes decisions into the export file and into secondary_artifact_analysis.manual_triage_decisions in the manifest."
     return f"""
@@ -746,6 +1374,90 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
       <div class="status" id="decision-status"></div>
     </form>
   </section>
+    <section class="section panel">
+        <h3>Local Source Recovery</h3>
+        <div class="status">Queue likely local source files for this gcode, select the best candidate, and capture the import/export metadata you will need later.</div>
+        <div class="decision-form">
+            <form class="decision-form" id="link-path-form">
+                <label>
+                    Paste Local File Path
+                    <input name="path" placeholder="C:\\Projects\\Model.3mf" />
+                </label>
+                <div class="button-row">
+                    <button type="submit">Link Path</button>
+                    <div class="status">Accepts .3mf, .gcode.3mf, and .gcode.</div>
+                </div>
+            </form>
+            <div class="drop-zone" id="source-drop-zone">
+                Drag and drop a local source file here, or
+                <button class="secondary" type="button" id="browse-source-button">Browse Local File</button>
+                <input id="source-upload-input" type="file" accept=".3mf,.gcode.3mf,.gcode" hidden />
+            </div>
+            <form class="decision-form" id="search-form">
+                <label>
+                    Search Roots
+                    <textarea name="roots" placeholder="C:\\Projects\\Bambu\nD:\\Recovered Prints">{html.escape(search_root_text)}</textarea>
+                </label>
+                <div class="button-row">
+                    <button type="submit">Find Matching 3MF Files</button>
+                    <div class="status">Search runs on this machine and scores candidates by gcode name and prefix similarity.</div>
+                </div>
+            </form>
+            <div class="status" id="source-status"></div>
+            <div class="source-list">{source_candidates_markup}</div>
+        </div>
+    </section>
+    <section class="section panel">
+        <h3>Import Plan</h3>
+        <div class="status">Selected source summary: {selected_source_summary}</div>
+        <form class="decision-form" id="import-plan-form">
+            <div class="decision-grid">
+                <label>
+                    Planned Action
+                    <select name="mode">
+                        <option value="undecided" {"selected" if effective_import_plan['mode'] == 'undecided' else ''}>Undecided</option>
+                        <option value="create_archive_upload" {"selected" if effective_import_plan['mode'] == 'create_archive_upload' else ''}>Create new Bambuddy archive from sliced 3MF</option>
+                        <option value="attach_source_only" {"selected" if effective_import_plan['mode'] == 'attach_source_only' else ''}>Attach as source 3MF only</option>
+                        <option value="wrap_raw_gcode_experimental" {"selected" if effective_import_plan['mode'] == 'wrap_raw_gcode_experimental' else ''}>Experimental raw gcode wrap path</option>
+                    </select>
+                </label>
+                <label>
+                    Override started_at
+                    <input name="override_started_at" type="datetime-local" value="{html.escape(to_datetime_local_value(effective_import_plan['override_started_at']))}" />
+                </label>
+                <label>
+                    Override created_at
+                    <input name="override_created_at" type="datetime-local" value="{html.escape(to_datetime_local_value(effective_import_plan['override_created_at']))}" />
+                </label>
+            </div>
+            <div class="support-grid">
+                <div class="support-card">
+                    <h4>Inferred started_at</h4>
+                    <div class="status mono">{html.escape(str(effective_import_plan['inferred_started_at'] or ''))}</div>
+                </div>
+                <div class="support-card">
+                    <h4>Inferred created_at</h4>
+                    <div class="status mono">{html.escape(str(effective_import_plan['inferred_created_at'] or ''))}</div>
+                </div>
+            </div>
+            <label>
+                Import Notes
+                <textarea name="notes">{html.escape(str(effective_import_plan['notes'] or ''))}</textarea>
+            </label>
+            <div class="button-row">
+                <button type="submit">Save Import Plan</button>
+                <div class="status" id="import-plan-status"></div>
+            </div>
+        </form>
+        <section class="section">
+            <h3>Requirements / Gaps</h3>
+            <ul>{import_requirement_markup}</ul>
+        </section>
+        <section class="section">
+            <h3>External Actions</h3>
+            <div class="support-grid">{action_status_markup}</div>
+        </section>
+    </section>
   <section class="section">
     <h3>Related Cache 3MF Status</h3>
     <ul>{manifest_markup}</ul>
@@ -759,6 +1471,14 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
   const selectedGcode = {json.dumps(record['gcode_name'])};
   const decisionForm = document.getElementById('decision-form');
   const decisionStatus = document.getElementById('decision-status');
+    const linkPathForm = document.getElementById('link-path-form');
+    const searchForm = document.getElementById('search-form');
+    const sourceStatus = document.getElementById('source-status');
+    const importPlanForm = document.getElementById('import-plan-form');
+    const importPlanStatus = document.getElementById('import-plan-status');
+    const browseSourceButton = document.getElementById('browse-source-button');
+    const sourceUploadInput = document.getElementById('source-upload-input');
+    const sourceDropZone = document.getElementById('source-drop-zone');
   const loadViewerButton = document.getElementById('load-3d-viewer');
   const viewerWrap = document.getElementById('interactive-viewer-wrap');
   const viewerCanvas = document.getElementById('interactive-viewer-canvas');
@@ -770,6 +1490,29 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
     decisionStatus.textContent = message;
     decisionStatus.style.color = isError ? '#b42318' : '#2d2a26';
   }}
+
+    function setSourceStatus(message, isError = false) {{
+        sourceStatus.textContent = message;
+        sourceStatus.style.color = isError ? '#b42318' : '#2d2a26';
+    }}
+
+    function setImportPlanStatus(message, isError = false) {{
+        importPlanStatus.textContent = message;
+        importPlanStatus.style.color = isError ? '#b42318' : '#2d2a26';
+    }}
+
+    async function postJson(url, payload) {{
+        const response = await fetch(url, {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(payload)
+        }});
+        const data = await response.json();
+        if (!response.ok) {{
+            throw new Error(data.error || 'Request failed');
+        }}
+        return data;
+    }}
 
   decisionForm.addEventListener('submit', async (event) => {{
     event.preventDefault();
@@ -798,6 +1541,126 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
       setDecisionStatus(error.message || 'Failed to save decision.', true);
     }}
   }});
+
+    linkPathForm.addEventListener('submit', async (event) => {{
+        event.preventDefault();
+        const formData = new FormData(linkPathForm);
+        setSourceStatus('Linking path...');
+        try {{
+            const data = await postJson('/api/source/link-path', {{
+                gcode_name: selectedGcode,
+                path: formData.get('path') || ''
+            }});
+            setSourceStatus(data.message || 'Path linked.');
+            window.setTimeout(() => window.location.reload(), 350);
+        }} catch (error) {{
+            setSourceStatus(error.message || 'Failed to link path.', true);
+        }}
+    }});
+
+    searchForm.addEventListener('submit', async (event) => {{
+        event.preventDefault();
+        const formData = new FormData(searchForm);
+        setSourceStatus('Searching roots...');
+        try {{
+            const data = await postJson('/api/source/search', {{
+                gcode_name: selectedGcode,
+                roots: formData.get('roots') || ''
+            }});
+            const count = Array.isArray(data.matches) ? data.matches.length : 0;
+            setSourceStatus(`Search complete. ${count} candidate(s) queued.`);
+            window.setTimeout(() => window.location.reload(), 350);
+        }} catch (error) {{
+            setSourceStatus(error.message || 'Search failed.', true);
+        }}
+    }});
+
+    importPlanForm.addEventListener('submit', async (event) => {{
+        event.preventDefault();
+        const formData = new FormData(importPlanForm);
+        setImportPlanStatus('Saving import plan...');
+        try {{
+            const data = await postJson('/api/import-plan', {{
+                gcode_name: selectedGcode,
+                mode: formData.get('mode') || 'undecided',
+                override_started_at: formData.get('override_started_at') || '',
+                override_created_at: formData.get('override_created_at') || '',
+                notes: formData.get('notes') || ''
+            }});
+            setImportPlanStatus(data.message || 'Import plan saved.');
+            window.setTimeout(() => window.location.reload(), 350);
+        }} catch (error) {{
+            setImportPlanStatus(error.message || 'Failed to save import plan.', true);
+        }}
+    }});
+
+    async function uploadSourceFile(file) {{
+        if (!file) {{
+            return;
+        }}
+        setSourceStatus(`Uploading ${file.name}...`);
+        const reader = new FileReader();
+        reader.onload = async () => {{
+            try {{
+                const dataUrl = String(reader.result || '');
+                const base64Payload = dataUrl.includes(',') ? dataUrl.split(',', 2)[1] : dataUrl;
+                const data = await postJson('/api/source/upload', {{
+                    gcode_name: selectedGcode,
+                    file_name: file.name,
+                    content_base64: base64Payload
+                }});
+                setSourceStatus(data.message || 'Source file uploaded and queued.');
+                window.setTimeout(() => window.location.reload(), 350);
+            }} catch (error) {{
+                setSourceStatus(error.message || 'Upload failed.', true);
+            }}
+        }};
+        reader.onerror = () => setSourceStatus('Failed to read local file.', true);
+        reader.readAsDataURL(file);
+    }}
+
+    browseSourceButton.addEventListener('click', () => sourceUploadInput.click());
+    sourceUploadInput.addEventListener('change', (event) => {{
+        const [file] = event.target.files || [];
+        uploadSourceFile(file);
+        event.target.value = '';
+    }});
+
+    sourceDropZone.addEventListener('dragover', (event) => {{
+        event.preventDefault();
+        sourceDropZone.classList.add('dragover');
+    }});
+
+    sourceDropZone.addEventListener('dragleave', () => sourceDropZone.classList.remove('dragover'));
+
+    sourceDropZone.addEventListener('drop', (event) => {{
+        event.preventDefault();
+        sourceDropZone.classList.remove('dragover');
+        const [file] = event.dataTransfer?.files || [];
+        uploadSourceFile(file);
+    }});
+
+    document.querySelectorAll('[data-source-action]').forEach((button) => {{
+        button.addEventListener('click', async () => {{
+            const action = button.dataset.sourceAction;
+            const path = button.dataset.path || '';
+            const messages = {{ select: 'Selecting source...', open: 'Opening file...', export: 'Running export command...' }};
+            setSourceStatus(messages[action] || 'Working...');
+            try {{
+                let url = '/api/source/select';
+                if (action === 'open') {{
+                    url = '/api/source/open';
+                }} else if (action === 'export') {{
+                    url = '/api/source/run-export';
+                }}
+                const data = await postJson(url, {{ gcode_name: selectedGcode, path }});
+                setSourceStatus(data.message || 'Done.');
+                window.setTimeout(() => window.location.reload(), 350);
+            }} catch (error) {{
+                setSourceStatus(error.message || 'Action failed.', true);
+            }}
+        }});
+    }});
 
     let gcodePreviewModulePromise = null;
     async function ensureGcodePreviewLibrary() {{
@@ -853,10 +1716,86 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
 """
 
 
+def resolve_record(dataset: ForensicsDataset, gcode_name: str) -> dict[str, object]:
+    record = dataset.record_map.get(gcode_name)
+    if record is None:
+        raise ValueError("Unknown gcode name.")
+    return record
+
+
+def resolve_source_candidate(record: dict[str, object], path_text: str | None = None) -> dict[str, Any]:
+    decision = record.get("decision") or {}
+    source_files = decision.get("source_files") or []
+    if path_text:
+        normalized = normalize_path_text(path_text)
+        for source in source_files:
+            if str(source.get("path") or "") == normalized:
+                return source
+        raise ValueError("Selected source path is not queued for this gcode.")
+    selected = get_selected_source_from_record(record)
+    if selected is None:
+        raise ValueError("No source file has been queued for this gcode yet.")
+    return selected
+
+
+def default_export_output_path(staging_dir: Path, record: dict[str, object], source_path: Path) -> Path:
+    base_name = source_path.name
+    base_name = re.sub(r"\.gcode\.3mf$", "", base_name, flags=re.IGNORECASE)
+    base_name = re.sub(r"\.3mf$", "", base_name, flags=re.IGNORECASE)
+    base_name = re.sub(r"\.gcode$", "", base_name, flags=re.IGNORECASE)
+    safe_name = re.sub(r"[^A-Za-z0-9._ -]+", "_", base_name).strip(" .") or str(record.get("gcode_name") or "export")
+    return (staging_dir / str(record.get("gcode_name") or "record") / f"{safe_name}.gcode.3mf").resolve()
+
+
+def open_with_local_handler(path: Path, studio_executable: Path | None) -> str:
+    if studio_executable is not None:
+        subprocess.Popen([str(studio_executable), str(path)])
+        return f"Opened with configured studio executable: {studio_executable}"
+    if os.name == "nt":
+        os.startfile(str(path))  # type: ignore[attr-defined]
+        return "Opened with the default Windows file association."
+    subprocess.Popen(["xdg-open", str(path)])
+    return "Opened with the system file handler."
+
+
+def run_export_command(command_template: str, record: dict[str, object], source: dict[str, Any], staging_dir: Path) -> dict[str, object]:
+    if not command_template.strip():
+        raise ValueError("No export command is configured. Use --export-command to enable this action.")
+    source_path = Path(str(source.get("path") or ""))
+    if not source_path.exists():
+        raise ValueError(f"Selected source file is missing: {source_path}")
+    output_path = default_export_output_path(staging_dir, record, source_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = command_template.format(
+        source_path=str(source_path),
+        source_name=source_path.name,
+        gcode_name=str(record.get("gcode_name") or ""),
+        record_prefix=str(record.get("prefix") or ""),
+        output_path=str(output_path),
+    )
+    completed = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=900)
+    message = "Export command completed." if completed.returncode == 0 else "Export command failed."
+    return {
+        "status": "ok" if completed.returncode == 0 else "error",
+        "message": message,
+        "command": command,
+        "path": str(source_path),
+        "output_path": str(output_path),
+        "exit_code": completed.returncode,
+        "stdout": completed.stdout.strip(),
+        "stderr": completed.stderr.strip(),
+        "at": utc_now_iso(),
+    }
+
+
 class ForensicsHandler(BaseHTTPRequestHandler):
     dataset: ForensicsDataset
     writeback_enabled: bool
     export_path: Path
+    staging_dir: Path
+    studio_executable: Path | None
+    export_command: str
+    max_upload_bytes: int
 
     def send_text(self, status_code: int, content_type: str, body: bytes) -> None:
         self.send_response(status_code)
@@ -926,28 +1865,120 @@ class ForensicsHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/api/decision":
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length)
+            try:
+                payload = json.loads(raw_body.decode("utf-8"))
+                gcode_name = str(payload.get("gcode_name") or "").strip()
+                if not gcode_name or gcode_name not in self.dataset.record_map:
+                    raise ValueError("Unknown gcode name.")
+                disposition = normalize_disposition(str(payload.get("disposition") or ""))
+                archive_id = parse_archive_id(payload.get("archive_id")) if payload.get("archive_id") not in (None, "") else None
+                note = str(payload.get("note") or "").strip()
+                related_relative_path = str(payload.get("related_relative_path") or "").strip() or None
+                entry = self.dataset.update_decision(gcode_name, disposition, archive_id, note, related_relative_path)
+            except Exception as exc:  # noqa: BLE001
+                self.send_json(400, {"error": str(exc)})
+                return
+            message = "Decision saved to export file."
+            if self.writeback_enabled:
+                message = "Decision saved to export file and manifest."
+            self.send_json(200, {"message": message, "entry": entry})
+            return
+
+        if parsed.path in {
+            "/api/source/link-path",
+            "/api/source/upload",
+            "/api/source/search",
+            "/api/source/select",
+            "/api/source/open",
+            "/api/source/run-export",
+            "/api/import-plan",
+        }:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length)
+            try:
+                payload = json.loads(raw_body.decode("utf-8"))
+                gcode_name = str(payload.get("gcode_name") or "").strip()
+                record = resolve_record(self.dataset, gcode_name)
+
+                if parsed.path == "/api/source/link-path":
+                    entry = self.dataset.queue_source_path(gcode_name, str(payload.get("path") or ""), source_kind="linked_path")
+                    self.send_json(200, {"message": "Local file linked.", "entry": entry})
+                    return
+
+                if parsed.path == "/api/source/upload":
+                    content_base64 = str(payload.get("content_base64") or "").strip()
+                    file_name = str(payload.get("file_name") or "").strip()
+                    if not content_base64:
+                        raise ValueError("Upload payload is empty.")
+                    estimated_bytes = (len(content_base64) * 3) // 4
+                    if estimated_bytes > self.max_upload_bytes:
+                        raise ValueError(f"Upload exceeds the configured limit of {self.max_upload_bytes} bytes.")
+                    entry = self.dataset.queue_uploaded_source(
+                        gcode_name,
+                        file_name=file_name,
+                        content_base64=content_base64,
+                        staging_dir=self.staging_dir,
+                    )
+                    self.send_json(200, {"message": "Local file uploaded into the staging queue.", "entry": entry})
+                    return
+
+                if parsed.path == "/api/source/search":
+                    result = self.dataset.search_source_candidates(gcode_name, normalize_string_list(payload.get("roots")))
+                    self.send_json(200, {"message": "Source search completed.", **result})
+                    return
+
+                if parsed.path == "/api/source/select":
+                    entry = self.dataset.select_source(gcode_name, str(payload.get("path") or ""))
+                    self.send_json(200, {"message": "Source candidate selected.", "entry": entry})
+                    return
+
+                if parsed.path == "/api/source/open":
+                    source = resolve_source_candidate(record, str(payload.get("path") or ""))
+                    message = open_with_local_handler(Path(str(source.get("path") or "")), self.studio_executable)
+                    entry = self.dataset.record_external_action(
+                        gcode_name,
+                        "last_open",
+                        {
+                            "status": "ok",
+                            "message": message,
+                            "path": str(source.get("path") or ""),
+                            "at": utc_now_iso(),
+                        },
+                    )
+                    self.send_json(200, {"message": message, "entry": entry})
+                    return
+
+                if parsed.path == "/api/source/run-export":
+                    source = resolve_source_candidate(record, str(payload.get("path") or ""))
+                    result = run_export_command(self.export_command, record, source, self.staging_dir)
+                    entry = self.dataset.record_external_action(gcode_name, "last_export", result)
+                    self.send_json(200, {"message": result["message"], "result": result, "entry": entry})
+                    return
+
+                if parsed.path == "/api/import-plan":
+                    selected_source = resolve_source_candidate(record)
+                    plan = {
+                        "mode": str(payload.get("mode") or "undecided"),
+                        "inferred_started_at": str((record.get("decision") or {}).get("import_plan", {}).get("inferred_started_at") or record.get("last_write") or "").strip() or None,
+                        "override_started_at": from_datetime_local_value(str(payload.get("override_started_at") or "")),
+                        "inferred_created_at": str((record.get("decision") or {}).get("import_plan", {}).get("inferred_created_at") or record.get("last_write") or "").strip() or None,
+                        "override_created_at": from_datetime_local_value(str(payload.get("override_created_at") or "")),
+                        "notes": str(payload.get("notes") or "").strip(),
+                        "missing_requirements": build_import_requirements(record, selected_source),
+                    }
+                    entry = self.dataset.update_import_plan(gcode_name, plan)
+                    self.send_json(200, {"message": "Import plan saved.", "entry": entry})
+                    return
+            except Exception as exc:  # noqa: BLE001
+                self.send_json(400, {"error": str(exc)})
+                return
+
         if parsed.path != "/api/decision":
             self.send_error(404, "Not found")
             return
-        content_length = int(self.headers.get("Content-Length", "0"))
-        raw_body = self.rfile.read(content_length)
-        try:
-            payload = json.loads(raw_body.decode("utf-8"))
-            gcode_name = str(payload.get("gcode_name") or "").strip()
-            if not gcode_name or gcode_name not in self.dataset.record_map:
-                raise ValueError("Unknown gcode name.")
-            disposition = normalize_disposition(str(payload.get("disposition") or ""))
-            archive_id = parse_archive_id(payload.get("archive_id")) if payload.get("archive_id") not in (None, "") else None
-            note = str(payload.get("note") or "").strip()
-            related_relative_path = str(payload.get("related_relative_path") or "").strip() or None
-            entry = self.dataset.update_decision(gcode_name, disposition, archive_id, note, related_relative_path)
-        except Exception as exc:  # noqa: BLE001
-            self.send_json(400, {"error": str(exc)})
-            return
-        message = "Decision saved to export file."
-        if self.writeback_enabled:
-            message = "Decision saved to export file and manifest."
-        self.send_json(200, {"message": message, "entry": entry})
 
     def log_message(self, format_string: str, *args) -> None:
         return
@@ -962,6 +1993,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest-writeback", action="store_true", help="Also write saved decisions back into the manifest under secondary_artifact_analysis.")
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host.")
     parser.add_argument("--port", type=int, default=8765, help="HTTP bind port.")
+    parser.add_argument("--staging-dir", default="tmp/gcode_forensics_sources", help="Directory for staged uploaded/exported local source files.")
+    parser.add_argument("--studio-executable", help="Optional Bambu Studio executable path used by the Open File action.")
+    parser.add_argument("--export-command", default="", help="Optional shell command template for export automation. Supported placeholders: {source_path}, {source_name}, {gcode_name}, {record_prefix}, {output_path}.")
+    parser.add_argument("--max-upload-mb", type=int, default=64, help="Maximum size in megabytes for browser-uploaded local source files.")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically open a browser window.")
     return parser.parse_args()
 
@@ -974,6 +2009,10 @@ def main() -> int:
     ForensicsHandler.dataset = dataset
     ForensicsHandler.writeback_enabled = args.manifest_writeback
     ForensicsHandler.export_path = export_path
+    ForensicsHandler.staging_dir = Path(args.staging_dir)
+    ForensicsHandler.studio_executable = Path(args.studio_executable).expanduser().resolve() if args.studio_executable else None
+    ForensicsHandler.export_command = str(args.export_command or "")
+    ForensicsHandler.max_upload_bytes = int(args.max_upload_mb) * 1024 * 1024
     server = ThreadingHTTPServer((args.host, args.port), ForensicsHandler)
     url = f"http://{args.host}:{args.port}/?view=ambiguous"
     print(f"Serving G-code forensics viewer at {url}")

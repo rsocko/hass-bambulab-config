@@ -257,6 +257,8 @@ class FakeApiClient:
     toggled_favorites: list[int] = []
     archive_slicer_tokens: list[int] = []
     source_slicer_tokens: list[int] = []
+    related_requests: list[dict[str, object]] = []
+    compare_requests: list[list[int]] = []
 
     def __init__(self, _session, _base_url: str, _api_key: str, _timeout_seconds: int) -> None:
         pass
@@ -283,6 +285,61 @@ class FakeApiClient:
             if int(item.get("id", 0)) == int(archive_id):
                 return dict(item)
         raise RuntimeError("Bambuddy returned HTTP 404")
+
+    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 6) -> list[dict[str, object]]:
+        normalized_archive_id = int(archive_id)
+        type(self).related_requests.append({"archive_id": normalized_archive_id, "limit": int(limit)})
+        candidates: list[dict[str, object]] = []
+        for item in self.archives:
+            candidate_id = int(item.get("id", 0))
+            if candidate_id == normalized_archive_id:
+                continue
+            match_score = 100 if item.get("print_name") == "Hueforge Batman" else 50
+            candidates.append(
+                {
+                    "archive": dict(item),
+                    "match_reason": "Same print name" if match_score >= 100 else "Same filament type",
+                    "match_score": match_score,
+                }
+            )
+        return candidates[: max(1, int(limit))]
+
+    async def async_compare_archives(self, archive_ids: list[int]) -> dict[str, object]:
+        normalized_ids = [int(value) for value in archive_ids]
+        type(self).compare_requests.append(list(normalized_ids))
+        archives = [dict(item) for item in self.archives if int(item.get("id", 0)) in normalized_ids]
+        archives.sort(key=lambda item: normalized_ids.index(int(item.get("id", 0))))
+        statuses = [str(item.get("status") or "") for item in archives]
+        return {
+            "archives": archives,
+            "comparison": [
+                {
+                    "field": "status",
+                    "label": "Status",
+                    "values": statuses,
+                    "has_difference": len(set(statuses)) > 1,
+                },
+                {
+                    "field": "layer_height",
+                    "label": "Layer Height",
+                    "values": [item.get("layer_height") for item in archives],
+                    "unit": "mm",
+                    "has_difference": len({item.get("layer_height") for item in archives}) > 1,
+                },
+            ],
+            "differences": [
+                {"field": "status", "label": "Status"},
+            ],
+            "success_correlation": {
+                "has_both_outcomes": "completed" in statuses and "failed" in statuses,
+                "successful_count": sum(1 for status in statuses if status == "completed"),
+                "failed_count": sum(1 for status in statuses if status == "failed"),
+                "insights": [
+                    {"label": "Status", "insight": "One archive completed while another failed."}
+                ],
+                "message": "Need both successful and failed prints to analyze correlation.",
+            },
+        }
 
     async def async_fetch_archive_capabilities(self, archive_id: int) -> dict[str, object]:
         archive = await self.async_fetch_archive_detail(archive_id)
@@ -927,6 +984,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert const_module.SOURCE_3MF_UPLOAD_URL in view_urls
     websocket_handler_names = {getattr(handler, "__name__", "") for handler in hass.websocket_handlers}
     assert "websocket_handle_archive_action" in websocket_handler_names
+    assert "websocket_handle_archive_related" in websocket_handler_names
+    assert "websocket_handle_archive_compare" in websocket_handler_names
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     original_api_client = init_module.BambuddyApiClient
@@ -1306,6 +1365,82 @@ def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_p
     assert "/api/v1/archives/202/source-dl/source-202-token/" in third_result["download_url"]
     assert FakeApiClient.archive_slicer_tokens == [101]
     assert FakeApiClient.source_slicer_tokens == [202, 202]
+
+
+def test_variant3_archive_related_and_compare_websockets_return_normalized_payloads(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[1]["print_name"] = "Hueforge Batman"
+    manager.archives[1]["status"] = "failed"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    related_handler = next(
+        handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_related"
+    )
+    compare_handler = next(
+        handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_compare"
+    )
+    connection = sys.modules["homeassistant.components.websocket_api"].ActiveConnection()
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.related_requests = []
+    FakeApiClient.compare_requests = []
+
+    try:
+        asyncio.run(
+            related_handler(
+                hass,
+                connection,
+                {"id": 1, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED, "archive_id": 101, "limit": 4},
+            )
+        )
+        asyncio.run(
+            compare_handler(
+                hass,
+                connection,
+                {"id": 2, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE, "archive_ids": [101, 202]},
+            )
+        )
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert not connection.errors
+    related_result = connection.results[0][1]
+    compare_result = connection.results[1][1]
+    assert related_result["archive_id"] == 101
+    assert related_result["limit"] == 4
+    assert related_result["candidates"][0]["archive_id"] == 202
+    assert related_result["candidates"][0]["confidence_bucket"] == "high"
+    assert related_result["candidates"][0]["archive"]["print_name"] == "Hueforge Batman"
+    assert compare_result["archive_ids"] == [101, 202]
+    assert compare_result["comparison"][0]["field"] == "status"
+    assert compare_result["differences"][0]["field"] == "status"
+    assert compare_result["success_correlation"]["has_both_outcomes"] is True
+    assert FakeApiClient.related_requests == [{"archive_id": 101, "limit": 4}]
+    assert FakeApiClient.compare_requests == [[101, 202]]
 
 
 def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path) -> None:

@@ -490,6 +490,7 @@ For detailed design of the two major subsystems, see:
 - **[archive-runtime-restore-ha-ux-design.md](runtime-repair/archive-runtime-restore-ha-ux-design.md)** — Proposed Home Assistant UX, phased rollout, and service contract for sidecar-backed source-to-target restore workflows
 - **[archive-runtime-restore-implementation-plan.md](runtime-repair/archive-runtime-restore-implementation-plan.md)** — Concrete file-by-file rollout plan for backend upload sessions, workflow state, popup summary entities, and restore UI delivery
 - **[archive-runtime-restore-ha-service-and-popup-contract.md](runtime-repair/archive-runtime-restore-ha-service-and-popup-contract.md)** — Proposed HA upload endpoint, service names, summary entity shape, and popup wiring contract for the restore workflow
+- **[archive-metadata-correction-design.md](runtime-repair/archive-metadata-correction-design.md)** — Issue #953 design for sidecar-backed single-archive metadata correction, warning UX, derived-field policy, and local audit history
 - **[advanced-features-design.md](planning/advanced-features-design.md)** — Follow-on history capabilities such as favorites, compare, timelapses, repair diagnostics, and reprint preflight
 - **[archive-detection-recovery-design.md](recovery/archive-detection-recovery-design.md)** — Detection and no-code-change repair architecture for incomplete Bambuddy archives
 - **[archive-detection-phase1-scope.md](recovery/archive-detection-phase1-scope.md)** — Recommended first build slice: detection and visibility only

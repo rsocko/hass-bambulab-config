@@ -474,7 +474,7 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
             <div class="row">
               <div>
                 <div class="title">Source And Target</div>
-                <div class="meta">Source: ${sourceArchiveId || "-"} ${sourceArchive?.print_name ? `• ${this._escapeHtml(sourceArchive.print_name)}` : ""}</div>
+                <div class="meta">Source: ${sourceArchiveId || "-"} ${sourceArchive?.print_name ? ` - ${this._escapeHtml(sourceArchive.print_name)}` : ""}</div>
                 <div class="meta">Target: ${targetArchiveId || "not created"}</div>
               </div>
               <div class="chip">${this._escapeHtml(workflowState)}</div>

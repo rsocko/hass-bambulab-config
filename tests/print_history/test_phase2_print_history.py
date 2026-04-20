@@ -823,7 +823,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=27", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=2", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=1", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -2324,8 +2324,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=41", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=27", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
@@ -2613,7 +2613,22 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("const isRelated = duplicateCount > 0 && !isSource && !isDuplicate;", popup)
         self.assertIn("roleLabel: 'Related Prints'", popup)
         self.assertIn("chipLabel: groupSize > 1 ? `Related · ${groupSize} prints` : 'Related'", popup)
-        self.assertIn("icon: 'mdi:relation-many'", popup)
+
+    def test_archive_actions_card_includes_related_and_compare_modes(self):
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-actions-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('type: "bambuddy/print_history_archive_related"', script)
+        self.assertIn('type: "bambuddy/print_history_archive_compare"', script)
+        self.assertIn('this._renderActionButton("open-related", "Related Prints", "mdi:relation-many"', script)
+        self.assertIn('this._renderActionButton("open-compare", "Compare Print", "mdi:compare-horizontal"', script)
+        self.assertIn('this._mode === "related"', script)
+        self.assertIn('this._mode === "compare"', script)
+        self.assertIn('Compare is rendered locally in Home Assistant from Bambuddy\'s structured compare API.', script)
+        self.assertIn('Could not open the related archive popup', script)
+        self.assertIn('.related-candidate{border-radius:16px;', script)
+        self.assertIn('.compare-table{width:100%;min-width:520px;border-collapse:collapse;}', script)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (

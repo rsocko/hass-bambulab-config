@@ -19,10 +19,12 @@ Already shipped in Home Assistant:
 
 - archive browser card with `Compact`, `Media`, and `List` variants
 - per-archive popup launch from `custom:print-history-browser-card`
+- shared `Advanced Actions` popup entry point from the browser cards and popup photo gallery
 - popup edit actions for `print_name`, `tags`, `notes`, `status`, and `failure_reason`
 - popup `Re-Enrich` action
 - favorite toggle from both card and popup
 - compact duplicate metadata in the browser projection (`duplicate_count`, `duplicate_sequence`, `original_archive_id`)
+- duplicate/source/related role indicators already rendered in browser cards and popup detail content
 
 Not shipped yet:
 
@@ -296,10 +298,10 @@ Reason:
 
 Add dedicated on-demand query paths in the custom integration or websocket layer:
 
-- `bambuddy/print_history_related`
+- `bambuddy/print_history_archive_related`
   - input: `archive_id`, optional `limit`
   - output: normalized similar candidates plus any local duplicate summary fields already known
-- `bambuddy/print_history_compare`
+- `bambuddy/print_history_archive_compare`
   - input: `archive_ids[]`
   - output: normalized compare payload from Bambuddy
 
@@ -336,6 +338,10 @@ Why first:
 - lower risk than full compare selection
 - validates on-demand query path and popup extension model
 
+Implementation note:
+
+- this phase should attach to the shared `Advanced Actions` card, not a separate popup surface
+
 ### Phase 757B: Single-Archive Compare Flow
 
 Scope:
@@ -348,6 +354,10 @@ Why second:
 
 - highest user value for failure review
 - does not require browser selection mode changes yet
+
+Implementation note:
+
+- reuse the same related-candidate fetch path for quick compare so a clear high-confidence match can open compare immediately while ambiguous cases fall back to candidate selection
 
 ### Phase 757C: Browser Multi-Select Compare
 

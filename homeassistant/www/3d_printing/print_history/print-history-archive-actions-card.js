@@ -17,6 +17,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._statusTone = "info";
     this._storageMetricsRequestKey = "";
     this._storageMetricsLoadedKey = "";
+    this._relatedCandidates = [];
+    this._relatedArchiveId = "";
+    this._relatedError = "";
+    this._relatedCompareIntent = false;
+    this._comparePayload = null;
+    this._compareArchiveIds = [];
+    this._compareError = "";
+    this._compareBackMode = "main";
     this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
@@ -50,6 +58,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._statusTone = "info";
     this._storageMetricsRequestKey = "";
     this._storageMetricsLoadedKey = "";
+    this._relatedCandidates = [];
+    this._relatedArchiveId = "";
+    this._relatedError = "";
+    this._relatedCompareIntent = false;
+    this._comparePayload = null;
+    this._compareArchiveIds = [];
+    this._compareError = "";
+    this._compareBackMode = "main";
     this._lastRenderSignature = "";
     this._render();
   }
@@ -304,12 +320,33 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._openMetadataViewer(false);
       return;
     }
+    if (action === "open-related") {
+      this._loadRelatedCandidates({ compareIntent: false });
+      return;
+    }
+    if (action === "open-compare") {
+      this._loadRelatedCandidates({ compareIntent: true });
+      return;
+    }
+    if (action === "related-open") {
+      this._handleOpenRelatedArchive(button.getAttribute("data-archive-id") || "");
+      return;
+    }
+    if (action === "related-compare") {
+      this._handleCompareAgainstArchive(button.getAttribute("data-archive-id") || "");
+      return;
+    }
     if (action === "refresh-metadata") {
       this._openMetadataViewer(true);
       return;
     }
     if (action === "back-main") {
       this._mode = "main";
+      this._render();
+      return;
+    }
+    if (action === "back-related") {
+      this._mode = "related";
       this._render();
       return;
     }
@@ -391,6 +428,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     parts.push(String(this._metadataArchiveId || ""));
     parts.push(String(this._metadataError || ""));
     parts.push(String(this._metadataRevision || 0));
+    parts.push(String(this._relatedArchiveId || ""));
+    parts.push(String(this._relatedError || ""));
+    parts.push(this._relatedCompareIntent ? "1" : "0");
+    parts.push(JSON.stringify(this._relatedCandidates || []));
+    parts.push(JSON.stringify(this._compareArchiveIds || []));
+    parts.push(String(this._compareError || ""));
+    parts.push(String(this._compareBackMode || "main"));
+    parts.push(JSON.stringify(this._comparePayload || {}));
 
     var baseEntityId = this._config.api_base_entity || "input_text.bambuddy_api_base_url";
     var baseState = hass.states[baseEntityId];
@@ -1601,12 +1646,521 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '</section>';
   }
 
+  async _requestArchiveRelated(limit) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (!this._hass || typeof this._hass.callWS !== "function" || archiveId <= 0) {
+      throw new Error("Archive action context is unavailable");
+    }
+    return this._hass.callWS({
+      type: "bambuddy/print_history_archive_related",
+      archive_id: archiveId,
+      limit: Math.max(1, Math.min(12, Number(limit || 6))),
+    });
+  }
+
+  async _requestArchiveCompare(archiveIds) {
+    var normalizedIds = this._normalizeCompareArchiveIds(archiveIds);
+    if (!this._hass || typeof this._hass.callWS !== "function" || normalizedIds.length < 2) {
+      throw new Error("At least 2 archives are required for comparison");
+    }
+    return this._hass.callWS({
+      type: "bambuddy/print_history_archive_compare",
+      archive_ids: normalizedIds,
+    });
+  }
+
+  _normalizeCompareArchiveIds(archiveIds) {
+    var values = Array.isArray(archiveIds) ? archiveIds : [archiveIds];
+    var normalized = [];
+    var seen = {};
+    values.forEach(function (value) {
+      var archiveId = Number(value || 0);
+      if (!archiveId || seen[archiveId]) {
+        return;
+      }
+      seen[archiveId] = true;
+      normalized.push(archiveId);
+    });
+    return normalized;
+  }
+
+  _matchingRelatedCandidates(archiveId) {
+    var normalizedArchiveId = archiveId != null ? String(archiveId) : "";
+    if (!normalizedArchiveId || this._relatedArchiveId !== normalizedArchiveId || !Array.isArray(this._relatedCandidates)) {
+      return null;
+    }
+    return this._relatedCandidates;
+  }
+
+  _setRelatedState(candidates, error, archiveId, compareIntent) {
+    this._relatedCandidates = Array.isArray(candidates) ? candidates : [];
+    this._relatedError = String(error || "").trim();
+    this._relatedArchiveId = archiveId != null ? String(archiveId) : "";
+    this._relatedCompareIntent = !!compareIntent;
+    this._lastRenderSignature = "";
+    this._render();
+  }
+
+  _setCompareState(payload, error, archiveIds, backMode) {
+    this._comparePayload = payload && typeof payload === "object" ? payload : null;
+    this._compareError = String(error || "").trim();
+    this._compareArchiveIds = this._normalizeCompareArchiveIds(archiveIds || []);
+    this._compareBackMode = String(backMode || "main");
+    this._lastRenderSignature = "";
+    this._render();
+  }
+
+  _candidateConfidenceBucket(candidate) {
+    return String(candidate && candidate.confidence_bucket || "low").trim() || "low";
+  }
+
+  _candidateConfidenceLabel(candidate) {
+    var bucket = this._candidateConfidenceBucket(candidate);
+    if (bucket === "high") {
+      return "High confidence";
+    }
+    if (bucket === "medium") {
+      return "Medium confidence";
+    }
+    return "Low confidence";
+  }
+
+  _candidateConfidenceColor(candidate) {
+    var bucket = this._candidateConfidenceBucket(candidate);
+    if (bucket === "high") {
+      return "rgba(46,125,50,0.18)";
+    }
+    if (bucket === "medium") {
+      return "rgba(239,108,0,0.16)";
+    }
+    return "rgba(84,110,122,0.18)";
+  }
+
+  _statusLabel(status) {
+    var normalized = String(status || "").trim().toLowerCase();
+    if (!normalized) {
+      return "Unknown";
+    }
+    if (normalized === "completed") {
+      return "Completed";
+    }
+    if (normalized === "failed") {
+      return "Failed";
+    }
+    if (normalized === "cancelled") {
+      return "Cancelled";
+    }
+    if (normalized === "archived") {
+      return "Archived";
+    }
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
+  _statusBadgeClass(status) {
+    var normalized = String(status || "").trim().toLowerCase();
+    if (normalized === "completed") {
+      return "success";
+    }
+    if (normalized === "failed") {
+      return "danger";
+    }
+    if (normalized === "cancelled") {
+      return "warning";
+    }
+    return "neutral";
+  }
+
+  _parseArchiveDate(value) {
+    if (!value) {
+      return null;
+    }
+    var raw = String(value || "").trim();
+    var normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ? raw : (raw + "Z");
+    var parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  _formatArchiveDate(value) {
+    var parsed = this._parseArchiveDate(value);
+    if (!parsed) {
+      return "Unknown date";
+    }
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(parsed);
+    } catch (_error) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  _currentArchiveStatus() {
+    var archive = this._resolveArchive();
+    return String(archive && archive.status || "").trim().toLowerCase();
+  }
+
+  _isFailureContext() {
+    var status = this._currentArchiveStatus();
+    return status === "failed" || status === "cancelled";
+  }
+
+  _isHighConfidenceCompareCandidate(candidate) {
+    var matchScore = Number(candidate && candidate.match_score || 0);
+    if (matchScore >= 95) {
+      return true;
+    }
+    if (this._isFailureContext()) {
+      var currentArchive = this._resolveArchive();
+      var currentName = String(currentArchive && currentArchive.print_name || "").trim().toLowerCase();
+      var candidateName = String(candidate && candidate.print_name || "").trim().toLowerCase();
+      var currentStatus = String(currentArchive && currentArchive.status || "").trim().toLowerCase();
+      var candidateStatus = String(candidate && candidate.status || "").trim().toLowerCase();
+      if (currentName && candidateName && currentName === candidateName && currentStatus && candidateStatus && currentStatus !== candidateStatus) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  _suggestedCompareCandidate(candidates) {
+    var normalizedCandidates = Array.isArray(candidates) ? candidates : [];
+    if (normalizedCandidates.length === 1) {
+      return normalizedCandidates[0];
+    }
+    var highConfidence = normalizedCandidates.filter(function (candidate) {
+      return this._isHighConfidenceCompareCandidate(candidate);
+    }.bind(this));
+    return highConfidence.length === 1 ? highConfidence[0] : null;
+  }
+
+  async _loadRelatedCandidates(options) {
+    var settings = options || {};
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (archiveId <= 0) {
+      this._setStatus("Related prints are unavailable for this archive.", "error");
+      return;
+    }
+
+    var compareIntent = !!settings.compareIntent;
+    this._mode = "related";
+    this._render();
+
+    var cachedCandidates = !settings.forceRefresh ? this._matchingRelatedCandidates(archiveId) : null;
+    if (cachedCandidates) {
+      this._relatedCompareIntent = compareIntent;
+      if (compareIntent) {
+        var suggestedCandidate = this._suggestedCompareCandidate(cachedCandidates);
+        if (suggestedCandidate) {
+          await this._loadCompareForArchives([archiveId, suggestedCandidate.archive_id], "related");
+          return;
+        }
+      }
+      this._lastRenderSignature = "";
+      this._render();
+      return;
+    }
+
+    try {
+      this._setBusyState(true, compareIntent ? "Loading compare candidates..." : "Loading related prints...", "info", "related");
+      var response = await this._requestArchiveRelated(settings.limit || 6);
+      var candidates = response && Array.isArray(response.candidates) ? response.candidates : [];
+      this._busy = false;
+      this._busyContext = "";
+      this._setRelatedState(candidates, "", archiveId, compareIntent);
+      if (!candidates.length) {
+        this._setStatus(compareIntent ? "No compare candidates were found for this print." : "No related prints were found for this archive.", "info");
+        return;
+      }
+      if (compareIntent) {
+        var bestCandidate = this._suggestedCompareCandidate(candidates);
+        if (bestCandidate) {
+          await this._loadCompareForArchives([archiveId, bestCandidate.archive_id], "related");
+          return;
+        }
+        this._setStatus("Choose a related print to compare against this archive.", "info");
+        return;
+      }
+      this._setStatus("Related prints loaded.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      var message = this._describeError(error, compareIntent ? "Could not load compare candidates" : "Could not load related prints");
+      this._setRelatedState([], message, archiveId, compareIntent);
+      this._setStatus(message, "error");
+    }
+  }
+
+  async _loadCompareForArchives(archiveIds, backMode) {
+    var normalizedIds = this._normalizeCompareArchiveIds(archiveIds);
+    if (normalizedIds.length < 2) {
+      this._setStatus("Choose at least two archives to compare.", "error");
+      return;
+    }
+
+    this._mode = "compare";
+    this._render();
+
+    try {
+      this._setBusyState(true, "Loading archive comparison...", "info", "compare");
+      var response = await this._requestArchiveCompare(normalizedIds);
+      this._busy = false;
+      this._busyContext = "";
+      this._setCompareState(response, "", normalizedIds, backMode || "main");
+      this._setStatus("Archive comparison loaded.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      var message = this._describeError(error, "Could not load archive comparison");
+      this._setCompareState(null, message, normalizedIds, backMode || "main");
+      this._setStatus(message, "error");
+    }
+  }
+
+  async _handleCompareAgainstArchive(candidateArchiveId) {
+    var archive = this._resolveArchive();
+    var currentArchiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var normalizedCandidateId = Number(candidateArchiveId || 0);
+    if (currentArchiveId <= 0 || normalizedCandidateId <= 0) {
+      this._setStatus("Compare target is unavailable.", "error");
+      return;
+    }
+    await this._loadCompareForArchives([currentArchiveId, normalizedCandidateId], "related");
+  }
+
+  _buildArchiveDetailPopupContent(archive) {
+    var archiveJson = archive ? JSON.stringify(archive) : "{}";
+    return {
+      type: "vertical-stack",
+      cards: [
+        {
+          type: "custom:print-history-photo-gallery-card",
+          archive_json: archiveJson,
+          detail_entity: "sensor.print_history_popup_archive_detail",
+          api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+          visibility_entity: "input_boolean.print_history_show_images",
+          include_thumbnail: true,
+        },
+        {
+          type: "custom:button-card",
+          template: "print_history_archive_popup_content",
+          entity: "sensor.print_history_popup_archive_detail",
+          triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"],
+          variables: {
+            archive_json: archiveJson,
+          },
+          tap_action: { action: "none" },
+          hold_action: { action: "none" },
+        },
+      ],
+    };
+  }
+
+  _openArchiveDetailPopup(archive) {
+    if (!archive || archive.id == null) {
+      return;
+    }
+    var archiveId = Number(archive.id);
+    var popupTitle = String(archive.print_name || ("Archive " + archiveId)) + " · #" + String(archiveId);
+    this._fireBrowserModEvent("browser_mod.sequence", {
+      sequence: [
+        {
+          service: "input_text.set_value",
+          data: {
+            entity_id: "input_text.print_history_popup_archive_id",
+            value: String(archiveId),
+          },
+        },
+        {
+          service: archive.is_favorite ? "input_boolean.turn_on" : "input_boolean.turn_off",
+          data: {
+            entity_id: "input_boolean.print_history_popup_is_favorite",
+          },
+        },
+        {
+          service: "browser_mod.popup",
+          data: {
+            title: popupTitle,
+            size: "normal",
+            content: this._buildArchiveDetailPopupContent(archive),
+          },
+        },
+      ],
+    });
+  }
+
+  async _handleOpenRelatedArchive(candidateArchiveId) {
+    var normalizedCandidateId = Number(candidateArchiveId || 0);
+    if (normalizedCandidateId <= 0) {
+      this._setStatus("Related archive details are unavailable.", "error");
+      return;
+    }
+
+    try {
+      this._setBusyState(true, "Loading archive popup...", "info", "related-open");
+      var detail = await this._callArchiveDetailService(normalizedCandidateId);
+      var archive = detail && detail.archive && typeof detail.archive === "object"
+        ? detail.archive
+        : null;
+      this._busy = false;
+      this._busyContext = "";
+      if (!archive) {
+        throw new Error("Archive detail did not include archive data");
+      }
+      this._openArchiveDetailPopup(archive);
+      this._setStatus("Archive popup opened.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(this._describeError(error, "Could not open the related archive popup"), "error");
+    }
+  }
+
+  _renderRelatedCandidate(candidate) {
+    var archiveId = Number(candidate && candidate.archive_id || 0);
+    var score = Number(candidate && candidate.match_score || 0);
+    var statusLabel = this._statusLabel(candidate && candidate.status);
+    var confidenceLabel = this._candidateConfidenceLabel(candidate);
+    return '<div class="related-candidate">' +
+      '<div class="related-candidate-header">' +
+        '<div class="related-candidate-title-block">' +
+          '<div class="related-candidate-title">' + this._escapeHtml(String(candidate && candidate.print_name || ("Archive " + archiveId))) + '</div>' +
+          '<div class="related-candidate-meta">#' + this._escapeHtml(String(archiveId)) + ' · ' + this._escapeHtml(this._formatArchiveDate(candidate && candidate.created_at)) + '</div>' +
+        '</div>' +
+        '<div class="related-candidate-badges">' +
+          '<span class="candidate-status ' + this._escapeHtml(this._statusBadgeClass(candidate && candidate.status)) + '">' + this._escapeHtml(statusLabel) + '</span>' +
+          '<span class="candidate-score" style="background:' + this._escapeHtml(this._candidateConfidenceColor(candidate)) + ';">' + this._escapeHtml(confidenceLabel + ' · ' + score) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="related-candidate-copy">' + this._escapeHtml(String(candidate && candidate.match_reason || "Related candidate")) + '</div>' +
+      '<div class="actions-grid related-actions">' +
+        this._renderActionButton("related-open", "Open Archive", "mdi:open-in-new", { disabled: this._busy || archiveId <= 0 })
+          .replace('data-action="related-open"', 'data-action="related-open" data-archive-id="' + this._escapeHtml(String(archiveId)) + '"') +
+        this._renderActionButton("related-compare", "Compare with This Print", "mdi:compare-horizontal", { disabled: this._busy || archiveId <= 0 })
+          .replace('data-action="related-compare"', 'data-action="related-compare" data-archive-id="' + this._escapeHtml(String(archiveId)) + '"') +
+      '</div>' +
+    '</div>';
+  }
+
+  _renderRelatedView(archive) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var candidates = this._matchingRelatedCandidates(archiveId) || [];
+    var toolbar = this._renderActionSection(
+      this._relatedCompareIntent ? "Choose Compare Target" : "Related Prints",
+      '<div class="actions-grid related-toolbar">' +
+        this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+        this._renderActionButton(this._relatedCompareIntent ? "open-compare" : "open-related", this._busy ? "Loading..." : "Refresh Matches", "mdi:refresh", { disabled: this._busy }) +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml(
+        this._relatedCompareIntent
+          ? "Compare starts from the same on-demand related-candidate feed. Exact content matches and failure-to-success pairs are preferred when a clear suggestion exists."
+          : "These candidates come from Bambuddy on demand. Exact duplicate-family matches rank above weaker name or filament suggestions, and nothing here expands the base browser projection."
+      ) + '</div>'
+    );
+    var body;
+    if (this._relatedError) {
+      body = '<div class="section-copy">' + this._escapeHtml(this._relatedError) + '</div>';
+    } else if (!candidates.length) {
+      body = '<div class="section-copy">No related prints are available for this archive yet.</div>';
+    } else {
+      body = '<div class="related-list">' + candidates.map(function (candidate) {
+        return this._renderRelatedCandidate(candidate);
+      }.bind(this)).join("") + '</div>';
+    }
+    return '<div class="section-stack">' + toolbar + this._renderActionSection("Candidates", body) + '</div>';
+  }
+
+  _renderCompareTable(comparePayload) {
+    var archives = comparePayload && Array.isArray(comparePayload.archives) ? comparePayload.archives : [];
+    var comparisonRows = comparePayload && Array.isArray(comparePayload.comparison) ? comparePayload.comparison : [];
+    if (!archives.length || !comparisonRows.length) {
+      return '<div class="section-copy">Comparison details are unavailable.</div>';
+    }
+    return '<div class="compare-table-wrap"><table class="compare-table"><thead><tr><th>Setting</th>' +
+      archives.map(function (archive) {
+        return '<th><div class="compare-archive-name">' + this._escapeHtml(String(archive && archive.print_name || ("Archive " + archive.id))) + '</div>' +
+          '<div class="compare-archive-status ' + this._escapeHtml(this._statusBadgeClass(archive && archive.status)) + '">' + this._escapeHtml(this._statusLabel(archive && archive.status)) + '</div></th>';
+      }.bind(this)).join("") +
+      '</tr></thead><tbody>' + comparisonRows.map(function (row) {
+        var values = Array.isArray(row.values) ? row.values : [];
+        return '<tr' + (row.has_difference ? ' class="difference"' : '') + '><td class="compare-field">' + this._escapeHtml(String(row.label || row.field || "Field")) + '</td>' +
+          values.map(function (value) {
+            var cellValue = value == null || value === "" ? "-" : String(value);
+            return '<td>' + this._escapeHtml(cellValue) + (row.unit && cellValue !== '-' ? '<span class="compare-unit"> ' + this._escapeHtml(String(row.unit)) + '</span>' : '') + '</td>';
+          }.bind(this)).join("") + '</tr>';
+      }.bind(this)).join("") + '</tbody></table></div>';
+  }
+
+  _renderCompareInsights(comparePayload) {
+    var successCorrelation = comparePayload && comparePayload.success_correlation && typeof comparePayload.success_correlation === "object"
+      ? comparePayload.success_correlation
+      : null;
+    if (!successCorrelation) {
+      return '<div class="section-copy">Success analysis is unavailable for this comparison.</div>';
+    }
+    if (!successCorrelation.has_both_outcomes) {
+      return '<div class="section-copy">' + this._escapeHtml(String(successCorrelation.message || "Need both successful and failed prints to analyze correlation.")) + '</div>';
+    }
+    var insights = Array.isArray(successCorrelation.insights) ? successCorrelation.insights : [];
+    return '<div class="compare-insights">' +
+      '<div class="compare-insight-meta">' + this._escapeHtml(String(successCorrelation.successful_count || 0)) + ' successful · ' + this._escapeHtml(String(successCorrelation.failed_count || 0)) + ' failed</div>' +
+      (insights.length
+        ? '<div class="compare-insight-list">' + insights.map(function (insight) {
+            return '<div class="compare-insight-item"><strong>' + this._escapeHtml(String(insight && insight.label || "Insight")) + ':</strong> ' + this._escapeHtml(String(insight && insight.insight || "")) + '</div>';
+          }.bind(this)).join("") + '</div>'
+        : '<div class="section-copy">No clear setting correlation was found across the selected outcomes.</div>') +
+    '</div>';
+  }
+
+  _renderCompareView() {
+    var comparePayload = this._comparePayload;
+    var differences = comparePayload && Array.isArray(comparePayload.differences) ? comparePayload.differences : [];
+    var toolbarAction = this._compareBackMode === "related" ? "back-related" : "back-main";
+    var toolbarLabel = this._compareBackMode === "related" ? "Back to Matches" : "Back to Actions";
+    return '<div class="section-stack">' +
+      this._renderActionSection(
+        "Compare Archives",
+        '<div class="actions-grid related-toolbar">' +
+          this._renderActionButton(toolbarAction, toolbarLabel, "mdi:arrow-left", { disabled: this._busy }) +
+          this._renderActionButton("open-compare", this._busy ? "Loading..." : "Change Selection", "mdi:swap-horizontal", { disabled: this._busy }) +
+        '</div>' +
+        '<div class="section-copy">' + this._escapeHtml("Compare is rendered locally in Home Assistant from Bambuddy's structured compare API. This keeps the workflow stable without depending on an upstream compare deep link.") + '</div>'
+      ) +
+      this._renderActionSection(
+        "Differences",
+        this._compareError
+          ? '<div class="section-copy">' + this._escapeHtml(this._compareError) + '</div>'
+          : '<div class="compare-difference-summary">' +
+              '<div class="compare-difference-count">' + this._escapeHtml(String(differences.length)) + ' differing field' + (differences.length === 1 ? '' : 's') + '</div>' +
+              (differences.length
+                ? '<div class="compare-difference-list">' + differences.slice(0, 6).map(function (difference) {
+                    return '<div class="compare-difference-item">' + this._escapeHtml(String(difference && difference.label || difference && difference.field || "Difference")) + '</div>';
+                  }.bind(this)).join("") + '</div>'
+                : '<div class="section-copy">The selected archives match across Bambuddy\'s current compare field set.</div>') +
+            '</div>'
+      ) +
+      this._renderActionSection("Comparison", this._compareError ? '<div class="section-copy">Fix the compare request or choose a different set of archives.</div>' : this._renderCompareTable(comparePayload)) +
+      this._renderActionSection("Success Analysis", this._compareError ? '<div class="section-copy">Success analysis is unavailable because the comparison did not load.</div>' : this._renderCompareInsights(comparePayload)) +
+    '</div>';
+  }
+
   _renderMain(archive) {
     var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
     var hasTimelapse = !!String((archive && archive.timelapse_path) || "").trim();
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = "View on MakerWorld";
+    var relationActions = this._renderActionSection(
+      "Related & Compare",
+      '<div class="actions-grid">' +
+        this._renderActionButton("open-related", "Related Prints", "mdi:relation-many", { disabled: this._busy }) +
+        this._renderActionButton("open-compare", "Compare Print", "mdi:compare-horizontal", { disabled: this._busy }) +
+      '</div>' +
+      '<div class="section-copy">Use on-demand related candidates to inspect duplicate-family matches, open a related archive popup, or compare this print against a likely prior run without widening the browser payload.</div>'
+    );
     var fileActions = '<div class="actions-grid">' +
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
       (hasSource ? this._renderActionButton("download-source-3mf", "Download 3MF", "mdi:file-download-outline", { disabled: this._busy }) : "") +
@@ -1648,6 +2202,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       { tone: "danger" }
     );
     return '<div class="section-stack">' +
+      relationActions +
       this._renderActionSection("Files", fileActions) +
       linkActions +
       timelapseActions +
@@ -1719,6 +2274,38 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.action-button ha-icon{--mdc-icon-size:20px;flex:0 0 auto;}' +
       '.action-button.warning{background:rgba(239,108,0,0.14);border-color:rgba(255,167,38,0.22);}' +
       '.action-button.danger{background:rgba(183,28,28,0.14);border-color:rgba(239,68,68,0.24);}' +
+      '.related-list{display:flex;flex-direction:column;gap:10px;}' +
+      '.related-candidate{border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:12px;display:grid;gap:10px;}' +
+      '.related-candidate-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}' +
+      '.related-candidate-title-block{min-width:0;display:grid;gap:4px;}' +
+      '.related-candidate-title{font-size:14px;font-weight:700;line-height:1.35;word-break:break-word;}' +
+      '.related-candidate-meta{font-size:12px;line-height:1.4;color:var(--secondary-text-color);}' +
+      '.related-candidate-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;}' +
+      '.candidate-status,.candidate-score,.compare-archive-status{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;line-height:1.2;}' +
+      '.candidate-status.success,.compare-archive-status.success{background:rgba(46,125,50,0.18);color:#c8e6c9;}' +
+      '.candidate-status.warning,.compare-archive-status.warning{background:rgba(239,108,0,0.16);color:#ffe0b2;}' +
+      '.candidate-status.danger,.compare-archive-status.danger{background:rgba(183,28,28,0.14);color:#ffcdd2;}' +
+      '.candidate-status.neutral,.compare-archive-status.neutral{background:rgba(84,110,122,0.18);color:#cfd8dc;}' +
+      '.candidate-score{color:var(--primary-text-color);}' +
+      '.related-candidate-copy{font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
+      '.related-actions{grid-template-columns:repeat(2,minmax(0,1fr));}' +
+      '.related-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}' +
+      '.compare-difference-summary{display:grid;gap:10px;}' +
+      '.compare-difference-count{font-size:14px;font-weight:700;line-height:1.35;}' +
+      '.compare-difference-list{display:flex;flex-wrap:wrap;gap:8px;}' +
+      '.compare-difference-item{border-radius:999px;padding:6px 10px;background:rgba(239,108,0,0.14);font-size:12px;font-weight:700;line-height:1.3;}' +
+      '.compare-table-wrap{overflow:auto;}' +
+      '.compare-table{width:100%;min-width:520px;border-collapse:collapse;}' +
+      '.compare-table th,.compare-table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:left;vertical-align:top;}' +
+      '.compare-table thead th{font-size:12px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);background:rgba(255,255,255,0.02);}' +
+      '.compare-table tbody tr.difference{background:rgba(239,108,0,0.06);}' +
+      '.compare-field{font-weight:700;white-space:nowrap;}' +
+      '.compare-archive-name{font-size:13px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;text-transform:none;letter-spacing:normal;}' +
+      '.compare-unit{color:var(--secondary-text-color);}' +
+      '.compare-insights{display:grid;gap:10px;}' +
+      '.compare-insight-meta{font-size:12px;font-weight:700;line-height:1.4;color:var(--secondary-text-color);}' +
+      '.compare-insight-list{display:grid;gap:8px;}' +
+      '.compare-insight-item{border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:10px 12px;font-size:12px;line-height:1.5;}' +
       '.confirm-copy{padding:4px 2px 2px;font-size:14px;line-height:1.55;color:var(--primary-text-color);}' +
       '.confirm-grid{grid-template-columns:1fr;}' +
       '.metadata-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}' +
@@ -1754,6 +2341,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
         : this._mode === "metadata"
           ? this._renderMetadataView(archive)
+          : this._mode === "related"
+            ? this._renderRelatedView(archive)
+            : this._mode === "compare"
+              ? this._renderCompareView(archive)
           : this._renderMain(archive)) +
       '</div>';
   }

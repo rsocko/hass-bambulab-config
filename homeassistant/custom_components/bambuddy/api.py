@@ -110,6 +110,60 @@ class BambuddyApiClient:
                 raise RuntimeError("Bambuddy archive detail response was not a JSON object")
             return payload
 
+    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 6) -> list[dict[str, Any]]:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        normalized_limit = max(1, min(25, int(limit)))
+
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/similar?{urlencode({'limit': normalized_limit})}",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            payload = await response.json()
+            if not isinstance(payload, list):
+                raise RuntimeError("Bambuddy similar archives response was not a JSON array")
+            return [item for item in payload if isinstance(item, dict)]
+
+    async def async_compare_archives(self, archive_ids: list[int]) -> dict[str, Any]:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_ids: list[int] = []
+        seen_ids: set[int] = set()
+        for value in archive_ids:
+            normalized_value = int(value)
+            if normalized_value <= 0 or normalized_value in seen_ids:
+                continue
+            seen_ids.add(normalized_value)
+            normalized_ids.append(normalized_value)
+
+        if len(normalized_ids) < 2:
+            raise RuntimeError("At least 2 archive IDs are required for comparison")
+        if len(normalized_ids) > 5:
+            raise RuntimeError("Maximum 5 archive IDs can be compared at once")
+
+        params = urlencode({"archive_ids": ",".join(str(value) for value in normalized_ids)})
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/compare?{params}",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            payload = await response.json()
+            if not isinstance(payload, dict):
+                raise RuntimeError("Bambuddy archive compare response was not a JSON object")
+            return payload
+
     async def async_update_archive(self, archive_id: int, payload: dict[str, Any]) -> dict[str, Any] | None:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")

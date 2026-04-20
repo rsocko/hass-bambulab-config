@@ -106,6 +106,8 @@ WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO = "bambuddy/print_history_upload_photo"
 WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF = "bambuddy/print_history_upload_source_3mf"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION = "bambuddy/print_history_archive_action"
+WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED = "bambuddy/print_history_archive_related"
+WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE = "bambuddy/print_history_archive_compare"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
 DATA_HTTP_VIEW_REGISTERED = f"{DOMAIN}_restore_upload_view_registered"
 
@@ -364,6 +366,104 @@ async def _build_archive_action_response(
         "tokenized": bool(token),
         "archive": archive,
     }
+
+
+def _normalize_compare_archive_ids(values: list[Any]) -> list[int]:
+    normalized_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for value in values:
+        try:
+            normalized_value = int(value)
+        except (TypeError, ValueError):
+            continue
+        if normalized_value <= 0 or normalized_value in seen_ids:
+            continue
+        seen_ids.add(normalized_value)
+        normalized_ids.append(normalized_value)
+    return normalized_ids
+
+
+def _match_confidence_bucket(score: Any) -> str:
+    normalized_score = int(score or 0)
+    if normalized_score >= 95:
+        return "high"
+    if normalized_score >= 75:
+        return "medium"
+    return "low"
+
+
+def _normalize_related_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
+    archive = candidate.get("archive") if isinstance(candidate, dict) else None
+    if not isinstance(archive, dict):
+        archive = {}
+    archive_id = _extract_archive_id(archive.get("id"))
+    match_score = int(candidate.get("match_score") or 0) if isinstance(candidate, dict) else 0
+    return {
+        "archive_id": archive_id,
+        "print_name": str(archive.get("print_name") or archive.get("filename") or f"Archive {archive_id}").strip(),
+        "status": str(archive.get("status") or "").strip(),
+        "created_at": archive.get("created_at"),
+        "match_reason": str(candidate.get("match_reason") or "").strip() if isinstance(candidate, dict) else "",
+        "match_score": match_score,
+        "confidence_bucket": _match_confidence_bucket(match_score),
+        "archive": archive,
+    }
+
+
+async def _build_archive_related_response(
+    hass: HomeAssistant,
+    manager: PrintHistoryBrowserManager,
+    archive_id: int,
+    *,
+    entry_id: str,
+    limit: int,
+) -> dict[str, Any]:
+    normalized_archive_id = int(archive_id)
+    normalized_limit = max(1, min(12, int(limit)))
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+    candidates = await client.async_fetch_archive_similar(normalized_archive_id, limit=normalized_limit)
+    normalized_candidates = [_normalize_related_candidate(candidate) for candidate in candidates]
+    normalized_candidates = [candidate for candidate in normalized_candidates if candidate.get("archive_id", 0) > 0]
+    return {
+        CONF_ENTRY_ID: entry_id,
+        CONF_ARCHIVE_ID: normalized_archive_id,
+        "limit": normalized_limit,
+        "candidates": normalized_candidates,
+    }
+
+
+async def _build_archive_compare_response(
+    hass: HomeAssistant,
+    manager: PrintHistoryBrowserManager,
+    archive_ids: list[Any],
+    *,
+    entry_id: str,
+) -> dict[str, Any]:
+    normalized_ids = _normalize_compare_archive_ids(archive_ids)
+    if len(normalized_ids) < 2:
+        raise HomeAssistantError("At least 2 archive IDs are required for comparison")
+    if len(normalized_ids) > 5:
+        raise HomeAssistantError("Maximum 5 archive IDs can be compared at once")
+
+    session = aiohttp_client.async_get_clientsession(hass)
+    client = BambuddyApiClient(
+        session,
+        manager.base_url,
+        manager.api_key,
+        manager.fetch_timeout_seconds,
+    )
+    response = await client.async_compare_archives(normalized_ids)
+    normalized_response = dict(response)
+    normalized_response[CONF_ENTRY_ID] = entry_id
+    normalized_response["archive_ids"] = normalized_ids
+    return normalized_response
 
 
 def _parse_service_datetime(value: str, field_name: str) -> datetime:
@@ -2166,6 +2266,72 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection.send_result(msg["id"], response)
 
     websocket_api.async_register_command(hass, websocket_handle_archive_action)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+            vol.Optional("limit"): vol.Coerce(int),
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_archive_related(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            response = await _build_archive_related_response(
+                hass,
+                manager,
+                int(msg[CONF_ARCHIVE_ID]),
+                entry_id=entry_id,
+                limit=int(msg.get("limit") or 6),
+            )
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "archive_related_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "archive_related_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_archive_related)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required("archive_ids"): [vol.Coerce(int)],
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_archive_compare(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            response = await _build_archive_compare_response(
+                hass,
+                manager,
+                list(msg.get("archive_ids") or []),
+                entry_id=entry_id,
+            )
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "archive_compare_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "archive_compare_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_archive_compare)
 
     @websocket_api.websocket_command(
         {
