@@ -468,6 +468,117 @@ class BambuddyApiClient:
 
             return payload if isinstance(payload, dict) else None
 
+    async def async_fetch_archive_timelapse_info(self, archive_id: int) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse/info",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
+
+    async def async_fetch_archive_timelapse_thumbnails(
+        self,
+        archive_id: int,
+        *,
+        count: int = 10,
+        width: int = 160,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        params = urlencode({"count": max(1, int(count)), "width": max(1, int(width))})
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse/thumbnails?{params}",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
+
+    async def async_process_archive_timelapse(
+        self,
+        archive_id: int,
+        *,
+        trim_start: float = 0,
+        trim_end: float | None = None,
+        speed: float = 1.0,
+        save_mode: str = "replace",
+        output_filename: str | None = None,
+        audio_file_name: str | None = None,
+        audio_mime_type: str | None = None,
+        audio_content: bytes | None = None,
+    ) -> dict[str, Any] | None:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        form = FormData()
+        form.add_field("trim_start", str(float(trim_start)))
+        if trim_end is not None:
+            form.add_field("trim_end", str(float(trim_end)))
+        form.add_field("speed", str(float(speed)))
+        form.add_field("save_mode", str(save_mode or "replace"))
+        if output_filename:
+            form.add_field("output_filename", str(output_filename))
+        if audio_content is not None:
+            normalized_audio_name = str(audio_file_name or "audio.mp3").strip().replace("\r", "_").replace("\n", "_")
+            normalized_audio_name = normalized_audio_name.replace("\\", "/").split("/")[-1].replace('"', "")
+            normalized_audio_mime_type = str(audio_mime_type or "application/octet-stream").strip().replace("\r", "").replace("\n", "")
+            form.add_field(
+                "audio",
+                audio_content,
+                filename=normalized_audio_name or "audio.mp3",
+                content_type=normalized_audio_mime_type or "application/octet-stream",
+            )
+
+        async with self._session.post(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/timelapse/process",
+            headers={"X-API-Key": self._api_key},
+            data=form,
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                return None
+
+            return payload if isinstance(payload, dict) else None
+
     async def async_upload_archive_source_3mf(
         self,
         archive_id: int,

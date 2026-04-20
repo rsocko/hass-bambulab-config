@@ -8,8 +8,9 @@ This folder holds popup, viewer, and media-management docs for print history.
 - `photo-review-design.md` - media review actions and follow-on review lifecycle work
 - `manual-photo-upload.md` - phone-driven/manual upload flow
 - `timelapse-actions-and-viewer.md` - timelapse scan, upload/replace, and viewer behavior
+- `native-timelapse-viewer-editor-design.md` - native HA timelapse editor architecture and phased rollout plan
 - `gcode-3d-viewer-feasibility.md` - 3D and gcode viewer options
 - `viewer-render-capture-design.md` - viewer render capture workflow
 - `tag-color-contract.md` - archive-tag color behavior
 
-Start with `archive-detail-popup-design.md` for popup work, `photo-capture-design.md` for capture/upload behavior, and `timelapse-actions-and-viewer.md` for the shipped timelapse slice.
+Start with `archive-detail-popup-design.md` for popup work, `photo-capture-design.md` for capture/upload behavior, `timelapse-actions-and-viewer.md` for the shipped timelapse slice, and `native-timelapse-viewer-editor-design.md` for the follow-on editor plan.

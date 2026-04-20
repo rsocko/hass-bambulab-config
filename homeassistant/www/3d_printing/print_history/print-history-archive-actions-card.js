@@ -1223,16 +1223,30 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return {
       type: "custom:print-history-timelapse-card",
       archive_json: archive ? JSON.stringify(archive) : "{}",
+      entry_id: this._config && this._config.entry_id ? this._config.entry_id : "",
       detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
       api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
       title: "Timelapse",
     };
   }
 
+  _buildArchiveTimelapseEditorCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-editor-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      entry_id: this._config && this._config.entry_id ? this._config.entry_id : "",
+      detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
+      title: "Timelapse Editor",
+    };
+  }
+
   _buildArchiveTimelapsePopupContent(archive) {
     return {
       type: "vertical-stack",
-      cards: [this._buildArchiveTimelapseCardConfig(archive)],
+      cards: [
+        this._buildArchiveTimelapseCardConfig(archive),
+        this._buildArchiveTimelapseEditorCardConfig(archive),
+      ],
     };
   }
 

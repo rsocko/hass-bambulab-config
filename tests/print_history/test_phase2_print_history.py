@@ -824,7 +824,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=1", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=2", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=1", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -887,6 +888,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('View Timelapse', action_content)
         self.assertIn('Upload Timelapse', action_content)
         self.assertIn('Replace Timelapse', action_content)
+        self.assertIn('type: "custom:print-history-timelapse-editor-card"', action_content)
+        self.assertIn('_buildArchiveTimelapseEditorCardConfig(archive)', action_content)
         self.assertIn('View Archive Metadata', action_content)
         self.assertIn('get_print_history_archive_detail', action_content)
         self.assertIn('data-action="copy-json"', action_content)
@@ -915,8 +918,18 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('<input id="timelapse-upload-input" class="hidden-file-input" type="file" accept=".mp4,.avi,.mkv,video/mp4,video/x-msvideo,video/x-matroska">', action_content)
 
         init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+        const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
         self.assertIn('class ArchiveTimelapseUploadView(HomeAssistantView):', init_content)
+        self.assertIn('class ArchiveTimelapseInfoView(HomeAssistantView):', init_content)
+        self.assertIn('class ArchiveTimelapseThumbnailsView(HomeAssistantView):', init_content)
+        self.assertIn('class ArchiveTimelapseProcessView(HomeAssistantView):', init_content)
         self.assertIn('hass.http.register_view(ArchiveTimelapseUploadView())', init_content)
+        self.assertIn('hass.http.register_view(ArchiveTimelapseInfoView())', init_content)
+        self.assertIn('hass.http.register_view(ArchiveTimelapseThumbnailsView())', init_content)
+        self.assertIn('hass.http.register_view(ArchiveTimelapseProcessView())', init_content)
+        self.assertIn('TIMELAPSE_INFO_URL = "/api/bambuddy/print-history/archive/{archive_id}/timelapse/info"', const_content)
+        self.assertIn('TIMELAPSE_THUMBNAILS_URL = "/api/bambuddy/print-history/archive/{archive_id}/timelapse/thumbnails"', const_content)
+        self.assertIn('TIMELAPSE_PROCESS_URL = "/api/bambuddy/print-history/archive/{archive_id}/timelapse/process"', const_content)
         self.assertIn('this._lastRenderSignature = "";', action_content)
         self.assertIn('var nextSignature = this._computeRenderSignature(hass);', action_content)
         self.assertIn('if (nextSignature === this._lastRenderSignature)', action_content)
@@ -949,6 +962,41 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertNotIn('auth.fetchWithAuth', action_content)
         self.assertIn('.hidden-file-input{display:none;}', action_content)
         self.assertIn('delete_print_history_archive', action_content)
+
+    def test_timelapse_docs_cover_shipped_slice_and_native_editor_plan(self):
+        shipped_content = (
+            ROOT / "docs" / "features" / "print_history" / "ui-media" / "timelapse-actions-and-viewer.md"
+        ).read_text("utf-8")
+        design_content = (
+            ROOT / "docs" / "features" / "print_history" / "ui-media" / "native-timelapse-viewer-editor-design.md"
+        ).read_text("utf-8")
+        readme_content = (ROOT / "docs" / "features" / "print_history" / "ui-media" / "README.md").read_text("utf-8")
+
+        self.assertIn("The native viewer/editor follow-on work is tracked in `native-timelapse-viewer-editor-design.md`.", shipped_content)
+        self.assertIn("# Native Timelapse Viewer And Editor Design", design_content)
+        self.assertIn("## Current Status", design_content)
+        self.assertIn("## Phase Plan", design_content)
+        self.assertIn("Media Chrome", design_content)
+        self.assertIn("noUiSlider", design_content)
+        self.assertIn("do not project timelapse editor metadata into Layer 1", design_content)
+        self.assertIn("native-timelapse-viewer-editor-design.md", readme_content)
+
+    def test_timelapse_cards_use_proxy_routes_and_processing_event(self):
+        viewer_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-timelapse-card.js"
+        ).read_text("utf-8")
+        editor_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-timelapse-editor-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('/timelapse/info', viewer_content)
+        self.assertIn('Playback Speed', viewer_content)
+        self.assertIn('print-history-timelapse-processed', viewer_content)
+        self.assertIn('Load Editor Tools', editor_content)
+        self.assertIn('/timelapse/thumbnails', editor_content)
+        self.assertIn('/timelapse/process', editor_content)
+        self.assertIn('Save Timelapse Changes', editor_content)
+        self.assertIn('editor data stays on-demand and out of Layer 1', editor_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js").read_text("utf-8")

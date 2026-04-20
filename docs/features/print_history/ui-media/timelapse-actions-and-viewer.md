@@ -117,3 +117,5 @@ Still not implemented in Home Assistant:
 - timeline-strip review and post-process presets
 
 Those remain follow-on work and should not be conflated with the current scan/upload/viewer feature.
+
+The native viewer/editor follow-on work is tracked in `native-timelapse-viewer-editor-design.md`.

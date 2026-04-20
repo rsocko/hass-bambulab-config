@@ -43,6 +43,9 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
+    TIMELAPSE_INFO_URL,
+    TIMELAPSE_PROCESS_URL,
+    TIMELAPSE_THUMBNAILS_URL,
     TIMELAPSE_UPLOAD_URL,
     SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
     SERVICE_QUERY_PRINT_HISTORY_BROWSER,
@@ -1718,6 +1721,262 @@ class ArchiveTimelapseUploadView(HomeAssistantView):
             )
 
 
+class ArchiveTimelapseInfoView(HomeAssistantView):
+    url = TIMELAPSE_INFO_URL
+    name = "api:bambuddy:print-history:archive:timelapse:info"
+    requires_auth = True
+
+    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        resolved = await _resolve_archive_viewer_request(request)
+        if isinstance(resolved, web.Response):
+            return resolved
+
+        _hass, resolved_entry_id, archive_id_value, _manager, client = resolved
+        try:
+            payload = await client.async_fetch_archive_timelapse_info(archive_id_value)
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "timelapse_info_failed", "message": str(error)},
+                status=502,
+            )
+
+        response_payload = dict(payload or {})
+        response_payload.update(
+            {
+                "success": True,
+                CONF_ENTRY_ID: resolved_entry_id,
+                CONF_ARCHIVE_ID: archive_id_value,
+            }
+        )
+        return web.json_response(response_payload)
+
+
+class ArchiveTimelapseThumbnailsView(HomeAssistantView):
+    url = TIMELAPSE_THUMBNAILS_URL
+    name = "api:bambuddy:print-history:archive:timelapse:thumbnails"
+    requires_auth = True
+
+    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        resolved = await _resolve_archive_viewer_request(request)
+        if isinstance(resolved, web.Response):
+            return resolved
+
+        _hass, resolved_entry_id, archive_id_value, _manager, client = resolved
+        count = request.query.get("count", 10)
+        width = request.query.get("width", 160)
+        try:
+            payload = await client.async_fetch_archive_timelapse_thumbnails(
+                archive_id_value,
+                count=int(count),
+                width=int(width),
+            )
+        except ValueError:
+            return web.json_response(
+                {"success": False, "error": "invalid_query", "message": "count and width must be integers."},
+                status=400,
+            )
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "timelapse_thumbnails_failed", "message": str(error)},
+                status=502,
+            )
+
+        response_payload = dict(payload or {})
+        response_payload.update(
+            {
+                "success": True,
+                CONF_ENTRY_ID: resolved_entry_id,
+                CONF_ARCHIVE_ID: archive_id_value,
+            }
+        )
+        return web.json_response(response_payload)
+
+
+class ArchiveTimelapseProcessView(HomeAssistantView):
+    url = TIMELAPSE_PROCESS_URL
+    name = "api:bambuddy:print-history:archive:timelapse:process"
+    requires_auth = True
+
+    async def post(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        hass = request.app["hass"]
+        started = perf_counter()
+        archive_id_value = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID) or archive_id)
+        if archive_id_value is None:
+            return web.json_response(
+                {"success": False, "error": "archive_id_required", "message": "archive_id must be a positive integer."},
+                status=400,
+            )
+
+        try:
+            reader = await request.multipart()
+        except ValueError as error:
+            return web.json_response({"success": False, "error": "invalid_multipart", "message": str(error)}, status=400)
+
+        fields: dict[str, Any] = {}
+        audio_name = ""
+        audio_content_type = "application/octet-stream"
+        audio_chunks: list[bytes] = []
+        audio_byte_count = 0
+        audio_chunk_count = 0
+        audio_first_chunk_size = 0
+        while True:
+            part = await reader.next()
+            if part is None:
+                break
+            if part.name == "audio":
+                audio_name = str(getattr(part, "filename", "") or "").strip()
+                audio_content_type = str(part.headers.get("Content-Type", "application/octet-stream"))
+                audio_chunks, audio_byte_count, audio_chunk_count, audio_first_chunk_size = await _read_uploaded_file_part(part)
+                continue
+            fields[part.name] = await part.text()
+
+        entry_id_raw = str(fields.get(CONF_ENTRY_ID, "")).strip() or None
+        try:
+            trim_start = float(fields.get("trim_start", 0) or 0)
+            trim_end_raw = str(fields.get("trim_end", "")).strip()
+            trim_end = float(trim_end_raw) if trim_end_raw else None
+            speed = float(fields.get("speed", 1.0) or 1.0)
+        except (TypeError, ValueError):
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "trim_start, trim_end, and speed must be numeric when provided.",
+                },
+                status=400,
+            )
+
+        save_mode = str(fields.get("save_mode", "replace") or "replace").strip().lower()
+        output_filename = str(fields.get("output_filename", "") or "").strip() or None
+        if save_mode not in {"replace", "new"}:
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "save_mode must be 'replace' or 'new'.",
+                },
+                status=400,
+            )
+
+        try:
+            resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+            if not await manager.async_ensure_archive_loaded(archive_id_value):
+                raise HomeAssistantError(f"Archive {archive_id_value} was not found in the Bambuddy local store")
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+        try:
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            process_response = await client.async_process_archive_timelapse(
+                archive_id_value,
+                trim_start=trim_start,
+                trim_end=trim_end,
+                speed=speed,
+                save_mode=save_mode,
+                output_filename=output_filename,
+                audio_file_name=audio_name or None,
+                audio_mime_type=audio_content_type,
+                audio_content=b"".join(audio_chunks) if audio_chunks else None,
+            )
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id_value,
+                operation="process_archive_timelapse",
+                extra_details={
+                    "save_mode": save_mode,
+                    "trim_start": trim_start,
+                    "trim_end": trim_end,
+                    "speed": speed,
+                    "audio_file_name": audio_name or None,
+                    "audio_byte_count": audio_byte_count,
+                },
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after timelapse processing")
+
+            response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response.update(
+                {
+                    "success": True,
+                    CONF_ENTRY_ID: resolved_entry_id,
+                    CONF_ARCHIVE_ID: archive_id_value,
+                    "process": process_response or {},
+                }
+            )
+            return web.json_response(response)
+        except HomeAssistantError as error:
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=audio_name,
+                file_content_type=audio_content_type,
+                byte_count=audio_byte_count,
+                chunk_count=audio_chunk_count,
+                first_chunk_size=audio_first_chunk_size,
+            )
+            manager.record_mutation(
+                operation="process_archive_timelapse_failed",
+                archive_id=archive_id_value,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                details={
+                    "save_mode": save_mode,
+                    "trim_start": trim_start,
+                    "trim_end": trim_end,
+                    "speed": speed,
+                    "audio_file_name": audio_name or None,
+                    "audio_byte_count": audio_byte_count,
+                    "message": str(error),
+                },
+            )
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "process_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=400,
+            )
+        except RuntimeError as error:
+            diagnostics = _build_upload_diagnostics(
+                request=request,
+                fields=fields,
+                file_name=audio_name,
+                file_content_type=audio_content_type,
+                byte_count=audio_byte_count,
+                chunk_count=audio_chunk_count,
+                first_chunk_size=audio_first_chunk_size,
+            )
+            manager.record_mutation(
+                operation="process_archive_timelapse_failed",
+                archive_id=archive_id_value,
+                duration_ms=round((perf_counter() - started) * 1000, 1),
+                details={
+                    "save_mode": save_mode,
+                    "trim_start": trim_start,
+                    "trim_end": trim_end,
+                    "speed": speed,
+                    "audio_file_name": audio_name or None,
+                    "audio_byte_count": audio_byte_count,
+                    "message": str(error),
+                },
+            )
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "process_failed",
+                    "message": str(error),
+                    "diagnostics": diagnostics,
+                },
+                status=502,
+            )
+
+
 async def _resolve_archive_viewer_request(
     request: web.Request,
 ) -> tuple[HomeAssistant, str, int, PrintHistoryBrowserManager, BambuddyApiClient] | web.Response:
@@ -1773,6 +2032,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.http.register_view(ReplacementArchiveDiscoverView())
         hass.http.register_view(ArchiveSource3mfUploadView())
         hass.http.register_view(ArchiveTimelapseUploadView())
+        hass.http.register_view(ArchiveTimelapseInfoView())
+        hass.http.register_view(ArchiveTimelapseThumbnailsView())
+        hass.http.register_view(ArchiveTimelapseProcessView())
         hass.http.register_view(ArchiveViewerGcodeView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 

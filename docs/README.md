@@ -85,6 +85,7 @@ Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_print
 
 - `infrastructure/ha-error-assessment-2026-03-16.md` — Earlier HA error and restart assessment, including historical restart observations.
 - `infrastructure/ha-restart-diagnosis-2026-04-13.md` — Follow-up HA restart diagnosis with MCP evidence, current suspects, and deferred recommendations.
+- `infrastructure/dev-home-assistant-bambuddy-strategy.md` — Strategy for moving Bambuddy and print-history development to a separate Development Home Assistant instance with explicit dev/prod deployment targeting.
 
 ## Screenshots
 

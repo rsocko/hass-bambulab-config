@@ -248,6 +248,9 @@ class FakeApiClient:
     last_fetch_archives_kwargs: dict[str, object] = {}
     uploaded_photos: list[dict[str, object]] = []
     uploaded_source_3mfs: list[dict[str, object]] = []
+    timelapse_info_requests: list[int] = []
+    timelapse_thumbnail_requests: list[dict[str, int]] = []
+    processed_timelapses: list[dict[str, object]] = []
     uploaded_replacements: list[dict[str, object]] = []
     deleted_archives: list[int] = []
     updated_archives: list[dict[str, object]] = []
@@ -294,6 +297,73 @@ class FakeApiClient:
     async def async_fetch_archive_gcode(self, archive_id: int) -> str:
         await self.async_fetch_archive_detail(archive_id)
         return "G0 X0 Y0 Z0.2\nG1 X42 Y42 E10"
+
+    async def async_fetch_archive_timelapse_info(self, archive_id: int) -> dict[str, object]:
+        archive = await self.async_fetch_archive_detail(archive_id)
+        if not archive.get("timelapse_path"):
+            raise RuntimeError("Bambuddy returned HTTP 404")
+        normalized_archive_id = int(archive_id)
+        type(self).timelapse_info_requests.append(normalized_archive_id)
+        return {
+            "duration": 84.5,
+            "width": 1920,
+            "height": 1080,
+            "fps": 30.0,
+            "codec": "h264",
+            "bitrate": 6400000,
+        }
+
+    async def async_fetch_archive_timelapse_thumbnails(
+        self,
+        archive_id: int,
+        *,
+        count: int = 10,
+        width: int = 160,
+    ) -> dict[str, object]:
+        archive = await self.async_fetch_archive_detail(archive_id)
+        if not archive.get("timelapse_path"):
+            raise RuntimeError("Bambuddy returned HTTP 404")
+        request = {"archive_id": int(archive_id), "count": int(count), "width": int(width)}
+        type(self).timelapse_thumbnail_requests.append(request)
+        return {
+            "thumbnails": ["thumb-a", "thumb-b", "thumb-c"],
+            "timestamps": [0.0, 42.25, 84.5],
+        }
+
+    async def async_process_archive_timelapse(
+        self,
+        archive_id: int,
+        *,
+        trim_start: float = 0,
+        trim_end: float | None = None,
+        speed: float = 1.0,
+        save_mode: str = "replace",
+        output_filename: str | None = None,
+        audio_file_name: str | None = None,
+        audio_mime_type: str | None = None,
+        audio_content: bytes | None = None,
+    ) -> dict[str, object]:
+        archive = await self.async_fetch_archive_detail(archive_id)
+        if not archive.get("timelapse_path"):
+            raise RuntimeError("Bambuddy returned HTTP 404")
+        normalized_archive_id = int(archive_id)
+        record = {
+            "archive_id": normalized_archive_id,
+            "trim_start": trim_start,
+            "trim_end": trim_end,
+            "speed": speed,
+            "save_mode": save_mode,
+            "output_filename": output_filename,
+            "audio_file_name": audio_file_name,
+            "audio_mime_type": audio_mime_type,
+            "audio_byte_count": len(audio_content or b""),
+        }
+        type(self).processed_timelapses.append(record)
+        return {
+            "status": "completed",
+            "output_path": str(archive.get("timelapse_path") or ""),
+            "message": "Timelapse replaced successfully" if save_mode == "replace" else "Saved as new timelapse",
+        }
 
     async def async_fetch_projects(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.projects]
@@ -605,6 +675,14 @@ class FakeMultipartRequest:
 
     async def multipart(self):
         return self._reader
+
+
+class FakeQueryRequest:
+    def __init__(self, hass: FakeHass, archive_id: int, query: dict[str, object] | None = None) -> None:
+        self.app = {"hass": hass}
+        self.headers = {}
+        self.match_info = {"archive_id": str(archive_id)}
+        self.query = query or {}
 
 
 def _default_state_map() -> dict[str, str]:
@@ -1125,6 +1203,7 @@ def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> Non
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1172,6 +1251,7 @@ def test_variant3_archive_action_websocket_returns_tokenized_download_urls(tmp_p
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1246,6 +1326,7 @@ def test_variant3_source_3mf_upload_view_refreshes_archive_detail(tmp_path: Path
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1313,6 +1394,7 @@ def test_variant3_source_3mf_upload_view_returns_diagnostics_for_empty_payload(t
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1369,6 +1451,7 @@ def test_variant3_source_3mf_upload_view_reads_file_before_advancing_multipart_r
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1428,6 +1511,7 @@ def test_variant3_source_3mf_upload_websocket_refreshes_archive_detail(tmp_path:
     manager.store.initialize()
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1474,6 +1558,176 @@ def test_variant3_source_3mf_upload_websocket_refreshes_archive_detail(tmp_path:
             "file_name": "source-model.3mf",
             "mime_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
             "byte_count": 14,
+        }
+    ]
+
+
+def test_variant3_timelapse_info_view_returns_metadata(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    info_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_INFO_URL)
+    request = FakeQueryRequest(hass, 101)
+
+    original_api_client = init_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.timelapse_info_requests = []
+
+    try:
+        response = asyncio.run(info_view.get(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["archive_id"] == 101
+    assert payload["duration"] == 84.5
+    assert payload["width"] == 1920
+    assert FakeApiClient.timelapse_info_requests == [101]
+
+
+def test_variant3_timelapse_thumbnails_view_forwards_query_params(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    thumbnails_view = next(
+        view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_THUMBNAILS_URL
+    )
+    request = FakeQueryRequest(hass, 101, {"count": "15", "width": "240"})
+
+    original_api_client = init_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.timelapse_thumbnail_requests = []
+
+    try:
+        response = asyncio.run(thumbnails_view.get(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["thumbnails"] == ["thumb-a", "thumb-b", "thumb-c"]
+    assert payload["timestamps"] == [0.0, 42.25, 84.5]
+    assert FakeApiClient.timelapse_thumbnail_requests == [{"archive_id": 101, "count": 15, "width": 240}]
+
+
+def test_variant3_timelapse_process_view_refreshes_archive_detail(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    process_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_PROCESS_URL)
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart("trim_start", text="5"),
+            FakeMultipartPart("trim_end", text="30"),
+            FakeMultipartPart("speed", text="1.5"),
+            FakeMultipartPart("save_mode", text="replace"),
+            FakeMultipartPart(
+                "audio",
+                filename="soundtrack.mp3",
+                content=b"fake-audio-bytes",
+                content_type="audio/mpeg",
+            ),
+        ],
+    )
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.processed_timelapses = []
+
+    try:
+        response = asyncio.run(process_view.post(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["process"]["status"] == "completed"
+    assert payload["process"]["message"] == "Timelapse replaced successfully"
+    assert payload["process"]["output_path"] == "archive_timelapses/101/print-101.mp4"
+    assert FakeApiClient.processed_timelapses == [
+        {
+            "archive_id": 101,
+            "trim_start": 5.0,
+            "trim_end": 30.0,
+            "speed": 1.5,
+            "save_mode": "replace",
+            "output_filename": None,
+            "audio_file_name": "soundtrack.mp3",
+            "audio_mime_type": "audio/mpeg",
+            "audio_byte_count": 16,
         }
     ]
 
