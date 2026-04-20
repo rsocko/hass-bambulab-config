@@ -109,13 +109,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return fallbackMessage;
     }
 
+    var diagnosticsMessage = this._formatUploadDiagnostics(error && error.body ? error.body.diagnostics : null);
+
     if (typeof error === "string") {
       var textError = error.trim();
       return textError || fallbackMessage;
     }
 
     if (error.message && String(error.message).trim()) {
-      return String(error.message).trim();
+      return diagnosticsMessage
+        ? String(error.message).trim() + " [" + diagnosticsMessage + "]"
+        : String(error.message).trim();
     }
 
     if (error.code && error.code !== "unknown_error") {
@@ -128,10 +132,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
     if (error.body && typeof error.body === "object") {
       if (error.body.message && String(error.body.message).trim()) {
-        return String(error.body.message).trim();
+        return diagnosticsMessage
+          ? String(error.body.message).trim() + " [" + diagnosticsMessage + "]"
+          : String(error.body.message).trim();
       }
       if (error.body.error && String(error.body.error).trim()) {
-        return String(error.body.error).trim();
+        return diagnosticsMessage
+          ? String(error.body.error).trim() + " [" + diagnosticsMessage + "]"
+          : String(error.body.error).trim();
       }
     }
 
@@ -149,6 +157,30 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     return fallbackMessage;
+  }
+
+  _formatUploadDiagnostics(diagnostics) {
+    if (!diagnostics || typeof diagnostics !== "object") {
+      return "";
+    }
+
+    var summary = [];
+    if (diagnostics.request_content_type) {
+      summary.push("request=" + String(diagnostics.request_content_type));
+    }
+    if (diagnostics.file_content_type) {
+      summary.push("file=" + String(diagnostics.file_content_type));
+    }
+    if (diagnostics.chunk_count != null) {
+      summary.push("chunks=" + String(diagnostics.chunk_count));
+    }
+    if (diagnostics.byte_count != null) {
+      summary.push("bytes=" + String(diagnostics.byte_count));
+    }
+    if (diagnostics.first_chunk_size != null) {
+      summary.push("first_chunk=" + String(diagnostics.first_chunk_size));
+    }
+    return summary.join(", ");
   }
 
   _handleClick(event) {
@@ -593,8 +625,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     if (!response.ok || payload.success === false) {
-      throw payload && (payload.message || payload.error)
-        ? new Error(String(payload.message || payload.error))
+      throw payload && typeof payload === "object"
+        ? {
+            message: String(payload.message || payload.error || ("Source 3MF upload failed (HTTP " + String(response.status) + ")")),
+            body: payload,
+            status: response.status,
+          }
         : new Error("Source 3MF upload failed (HTTP " + String(response.status) + ")");
     }
 
