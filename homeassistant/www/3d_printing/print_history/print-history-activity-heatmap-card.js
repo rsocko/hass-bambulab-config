@@ -1088,7 +1088,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         color = stats.enrichmentColor || this._emptyCellColor();
       } else if (input.mode === "Number of Favorites") {
         value = Number(stats.favoriteCount || 0);
-        color = this._buildIntensityColor(value, input.maxFavoriteCount || 0, "#FEF3C7", "#B45309");
+        color = this._buildIntensityColor(value, input.maxFavoriteCount || 0, "#6B4F00", "#FACC15");
       } else if (input.mode === "Total Time Printing") {
         value = Number(stats.durationHours || 0);
         color = this._buildIntensityColor(value, input.maxDurationHours || 0, "#EDE9FE", "#6D28D9");
@@ -1606,7 +1606,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return { maxValue: maxima.maxUniqueFilamentCount || 0, startColor: "#E0E7FF", endColor: "#4338CA" };
     }
     if (mode === "Number of Favorites") {
-      return { maxValue: maxima.maxFavoriteCount || 0, startColor: "#FEF3C7", endColor: "#B45309" };
+      return { maxValue: maxima.maxFavoriteCount || 0, startColor: "#6B4F00", endColor: "#FACC15" };
     }
     if (mode === "Total Time Printing") {
       return { maxValue: maxima.maxDurationHours || 0, startColor: "#EDE9FE", endColor: "#6D28D9" };
@@ -2445,7 +2445,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       rgb.g += color.g * weight;
       rgb.b += color.b * weight;
     }.bind(this));
-    return this._rgbToHex(rgb);
+    return this._rgbToHex(rgb.r, rgb.g, rgb.b);
   }
 
   _buildEnrichmentLabel(day) {
