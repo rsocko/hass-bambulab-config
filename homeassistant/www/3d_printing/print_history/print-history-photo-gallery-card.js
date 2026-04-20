@@ -144,6 +144,10 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._openViewerPopup();
       return;
     }
+    if (action === "timelapse") {
+      this._openTimelapsePopup();
+      return;
+    }
     if (action === "advanced-actions") {
       this._openAdvancedActions();
       return;
@@ -687,6 +691,23 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     };
   }
 
+  _buildArchiveTimelapseCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
+      api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+      title: "Timelapse",
+    };
+  }
+
+  _buildArchiveTimelapsePopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [this._buildArchiveTimelapseCardConfig(archive)],
+    };
+  }
+
   _fireBrowserModEvent(service, data) {
     var event = new CustomEvent("ll-custom", {
       bubbles: true,
@@ -717,6 +738,19 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       title: "3D Viewer",
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
+    });
+  }
+
+  _openTimelapsePopup() {
+    var archive = this._resolveArchive();
+    var timelapsePath = String(archive && archive.timelapse_path || "").trim();
+    if (!archive || archive.id == null || !timelapsePath) {
+      return;
+    }
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Timelapse",
+      size: "wide",
+      content: this._buildArchiveTimelapsePopupContent(archive),
     });
   }
 
@@ -1036,6 +1070,18 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var className = buttonClass || "icon-action viewer";
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
     return '<button class="' + className + '" type="button" data-action="viewer" aria-label="Open 3D viewer for ' + this._escapeHtml(archiveName) + '" title="Open 3D Viewer"><ha-icon icon="mdi:cube-scan"></ha-icon></button>';
+  }
+
+  _buildTimelapseAction(buttonClass) {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? archive.id : null;
+    var timelapsePath = String(archive && archive.timelapse_path || "").trim();
+    if (archiveId == null || !timelapsePath) {
+      return "";
+    }
+    var className = buttonClass || "icon-action timelapse";
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "archive";
+    return '<button class="' + className + '" type="button" data-action="timelapse" aria-label="Open timelapse for ' + this._escapeHtml(archiveName) + '" title="Open Timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button>';
   }
 
   _buildExpandAction(buttonClass) {
@@ -1450,6 +1496,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var active = this._images[this._activeIndex];
     var alt = this._escapeHtml(active.filename || active.label || this._archiveName);
     var viewerAction = this._buildViewerAction("icon-action viewer");
+    var timelapseAction = this._buildTimelapseAction("icon-action timelapse");
     var expandAction = this._buildExpandAction("icon-action expand");
 
     var stageImage = this.shadowRoot.querySelector(".stage-image");
@@ -1467,7 +1514,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var topbarActions = this.shadowRoot.querySelector(".topbar-actions");
     if (topbarActions) {
-      topbarActions.innerHTML = viewerAction + expandAction;
+      topbarActions.innerHTML = viewerAction + timelapseAction + expandAction;
     }
 
     Array.from(this.shadowRoot.querySelectorAll(".thumb"))
@@ -1631,6 +1678,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     var deleteAction = this._buildDeleteAction(active, "action-button");
     var uploadAction = this._buildUploadAction("action-button");
     var viewerAction = this._buildViewerAction("icon-action viewer");
+    var timelapseAction = this._buildTimelapseAction("icon-action timelapse");
     var expandAction = hasImages ? this._buildExpandAction("icon-action expand") : "";
     var advancedAction = this._buildAdvancedActionsButton();
     var compact = !!this._config.compact;
@@ -1658,6 +1706,9 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       ".icon-action.viewer{background:rgba(20,83,45,0.22);border-color:rgba(34,197,94,0.28);color:var(--primary-text-color);}" +
       ".icon-action.viewer:hover,.icon-action.viewer:focus-visible{background:rgba(20,83,45,0.34);color:var(--primary-text-color);border-color:rgba(34,197,94,0.46);box-shadow:0 0 0 1px rgba(34,197,94,0.18),0 8px 20px rgba(20,83,45,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.viewer:active{transform:translateY(0);}" +
+      ".icon-action.timelapse{background:rgba(91,33,182,0.22);border-color:rgba(167,139,250,0.28);color:var(--primary-text-color);}" +
+      ".icon-action.timelapse:hover,.icon-action.timelapse:focus-visible{background:rgba(91,33,182,0.34);color:var(--primary-text-color);border-color:rgba(196,181,253,0.48);box-shadow:0 0 0 1px rgba(167,139,250,0.18),0 8px 20px rgba(76,29,149,0.22);transform:translateY(-1px);outline:none;}" +
+      ".icon-action.timelapse:active{transform:translateY(0);}" +
       ".icon-action.expand{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.3);color:var(--primary-text-color);}" +
       ".icon-action.expand:hover,.icon-action.expand:focus-visible{background:rgba(30,64,175,0.36);color:var(--primary-text-color);border-color:rgba(96,165,250,0.48);box-shadow:0 0 0 1px rgba(96,165,250,0.18),0 8px 20px rgba(30,64,175,0.22);transform:translateY(-1px);outline:none;}" +
       ".icon-action.expand:active{transform:translateY(0);}" +
@@ -1705,7 +1756,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         : ('<div class="stage-empty"><div class="stage-empty-copy">No thumbnail or photos are available for this archive yet.</div></div>')) +
       '<div class="topbar">' +
       '<div class="topbar-left"><div class="stage-action-host">' + advancedAction + '</div></div>' +
-      '<div class="topbar-actions">' + viewerAction + expandAction + '</div>' +
+      '<div class="topbar-actions">' + viewerAction + timelapseAction + expandAction + '</div>' +
       "</div>" +
       (images.length > 1 ? '<button class="nav prev" type="button" data-action="prev" aria-label="Previous image">&#8249;</button><button class="nav next" type="button" data-action="next" aria-label="Next image">&#8250;</button>' : "") +
       "</div>" +

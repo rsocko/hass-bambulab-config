@@ -7,6 +7,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._archiveOverride = null;
     this._mode = "main";
     this._busy = false;
+    this._busyContext = "";
     this._status = "";
     this._statusTone = "info";
     this._lastRenderSignature = "";
@@ -27,6 +28,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._archiveOverride = null;
     this._mode = "main";
     this._busy = false;
+    this._busyContext = "";
     this._status = "";
     this._statusTone = "info";
     this._lastRenderSignature = "";
@@ -96,12 +98,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _setBusy(busy, message, tone) {
     this._busy = !!busy;
+    this._busyContext = this._busy ? this._busyContext : "";
     if (message != null) {
       this._setStatus(message, tone);
       return;
     }
     this._lastRenderSignature = "";
     this._render();
+  }
+
+  _setBusyState(busy, message, tone, context) {
+    this._busyContext = busy ? String(context || "").trim() : "";
+    this._setBusy(busy, message, tone);
   }
 
   _fireBrowserModEvent(service, data) {
@@ -235,6 +243,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (action === "upload-source-3mf") {
       this._openSourceUploadPicker();
+      return;
+    }
+    if (action === "scan-timelapse") {
+      this._handleScanTimelapse();
+      return;
+    }
+    if (action === "view-timelapse") {
+      this._openTimelapsePopup();
       return;
     }
     if (action === "repair-archive") {
@@ -735,6 +751,79 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     ];
   }
 
+  _buildArchiveTimelapseCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
+      api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+      title: "Timelapse",
+    };
+  }
+
+  _buildArchiveTimelapsePopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [this._buildArchiveTimelapseCardConfig(archive)],
+    };
+  }
+
+  _openTimelapsePopup() {
+    var archive = this._resolveArchive();
+    var timelapsePath = String(archive && archive.timelapse_path || "").trim();
+    if (!archive || archive.id == null || !timelapsePath) {
+      return;
+    }
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Timelapse",
+      size: "wide",
+      content: this._buildArchiveTimelapsePopupContent(archive),
+    });
+  }
+
+  _scanResultMessage(response) {
+    var scanResult = response && typeof response === "object" && response.scan_result && typeof response.scan_result === "object"
+      ? response.scan_result
+      : {};
+    var message = String(scanResult.message || response && response.message || "").trim();
+    var availableFiles = Array.isArray(scanResult.available_files) ? scanResult.available_files : [];
+    if (scanResult.status === "not_found" && availableFiles.length > 0) {
+      return message + " Found " + String(availableFiles.length) + " candidate file" + (availableFiles.length === 1 ? "" : "s") + " on the printer.";
+    }
+    return message || "Timelapse scan finished.";
+  }
+
+  _scanResultTone(response) {
+    var status = String(response && response.status || response && response.scan_result && response.scan_result.status || "").trim();
+    if (status === "attached") {
+      return "success";
+    }
+    if (status === "exists" || status === "not_found") {
+      return "info";
+    }
+    return "error";
+  }
+
+  async _handleScanTimelapse() {
+    try {
+      this._setBusyState(true, "Scanning printer for timelapse...", "info", "scan-timelapse");
+      var response = await this._requestArchiveAction("scan_timelapse");
+      var nextArchive = response && response.archive && typeof response.archive === "object"
+        ? response.archive
+        : null;
+      this._busy = false;
+      this._busyContext = "";
+      if (nextArchive) {
+        this._setArchive(nextArchive);
+      }
+      this._setStatus(this._scanResultMessage(response), this._scanResultTone(response));
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(this._describeError(error, "Timelapse scan failed"), "error");
+    }
+  }
+
   async _handleRepair() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -779,8 +868,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "Untitled Archive";
     var sourceName = String((archive && archive.source_3mf_path) || "").trim();
+    var timelapseName = String((archive && archive.timelapse_path) || "").trim();
     var sourceBadge = sourceName
       ? '<div class="summary-note">Source 3MF attached: ' + this._escapeHtml(sourceName.split(/[\\/]/).pop()) + "</div>"
+      : "";
+    var timelapseBadge = timelapseName
+      ? '<div class="summary-note">Timelapse attached: ' + this._escapeHtml(timelapseName.split(/[\\/]/).pop()) + "</div>"
       : "";
     return '<section class="summary-card">' +
       '<div class="summary-grid">' +
@@ -791,6 +884,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '<div class="summary-title">' + this._escapeHtml(archiveName) + '</div>' +
       '<div class="summary-id">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>' +
       sourceBadge +
+      timelapseBadge +
       '</div>' +
       '</div>' +
       '</section>';
@@ -800,7 +894,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (!this._status) {
       return "";
     }
-    return '<div class="status ' + this._escapeHtml(this._statusTone) + '">' + this._escapeHtml(this._status) + '</div>';
+    var busyCopy = this._busy && this._busyContext === "scan-timelapse"
+      ? '<div class="status-detail">Bambuddy does not stream scan progress. This waits until printer folders have been checked and a matching file is downloaded or ruled out.</div>'
+      : "";
+    return '<div class="status ' + this._escapeHtml(this._statusTone) + (this._busy ? ' busy' : '') + '"><div class="status-main">' + this._escapeHtml(this._status) + '</div>' + busyCopy + '</div>';
   }
 
   _renderActionButton(action, label, icon, options) {
@@ -834,6 +931,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _renderMain(archive) {
     var hasGcodeFile = !!String((archive && archive.file_path) || "").trim();
     var hasSource = !!String((archive && archive.source_3mf_path) || "").trim();
+    var hasTimelapse = !!String((archive && archive.timelapse_path) || "").trim();
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = "View on MakerWorld";
     var fileActions = '<div class="actions-grid">' +
@@ -846,6 +944,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '<div class="actions-grid">' +
         this._renderActionButton("open-makerworld", makerworldLabel, "mdi:earth", { disabled: !makerworldUrl || this._busy }) +
       '</div>'
+    );
+    var timelapseActions = this._renderActionSection(
+      "Timelapse",
+      '<div class="actions-grid single-column">' +
+        (hasTimelapse
+          ? this._renderActionButton("view-timelapse", "View Timelapse", "mdi:movie-open-play-outline", { disabled: this._busy })
+          : this._renderActionButton("scan-timelapse", "Scan Printer for Timelapse", "mdi:movie-search-outline", { disabled: this._busy })) +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml(
+        hasTimelapse
+          ? "This archive already has an attached timelapse. Open it in a popup viewer."
+          : "Ask Bambuddy to check the printer timelapse folders and attach the best match if it finds one."
+      ) + '</div>'
     );
     var maintenanceActions = this._renderActionSection(
       "Archive",
@@ -863,6 +974,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return '<div class="section-stack">' +
       this._renderActionSection("Files", fileActions) +
       linkActions +
+      timelapseActions +
       maintenanceActions +
       dangerActions +
       '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">' +
@@ -900,6 +1012,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.summary-id{margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);}' +
       '.summary-note{margin-top:6px;font-size:12px;line-height:1.4;color:var(--secondary-text-color);word-break:break-word;}' +
       '.status{border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;}' +
+      '.status.busy{display:flex;flex-direction:column;gap:6px;}' +
+      '.status-main{display:flex;align-items:center;gap:8px;min-height:20px;}' +
+      '.status.busy .status-main::before{content:"";width:14px;height:14px;border-radius:999px;border:2px solid rgba(255,255,255,0.18);border-top-color:currentColor;animation:phaSpin 0.8s linear infinite;flex:0 0 auto;}' +
+      '.status-detail{font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
       '.status.info{background:rgba(33,150,243,0.10);color:var(--primary-text-color);}' +
       '.status.success{background:rgba(46,125,50,0.14);color:var(--primary-text-color);}' +
       '.status.error{background:rgba(183,28,28,0.14);color:var(--primary-text-color);}' +
@@ -908,6 +1024,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.action-section{border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.025);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;}' +
       '.action-section.danger{border-color:rgba(239,68,68,0.18);background:rgba(183,28,28,0.05);}' +
       '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
+      '.section-copy{padding:0 2px;font-size:12px;line-height:1.5;color:var(--secondary-text-color);}' +
       '.actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
       '.actions-grid.single-column{grid-template-columns:1fr;}' +
       '.action-button{appearance:none;-webkit-appearance:none;display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;min-height:48px;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);box-shadow:none;color:var(--primary-text-color);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:none;}' +
@@ -920,6 +1037,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.confirm-copy{padding:4px 2px 2px;font-size:14px;line-height:1.55;color:var(--primary-text-color);}' +
       '.confirm-grid{grid-template-columns:1fr;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
+      '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
       '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}}' +
       '</style>' +
       '<div class="shell">' +

@@ -16,9 +16,11 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57
   type: module
-- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55
+- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56
   type: module
-- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=20
+- url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=21
+  type: module
+- url: /local/3d_printing/print_history/print-history-timelapse-card.js?v=1
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=31
   type: module
