@@ -66,28 +66,36 @@ class PrintHistoryArchiveRestoreCard extends HTMLElement {
   }
 
   _sourceArchiveId() {
-    return String(
-      this._helperState(this._config?.source_archive_helper)
-      || this._workflowAttr("source_archive_id", "")
-      || this._sourceArchive()?.id
-      || "",
-    ).trim();
+    const helperValue = this._helperState(this._config?.source_archive_helper).trim();
+    if (helperValue) {
+      return helperValue;
+    }
+    const workflowValue = String(this._workflow()?.attributes?.source_archive_id ?? "").trim();
+    if (workflowValue) {
+      return workflowValue;
+    }
+    const detailArchiveId = this._parseJson(this._detail()?.attributes?.archive_json || "{}", {})?.id;
+    if (detailArchiveId != null && String(detailArchiveId).trim() !== "") {
+      return String(detailArchiveId).trim();
+    }
+    const configArchiveId = this._archiveFromConfig()?.id;
+    return configArchiveId == null ? "" : String(configArchiveId).trim();
   }
 
   _targetArchiveId() {
-    return String(
-      this._helperState(this._config?.target_archive_helper)
-      || this._workflowAttr("target_archive_id", "")
-      || "",
-    ).trim();
+    const helperValue = this._helperState(this._config?.target_archive_helper).trim();
+    if (helperValue) {
+      return helperValue;
+    }
+    return String(this._workflow()?.attributes?.target_archive_id ?? "").trim();
   }
 
   _uploadSessionId() {
-    return String(
-      this._helperState(this._config?.upload_session_helper)
-      || this._workflowAttr("upload_session_id", "")
-      || "",
-    ).trim();
+    const helperValue = this._helperState(this._config?.upload_session_helper).trim();
+    if (helperValue) {
+      return helperValue;
+    }
+    return String(this._workflow()?.attributes?.upload_session_id ?? "").trim();
   }
 
   _parseJson(value, fallback) {

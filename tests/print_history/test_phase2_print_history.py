@@ -2277,7 +2277,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=26", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=39", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=41", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
 
@@ -2415,6 +2415,8 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('this._helperState(this._config?.upload_session_helper)', content)
         self.assertIn('const sourceArchiveId = this._sourceArchiveId();', content)
         self.assertIn('fileInput.onchange = this._boundUploadChange;', content)
+        self.assertIn('const detailArchiveId = this._parseJson(this._detail()?.attributes?.archive_json || "{}", {})?.id;', content)
+        self.assertIn('return String(this._workflow()?.attributes?.upload_session_id ?? "").trim();', content)
         self.assertIn('if (printerId != null && String(printerId).trim() !== "") {', content)
         self.assertIn('this._error = "Source archive context is missing.";', content)
         self.assertIn('const autoAssignedPrinterId = payload?.auto_assigned_printer_id || upload?.auto_assigned_printer_id || "";', content)
