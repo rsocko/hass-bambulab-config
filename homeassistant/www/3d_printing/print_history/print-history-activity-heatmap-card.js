@@ -2950,7 +2950,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   _rgbToHex(red, green, blue) {
     return "#" + [red, green, blue].map(function (channel) {
-      return Math.max(0, Math.min(255, channel)).toString(16).padStart(2, "0");
+      return Math.round(Math.max(0, Math.min(255, channel))).toString(16).padStart(2, "0");
     }).join("");
   }
 

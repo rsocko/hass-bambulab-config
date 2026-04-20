@@ -826,7 +826,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=113", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=47", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=48", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=55", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=16", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1024,6 +1024,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('return mapped;', content)
         self.assertIn('self._showError(self._describeRenderError(err));', content)
         self.assertIn('Home Assistant websocket unavailable. Retry after the connection recovers.', content)
+        self.assertIn('Math.round(Math.max(0, Math.min(255, channel))).toString(16).padStart(2, "0")', content)
 
     def test_heatmap_card_parses_new_metric_inputs_once_per_archive(self):
         content = (ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js").read_text("utf-8")
