@@ -409,6 +409,50 @@ Not recommended as a first step:
 - injecting per-archive size chips into all browser cards by default
 - adding heavy size breakdown payloads into summary entity attributes
 
+## Statistics View Ideas
+
+If aggregate display graduates beyond popup diagnostics, the Print History Statistics view is the best fit.
+
+Why Statistics is the right surface:
+
+- it already carries aggregate and trend-oriented expectations
+- it avoids making the main browser heavier by default
+- it gives storage analytics a place to evolve without forcing per-row card clutter
+
+Useful first Statistics slices:
+
+- total tracked archive storage across all cached rows
+- stacked breakdown by asset class: archive 3MF, source 3MF, thumbnails, photos, timelapses, F3D, other
+- top archives by `total_bytes`
+- largest photo-heavy archives versus largest timelapse-heavy archives
+- scan coverage summary: complete, partial, missing, error, stale
+
+Useful grouped rollups after the first aggregate pass:
+
+- storage by printer
+- storage by project
+- storage by print status
+- storage by month or week of completion
+- average bytes per archive for selected date ranges
+
+Useful derived diagnostics:
+
+- orphan-heavy archives where `other_bytes` is unexpectedly large
+- archives with high `files_missing_count`
+- archives where photos dominate total footprint
+- archives where source 3MF attachment footprint is materially larger than the archived print file
+
+Possible presentation patterns for Statistics:
+
+- a headline totals card for overall tracked bytes and archive count
+- a stacked bar or donut for asset-class composition
+- a sortable table for largest archives
+- trend charts by completion month once enough cached rows exist
+
+Important guardrail:
+
+- Statistics cards should aggregate from the HA local `archive_storage_metrics` table, not call the sidecar summary endpoint on every render
+
 ## Refresh Policy
 
 Default recommendation:
@@ -489,8 +533,10 @@ That is enough to validate:
 Possible follow-on work after the first slice is proven:
 
 - aggregate storage rollups by printer, project, date range, or status
+- dedicated Statistics cards for storage composition and top-footprint archives
 - browser sort/filter by `total_bytes`
 - explicit photo-size distribution metrics
+- richer per-photo diagnostics sourced from `artifacts.photos[].bytes`
 - residual-file diagnostics for suspicious archives
 - shared storage summary views that align with Bambuddy's broader system storage reporting
 
