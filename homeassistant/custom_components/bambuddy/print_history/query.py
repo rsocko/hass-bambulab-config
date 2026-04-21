@@ -695,6 +695,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "tags": as_text(raw_archive.get("tags")).strip(),
         "notes": notes,
         "failure_reason": as_text(raw_archive.get("failure_reason")).strip(),
+        "content_hash": as_text(raw_archive.get("content_hash")).strip(),
         "photos": project_photos(raw_archive.get("photos")),
         "file_path": as_text(raw_archive.get("file_path")).strip(),
         "file_size": as_int(raw_archive.get("file_size")),

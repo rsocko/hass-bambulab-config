@@ -2489,6 +2489,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         return '<tr' + (row.has_difference ? ' class="difference"' : '') + '><td class="compare-field">' + this._escapeHtml(String(row.label || row.field || "Field")) + '</td>' +
           values.map(function (value) {
             var cellValue = value == null || value === "" ? "-" : String(value);
+            if (String(row && row.field || "") === "content_hash" && cellValue !== '-') {
+              var shortHash = cellValue.length > 18 ? (cellValue.slice(0, 10) + '...' + cellValue.slice(-8)) : cellValue;
+              return '<td><span class="compare-hash" title="' + this._escapeHtml(cellValue) + '">' + this._escapeHtml(shortHash) + '</span></td>';
+            }
             return '<td>' + this._escapeHtml(cellValue) + (row.unit && cellValue !== '-' ? '<span class="compare-unit"> ' + this._escapeHtml(String(row.unit)) + '</span>' : '') + '</td>';
           }.bind(this)).join("") + '</tr>';
       }.bind(this)).join("") + '</tbody></table></div>';
@@ -2710,6 +2714,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.compare-table thead th{font-size:12px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);background:rgba(255,255,255,0.02);}' +
       '.compare-table tbody tr.difference{background:rgba(239,108,0,0.06);}' +
       '.compare-field{font-weight:700;white-space:nowrap;}' +
+      '.compare-hash{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;font-size:12px;line-height:1.4;word-break:break-all;}' +
       '.compare-archive-name{font-size:13px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;text-transform:none;letter-spacing:normal;}' +
       '.compare-unit{color:var(--secondary-text-color);}' +
       '.compare-insights{display:grid;gap:10px;}' +

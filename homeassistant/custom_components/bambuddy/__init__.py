@@ -456,6 +456,35 @@ def _sort_related_candidates(candidates: list[dict[str, Any]]) -> list[dict[str,
     )
 
 
+def _compare_hash_row(manager: PrintHistoryBrowserManager, archive_ids: list[int]) -> dict[str, Any] | None:
+    archive_map = {
+        int(archive.get("id") or 0): archive
+        for archive in manager.archives
+        if isinstance(archive, dict) and int(archive.get("id") or 0) > 0
+    }
+    values: list[str | None] = []
+    for archive_id in archive_ids:
+        archive = archive_map.get(int(archive_id))
+        if archive is None:
+            detail = manager.build_archive_detail_response(int(archive_id)) or {}
+            archive = detail.get("archive") if isinstance(detail, dict) else None
+        hash_value = str((archive or {}).get("content_hash") or "").strip() if isinstance(archive, dict) else ""
+        values.append(hash_value or None)
+
+    if not any(values):
+        return None
+
+    non_none_values = [value for value in values if value]
+    return {
+        "field": "content_hash",
+        "label": "File Content Hash",
+        "unit": None,
+        "values": values,
+        "raw_values": values,
+        "has_difference": len(set(non_none_values)) > 1 if non_none_values else False,
+    }
+
+
 async def _build_archive_related_response(
     hass: HomeAssistant,
     manager: PrintHistoryBrowserManager,
@@ -508,6 +537,22 @@ async def _build_archive_compare_response(
     )
     response = await client.async_compare_archives(normalized_ids)
     normalized_response = dict(response)
+    comparison_rows = list(normalized_response.get("comparison") or [])
+    difference_rows = list(normalized_response.get("differences") or [])
+    hash_row = _compare_hash_row(manager, normalized_ids)
+    if hash_row is not None:
+        comparison_rows.append(hash_row)
+        if hash_row.get("has_difference"):
+            difference_rows.append(
+                {
+                    "field": hash_row["field"],
+                    "label": hash_row["label"],
+                    "values": hash_row["values"],
+                    "has_difference": True,
+                }
+            )
+    normalized_response["comparison"] = comparison_rows
+    normalized_response["differences"] = difference_rows
     normalized_response[CONF_ENTRY_ID] = entry_id
     normalized_response["archive_ids"] = normalized_ids
     return normalized_response

@@ -838,6 +838,7 @@ def _projected_archives(project_archive) -> list[dict]:
             "id": 101,
             "printer_id": 1,
             "print_name": "Hueforge Batman",
+            "content_hash": "hash-101-aabbccdd",
             "actual_time_seconds": 14400,
             "print_time_seconds": 15000,
             "filament_used_grams": 42.5,
@@ -877,6 +878,7 @@ def _projected_archives(project_archive) -> list[dict]:
             "id": 202,
             "printer_id": 2,
             "print_name": "Fixture Test",
+            "content_hash": "hash-202-zzxxyyww",
             "actual_time_seconds": 3600,
             "print_time_seconds": 3700,
             "filament_used_grams": 15.0,
@@ -1572,7 +1574,11 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     assert related_result["candidates"][2]["archive_id"] == 404
     assert compare_result["archive_ids"] == [101, 202]
     assert compare_result["comparison"][0]["field"] == "status"
+    assert compare_result["comparison"][-1]["field"] == "content_hash"
+    assert compare_result["comparison"][-1]["label"] == "File Content Hash"
+    assert compare_result["comparison"][-1]["has_difference"] is True
     assert compare_result["differences"][0]["field"] == "status"
+    assert compare_result["differences"][-1]["field"] == "content_hash"
     assert compare_result["success_correlation"]["has_both_outcomes"] is True
     assert FakeApiClient.related_requests == [{"archive_id": 101, "limit": 4}]
     assert FakeApiClient.compare_requests == [[101, 202]]
