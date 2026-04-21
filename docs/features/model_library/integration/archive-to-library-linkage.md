@@ -10,9 +10,21 @@ Define the explicit relationship layer between:
 - Bambuddy library file entries
 - Manyfold model records and model files
 - source `.3mf` project files
-- sliced derivative files such as `.gcode.3mf`
+- optional exported derivative files such as `.gcode.3mf`
 
 This contract exists because neither Bambuddy nor Manyfold should be forced to become the authoritative system for both runtime archives and reusable source-model identity.
+
+## Why This Is Custom
+
+Bambuddy already supports several useful native relationships:
+
+- linking library folders to projects or archives
+- queueing or printing directly from library files
+- attaching archive-local source `.3mf` files to specific archives
+
+What Bambuddy does not natively provide is the generalized provenance model needed here across reusable source models, library entries, Manyfold records, optional derivatives, and multiple archive records over time.
+
+That is why this linkage layer is custom to this repo rather than a native Bambuddy feature.
 
 ## Why A Local Linkage Layer Exists
 
@@ -26,7 +38,7 @@ Without a linkage layer, cross-system relationships tend to degrade into:
 Those work for experiments, but they do not scale cleanly when:
 
 - one source project produces multiple archives
-- one family has several sliced exports
+- one family has several optional exported derivatives
 - filenames change over time
 - multiple systems need to surface the same relationship
 

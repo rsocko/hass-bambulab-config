@@ -196,6 +196,8 @@ Recommended first deterministic write-back targets:
 - explicit source-model link creation
 - open-target preferences
 
+The first slice should treat this linkage state as repo-specific custom integration logic. Bambuddy already has native folder links and archive-local source attachments, but HA should not imply that Bambuddy natively exposes the full provenance model described in this feature area.
+
 Deferred write-back targets:
 
 - broad Manyfold metadata mutation from HA

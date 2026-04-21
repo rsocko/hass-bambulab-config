@@ -28,7 +28,15 @@ Important caveat:
 - organize or path-template behavior can move or rename files
 - Manyfold-managed artifacts such as `datapackage.json` and `.manyfold` derivative data are part of the broader design space
 
+Newer Manyfold folder settings and path-template controls improve curation flexibility, but they do not change the underlying single-writer requirement for a managed library tree.
+
 That makes it a poor co-owner of a shared writable tree.
+
+### Bambuddy Coexistence
+
+Bambuddy may safely consume a Manyfold-owned tree only as a read-only external-folder index.
+
+That means browse, preview, queue, print, and navigation flows can coexist, but Bambuddy should not be treated as a co-manager of the same writable tree.
 
 ### Metadata Surface
 

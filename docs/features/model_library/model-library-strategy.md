@@ -15,6 +15,8 @@ The current repo already has strong archive-centric capabilities through Bambudd
 
 The main design tension is that Bambuddy and Manyfold overlap in some library-adjacent capabilities, but they are optimized for different jobs.
 
+For the short day-to-day operator rules, see [Model Library Operator Workflow](operator-workflow.md).
+
 For the broader alternatives pass, see [External Services Design Review](external-services-design-review-2026-04.md).
 
 ## Current Upstream Findings
@@ -27,7 +29,7 @@ Confirmed current behavior:
 
 - supports external-folder mounting and scanning for the library/file manager
 - can index existing host directories without copying files
-- defaults external folders to read-only
+- external-folder `readonly` defaults to `true`, and the UI presents read-only as the default external-folder mode
 - preserves real disk files when deleting the Bambuddy external-folder index
 - can link library folders to projects or archives
 - can upload and store archive-local `source_3mf` files for specific archives
@@ -37,6 +39,7 @@ Current shape and limitations:
 - strongest at print archives, queueing, project tracking, and printer-facing workflows
 - library is still printer and file-manager centric, not a rich long-lived model-knowledge system
 - archive `source_3mf` is an archive-scoped stored copy, not a shared library reference
+- readonly external folders are a configuration choice rather than an unchangeable invariant, so host-level read-only bind mounts and least-privilege Bambuddy permissions are still the stronger safeguard when the underlying tree matters
 
 ### Manyfold
 
@@ -235,14 +238,19 @@ This is the best balance for your stated priorities:
 
 Recommended folders:
 
+- `3D Printing/Working/` - active edits and temporary working copies
 - `3D Printing/Library/` - curated source projects, intentional intake only
-- `3D Printing/Print Ready/` - optional sliced exports or reprint-ready derivatives
 - Bambuddy archive storage - separate app-owned archive area
+
+Optional only when it adds value:
+
+- `3D Printing/Print Ready/` - sliced exports or reprint-ready derivatives when you want a separate export area
 
 Recommended ownership:
 
+- operator-owned tools or desktop workflows may mutate `Working/`
 - Manyfold may own `Library/` if you want managed-library behavior there
-- Bambuddy may index `Print Ready/` read-only
+- Bambuddy may index `Library/` or any optional export area read-only when Bambuddy is not the tree owner
 - Bambuddy archives remain separate and app-owned
 
 ### Safe Shared-Folder Rule
@@ -251,7 +259,8 @@ A shared folder is only safe when one system is effectively read-only and the ot
 
 Examples:
 
-- safe: Bambuddy read-only external folder over a curated export directory
+- safe: Bambuddy read-only external folder over a Manyfold-owned curated library
+- safe: Bambuddy read-only external folder over an optional export directory
 - unsafe: Manyfold organize enabled on the same tree Bambuddy can rename, move, or otherwise manage
 
 ### Rejected Topology
@@ -264,6 +273,26 @@ That is the highest-risk configuration because:
 - Bambuddy non-read-only library behaviors can still rename, delete, or move managed library entries
 - filename-based assumptions become unstable
 
+## Issue 1003: Shared Directory Rules
+
+Pointing Bambuddy at the same directory Manyfold stores files in is only safe when Manyfold remains the sole writer and Bambuddy is treated as a read-only consumer.
+
+Allowed Bambuddy behaviors on a Manyfold-owned tree:
+
+- read-only external-folder indexing and rescanning
+- browsing, preview, download, queue, and print flows
+- archive candidate generation and hash-based matching
+- navigation shortcuts from HA or Bambuddy into the library context
+
+Disallowed or unreliable Bambuddy behaviors on a Manyfold-owned tree:
+
+- rename, move, delete, cleanup, or reorganization flows
+- treating Bambuddy as the authoritative owner of path layout or filenames
+- metadata ownership assumptions that compete with Manyfold curation
+- any topology where Bambuddy is allowed to co-manage the same writable tree
+
+The strongest safe configuration is not only Bambuddy's readonly external-folder flag, but also a host-level read-only bind mount and least-privilege Bambuddy permissions.
+
 ## Archive-To-Library Relationship Model
 
 The relationship should be explicit, not implicit.
@@ -271,7 +300,7 @@ The relationship should be explicit, not implicit.
 Recommended entities:
 
 - source project file
-- print-ready derivative file
+- optional exported derivative file
 - Bambuddy library file entry
 - Bambuddy archive record
 - optional Manyfold model record
@@ -340,13 +369,41 @@ Prefer explicit intake over whole-root scanning.
 
 Recommended operator model:
 
-1. New source projects land in `3D Printing/Library/`.
-2. That act is the intentional signal that the file belongs in the catalog.
-3. Manyfold may curate that library if enabled.
-4. Selected sliced or print-ready derivatives can be exported to `3D Printing/Print Ready/`.
-5. Bambuddy indexes `Print Ready/` read-only, or archives receive selective source attachments when needed.
+1. New or actively changing source projects land in `3D Printing/Working/`.
+2. Files only move into `3D Printing/Library/` when the operator intends them to become part of the curated reusable catalog.
+3. Manyfold may curate `Library/` if enabled.
+4. Bambuddy may read-index `Library/` when Manyfold remains the sole writer, or archives may receive selective source attachments when needed.
+5. If an extra export area is useful later, treat it as optional rather than a required part of the design.
 
 This is better than automatically treating every new file anywhere in the broader `3D Printing` root as library content.
+
+## Operator Workflow
+
+### Issue 1034: Active Work
+
+New or actively changing models belong in `Working`, not directly in the curated Manyfold library.
+
+Use `Working` when:
+
+- you expect to save changes
+- you are iterating on geometry, slicer setup, or source assets
+- the file is still a temporary branch, experiment, or work-in-progress
+
+Use `Library` when:
+
+- the model has reached a stable state worth keeping as a reusable source
+- you want Manyfold metadata, browseability, and long-lived catalog identity
+- you want the file to become part of the curated source collection rather than just an archive attachment
+
+Archive-local source attachments remain useful, but they should stay selective and archive-scoped rather than becoming the main reusable-library mechanism.
+
+### Issue 1035: Reopen And Modify
+
+If the goal is only to inspect, browse, or reprint without changing the source, opening from Manyfold is fine.
+
+If the goal is to save changes, branch or copy the model into `Working` first, then intentionally promote the revised model back into `Library` if it deserves to become part of the long-lived catalog.
+
+That keeps archive history, curated source identity, and in-progress working copies from collapsing into one ambiguous path contract.
 
 ## Recommendation Summary
 

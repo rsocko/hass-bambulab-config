@@ -73,6 +73,7 @@ Important risk:
 
 - Manyfold is a managed library, not just a passive index
 - because it can reorganize and emit Manyfold-managed artifacts on disk, it should not share write authority with another tool over the same tree
+- newer folder and path-template controls improve curation flexibility, but they do not make dual-write shared-tree operation safe
 
 Verdict:
 

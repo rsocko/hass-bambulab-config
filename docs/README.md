@@ -49,7 +49,7 @@ Cross-system planning features may appear here before a Home Assistant package e
 |---------|-------------|
 | [print_progress](features/print_progress/README.md) | Animated KPI cards (layer, progress, time, ETA) |
 | [print_weight_and_cost](features/print_weight_and_cost/README.md) | Filament weight visualization and cost tracking |
-| [model_library](features/model_library/README.md) | Cross-system model catalog strategy spanning Bambuddy, Manyfold, and Home Assistant |
+| [model_library](features/model_library/README.md) | Cross-system model catalog strategy plus operator workflow guidance spanning Bambuddy, Manyfold, and Home Assistant |
 | [spoolman_sync](features/spoolman_sync/README.md) | Spoolman integration, spool usage, print weight persistence |
 | [filament_tag](features/filament_tag/README.md) | NFC filament tag scanning and Spoolman association |
 | [filament_catalog](features/filament_catalog/filament-catalog.md) | Large-scale spool and filament browsing, filtering, insights, and backend migration planning |
