@@ -973,12 +973,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   async _runMetadataCorrection(dryRun) {
-    var payload = this._collectMetadataCorrectionPayload();
-    payload.dry_run = !!dryRun;
-    var payloadKey = JSON.stringify(payload);
     this._metadataCorrectionError = "";
-    this._setBusyState(true, dryRun ? "Previewing metadata correction..." : "Applying metadata correction...", "info", dryRun ? "metadata-correction-preview" : "metadata-correction-apply");
     try {
+      var payload = this._collectMetadataCorrectionPayload();
+      payload.dry_run = !!dryRun;
+      var payloadKey = JSON.stringify(payload);
+      this._setBusyState(true, dryRun ? "Previewing metadata correction..." : "Applying metadata correction...", "info", dryRun ? "metadata-correction-preview" : "metadata-correction-apply");
       var response = await this._callServiceWithResponse("bambuddy", "correct_print_history_archive_metadata", payload);
       var correction = response && response.correction && typeof response.correction === "object" ? response.correction : {};
       this._metadataCorrectionPreview = correction;
