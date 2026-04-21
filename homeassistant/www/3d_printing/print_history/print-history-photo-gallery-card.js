@@ -731,10 +731,22 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     };
   }
 
+  _buildArchiveTimelapseEditorCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-editor-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      detail_entity: this._config && this._config.detail_entity ? this._config.detail_entity : "",
+      title: "Timelapse Editor",
+    };
+  }
+
   _buildArchiveTimelapsePopupContent(archive) {
     return {
       type: "vertical-stack",
-      cards: [this._buildArchiveTimelapseCardConfig(archive)],
+      cards: [
+        this._buildArchiveTimelapseCardConfig(archive),
+        this._buildArchiveTimelapseEditorCardConfig(archive),
+      ],
     };
   }
 

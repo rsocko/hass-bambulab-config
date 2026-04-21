@@ -2375,7 +2375,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _buildArchiveTimelapsePopupContent(archive) {
     return {
       type: "vertical-stack",
-      cards: [this._buildArchiveTimelapseCardConfig(archive)],
+      cards: [
+        this._buildArchiveTimelapseCardConfig(archive),
+        this._buildArchiveTimelapseEditorCardConfig(archive),
+      ],
     };
   }
 
@@ -2384,7 +2387,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
       return;
     }
     this._fireBrowserModEvent("browser_mod.popup", {
-      title: "3D Viewer",
+        cards: [
+          this._buildArchiveTimelapseCardConfig(archive),
+          this._buildArchiveTimelapseEditorCardConfig(archive),
+        ],
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
     });
