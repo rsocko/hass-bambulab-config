@@ -810,6 +810,21 @@ class BambuddyRuntimeRepairClient:
         self._token = token.strip()
         self._timeout = ClientTimeout(total=max(1, timeout_seconds))
 
+    async def _raise_for_status_with_detail(self, response) -> None:
+        try:
+            response.raise_for_status()
+        except ClientResponseError as error:
+            detail = ""
+            try:
+                payload = await response.json()
+            except Exception:  # noqa: BLE001
+                payload = None
+            if isinstance(payload, dict):
+                detail = str(payload.get("detail") or payload.get("message") or payload.get("error") or "").strip()
+            if detail:
+                raise RuntimeError(f"Bambuddy runtime repair returned HTTP {error.status}: {detail}") from error
+            raise RuntimeError(f"Bambuddy runtime repair returned HTTP {error.status}") from error
+
     async def _async_post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         if not self._base_url:
             raise RuntimeError("Bambuddy runtime repair base URL is empty")
@@ -826,10 +841,7 @@ class BambuddyRuntimeRepairClient:
             json=payload,
             timeout=self._timeout,
         ) as response:
-            try:
-                response.raise_for_status()
-            except ClientResponseError as error:
-                raise RuntimeError(f"Bambuddy runtime repair returned HTTP {error.status}") from error
+            await self._raise_for_status_with_detail(response)
 
             response_payload = await response.json()
             if not isinstance(response_payload, dict):
