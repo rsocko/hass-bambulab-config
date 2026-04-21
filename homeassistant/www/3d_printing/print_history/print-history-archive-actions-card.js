@@ -1924,6 +1924,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var sourceName = String((archive && archive.source_3mf_path) || "").trim();
     var timelapseName = this._timelapsePath(archive);
     var storageSummary = this._storageMetricsSummaryLine(archive);
+    var summaryActions = timelapseName
+      ? '<div class="summary-actions"><button class="summary-icon-button" type="button" data-action="view-timelapse" aria-label="Open timelapse for ' + this._escapeHtml(archiveName) + '" title="Open Timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button></div>'
+      : "";
     var sourceBadge = sourceName
       ? '<div class="summary-note">Source 3MF attached: ' + this._escapeHtml(sourceName.split(/[\\/]/).pop()) + "</div>"
       : "";
@@ -1939,7 +1942,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? '<div class="summary-preview"><img src="' + this._escapeHtml(previewImage.src) + '" alt="' + this._escapeHtml(previewImage.alt) + '"></div>'
         : '<div class="summary-preview placeholder"><ha-icon icon="mdi:image-off-outline"></ha-icon></div>') +
       '<div class="summary-meta">' +
-      '<div class="summary-title">' + this._escapeHtml(archiveName) + '</div>' +
+      '<div class="summary-header"><div class="summary-title">' + this._escapeHtml(archiveName) + '</div>' + summaryActions + '</div>' +
       '<div class="summary-id">Archive ID #' + this._escapeHtml(String(archiveId)) + '</div>' +
       sourceBadge +
       timelapseBadge +
@@ -2826,7 +2829,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.summary-preview img{display:block;width:100%;height:100%;object-fit:cover;}' +
       '.summary-preview.placeholder{background:rgba(15,23,42,0.20);color:var(--secondary-text-color);}' +
       '.summary-preview.placeholder ha-icon{--mdc-icon-size:20px;}' +
+      '.summary-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}' +
       '.summary-title{font-size:15px;font-weight:700;line-height:1.35;word-break:break-word;}' +
+      '.summary-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto;}' +
+      '.summary-icon-button{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;border:1px solid rgba(96,165,250,0.24);background:rgba(30,64,175,0.16);color:var(--primary-text-color);cursor:pointer;box-shadow:none;}' +
+      '.summary-icon-button:hover,.summary-icon-button:focus-visible{background:rgba(30,64,175,0.26);border-color:rgba(96,165,250,0.4);outline:none;}' +
+      '.summary-icon-button ha-icon{--mdc-icon-size:18px;}' +
       '.summary-id{margin-top:4px;font-size:13px;line-height:1.45;color:var(--secondary-text-color);}' +
       '.summary-note{margin-top:6px;font-size:12px;line-height:1.4;color:var(--secondary-text-color);word-break:break-word;}' +
       '.status{border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;}' +

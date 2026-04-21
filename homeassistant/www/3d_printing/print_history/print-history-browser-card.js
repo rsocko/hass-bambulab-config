@@ -1089,10 +1089,28 @@ class PrintHistoryBrowserCard extends HTMLElement {
   }
 
   _renderPrimaryActionButtons(normalized, archiveJson, favoriteButton, photoAction) {
+    var archive = normalized && normalized.archive && typeof normalized.archive === "object" ? normalized.archive : null;
+    var timelapseButton = this._timelapsePath(archive)
+      ? '<button class="icon-action timelapse" data-action="timelapse" data-archive="' + archiveJson + '" aria-label="Open timelapse for ' + this._escapeAttribute(normalized.printName) + '" title="Open timelapse"><ha-icon icon="mdi:movie-open-play-outline"></ha-icon></button>'
+      : '';
     return '<button class="icon-action viewer" data-action="viewer" data-archive="' + archiveJson + '" aria-label="Open 3D viewer for ' + this._escapeAttribute(normalized.printName) + '"><ha-icon icon="mdi:cube-scan"></ha-icon></button>'
+      + timelapseButton
       + favoriteButton
       + photoAction
       + '<button class="icon-action advanced" type="button" data-action="advanced-actions" data-archive="' + archiveJson + '" aria-label="Open advanced archive actions" title="Open advanced archive actions"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>';
+  }
+
+  _timelapsePath(archive) {
+    var directPath = String(archive && archive.timelapse_path || "").trim();
+    if (directPath) {
+      return directPath;
+    }
+    var storagePath = archive
+      && archive.storage_metrics
+      && archive.storage_metrics.artifacts
+      && archive.storage_metrics.artifacts.timelapse_path
+      && archive.storage_metrics.artifacts.timelapse_path.relative_path;
+    return String(storagePath || "").trim();
   }
 
   _renderFavoriteButton(normalized, archiveJson) {
@@ -2302,6 +2320,35 @@ class PrintHistoryBrowserCard extends HTMLElement {
     };
   }
 
+  _buildArchiveTimelapseCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      detail_entity: "sensor.print_history_popup_archive_detail",
+      api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+      title: "Timelapse",
+    };
+  }
+
+  _buildArchiveTimelapseEditorCardConfig(archive) {
+    return {
+      type: "custom:print-history-timelapse-editor-card",
+      archive_json: archive ? JSON.stringify(archive) : "{}",
+      detail_entity: "sensor.print_history_popup_archive_detail",
+      title: "Timelapse Editor",
+    };
+  }
+
+  _buildArchiveTimelapsePopupContent(archive) {
+    return {
+      type: "vertical-stack",
+      cards: [
+        this._buildArchiveTimelapseCardConfig(archive),
+        this._buildArchiveTimelapseEditorCardConfig(archive),
+      ],
+    };
+  }
+
   _openArchiveViewerPopup(archive) {
     if (!archive || archive.id == null) {
       return;
@@ -2310,6 +2357,19 @@ class PrintHistoryBrowserCard extends HTMLElement {
       title: "3D Viewer",
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
+    });
+  }
+
+  _openTimelapsePopup(archive) {
+    var timelapsePath = this._timelapsePath(archive);
+    if (!archive || archive.id == null || !timelapsePath) {
+      return;
+    }
+
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Timelapse",
+      size: "wide",
+      content: this._buildArchiveTimelapsePopupContent(archive),
     });
   }
 
@@ -2440,6 +2500,11 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     if (action === "viewer") {
       this._openArchiveViewerPopup(archive);
+      return;
+    }
+
+    if (action === "timelapse") {
+      this._openTimelapsePopup(archive);
       return;
     }
 

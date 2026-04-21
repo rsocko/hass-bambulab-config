@@ -75,7 +75,6 @@ class PrintHistoryTimelapseCard extends HTMLElement {
       detailState ? String(detailState.last_updated || detailState.last_changed || "") : "",
       baseState ? String(baseState.state || "") : "",
       baseState ? String(baseState.last_updated || baseState.last_changed || "") : "",
-      String(this._playbackRate || 1),
       String(this._refreshToken || ""),
     ].join("|");
   }
@@ -283,7 +282,19 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     if (player) {
       player.playbackRate = normalizedRate;
     }
-    this._render();
+    this._updateRateButtons();
+  }
+
+  _updateRateButtons() {
+    if (!this.shadowRoot) {
+      return;
+    }
+    Array.prototype.slice.call(this.shadowRoot.querySelectorAll("[data-rate]"))
+      .forEach(function (button) {
+        var isActive = Number(button.getAttribute("data-rate")) === Number(this._playbackRate);
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      }.bind(this));
   }
 
   _bindInteractions() {
@@ -295,6 +306,7 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     if (player) {
       player.playbackRate = this._playbackRate;
     }
+    this._updateRateButtons();
     Array.prototype.slice.call(this.shadowRoot.querySelectorAll("[data-rate]"))
       .forEach(function (button) {
         button.addEventListener("click", function () {
@@ -330,7 +342,7 @@ class PrintHistoryTimelapseCard extends HTMLElement {
       ? '<div class="rate-row"><div class="rate-label">Playback Speed</div><div class="rate-buttons">'
         + [0.5, 1, 1.5, 2].map(function (rate) {
           var active = Number(this._playbackRate) === Number(rate);
-          return '<button class="rate-button' + (active ? ' active' : '') + '" type="button" data-rate="' + this._escapeHtml(String(rate)) + '">' + this._escapeHtml(String(rate) + 'x') + '</button>';
+          return '<button class="rate-button' + (active ? ' active' : '') + '" type="button" data-rate="' + this._escapeHtml(String(rate)) + '" aria-pressed="' + (active ? 'true' : 'false') + '">' + this._escapeHtml(String(rate) + 'x') + '</button>';
         }.bind(this)).join("")
         + '</div></div>'
       : "";
@@ -347,7 +359,7 @@ class PrintHistoryTimelapseCard extends HTMLElement {
         + '<video class="player" controls playsinline preload="metadata" src="' + this._escapeHtml(timelapseUrl) + '"></video>'
         + '<div class="meta-row"><div class="meta-copy"><div class="meta-title">' + this._escapeHtml(archiveName) + '</div>'
         + (filename ? '<div class="meta-file">' + this._escapeHtml(filename) + '</div>' : '')
-        + '</div><a class="open-link" href="' + this._escapeHtml(timelapseUrl) + '" target="_blank" rel="noopener noreferrer">Open in new tab</a></div>'
+        + '</div><a class="open-link" href="' + this._escapeHtml(timelapseUrl) + '" target="_blank" rel="noopener noreferrer">Open or Download</a></div>'
         + rateMarkup
         + infoMarkup
         + playbackNotice
