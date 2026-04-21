@@ -1418,6 +1418,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _normalizeServiceResponse(payload) {
+    if (Array.isArray(payload) && payload.length) {
+      var firstItem = payload[0];
+      if (firstItem && typeof firstItem === "object") {
+        return this._normalizeServiceResponse(firstItem);
+      }
+    }
     if (payload && typeof payload === "object") {
       if (payload.service_response && typeof payload.service_response === "object") {
         return payload.service_response;
