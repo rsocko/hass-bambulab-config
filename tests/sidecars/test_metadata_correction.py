@@ -111,3 +111,46 @@ def test_metadata_correction_applies_advanced_archive_fields(tmp_path: Path) -> 
     assert AUDIT_MARKER in row[5]
     assert "external_url" in row[5]
     assert "filament_used_grams" in row[5]
+
+
+def test_metadata_correction_revision_ignores_notes_only_changes(tmp_path: Path) -> None:
+    db_path = _create_metadata_db(tmp_path)
+
+    baseline = correct_archive_metadata(
+        db_path,
+        ArchiveMetadataCorrectionRequest(
+            archive_id=101,
+            fields=ArchiveMetadataCorrectionFields(filament_used_grams=42.5),
+            reason="Baseline preview",
+            request_id="corr-baseline",
+            dry_run=True,
+        ),
+    )
+
+    apply_response = correct_archive_metadata(
+        db_path,
+        ArchiveMetadataCorrectionRequest(
+            archive_id=101,
+            fields=ArchiveMetadataCorrectionFields(cost=2.5),
+            reason="Apply change that appends audit notes",
+            request_id="corr-apply",
+            dry_run=False,
+        ),
+    )
+
+    preview_response = correct_archive_metadata(
+        db_path,
+        ArchiveMetadataCorrectionRequest(
+            archive_id=101,
+            fields=ArchiveMetadataCorrectionFields(filament_used_grams=40.0),
+            reason="Fresh preview after notes changed",
+            request_id="corr-preview",
+            expected_archive_revision=apply_response.archive_revision,
+            dry_run=True,
+        ),
+    )
+
+    assert baseline.archive_revision != ""
+    assert apply_response.archive_revision != ""
+    assert preview_response.changed is True
+    assert preview_response.updated_fields == ["filament_used_grams"]

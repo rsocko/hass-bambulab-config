@@ -1549,7 +1549,6 @@ def _archive_metadata_revision(archive: dict[str, Any]) -> str:
         "cost": archive.get("cost"),
         "quantity": archive.get("quantity"),
         "external_url": archive.get("external_url"),
-        "notes": archive.get("notes"),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()

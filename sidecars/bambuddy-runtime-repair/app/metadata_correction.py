@@ -24,7 +24,6 @@ REVISION_FIELDS = (
     "cost",
     "quantity",
     "external_url",
-    "notes",
 )
 EDITABLE_FIELDS = (
     "started_at",
