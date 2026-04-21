@@ -641,6 +641,7 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
     effective_import_plan = build_effective_import_plan(record, selected_source)
     suggested_reference_template = suggest_path2_reference_template(source_path, source_root)
     reference_template_path = effective_import_plan.get("path2_reference_template_path") or suggested_reference_template
+    remaining_filament_diff_summary = build_path2_remaining_filament_diff(record, effective_import_plan, selected_source, source_root)
     return {
         "generated_at": utc_now_iso(),
         "gcode_name": str(record.get("gcode_name") or ""),
@@ -662,6 +663,7 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
         "default_output_path": str(output_path),
         "default_report_path": str(report_path),
         "compare_to_references": compare_to,
+        "remaining_filament_diff_summary": remaining_filament_diff_summary,
         "command_preview": [
             "python",
             "tools/bambuddy/build_synthetic_gcode_3mf.py",
@@ -1930,6 +1932,7 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                     <h4>Path 2 Reference Template</h4>
                     <input name="path2_reference_template_path" placeholder="C:\\...\\KnownGood.gcode.3mf" value="{html.escape(str(displayed_reference_template_path or ''))}" />
                     <div class="status">Optional working `.3mf` or `.gcode.3mf` used as a template for missing colors and map semantics.{f' Auto-suggested match: {html.escape(str(suggested_reference_template))}.' if suggested_reference_template and not effective_import_plan.get('path2_reference_template_path') else ''}</div>
+                    {f'<div class="button-row"><button class="secondary" id="apply-suggested-reference-template" type="button" data-suggested-template="{html.escape(str(suggested_reference_template), quote=True)}">Use Suggested Template</button><div class="status">Writes the suggested reference template into the saved import plan immediately.</div></div>' if suggested_reference_template and not effective_import_plan.get('path2_reference_template_path') else ''}
                 </div>
                 <div class="support-card">
                     <h4>Path 2 Printer Model</h4>
@@ -2002,6 +2005,8 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
     const sourceStatus = document.getElementById('source-status');
     const importPlanForm = document.getElementById('import-plan-form');
     const importPlanStatus = document.getElementById('import-plan-status');
+    const applySuggestedReferenceButton = document.getElementById('apply-suggested-reference-template');
+    const path2ReferenceTemplateInput = importPlanForm ? importPlanForm.querySelector('input[name="path2_reference_template_path"]') : null;
     const browseSourceButton = document.getElementById('browse-source-button');
     const sourceUploadInput = document.getElementById('source-upload-input');
     const sourceDropZone = document.getElementById('source-drop-zone');
@@ -2095,17 +2100,16 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                 horizon_hours: formData.get('horizon_hours') || {DEFAULT_SEARCH_HORIZON_HOURS}
             }});
             const count = Array.isArray(data.matches) ? data.matches.length : 0;
-            setSourceStatus(`Search complete. ${count} candidate(s) queued.`);
+            setSourceStatus(`Search complete. ${{count}} candidate(s) queued.`);
             window.setTimeout(() => window.location.reload(), 350);
         }} catch (error) {{
             setSourceStatus(error.message || 'Search failed.', true);
         }}
     }});
 
-    importPlanForm.addEventListener('submit', async (event) => {{
-        event.preventDefault();
+    async function saveImportPlan(statusMessage = 'Saving import plan...') {{
         const formData = new FormData(importPlanForm);
-        setImportPlanStatus('Saving import plan...');
+        setImportPlanStatus(statusMessage);
         try {{
             const data = await postJson('/api/import-plan', {{
                 gcode_name: selectedGcode,
@@ -2126,13 +2130,26 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
         }} catch (error) {{
             setImportPlanStatus(error.message || 'Failed to save import plan.', true);
         }}
+    }}
+
+    importPlanForm.addEventListener('submit', async (event) => {{
+        event.preventDefault();
+        await saveImportPlan();
     }});
+
+    if (applySuggestedReferenceButton && path2ReferenceTemplateInput) {{
+        applySuggestedReferenceButton.addEventListener('click', async () => {{
+            const suggestedTemplate = applySuggestedReferenceButton.dataset.suggestedTemplate || '';
+            path2ReferenceTemplateInput.value = suggestedTemplate;
+            await saveImportPlan('Applying suggested template...');
+        }});
+    }}
 
     async function uploadSourceFile(file) {{
         if (!file) {{
             return;
         }}
-        setSourceStatus(`Uploading ${file.name}...`);
+        setSourceStatus(`Uploading ${{file.name}}...`);
         const reader = new FileReader();
         reader.onload = async () => {{
             try {{

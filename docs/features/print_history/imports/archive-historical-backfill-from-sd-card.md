@@ -371,6 +371,9 @@ That plan pre-fills:
 - suggested `build_synthetic_gcode_3mf.py` command arguments
 - default output and report paths
 - compare-to references discovered from the backup root
+- the focused remaining filament-diff summary that the viewer currently shows against the chosen or auto-suggested reference template
+
+When the viewer auto-suggests a nearby paired `.3mf` or `.gcode.3mf`, the operator can now accept that suggestion with a one-click action that writes the reference template path into the saved import plan immediately instead of relying on an unsaved visual prefill.
 
 Current empirical comparison result:
 
@@ -397,6 +400,7 @@ Recommended interpretation:
 
 - use raw gcode headers first when they are explicit
 - use a working paired package as an optional template when one exists nearby
+- use the explicit `Use Suggested Template` action when the nearby pair looks right and that choice should become part of the saved manifest-backed plan
 - use manual inputs only for the remaining missing or obviously wrong values rather than as the primary source of truth
 
 Current boundary:

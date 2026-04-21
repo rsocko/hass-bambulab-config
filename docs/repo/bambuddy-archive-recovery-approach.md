@@ -71,6 +71,7 @@ The current tooling now exposes that experiment in two concrete ways:
 - the forensics viewer can export a Path 2 package-plan JSON for a selected raw `.gcode` source
 - the manifest runner can execute a local `dry-run` that builds the synthetic package and compares it to one or more known-good `.gcode.3mf` references without touching Bambuddy upload flows
 - the synthetic builder can optionally use a working reference package as a template for missing filament colours and map semantics, and the viewer now exposes structured manual inputs for the remaining Path 2 gaps
+- the viewer can explicitly persist an auto-suggested nearby reference template into the saved import plan, and the exported Path 2 package-plan JSON now carries the same focused remaining filament-diff summary shown in the UI
 
 The latest comparison against a working backup source package showed the synthetic artifact is still far from canonical parity: a generated package from `cache/(Unsaved)_plate_4.gcode` had 6 entries while the working `Pants-ANGER_plate_4.gcode.3mf` reference had 47, including missing model payload, per-plate JSON, md5, preview families, and a much richer `project_settings.config` surface.
 
