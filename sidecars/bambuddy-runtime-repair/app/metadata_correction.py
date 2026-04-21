@@ -101,16 +101,16 @@ def compute_archive_metadata_revision(snapshot: dict[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _parse_iso(value: str | None) -> datetime | None:
-    normalized = normalize_datetime(value)
+def _parse_iso(value: str | None, field_name: str) -> datetime | None:
+    normalized = normalize_datetime(value, field_name)
     if not normalized:
         return None
     return datetime.fromisoformat(normalized)
 
 
 def _duration_seconds(started_at: str | None, completed_at: str | None) -> int | None:
-    start_value = _parse_iso(started_at)
-    end_value = _parse_iso(completed_at)
+    start_value = _parse_iso(started_at, "started_at")
+    end_value = _parse_iso(completed_at, "completed_at")
     if start_value is None or end_value is None:
         return None
     delta = int((end_value - start_value).total_seconds())
