@@ -18,6 +18,7 @@ def test_archive_photo_upload_backend_normalizes_transport_errors() -> None:
     api_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "api.py").read_text("utf-8")
     init_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
 
+    assert "from uuid import uuid4" in api_content
     assert "except (ClientError, asyncio.TimeoutError, OSError) as error:" in api_content
     assert "Bambuddy photo upload request failed:" in api_content
     assert "Unhandled error during Bambuddy archive photo upload" in init_content
@@ -72,6 +73,9 @@ def _install_homeassistant_stubs() -> None:
             self.data = data or {}
 
     class HomeAssistantError(Exception):
+        pass
+
+    class ClientError(Exception):
         pass
 
     class ClientResponseError(Exception):
@@ -131,6 +135,7 @@ def _install_homeassistant_stubs() -> None:
     voluptuous_module.Coerce = lambda type_: type_
     voluptuous_module.In = lambda values: values
 
+    aiohttp_module.ClientError = ClientError
     aiohttp_module.ClientResponseError = ClientResponseError
     aiohttp_module.ClientSession = ClientSession
     aiohttp_module.ClientTimeout = ClientTimeout
