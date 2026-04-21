@@ -820,9 +820,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=119", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=120", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=58", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=59", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=7", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=6", content)
@@ -2381,7 +2381,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=119", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=120", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
@@ -2733,6 +2733,25 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
         ).read_text("utf-8")
         self.assertIn('triggers_update: ["sensor.print_history_popup_archive_detail", "input_boolean.print_history_popup_is_favorite"]', content)
+
+    def test_browser_card_merges_popup_archive_updates_into_list_state(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-browser-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('this._boundArchiveUpdatedHandler = this._handleExternalArchiveUpdate.bind(this);', content)
+        self.assertIn('window.addEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);', content)
+        self.assertIn('window.removeEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);', content)
+        self.assertIn('return Object.assign({}, archive, updatedArchive);', content)
+
+    def test_photo_gallery_dispatches_archive_update_event_after_local_mutations(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-photo-gallery-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('window.dispatchEvent(new CustomEvent("bambuddy-print-history-archive-updated", {', content)
+        self.assertIn('this._emitArchiveStateChanged(this._resolveArchive());', content)
+        self.assertIn('this._emitArchiveStateChanged(nextArchive);', content)
 
     def test_browser_card_renders_duplicate_chip_from_projected_metadata(self):
         content = (

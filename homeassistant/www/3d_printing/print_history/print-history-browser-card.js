@@ -38,6 +38,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this._boundFocusInHandler = this._handleFocusIn.bind(this);
     this._boundFocusOutHandler = this._handleFocusOut.bind(this);
     this._boundTooltipLayoutHandler = this._handleTooltipLayout.bind(this);
+    this._boundArchiveUpdatedHandler = this._handleExternalArchiveUpdate.bind(this);
   }
 
   setConfig(config) {
@@ -113,6 +114,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this.shadowRoot.addEventListener("focusout", this._boundFocusOutHandler);
     window.addEventListener("resize", this._boundTooltipLayoutHandler);
     window.addEventListener("scroll", this._boundTooltipLayoutHandler, true);
+    window.addEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
   }
 
   disconnectedCallback() {
@@ -127,6 +129,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
     this.shadowRoot.removeEventListener("focusout", this._boundFocusOutHandler);
     window.removeEventListener("resize", this._boundTooltipLayoutHandler);
     window.removeEventListener("scroll", this._boundTooltipLayoutHandler, true);
+    window.removeEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
     if (this._refreshTimer) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -734,6 +737,36 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _applySelectionOnlyState() {
     this._renderBody();
     this._consumePendingMultiSelectRequest();
+  }
+
+  _handleExternalArchiveUpdate(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : null;
+    var updatedArchive = detail && detail.archive && typeof detail.archive === "object" ? detail.archive : null;
+    var archiveId = updatedArchive && updatedArchive.id != null
+      ? String(updatedArchive.id)
+      : detail && detail.archive_id != null
+        ? String(detail.archive_id)
+        : "";
+    if (!archiveId || !updatedArchive) {
+      return;
+    }
+
+    var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
+    var didUpdate = false;
+    this._response.archives = archives.map(function (archive) {
+      if (String(archive && archive.id || "") !== archiveId) {
+        return archive;
+      }
+      didUpdate = true;
+      return Object.assign({}, archive, updatedArchive);
+    });
+    if (!didUpdate) {
+      return;
+    }
+
+    this._normalizedArchiveCache = {};
+    this._viewSignature = this._buildViewSignature(this._hass);
+    this._renderBody();
   }
 
   _renderBody() {

@@ -398,6 +398,33 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     return nextArchive;
   }
 
+  _snapshotArchiveState(archive) {
+    if (!archive || typeof archive !== "object") {
+      return null;
+    }
+
+    var snapshot = Object.assign({}, archive);
+    if (Array.isArray(archive.photos)) {
+      snapshot.photos = archive.photos.slice();
+    }
+    return snapshot;
+  }
+
+  _emitArchiveStateChanged(archive) {
+    var nextArchive = this._snapshotArchiveState(archive || this._resolveArchive());
+    var archiveId = nextArchive && nextArchive.id != null ? String(nextArchive.id) : "";
+    if (!archiveId || typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent("bambuddy-print-history-archive-updated", {
+      detail: {
+        archive_id: archiveId,
+        archive: nextArchive,
+      },
+    }));
+  }
+
   async _applyPrimaryPhotoSelection(photoPath) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? archive.id : null;
@@ -448,6 +475,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
         this._localSelectedPrimaryPhotoPath = "";
         this._localHasPrimaryPhotoOverride = false;
       }
+      this._emitArchiveStateChanged(this._resolveArchive());
       this._render();
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -489,6 +517,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var nextArchive = this._applyLocalArchiveState(updatedArchive, { removePhotoPath: photoPath });
       var images = this._buildImages(nextArchive);
       this._activeIndex = Math.max(0, Math.min(this._activeIndex, images.length - 1));
+      this._emitArchiveStateChanged(nextArchive);
       this._setUploadStatus("Photo deleted.", "success", false);
     } catch (error) {
       var message = error && error.message ? error.message : "Photo delete failed";
@@ -557,6 +586,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
           ? response.archive
           : null;
         var nextArchive = this._applyLocalArchiveState(updatedArchive, { appendPhotoPaths: [prepared.fileName] });
+        this._emitArchiveStateChanged(nextArchive);
         var photoCount = Array.isArray(nextArchive.photos) ? nextArchive.photos.length : 0;
         if (photoCount > 0) {
           this._activeIndex = photoCount - 1 + (this._config && this._config.include_thumbnail ? 1 : 0);
