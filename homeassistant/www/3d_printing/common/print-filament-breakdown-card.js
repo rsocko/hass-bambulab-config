@@ -306,7 +306,6 @@ class PrintFilamentBreakdownCard extends HTMLElement {
       <ha-card>
         <div class="wrap">
           ${titleHtml}
-          ${sortToggleHtml}
           ${barHtml}
           ${legendHtml}
           ${noticeHtml}

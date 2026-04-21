@@ -822,11 +822,11 @@ class TestHeatmapActivityCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=119", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=57", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=58", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=7", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=6", content)
-        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
+        self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
         content = (
@@ -854,6 +854,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('data-action="timelapse"', content)
         self.assertIn('icon="mdi:dots-horizontal"', content)
         self.assertIn('icon="mdi:movie-open-play-outline"', content)
+        self.assertIn('_replaceCurrentPopup({', content)
+        self.assertIn('service: "browser_mod.close_popup"', content)
+        self.assertIn('service: "browser_mod.popup"', content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', content)
         self.assertIn('type: "custom:print-history-timelapse-card"', content)
         self.assertIn('action === "advanced-actions"', browser_content)
@@ -2040,6 +2043,7 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn('.header-compact .header-side {', content)
         self.assertIn('grid-template-columns: minmax(0,1fr) auto;', content)
         self.assertIn('justify-self: end;', content)
+        self.assertNotIn('${sortToggleHtml}\n          ${barHtml}', content)
         self.assertNotIn('header header-compact"><div class="total">${this._escapeHtml(view.totalLabel)}</div></div>', content)
 
     def test_popup_timeline_uses_mobile_responsive_layout(self):

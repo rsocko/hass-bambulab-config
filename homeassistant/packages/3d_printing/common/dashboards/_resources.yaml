@@ -16,7 +16,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57
   type: module
-- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=57
+- url: /local/3d_printing/print_history/print-history-photo-gallery-card.js?v=58
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-actions-card.js?v=42
   type: module
@@ -26,7 +26,7 @@
   type: module
 - url: /local/3d_printing/print_history/print-history-archive-restore-card.js?v=42
   type: module
-- url: /local/3d_printing/common/print-filament-breakdown-card.js?v=4
+- url: /local/3d_printing/common/print-filament-breakdown-card.js?v=5
   type: module
 - url: /local/3d_printing/filament_catalog/apex-direct-bar-card.js?v=18
   type: module

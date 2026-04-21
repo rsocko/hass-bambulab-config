@@ -729,12 +729,30 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this.dispatchEvent(event);
   }
 
+  _replaceCurrentPopup(popupConfig) {
+    if (!popupConfig || typeof popupConfig !== "object") {
+      return;
+    }
+
+    this._fireBrowserModEvent("browser_mod.sequence", {
+      sequence: [
+        {
+          service: "browser_mod.close_popup",
+        },
+        {
+          service: "browser_mod.popup",
+          data: popupConfig,
+        },
+      ],
+    });
+  }
+
   _openViewerPopup() {
     var archive = this._resolveArchive();
     if (!archive || archive.id == null) {
       return;
     }
-    this._fireBrowserModEvent("browser_mod.popup", {
+    this._replaceCurrentPopup({
       title: "3D Viewer",
       size: "wide",
       content: this._buildArchiveViewerPopupContent(archive),
@@ -747,7 +765,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     if (!archive || archive.id == null || !timelapsePath) {
       return;
     }
-    this._fireBrowserModEvent("browser_mod.popup", {
+    this._replaceCurrentPopup({
       title: "Timelapse",
       size: "wide",
       content: this._buildArchiveTimelapsePopupContent(archive),
@@ -1040,7 +1058,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
 
-    this._fireBrowserModEvent("browser_mod.popup", {
+    this._replaceCurrentPopup({
       title: "Advanced Actions",
       size: "wide",
       content: {
