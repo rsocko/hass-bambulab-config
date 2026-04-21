@@ -1926,6 +1926,70 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     ];
   }
 
+  _analyticsOverviewItems(archive) {
+    var storage = this._storageMetricsData(archive);
+    var metrics = storage && storage.metrics && typeof storage.metrics === "object" ? storage.metrics : {};
+    var duplicateCount = Math.max(0, Number(archive && archive.duplicate_count || 0));
+    var duplicateSequence = Math.max(0, Number(archive && archive.duplicate_sequence || 0));
+    var originalArchiveId = Math.max(0, Number(archive && archive.original_archive_id || 0));
+    var lineageValue = duplicateCount > 0
+      ? String(duplicateCount + 1) + " in family"
+      : originalArchiveId > 0
+        ? "Copy of #" + String(originalArchiveId)
+        : duplicateSequence > 0
+          ? "Copy #" + String(duplicateSequence)
+          : "Standalone";
+    var lineageMeta = duplicateCount > 0
+      ? "Includes this archive plus explicit Bambuddy duplicates."
+      : originalArchiveId > 0
+        ? "This archive is marked as a duplicate copy."
+        : "No explicit duplicate lineage is attached.";
+    return [
+      {
+        label: "Outcome",
+        value: this._statusLabel(archive && archive.status),
+        meta: "Current archive status.",
+        accent: this._statusBadgeClass(archive && archive.status) === "success",
+      },
+      {
+        label: "Archive Date",
+        value: this._formatArchiveDate(archive && (archive.completed_at || archive.created_at || archive.started_at)),
+        meta: "Primary timeline anchor for analytics and browsing.",
+      },
+      {
+        label: "Tracked Storage",
+        value: this._formatBytes(metrics.total_bytes || 0),
+        meta: storage
+          ? (storage.scan_status === "complete"
+              ? "Filesystem scan is current."
+              : storage.scan_status === "partial"
+                ? "Filesystem scan is partial."
+                : storage.scan_status === "missing"
+                  ? "No tracked files were found."
+                  : "Storage scan can be refreshed.")
+          : "Load or refresh storage metrics.",
+        accent: Number(metrics.total_bytes || 0) > 0,
+      },
+      {
+        label: "Duplicate Lineage",
+        value: lineageValue,
+        meta: lineageMeta,
+      },
+    ];
+  }
+
+  _renderAnalyticsOverview(archive) {
+    return '<section class="analytics-overview">'
+      + this._analyticsOverviewItems(archive).map(function (item) {
+          return '<div class="analytics-kpi' + (item.accent ? ' accent' : '') + '">'
+            + '<div class="analytics-kpi-label">' + this._escapeHtml(item.label) + '</div>'
+            + '<div class="analytics-kpi-value">' + this._escapeHtml(item.value) + '</div>'
+            + '<div class="analytics-kpi-meta">' + this._escapeHtml(item.meta) + '</div>'
+            + '</div>';
+        }.bind(this)).join('')
+      + '</section>';
+  }
+
   _renderStorageSection(archive) {
     var storage = this._storageMetricsData(archive);
     var metrics = storage && storage.metrics && typeof storage.metrics === "object" ? storage.metrics : {};
@@ -2849,7 +2913,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       { tone: "danger" }
     );
     var mainBody = this._mainTab === "analytics"
-      ? '<div class="main-tab-panel" role="tabpanel">' + relationActions + storageActions + analyticsActions + '</div>'
+      ? '<div class="main-tab-panel" role="tabpanel">' + this._renderAnalyticsOverview(archive) + relationActions + storageActions + analyticsActions + '</div>'
       : this._mainTab === "repair"
         ? '<div class="main-tab-panel" role="tabpanel">' + repairActions + '</div>'
         : this._mainTab === "danger"
@@ -2914,6 +2978,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.hidden-file-input{display:none;}' +
       '.section-stack{display:flex;flex-direction:column;gap:12px;}' +
       '.tabbed-main{gap:14px;}' +
+      '.analytics-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}' +
+      '.analytics-kpi{border-radius:18px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02));padding:12px;display:grid;gap:6px;min-width:0;}' +
+      '.analytics-kpi.accent{border-color:rgba(96,165,250,0.34);background:linear-gradient(180deg,rgba(30,64,175,0.18),rgba(255,255,255,0.03));}' +
+      '.analytics-kpi-label{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);}' +
+      '.analytics-kpi-value{font-size:15px;font-weight:800;line-height:1.35;word-break:break-word;}' +
+      '.analytics-kpi-meta{font-size:12px;line-height:1.45;color:var(--secondary-text-color);}' +
       '.main-tablist{display:flex;align-items:stretch;gap:10px;overflow:auto;padding:2px 0 4px;scrollbar-width:thin;}' +
       '.main-tab-button{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.03);color:var(--primary-text-color);font:inherit;font-size:13px;font-weight:800;line-height:1.2;white-space:nowrap;cursor:pointer;flex:0 0 auto;}' +
       '.main-tab-button:hover,.main-tab-button:focus-visible{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);outline:none;}' +
@@ -3018,8 +3088,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.token.null{color:#c586c0;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
       '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
+      '@media (max-width: 900px){.analytics-overview{grid-template-columns:repeat(2,minmax(0,1fr));}}' +
       '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}' +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}}' +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +
