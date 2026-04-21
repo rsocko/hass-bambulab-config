@@ -1442,7 +1442,6 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
             "dry_run": True,
             "trigger_source": "home_assistant_archive_actions",
             "request_id": "corr-preview-101",
-            "expected_archive_revision": FakeRuntimeRepairClient.metadata_correction_calls[0]["expected_archive_revision"],
         }
     ]
     assert FakeRuntimeRepairClient.storage_scan_calls == [

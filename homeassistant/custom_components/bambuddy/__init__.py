@@ -4116,7 +4116,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         if detail_response is None or not isinstance(detail_response.get("archive"), dict):
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
 
-        current_archive = detail_response["archive"]
         reason = str(call.data.get("reason") or "").strip()
         if not reason:
             raise HomeAssistantError("reason is required")
@@ -4132,8 +4131,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             "dry_run": bool(call.data.get("dry_run", False)),
             "trigger_source": str(call.data.get("trigger_source") or "home_assistant_archive_actions").strip(),
             "request_id": str(call.data.get("request_id") or "").strip() or None,
-            "expected_archive_revision": str(call.data.get("expected_archive_revision") or "").strip() or _archive_metadata_revision(current_archive),
         }
+        expected_archive_revision = str(call.data.get("expected_archive_revision") or "").strip()
+        if expected_archive_revision:
+            payload["expected_archive_revision"] = expected_archive_revision
 
         client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
         if error_response is not None:
