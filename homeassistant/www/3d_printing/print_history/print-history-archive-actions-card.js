@@ -2104,9 +2104,43 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     '</div>';
   }
 
+  _relatedConfidenceGroups(candidates) {
+    var grouped = {
+      high: [],
+      medium: [],
+      low: [],
+    };
+    (Array.isArray(candidates) ? candidates : []).forEach(function (candidate) {
+      var bucket = this._candidateConfidenceBucket(candidate);
+      if (!grouped[bucket]) {
+        grouped.low.push(candidate);
+        return;
+      }
+      grouped[bucket].push(candidate);
+    }.bind(this));
+    return grouped;
+  }
+
+  _renderRelatedCandidateGroup(title, copy, candidates, toneClass) {
+    if (!Array.isArray(candidates) || !candidates.length) {
+      return "";
+    }
+    return '<div class="related-confidence-group ' + this._escapeHtml(String(toneClass || "neutral")) + '">' +
+      '<div class="related-confidence-header">' +
+        '<div class="related-confidence-title">' + this._escapeHtml(title) + '</div>' +
+        '<div class="related-confidence-count">' + this._escapeHtml(String(candidates.length)) + '</div>' +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml(copy) + '</div>' +
+      '<div class="related-list">' + candidates.map(function (candidate) {
+        return this._renderRelatedCandidate(candidate);
+      }.bind(this)).join("") + '</div>' +
+    '</div>';
+  }
+
   _renderRelatedView(archive) {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var candidates = this._matchingRelatedCandidates(archiveId) || [];
+    var groupedCandidates = this._relatedConfidenceGroups(candidates);
     var toolbar = this._renderActionSection(
       this._relatedCompareIntent ? "Choose Compare Target" : "Related Prints",
       '<div class="actions-grid related-toolbar">' +
@@ -2125,9 +2159,26 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     } else if (!candidates.length) {
       body = '<div class="section-copy">No related prints are available for this archive yet.</div>';
     } else {
-      body = '<div class="related-list">' + candidates.map(function (candidate) {
-        return this._renderRelatedCandidate(candidate);
-      }.bind(this)).join("") + '</div>';
+      body = '<div class="related-groups">' +
+        this._renderRelatedCandidateGroup(
+          "High Confidence",
+          "Strongest matches. In Bambuddy today this is typically same print name or same file content, and these are the best default compare targets.",
+          groupedCandidates.high,
+          "high"
+        ) +
+        this._renderRelatedCandidateGroup(
+          "Medium Confidence",
+          "Possible matches worth checking when there is no clear high-confidence candidate.",
+          groupedCandidates.medium,
+          "medium"
+        ) +
+        this._renderRelatedCandidateGroup(
+          "Low Confidence",
+          "Fallback suggestions only. In Bambuddy today these are usually broader matches such as the same filament type, so treat them as browse candidates rather than implied lineage.",
+          groupedCandidates.low,
+          "low"
+        ) +
+      '</div>';
     }
     return '<div class="section-stack">' + toolbar + this._renderActionSection("Candidates", body) + '</div>';
   }
@@ -2335,6 +2386,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.action-button.warning{background:rgba(239,108,0,0.14);border-color:rgba(255,167,38,0.22);}' +
       '.action-button.danger{background:rgba(183,28,28,0.14);border-color:rgba(239,68,68,0.24);}' +
       '.related-list{display:flex;flex-direction:column;gap:10px;}' +
+      '.related-groups{display:grid;gap:12px;}' +
+      '.related-confidence-group{display:grid;gap:10px;border-radius:18px;border:1px solid rgba(255,255,255,0.08);padding:12px;background:rgba(255,255,255,0.02);}' +
+      '.related-confidence-group.high{border-color:rgba(46,125,50,0.24);background:rgba(46,125,50,0.06);}' +
+      '.related-confidence-group.medium{border-color:rgba(239,108,0,0.2);background:rgba(239,108,0,0.05);}' +
+      '.related-confidence-group.low{border-color:rgba(84,110,122,0.18);background:rgba(84,110,122,0.05);}' +
+      '.related-confidence-header{display:flex;align-items:center;justify-content:space-between;gap:10px;}' +
+      '.related-confidence-title{font-size:13px;font-weight:800;line-height:1.3;letter-spacing:0.04em;text-transform:uppercase;}' +
+      '.related-confidence-count{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;border-radius:999px;padding:0 8px;background:rgba(255,255,255,0.08);font-size:12px;font-weight:800;line-height:1;}' +
       '.related-candidate{border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:12px;display:grid;gap:10px;}' +
       '.related-candidate-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}' +
       '.related-candidate-title-block{min-width:0;display:grid;gap:4px;}' +

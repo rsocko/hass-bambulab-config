@@ -1,5 +1,8 @@
 type: vertical-stack
 cards:
+  - type: custom:print-statistics-failure-analysis-card
+    title: Failure Analysis Handoff
+    default_days: 30
   - type: markdown
     content: |
       ## Print Statistics

@@ -112,6 +112,7 @@ json_attributes:
 **Interactive query surface:**
 - `bambuddy.get_failure_analysis` service with `SupportsResponse.ONLY`
 - `bambuddy/failure_analysis_query` websocket command for custom-card or popup consumers
+- `print-statistics-failure-analysis-card` as the current Statistics-view consumer for URL handoff context from Print History
 
 **Automation: `bambuddy_failure_rate_alert`** — Daily check:
 ```yaml

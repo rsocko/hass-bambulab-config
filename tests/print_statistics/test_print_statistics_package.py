@@ -16,6 +16,8 @@ PACKAGES = ROOT / "homeassistant" / "packages" / "3d_printing"
 STATS = PACKAGES / "print_statistics"
 LOADERS = PACKAGES / "_feature_loaders.yaml"
 DASHBOARD = PACKAGES / "common" / "dashboards" / "3d_printing.yaml"
+RESOURCES = PACKAGES / "common" / "dashboards" / "_resources.yaml"
+WWW_STATS = ROOT / "homeassistant" / "www" / "3d_printing" / "print_statistics"
 
 
 def _load_yaml_safe(path: Path):
@@ -75,6 +77,7 @@ class TestPrintStatisticsPackage(unittest.TestCase):
             STATS / "dashboard_cards" / "insights" / "failure_recent_summary.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_time_accuracy_by_printer.yaml",
             STATS / "dashboard_views" / "view_print_statistics.yaml",
+            WWW_STATS / "print-statistics-failure-analysis-card.js",
         ]
         for path in expected:
             with self.subTest(path=path.relative_to(ROOT)):
@@ -110,6 +113,22 @@ class TestPrintStatisticsPackage(unittest.TestCase):
         self.assertIn("custom:apexcharts-card", content)
         self.assertIn("entity?.attributes?.trend", content)
         self.assertIn("Failure Rate Trend", content)
+
+    def test_statistics_overview_includes_failure_handoff_card(self):
+        content = (STATS / "dashboard_cards" / "statistics_overview.yaml").read_text(encoding="utf-8")
+        self.assertIn("custom:print-statistics-failure-analysis-card", content)
+        self.assertIn("default_days: 30", content)
+
+    def test_failure_handoff_card_resource_is_registered(self):
+        content = RESOURCES.read_text(encoding="utf-8")
+        self.assertIn("/local/3d_printing/print_statistics/print-statistics-failure-analysis-card.js?v=1", content)
+
+    def test_failure_handoff_card_uses_query_params_and_websocket(self):
+        content = (WWW_STATS / "print-statistics-failure-analysis-card.js").read_text(encoding="utf-8")
+        self.assertIn('new URLSearchParams(window.location.search)', content)
+        self.assertIn('type: "bambuddy/failure_analysis_query"', content)
+        self.assertIn('printer_id', content)
+        self.assertIn('project_id', content)
 
 
 if __name__ == "__main__":

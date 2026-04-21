@@ -19,6 +19,7 @@ Implemented now:
 - derived KPI sensors are live for success rate, print hours, filament used, print cost, energy used, energy cost, time accuracy, and top failure reason
 - a chart-ready metrics sensor is live for first-slice donut/bar charts
 - the Statistics view currently renders an overview panel and an insights panel
+- a Statistics handoff card now reads URL scope such as `printer_id`, `project_id`, and date-window params, then loads filtered failure analysis over the Bambuddy websocket API
 
 Intentionally deferred:
 - utilization-rate analytics
@@ -52,6 +53,9 @@ homeassistant/packages/3d_printing/print_statistics/
 │       └── chart_time_accuracy_by_printer.yaml
 └── dashboard_views/
     └── view_print_statistics.yaml
+
+homeassistant/www/3d_printing/print_statistics/
+└── print-statistics-failure-analysis-card.js
 ```
 
 ## Loader Domains
@@ -146,6 +150,7 @@ Displays the first KPI slice:
 - **Row 3**: print cost, energy cost, time accuracy
 - **Outcome bar**: stacked bar for successful, failed, and stopped prints
 - **Operational cards**: top failure reason, energy used, Bambuddy deep-link
+- **Handoff card**: URL-aware filtered failure-analysis summary for Print History or other scoped launches
 
 ### `statistics_insights.yaml`
 Displays the first reusable chart slice:
@@ -159,7 +164,7 @@ Displays the first reusable chart slice:
 
 The current implementation only charts failure reasons. Trend and recent-failure payloads are now passed through in `sensor.bambuddy_failure_analysis` and `sensor.bambuddy_statistics_metrics` for the next failure-analysis card slice.
 
-For interactive filtering beyond the default aggregate sensor window, use the Bambuddy integration response service `bambuddy.get_failure_analysis` or the matching websocket command instead of multiplying helper-bound REST sensors.
+For interactive filtering beyond the default aggregate sensor window, use the Bambuddy integration response service `bambuddy.get_failure_analysis` or the matching websocket command instead of multiplying helper-bound REST sensors. The Statistics view now uses that websocket path in a dedicated custom card for Print History handoff scope.
 
 ## Dependencies
 
@@ -191,7 +196,7 @@ Recommended next phases after the now-shipped first slice:
 2. **Issue-driven chart expansion**: add hours per week and month, color usage, and additional printer or outcome charts without introducing new metadata tables.
 3. **Metadata-blocked analytics**: implement `archive_metric_summary` and `archive_spool_snapshots` before shipping utilization rate, per-print cost truth, energy-use-versus-print-time joins, or spool-history crossover reports.
 4. **Rolling exception sensors**: add 7-day and 30-day sensors for recent anomaly detection once the base operational dashboard is stable.
-5. **Filter-aware analytics**: when ready, connect the statistics view to Print History helper state through integration-side query surfaces rather than card-local parsing or Layer 1 expansion.
+5. **Filter-aware analytics**: extend the current URL-aware handoff card into broader scoped charts or controls through integration-side query surfaces rather than Layer 1 expansion.
 
 ## Open Items
 
@@ -199,5 +204,5 @@ Recommended next phases after the now-shipped first slice:
 |---|---|---|---|
 | 1 | **Trend charts are not shipped yet** — current package has KPI and first-slice comparison charts, but not week-over-week or month-over-month time series. | Next dashboard slice | No |
 | 2 | **Metadata-dependent analytics remain deferred** — utilization, derived per-print cost truth, spool-history crossover, and some energy joins should wait for Variant 3 metadata work. | Phase sequencing | No |
-| 3 | **Archive-filter-aware statistics are not wired yet** — the current view is aggregate-focused, not scoped by Print History filter state. | Future integration work | No |
+| 3 | **Archive-filter-aware charts are only partially wired** — the handoff card supports scoped failure analysis, but the rest of the statistics view remains aggregate-focused. | Future integration work | No |
 | 4 | **Experimental visuals remain optional** — treemaps, tag clouds, and iframe/embed workflows should be evaluated after the core stats view is stable. | UI backlog | No |
