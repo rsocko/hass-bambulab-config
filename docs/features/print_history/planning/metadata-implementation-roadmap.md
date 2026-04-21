@@ -30,12 +30,42 @@ Already shipped in the active Variant 3 store and service layer:
 - `archive_repair_lineage`
 - integration service paths that mutate local review, media-review, repair-lineage, and event-timeline state
 
+Already shipped as adjacent local-store inputs that partially reduce later schema pressure:
+
+- `archive_enrichment_provenance_rows` for structured enrichment evidence and spool/filament matching provenance
+- `archive_storage_metrics` for archive-scoped file inventory, cached size breakdowns, and artifact presence diagnostics
+- compact duplicate metadata in the base archive projection: `duplicate_count`, `duplicate_sequence`, and `original_archive_id`
+
 Still pending from the broader roadmap:
 
 - `archive_metric_summary`
 - `archive_spool_snapshots`
 - `archive_artifact_metadata`
 - a broader `archive_lineage` model beyond the currently shipped repair-lineage and compact duplicate slice
+
+Important boundary:
+
+- `archive_storage_metrics` is not a replacement for semantic `archive_artifact_metadata`; it covers file inventory and size diagnostics, not parsed `.3mf`-derived project, plate, or estimate fields
+- compact duplicate metadata and `archive_repair_lineage` reduce immediate pressure for a generalized `archive_lineage`, but they do not eliminate the need if compare, reprint, or mismatch workflows later need first-class broader relationships
+
+## Issue #867 Mapping
+
+Issue `#867` should now be read as a narrowed metadata-hardening tracker rather than a request to build every listed table from scratch.
+
+| Proposed item from `#867` | Current repo state | Recommended disposition | Notes |
+|---|---|---|---|
+| `archive_event_timeline` | Shipped | Keep issue linkage, but do not reopen as missing schema work | Remaining work is event coverage and popup/UI completion, not base-table creation |
+| `archive_metric_summary` | Not shipped | Keep active | Build only with explicit consumers for estimated-vs-actual or energy-cost workflows |
+| `archive_spool_snapshots` | Not shipped, but partially covered by hidden enrichment payload and `archive_enrichment_provenance_rows` | Keep active | Best next metadata addition when spool provenance needs to become queryable rather than popup-only |
+| `archive_artifact_metadata` | Not shipped, but partially adjacent to `archive_storage_metrics` | Keep active | Must stay focused on parsed semantic artifact fields rather than duplicating file inventory |
+| `archive_lineage` | Not shipped | Defer until compare/reprint/mismatch workflows need it | Compact duplicate metadata plus `archive_repair_lineage` are sufficient for the currently shipped browser and repair slices |
+
+For issue maintenance, the main remaining scope is therefore:
+
+- `archive_metric_summary`
+- `archive_spool_snapshots`
+- semantic `archive_artifact_metadata`
+- generalized `archive_lineage`
 
 ## Workstream Summary
 
@@ -78,6 +108,8 @@ Without this step, later features will continue to hide important state in:
 
 - `archive_event_timeline` is already shipped
 - `archive_review_state`, `archive_media_review_state`, and `archive_repair_lineage` are already shipped as adjacent local-store primitives
+- `archive_enrichment_provenance_rows` already carry structured spool/filament evidence that can seed a future `archive_spool_snapshots` table
+- `archive_storage_metrics` already carry archive-scoped artifact inventory and size diagnostics, but not the semantic `.3mf` extraction fields proposed for `archive_artifact_metadata`
 - the remaining work in Phase A is the broader metric, artifact, spool-snapshot, and generalized-lineage schema rather than the initial migration foundation itself
 
 ### Repo touchpoints
@@ -147,6 +179,8 @@ The core storage and mutation slice for Phase B is already present:
 
 The remaining work is to expand event capture coverage and complete the final popup timeline presentation against the persisted rows.
 
+For issue `#867`, treat Phase B as substantially implemented infrastructure rather than as one of the major remaining schema gaps.
+
 ## Phase C: Artifact Extraction At Print Start
 
 ### Objective
@@ -172,6 +206,13 @@ Capture file-derived metadata at print start when a `.3mf` or related artifact i
 
 - archive recovery and historical backfill docs under `docs/features/print_history/`
 - `archive-enrichment.md`
+
+### Current implementation status
+
+- the repo already stores archive-scoped file inventory and artifact presence diagnostics in `archive_storage_metrics`
+- that local table is useful for storage analytics and popup diagnostics, but it does not yet hold parsed `plate_name`, `estimated_weight_g`, `material_names_json`, `project_name`, or `designer_name`
+
+That means Phase C remains genuinely open, but only for semantic artifact extraction rather than generic artifact presence caching.
 
 ### Exit criteria
 
@@ -201,6 +242,13 @@ Make spool attribution a first-class searchable model rather than a hidden enric
 - Phase 2.8 spool usage provenance in `advanced-features-design.md`
 - issue `#248`
 
+### Current implementation status
+
+- hidden `+>` enrichment payload rows already preserve compact per-print spool and filament attribution
+- `archive_enrichment_provenance_rows` already preserve structured evidence and matching-method hints for current enrichment results
+
+That existing substrate should be treated as the migration/backfill source for any future `archive_spool_snapshots` table rather than discarded or re-derived from scratch.
+
 ### Exit criteria
 
 - archive detail can display structured spool provenance
@@ -229,6 +277,13 @@ Separate filament-cost and energy-cost computation into explicit derived fields.
 - these values belong in `archive_metric_summary`
 - they should not overwrite Bambuddy-owned `cost` blindly
 - page rows may show compact summaries, but the calculation basis should remain inspectable in detail hydration
+
+### Current implementation status
+
+- the repo already PATCHes Bambuddy native `cost` during enrichment when it can justify a total from real filament usage rows
+- explicit metric provenance, estimated-versus-actual semantics, and energy-specific truth are not yet modeled as first-class local fields
+
+That means Phase E should create a narrow derived summary contract instead of reworking the existing enrichment write path wholesale.
 
 ### Exit criteria
 
@@ -276,6 +331,11 @@ Support duplicate, reprint, and repair workflows without forcing those heavier r
 - Layer 2 owns duplicate filter semantics and role classification
 - Layer 3 owns card and popup wording
 
+Important implication for `#867`:
+
+- do not build `archive_lineage` just to support the already shipped duplicate browser slice
+- generalized lineage should wait until compare, reprint, or mismatch workflows need relationships broader than the compact duplicate projection and `archive_repair_lineage`
+
 ### Deferred follow-on slice
 
 - related duplicate member lookup
@@ -313,17 +373,15 @@ Prepare the local store for compare-on-failure, duplicate intelligence, reprint 
 
 ## Preferred Delivery Order
 
-The recommended order is:
+For the still-missing parts of issue `#867`, the recommended order is:
 
-1. Phase A: metadata tables and migrations
-2. Phase B: event timeline capture
-3. Phase D: spool snapshot provenance
-4. Phase C: artifact extraction
-5. Phase E: cost and energy joins
-6. Phase G: lineage support
-7. Phase F: expanded analytics and UI surfacing
+1. Phase D: spool snapshot provenance
+2. Phase C: semantic artifact extraction
+3. Phase E: metric summary and energy joins
+4. Phase G: broader lineage support
+5. Phase F: expanded analytics and UI surfacing
 
-This order keeps the repo from building UI-first features on top of temporary blobs.
+This order keeps the repo from building UI-first features on top of temporary blobs while acknowledging that the event-timeline and review/repair primitives already landed.
 
 ## Variant 3 Versus Variant 4 Delivery Guidance
 

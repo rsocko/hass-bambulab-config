@@ -10,7 +10,13 @@
 
 This document is intentionally ordered by implementation phase. Every candidate change is assigned to a specific phase, even if the implementation remains deferred.
 
-Status below reflects the current state of this repository as of 2026-04-16. `Partial` means some meaningful implementation or prerequisite UX/data plumbing exists, but the phase scope described below is not fully delivered yet.
+Status below reflects the current state of this repository as of 2026-04-20. `Partial` means some meaningful implementation or prerequisite UX/data plumbing exists, but the phase scope described below is not fully delivered yet.
+
+Metadata-hardening context for this phase map:
+
+- the Variant 3 local store already ships `archive_event_timeline`, `archive_review_state`, `archive_media_review_state`, and `archive_repair_lineage`
+- adjacent local-store inputs such as `archive_enrichment_provenance_rows`, `archive_storage_metrics`, and compact duplicate metadata already reduce part of the remaining schema pressure
+- the main metadata work still genuinely open is `archive_metric_summary`, `archive_spool_snapshots`, semantic `archive_artifact_metadata`, and broader `archive_lineage`
 
 | Phase | Feature                                                             | Effort | Value                                           | Status      | Current repo state |
 | ----- | ------------------------------------------------------------------- | ------ | ----------------------------------------------- | ----------- | ------------------ |
@@ -21,13 +27,13 @@ Status below reflects the current state of this repository as of 2026-04-16. `Pa
 | 2.3   | Duplicate and reprint intelligence                                  | Medium | High                                            | Partial     | Duplicate metadata now flows into print-history browser filtering and card/popup visibility, but duplicate lookup, reprint tagging, notifications, and compare workflows are still not implemented. |
 | 2.4   | MakerWorld attribution and designer tracking                        | Low    | Medium                                          | Partial     | Designer data already flows into print-history browsing and filtering, but attribution tags, notes enrichment, and notification updates are still missing. |
 | 2.5   | Spool remaining pre-print warning                                   | Medium | Very High                                       | Not started | Spoolman/tray-map prerequisites exist, but there is no pre-print remaining-weight warning workflow yet. |
-| 2.6   | Energy cost enrichment                                              | Medium | High                                            | Partial     | Archive enrichment already writes overall print cost, but measured energy delta capture and dedicated energy enrichment are not implemented. |
+| 2.6   | Energy cost enrichment                                              | Medium | High                                            | Partial     | Archive enrichment already writes overall print cost, but measured energy delta capture and a first-class derived metric summary contract are not implemented. |
 | 2.7   | Rich print notifications                                            | Low    | Medium                                          | Partial     | Print started/completed notifications already exist, but they are still basic and do not use the richer Bambuddy archive data described here. |
-| 2.8   | Spool usage provenance                                              | Medium | Medium                                          | Partial     | Hidden enrichment payload already preserves per-archive spool/filament provenance, but there is no searchable provenance feature or dashboard surfacing yet. |
+| 2.8   | Spool usage provenance                                              | Medium | Medium                                          | Partial     | Hidden enrichment payload and local enrichment provenance rows already preserve per-archive spool/filament evidence, but there is no first-class searchable provenance model or dashboard surfacing yet. |
 | 2.9   | Timelapse lifecycle management                                      | Medium | High                                            | Partial     | Popup viewer plus advanced-actions scan and upload/replace are now shipped, but candidate selection, delete/reprocess flows, thumbnails/info UI, and review-state integration are still deferred. |
-| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Partial     | Archive-error state, review/repair-lineage storage, and partial-usage estimation groundwork exist, but no rescan, capability, or admin-repair UX is wired yet. |
+| 2.10  | Archive repair and capability diagnostics                           | Medium | High                                            | Partial     | Archive-error state plus local review/repair primitives are shipped, but no rescan, capability, or admin-repair UX is wired yet. |
 | 2.11  | Archive detail popup and editing                                    | Medium | Medium                                          | Complete    | Archive detail popup and edit/save flows for the initial field set, including project assignment, are implemented. |
-| 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only. |
+| 2.12  | Archive mismatch detection and replacement                          | Medium | High                                            | Not started | Archive mismatch detection and operator-approved replacement remain design-only, though duplicate context and repair-oriented local-store primitives now exist as prerequisites. |
 | 2.13  | Reprint from HA                                                     | High   | Medium                                          | Not started | No reprint action, AMS mapping UX, or safety confirmation flow is implemented yet. |
 | 2.14  | Search from HA                                                      | Medium | Low                                             | Partial     | HA-side local search/filtering exists in print history, but Bambuddy `/archives/search` integration is not wired yet. |
 | 2.15  | Source 3MF image and metadata import                               | Medium | Medium                                          | Not started | Manual photo upload exists, and the popup/gallery already owns archive media actions, but there is no HA-side source `.3mf` discovery, candidate selection, or selective import workflow yet. |
@@ -282,6 +288,12 @@ Still deferred within Phase 2.3:
 - print-started notifications that summarize prior attempts
 - compare or deep-link actions from the popup
 
+Important boundary:
+
+- the shipped duplicate browser slice does not require a generalized `archive_lineage` table
+- compact duplicate metadata plus the separate `archive_repair_lineage` surface are enough for the current browser and popup slice
+- broader lineage should be added only when compare, reprint, project-grouping, or mismatch-review flows need relationship types beyond the current duplicate projection
+
 ---
 
 ## Phase 2.4: MakerWorld Attribution and Designer Tracking
@@ -414,11 +426,17 @@ Capture HA's actual measured energy consumption for the print and expose it in t
 1. Read current kWh and subtract the start snapshot to get a delta.
 2. Multiply by electricity rate from `input_number.electricity_cost_per_kwh`.
 3. Store or surface the result in one of these ways:
-   - Preferred near-term: HA-side derived sensors or dashboard detail.
-   - Optional sidecar: linked enrichment store keyed by `archive_id`.
+  - Preferred near-term: a Variant 3 local derived summary keyed by `archive_id`.
+  - Acceptable interim fallback: HA-side derived sensors or dashboard detail.
+  - Optional sidecar only if execution later moves behind a Variant 4-style boundary.
    - Bambuddy note summary: brief append such as `Energy: 0.45 kWh ($0.07)` if operator value is high.
 4. Do **not** assume direct `PATCH /archives/{id}` support for `energy_kwh` or `energy_cost` unless Bambuddy's mutable archive contract expands.
 5. Keep the native archive `cost` field reserved for the chosen canonical meaning of cost. If combined total cost is desired later, document that choice explicitly before changing semantics.
+
+Recommended metadata posture:
+
+- if this phase persists per-print derived values, prefer a dedicated local summary contract rather than overloading `notes`, `tags`, or archive-core mirrored fields
+- keep the derivation basis inspectable so energy-derived totals do not silently masquerade as Bambuddy-native archive truth
 
 ### Phase & Dependencies
 
@@ -488,8 +506,11 @@ From the notification infrastructure:
 From the current hidden enrichment payload:
 - Compact `F[]` rows with tray labels, weights, spool IDs, filament IDs, names, colors, and optional ambiguity codes when the archive already carries preserved enrichment data
 
+From the current Variant 3 local store:
+- `archive_enrichment_provenance_rows` with structured matching evidence, ambiguity state, spool/filament IDs, and matching-method hints
+
 From future work that is not shipped yet:
-- Compact machine-readable provenance in notes, or a separate HA-side provenance index
+- a dedicated `archive_spool_snapshots` model that turns the current enrichment evidence into first-class searchable spool provenance
 
 ### Use Cases
 
@@ -501,11 +522,11 @@ From future work that is not shipped yet:
 
 ### Implementation
 
-This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag strategy was removed from current enrichment, so this phase now depends on introducing a searchable provenance representation first.
+This is no longer a low-effort tag-search feature. The legacy `spoolman:` tag strategy was removed from current enrichment, so this phase now depends on promoting the existing provenance substrate into a searchable representation.
 
-**Recommended prerequisite:** add a compact machine-readable provenance block to enrichment notes or build a dedicated HA-side archive provenance cache keyed by archive ID.
+**Recommended prerequisite:** build a dedicated HA-side provenance model from the existing enrichment payload and `archive_enrichment_provenance_rows`, preferably as a future `archive_spool_snapshots` table keyed by archive ID.
 
-**After that prerequisite exists:** build `bambuddy_spool_print_history` against the structured provenance source instead of `spoolman:` tag search.
+**After that prerequisite exists:** build `bambuddy_spool_print_history` and popup/dashboard surfacing against the structured provenance source instead of `spoolman:` tag search or repeated payload parsing.
 
 **Dashboard integration** — On filament catalog spool popup, add a `Bambuddy Prints: N` badge that links to a filtered Bambuddy view.
 
@@ -632,6 +653,7 @@ This phase is no longer pure future work. The repo already has several supportin
 
 - archive-health derivation and surfacing from the active Variant 3 query/store path
 - local review and repair-lineage storage in the Bambuddy SQLite store
+- local event-timeline storage that can preserve repair and follow-on archive workflow events without widening the browser payload
 - service contracts for `set_print_history_repair_lineage`, `delete_print_history_repair_lineage`, and sidecar-backed `estimate_partial_usage`
 
 Still deferred within Phase 2.10:
@@ -698,7 +720,7 @@ This is a distinct failure mode from fallback `no_3mf_available` archives. It ap
 ### Phase & Dependencies
 
 - **Phase**: 2.12
-- **Depends on**: duplicate detection context from Phase 2.3, archive diagnostics from Phase 2.10, operator review workflow
+- **Depends on**: duplicate detection context from Phase 2.3, archive diagnostics from Phase 2.10, operator review workflow, and broader lineage only if the mismatch workflow needs relationships beyond compact duplicate metadata plus repair lineage
 - **Package**: print_history plus repair workflow support
 - **Effort**: Medium
 - **Value**: High — explains and repairs wrong-file archive records

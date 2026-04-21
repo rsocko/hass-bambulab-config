@@ -56,10 +56,27 @@ Existing tables and concepts already in scope:
 - `archive_tags`
 - `archive_photos`
 - `archive_note_payload_rows`
+- `archive_enrichment_provenance_rows`
+- `archive_event_timeline`
 - `archive_repair_lineage`
 - `archive_review_state`
+- `archive_media_review_state`
+- `archive_storage_metrics`
+
+Related compact metadata already projected into the base archive/browser contract:
+
+- `duplicate_count`
+- `duplicate_sequence`
+- `original_archive_id`
 
 That means the new work should mostly be additive. The repo does not need a fresh parallel metadata store.
+
+Important interpretation for current planning:
+
+- `archive_event_timeline` is already a shipped local-store primitive, so it should no longer be treated as a missing schema foundation item
+- `archive_enrichment_provenance_rows` already preserve structured spool and filament evidence, so a future `archive_spool_snapshots` table should backfill from that evidence rather than replacing it blindly
+- `archive_storage_metrics` already cover archive-scoped file inventory and size diagnostics, but they are not a substitute for semantic `archive_artifact_metadata`
+- compact duplicate metadata plus `archive_repair_lineage` mean a generalized `archive_lineage` should be added only when broader compare, reprint, or mismatch workflows actually need it
 
 ## Recommended Schema Extension Strategy
 
@@ -87,10 +104,11 @@ The most useful additions should land in dedicated local-only or derived tables.
 Recommended additions:
 
 - `archive_metric_summary`
-- `archive_event_timeline`
 - `archive_spool_snapshots`
 - `archive_artifact_metadata`
 - `archive_lineage`
+
+`archive_event_timeline` remains part of the normalized metadata model, but it is already present in the active Variant 3 store and should now be treated as an implemented prerequisite rather than a pending addition.
 
 The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../ui-media/archive-popup-timeline-design.md).
 
@@ -231,6 +249,12 @@ Important boundary:
 - this is file-derived context, not UI wording
 - artifact extraction results should feed Layer 2 and popup detail, but not become card-specific formatting in storage
 
+Current repo boundary:
+
+- archive file inventory, asset-size totals, and artifact presence diagnostics already belong to `archive_storage_metrics`
+- `archive_artifact_metadata` should therefore be reserved for semantic extraction results such as plate identity, parsed material names, project/designer recovery, preview selection, and estimated print metrics
+- do not duplicate generic path/size facts from `archive_storage_metrics` into this table
+
 ### 5. `archive_lineage`
 
 Purpose:
@@ -254,6 +278,12 @@ Why this should not be merged into `archive_repair_lineage`:
 
 - repair lineage is only one kind of relationship
 - compare/reprint/grouping needs a broader relationship model
+
+Current repo boundary:
+
+- duplicate-aware browser filtering and compact duplicate summaries already use `duplicate_count`, `duplicate_sequence`, and `original_archive_id` from the archive projection
+- that shipped duplicate slice means `archive_lineage` is not needed just to support current browser duplicate UX
+- add this table only when compare, reprint, project-grouping, or mismatch-review consumers need relationship types beyond compact duplicate metadata and `archive_repair_lineage`
 
 ## Query-Surface Guidance
 
