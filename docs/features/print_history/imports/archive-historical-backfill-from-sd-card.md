@@ -359,6 +359,11 @@ The builder now also carries forward several filament-related fields directly fr
 - `flush_volumes_matrix`
 - `nozzle_diameter`
 
+It now also supports two additional operator-assist paths:
+
+- optional `--reference-template` against a working `.3mf` or `.gcode.3mf` to fill missing colours, tray/map semantics, and related metadata gaps
+- focused filament-diff reporting so the report can highlight only the remaining filament-specific mismatches instead of forcing the operator to sift through the entire package diff
+
 The forensics viewer can now also export a Path 2 package-plan JSON for a selected raw `.gcode` source.
 
 That plan pre-fills:
@@ -374,6 +379,25 @@ Current empirical comparison result:
 - the synthetic package also embedded `Metadata/plate_1.gcode` while the known-good reference carried `Metadata/plate_4.gcode`, which reinforces that raw-gcode wrapping still lacks enough original slicer context to claim parity
 - paired multi-filament cache examples show the raw gcode is strong enough to recover filament IDs, filament types, AMS/tool-change commands, flush-volume matrices, and nozzle diameter
 - however, those same paired examples also show that raw gcode headers may leave `filament_colour` blank or underspecified, and the working `.3mf` packages often carry different filament-map semantics than a naive slot-index mapping
+
+### Manual Path 2 Inputs
+
+There is now a structured manual-input path in the forensics viewer import plan for the values that repeatedly showed up as missing or ambiguous in the paired comparisons.
+
+Current manual inputs include:
+
+- optional reference template path
+- printer model id
+- manual filament colours
+- manual filament colour types
+- manual filament map
+- manual nozzle diameter
+
+Recommended interpretation:
+
+- use raw gcode headers first when they are explicit
+- use a working paired package as an optional template when one exists nearby
+- use manual inputs only for the remaining missing or obviously wrong values rather than as the primary source of truth
 
 Current boundary:
 

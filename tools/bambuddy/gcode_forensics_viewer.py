@@ -644,11 +644,18 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
         "gcode_name": str(record.get("gcode_name") or ""),
         "selected_source_path": str(source_path.resolve()),
         "planned_mode": effective_import_plan.get("mode"),
-        "printer_model_id": "C11",
+        "printer_model_id": effective_import_plan.get("path2_printer_model_id") or "C11",
         "plate_id": 1,
         "print_name": source_path.stem,
         "header_metadata": selected_source.get("header_metadata") or {},
         "inferred_duration_seconds": effective_import_plan.get("inferred_duration_seconds"),
+        "reference_template_path": effective_import_plan.get("path2_reference_template_path"),
+        "manual_overrides": {
+            "filament_colours": effective_import_plan.get("path2_manual_filament_colours"),
+            "filament_colour_types": effective_import_plan.get("path2_manual_filament_colour_types"),
+            "filament_map": effective_import_plan.get("path2_manual_filament_map"),
+            "nozzle_diameter": effective_import_plan.get("path2_manual_nozzle_diameter"),
+        },
         "default_output_path": str(output_path),
         "default_report_path": str(report_path),
         "compare_to_references": compare_to,
@@ -661,6 +668,13 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
             str(output_path),
             "--report",
             str(report_path),
+            "--printer-model-id",
+            str(effective_import_plan.get("path2_printer_model_id") or "C11"),
+            *(["--reference-template", str(effective_import_plan.get("path2_reference_template_path"))] if effective_import_plan.get("path2_reference_template_path") else []),
+            *(["--manual-filament-colours", str(effective_import_plan.get("path2_manual_filament_colours"))] if effective_import_plan.get("path2_manual_filament_colours") else []),
+            *(["--manual-filament-colour-types", str(effective_import_plan.get("path2_manual_filament_colour_types"))] if effective_import_plan.get("path2_manual_filament_colour_types") else []),
+            *(["--manual-filament-map", str(effective_import_plan.get("path2_manual_filament_map"))] if effective_import_plan.get("path2_manual_filament_map") else []),
+            *(["--manual-nozzle-diameter", str(effective_import_plan.get("path2_manual_nozzle_diameter"))] if effective_import_plan.get("path2_manual_nozzle_diameter") else []),
             *sum([["--compare-to", path] for path in compare_to], []),
         ],
         "checklist": build_raw_wrap_checklist(record, selected_source),
@@ -990,6 +1004,12 @@ class DecisionStore:
             "override_completed_at": str(value.get("override_completed_at") or "").strip() or None,
             "inferred_duration_seconds": int(value.get("inferred_duration_seconds")) if value.get("inferred_duration_seconds") not in (None, "") else None,
             "search_horizon_hours": parse_positive_int(value.get("search_horizon_hours"), default=DEFAULT_SEARCH_HORIZON_HOURS),
+            "path2_reference_template_path": normalize_path_text(str(value.get("path2_reference_template_path") or "")),
+            "path2_printer_model_id": str(value.get("path2_printer_model_id") or "").strip() or None,
+            "path2_manual_filament_colours": str(value.get("path2_manual_filament_colours") or "").strip() or None,
+            "path2_manual_filament_colour_types": str(value.get("path2_manual_filament_colour_types") or "").strip() or None,
+            "path2_manual_filament_map": str(value.get("path2_manual_filament_map") or "").strip() or None,
+            "path2_manual_nozzle_diameter": str(value.get("path2_manual_nozzle_diameter") or "").strip() or None,
             "notes": str(value.get("notes") or "").strip(),
             "missing_requirements": normalize_string_list(value.get("missing_requirements")),
         }
@@ -1005,6 +1025,12 @@ class DecisionStore:
                 normalized["inferred_created_at"],
                 normalized["inferred_completed_at"],
                 normalized["inferred_duration_seconds"] is not None,
+                normalized["path2_reference_template_path"],
+                normalized["path2_printer_model_id"],
+                normalized["path2_manual_filament_colours"],
+                normalized["path2_manual_filament_colour_types"],
+                normalized["path2_manual_filament_map"],
+                normalized["path2_manual_nozzle_diameter"],
             ]
         ):
             return None
@@ -1541,6 +1567,12 @@ def build_effective_import_plan(record: dict[str, object], selected_source: dict
         "override_completed_at": str(stored.get("override_completed_at") or "").strip() or None,
         "inferred_duration_seconds": inferred_duration_seconds,
         "search_horizon_hours": parse_positive_int(stored.get("search_horizon_hours"), default=DEFAULT_SEARCH_HORIZON_HOURS),
+        "path2_reference_template_path": normalize_path_text(str(stored.get("path2_reference_template_path") or "")),
+        "path2_printer_model_id": str(stored.get("path2_printer_model_id") or "").strip() or "C11",
+        "path2_manual_filament_colours": str(stored.get("path2_manual_filament_colours") or "").strip() or None,
+        "path2_manual_filament_colour_types": str(stored.get("path2_manual_filament_colour_types") or "").strip() or None,
+        "path2_manual_filament_map": str(stored.get("path2_manual_filament_map") or "").strip() or None,
+        "path2_manual_nozzle_diameter": str(stored.get("path2_manual_nozzle_diameter") or "").strip() or None,
         "notes": str(stored.get("notes") or "").strip(),
         "missing_requirements": build_import_requirements(record, selected_source),
     }
@@ -1839,6 +1871,38 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                 Import Notes
                 <textarea name="notes">{html.escape(str(effective_import_plan['notes'] or ''))}</textarea>
             </label>
+            <div class="support-grid">
+                <div class="support-card">
+                    <h4>Path 2 Reference Template</h4>
+                    <input name="path2_reference_template_path" placeholder="C:\\...\\KnownGood.gcode.3mf" value="{html.escape(str(effective_import_plan['path2_reference_template_path'] or ''))}" />
+                    <div class="status">Optional working `.3mf` or `.gcode.3mf` used as a template for missing colors and map semantics.</div>
+                </div>
+                <div class="support-card">
+                    <h4>Path 2 Printer Model</h4>
+                    <input name="path2_printer_model_id" value="{html.escape(str(effective_import_plan['path2_printer_model_id'] or 'C11'))}" />
+                    <div class="status">Manual fallback when the raw gcode does not carry enough printer context.</div>
+                </div>
+                <div class="support-card">
+                    <h4>Manual Filament Colours</h4>
+                    <input name="path2_manual_filament_colours" placeholder="#F98C36;#68724D;#FFFFFF" value="{html.escape(str(effective_import_plan['path2_manual_filament_colours'] or ''))}" />
+                    <div class="status">Semicolon-separated colors. Use this when the raw header leaves filament colors blank.</div>
+                </div>
+                <div class="support-card">
+                    <h4>Manual Filament Map</h4>
+                    <input name="path2_manual_filament_map" placeholder="1;1;1;1" value="{html.escape(str(effective_import_plan['path2_manual_filament_map'] or ''))}" />
+                    <div class="status">Semicolon-separated tray/map values when the working package does not follow simple slot indexing.</div>
+                </div>
+                <div class="support-card">
+                    <h4>Manual Filament Colour Types</h4>
+                    <input name="path2_manual_filament_colour_types" placeholder="0;1;1;1" value="{html.escape(str(effective_import_plan['path2_manual_filament_colour_types'] or ''))}" />
+                    <div class="status">Optional semicolon-separated colour-type values.</div>
+                </div>
+                <div class="support-card">
+                    <h4>Manual Nozzle Diameter</h4>
+                    <input name="path2_manual_nozzle_diameter" placeholder="0.4" value="{html.escape(str(effective_import_plan['path2_manual_nozzle_diameter'] or ''))}" />
+                    <div class="status">Optional nozzle override when the raw header is missing or inconsistent.</div>
+                </div>
+            </div>
             <div class="button-row">
                 <button type="submit">Save Import Plan</button>
                 <div class="status" id="import-plan-status"></div>
@@ -1991,6 +2055,12 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
                 override_started_at: formData.get('override_started_at') || '',
                 override_created_at: formData.get('override_created_at') || '',
                 override_completed_at: formData.get('override_completed_at') || '',
+                path2_reference_template_path: formData.get('path2_reference_template_path') || '',
+                path2_printer_model_id: formData.get('path2_printer_model_id') || 'C11',
+                path2_manual_filament_colours: formData.get('path2_manual_filament_colours') || '',
+                path2_manual_filament_colour_types: formData.get('path2_manual_filament_colour_types') || '',
+                path2_manual_filament_map: formData.get('path2_manual_filament_map') || '',
+                path2_manual_nozzle_diameter: formData.get('path2_manual_nozzle_diameter') || '',
                 notes: formData.get('notes') || ''
             }});
             setImportPlanStatus(data.message || 'Import plan saved.');
@@ -2399,6 +2469,12 @@ class ForensicsHandler(BaseHTTPRequestHandler):
                         "override_completed_at": from_datetime_local_value(str(payload.get("override_completed_at") or "")),
                         "inferred_duration_seconds": build_effective_import_plan(record, resolve_source_candidate(record)).get("inferred_duration_seconds"),
                         "search_horizon_hours": build_effective_import_plan(record, resolve_source_candidate(record)).get("search_horizon_hours"),
+                        "path2_reference_template_path": normalize_path_text(str(payload.get("path2_reference_template_path") or "")),
+                        "path2_printer_model_id": str(payload.get("path2_printer_model_id") or "").strip() or None,
+                        "path2_manual_filament_colours": str(payload.get("path2_manual_filament_colours") or "").strip() or None,
+                        "path2_manual_filament_colour_types": str(payload.get("path2_manual_filament_colour_types") or "").strip() or None,
+                        "path2_manual_filament_map": str(payload.get("path2_manual_filament_map") or "").strip() or None,
+                        "path2_manual_nozzle_diameter": str(payload.get("path2_manual_nozzle_diameter") or "").strip() or None,
                         "notes": str(payload.get("notes") or "").strip(),
                         "missing_requirements": build_import_requirements(record, selected_source),
                     }

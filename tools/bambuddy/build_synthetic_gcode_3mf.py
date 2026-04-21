@@ -74,6 +74,12 @@ def normalize_hex_color(raw: str | None, fallback: str) -> str:
     return fallback
 
 
+def stringify_value(value: Any) -> str:
+    if isinstance(value, list):
+        return ";".join(str(item) for item in value)
+    return str(value)
+
+
 def default_filaments(slot_count: int) -> list[dict[str, Any]]:
     return [
         {
@@ -97,13 +103,97 @@ def build_filaments_from_header(header_metadata: dict[str, str]) -> list[dict[st
     slot_count = max(len(slot_ids), len(filament_types), len(filament_colours), len(filament_used_g), infer_slot_count(header_metadata))
     base = default_filaments(slot_count)
     for index, filament in enumerate(base):
-        filament["filament_id"] = slot_ids[index] if index < len(slot_ids) and slot_ids[index] else str(index + 1)
-        filament["type"] = filament_types[index] if index < len(filament_types) and filament_types[index] else str(filament["type"])
+        has_explicit_id = index < len(slot_ids) and bool(slot_ids[index])
+        has_explicit_type = index < len(filament_types) and bool(filament_types[index])
+        has_explicit_color = index < len(filament_colours) and bool(filament_colours[index]) and bool(re.fullmatch(r"#[0-9A-Fa-f]{6}", filament_colours[index]))
+        filament["filament_id"] = slot_ids[index] if has_explicit_id else str(index + 1)
+        filament["type"] = filament_types[index] if has_explicit_type else str(filament["type"])
         filament["color"] = normalize_hex_color(filament_colours[index] if index < len(filament_colours) else None, str(filament["color"]))
+        filament["explicit_filament_id"] = has_explicit_id
+        filament["explicit_type"] = has_explicit_type
+        filament["explicit_color"] = has_explicit_color
         parsed_used_g = parse_float_token(filament_used_g[index] if index < len(filament_used_g) else None)
         if parsed_used_g is not None:
             filament["used_g"] = parsed_used_g
     return base
+
+
+def merge_reference_template(
+    filaments: list[dict[str, Any]],
+    header_metadata: dict[str, str],
+    reference_path: Path | None,
+) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, Any] | None]:
+    if reference_path is None or not reference_path.exists():
+        return filaments, header_metadata, None
+    reference = inspect_package_structure(reference_path)
+    merged_filaments = [dict(row) for row in filaments]
+    reference_project = reference.get("project_settings_filaments") or {}
+    reference_slice = (reference.get("slice_info_summary") or {}).get("filaments") or []
+    ref_ids = reference_project.get("filament_ids") or []
+    ref_types = reference_project.get("filament_type") or []
+    ref_colors = reference_project.get("filament_colour") or []
+    ref_map = reference_project.get("filament_map") or []
+    for index, filament in enumerate(merged_filaments):
+        if not filament.get("explicit_filament_id"):
+            if index < len(ref_ids) and ref_ids[index]:
+                filament["filament_id"] = str(ref_ids[index])
+            elif index < len(reference_slice) and reference_slice[index].get("setting_id"):
+                filament["filament_id"] = str(reference_slice[index]["setting_id"])
+        if not filament.get("explicit_type"):
+            if index < len(ref_types) and ref_types[index]:
+                filament["type"] = str(ref_types[index])
+            elif index < len(reference_slice) and reference_slice[index].get("type"):
+                filament["type"] = str(reference_slice[index]["type"])
+        if not filament.get("explicit_color"):
+            if index < len(ref_colors) and ref_colors[index]:
+                filament["color"] = normalize_hex_color(str(ref_colors[index]), str(filament.get("color") or DEFAULT_COLORS[index % len(DEFAULT_COLORS)]))
+            elif index < len(reference_slice) and reference_slice[index].get("color"):
+                filament["color"] = normalize_hex_color(str(reference_slice[index]["color"]), str(filament.get("color") or DEFAULT_COLORS[index % len(DEFAULT_COLORS)]))
+        if index < len(ref_map) and ref_map[index] not in (None, ""):
+            filament["tray_info_idx"] = str(ref_map[index])
+        elif index < len(reference_slice) and reference_slice[index].get("tray_info_idx"):
+            filament["tray_info_idx"] = str(reference_slice[index]["tray_info_idx"])
+        if index < len(reference_slice) and reference_slice[index].get("group_id") not in (None, ""):
+            try:
+                filament["group_id"] = int(str(reference_slice[index]["group_id"]))
+            except ValueError:
+                pass
+    merged_header = dict(header_metadata)
+    for key in ("filament_colour_types", "flush_volumes_matrix", "nozzle_diameter"):
+        if not merged_header.get(key) and key in reference_project:
+            merged_header[key] = stringify_value(reference_project[key])
+    return merged_filaments, merged_header, {"reference_path": str(reference_path), "applied": True}
+
+
+def apply_manual_overrides(
+    filaments: list[dict[str, Any]],
+    header_metadata: dict[str, str],
+    *,
+    filament_colours: str | None = None,
+    filament_colour_types: str | None = None,
+    filament_map: str | None = None,
+    nozzle_diameter: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    merged_filaments = [dict(row) for row in filaments]
+    merged_header = dict(header_metadata)
+    if filament_colours:
+        for index, value in enumerate(split_semicolon_values(filament_colours)):
+            if index >= len(merged_filaments):
+                break
+            merged_filaments[index]["color"] = normalize_hex_color(value, str(merged_filaments[index].get("color") or DEFAULT_COLORS[index % len(DEFAULT_COLORS)]))
+        merged_header["filament_colours"] = filament_colours
+    if filament_map:
+        for index, value in enumerate(split_semicolon_values(filament_map)):
+            if index >= len(merged_filaments):
+                break
+            if value:
+                merged_filaments[index]["tray_info_idx"] = value
+        merged_header["filament_map"] = filament_map
+    if filament_colour_types:
+        merged_header["filament_colour_types"] = filament_colour_types
+    if nozzle_diameter:
+        merged_header["nozzle_diameter"] = nozzle_diameter
+    return merged_filaments, merged_header
 
 
 def build_slice_info_config(
@@ -263,6 +353,26 @@ def compare_package_to_reference(package_path: Path, reference_path: Path) -> di
     reference = inspect_package_structure(reference_path)
     generated_entries = set(generated["entries"])
     reference_entries = set(reference["entries"])
+    focused_project_differences = {}
+    all_project_keys = set(generated["project_settings_filaments"].keys()) | set(reference["project_settings_filaments"].keys())
+    for key in sorted(all_project_keys):
+        if generated["project_settings_filaments"].get(key) != reference["project_settings_filaments"].get(key):
+            focused_project_differences[key] = {
+                "generated": generated["project_settings_filaments"].get(key),
+                "reference": reference["project_settings_filaments"].get(key),
+            }
+    generated_slice_filaments = generated["slice_info_summary"].get("filaments") or []
+    reference_slice_filaments = reference["slice_info_summary"].get("filaments") or []
+    focused_slice_differences: list[dict[str, Any]] = []
+    for index in range(max(len(generated_slice_filaments), len(reference_slice_filaments))):
+        generated_row = generated_slice_filaments[index] if index < len(generated_slice_filaments) else None
+        reference_row = reference_slice_filaments[index] if index < len(reference_slice_filaments) else None
+        if generated_row != reference_row:
+            focused_slice_differences.append({
+                "index": index,
+                "generated": generated_row,
+                "reference": reference_row,
+            })
     return {
         "reference_path": str(reference_path),
         "generated_entry_count": generated["entry_count"],
@@ -280,8 +390,10 @@ def compare_package_to_reference(package_path: Path, reference_path: Path) -> di
         ),
         "generated_project_settings_filaments": generated["project_settings_filaments"],
         "reference_project_settings_filaments": reference["project_settings_filaments"],
+        "focused_filament_project_differences": focused_project_differences,
         "generated_slice_info_summary": generated["slice_info_summary"],
         "reference_slice_info_summary": reference["slice_info_summary"],
+        "focused_slice_filament_differences": focused_slice_differences,
     }
 
 
@@ -294,9 +406,23 @@ def build_synthetic_package(
     plate_id: int,
     filaments: list[dict[str, Any]],
     compare_to: list[Path] | None = None,
+    reference_template: Path | None = None,
+    manual_filament_colours: str | None = None,
+    manual_filament_colour_types: str | None = None,
+    manual_filament_map: str | None = None,
+    manual_nozzle_diameter: str | None = None,
 ) -> dict[str, Any]:
     header_metadata = parse_gcode_header(gcode_path)
     estimated_seconds = parse_estimated_print_time_seconds(header_metadata.get("print_time"))
+    filaments, header_metadata, template_info = merge_reference_template(filaments, header_metadata, reference_template)
+    filaments, header_metadata = apply_manual_overrides(
+        filaments,
+        header_metadata,
+        filament_colours=manual_filament_colours,
+        filament_colour_types=manual_filament_colour_types,
+        filament_map=manual_filament_map,
+        nozzle_diameter=manual_nozzle_diameter,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", build_content_types_xml())
@@ -320,7 +446,7 @@ def build_synthetic_package(
         gcode_path=gcode_path.resolve(),
         output_path=output_path.resolve(),
         inspection=inspection,
-        header_metadata=header_metadata,
+        header_metadata={**header_metadata, **({"reference_template_path": str(reference_template)} if reference_template else {})},
         filaments=filaments,
         comparisons=comparisons,
     )
@@ -336,6 +462,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--filaments-json", help="Optional JSON file with filament entries: [{slot_id,type,color,used_g,group_id,tray_info_idx}, ...]")
     parser.add_argument("--report", help="Optional JSON path for the generated viability report.")
     parser.add_argument("--compare-to", action="append", default=[], help="Optional reference .gcode.3mf or .3mf path to compare against. Repeat for multiple references.")
+    parser.add_argument("--reference-template", help="Optional working .3mf or .gcode.3mf to use as a template for missing filament colors, maps, and related metadata.")
+    parser.add_argument("--manual-filament-colours", help="Optional semicolon-separated #RRGGBB values to override filament colours.")
+    parser.add_argument("--manual-filament-colour-types", help="Optional semicolon-separated filament colour type values.")
+    parser.add_argument("--manual-filament-map", help="Optional semicolon-separated filament map/tray values.")
+    parser.add_argument("--manual-nozzle-diameter", help="Optional nozzle diameter override.")
     return parser.parse_args()
 
 
@@ -362,6 +493,11 @@ def main() -> int:
         plate_id=args.plate_id,
         filaments=filaments,
         compare_to=[Path(path) for path in args.compare_to],
+        reference_template=Path(args.reference_template) if args.reference_template else None,
+        manual_filament_colours=args.manual_filament_colours,
+        manual_filament_colour_types=args.manual_filament_colour_types,
+        manual_filament_map=args.manual_filament_map,
+        manual_nozzle_diameter=args.manual_nozzle_diameter,
     )
     if args.report:
         write_json(Path(args.report), report)
