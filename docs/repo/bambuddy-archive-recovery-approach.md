@@ -13,6 +13,8 @@ Additional print_history design references for canonical runtime repair and depl
 - [../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md](../features/print_history/runtime-repair/archive-runtime-repair-deployment-options.md)
 - [../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md](../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
+- [../features/print_history/imports/archive-historical-backfill-from-sd-card.md](../features/print_history/imports/archive-historical-backfill-from-sd-card.md)
+- [../features/print_history/imports/source-3mf-import-design.md](../features/print_history/imports/source-3mf-import-design.md)
 
 ## Executive Summary
 
@@ -54,6 +56,24 @@ The recommended orchestration stack is:
 2. **`n8n` for multi-step recovery orchestration**
 3. **`shell_command` only as a fallback bridge for manual recovery or proof-of-concept**
 4. **sidecar service only if recovery frequency or complexity later justifies it**
+
+For historical backfill and local forensic recovery, the repo now also documents a manifest-driven queue layer that sits ahead of the existing upload script. That path uses the forensics viewer only for operator triage and source selection; it does not change the decision that canonical archive creation should still flow through `POST /archives/upload`.
+
+That queue layer now supports two executable branches from the same manifest writeback:
+
+- canonical archive creation from sliced artifacts via the existing backfill uploader
+- provenance-only source attachment to an existing archive via `POST /api/v1/archives/{id}/source`
+
+The repo also carries an explicit Path 2 proof-of-concept packager for raw `.gcode` inputs, but that remains experimental until live parity is proven.
+
+The current tooling now exposes that experiment in two concrete ways:
+
+- the forensics viewer can export a Path 2 package-plan JSON for a selected raw `.gcode` source
+- the manifest runner can execute a local `dry-run` that builds the synthetic package and compares it to one or more known-good `.gcode.3mf` references without touching Bambuddy upload flows
+
+The latest comparison against a working backup source package showed the synthetic artifact is still far from canonical parity: a generated package from `cache/(Unsaved)_plate_4.gcode` had 6 entries while the working `Pants-ANGER_plate_4.gcode.3mf` reference had 47, including missing model payload, per-plate JSON, md5, preview families, and a much richer `project_settings.config` surface.
+
+Follow-up comparison against paired multi-filament cache examples showed a narrower result: raw gcode can preserve useful filament structure such as `filament_ids`, `filament_type`, AMS/tool-change intent, `flush_volumes_matrix`, and `nozzle_diameter`, but it still does not reliably preserve the final filament colours or the exact filament-map conventions encoded in the working `.3mf` packages.
 
 Those adjacent repair patterns are now documented in the print_history feature docs so the archive-fix plan covers both:
 

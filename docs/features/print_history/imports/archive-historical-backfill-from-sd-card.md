@@ -226,6 +226,160 @@ Initial bucket behavior is intentionally conservative:
 - `bambu_studio_source_3mf` starts as `manual_review`
 - top-level directory inventory is recorded so non-import areas such as printer logs and media can be retained separately from archive inputs
 
+### Forensics viewer writeback and runner contract
+
+The repo now also has a local-first forensic triage path for cache `.gcode` records:
+
+- [tools/bambuddy/gcode_forensics_viewer.py](../../../tools/bambuddy/gcode_forensics_viewer.py)
+- [tools/bambuddy/run_forensics_import_queue.py](../../../tools/bambuddy/run_forensics_import_queue.py)
+
+That path is intentionally layered on top of the same manifest state machine rather than creating a second queue store.
+
+The viewer writes operator selections into:
+
+- `secondary_artifact_analysis.cache_secondary_artifacts.manual_triage_decisions.entries[]`
+
+Those entries now capture:
+
+- `disposition`
+- queued `source_files`
+- `selected_source_path`
+- `import_plan`
+- optional `archive_id` when the operator is targeting an existing archive
+
+The import runner treats those writeback entries as the durable queue source.
+
+Current queue states are:
+
+- `ready`
+   - `Keep` plus a selected sliced `.3mf` or `.gcode.3mf`
+   - planned action `create_archive_upload`
+   - source re-inspects as archive-ready
+- `blocked`
+   - missing source file, missing selected source, or source not eligible for canonical upload
+- `manual`
+   - source provenance flow such as `attach_source_only` when it still needs an existing `archive_id` or operator review
+- `skipped`
+   - disposition is not `Keep`
+
+When a queue item is `ready`, the runner emits a synthetic backfill manifest and hands that to the existing PowerShell backfill workflow rather than re-implementing upload semantics.
+
+When a queue item is `attach_source_only` and already has an `archive_id`, the runner can now also execute the archive provenance step directly through Bambuddy's native source upload endpoint:
+
+- `POST /api/v1/archives/{id}/source`
+
+That keeps the source-attachment flow separate from canonical archive creation while still letting the manifest writeback act as the queue source for both operations.
+
+That means the effective pipeline is:
+
+1. forensic triage and source selection in the viewer
+2. manifest writeback
+3. synthetic backfill manifest generation from `manual_triage_decisions`
+4. canonical upload and annotation through the existing backfill script
+5. optional runtime repair from the saved import-plan timestamps
+
+The runner also now has a local `dry-run` mode for the same manifest queue.
+
+Current dry-run behavior:
+
+- still emits the synthetic manifest preview for `ready` sliced uploads
+- records the exact `POST /api/v1/archives/{id}/source` call shape that `attach_source_only` would make without calling Bambuddy
+- builds a local synthetic `.gcode.3mf` plus report for `wrap_raw_gcode_experimental` items
+- optionally compares that synthetic package to one or more known-good `.gcode.3mf` references via repeated `--compare-to`
+
+### Import plan timing contract
+
+The forensics viewer import plan is now expected to persist enough timing detail for the runner to operate without re-deriving everything from scratch:
+
+- `inferred_started_at`
+- `override_started_at`
+- `inferred_created_at`
+- `override_created_at`
+- `inferred_completed_at`
+- `override_completed_at`
+- `inferred_duration_seconds`
+
+The runner uses those values in two places:
+
+- to build `timestamp_evidence.timestamp_candidates` in the synthetic backfill manifest
+- to optionally call the runtime-repair sidecar after archive creation so explicit operator overrides win over looser file-based inference
+
+## Raw Gcode Wrap Path
+
+The experimental `wrap_raw_gcode_experimental` mode should still be treated as blocked by default.
+
+Reason:
+
+- current evidence shows Bambuddy relies on sliced-package metadata that is not present in a raw `.gcode` file alone
+
+Minimum viability for a future synthetic `.gcode.3mf` path appears to require more than the gcode stream:
+
+- expected 3MF package layout
+- `Metadata/slice_info.config`
+- embedded per-plate gcode entries under `Metadata/plate_*.gcode`
+- archive-facing preview images such as `Metadata/plate_*.png` and related preview assets
+- printer model / sliced-for model metadata
+- plate index and per-plate print-time metadata
+- AMS mapping and filament slot-to-type/color mapping
+- nozzle mapping
+
+This is consistent with Bambuddy's own behavior:
+
+- queue logic reads plate identity and per-plate timing from `slice_info.config`
+- AMS and nozzle mapping are derived from sliced package metadata, not just raw gcode comments
+
+Recommended interpretation:
+
+- a raw `.gcode` can still be valuable forensic evidence
+- it is not yet a canonical archive import source
+- the repo should not silently promote it to `ready` until a real synthetic package experiment proves parity closely enough
+
+### Current proof-of-concept tool
+
+The repo now includes a local proof-of-concept builder for this experiment:
+
+- [tools/bambuddy/build_synthetic_gcode_3mf.py](../../../tools/bambuddy/build_synthetic_gcode_3mf.py)
+
+Current behavior:
+
+- reads a raw `.gcode`
+- synthesizes a zip package with:
+   - `Metadata/plate_1.gcode`
+   - `Metadata/slice_info.config`
+   - `Metadata/project_settings.config`
+   - placeholder `Metadata/plate_1.png`
+- emits a JSON report with caveats, inspected package classification, and optional reference-package comparison output
+
+The builder now also carries forward several filament-related fields directly from raw gcode headers when they are present:
+
+- `filament_ids`
+- `filament_type`
+- `filament_colour`
+- `filament_colour_type`
+- `flush_volumes_matrix`
+- `nozzle_diameter`
+
+The forensics viewer can now also export a Path 2 package-plan JSON for a selected raw `.gcode` source.
+
+That plan pre-fills:
+
+- suggested `build_synthetic_gcode_3mf.py` command arguments
+- default output and report paths
+- compare-to references discovered from the backup root
+
+Current empirical comparison result:
+
+- a synthetic package built from `cache/(Unsaved)_plate_4.gcode` compared against `Pants-ANGER_plate_4.gcode.3mf` produced only 6 zip entries versus 47 in the known-good reference
+- the synthetic package was missing the actual model payload, multi-plate preview assets, plate JSON metadata, md5 sidecar, filament sequence data, and the broad project-settings surface present in the real package
+- the synthetic package also embedded `Metadata/plate_1.gcode` while the known-good reference carried `Metadata/plate_4.gcode`, which reinforces that raw-gcode wrapping still lacks enough original slicer context to claim parity
+- paired multi-filament cache examples show the raw gcode is strong enough to recover filament IDs, filament types, AMS/tool-change commands, flush-volume matrices, and nozzle diameter
+- however, those same paired examples also show that raw gcode headers may leave `filament_colour` blank or underspecified, and the working `.3mf` packages often carry different filament-map semantics than a naive slot-index mapping
+
+Current boundary:
+
+- this is a validator and packaging experiment only
+- it is not yet evidence that Bambuddy and printer-side queue flows will treat the result as fully canonical
+
 Recommended manifest generation example:
 
 ```powershell

@@ -517,12 +517,207 @@ def build_import_requirements(record: dict[str, object], selected_source: dict[s
         requirements.append("If you only attach it as source_3mf_path, Bambuddy keeps provenance but does not rebuild archive-side slicer metadata.")
     elif source_type == "raw_gcode_file":
         requirements.append("Raw .gcode is not accepted by the current archive upload flow.")
-        requirements.append("A valid Bambu-style package would need more than the gcode stream: at minimum package structure plus slice/project metadata files and expected archive-side naming conventions.")
-        requirements.append("If the gcode headers do not already carry them, expect to supply or infer printer model, filament slot-to-type/color mapping, and any archive-facing preview/plate metadata needed by downstream tooling.")
+        requirements.append("A valid Bambu-style package would need more than the gcode stream: at minimum the expected 3MF package structure, `Metadata/slice_info.config`, and per-plate embedded gcode entries under `Metadata/`.")
+        requirements.append("The package would also need the archive-facing preview assets and naming conventions Bambuddy expects, such as `Metadata/plate_*.png` or related preview images for a normal archive experience.")
+        requirements.append("If the gcode headers do not already carry them, expect to supply or infer printer model, filament slot-to-type/color mapping, AMS mapping, and nozzle mapping. Bambuddy's own queueing logic reads plate and mapping details from `slice_info.config` rather than from the raw gcode alone.")
     inferred_started_at = str((record.get("decision") or {}).get("import_plan", {}).get("inferred_started_at") or record.get("last_write") or "").strip()
     if inferred_started_at:
         requirements.append(f"Current inferred started_at/created_at default comes from the original gcode last-write timestamp: {inferred_started_at}.")
     return requirements
+
+
+def build_runner_queue_preview(record: dict[str, object], effective_import_plan: dict[str, object], selected_source: dict[str, Any] | None) -> dict[str, object]:
+    decision = dict(record.get("decision") or {})
+    preview_entry = {
+        "gcode_name": record.get("gcode_name"),
+        "disposition": decision.get("disposition"),
+        "archive_id": decision.get("archive_id"),
+        "selected_source_path": str((selected_source or {}).get("path") or decision.get("selected_source_path") or "").strip() or None,
+        "source_files": list(decision.get("source_files") or ([] if selected_source is None else [selected_source])),
+        "import_plan": dict(effective_import_plan),
+        "note": decision.get("note"),
+    }
+    from tools.bambuddy.run_forensics_import_queue import assess_entry
+
+    queue_item = assess_entry(preview_entry)
+    return {
+        "status": queue_item.status,
+        "reason": queue_item.reason,
+        "mode": queue_item.mode,
+        "started_at": queue_item.started_at,
+        "created_at": queue_item.created_at,
+        "completed_at": queue_item.completed_at,
+        "duration_seconds": queue_item.duration_seconds,
+        "selected_source_path": str((queue_item.source or {}).get("path") or "") or None,
+        "selected_source_type": str((queue_item.source or {}).get("source_type") or "") or None,
+        "selected_source_ready": bool((queue_item.source or {}).get("canonical_archive_ready")),
+        "missing_requirements": list(queue_item.missing_requirements),
+    }
+
+
+def build_raw_wrap_checklist(record: dict[str, object], selected_source: dict[str, Any] | None) -> list[dict[str, str]]:
+    if selected_source is None:
+        return [
+            {
+                "label": "Select Raw G-code",
+                "status": "missing",
+                "detail": "Path 2 only applies when the selected source is a raw `.gcode` candidate.",
+            }
+        ]
+
+    source_type = str(selected_source.get("source_type") or "")
+    if source_type != "raw_gcode_file":
+        return [
+            {
+                "label": "Raw G-code Selected",
+                "status": "not_applicable",
+                "detail": "The current selection is not a raw `.gcode` file, so Path 2 synthesis is not the active recovery path.",
+            }
+        ]
+
+    header_metadata = selected_source.get("header_metadata") if isinstance(selected_source.get("header_metadata"), dict) else {}
+    filament_slots = str(header_metadata.get("filament_slots") or "").strip()
+    print_time = str(header_metadata.get("print_time") or "").strip()
+    estimated_seconds = parse_estimated_print_time_seconds(print_time)
+    items = [
+        {
+            "label": "Raw G-code Source",
+            "status": "present",
+            "detail": "The selected local source is a raw `.gcode` file that can feed a synthetic package experiment.",
+        },
+        {
+            "label": "Per-plate G-code Payload",
+            "status": "derivable",
+            "detail": "`Metadata/plate_1.gcode` can be synthesized directly from the selected raw gcode stream.",
+        },
+        {
+            "label": "slice_info.config",
+            "status": "missing",
+            "detail": "A synthetic package still needs `Metadata/slice_info.config` with plate index, filament usage, and other slicer metadata.",
+        },
+        {
+            "label": "Project Settings / Printer Model",
+            "status": "needs_input" if not str(record.get("header_metadata") or "") else "needs_input",
+            "detail": "A synthetic package needs `Metadata/project_settings.config`, including printer model and nozzle/physical extruder mapping.",
+        },
+        {
+            "label": "AMS Mapping",
+            "status": "present" if filament_slots else "needs_input",
+            "detail": "Slot information in gcode headers helps, but Bambuddy still expects slicer-shaped tray mapping derived from package metadata rather than raw comments alone.",
+        },
+        {
+            "label": "Nozzle Mapping",
+            "status": "needs_input",
+            "detail": "Dual-nozzle and Auto For Flush cases rely on `group_id` and related mapping data in `slice_info.config` or `project_settings.config`.",
+        },
+        {
+            "label": "Preview Assets",
+            "status": "missing",
+            "detail": "A package that behaves like a normal archive should include `Metadata/plate_*.png` or related preview images. Placeholder previews are possible, but live parity is unproven.",
+        },
+        {
+            "label": "Timing Metadata",
+            "status": "present" if estimated_seconds else "needs_input",
+            "detail": "Estimated print time can be carried into the package if the raw header exposes it. Otherwise the operator needs to provide or override it.",
+        },
+    ]
+    return items
+
+
+def build_path2_package_plan(record: dict[str, object], selected_source: dict[str, Any] | None, source_root: Path) -> dict[str, Any]:
+    if selected_source is None:
+        raise ValueError("No source file selected for Path 2 planning.")
+    source_path = Path(str(selected_source.get("path") or ""))
+    if source_path.suffix.lower() != ".gcode":
+        raise ValueError("Path 2 planning requires a raw .gcode source selection.")
+    compare_to = [
+        str(candidate.resolve())
+        for candidate in sorted(source_root.glob("*.gcode.3mf"))
+        if candidate.is_file()
+    ]
+    suggested_root = (Path("tmp") / "synthetic_gcode_3mf").resolve()
+    output_path = suggested_root / f"{source_path.stem}.gcode.3mf"
+    report_path = suggested_root / f"{source_path.stem}.report.json"
+    effective_import_plan = build_effective_import_plan(record, selected_source)
+    return {
+        "generated_at": utc_now_iso(),
+        "gcode_name": str(record.get("gcode_name") or ""),
+        "selected_source_path": str(source_path.resolve()),
+        "planned_mode": effective_import_plan.get("mode"),
+        "printer_model_id": "C11",
+        "plate_id": 1,
+        "print_name": source_path.stem,
+        "header_metadata": selected_source.get("header_metadata") or {},
+        "inferred_duration_seconds": effective_import_plan.get("inferred_duration_seconds"),
+        "default_output_path": str(output_path),
+        "default_report_path": str(report_path),
+        "compare_to_references": compare_to,
+        "command_preview": [
+            "python",
+            "tools/bambuddy/build_synthetic_gcode_3mf.py",
+            "--gcode",
+            str(source_path.resolve()),
+            "--output",
+            str(output_path),
+            "--report",
+            str(report_path),
+            *sum([["--compare-to", path] for path in compare_to], []),
+        ],
+        "checklist": build_raw_wrap_checklist(record, selected_source),
+    }
+
+
+def render_raw_wrap_checklist(items: list[dict[str, str]]) -> str:
+    badge_class = {
+        "present": "keep",
+        "derivable": "emphasis",
+        "needs_input": "investigate",
+        "missing": "warn",
+        "not_applicable": "",
+    }
+    cards = []
+    for item in items:
+        status = str(item.get("status") or "unknown")
+        badge = badge_class.get(status, "")
+        badge_markup = f'<span class="badge {badge}">{html.escape(status.replace("_", " "))}</span>' if badge else f'<span class="badge">{html.escape(status.replace("_", " "))}</span>'
+        cards.append(
+            f'''<div class="support-card">
+  <h4>{html.escape(str(item.get("label") or "Item"))}</h4>
+  <div class="badges">{badge_markup}</div>
+  <div class="status">{html.escape(str(item.get("detail") or ""))}</div>
+</div>'''
+        )
+    return "".join(cards)
+
+
+def render_queue_preview(queue_preview: dict[str, object]) -> str:
+    status = str(queue_preview.get("status") or "unknown")
+    badge_class = {
+        "ready": "keep",
+        "blocked": "warn",
+        "manual": "investigate",
+        "skipped": "",
+    }.get(status, "")
+    badge = f'<span class="badge {badge_class}">{html.escape(status)}</span>' if badge_class else f'<span class="badge">{html.escape(status)}</span>'
+    detail_rows = [
+        ("Runner Mode", str(queue_preview.get("mode") or "undecided")),
+        ("Selected Source Type", str(queue_preview.get("selected_source_type") or "")),
+        ("Started At", str(queue_preview.get("started_at") or "")),
+        ("Created At", str(queue_preview.get("created_at") or "")),
+        ("Completed At", str(queue_preview.get("completed_at") or "")),
+        ("Duration Seconds", str(queue_preview.get("duration_seconds") or "")),
+    ]
+    metadata_markup = "".join(
+        f'<div class="meta"><div class="meta-label">{html.escape(label)}</div><div class="meta-value">{html.escape(value)}</div></div>'
+        for label, value in detail_rows
+        if value
+    ) or '<div class="empty">No runner metadata available yet.</div>'
+    return f'''<div class="support-card">
+  <h4>Runner Queue Preview</h4>
+  <div class="badges">{badge}{'<span class="badge keep">archive-ready source</span>' if queue_preview.get('selected_source_ready') else ''}</div>
+  <div class="status">{html.escape(str(queue_preview.get('reason') or 'No runner preview available.'))}</div>
+  <div class="meta-grid">{metadata_markup}</div>
+</div>'''
 
 
 def parse_gcode_header(gcode_path: Path) -> dict[str, str]:
@@ -533,6 +728,11 @@ def parse_gcode_header(gcode_path: Path) -> dict[str, str]:
         "filament_weight_g": re.compile(r"filament used \[g\]\s*=\s*(?P<value>.+)", re.IGNORECASE),
         "max_z_height": re.compile(r"max_z_height\s*=\s*(?P<value>.+)", re.IGNORECASE),
         "filament_slots": re.compile(r"filament_ids\s*=\s*(?P<value>.+)", re.IGNORECASE),
+        "filament_types": re.compile(r"filament_type\s*=\s*(?P<value>.+)", re.IGNORECASE),
+        "filament_colours": re.compile(r"filament_colour\s*=\s*(?P<value>.+)", re.IGNORECASE),
+        "filament_colour_types": re.compile(r"filament_colour_type\s*=\s*(?P<value>.+)", re.IGNORECASE),
+        "flush_volumes_matrix": re.compile(r"(?:filament_)?flush_volumes_matrix\s*=\s*(?P<value>.+)", re.IGNORECASE),
+        "nozzle_diameter": re.compile(r"nozzle_diameter\s*=\s*(?P<value>.+)", re.IGNORECASE),
     }
     extracted: dict[str, str] = {}
     with gcode_path.open("r", encoding="utf-8", errors="ignore") as handle:
@@ -1168,7 +1368,7 @@ def render_page(dataset: ForensicsDataset, view: str, selected_name: str | None,
     )
 
     list_markup = "".join(render_list_item(record, view, selected_record) for record in visible_records) or '<div class="empty">No records for this filter.</div>'
-    detail_markup = render_detail_panel(selected_record, view, writeback_enabled)
+    detail_markup = render_detail_panel(selected_record, view, writeback_enabled, dataset.source_root)
     export_href = "/export/decisions.json"
     writeback_text = "enabled" if writeback_enabled else "disabled"
     return f"""<!DOCTYPE html>
@@ -1433,7 +1633,7 @@ def render_external_action_status(record: dict[str, object]) -> str:
     return "".join(rows) or '<div class="empty">No open/export actions recorded yet.</div>'
 
 
-def render_detail_panel(record: dict[str, object] | None, view: str, writeback_enabled: bool) -> str:
+def render_detail_panel(record: dict[str, object] | None, view: str, writeback_enabled: bool, source_root: Path) -> str:
     if record is None:
         return '<div class="panel empty">No matching record.</div>'
     preview_info = build_preview_payload(str(record["gcode_path"])) if record["has_gcode"] else {"segment_count": 0, "layer_count": 0}
@@ -1442,6 +1642,7 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
     selected_source_row = get_selected_source_from_record(record)
     selected_source_path = str((selected_source_row or {}).get("path") or decision.get("selected_source_path") or "") or None
     effective_import_plan = build_effective_import_plan(record, selected_source_row)
+    queue_preview = build_runner_queue_preview(record, effective_import_plan, selected_source_row)
     manifest_links = record["manifest_links"]
     image_markup = "".join(
         f'<figure class="image-card"><img src="/image/{quote(image["name"])}" alt="{html.escape(image["name"])}" />'
@@ -1483,6 +1684,11 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
     import_requirement_markup = "".join(
         f'<li>{html.escape(item)}</li>' for item in effective_import_plan["missing_requirements"]
     ) or '<li>No extra requirements recorded.</li>'
+    queue_preview_markup = render_queue_preview(queue_preview)
+    raw_wrap_checklist_markup = render_raw_wrap_checklist(build_raw_wrap_checklist(record, selected_source_row))
+    path2_plan_href = None
+    if selected_source_row is not None and Path(str(selected_source_row.get("path") or "")).suffix.lower() == ".gcode":
+        path2_plan_href = "/export/path2-plan.json?" + urlencode({"gcode": str(record["gcode_name"])})
     preview_src = "/preview.svg?" + urlencode({"gcode": record["gcode_name"]})
     interactive_notice = "Writes decisions into the export file only." if not writeback_enabled else "Writes decisions into the export file and into secondary_artifact_analysis.manual_triage_decisions in the manifest."
     return f"""
@@ -1641,6 +1847,15 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
         <section class="section">
             <h3>Requirements / Gaps</h3>
             <ul>{import_requirement_markup}</ul>
+        </section>
+        <section class="section">
+            <h3>Path 2 Viability Checklist</h3>
+            <div class="support-grid">{raw_wrap_checklist_markup}</div>
+            {f'<div class="button-row"><a class="filter" href="{html.escape(path2_plan_href)}">Download Path 2 Package Plan</a><div class="status">Exports a JSON handoff for tools/bambuddy/build_synthetic_gcode_3mf.py with suggested compare-to references from the backup root.</div></div>' if path2_plan_href else '<div class="status">Select a raw .gcode source to export a Path 2 package plan.</div>'}
+        </section>
+        <section class="section">
+            <h3>Runner Preview</h3>
+            <div class="support-grid">{queue_preview_markup}</div>
         </section>
         <section class="section">
             <h3>External Actions</h3>
@@ -2037,6 +2252,25 @@ class ForensicsHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Disposition", 'attachment; filename="gcode_forensics_decisions.json"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if parsed.path == "/export/path2-plan.json":
+            params = parse_qs(parsed.query)
+            gcode_name = params.get("gcode", [""])[0]
+            try:
+                record = resolve_record(self.dataset, gcode_name)
+                selected_source = resolve_source_candidate(record)
+                payload = build_path2_package_plan(record, selected_source, self.dataset.source_root)
+            except Exception as exc:  # noqa: BLE001
+                self.send_json(400, {"error": str(exc)})
+                return
+            body = json.dumps(payload, indent=2, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{Path(gcode_name or "path2_plan").stem}_path2_plan.json"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

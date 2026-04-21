@@ -4,13 +4,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import mimetypes
 import os
 import subprocess
 import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +25,7 @@ from tools.bambuddy.gcode_forensics_viewer import (
     path_key,
     write_json,
 )
+from tools.bambuddy.build_synthetic_gcode_3mf import build_synthetic_package, default_filaments, infer_slot_count
 
 
 def utc_now_iso() -> str:
@@ -44,6 +45,36 @@ class QueueItem:
     completed_at: str | None
     duration_seconds: int | None
     missing_requirements: list[str]
+
+
+def build_multipart_payload(*, fields: dict[str, str] | None = None, files: list[dict[str, Any]] | None = None) -> tuple[bytes, str]:
+    boundary = f"----copilot{uuid.uuid4().hex}"
+    parts: list[bytes] = []
+    for name, value in (fields or {}).items():
+        parts.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    for file in files or []:
+        file_name = str(file["filename"])
+        content = bytes(file["content"])
+        content_type = str(file.get("content_type") or "application/octet-stream")
+        field_name = str(file.get("field_name") or "file")
+        parts.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{field_name}"; filename="{file_name}"\r\n'.encode("utf-8"),
+                f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+                content,
+                b"\r\n",
+            ]
+        )
+    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(parts), boundary
 
 
 def compute_hashes(path: Path) -> dict[str, str]:
@@ -185,7 +216,7 @@ def assess_entry(entry: dict[str, Any]) -> QueueItem:
     if plan["mode"] == "attach_source_only":
         archive_id = entry.get("archive_id")
         if archive_id:
-            reason = f"Attach-source-only is planned, but this runner currently focuses on canonical archive creation. Existing archive {archive_id} could be used in a future source-attachment step."
+            reason = f"Attach-source-only is planned for existing archive {archive_id}. The runner can execute the source-attachment step with POST /api/v1/archives/{{id}}/source."
         else:
             reason = "Attach-source-only is selected, but no target archive_id is recorded for a source attachment step."
         return QueueItem(
@@ -385,6 +416,46 @@ def run_backfill(
     return payload
 
 
+def upload_source_attachment(
+    archive_id: int,
+    source_path: Path,
+    *,
+    base_url: str,
+    api_key: str | None,
+) -> dict[str, Any]:
+    body, boundary = build_multipart_payload(
+        files=[
+            {
+                "field_name": "file",
+                "filename": source_path.name,
+                "content": source_path.read_bytes(),
+                "content_type": "application/vnd.ms-package.3dmanufacturing-3dmodel+xml",
+            }
+        ]
+    )
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+    request = urllib.request.Request(
+        urllib.parse.urljoin(base_url.rstrip("/") + "/", f"api/v1/archives/{int(archive_id)}/source"),
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            return {
+                "archive_id": int(archive_id),
+                "status": payload.get("status") or "uploaded",
+                "source_3mf_path": payload.get("source_3mf_path"),
+                "filename": payload.get("filename") or source_path.name,
+            }
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Source attachment failed for archive {archive_id} with {exc.code}: {body_text}") from exc
+
+
 def sidecar_repair(
     archive_id: int,
     *,
@@ -428,6 +499,7 @@ def update_source_manifest(
     synthetic_manifest_path: Path | None,
     backfill_result: dict[str, Any] | None,
     repair_results: dict[str, Any] | None,
+    source_attachment_results: dict[str, Any] | None = None,
 ) -> None:
     manifest = load_json(manifest_path)
     secondary = manifest.setdefault("secondary_artifact_analysis", {})
@@ -442,6 +514,7 @@ def update_source_manifest(
             result_by_entry_id[str(row.get("entry_id") or "")] = row
 
     repair_by_gcode = repair_results or {}
+    source_attachment_by_gcode = source_attachment_results or {}
     for entry in entries:
         gcode_name = str(entry.get("gcode_name") or "")
         queue_item = by_gcode.get(gcode_name)
@@ -472,6 +545,8 @@ def update_source_manifest(
             )
         if gcode_name in repair_by_gcode:
             runner["runtime_repair"] = repair_by_gcode[gcode_name]
+        if gcode_name in source_attachment_by_gcode:
+            runner["source_attachment"] = source_attachment_by_gcode[gcode_name]
         entry["import_runner"] = runner
 
     cache_section["forensics_import_runner"] = {
@@ -514,12 +589,44 @@ def queue_summary(items: list[QueueItem]) -> dict[str, Any]:
     }
 
 
+def build_path2_artifact(
+    item: QueueItem,
+    *,
+    output_dir: Path,
+    compare_to: list[Path],
+) -> dict[str, Any]:
+    if item.source is None:
+        raise ValueError("Cannot build a Path 2 artifact without a selected source.")
+    source_path = Path(str(item.source.get("path") or ""))
+    header_metadata = (item.source.get("header_metadata") or {}) if isinstance(item.source.get("header_metadata"), dict) else {}
+    output_path = output_dir / f"{source_path.stem}.gcode.3mf"
+    report_path = output_dir / f"{source_path.stem}.report.json"
+    filaments = default_filaments(infer_slot_count(header_metadata))
+    report = build_synthetic_package(
+        gcode_path=source_path,
+        output_path=output_path,
+        print_name=item.gcode_name,
+        printer_model_id="C11",
+        plate_id=1,
+        filaments=filaments,
+        compare_to=compare_to,
+    )
+    write_json(report_path, report)
+    return {
+        "output_path": str(output_path),
+        "report_path": str(report_path),
+        "report": report,
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build and optionally execute a Bambuddy import queue from forensics manifest writeback.")
     parser.add_argument("--manifest", required=True, help="Manifest JSON path that already contains secondary_artifact_analysis.manual_triage_decisions.")
-    parser.add_argument("--action", choices=["inspect", "emit-manifest", "run-backfill"], default="inspect")
+    parser.add_argument("--action", choices=["inspect", "emit-manifest", "run-backfill", "dry-run"], default="inspect")
     parser.add_argument("--output", help="Optional JSON path for queue summary output.")
     parser.add_argument("--synthetic-manifest", help="Optional path for the generated synthetic backfill manifest.")
+    parser.add_argument("--dry-run-output-dir", help="Output directory for dry-run source-attachment previews and synthetic Path 2 artifacts.")
+    parser.add_argument("--compare-to", action="append", default=[], help="Reference .3mf or .gcode.3mf file to compare Path 2 artifacts against. Repeat for multiple references.")
     parser.add_argument("--base-url", help="Bambuddy base URL for run-backfill.")
     parser.add_argument("--printer-id", type=int, help="Target printer ID for run-backfill.")
     parser.add_argument("--api-key", help="Optional Bambuddy API key.")
@@ -546,12 +653,16 @@ def main() -> int:
     synthetic_manifest_path = Path(args.synthetic_manifest) if args.synthetic_manifest else Path(tempfile.gettempdir()) / f"forensics_import_manifest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     ready_items = [item for item in queue_items if item.status == "ready"]
     synthetic_manifest = build_synthetic_manifest(ready_items, batch_id=f"forensics-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+    dry_run_output_dir = Path(args.dry_run_output_dir) if args.dry_run_output_dir else Path(tempfile.gettempdir()) / "forensics_dry_run"
+    compare_to_paths = [Path(path) for path in args.compare_to]
 
-    if args.action in {"emit-manifest", "run-backfill"}:
+    if args.action in {"emit-manifest", "run-backfill", "dry-run"}:
         write_json(synthetic_manifest_path, synthetic_manifest)
 
     backfill_payload: dict[str, Any] | None = None
     repair_results: dict[str, Any] = {}
+    source_attachment_results: dict[str, Any] = {}
+    dry_run_results: dict[str, Any] = {"source_attachments": {}, "path2_artifacts": {}, "ready_items": []}
 
     if args.action == "run-backfill":
         if not args.base_url or not args.printer_id:
@@ -598,20 +709,67 @@ def main() -> int:
                 )
                 repair_results[item.gcode_name] = repair_result
 
+        attach_items = [
+            item
+            for item in queue_items
+            if item.mode == "attach_source_only"
+            and item.entry.get("archive_id") not in (None, "")
+            and item.source is not None
+            and Path(str((item.source or {}).get("path") or "")).suffix.lower() == ".3mf"
+        ]
+        for item in attach_items:
+            archive_id = int(item.entry["archive_id"])
+            source_path = Path(str((item.source or {}).get("path") or ""))
+            source_attachment_results[item.gcode_name] = upload_source_attachment(
+                archive_id,
+                source_path,
+                base_url=args.base_url,
+                api_key=args.api_key,
+            )
+
+    if args.action == "dry-run":
+        dry_run_output_dir.mkdir(parents=True, exist_ok=True)
+        dry_run_results["ready_items"] = [
+            {
+                "gcode_name": item.gcode_name,
+                "source_path": str((item.source or {}).get("path") or ""),
+                "reason": "Would be emitted into the synthetic manifest for canonical upload.",
+            }
+            for item in ready_items
+        ]
+        for item in queue_items:
+            if item.mode == "attach_source_only" and item.entry.get("archive_id") not in (None, "") and item.source is not None:
+                dry_run_results["source_attachments"][item.gcode_name] = {
+                    "archive_id": int(item.entry["archive_id"]),
+                    "source_path": str((item.source or {}).get("path") or ""),
+                    "would_call": f"POST /api/v1/archives/{int(item.entry['archive_id'])}/source",
+                }
+            if item.mode == "wrap_raw_gcode_experimental" and item.source is not None:
+                artifact_dir = dry_run_output_dir / path_key(item.gcode_name)
+                artifact_dir.mkdir(parents=True, exist_ok=True)
+                dry_run_results["path2_artifacts"][item.gcode_name] = build_path2_artifact(
+                    item,
+                    output_dir=artifact_dir,
+                    compare_to=compare_to_paths,
+                )
+
     if args.write_back_results:
         update_source_manifest(
             manifest_path,
             queue_items,
-            synthetic_manifest_path=synthetic_manifest_path if args.action in {"emit-manifest", "run-backfill"} else None,
+            synthetic_manifest_path=synthetic_manifest_path if args.action in {"emit-manifest", "run-backfill", "dry-run"} else None,
             backfill_result=backfill_payload,
             repair_results=repair_results,
+            source_attachment_results=source_attachment_results,
         )
 
     output = {
         "summary": summary,
-        "synthetic_manifest_path": str(synthetic_manifest_path) if args.action in {"emit-manifest", "run-backfill"} else None,
+        "synthetic_manifest_path": str(synthetic_manifest_path) if args.action in {"emit-manifest", "run-backfill", "dry-run"} else None,
         "backfill": backfill_payload,
         "runtime_repairs": repair_results,
+        "source_attachments": source_attachment_results,
+        "dry_run": dry_run_results if args.action == "dry-run" else None,
     }
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0

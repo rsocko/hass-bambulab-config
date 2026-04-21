@@ -23,6 +23,34 @@ This design adds a second, archive-scoped import source:
 
 The intended real-world source is the original Bambu Studio or MakerWorld project `.3mf`, not the already archived sliced `.gcode.3mf` payload.
 
+## Relationship To Forensics Recovery
+
+This document covers the popup-driven source `.3mf` attachment and image-import flow for an archive that already exists.
+
+It is adjacent to, but distinct from, the local forensic recovery workflow built around:
+
+- [tools/bambuddy/gcode_forensics_viewer.py](../../../tools/bambuddy/gcode_forensics_viewer.py)
+- [tools/bambuddy/run_forensics_import_queue.py](../../../tools/bambuddy/run_forensics_import_queue.py)
+- [archive-historical-backfill-from-sd-card.md](./archive-historical-backfill-from-sd-card.md)
+
+That distinction matters because there are now three separate operator intents:
+
+1. `create_archive_upload`
+  - create a new canonical Bambuddy archive from a sliced `.3mf` or `.gcode.3mf`
+2. `attach_source_only`
+  - attach a source/project `.3mf` to an existing archive for provenance and later image extraction
+3. `wrap_raw_gcode_experimental`
+  - future experimental path that would try to synthesize a Bambu-style package from raw `.gcode`
+
+Only the second item belongs to this document.
+
+The repo's forensics runner can now execute that second path directly when the manifest writeback already identifies a target archive:
+
+- `attach_source_only` with `archive_id` set
+- upload through Bambuddy `POST /api/v1/archives/{id}/source`
+
+That execution path is still provenance-only. It does not convert a raw `.gcode` into a canonical archive artifact and it does not replace `POST /archives/upload`.
+
 ## Goals
 
 - let the operator attach richer model-facing imagery to an existing archive without leaving the HA popup
@@ -38,6 +66,7 @@ The intended real-world source is the original Bambu Studio or MakerWorld projec
 - replacing Bambuddy's `source_3mf_path` feature
 - building a general-purpose 3MF file manager in HA
 - synchronizing arbitrary parsed project-page fields back into Bambuddy's schema
+- exercising or validating a future raw-gcode-to-`.gcode.3mf` synthesis path
 
 ## Why This Belongs In HA
 
@@ -53,6 +82,8 @@ But current Bambuddy behavior does not provide the workflow this feature needs:
 - it does not automatically import embedded source images into archive photos
 - it does not prompt the user to choose which embedded images to keep
 - it does not automatically write selective project metadata back into archive fields
+
+It also does not turn a raw `.gcode` into a canonical `.gcode.3mf`, and it should not be treated as a fallback for the experimental raw-wrap path.
 
 HA already owns the popup UX and already has the authenticated photo-upload bridge, so HA is the correct place for the operator selection workflow.
 
