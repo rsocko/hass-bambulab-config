@@ -565,6 +565,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return String(entity.state || "").trim().replace(/\/$/, "");
   }
 
+  _parseJson(value, fallbackValue) {
+    try {
+      var parsed = typeof value === "string" ? JSON.parse(value || "null") : value;
+      return parsed == null ? fallbackValue : parsed;
+    } catch (_error) {
+      return fallbackValue;
+    }
+  }
+
   _computeRenderSignature(hass) {
     if (!this._config || !hass || !hass.states) {
       return "";
