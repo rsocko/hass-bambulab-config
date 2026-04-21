@@ -438,6 +438,31 @@ class FakeApiClient:
             "message": "Timelapse replaced successfully" if save_mode == "replace" else "Saved as new timelapse",
         }
 
+    async def async_upload_archive_timelapse(
+        self,
+        archive_id: int,
+        *,
+        file_name: str,
+        mime_type: str,
+        content: bytes,
+    ) -> dict[str, object]:
+        normalized_archive_id = int(archive_id)
+        record = {
+            "archive_id": normalized_archive_id,
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "byte_count": len(content),
+        }
+        type(self).uploaded_photos.append(record)
+        for index, item in enumerate(type(self).archives):
+            if int(item.get("id", 0)) != normalized_archive_id:
+                continue
+            updated = dict(item)
+            updated["timelapse_path"] = f"archive_timelapses/{normalized_archive_id}/{file_name}"
+            type(self).archives[index] = updated
+            break
+        return {"status": "attached", "filename": file_name}
+
     async def async_fetch_projects(self) -> list[dict[str, object]]:
         return [dict(item) for item in self.projects]
 
@@ -2049,6 +2074,115 @@ def test_variant3_timelapse_process_view_refreshes_archive_detail(tmp_path: Path
             "audio_byte_count": 16,
         }
     ]
+
+
+def test_variant3_timelapse_process_view_rejects_save_as_new_mode(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    process_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_PROCESS_URL)
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart("trim_start", text="5"),
+            FakeMultipartPart("trim_end", text="30"),
+            FakeMultipartPart("speed", text="1.5"),
+            FakeMultipartPart("save_mode", text="new"),
+            FakeMultipartPart("output_filename", text="should-not-be-used.mp4"),
+        ],
+    )
+
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.processed_timelapses = []
+
+    try:
+        response = asyncio.run(process_view.post(request))
+    finally:
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 400
+    assert payload["success"] is False
+    assert payload["error"] == "invalid_payload"
+    assert "Only save_mode='replace' is supported" in payload["message"]
+    assert FakeApiClient.processed_timelapses == []
+
+
+def test_variant3_timelapse_upload_view_requires_delete_before_reupload(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager.archives[0]["timelapse_path"] = "archive_timelapses/101/print-101.mp4"
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_UPLOAD_URL)
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart(
+                "file",
+                filename="replacement.mp4",
+                content=b"replacement-video-bytes",
+                content_type="video/mp4",
+            ),
+        ],
+    )
+
+    response = asyncio.run(upload_view.post(request))
+
+    payload = response["payload"]
+    assert response["status"] == 400
+    assert payload["success"] is False
+    assert payload["error"] == "resolve_failed"
+    assert payload["message"] == (
+        "This archive already has an attached timelapse. Delete the existing timelapse first before uploading a new file."
+    )
 
 
 def test_variant3_restore_workflow_services_manage_upload_plan_verify_and_clear(tmp_path: Path) -> None:

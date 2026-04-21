@@ -35,9 +35,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._metadataCorrectionPreview = null;
     this._metadataCorrectionError = "";
     this._metadataCorrectionPreviewKey = "";
+    this._timelapseScanResponse = null;
     this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
+    this._boundArchiveUpdatedHandler = this._handleExternalArchiveUpdate.bind(this);
   }
 
   setConfig(config) {
@@ -93,6 +95,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._metadataCorrectionPreview = null;
     this._metadataCorrectionError = "";
     this._metadataCorrectionPreviewKey = "";
+    this._timelapseScanResponse = null;
     this._lastRenderSignature = "";
     this._render();
   }
@@ -115,6 +118,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this.shadowRoot.addEventListener("click", this._boundClickHandler);
       this.shadowRoot.addEventListener("change", this._boundSourceUploadChangeHandler);
     }
+    window.addEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
     this._maybeLoadInitialCompare();
   }
 
@@ -123,6 +127,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this.shadowRoot.removeEventListener("click", this._boundClickHandler);
       this.shadowRoot.removeEventListener("change", this._boundSourceUploadChangeHandler);
     }
+    window.removeEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
   }
 
   getCardSize() {
@@ -219,6 +224,23 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._statusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
     this._lastRenderSignature = "";
     this._render();
+  }
+
+  _handleExternalArchiveUpdate(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : null;
+    var updatedArchive = detail && detail.archive && typeof detail.archive === "object" ? detail.archive : null;
+    var archiveId = updatedArchive && updatedArchive.id != null
+      ? String(updatedArchive.id)
+      : detail && detail.archive_id != null
+        ? String(detail.archive_id)
+        : "";
+    var currentArchive = this._resolveArchive();
+    var currentArchiveId = currentArchive && currentArchive.id != null ? String(currentArchive.id) : "";
+    if (!archiveId || !updatedArchive || !currentArchiveId || archiveId !== currentArchiveId) {
+      return;
+    }
+
+    this._setArchive(Object.assign({}, currentArchive, updatedArchive));
   }
 
   _normalizeMainTab(tabId) {
@@ -1267,6 +1289,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (this._busy) {
       return;
     }
+    var archive = this._resolveArchive();
+    if (this._timelapsePath(archive)) {
+      this._setStatus("This archive already has a timelapse. Delete it first before uploading a different file.", "error");
+      return;
+    }
     var input = this.shadowRoot ? this.shadowRoot.getElementById("timelapse-upload-input") : null;
     if (!input) {
       return;
@@ -1576,13 +1603,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (!file || archiveId <= 0) {
       return;
     }
+    if (this._timelapsePath(archive)) {
+      this._setStatus("This archive already has a timelapse. Delete it first before uploading a different file.", "error");
+      return;
+    }
     if (!/\.(mp4|avi|mkv)$/i.test(String(file.name || ""))) {
       this._setStatus("Timelapse upload only accepts .mp4, .avi, or .mkv files.", "error");
       return;
     }
 
     try {
-      this._setBusyState(true, this._timelapsePath(archive) ? "Replacing timelapse..." : "Uploading timelapse...", "info", "upload-timelapse");
+      this._setBusyState(true, "Uploading timelapse...", "info", "upload-timelapse");
       var response = await this._postTimelapseUpload(file, archiveId);
       var payload = response && typeof response === "object" ? response : {};
       var nextArchive = payload && payload.archive && typeof payload.archive === "object"
@@ -1591,7 +1622,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._busy = false;
       this._busyContext = "";
       this._setArchive(nextArchive);
-      this._setStatus(payload && payload.upload && payload.upload.replaced_existing ? "Timelapse replaced." : "Timelapse uploaded.", "success");
+      this._setStatus("Timelapse uploaded.", "success");
     } catch (error) {
       this._busy = false;
       this._busyContext = "";
@@ -1740,6 +1771,44 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return "error";
   }
 
+  _timelapseScanDiagnosticsMarkup() {
+    var response = this._timelapseScanResponse;
+    if (!response || typeof response !== "object") {
+      return "";
+    }
+
+    var scanResult = response.scan_result && typeof response.scan_result === "object" ? response.scan_result : {};
+    var rows = [];
+    var status = String(response.status || scanResult.status || "").trim();
+    var attachedName = String(scanResult.filename || response.filename || "").trim();
+    var autoAssignedPrinterId = Number(scanResult.auto_assigned_printer_id || response.auto_assigned_printer_id || 0);
+    var matchStrategy = String(scanResult.match_strategy || scanResult.strategy || "").trim();
+    var availableFiles = Array.isArray(scanResult.available_files) ? scanResult.available_files : [];
+    var candidateNames = availableFiles.slice(0, 3).map(function (item) {
+      return String(item && item.name || "").trim();
+    }).filter(Boolean);
+
+    if (status) {
+      rows.push("<strong>Last scan status:</strong> " + this._escapeHtml(status));
+    }
+    if (attachedName) {
+      rows.push("<strong>Attached file:</strong> " + this._escapeHtml(attachedName));
+    }
+    if (matchStrategy) {
+      rows.push("<strong>Match strategy:</strong> " + this._escapeHtml(matchStrategy));
+    }
+    if (autoAssignedPrinterId > 0) {
+      rows.push("<strong>Auto-assigned printer:</strong> " + this._escapeHtml(String(autoAssignedPrinterId)));
+    }
+    if (availableFiles.length) {
+      rows.push("<strong>Candidate files:</strong> " + this._escapeHtml(String(availableFiles.length)) + (candidateNames.length ? " (" + this._escapeHtml(candidateNames.join(", ")) + (availableFiles.length > candidateNames.length ? ", ..." : "") + ")" : ""));
+    }
+
+    return rows.length
+      ? '<div class="section-copy"><strong>Last scan details.</strong><br>' + rows.join("<br>") + '</div>'
+      : "";
+  }
+
   async _callStorageMetricsService(service, archiveId, forceRefresh) {
     if (!this._hass || typeof this._hass.callService !== "function" || archiveId <= 0) {
       throw new Error("Archive action context is unavailable");
@@ -1822,6 +1891,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     try {
       this._setBusyState(true, "Scanning printer for timelapse...", "info", "scan-timelapse");
       var response = await this._requestArchiveAction("scan_timelapse");
+      this._timelapseScanResponse = response && typeof response === "object" ? response : null;
       var nextArchive = response && response.archive && typeof response.archive === "object"
         ? response.archive
         : null;
@@ -1834,6 +1904,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     } catch (error) {
       this._busy = false;
       this._busyContext = "";
+      this._timelapseScanResponse = null;
       this._setStatus(this._describeError(error, "Timelapse scan failed"), "error");
     }
   }
@@ -2899,7 +2970,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         hasTimelapse
           ? "This archive already has an attached timelapse. You can view it or replace it with a new .mp4, .avi, or .mkv upload. Only one timelapse is tracked per archive."
           : "Ask Bambuddy to scan the printer for a matching timelapse, or upload one manually as .mp4, .avi, or .mkv. If the archive is missing a printer and Bambuddy only has one configured printer, the scan will assign it automatically first. Only one timelapse is tracked per archive."
-      ) + '</div>'
+      ) + '</div>' + this._timelapseScanDiagnosticsMarkup()
     );
     var storageActions = this._renderStorageSection(archive);
     var analyticsActions = this._renderActionSection(

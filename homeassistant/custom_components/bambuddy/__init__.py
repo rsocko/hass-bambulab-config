@@ -45,6 +45,7 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
+    TIMELAPSE_DELETE_URL,
     TIMELAPSE_INFO_URL,
     TIMELAPSE_PROCESS_URL,
     TIMELAPSE_THUMBNAILS_URL,
@@ -257,6 +258,27 @@ def _resolve_archive_model_resource(
     raise HomeAssistantError(f"Archive {archive_id} does not have an archived 3MF or attached source 3MF")
 
 
+def _normalize_timelapse_scan_error(error: RuntimeError) -> str:
+    message = str(error).strip()
+    normalized = message.lower()
+
+    if "archive has no associated printer" in normalized or "printer not found" in normalized:
+        return (
+            "Bambuddy could not resolve the printer for this archive. "
+            "The manual scan only auto-assigns a printer when exactly one printer is configured, "
+            "so verify the archive's printer_id or the Bambuddy printer list."
+        )
+
+    if "failed to connect to printer or no timelapse directory found" in normalized:
+        return (
+            "Bambuddy could not find a timelapse directory or usable timelapse files on the printer SD card. "
+            "That usually means the printer is offline, the archive points at the wrong printer, "
+            "timelapse was disabled for that print, or the SD card simply does not currently have any timelapse video to scan."
+        )
+
+    return message
+
+
 async def _build_archive_action_response(
     hass: HomeAssistant,
     manager: PrintHistoryBrowserManager,
@@ -304,7 +326,10 @@ async def _build_archive_action_response(
             printer_id=_extract_archive_id(archive.get("printer_id")),
             operation="assign_archive_printer_for_timelapse_scan",
         )
-        scan_result = await client.async_scan_archive_timelapse(archive_id) or {}
+        try:
+            scan_result = await client.async_scan_archive_timelapse(archive_id) or {}
+        except RuntimeError as error:
+            raise HomeAssistantError(_normalize_timelapse_scan_error(error)) from error
         scan_status = str(scan_result.get("status") or "unknown").strip() or "unknown"
         scan_message = str(scan_result.get("message") or "").strip()
         available_files = scan_result.get("available_files")
@@ -1980,6 +2005,17 @@ class ArchiveTimelapseUploadView(HomeAssistantView):
             resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
             if not await manager.async_ensure_archive_loaded(archive_id_value):
                 raise HomeAssistantError(f"Archive {archive_id_value} was not found in the Bambuddy local store")
+            archive = next(
+                (item for item in manager.archives if _extract_archive_id(item.get("id")) == archive_id_value),
+                None,
+            ) or manager.store.load_archive(archive_id_value)
+            if not isinstance(archive, dict):
+                raise HomeAssistantError(f"Archive {archive_id_value} could not be loaded from the Bambuddy local store")
+            timelapse_path = str(archive.get("timelapse_path") or "").strip()
+            if timelapse_path:
+                raise HomeAssistantError(
+                    "This archive already has an attached timelapse. Delete the existing timelapse first before uploading a new file."
+                )
         except HomeAssistantError as error:
             return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
 
@@ -2088,6 +2124,67 @@ class ArchiveTimelapseUploadView(HomeAssistantView):
                     "message": str(error),
                     "diagnostics": diagnostics,
                 },
+                status=502,
+            )
+
+
+class ArchiveTimelapseDeleteView(HomeAssistantView):
+    url = TIMELAPSE_DELETE_URL
+    name = "api:bambuddy:print-history:archive:timelapse:delete"
+    requires_auth = True
+
+    async def delete(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        hass = request.app["hass"]
+        archive_id_value = _extract_archive_id(request.match_info.get(CONF_ARCHIVE_ID) or archive_id)
+        if archive_id_value is None:
+            return web.json_response(
+                {"success": False, "error": "archive_id_required", "message": "archive_id must be a positive integer."},
+                status=400,
+            )
+
+        entry_id_raw = str(request.query.get(CONF_ENTRY_ID, "") or "").strip() or None
+        try:
+            resolved_entry_id, manager = _resolve_manager(hass, entry_id_raw)
+            if not await manager.async_ensure_archive_loaded(archive_id_value):
+                raise HomeAssistantError(f"Archive {archive_id_value} was not found in the Bambuddy local store")
+        except HomeAssistantError as error:
+            return web.json_response({"success": False, "error": "resolve_failed", "message": str(error)}, status=400)
+
+        try:
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            await client.async_delete_archive_timelapse(archive_id_value)
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id_value,
+                operation="delete_archive_timelapse",
+                extra_details={},
+            )
+            if refreshed_archive is None:
+                raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after timelapse deletion")
+
+            response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response.update(
+                {
+                    "success": True,
+                    CONF_ENTRY_ID: resolved_entry_id,
+                    CONF_ARCHIVE_ID: archive_id_value,
+                    "message": "Timelapse deleted.",
+                }
+            )
+            return web.json_response(response)
+        except HomeAssistantError as error:
+            return web.json_response(
+                {"success": False, "error": "delete_failed", "message": str(error)},
+                status=400,
+            )
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "delete_failed", "message": str(error)},
                 status=502,
             )
 
@@ -2219,12 +2316,12 @@ class ArchiveTimelapseProcessView(HomeAssistantView):
 
         save_mode = str(fields.get("save_mode", "replace") or "replace").strip().lower()
         output_filename = str(fields.get("output_filename", "") or "").strip() or None
-        if save_mode not in {"replace", "new"}:
+        if save_mode != "replace":
             return web.json_response(
                 {
                     "success": False,
                     "error": "invalid_payload",
-                    "message": "save_mode must be 'replace' or 'new'.",
+                    "message": "Only save_mode='replace' is supported by the Home Assistant timelapse editor. Delete the existing timelapse first if you need to upload a different file.",
                 },
                 status=400,
             )
@@ -2249,8 +2346,8 @@ class ArchiveTimelapseProcessView(HomeAssistantView):
                 trim_start=trim_start,
                 trim_end=trim_end,
                 speed=speed,
-                save_mode=save_mode,
-                output_filename=output_filename,
+                save_mode="replace",
+                output_filename=None,
                 audio_file_name=audio_name or None,
                 audio_mime_type=audio_content_type,
                 audio_content=b"".join(audio_chunks) if audio_chunks else None,
@@ -2403,6 +2500,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.http.register_view(ReplacementArchiveDiscoverView())
         hass.http.register_view(ArchiveSource3mfUploadView())
         hass.http.register_view(ArchiveTimelapseUploadView())
+        hass.http.register_view(ArchiveTimelapseDeleteView())
         hass.http.register_view(ArchiveTimelapseInfoView())
         hass.http.register_view(ArchiveTimelapseThumbnailsView())
         hass.http.register_view(ArchiveTimelapseProcessView())

@@ -11,6 +11,9 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     this._infoError = "";
     this._playbackRate = 1;
     this._refreshToken = "";
+    this._actionBusy = false;
+    this._actionStatus = "";
+    this._actionStatusTone = "info";
     this._lastRenderSignature = "";
     this._boundProcessedHandler = this._handleTimelapseProcessed.bind(this);
   }
@@ -38,6 +41,9 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     this._infoError = "";
     this._playbackRate = 1;
     this._refreshToken = "";
+    this._actionBusy = false;
+    this._actionStatus = "";
+    this._actionStatusTone = "info";
     this._lastRenderSignature = "";
     this._render();
   }
@@ -168,6 +174,15 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     return "/api/bambuddy/print-history/archive/" + encodeURIComponent(archiveId) + "/timelapse/info" + query;
   }
 
+  _timelapseDeleteUrl(archive) {
+    var archiveId = archive && archive.id != null ? String(archive.id) : "";
+    if (!archiveId) {
+      return "";
+    }
+    var query = this._config && this._config.entry_id ? "?entry_id=" + encodeURIComponent(String(this._config.entry_id)) : "";
+    return "/api/bambuddy/print-history/archive/" + encodeURIComponent(archiveId) + "/timelapse" + query;
+  }
+
   async _authHeaders(forceRefresh) {
     var auth = this._hass && this._hass.auth ? this._hass.auth : null;
     if (!auth) {
@@ -232,12 +247,119 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     }
     if (detail.archive && typeof detail.archive === "object") {
       this._archiveOverride = Object.assign({}, archive, detail.archive);
+      this._emitArchiveStateChanged(this._archiveOverride);
     }
     this._refreshToken = String(detail.cacheBust || Date.now());
     this._infoBundle = null;
     this._infoArchiveId = "";
     this._infoError = "";
+    this._actionStatus = "Timelapse updated.";
+    this._actionStatusTone = "success";
     this._lastRenderSignature = "";
+    this._render();
+  }
+
+  _snapshotArchiveState(archive) {
+    if (!archive || typeof archive !== "object") {
+      return null;
+    }
+
+    var snapshot = Object.assign({}, archive);
+    if (snapshot.storage_metrics && typeof snapshot.storage_metrics === "object") {
+      snapshot.storage_metrics = Object.assign({}, snapshot.storage_metrics);
+      if (snapshot.storage_metrics.artifacts && typeof snapshot.storage_metrics.artifacts === "object") {
+        snapshot.storage_metrics.artifacts = Object.assign({}, snapshot.storage_metrics.artifacts);
+      }
+      if (snapshot.storage_metrics.metrics && typeof snapshot.storage_metrics.metrics === "object") {
+        snapshot.storage_metrics.metrics = Object.assign({}, snapshot.storage_metrics.metrics);
+      }
+    }
+    return snapshot;
+  }
+
+  _emitArchiveStateChanged(archive) {
+    var nextArchive = this._snapshotArchiveState(archive || this._resolveArchive());
+    var archiveId = nextArchive && nextArchive.id != null ? String(nextArchive.id) : "";
+    if (!archiveId || typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent("bambuddy-print-history-archive-updated", {
+      detail: {
+        archive_id: archiveId,
+        archive: nextArchive,
+      },
+    }));
+  }
+
+  async _deleteTimelapse() {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var endpoint = this._timelapseDeleteUrl(archive);
+    if (this._actionBusy || archiveId <= 0 || !endpoint || !this._timelapsePath(archive)) {
+      return;
+    }
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+      var confirmed = window.confirm("Delete the timelapse attached to this archive? This only removes Bambuddy's stored archive copy and does not delete files from the printer SD card.");
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    this._actionBusy = true;
+    this._actionStatus = "";
+    this._render();
+    try {
+      var response = await fetch(endpoint, {
+        method: "DELETE",
+        headers: await this._authHeaders(false),
+        credentials: "same-origin",
+      });
+      if (response.status === 401) {
+        response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: await this._authHeaders(true),
+          credentials: "same-origin",
+        });
+      }
+      var payload = {};
+      try {
+        payload = await response.json();
+      } catch (_error) {
+        payload = {};
+      }
+      if (!response.ok) {
+        throw new Error(String(payload.message || payload.error || ("Could not delete timelapse (HTTP " + String(response.status) + ")")));
+      }
+
+      var nextArchive = payload && payload.archive && typeof payload.archive === "object"
+        ? payload.archive
+        : Object.assign({}, archive, {
+            timelapse_path: "",
+            storage_metrics: archive && archive.storage_metrics && typeof archive.storage_metrics === "object"
+              ? Object.assign({}, archive.storage_metrics, {
+                  artifacts: archive.storage_metrics.artifacts && typeof archive.storage_metrics.artifacts === "object"
+                    ? Object.assign({}, archive.storage_metrics.artifacts, { timelapse_path: null })
+                    : archive.storage_metrics.artifacts,
+                  metrics: archive.storage_metrics.metrics && typeof archive.storage_metrics.metrics === "object"
+                    ? Object.assign({}, archive.storage_metrics.metrics, { timelapse_bytes: 0 })
+                    : archive.storage_metrics.metrics,
+                })
+              : archive && archive.storage_metrics,
+          });
+      this._archiveOverride = nextArchive;
+      this._refreshToken = String(Date.now());
+      this._infoBundle = null;
+      this._infoArchiveId = "";
+      this._infoError = "";
+      this._actionStatus = String(payload.message || "Timelapse deleted.");
+      this._actionStatusTone = "success";
+      this._emitArchiveStateChanged(nextArchive);
+    } catch (error) {
+      this._actionStatus = String(error && error.message ? error.message : error || "Could not delete timelapse");
+      this._actionStatusTone = "error";
+    }
+    this._actionBusy = false;
     this._render();
   }
 
@@ -328,6 +450,12 @@ class PrintHistoryTimelapseCard extends HTMLElement {
           self._applyPlaybackRate(button.getAttribute("data-rate"));
         });
       });
+    var deleteButton = this.shadowRoot.querySelector('[data-action="delete-timelapse"]');
+    if (deleteButton) {
+      deleteButton.addEventListener("click", function () {
+        self._deleteTimelapse();
+      });
+    }
   }
 
   _render() {
@@ -368,14 +496,18 @@ class PrintHistoryTimelapseCard extends HTMLElement {
         : statMarkup
           ? '<div class="stats-grid">' + statMarkup + '</div>'
           : "";
+    var actionStatusMarkup = this._actionStatus
+      ? '<div class="notice ' + this._escapeHtml(this._actionStatusTone) + '">' + this._escapeHtml(this._actionStatus) + '</div>'
+      : "";
     var content = !timelapseUrl
       ? '<div class="empty">No timelapse is attached to this archive.</div>'
       : '<div class="player-shell">'
         + '<video class="player" controls playsinline preload="metadata" src="' + this._escapeHtml(timelapseUrl) + '"></video>'
         + '<div class="meta-row"><div class="meta-copy"><div class="meta-title">' + this._escapeHtml(archiveName) + '</div>'
         + (filename ? '<div class="meta-file">' + this._escapeHtml(filename) + '</div>' : '')
-        + '</div><a class="open-link" href="' + this._escapeHtml(timelapseUrl) + '" target="_blank" rel="noopener noreferrer">Open or Download</a></div>'
+        + '</div><div class="action-row"><a class="open-link" href="' + this._escapeHtml(timelapseUrl) + '" target="_blank" rel="noopener noreferrer">Open or Download</a><button class="delete-link" type="button" data-action="delete-timelapse"' + (this._actionBusy ? ' disabled' : '') + '>' + (this._actionBusy ? 'Deleting...' : 'Delete Timelapse') + '</button></div></div>'
         + rateMarkup
+        + actionStatusMarkup
         + infoMarkup
         + playbackNotice
         + '</div>';
@@ -390,11 +522,14 @@ class PrintHistoryTimelapseCard extends HTMLElement {
       + '.player-shell{display:flex;flex-direction:column;gap:12px;}'
       + '.player{display:block;width:100%;max-height:min(72vh,720px);border-radius:16px;background:#050a13;outline:none;}'
       + '.meta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
+      + '.action-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}'
       + '.meta-copy{display:flex;flex-direction:column;gap:4px;min-width:0;}'
       + '.meta-title{font-size:15px;font-weight:700;line-height:1.35;word-break:break-word;}'
       + '.meta-file{font-size:12px;line-height:1.45;color:var(--secondary-text-color);word-break:break-all;}'
       + '.open-link{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:999px;border:1px solid rgba(96,165,250,0.28);background:rgba(30,64,175,0.18);color:var(--primary-text-color);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;}'
       + '.open-link:hover,.open-link:focus-visible{background:rgba(30,64,175,0.28);border-color:rgba(96,165,250,0.42);outline:none;}'
+      + '.delete-link{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:999px;border:1px solid rgba(248,113,113,0.28);background:rgba(127,29,29,0.18);color:var(--primary-text-color);font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;}'
+      + '.delete-link[disabled]{opacity:0.6;cursor:default;}'
       + '.rate-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}'
       + '.rate-label{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);}'
       + '.rate-buttons{display:flex;gap:8px;flex-wrap:wrap;}'
@@ -408,6 +543,8 @@ class PrintHistoryTimelapseCard extends HTMLElement {
       + '.empty{background:rgba(255,255,255,0.04);color:var(--secondary-text-color);}'
       + '.notice.warning{background:rgba(239,108,0,0.14);border:1px solid rgba(255,167,38,0.2);}'
       + '.notice.info{background:rgba(30,64,175,0.14);border:1px solid rgba(96,165,250,0.18);}'
+      + '.notice.success{background:rgba(15,118,110,0.18);border:1px solid rgba(45,212,191,0.18);}'
+      + '.notice.error{background:rgba(127,29,29,0.22);border:1px solid rgba(248,113,113,0.18);}'
       + '@media (max-width: 640px){.shell{padding:14px;}.player{max-height:56vh;}.meta-row{align-items:flex-start;}.open-link{width:100%;}}'
       + '</style>'
       + '<ha-card>'

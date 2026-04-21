@@ -258,8 +258,6 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
     var trimStart = this._numericValue("#trim-start", 0);
     var trimEnd = this._numericValue("#trim-end", null);
     var speed = this._numericValue("#playback-speed", 1);
-    var saveMode = this._readInputValue("#save-mode") || "replace";
-    var outputFilename = this._readInputValue("#output-filename");
     if (trimEnd != null && trimEnd !== "" && trimEnd <= trimStart) {
       this._setStatus("Trim end must be greater than trim start.", "error");
       return;
@@ -278,10 +276,7 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
       formData.append("trim_end", String(trimEnd));
     }
     formData.append("speed", String(speed));
-    formData.append("save_mode", saveMode);
-    if (outputFilename) {
-      formData.append("output_filename", outputFilename);
-    }
+    formData.append("save_mode", "replace");
     var audioInput = this.shadowRoot ? this.shadowRoot.querySelector("#audio-file") : null;
     var audioFile = audioInput && audioInput.files && audioInput.files[0] ? audioInput.files[0] : null;
     if (audioFile) {
@@ -397,11 +392,10 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
           + '<label class="field"><span>Trim Start</span><input id="trim-start" type="number" min="0" step="0.1" value="0"></label>'
           + '<label class="field"><span>Trim End</span><input id="trim-end" type="number" min="0" step="0.1" value="' + this._escapeHtml(duration ? String(duration) : "") + '" placeholder="End of clip"></label>'
           + '<label class="field"><span>Playback Speed</span><select id="playback-speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="1.5">1.5x</option><option value="2">2x</option><option value="3">3x</option></select></label>'
-          + '<label class="field"><span>Save Mode</span><select id="save-mode"><option value="replace" selected>Replace Current Timelapse</option><option value="new">Save As New File</option></select></label>'
+          + '<div class="field field-readonly"><span>Save Mode</span><div class="readonly-value">Replace Current Timelapse</div></div>'
           + '</div>'
-          + '<label class="field wide"><span>Output Filename</span><input id="output-filename" type="text" placeholder="Only used when save mode is new"></label>'
           + '<label class="field wide"><span>Optional Audio Overlay</span><input id="audio-file" type="file" accept=".mp3,.wav,.m4a,.aac,.ogg,audio/mpeg,audio/wav,audio/aac,audio/ogg"></label>'
-          + '<div class="section-copy">Use trim start and trim end for the clip window, then send the processing request through `timelapse/process`. Save as new remains backend-only for now and does not add alternate files to the Layer 1 archive projection.</div>'
+          + '<div class="section-copy">Use trim start and trim end for the clip window, then send the processing request through timelapse/process. Edits always replace the attached Bambuddy timelapse in place, so this flow does not create alternate archive video files.</div>'
           + this._thumbnailMarkup()
           + '<div class="footer-row"><div class="helper">Duration ' + this._escapeHtml(this._formatSeconds(duration)) + ' · editor data stays on-demand and out of Layer 1.</div><button class="action-button primary" type="button" data-action="process-timelapse"' + (this._saving ? ' disabled' : '') + '>' + (this._saving ? 'Processing...' : 'Save Timelapse Changes') + '</button></div>'
           + '</div>';
@@ -425,12 +419,14 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
       + '.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}'
       + '.field{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
       + '.field.wide{width:100%;}'
+      + '.field-readonly{justify-content:flex-end;}'
       + '.field input,.field select{width:100%;border-radius:12px;border:1px solid color-mix(in srgb, var(--divider-color, rgba(255,255,255,0.18)) 82%, rgba(255,255,255,0.12));background:color-mix(in srgb, var(--card-background-color, rgba(15,23,42,0.72)) 84%, rgba(255,255,255,0.06));color:var(--primary-text-color);padding:12px 14px;font:inherit;box-sizing:border-box;box-shadow:none;}'
       + '.field select{appearance:none;-webkit-appearance:none;-moz-appearance:none;padding-right:40px;background-image:linear-gradient(45deg,transparent 50%, var(--secondary-text-color) 50%),linear-gradient(135deg,var(--secondary-text-color) 50%, transparent 50%);background-position:calc(100% - 18px) calc(50% - 3px),calc(100% - 12px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;color-scheme:light dark;}'
       + '.field select option{background:var(--card-background-color, #111827);color:var(--primary-text-color);}'
       + '.field input[type="file"]{padding:10px 12px;}'
       + '.field input:focus,.field select:focus{outline:none;border-color:rgba(96,165,250,0.42);background:color-mix(in srgb, var(--card-background-color, rgba(15,23,42,0.82)) 88%, rgba(96,165,250,0.10));}'
       + '.field input::placeholder{color:var(--secondary-text-color);}'
+      + '.readonly-value{display:flex;align-items:center;min-height:46px;border-radius:12px;border:1px solid color-mix(in srgb, var(--divider-color, rgba(255,255,255,0.18)) 82%, rgba(255,255,255,0.12));background:color-mix(in srgb, var(--card-background-color, rgba(15,23,42,0.72)) 72%, rgba(255,255,255,0.10));color:var(--primary-text-color);padding:12px 14px;box-sizing:border-box;}'
       + '.section-copy,.helper{font-size:13px;line-height:1.5;color:var(--secondary-text-color);}'
       + '.action-button{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:var(--primary-text-color);font-size:12px;font-weight:800;cursor:pointer;}'
       + '.action-button.primary{border-color:rgba(96,165,250,0.28);background:rgba(30,64,175,0.18);}'
