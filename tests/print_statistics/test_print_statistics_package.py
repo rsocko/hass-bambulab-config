@@ -70,6 +70,7 @@ class TestPrintStatisticsPackage(unittest.TestCase):
             STATS / "dashboard_cards" / "insights" / "chart_prints_by_filament_type.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_prints_by_printer.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_failure_reasons.yaml",
+            STATS / "dashboard_cards" / "insights" / "chart_failure_rate_trend.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_failures_by_filament_type.yaml",
             STATS / "dashboard_cards" / "insights" / "failure_recent_summary.yaml",
             STATS / "dashboard_cards" / "insights" / "chart_time_accuracy_by_printer.yaml",
@@ -103,6 +104,12 @@ class TestPrintStatisticsPackage(unittest.TestCase):
         self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'failures_by_printer')", content)
         self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'trend')", content)
         self.assertIn("state_attr('sensor.bambuddy_failure_analysis', 'recent_failures')", content)
+
+    def test_failure_trend_chart_exists(self):
+        content = (STATS / "dashboard_cards" / "insights" / "chart_failure_rate_trend.yaml").read_text(encoding="utf-8")
+        self.assertIn("custom:apexcharts-card", content)
+        self.assertIn("entity?.attributes?.trend", content)
+        self.assertIn("Failure Rate Trend", content)
 
 
 if __name__ == "__main__":

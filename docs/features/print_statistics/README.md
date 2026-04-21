@@ -44,6 +44,7 @@ homeassistant/packages/3d_printing/print_statistics/
 │   ├── statistics_insights.yaml
 │   └── insights/
 │       ├── chart_failure_reasons.yaml
+│       ├── chart_failure_rate_trend.yaml
 │       ├── chart_failures_by_filament_type.yaml
 │       ├── chart_prints_by_filament_type.yaml
 │       ├── chart_prints_by_printer.yaml
@@ -154,8 +155,11 @@ Displays the first reusable chart slice:
 - time accuracy by printer
 - failures by material
 - recent failure summary with current versus prior trend bucket
+- failure-rate trend line from Bambuddy week-bucket trend data
 
 The current implementation only charts failure reasons. Trend and recent-failure payloads are now passed through in `sensor.bambuddy_failure_analysis` and `sensor.bambuddy_statistics_metrics` for the next failure-analysis card slice.
+
+For interactive filtering beyond the default aggregate sensor window, use the Bambuddy integration response service `bambuddy.get_failure_analysis` or the matching websocket command instead of multiplying helper-bound REST sensors.
 
 ## Dependencies
 

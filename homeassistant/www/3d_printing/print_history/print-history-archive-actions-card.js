@@ -328,6 +328,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._openMetadataViewer(false);
       return;
     }
+    if (action === "open-failure-analysis") {
+      this._openFailureAnalysis();
+      return;
+    }
     if (action === "open-related") {
       this._loadRelatedCandidates({ compareIntent: false });
       return;
@@ -769,6 +773,21 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     document.body.removeChild(anchor);
   }
 
+  _statisticsNavigationUrl(extraParams) {
+    var basePath = "/3d-printing/statistics";
+    var params = extraParams && typeof extraParams === "object" ? extraParams : {};
+    var query = new URLSearchParams();
+    Object.keys(params).forEach(function (key) {
+      var value = params[key];
+      if (value == null || value === "") {
+        return;
+      }
+      query.set(key, String(value));
+    });
+    var queryString = query.toString();
+    return queryString ? basePath + "?" + queryString : basePath;
+  }
+
   async _requestArchiveAction(intent) {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -814,6 +833,25 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._busy = false;
       this._setStatus(this._describeError(error, "Could not start the download"), "error");
     }
+  }
+
+  async _openFailureAnalysis() {
+    var archive = this._resolveArchive();
+    var navigationUrl = this._statisticsNavigationUrl({
+      source: "print_history",
+      archive_id: archive && archive.id != null ? archive.id : "",
+      printer_id: archive && archive.printer_id != null ? archive.printer_id : "",
+      project_id: archive && archive.project_id != null ? archive.project_id : "",
+    });
+
+    if (this._hass && typeof this._hass.callService === "function") {
+      try {
+        await this._hass.callService("browser_mod", "close_popup", {});
+      } catch (_error) {
+        // Ignore popup-close failures and still navigate.
+      }
+    }
+    this._openWindow(navigationUrl, "_self");
   }
 
   _decodeHtmlEntities(value) {
@@ -2212,6 +2250,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       "Archive",
       '<div class="actions-grid">' +
         this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
+        this._renderActionButton("open-failure-analysis", "Open Failure Analysis", "mdi:chart-line", { disabled: this._busy }) +
         this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
       '</div>'
     );

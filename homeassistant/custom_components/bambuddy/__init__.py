@@ -38,6 +38,7 @@ from .const import (
     CONF_FETCH_TIMEOUT_SECONDS,
     SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE,
     SERVICE_ESTIMATE_PARTIAL_USAGE,
+    SERVICE_GET_FAILURE_ANALYSIS,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
@@ -90,6 +91,7 @@ CONF_ARCHIVE_ID = "archive_id"
 CONF_SOURCE_ARCHIVE_ID = "source_archive_id"
 CONF_TARGET_ARCHIVE_ID = "target_archive_id"
 CONF_PRINTER_ID = "printer_id"
+CONF_PROJECT_ID = "project_id"
 CONF_UPLOAD_SESSION_ID = "upload_session_id"
 CONF_RELATED_ARCHIVE_ID = "related_archive_id"
 CONF_RELATION_TYPE = "relation_type"
@@ -108,6 +110,7 @@ WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION = "bambuddy/print_history_archive_action"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED = "bambuddy/print_history_archive_related"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE = "bambuddy/print_history_archive_compare"
+WS_TYPE_FAILURE_ANALYSIS_QUERY = "bambuddy/failure_analysis_query"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
 DATA_HTTP_VIEW_REGISTERED = f"{DOMAIN}_restore_upload_view_registered"
 
@@ -536,6 +539,16 @@ SERVICE_QUERY_SCHEMA = vol.Schema(
     }
 )
 SERVICE_DETAIL_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str, vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int)})
+SERVICE_FAILURE_ANALYSIS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Optional("days"): vol.Coerce(int),
+        vol.Optional("date_from"): str,
+        vol.Optional("date_to"): str,
+        vol.Optional(CONF_PRINTER_ID): vol.Coerce(int),
+        vol.Optional(CONF_PROJECT_ID): vol.Coerce(int),
+    }
+)
 SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -2335,6 +2348,51 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     @websocket_api.websocket_command(
         {
+            vol.Required("type"): WS_TYPE_FAILURE_ANALYSIS_QUERY,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Optional("days"): vol.Coerce(int),
+            vol.Optional("date_from"): str,
+            vol.Optional("date_to"): str,
+            vol.Optional(CONF_PRINTER_ID): vol.Coerce(int),
+            vol.Optional(CONF_PROJECT_ID): vol.Coerce(int),
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_failure_analysis(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            session = aiohttp_client.async_get_clientsession(hass)
+            client = BambuddyApiClient(
+                session,
+                manager.base_url,
+                manager.api_key,
+                manager.fetch_timeout_seconds,
+            )
+            response = await client.async_fetch_failure_analysis(
+                days=msg.get("days"),
+                date_from=str(msg.get("date_from") or "").strip(),
+                date_to=str(msg.get("date_to") or "").strip(),
+                printer_id=msg.get(CONF_PRINTER_ID),
+                project_id=msg.get(CONF_PROJECT_ID),
+            )
+            response[CONF_ENTRY_ID] = entry_id
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "failure_analysis_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "failure_analysis_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_failure_analysis)
+
+    @websocket_api.websocket_command(
+        {
             vol.Required("type"): WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO,
             vol.Optional(CONF_ENTRY_ID): str,
             vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
@@ -2578,6 +2636,29 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
         response[CONF_ENTRY_ID] = entry_id
         response[CONF_ARCHIVE_ID] = archive_id
+        return response
+
+    async def async_handle_failure_analysis(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        session = aiohttp_client.async_get_clientsession(hass)
+        client = BambuddyApiClient(
+            session,
+            manager.base_url,
+            manager.api_key,
+            manager.fetch_timeout_seconds,
+        )
+        try:
+            response = await client.async_fetch_failure_analysis(
+                days=call.data.get("days"),
+                date_from=str(call.data.get("date_from") or "").strip(),
+                date_to=str(call.data.get("date_to") or "").strip(),
+                printer_id=call.data.get(CONF_PRINTER_ID),
+                project_id=call.data.get(CONF_PROJECT_ID),
+            )
+        except RuntimeError as err:
+            raise HomeAssistantError(str(err)) from err
+
+        response[CONF_ENTRY_ID] = entry_id
         return response
 
     async def _async_get_archive_storage_metrics(
@@ -3847,6 +3928,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
             async_handle_detail,
             schema=SERVICE_DETAIL_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_FAILURE_ANALYSIS):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_FAILURE_ANALYSIS,
+            async_handle_failure_analysis,
+            schema=SERVICE_FAILURE_ANALYSIS_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS):

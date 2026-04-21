@@ -147,6 +147,53 @@ query_print_history_browser:
       selector:
         boolean:
 
+get_failure_analysis:
+  name: Get Failure Analysis
+  description: Return Bambuddy archive failure-analysis aggregates with optional day, date, printer, or project filters.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+    days:
+      name: Days
+      description: Optional rolling window length in days.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    date_from:
+      name: Date From
+      description: Optional inclusive lower bound in YYYY-MM-DD format.
+      required: false
+      selector:
+        text:
+    date_to:
+      name: Date To
+      description: Optional inclusive upper bound in YYYY-MM-DD format.
+      required: false
+      selector:
+        text:
+    printer_id:
+      name: Printer ID
+      description: Optional printer identifier to scope the analysis.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+    project_id:
+      name: Project ID
+      description: Optional project identifier to scope the analysis.
+      required: false
+      selector:
+        number:
+          min: 1
+          mode: box
+
 get_print_history_archive_detail:
   name: Get Print History Archive Detail
   description: Return one archive plus local sync and provenance metadata from the Bambuddy store.

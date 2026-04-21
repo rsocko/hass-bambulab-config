@@ -281,6 +281,48 @@ class BambuddyApiClient:
                 raise RuntimeError("Bambuddy archive stats response was not a JSON object")
             return payload
 
+    async def async_fetch_failure_analysis(
+        self,
+        *,
+        days: int | None = None,
+        date_from: str = "",
+        date_to: str = "",
+        printer_id: int | None = None,
+        project_id: int | None = None,
+    ) -> dict[str, Any]:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        params: dict[str, str | int] = {}
+        if days is not None:
+            params["days"] = max(1, int(days))
+        if date_from:
+            params["date_from"] = str(date_from).strip()
+        if date_to:
+            params["date_to"] = str(date_to).strip()
+        if printer_id is not None:
+            params["printer_id"] = int(printer_id)
+        if project_id is not None:
+            params["project_id"] = int(project_id)
+
+        query_string = urlencode(params)
+        url = f"{self._base_url}/api/v1/archives/analysis/failures"
+        if query_string:
+            url = f"{url}?{query_string}"
+
+        async with self._session.get(
+            url,
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+            payload = await response.json()
+            if not isinstance(payload, dict):
+                raise RuntimeError("Bambuddy failure analysis response was not a JSON object")
+            return payload
+
     async def async_upload_archive_photo(
         self,
         archive_id: int,

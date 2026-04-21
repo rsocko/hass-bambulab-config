@@ -319,7 +319,7 @@ Bambuddy uses two separate viewer components:
 | `GET /tags` | Verify/audit enrichment tags |
 | `GET /slim` | Lightweight dashboard widget |
 | `GET /compare?archive_ids=...` | "This print vs last attempt" dashboard card |
-| `GET /analysis/failures` | Failure trend analysis dashboard |
+| `GET /analysis/failures` | Failure trend analysis dashboard, `bambuddy.get_failure_analysis` response service, and filtered websocket consumers |
 | `GET /{id}/capabilities` | Check 3D viewer availability |
 | `GET /{id}/gcode` | GCode viewer integration |
 | `GET /{id}/plate-preview` | Better thumbnails |

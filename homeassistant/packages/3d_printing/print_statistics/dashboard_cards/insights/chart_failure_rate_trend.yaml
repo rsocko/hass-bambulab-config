@@ -1,0 +1,37 @@
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Failure Rate Trend
+graph_span: 90d
+span:
+  end: day
+apex_config:
+  chart:
+    height: 280
+  stroke:
+    width: 3
+    curve: smooth
+  markers:
+    size: 4
+  legend:
+    show: false
+  yaxis:
+    min: 0
+    decimalsInFloat: 1
+    title:
+      text: Failure Rate (%)
+  xaxis:
+    type: datetime
+series:
+  - entity: sensor.bambuddy_failure_analysis
+    name: Failure Rate
+    color: '#C62828'
+    type: line
+    data_generator: |
+      const trend = entity?.attributes?.trend;
+      if (!Array.isArray(trend)) {
+        return [];
+      }
+      return trend
+        .filter((row) => row && row.week_start)
+        .map((row) => [new Date(row.week_start).getTime(), Number(row.failure_rate || 0)]);

@@ -245,6 +245,7 @@ class FakeApiClient:
     printers: list[dict] = []
     projects: list[dict] = []
     archive_stats: dict[str, object] = {}
+    failure_analysis: dict[str, object] = {}
     last_fetch_archives_kwargs: dict[str, object] = {}
     uploaded_photos: list[dict[str, object]] = []
     uploaded_source_3mfs: list[dict[str, object]] = []
@@ -427,6 +428,23 @@ class FakeApiClient:
 
     async def async_fetch_archive_stats(self) -> dict[str, object]:
         return dict(self.archive_stats)
+
+    async def async_fetch_failure_analysis(
+        self,
+        *,
+        days: int | None = None,
+        date_from: str = "",
+        date_to: str = "",
+        printer_id: int | None = None,
+        project_id: int | None = None,
+    ) -> dict[str, object]:
+        payload = dict(self.failure_analysis)
+        payload["requested_days"] = days
+        payload["requested_date_from"] = date_from
+        payload["requested_date_to"] = date_to
+        payload["requested_printer_id"] = printer_id
+        payload["requested_project_id"] = project_id
+        return payload
 
     async def async_upload_archive_photo(
         self,
@@ -955,6 +973,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     registered = set(hass.services._handlers)
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_BROWSER) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_QUERY_PRINT_HISTORY_BROWSER) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_GET_FAILURE_ANALYSIS) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
@@ -986,6 +1005,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert "websocket_handle_archive_action" in websocket_handler_names
     assert "websocket_handle_archive_related" in websocket_handler_names
     assert "websocket_handle_archive_compare" in websocket_handler_names
+    assert "websocket_handle_failure_analysis" in websocket_handler_names
 
     original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     original_api_client = init_module.BambuddyApiClient
@@ -999,6 +1019,18 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     FakeApiClient.toggled_favorites = []
     FakeApiClient.archive_slicer_tokens = []
     FakeApiClient.source_slicer_tokens = []
+    FakeApiClient.failure_analysis = {
+        "period_days": 30,
+        "total_prints": 10,
+        "failed_prints": 2,
+        "failure_rate": 20.0,
+        "failures_by_reason": {"Spaghetti Detection": 2},
+        "failures_by_filament": {"PLA": 2},
+        "failures_by_printer": {"Printer 1": 2},
+        "failures_by_hour": {0: 0, 1: 0},
+        "recent_failures": [],
+        "trend": [],
+    }
     FakeApiClient.uploaded_source_3mfs = []
     FakeRuntimeRepairClient.storage_scan_calls = []
     FakeRuntimeRepairClient.storage_scan_batch_calls = []
@@ -1017,6 +1049,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         detail_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL)(
                 SimpleNamespace(data={"archive_id": 101})
+            )
+        )
+        failure_analysis_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_FAILURE_ANALYSIS)(
+                SimpleNamespace(data={"days": 14, "printer_id": 22, "project_id": 7})
             )
         )
         storage_response = asyncio.run(
@@ -1176,6 +1213,10 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert detail_response["archive"]["print_name"] == "Hueforge Batman"
     assert detail_response["archive"]["effective_duration_seconds"] == 14400
     assert detail_response["archive"]["primary_photo_path"] == ""
+    assert failure_analysis_response["failure_rate"] == 20.0
+    assert failure_analysis_response["requested_days"] == 14
+    assert failure_analysis_response["requested_printer_id"] == 22
+    assert failure_analysis_response["requested_project_id"] == 7
     assert storage_response["success"] is True
     assert storage_response["source"] == "sidecar"
     assert storage_response["storage_metrics"]["metrics"]["total_bytes"] == 5583872

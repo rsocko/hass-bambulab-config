@@ -12,3 +12,4 @@ cards:
     cards:
       - !include insights/chart_failures_by_filament_type.yaml
       - !include insights/failure_recent_summary.yaml
+  - !include insights/chart_failure_rate_trend.yaml

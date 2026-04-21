@@ -63,7 +63,8 @@ This document should now be read as the follow-on backlog after that shipped bas
 
 - Treat this endpoint as a `print_statistics` concern, not a `print_history` concern.
 - Use the existing REST sensor for the default aggregate view.
-- If interactive filters such as `days`, `date_from`, `date_to`, `printer_id`, or `project_id` are needed later, add a Bambuddy response service plus websocket command instead of multiplying REST sensors.
+- For interactive filters such as `days`, `date_from`, `date_to`, `printer_id`, or `project_id`, use a Bambuddy response service plus websocket command instead of multiplying REST sensors.
+- Print History may hand off into the Statistics view with archive, printer, or project context, but it should not own the endpoint.
 
 ### Use Cases
 
@@ -107,6 +108,10 @@ json_attributes:
 - Row 3: Time-of-day heatmap (ApexCharts)
 - Row 4: Weekly trend line (ApexCharts)
 - Row 5: Recent failures list or drill-in affordance
+
+**Interactive query surface:**
+- `bambuddy.get_failure_analysis` service with `SupportsResponse.ONLY`
+- `bambuddy/failure_analysis_query` websocket command for custom-card or popup consumers
 
 **Automation: `bambuddy_failure_rate_alert`** — Daily check:
 ```yaml
