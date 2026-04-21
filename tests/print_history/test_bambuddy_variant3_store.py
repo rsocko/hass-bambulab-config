@@ -2014,6 +2014,37 @@ def test_variant3_store_persists_archive_storage_metrics_and_exposes_detail_bund
     assert stats["archive_storage_metrics_total_bytes"] == 5583872
 
 
+def test_variant3_store_persists_skip_overlay_state_and_exposes_detail_bundle(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    store.replace_archives(_projected_archives())
+
+    persisted = store.save_archive_skip_overlay_state(
+        101,
+        {
+            "overlay_version": "v1",
+            "plate_number": 4,
+            "pick_image_asset_path": "Metadata/pick_4.png",
+            "pick_image_source": "archived_gcode_3mf",
+            "skipped_ids": [12, 18],
+            "requested_skip_ids": [12, 18],
+            "object_color_map": {"12": "#112233", "18": "#445566"},
+        },
+    )
+
+    loaded = store.load_archive_skip_overlay_state(101)
+    detail_bundle = store.load_archive_detail_bundle(101)
+    stats = store.load_store_stats()
+
+    assert persisted["overlay_version"] == "v1"
+    assert persisted["plate_number"] == 4
+    assert loaded is not None
+    assert loaded["pick_image_asset_path"] == "Metadata/pick_4.png"
+    assert loaded["skipped_ids"] == [12, 18]
+    assert detail_bundle["skip_overlay_state"]["requested_skip_ids"] == [12, 18]
+    assert stats["archive_skip_overlay_state_count"] == 1
+
+
 def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()

@@ -62,6 +62,15 @@ skip_print_object:
       example: "ntk_ryansoffice_3dprinter"
       selector:
         text:
+    pick_image_entity:
+      description: >-
+        Image entity used for the current pick image overlay. Defaults to
+        image.3d_printer_pick_image for this installation.
+      required: false
+      default: "image.3d_printer_pick_image"
+      example: "image.3d_printer_pick_image"
+      selector:
+        text:
   variables:
     _prefix: "{{ printer_prefix | default('ntk_ryansoffice_3dprinter') }}"
     current_skipped: >-
@@ -69,6 +78,14 @@ skip_print_object:
     combined_ids: >-
       {{ (current_skipped + [object_id | int]) | unique | list }}
     combined_str: "{{ combined_ids | join(',') }}"
+    archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+    archive_id_valid: >-
+      {{ archive_id not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+    printable_objects: >-
+      {{ state_attr('sensor.' ~ _prefix ~ '_printable_objects', 'objects') | default({}, true) }}
+    pick_image_path: >-
+      {{ state_attr(pick_image_entity | default('image.3d_printer_pick_image'), 'entity_picture') | default('', true) }}
+    event_time: "{{ now().isoformat() }}"
     num_printable: >-
       {{ states('sensor.' ~ _prefix ~ '_printable_objects') | int(0) }}
     stop_available: >-
@@ -87,6 +104,40 @@ skip_print_object:
       data:
         device_id: "{{ device_id }}"
         objects: "{{ combined_str }}"
+    - alias: "Record archive skip event when archive binding is available"
+      if:
+        - condition: state
+          entity_id: input_boolean.bambuddy_integration_enabled
+          state: "on"
+        - condition: state
+          entity_id: input_boolean.bambuddy_history_sync_enabled
+          state: "on"
+        - condition: template
+          value_template: "{{ archive_id_valid }}"
+      then:
+        - action: bambuddy.append_print_history_event
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+            event_type: objects_skipped
+            event_source: ha_script
+            event_time: "{{ event_time }}"
+            event_status: printing
+            event_key: "objects_skipped:{{ archive_id }}:{{ combined_str }}"
+            payload:
+              requested_skip_ids: "{{ ([object_id | int]) | tojson | from_json }}"
+              skipped_ids: "{{ combined_ids | tojson | from_json }}"
+              object_count: "{{ combined_ids | count }}"
+              skip_overlay_state:
+                overlay_version: v1
+                requested_skip_ids: "{{ ([object_id | int]) | tojson | from_json }}"
+                skipped_ids: "{{ combined_ids | tojson | from_json }}"
+                printable_objects: "{{ printable_objects | tojson | from_json }}"
+                pick_image_path: "{{ pick_image_path }}"
+                pick_image_source: ha_image_entity
+                printer_prefix: "{{ _prefix }}"
+                trigger_source: script.skip_print_object
+                captured_at: "{{ event_time }}"
+          response_variable: append_event_result
     - alias: "Log the action"
       action: system_log.write
       data:
@@ -125,9 +176,27 @@ skip_print_objects_bulk_list:
       example: "ntk_ryansoffice_3dprinter"
       selector:
         text:
+    pick_image_entity:
+      description: >-
+        Image entity used for the current pick image overlay. Defaults to
+        image.3d_printer_pick_image for this installation.
+      required: false
+      default: "image.3d_printer_pick_image"
+      example: "image.3d_printer_pick_image"
+      selector:
+        text:
   variables:
     _prefix: "{{ printer_prefix | default('ntk_ryansoffice_3dprinter') }}"
-    combined_str: "{{ object_ids | map('int') | list | join(',') }}"
+    normalized_object_ids: "{{ object_ids | map('int') | list }}"
+    combined_str: "{{ normalized_object_ids | join(',') }}"
+    archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+    archive_id_valid: >-
+      {{ archive_id not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+    printable_objects: >-
+      {{ state_attr('sensor.' ~ _prefix ~ '_printable_objects', 'objects') | default({}, true) }}
+    pick_image_path: >-
+      {{ state_attr(pick_image_entity | default('image.3d_printer_pick_image'), 'entity_picture') | default('', true) }}
+    event_time: "{{ now().isoformat() }}"
     num_printable: >-
       {{ states('sensor.' ~ _prefix ~ '_printable_objects') | int(0) }}
     stop_available: >-
@@ -142,6 +211,40 @@ skip_print_objects_bulk_list:
       data:
         device_id: "{{ device_id }}"
         objects: "{{ combined_str }}"
+    - alias: "Record archive skip event when archive binding is available"
+      if:
+        - condition: state
+          entity_id: input_boolean.bambuddy_integration_enabled
+          state: "on"
+        - condition: state
+          entity_id: input_boolean.bambuddy_history_sync_enabled
+          state: "on"
+        - condition: template
+          value_template: "{{ archive_id_valid }}"
+      then:
+        - action: bambuddy.append_print_history_event
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+            event_type: objects_skipped
+            event_source: ha_script
+            event_time: "{{ event_time }}"
+            event_status: printing
+            event_key: "objects_skipped:{{ archive_id }}:{{ combined_str }}"
+            payload:
+              requested_skip_ids: "{{ normalized_object_ids | tojson | from_json }}"
+              skipped_ids: "{{ normalized_object_ids | tojson | from_json }}"
+              object_count: "{{ normalized_object_ids | count }}"
+              skip_overlay_state:
+                overlay_version: v1
+                requested_skip_ids: "{{ normalized_object_ids | tojson | from_json }}"
+                skipped_ids: "{{ normalized_object_ids | tojson | from_json }}"
+                printable_objects: "{{ printable_objects | tojson | from_json }}"
+                pick_image_path: "{{ pick_image_path }}"
+                pick_image_source: ha_image_entity
+                printer_prefix: "{{ _prefix }}"
+                trigger_source: script.skip_print_objects_bulk_list
+                captured_at: "{{ event_time }}"
+          response_variable: append_event_result
     - alias: "Log the action"
       action: system_log.write
       data:

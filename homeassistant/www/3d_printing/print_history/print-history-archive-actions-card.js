@@ -1723,6 +1723,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _timelapsePath(archive) {
+    if (archive && typeof archive === "object" && Object.prototype.hasOwnProperty.call(archive, "timelapse_path")) {
+      return String(archive.timelapse_path || "").trim();
+    }
     var directPath = String(archive && archive.timelapse_path || "").trim();
     if (directPath) {
       return directPath;

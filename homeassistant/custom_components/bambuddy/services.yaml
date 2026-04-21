@@ -250,6 +250,17 @@ get_print_history_archive_storage_metrics:
       selector:
         boolean:
 
+get_print_history_temp_storage_summary:
+  name: Get Print History Temp Storage Summary
+  description: Return Home Assistant local temp-storage usage owned by the Bambuddy workflow, including the shared printer snapshot cache and this entry's restore-upload staging directory. This does not include Bambuddy backend archive storage.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry ID. Leave blank when only one Bambuddy entry is configured.
+      required: false
+      selector:
+        text:
+
 refresh_print_history_archive_storage_metrics:
   name: Refresh Print History Archive Storage Metrics
   description: Refresh per-archive storage metrics from the Bambuddy sidecar and store the result locally. Use this after asset mutations when an immediate recompute is desired.

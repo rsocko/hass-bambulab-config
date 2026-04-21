@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import sqlite3
@@ -55,6 +55,7 @@ EVENT_LABELS = {
     "print_finished": "Print finished",
     "print_failed": "Print failed",
     "print_stopped": "Print stopped",
+    "objects_skipped": "Objects skipped",
     "photo_captured": "Photo captured",
     "enrichment_applied": "Enrichment applied",
     "repair_applied": "Repair applied",
@@ -68,6 +69,7 @@ EVENT_COLOR_KEYS = {
     "print_finished": "success",
     "print_failed": "failure",
     "print_stopped": "failure",
+    "objects_skipped": "neutral",
     "photo_captured": "media",
     "enrichment_applied": "enrichment",
     "repair_applied": "repair",
@@ -113,8 +115,10 @@ class PrintHistoryBrowserManager:
         self.hass = hass
         self.entry = entry
         self.store = PrintHistoryStore(Path(hass.config.path(".storage", STORE_FILENAME)))
+        self.snapshot_dir = Path(hass.config.path("www", "printer_snapshots"))
+        self.restore_upload_dir = Path(hass.config.path(".storage", "bambuddy_restore_uploads", entry.entry_id))
         self.restore_uploads = ReplacementUploadManager(
-            Path(hass.config.path(".storage", "bambuddy_restore_uploads", entry.entry_id)),
+            self.restore_upload_dir,
             self.restore_upload_max_bytes,
             DEFAULT_RESTORE_UPLOAD_SESSION_TTL,
         )
@@ -798,7 +802,57 @@ class PrintHistoryBrowserManager:
             "recent_operations": list(self._recent_operations),
             "store": self.store.load_store_stats(),
             "store_connection": self.store.diagnostics_snapshot(),
+            "temp_storage": self.get_temp_storage_summary(),
         }
+
+    def get_temp_storage_summary(self) -> dict[str, Any]:
+        categories = [
+            self._summarize_directory("snapshot_cache", self.snapshot_dir, shared=True),
+            self._summarize_directory("restore_upload_staging", self.restore_upload_dir, shared=False),
+        ]
+        return {
+            "total_bytes": sum(item["bytes"] for item in categories),
+            "total_files": sum(item["file_count"] for item in categories),
+            "categories": categories,
+        }
+
+    def _summarize_directory(self, category: str, path: Path, *, shared: bool) -> dict[str, Any]:
+        file_count = 0
+        total_bytes = 0
+        newest_mtime: float | None = None
+        oldest_mtime: float | None = None
+        path_exists = path.exists()
+
+        if path_exists:
+            for file_path in path.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                try:
+                    stat_result = file_path.stat()
+                except OSError:
+                    continue
+                file_count += 1
+                total_bytes += int(stat_result.st_size)
+                modified_at = float(stat_result.st_mtime)
+                newest_mtime = modified_at if newest_mtime is None else max(newest_mtime, modified_at)
+                oldest_mtime = modified_at if oldest_mtime is None else min(oldest_mtime, modified_at)
+
+        return {
+            "category": category,
+            "path": str(path),
+            "shared": shared,
+            "exists": path_exists,
+            "file_count": file_count,
+            "bytes": total_bytes,
+            "newest_file_at": self._format_timestamp(newest_mtime),
+            "oldest_file_at": self._format_timestamp(oldest_mtime),
+        }
+
+    @staticmethod
+    def _format_timestamp(timestamp: float | None) -> str:
+        if timestamp is None:
+            return ""
+        return datetime.fromtimestamp(timestamp, tz=dt_util.DEFAULT_TIME_ZONE).isoformat()
 
     @property
     def debug_enabled(self) -> bool:

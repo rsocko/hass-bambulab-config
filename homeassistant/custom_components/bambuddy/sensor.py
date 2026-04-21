@@ -16,6 +16,7 @@ from .const import (
     ENTITY_PAGE_ARCHIVES,
     ENTITY_PAGE_INFO,
     ENTITY_STATUS,
+    ENTITY_TEMP_STORAGE,
 )
 from .manager import PrintHistoryBrowserManager
 
@@ -56,6 +57,13 @@ DESCRIPTIONS = [
         name="Bambuddy Print History Browser Activity",
         icon="mdi:chart-box-outline",
     ),
+    BambuddyBrowserSensorDescription(
+        key=ENTITY_TEMP_STORAGE,
+        entity_id=f"sensor.{ENTITY_TEMP_STORAGE}",
+        name="Bambuddy Print History Temp Storage",
+        icon="mdi:harddisk",
+        native_unit_of_measurement="B",
+    ),
 ]
 
 
@@ -86,6 +94,8 @@ class BambuddyBrowserSensor(SensorEntity):
             return self.manager.result.current_page
         if self.entity_description.key == ENTITY_PAGE_INFO:
             return self.manager.result.page_info
+        if self.entity_description.key == ENTITY_TEMP_STORAGE:
+            return self.manager.get_temp_storage_summary().get("total_bytes", 0)
         return len(self.manager.archives)
 
     @property
@@ -231,6 +241,14 @@ class BambuddyBrowserSensor(SensorEntity):
                 "browser_revision": self.manager.browser_revision,
                 "current_page": self.manager.result.current_page,
                 "total_pages": self.manager.result.total_pages,
+            }
+        if self.entity_description.key == ENTITY_TEMP_STORAGE:
+            summary = self.manager.get_temp_storage_summary()
+            return {
+                "backend": backend,
+                "browser_revision": self.manager.browser_revision,
+                "total_files": summary.get("total_files", 0),
+                "categories": summary.get("categories", []),
             }
         return {
             "backend": backend,

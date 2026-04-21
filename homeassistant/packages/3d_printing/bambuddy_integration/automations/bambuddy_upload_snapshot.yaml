@@ -18,39 +18,47 @@
     - condition: state
       entity_id: input_boolean.bambuddy_integration_enabled
       state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_sync_enabled
+      state: "off"
     - condition: template
       value_template: "{{ states('input_text.current_print_archive_id') != '' }}"
 
   actions:
-    # Wait for print_complete_notification to take snapshot
+    # Legacy bridge: delegate finish capture/upload to the active print-history flow.
     - delay:
         seconds: 5
 
     - variables:
-        archive_id: "{{ states('input_text.current_print_archive_id') }}"
-        api_key: "{{ states('input_text.bambuddy_api_key') }}"
-        base_url: "{{ states('input_text.bambuddy_base_url') }}"
+        archive_id: "{{ states('input_text.current_print_archive_id') | string | trim }}"
 
-    # Upload latest snapshot to Bambuddy using shell command
-    # This uses the most recently created snapshot file
-    # Note: This requires curl and bash commands to be available
-    - action: shell_command.bambuddy_upload_latest_snapshot
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_current_archive_id
       data:
-        archive_id: "{{ archive_id }}"
-        api_key: "{{ api_key }}"
-        base_url: "{{ base_url }}"
+        value: "{{ archive_id }}"
+
+    - action: script.capture_and_upload_snapshot
+      data:
+        stage: "finish"
       continue_on_error: true
 
     # Log the upload attempt
     - action: logbook.log
       data:
         name: Bambuddy Upload
-        message: "Uploaded latest snapshot to Bambuddy archive {{ archive_id }}"
+        message: "Delegated finish snapshot capture/upload to print-history flow for archive {{ archive_id }}"
 
-    # Clear the archive ID after upload
+    # Clear both the legacy helper and the active archive-binding helper after upload.
     - action: text.set_value
       target:
         entity_id: input_text.current_print_archive_id
+      data:
+        value: ""
+
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.bambuddy_current_archive_id
       data:
         value: ""
 

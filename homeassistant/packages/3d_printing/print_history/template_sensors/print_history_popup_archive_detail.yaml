@@ -76,6 +76,21 @@
             {% endif %}
             {{ timeline | tojson }}
           {% endif %}
+        skip_overlay_state_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            {}
+          {% else %}
+            {% set content = result.get('skip_overlay_state', {}) if result is defined and result is mapping else {} %}
+            {% if content is string %}
+              {% set overlay = content | from_json({}) %}
+            {% elif content is mapping %}
+              {% set overlay = content %}
+            {% else %}
+              {% set overlay = {} %}
+            {% endif %}
+            {{ overlay | tojson }}
+          {% endif %}
         enrichment_provenance_json: >-
           {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
           {% if archive_id == '' %}
@@ -124,6 +139,16 @@
             {% set photos = [] %}
           {% endif %}
           {{ photos | count }}
+        has_skip_overlay_state: >-
+          {% set raw = state_attr('sensor.print_history_popup_archive_detail', 'skip_overlay_state_json') | default('{}', true) %}
+          {% if raw is string %}
+            {% set overlay = raw | from_json({}) %}
+          {% elif raw is mapping %}
+            {% set overlay = raw %}
+          {% else %}
+            {% set overlay = {} %}
+          {% endif %}
+          {{ overlay is mapping and overlay | count > 0 }}
         source_status: >-
           {{ result.get('status', 'idle') if result is defined and result is mapping else 'idle' }}
         last_fetch: "{{ now().isoformat() }}"

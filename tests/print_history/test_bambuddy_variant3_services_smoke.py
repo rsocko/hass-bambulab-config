@@ -17,12 +17,16 @@ HOMEASSISTANT_ROOT = REPO_ROOT / "homeassistant"
 def test_archive_photo_upload_backend_normalizes_transport_errors() -> None:
     api_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "api.py").read_text("utf-8")
     init_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+    const_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
+    sensor_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "sensor.py").read_text("utf-8")
 
     assert "from uuid import uuid4" in api_content
     assert "except (ClientError, asyncio.TimeoutError, OSError) as error:" in api_content
     assert "Bambuddy photo upload request failed:" in api_content
     assert "Unhandled error during Bambuddy archive photo upload" in init_content
     assert 'connection.send_error(msg["id"], "upload_failed", message)' in init_content
+    assert 'ENTITY_TEMP_STORAGE = "bambuddy_print_history_temp_storage"' in const_content
+    assert 'name="Bambuddy Print History Temp Storage"' in sensor_content
 
 
 def _install_homeassistant_stubs() -> None:
@@ -1061,6 +1065,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_GET_FAILURE_ANALYSIS) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_TEMP_STORAGE_SUMMARY) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA) in registered
@@ -1148,6 +1153,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                 SimpleNamespace(data={"archive_id": 101})
             )
         )
+        temp_storage_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_TEMP_STORAGE_SUMMARY)(
+                SimpleNamespace(data={})
+            )
+        )
         storage_refresh_response = asyncio.run(
             hass.services.handler(const_module.DOMAIN, const_module.SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS)(
                 SimpleNamespace(data={"archive_id": 101})
@@ -1217,11 +1227,19 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                 SimpleNamespace(
                     data={
                         "archive_id": 101,
-                        "event_type": "photo_captured",
+                        "event_type": "objects_skipped",
                         "event_source": "ha_script",
                         "event_time": "2026-04-10T00:02:00Z",
-                        "event_status": "verified",
-                        "payload": {"stage": "finish"},
+                        "event_status": "printing",
+                        "payload": {
+                            "requested_skip_ids": [7],
+                            "skip_overlay_state": {
+                                "overlay_version": "v1",
+                                "requested_skip_ids": [7],
+                                "skipped_ids": [7],
+                                "pick_image_path": "/api/image_proxy/image.3d_printer_pick_image",
+                            },
+                        },
                     }
                 )
             )
@@ -1320,6 +1338,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert storage_response["success"] is True
     assert storage_response["source"] == "sidecar"
     assert storage_response["storage_metrics"]["metrics"]["total_bytes"] == 5583872
+    assert temp_storage_response["success"] is True
+    assert temp_storage_response["temp_storage"]["total_bytes"] >= 0
+    temp_categories = {item["category"] for item in temp_storage_response["temp_storage"]["categories"]}
+    assert "snapshot_cache" in temp_categories
+    assert "restore_upload_staging" in temp_categories
     assert storage_refresh_response["success"] is True
     assert storage_refresh_response["refreshed"] is True
     assert storage_refresh_response["storage_metrics"]["metrics"]["photo_count"] == 2
@@ -1344,8 +1367,10 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert favorite_response["archive"]["is_favorite"] is True
     assert primary_photo_response["primary_photo_selection"]["photo_path"] == "topdown-closeup.jpg"
     assert primary_photo_response["archive"]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert append_event_response["event_timeline"][0]["type"] == "photo_captured"
-    assert append_event_response["event_timeline"][0]["label"] == "Photo captured"
+    assert append_event_response["event_timeline"][0]["type"] == "objects_skipped"
+    assert append_event_response["event_timeline"][0]["label"] == "Objects skipped"
+    assert append_event_response["skip_overlay_state"]["requested_skip_ids"] == [7]
+    assert append_event_response["skip_overlay_state"]["pick_image_path"] == "/api/image_proxy/image.3d_printer_pick_image"
     assert review_response["review_state"]["review_status"] == "reviewed"
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
@@ -1396,8 +1421,66 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 17
-    assert manager.mutation_stats["last_operation"] == "correct_archive_metadata_preview"
+    assert manager.mutation_stats["count"] == 18
+
+
+def test_variant3_manual_photo_upload_refreshes_storage_metrics(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    FakeRuntimeRepairClient.storage_scan_calls = []
+    FakeApiClient.archives = manager.archives
+    init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+
+    try:
+        asyncio.run(init_module.async_setup(hass, {}))
+        connection = sys.modules["homeassistant.components.websocket_api"].ActiveConnection()
+        payload = base64.b64encode(b"fake-image-bytes").decode("ascii")
+        asyncio.run(
+            next(handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_upload_photo")(
+                hass,
+                connection,
+                {
+                    "id": 9,
+                    "type": "bambuddy/print_history_upload_photo",
+                    "archive_id": 101,
+                    "file_name": "manual-upload.jpg",
+                    "mime_type": "image/jpeg",
+                    "content_base64": payload,
+                },
+            )
+        )
+    finally:
+        init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert connection.results
+    result = connection.results[0][1]
+    assert result["archive_id"] == 101
+    assert connection.errors == []
 
 
 def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> None:
@@ -2867,10 +2950,11 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     manager.store.replace_archives(_projected_archives(query_module.project_archive))
     manager.store.append_archive_event(
         101,
-        event_type="photo_captured",
+        event_type="objects_skipped",
         event_source="ha_script",
         event_time="2026-04-08T12:00:00Z",
         event_status="printing",
+        payload={"skipped_ids": [7]},
     )
     manager.store.append_archive_event(
         101,
@@ -2879,16 +2963,26 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
         event_time="2026-04-08T12:05:00Z",
         event_status="completed",
     )
+    manager.store.save_archive_skip_overlay_state(
+        101,
+        {
+            "overlay_version": "v1",
+            "plate_number": 2,
+            "pick_image_asset_path": "Metadata/pick_2.png",
+            "skipped_ids": [7],
+        },
+    )
 
     detail = manager.build_archive_detail_response(101)
 
     assert detail is not None
-    assert detail["event_timeline"][0]["type"] == "photo_captured"
-    assert detail["event_timeline"][0]["label"] == "Photo captured"
-    assert detail["event_timeline"][0]["color_key"] == "media"
+    assert detail["event_timeline"][0]["type"] == "objects_skipped"
+    assert detail["event_timeline"][0]["label"] == "Objects skipped"
+    assert detail["event_timeline"][0]["color_key"] == "neutral"
     assert detail["event_timeline"][1]["type"] == "enrichment_applied"
     assert detail["event_timeline"][1]["label"] == "Enrichment applied"
     assert detail["event_timeline"][1]["color_key"] == "enrichment"
+    assert detail["skip_overlay_state"]["pick_image_asset_path"] == "Metadata/pick_2.png"
 
 
 def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path: Path) -> None:

@@ -336,14 +336,28 @@ class PrintHistoryStore:
                 updated_at TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS archive_skip_overlay_state (
+                archive_id INTEGER PRIMARY KEY,
+                overlay_version TEXT NOT NULL DEFAULT '',
+                plate_number INTEGER NOT NULL DEFAULT 0,
+                pick_image_asset_path TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
             """
         )
         self._ensure_archive_columns(connection)
         self._ensure_note_payload_columns(connection)
         self._ensure_event_timeline_columns(connection)
         self._ensure_archive_storage_metrics_columns(connection)
+        self._ensure_archive_skip_overlay_state_columns(connection)
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archives_last_synced_at ON archives(last_synced_at)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_archive_storage_metrics_computed_at ON archive_storage_metrics(computed_at)")
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_archive_skip_overlay_state_updated_at ON archive_skip_overlay_state(updated_at)"
+        )
 
     def _ensure_archive_columns(self, connection: sqlite3.Connection) -> None:
         columns = {
@@ -468,6 +482,25 @@ class PrintHistoryStore:
                 continue
             _LOGGER.info("Adding missing archive_storage_metrics.%s column to Bambuddy local store", column_name)
             connection.execute(f"ALTER TABLE archive_storage_metrics ADD COLUMN {column_name} {definition}")
+
+    def _ensure_archive_skip_overlay_state_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(archive_skip_overlay_state)").fetchall()
+            if len(row) > 1
+        }
+        required_columns = {
+            "overlay_version": "TEXT NOT NULL DEFAULT ''",
+            "plate_number": "INTEGER NOT NULL DEFAULT 0",
+            "pick_image_asset_path": "TEXT NOT NULL DEFAULT ''",
+            "payload_json": "TEXT NOT NULL DEFAULT ''",
+            "updated_at": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column_name, definition in required_columns.items():
+            if column_name in columns:
+                continue
+            _LOGGER.info("Adding missing archive_skip_overlay_state.%s column to Bambuddy local store", column_name)
+            connection.execute(f"ALTER TABLE archive_skip_overlay_state ADD COLUMN {column_name} {definition}")
 
     def replace_archives(self, archives: list[dict[str, Any]]) -> dict[str, Any]:
         timestamp = datetime.now(timezone.utc).isoformat()
@@ -1586,6 +1619,34 @@ class PrintHistoryStore:
             "review_note": row[3],
         }
 
+    def load_archive_skip_overlay_state(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        with self._borrow_connection(connection) as active_connection:
+            row = active_connection.execute(
+                """
+                SELECT overlay_version, plate_number, pick_image_asset_path, payload_json, updated_at
+                FROM archive_skip_overlay_state
+                WHERE archive_id = ?
+                """,
+                (archive_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = self._parse_payload_json(row[3])
+        if not isinstance(payload, dict):
+            payload = {}
+        state = dict(payload)
+        state.setdefault("overlay_version", as_text(row[0]).strip())
+        state.setdefault("plate_number", as_int(row[1]))
+        state.setdefault("pick_image_asset_path", as_text(row[2]).strip())
+        state["archive_id"] = as_int(archive_id)
+        state["updated_at"] = as_text(row[4]).strip()
+        return state
+
     def load_media_review_state(
         self,
         archive_id: int,
@@ -2204,6 +2265,9 @@ class PrintHistoryStore:
             storage_metrics_total_bytes = active_connection.execute(
                 "SELECT COALESCE(SUM(total_bytes), 0) FROM archive_storage_metrics"
             ).fetchone()[0]
+            skip_overlay_state_count = active_connection.execute(
+                "SELECT COUNT(*) FROM archive_skip_overlay_state"
+            ).fetchone()[0]
             primary_photo_selection_count = active_connection.execute(
                 "SELECT COUNT(*) FROM archive_primary_photo_selection"
             ).fetchone()[0]
@@ -2223,6 +2287,7 @@ class PrintHistoryStore:
             "media_review_state_count": media_review_count,
             "archive_storage_metrics_count": storage_metrics_count,
             "archive_storage_metrics_total_bytes": storage_metrics_total_bytes,
+            "archive_skip_overlay_state_count": skip_overlay_state_count,
             "primary_photo_selection_count": primary_photo_selection_count,
             "last_synced_at": last_synced_at or "",
             "connection_open_count": diagnostics.get("open_count", 0),
@@ -2248,6 +2313,7 @@ class PrintHistoryStore:
             return {
                 "archive": archive,
                 "event_timeline": self.load_archive_event_timeline(archive_id, connection=connection),
+                "skip_overlay_state": self.load_archive_skip_overlay_state(archive_id, connection=connection),
                 "note_payload_rows": self.load_note_payload_rows(archive_id, connection=connection),
                 "enrichment_provenance": self.load_enrichment_provenance_rows(archive_id, connection=connection),
                 "review_state": self.load_review_state(archive_id, connection=connection),
@@ -2374,6 +2440,62 @@ class PrintHistoryStore:
                 row,
             )
         return self.load_archive_storage_metrics(normalized_archive_id) or {}
+
+    def save_archive_skip_overlay_state(
+        self,
+        archive_id: int,
+        payload: dict[str, Any],
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be a dictionary")
+
+        row = {
+            "archive_id": normalized_archive_id,
+            "overlay_version": as_text(payload.get("overlay_version") or payload.get("version")).strip(),
+            "plate_number": max(0, as_int(payload.get("plate_number"))),
+            "pick_image_asset_path": as_text(
+                payload.get("pick_image_asset_path")
+                or payload.get("pick_image_path")
+                or payload.get("source_asset_path")
+            ).strip(),
+            "payload_json": self._payload_json(payload),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        with self._borrow_connection(connection) as active_connection:
+            self._ensure_schema(active_connection)
+            active_connection.execute(
+                """
+                INSERT INTO archive_skip_overlay_state (
+                    archive_id,
+                    overlay_version,
+                    plate_number,
+                    pick_image_asset_path,
+                    payload_json,
+                    updated_at
+                ) VALUES (
+                    :archive_id,
+                    :overlay_version,
+                    :plate_number,
+                    :pick_image_asset_path,
+                    :payload_json,
+                    :updated_at
+                )
+                ON CONFLICT(archive_id) DO UPDATE SET
+                    overlay_version = excluded.overlay_version,
+                    plate_number = excluded.plate_number,
+                    pick_image_asset_path = excluded.pick_image_asset_path,
+                    payload_json = excluded.payload_json,
+                    updated_at = excluded.updated_at
+                """,
+                row,
+            )
+        return self.load_archive_skip_overlay_state(normalized_archive_id) or {}
 
     def load_archive_storage_metrics(
         self,

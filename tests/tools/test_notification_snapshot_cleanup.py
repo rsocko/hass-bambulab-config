@@ -29,8 +29,19 @@ class TestNotificationSnapshotCleanup(unittest.TestCase):
     def test_snapshot_producing_notifications_trigger_cleanup(self):
         complete = (NOTIFICATIONS / "automations" / "print_complete_notification.yaml").read_text("utf-8")
         errors = (NOTIFICATIONS / "automations" / "error_alert_notification.yaml").read_text("utf-8")
+        capture_script = (
+            ROOT
+            / "homeassistant"
+            / "packages"
+            / "3d_printing"
+            / "print_history"
+            / "scripts"
+            / "capture_and_upload_snapshot.yaml"
+        ).read_text("utf-8")
         self.assertIn("shell_command.cleanup_printer_snapshots", complete)
         self.assertIn("shell_command.cleanup_printer_snapshots", errors)
+        self.assertIn("shell_command.cleanup_printer_snapshots", capture_script)
+        self.assertIn("bambuddy.refresh_print_history_archive_storage_metrics", capture_script)
 
     def test_retention_helpers_exist(self):
         retention_days = (NOTIFICATIONS / "helpers" / "input_number" / "input_number_3dprinter_snapshot_retention_days.yaml").read_text("utf-8")

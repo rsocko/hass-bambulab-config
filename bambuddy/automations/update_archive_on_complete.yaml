@@ -24,6 +24,9 @@ conditions:
   - condition: state
     entity_id: input_boolean.bambuddy_integration_enabled
     state: "on"
+  - condition: state
+    entity_id: input_boolean.bambuddy_history_sync_enabled
+    state: "off"
   - condition: template
     value_template: "{{ states('input_text.bambuddy_current_archive_id') != '' }}"
 
@@ -46,18 +49,14 @@ actions:
       status: "{{ print_status }}"
     continue_on_error: true
 
-  # Find and upload the latest snapshot (if one exists)
-  - action: shell_command.bambuddy_upload_latest_snapshot
+  # Legacy bridge: reuse the active print-history capture/upload flow.
+  - action: script.capture_and_upload_snapshot
     data:
-      archive_id: "{{ archive_id }}"
-      api_key: "{{ states('input_text.bambuddy_api_key') }}"
-      base_url: "{{ states('input_text.bambuddy_api_base_url') }}"
+      stage: "finish"
     continue_on_error: true
 
-  # Force refresh the history sensor so the dashboard updates immediately
-  - action: homeassistant.update_entity
-    target:
-      entity_id: sensor.bambuddy_print_history
+  - action: bambuddy.refresh_print_history_browser
+    continue_on_error: true
 
   - action: logbook.log
     data:

@@ -43,6 +43,7 @@ from .const import (
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_DETAIL,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
+    SERVICE_GET_PRINT_HISTORY_TEMP_STORAGE_SUMMARY,
     SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS_BATCH,
     SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW,
     TIMELAPSE_DELETE_URL,
@@ -798,6 +799,7 @@ SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA = vol.Schema(
         vol.Optional("include_extension_breakdown", default=False): bool,
     }
 )
+SERVICE_TEMP_STORAGE_SUMMARY_SCHEMA = vol.Schema({vol.Optional(CONF_ENTRY_ID): str})
 SERVICE_ARCHIVE_STORAGE_METRICS_BATCH_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ENTRY_ID): str,
@@ -1098,6 +1100,41 @@ def _parse_service_metadata_object(value: Any, field_name: str) -> dict[str, Any
     if not isinstance(parsed, dict):
         raise HomeAssistantError(f"{field_name} must be a JSON object")
     return parsed
+
+
+def _extract_skip_overlay_state_from_event_payload(value: Any, *, event_type: str) -> dict[str, Any] | None:
+    payload: dict[str, Any] | None = None
+    if isinstance(value, dict):
+        payload = dict(value)
+    else:
+        raw = str(value or "").strip()
+        if raw:
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict):
+                payload = parsed
+
+    if not isinstance(payload, dict) or not payload:
+        return None
+
+    overlay_value = payload.get("skip_overlay_state")
+    if isinstance(overlay_value, dict):
+        return dict(overlay_value)
+    if isinstance(overlay_value, str):
+        raw_overlay = overlay_value.strip()
+        if raw_overlay:
+            try:
+                parsed_overlay = json.loads(raw_overlay)
+            except json.JSONDecodeError:
+                parsed_overlay = None
+            if isinstance(parsed_overlay, dict):
+                return parsed_overlay
+
+    if str(event_type or "").strip().lower() == "objects_skipped":
+        return dict(payload)
+    return None
 
 
 def _normalize_system_tag_values(value: Any) -> list[str]:
@@ -1415,6 +1452,43 @@ def _build_runtime_repair_client(
             timeout_seconds,
         ),
         None,
+    )
+
+
+async def _async_refresh_archive_storage_metrics_after_mutation(
+    hass: HomeAssistant,
+    *,
+    entry_id: str,
+    manager: PrintHistoryBrowserManager,
+    archive_id: int,
+    include_other_files: bool = True,
+    include_extension_breakdown: bool = False,
+) -> dict[str, Any] | None:
+    client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+    if error_response is not None or client is None:
+        return None
+
+    try:
+        sidecar_response = await client.async_scan_archive_storage(
+            {
+                "archive_id": int(archive_id),
+                "force": True,
+                "include_other_files": bool(include_other_files),
+                "include_extension_breakdown": bool(include_extension_breakdown),
+            }
+        )
+    except Exception as error:
+        _LOGGER.warning(
+            "Failed to refresh archive storage metrics after mutation for archive %s: %s",
+            archive_id,
+            error,
+        )
+        return None
+
+    return await hass.async_add_executor_job(
+        manager.store.save_archive_storage_metrics,
+        int(archive_id),
+        sidecar_response,
     )
 
 
@@ -1847,6 +1921,12 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
+                hass,
+                entry_id=resolved_entry_id,
+                manager=manager,
+                archive_id=archive_id_value,
+            )
             response.update(
                 {
                     "success": True,
@@ -2053,6 +2133,12 @@ class ArchiveTimelapseUploadView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
+                hass,
+                entry_id=resolved_entry_id,
+                manager=manager,
+                archive_id=archive_id_value,
+            )
             response.update(
                 {
                     "success": True,
@@ -2168,6 +2254,12 @@ class ArchiveTimelapseDeleteView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after timelapse deletion")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
+                hass,
+                entry_id=resolved_entry_id,
+                manager=manager,
+                archive_id=archive_id_value,
+            )
             response.update(
                 {
                     "success": True,
@@ -2849,6 +2941,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             response = manager.build_archive_detail_response(archive_id)
             if response is None:
                 raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+                response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
+                    hass,
+                    entry_id=entry_id,
+                    manager=manager,
+                    archive_id=archive_id,
+                )
             response[CONF_ENTRY_ID] = entry_id
             response[CONF_ARCHIVE_ID] = archive_id
             response["uploaded_photo_path"] = uploaded_photo_path
@@ -3137,6 +3235,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             include_other_files=bool(call.data.get("include_other_files", True)),
             include_extension_breakdown=bool(call.data.get("include_extension_breakdown", False)),
         )
+
+    async def async_handle_get_temp_storage_summary(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        summary = await hass.async_add_executor_job(manager.get_temp_storage_summary)
+        return {
+            "success": True,
+            CONF_ENTRY_ID: entry_id,
+            "temp_storage": summary,
+        }
 
     async def async_handle_refresh_archive_storage_metrics(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
@@ -3434,19 +3541,36 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         archive_id = int(call.data[CONF_ARCHIVE_ID])
         if not await manager.async_ensure_archive_loaded(archive_id):
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        event_type = str(call.data["event_type"])
+        event_source = str(call.data["event_source"])
+        payload = call.data.get("payload", {})
+        skip_overlay_state = _extract_skip_overlay_state_from_event_payload(payload, event_type=event_type)
         try:
             await manager.async_record_archive_event(
                 archive_id,
-                event_type=str(call.data["event_type"]),
-                event_source=str(call.data["event_source"]),
+                event_type=event_type,
+                event_source=event_source,
                 event_time=call.data.get("event_time"),
                 event_status=str(call.data.get("event_status", "")),
-                payload=call.data.get("payload", {}),
+                payload=payload,
                 derived_from=str(call.data.get("derived_from", "")),
                 event_key=call.data.get("event_key"),
+                notify=False,
             )
+            if skip_overlay_state is not None:
+                overlay_started = perf_counter()
+                await hass.async_add_executor_job(
+                    lambda: manager.store.save_archive_skip_overlay_state(archive_id, skip_overlay_state)
+                )
+                manager.record_mutation(
+                    operation="set_skip_overlay_state",
+                    archive_id=archive_id,
+                    duration_ms=round((perf_counter() - overlay_started) * 1000, 1),
+                    details={"event_type": event_type, "event_source": event_source},
+                )
         except ValueError as error:
             raise HomeAssistantError(str(error)) from error
+        manager._notify_listeners()
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
@@ -3558,6 +3682,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             archive_id=archive_id,
             duration_ms=round((perf_counter() - started) * 1000, 1),
             details={"photo_path": photo_path},
+        )
+        response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
+            hass,
+            entry_id=entry_id,
+            manager=manager,
+            archive_id=archive_id,
         )
         response[CONF_ENTRY_ID] = entry_id
         response[CONF_ARCHIVE_ID] = archive_id
@@ -4445,6 +4575,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_GET_PRINT_HISTORY_ARCHIVE_STORAGE_METRICS,
             async_handle_get_archive_storage_metrics,
             schema=SERVICE_ARCHIVE_STORAGE_METRICS_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_TEMP_STORAGE_SUMMARY):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_PRINT_HISTORY_TEMP_STORAGE_SUMMARY,
+            async_handle_get_temp_storage_summary,
+            schema=SERVICE_TEMP_STORAGE_SUMMARY_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA):

@@ -5,6 +5,7 @@ This folder groups roadmap and planning-oriented docs that are useful context bu
 - `advanced-features-design.md` - follow-on print-history roadmap
 - `archive-enrichment.md` - current archive enrichment contract and future refinements
 - `archive-enrichment-metadata-services.md` - service contract for reading and replacing managed enrichment tags and hidden note data
+- `archive-skip-history-bridge.md` - HASS-first plan for skipped-object history, overlay regeneration, and local archive metadata
 - `metadata-implementation-roadmap.md` - metadata/store roadmap
 - `variant3-metadata-schema-and-variant4-carry-forward.md` - schema and carry-forward plan
 - `layering-guidance.md` - layering guardrails for the browser stack

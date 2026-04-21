@@ -626,6 +626,7 @@ class TestFrontendBrowserContract(unittest.TestCase):
         self.assertIn('ENTITY_FILTERED = "bambuddy_print_history_browser_filtered"', content)
         self.assertIn('ENTITY_PAGE_INFO = "bambuddy_print_history_browser_page_info"', content)
         self.assertIn('ENTITY_ACTIVITY = "bambuddy_print_history_browser_activity"', content)
+        self.assertIn('ENTITY_TEMP_STORAGE = "bambuddy_print_history_temp_storage"', content)
 
 
 # =============================================================================
@@ -823,7 +824,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=60", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=45", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=46", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=9", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=7", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
@@ -1019,6 +1020,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("native-timelapse-viewer-editor-design.md", readme_content)
 
     def test_timelapse_cards_use_proxy_routes_and_processing_event(self):
+        action_content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-actions-card.js"
+        ).read_text("utf-8")
         viewer_content = (
             ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-timelapse-card.js"
         ).read_text("utf-8")
@@ -1033,6 +1037,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('Open or Download', viewer_content)
         self.assertIn('Delete this Bambuddy archive timelapse now? This cannot be undone.', viewer_content)
         self.assertIn('callService("browser_mod", "close_popup", {})', viewer_content)
+        self.assertIn('Object.prototype.hasOwnProperty.call(archive, "timelapse_path")', action_content)
         self.assertIn('_parseJson(value, fallbackValue)', viewer_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', viewer_content)
         self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', viewer_content)
@@ -1502,6 +1507,8 @@ class TestCrossReferences(unittest.TestCase):
                         "counter.increment", "counter.reset",
                         "input_number.set_value", "input_boolean.turn_on",
                         "input_boolean.turn_off", "homeassistant.update_entity",
+                        "bambuddy.refresh_print_history_archive_storage_metrics",
+                        "bambuddy.refresh_print_history_browser",
                         "logbook.log", "light.turn_on", "light.turn_off",
                         "camera.snapshot", "script.capture_and_upload_snapshot",
                         "shell_command.bambuddy_upload_archive_photo",
@@ -2390,7 +2397,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=45", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=46", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
@@ -2967,6 +2974,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
     def test_print_history_append_event_calls_capture_response_data(self):
         files = (
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_capture_pause_resume_timeline.yaml",
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_capture_skipped_objects_timeline.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_enrich_archive_on_complete.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "capture_and_upload_snapshot.yaml",
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "scripts" / "reenrich_print_history_archive.yaml",
@@ -2979,6 +2987,44 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
                 content.count("response_variable: append_event_result"),
                 msg=f"{path} must capture every append_print_history_event response",
             )
+
+    def test_skip_object_scripts_capture_archive_skip_events(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "printer_controls" / "scripts" / "skip_objects_script.yaml"
+        ).read_text("utf-8")
+
+        self.assertEqual(content.count("action: bambuddy.append_print_history_event"), 2)
+        self.assertEqual(content.count("response_variable: append_event_result"), 2)
+        self.assertIn("input_text.bambuddy_current_archive_id", content)
+        self.assertIn("event_type: objects_skipped", content)
+        self.assertIn("skip_overlay_state:", content)
+        self.assertIn("pick_image_entity:", content)
+
+    def test_skip_listener_automation_persists_archive_bound_skip_events(self):
+        content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_capture_skipped_objects_timeline.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("sensor.ntk_ryansoffice_3dprinter_skipped_objects", content)
+        self.assertIn("input_text.bambuddy_current_archive_id", content)
+        self.assertIn("event_type: objects_skipped", content)
+        self.assertIn("response_variable: append_event_result", content)
+        self.assertIn("skip_overlay_state:", content)
+        self.assertIn("event_key: \"{{ event_key }}\"", content)
+
+    def test_popup_archive_detail_exposes_skip_overlay_state(self):
+        detail_content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml"
+        ).read_text("utf-8")
+        popup_content = (
+            ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml"
+        ).read_text("utf-8")
+
+        self.assertIn("skip_overlay_state_json:", detail_content)
+        self.assertIn("has_skip_overlay_state:", detail_content)
+        self.assertIn("detailState.attributes?.skip_overlay_state_json", popup_content)
+        self.assertIn("Skipped Objects", popup_content)
+        self.assertIn("skipOverlayPanelMarkup", popup_content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (

@@ -393,6 +393,15 @@ capture_and_upload_snapshot:
               photo:{{ archive_id }}:{{ stage }}:{{ captured_filenames | default('', true) | string | trim }}
           response_variable: append_event_result
 
+    - if:
+        - condition: template
+          value_template: "{{ has_archive_id and verified_upload_count | int(0) > 0 }}"
+      then:
+        - action: bambuddy.refresh_print_history_archive_storage_metrics
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+          continue_on_error: true
+
     - action: logbook.log
       data:
         name: Print History
@@ -400,3 +409,8 @@ capture_and_upload_snapshot:
           Captured {{ stage }} photo{% if captured_camera_count | int(0) != 1 %}s{% endif %}:
           {% if captured_filenames not in ['', none] %}{{ captured_filenames }}{% else %}none{% endif %}
           (archive_id={{ archive_display_id }}, archive_status={{ archive_lookup_status }}, configured={{ configured_camera_count }}, active={{ active_camera_count }}, uploaded={{ verified_upload_count }}/{{ captured_camera_count }}, mode={{ camera_selection_mode }}, status={{ upload_status_summary }})
+
+    - action: shell_command.cleanup_printer_snapshots
+      data:
+        retention_days: "{{ states('input_number.3dprinter_snapshot_retention_days') | int(7) }}"
+        max_files: "{{ states('input_number.3dprinter_snapshot_keep_max') | int(150) }}"

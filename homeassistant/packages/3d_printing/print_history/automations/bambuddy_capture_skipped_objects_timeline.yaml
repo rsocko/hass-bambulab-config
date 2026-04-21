@@ -1,0 +1,73 @@
+# Capture skipped-object archive events from the live skipped_objects sensor.
+# This complements the HA skip scripts and preserves events triggered elsewhere.
+- alias: "Print History - Capture Skipped Objects Timeline"
+  id: bambuddy_capture_skipped_objects_timeline
+  description: >
+    Records durable objects_skipped events for the active Bambuddy archive by
+    watching the live skipped_objects sensor and persisting the current overlay
+    regeneration payload.
+
+  triggers:
+    - trigger: state
+      entity_id: sensor.ntk_ryansoffice_3dprinter_skipped_objects
+
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bambuddy_integration_enabled
+      state: "on"
+    - condition: state
+      entity_id: input_boolean.bambuddy_history_sync_enabled
+      state: "on"
+    - condition: template
+      value_template: >-
+        {{ states('input_text.bambuddy_current_archive_id') | string | trim not in ['', 'unknown', 'unavailable', 'none', 'None'] }}
+
+  actions:
+    - variables:
+        archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+        current_ids: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_skipped_objects', 'objects') | default([], true) | map('int') | list | sort }}
+        previous_ids: >-
+          {{ trigger.from_state.attributes.objects if trigger.from_state is not none and trigger.from_state.attributes is mapping else [] | default([], true) | map('int') | list | sort }}
+        newly_skipped_ids: >-
+          {% set current = current_ids | default([], true) %}
+          {% set previous = previous_ids | default([], true) %}
+          {{ current | reject('in', previous) | list }}
+        printable_objects: >-
+          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_printable_objects', 'objects') | default({}, true) }}
+        pick_image_path: >-
+          {{ state_attr('image.3d_printer_pick_image', 'entity_picture') | default('', true) }}
+        event_time: >-
+          {{ trigger.to_state.last_updated.isoformat() if trigger.to_state is not none and trigger.to_state.last_updated is not none else now().isoformat() }}
+        event_key: "objects_skipped:{{ archive_id }}:{{ current_ids | join(',') }}"
+
+    - if:
+        - condition: template
+          value_template: "{{ newly_skipped_ids | count > 0 }}"
+      then:
+        - action: bambuddy.append_print_history_event
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+            event_type: objects_skipped
+            event_source: bambu_lab
+            event_time: "{{ event_time }}"
+            event_status: printing
+            event_key: "{{ event_key }}"
+            payload:
+              requested_skip_ids: "{{ newly_skipped_ids | tojson | from_json }}"
+              skipped_ids: "{{ current_ids | tojson | from_json }}"
+              object_count: "{{ current_ids | count }}"
+              skip_overlay_state:
+                overlay_version: v1
+                requested_skip_ids: "{{ newly_skipped_ids | tojson | from_json }}"
+                skipped_ids: "{{ current_ids | tojson | from_json }}"
+                printable_objects: "{{ printable_objects | tojson | from_json }}"
+                pick_image_path: "{{ pick_image_path }}"
+                pick_image_source: ha_image_entity
+                printer_prefix: ntk_ryansoffice_3dprinter
+                trigger_source: automation.bambuddy_capture_skipped_objects_timeline
+                captured_at: "{{ event_time }}"
+          response_variable: append_event_result
+
+  mode: queued
+  max: 10
