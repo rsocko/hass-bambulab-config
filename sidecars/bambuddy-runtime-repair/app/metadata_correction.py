@@ -14,8 +14,29 @@ from tools.bambuddy.runtime_repair_core import ensure_database_exists, normalize
 
 
 AUDIT_MARKER = "[ARCHIVE_METADATA_CORRECTION_V1]"
-REVISION_FIELDS = ("started_at", "completed_at", "created_at", "status", "failure_reason", "notes")
-EDITABLE_FIELDS = ("started_at", "completed_at", "created_at", "status", "failure_reason")
+REVISION_FIELDS = (
+    "started_at",
+    "completed_at",
+    "created_at",
+    "status",
+    "failure_reason",
+    "filament_used_grams",
+    "cost",
+    "quantity",
+    "external_url",
+    "notes",
+)
+EDITABLE_FIELDS = (
+    "started_at",
+    "completed_at",
+    "created_at",
+    "status",
+    "failure_reason",
+    "filament_used_grams",
+    "cost",
+    "quantity",
+    "external_url",
+)
 
 
 @dataclass(slots=True)
@@ -26,6 +47,10 @@ class MetadataRow:
     created_at: str | None
     status: str | None
     failure_reason: str | None
+    filament_used_grams: float | None
+    cost: float | None
+    quantity: int | None
+    external_url: str | None
     notes: str | None
 
     def snapshot(self) -> dict[str, Any]:
@@ -35,6 +60,10 @@ class MetadataRow:
             "created_at": self.created_at,
             "status": self.status,
             "failure_reason": self.failure_reason,
+            "filament_used_grams": self.filament_used_grams,
+            "cost": self.cost,
+            "quantity": self.quantity,
+            "external_url": self.external_url,
             "notes": self.notes,
         }
 
@@ -42,7 +71,8 @@ class MetadataRow:
 def _load_row(connection: sqlite3.Connection, archive_id: int) -> MetadataRow:
     row = connection.execute(
         """
-        SELECT id, started_at, completed_at, created_at, status, failure_reason, notes
+        SELECT id, started_at, completed_at, created_at, status, failure_reason,
+               filament_used_grams, cost, quantity, external_url, notes
         FROM archives
         WHERE id = ?
         """,
@@ -57,7 +87,11 @@ def _load_row(connection: sqlite3.Connection, archive_id: int) -> MetadataRow:
         created_at=row[3],
         status=row[4],
         failure_reason=row[5],
-        notes=row[6],
+        filament_used_grams=row[6],
+        cost=row[7],
+        quantity=row[8],
+        external_url=row[9],
+        notes=row[10],
     )
 
 
@@ -113,6 +147,16 @@ def _build_warnings(before: dict[str, Any], after: dict[str, Any], updated_field
         warnings.append("Changing started_at or completed_at updates the effective runtime used by print-history views.")
     if "status" in updated_fields or "failure_reason" in updated_fields:
         warnings.append("Changing status or failure_reason changes failure analytics and status-based filters.")
+    if "filament_used_grams" in updated_fields:
+        warnings.append("Changing filament_used_grams updates filament-weight summaries and can diverge from file-derived slicer metadata.")
+        if "cost" not in updated_fields:
+            warnings.append("filament_used_grams changed without a matching cost override. Review cost if it should be kept in sync.")
+    if "cost" in updated_fields:
+        warnings.append("Changing cost updates print-history cost totals and cost-based analytics immediately after refresh.")
+    if "quantity" in updated_fields:
+        warnings.append("Changing quantity updates object-count metadata shown in archive detail and downstream summaries that read archive quantity.")
+    if "external_url" in updated_fields:
+        warnings.append("Changing external_url updates the archive's external reference link without modifying any archived files.")
     if before.get("status") != after.get("status") and str(after.get("status") or "").strip().lower() == "failed" and not str(after.get("failure_reason") or "").strip():
         warnings.append("Failed status is set without a failure_reason.")
     return warnings
@@ -132,6 +176,18 @@ def _build_derived_impacts(before: dict[str, Any], after: dict[str, Any]) -> dic
         "created_day_changed": before_day != after_day,
         "status_changed": before.get("status") != after.get("status"),
         "failure_reason_changed": before.get("failure_reason") != after.get("failure_reason"),
+        "filament_used_grams_before": before.get("filament_used_grams"),
+        "filament_used_grams_after": after.get("filament_used_grams"),
+        "filament_used_grams_changed": before.get("filament_used_grams") != after.get("filament_used_grams"),
+        "cost_before": before.get("cost"),
+        "cost_after": after.get("cost"),
+        "cost_changed": before.get("cost") != after.get("cost"),
+        "quantity_before": before.get("quantity"),
+        "quantity_after": after.get("quantity"),
+        "quantity_changed": before.get("quantity") != after.get("quantity"),
+        "external_url_before": before.get("external_url"),
+        "external_url_after": after.get("external_url"),
+        "external_url_changed": before.get("external_url") != after.get("external_url"),
     }
 
 
@@ -163,6 +219,28 @@ def correct_archive_metadata(db_path: Path, request: ArchiveMetadataCorrectionRe
                 normalized_value = validate_status(raw_value)
                 if not normalized_value:
                     raise ValueError("status must be one of printing, completed, failed, or cancelled")
+            elif field_name in {"filament_used_grams", "cost"}:
+                if raw_value in (None, ""):
+                    normalized_value = None
+                else:
+                    try:
+                        normalized_value = float(raw_value)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(f"{field_name} must be a number") from exc
+                    if normalized_value < 0:
+                        raise ValueError(f"{field_name} must be greater than or equal to 0")
+            elif field_name == "quantity":
+                if raw_value in (None, ""):
+                    normalized_value = None
+                else:
+                    try:
+                        normalized_value = int(raw_value)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError("quantity must be an integer") from exc
+                    if normalized_value < 0:
+                        raise ValueError("quantity must be greater than or equal to 0")
+            elif field_name == "external_url":
+                normalized_value = str(raw_value or "").strip() or None
             else:
                 normalized_value = str(raw_value or "").strip() or None
             if after.get(field_name) != normalized_value:

@@ -824,7 +824,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=58", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=60", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=47", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=49", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=8", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
@@ -2265,7 +2265,9 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         self.assertIn("refresh_print_history_archive_detail:", content)
         self.assertIn("Fetch one archive from Bambuddy and immediately upsert it into the local Variant 3 store.", content)
         self.assertIn("correct_print_history_archive_metadata:", content)
-        self.assertIn("Sidecar-backed advanced correction flow for archived runtime metadata.", content)
+        self.assertIn("Sidecar-backed advanced correction flow for archived runtime and advanced metadata.", content)
+        self.assertIn("filament_used_grams:", content)
+        self.assertIn("external_url:", content)
         const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
         init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
         self.assertIn('SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL = "refresh_print_history_archive_detail"', const_content)
@@ -2407,7 +2409,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=47", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=49", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
@@ -2733,6 +2735,23 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('Low Confidence', script)
         self.assertIn('.related-confidence-group.high{border-color:rgba(46,125,50,0.24);', script)
         self.assertIn('.compare-table{width:100%;min-width:520px;border-collapse:collapse;}', script)
+
+    def test_archive_actions_card_routes_metadata_correction_through_repair_chooser(self):
+        script = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-archive-actions-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('this._mode = "repair-chooser";', script)
+        self.assertIn('this._renderRepairChooserView(archive)', script)
+        self.assertIn('this._renderActionButton("repair-choose-metadata", "Correct Metadata", "mdi:file-edit-outline"', script)
+        self.assertIn('this._renderActionButton("repair-choose-replacement", "Repair From Replacement 3MF", "mdi:file-replace-outline"', script)
+        self.assertIn('Choose the repair path that matches the problem', script)
+        self.assertIn('Back to Repair Choices', script)
+        self.assertIn('metadata-correction-filament_used_grams', script)
+        self.assertIn('metadata-correction-cost', script)
+        self.assertIn('metadata-correction-quantity', script)
+        self.assertIn('metadata-correction-external_url', script)
+        self.assertNotIn('this._renderActionButton("open-correct-metadata", "Correct Metadata", "mdi:file-edit-outline"', script)
 
     def test_archive_viewer_consolidation_removes_standalone_page_and_routes(self):
         script = (

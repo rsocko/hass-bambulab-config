@@ -80,6 +80,10 @@ class ArchiveMetadataCorrectionFields(BaseModel):
     created_at: str | None = None
     status: str | None = None
     failure_reason: str | None = None
+    filament_used_grams: float | None = None
+    cost: float | None = None
+    quantity: int | None = None
+    external_url: str | None = None
 
 
 class ArchiveMetadataCorrectionRequest(BaseModel):

@@ -122,17 +122,24 @@ Recommended V1 editable fields:
 
 This directly addresses the current gap where the archive row exists but the historical timing is wrong or incomplete.
 
-### V2 candidate scope
+### Expanded advanced metadata scope
 
-After the warning, preview, and audit model is proven, the same workflow can optionally expand to selected user-metadata fields that need stronger audit than the normal popup edit path.
+After the warning, preview, and audit model is proven, the same workflow can expand to selected non-runtime fields that still need stronger audit than the normal popup edit path.
 
-Possible V2 fields:
+Current advanced metadata correction fields:
 
 - `quantity`
 - `external_url`
 - `cost`
+- `filament_used_grams`
 
-These should be deferred until overwrite policy is clear, especially for `cost`, because manual re-enrich and other enrichment flows may also touch that field.
+These fields should continue to use the sidecar-backed correction flow rather than the normal popup edit path so preview, warning, and audit behavior stays consistent.
+
+Special caution for `filament_used_grams`:
+
+- it can intentionally override the archived total filament weight
+- it may diverge from parser-derived file metadata until a later file repair or re-enrich flow reconciles it
+- preview should warn the operator when filament weight changes without a corresponding cost update
 
 ### Out of scope
 
@@ -143,7 +150,7 @@ These should not be edited through metadata correction:
 - `source_3mf_path`
 - `content_hash`
 - `print_time_seconds`
-- parser-derived slicer metadata such as `layer_height`, `total_layers`, `designer`, `filament_used_grams`, and similar file-backed fields
+- parser-derived slicer metadata such as `layer_height`, `total_layers`, `designer`, and similar file-backed fields
 
 Those values either belong to the archived file payload or are parser-derived and should be corrected through replacement-restore, rescan, or re-enrich workflows instead.
 
@@ -596,7 +603,7 @@ Goal:
 
 Deliver only after the Phase 1 and Phase 2 structure proves stable:
 
-- selected non-runtime advanced metadata fields such as `quantity`, `external_url`, or `cost`
+- any additional advanced metadata fields beyond the current `quantity`, `external_url`, `cost`, and `filament_used_grams` set
 - explicit overwrite policy for fields that may also be touched by enrichment
 
 Goal:

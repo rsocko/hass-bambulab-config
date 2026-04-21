@@ -621,6 +621,10 @@ class FakeRuntimeRepairClient:
             "created_at": fields.get("created_at", "2026-04-10T00:00:00+00:00"),
             "status": fields.get("status", "completed"),
             "failure_reason": fields.get("failure_reason"),
+            "filament_used_grams": fields.get("filament_used_grams", 42.5),
+            "cost": fields.get("cost", 2.35),
+            "quantity": fields.get("quantity", 1),
+            "external_url": fields.get("external_url"),
         }
         return {
             "archive_id": int(payload["archive_id"]),
@@ -636,6 +640,10 @@ class FakeRuntimeRepairClient:
                 "created_at": "2026-04-10T00:00:00+00:00",
                 "status": "completed",
                 "failure_reason": None,
+                "filament_used_grams": 42.5,
+                "cost": 2.35,
+                "quantity": 1,
+                "external_url": None,
             },
             "after": after,
             "updated_fields": sorted(list(fields.keys())),
@@ -649,6 +657,18 @@ class FakeRuntimeRepairClient:
                 "created_day_changed": str(after["created_at"])[:10] != "2026-04-10",
                 "status_changed": after["status"] != "completed",
                 "failure_reason_changed": after["failure_reason"] is not None,
+                "filament_used_grams_before": 42.5,
+                "filament_used_grams_after": after["filament_used_grams"],
+                "filament_used_grams_changed": after["filament_used_grams"] != 42.5,
+                "cost_before": 2.35,
+                "cost_after": after["cost"],
+                "cost_changed": after["cost"] != 2.35,
+                "quantity_before": 1,
+                "quantity_after": after["quantity"],
+                "quantity_changed": after["quantity"] != 1,
+                "external_url_before": None,
+                "external_url_after": after["external_url"],
+                "external_url_changed": bool(after["external_url"]),
             },
             "archive_revision": "rev-1",
         }
@@ -1305,7 +1325,11 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                     data={
                         "archive_id": 101,
                         "created_at": "2026-04-11T00:00:00+00:00",
-                        "reason": "Correct archive day",
+                        "filament_used_grams": 48.75,
+                        "cost": 2.6,
+                        "quantity": 2,
+                        "external_url": "https://printables.com/model/12345",
+                        "reason": "Correct archive day and advanced metadata",
                         "dry_run": True,
                         "request_id": "corr-preview-101",
                     }
@@ -1396,13 +1420,25 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
     assert metadata_correction_preview_response["success"] is True
     assert metadata_correction_preview_response["dry_run"] is True
-    assert metadata_correction_preview_response["correction"]["updated_fields"] == ["created_at"]
+    assert metadata_correction_preview_response["correction"]["updated_fields"] == [
+        "cost",
+        "created_at",
+        "external_url",
+        "filament_used_grams",
+        "quantity",
+    ]
     assert manager.store.load_metadata_correction_audit(101)[0]["status"] == "preview"
     assert FakeRuntimeRepairClient.metadata_correction_calls == [
         {
             "archive_id": 101,
-            "fields": {"created_at": "2026-04-11T00:00:00+00:00"},
-            "reason": "Correct archive day",
+            "fields": {
+                "created_at": "2026-04-11T00:00:00+00:00",
+                "filament_used_grams": 48.75,
+                "cost": 2.6,
+                "quantity": 2,
+                "external_url": "https://printables.com/model/12345",
+            },
+            "reason": "Correct archive day and advanced metadata",
             "dry_run": True,
             "trigger_source": "home_assistant_archive_actions",
             "request_id": "corr-preview-101",

@@ -95,6 +95,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._metadataCorrectionPreview = null;
     this._metadataCorrectionError = "";
     this._metadataCorrectionPreviewKey = "";
+    this._metadataCorrectionBackMode = "main";
     this._timelapseScanResponse = null;
     this._lastRenderSignature = "";
     this._render();
@@ -450,6 +451,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._handleRepair();
       return;
     }
+    if (action === "repair-choose-metadata") {
+      this._mainTab = "repair";
+      this._openMetadataCorrection("repair-chooser");
+      return;
+    }
+    if (action === "repair-choose-replacement") {
+      this._launchReplacementRepair();
+      return;
+    }
     if (action === "refresh-storage-metrics") {
       this._mainTab = "analytics";
       this._handleRefreshStorageMetrics();
@@ -524,6 +534,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (action === "back-related") {
       this._mode = "related";
+      this._render();
+      return;
+    }
+    if (action === "back-repair-chooser") {
+      this._mode = "repair-chooser";
       this._render();
       return;
     }
@@ -878,16 +893,21 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       created_at: archive && archive.created_at ? String(archive.created_at) : "",
       status: archive && archive.status ? String(archive.status) : "",
       failure_reason: archive && archive.failure_reason ? String(archive.failure_reason) : "",
+      filament_used_grams: archive && archive.filament_used_grams != null ? String(archive.filament_used_grams) : "",
+      cost: archive && archive.cost != null ? String(archive.cost) : "",
+      quantity: archive && archive.quantity != null ? String(archive.quantity) : "",
+      external_url: archive && archive.external_url ? String(archive.external_url) : "",
       reason: "",
     };
   }
 
-  _openMetadataCorrection() {
+  _openMetadataCorrection(backMode) {
     var archive = this._resolveArchive();
     this._metadataCorrectionDraft = this._buildMetadataCorrectionDraft(archive);
     this._metadataCorrectionPreview = null;
     this._metadataCorrectionError = "";
     this._metadataCorrectionPreviewKey = "";
+    this._metadataCorrectionBackMode = backMode === "repair-chooser" ? "repair-chooser" : "main";
     this._mode = "correct-metadata";
     this._render();
   }
@@ -909,6 +929,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       created_at: this._metadataCorrectionFieldValue("created_at"),
       status: this._metadataCorrectionFieldValue("status"),
       failure_reason: this._metadataCorrectionFieldValue("failure_reason"),
+      filament_used_grams: this._metadataCorrectionFieldValue("filament_used_grams"),
+      cost: this._metadataCorrectionFieldValue("cost"),
+      quantity: this._metadataCorrectionFieldValue("quantity"),
+      external_url: this._metadataCorrectionFieldValue("external_url"),
       reason: this._metadataCorrectionFieldValue("reason"),
     };
     this._metadataCorrectionDraft = draft;
@@ -928,10 +952,21 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (draft.failure_reason !== currentFailureReason) {
       payload.failure_reason = draft.failure_reason;
     }
+    ["filament_used_grams", "cost", "quantity"].forEach(function (fieldName) {
+      var rawValue = String(draft[fieldName] || "").trim();
+      var currentValue = archive && archive[fieldName] != null ? String(archive[fieldName]) : "";
+      if (rawValue && rawValue !== currentValue) {
+        payload[fieldName] = rawValue;
+      }
+    });
+    var currentExternalUrl = archive && archive.external_url != null ? String(archive.external_url) : "";
+    if (draft.external_url !== currentExternalUrl) {
+      payload.external_url = draft.external_url;
+    }
     if (!payload.reason) {
       throw new Error("Reason is required before previewing metadata changes.");
     }
-    if (!("started_at" in payload) && !("completed_at" in payload) && !("created_at" in payload) && !("status" in payload) && !("failure_reason" in payload)) {
+    if (!("started_at" in payload) && !("completed_at" in payload) && !("created_at" in payload) && !("status" in payload) && !("failure_reason" in payload) && !("filament_used_grams" in payload) && !("cost" in payload) && !("quantity" in payload) && !("external_url" in payload)) {
       throw new Error("Change at least one metadata field before previewing.");
     }
     return payload;
@@ -998,6 +1033,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     rows.push("Created day: " + String(impacts.created_day_before || "unknown") + " -> " + String(impacts.created_day_after || "unknown"));
     rows.push("Status changed: " + (impacts.status_changed ? "yes" : "no"));
     rows.push("Failure reason changed: " + (impacts.failure_reason_changed ? "yes" : "no"));
+    if (Object.prototype.hasOwnProperty.call(impacts, "filament_used_grams_changed")) {
+      rows.push("Filament weight: " + String(impacts.filament_used_grams_before != null ? impacts.filament_used_grams_before : "unknown") + "g -> " + String(impacts.filament_used_grams_after != null ? impacts.filament_used_grams_after : "unknown") + "g");
+    }
+    if (Object.prototype.hasOwnProperty.call(impacts, "cost_changed")) {
+      rows.push("Cost: " + String(impacts.cost_before != null ? impacts.cost_before : "unknown") + " -> " + String(impacts.cost_after != null ? impacts.cost_after : "unknown"));
+    }
+    if (Object.prototype.hasOwnProperty.call(impacts, "quantity_changed")) {
+      rows.push("Quantity: " + String(impacts.quantity_before != null ? impacts.quantity_before : "unknown") + " -> " + String(impacts.quantity_after != null ? impacts.quantity_after : "unknown"));
+    }
+    if (Object.prototype.hasOwnProperty.call(impacts, "external_url_changed")) {
+      rows.push("External URL changed: " + (impacts.external_url_changed ? "yes" : "no"));
+    }
     return '<div class="metadata-impact-list">' + rows.map(function (row) {
       return '<div class="metadata-impact-item">' + this._escapeHtml(row) + '</div>';
     }.bind(this)).join("") + '</div>';
@@ -1008,14 +1055,15 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var preview = this._metadataCorrectionPreview;
     var warnings = preview && Array.isArray(preview.warnings) ? preview.warnings : [];
     var updatedFields = preview && Array.isArray(preview.updated_fields) ? preview.updated_fields : [];
+    var launchedFromRepairChooser = this._metadataCorrectionBackMode === "repair-chooser";
     return '<div class="section-stack metadata-correction-view">' +
       this._renderActionSection(
-        "Correct Metadata",
+        launchedFromRepairChooser ? "Repair Archive · Correct Metadata" : "Correct Metadata",
         '<div class="actions-grid metadata-toolbar">' +
-          this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+          this._renderActionButton(launchedFromRepairChooser ? "back-repair-chooser" : "back-main", launchedFromRepairChooser ? "Back to Repair Choices" : "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
           this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
         '</div>' +
-        '<div class="section-copy">Advanced correction writes directly to archived runtime metadata. Preview first, confirm the derived impact summary, then apply. A local audit record is written to the Variant 3 store when this runs.</div>'
+        '<div class="section-copy">Advanced correction writes directly to archived runtime and selected advanced metadata. Preview first, confirm the derived impact summary, then apply. A local audit record is written to the Variant 3 store when this runs.</div>'
       ) +
       this._renderActionSection(
         "Editable Fields",
@@ -1027,6 +1075,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
             var selected = String(draft.status || "").trim().toLowerCase() === statusValue ? ' selected' : '';
             return '<option value="' + statusValue + '"' + selected + '>' + statusValue + '</option>';
           }).join("") + '</select></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Filament Weight (g)</span><input id="metadata-correction-filament_used_grams" class="metadata-input" type="number" min="0" step="0.01" value="' + this._escapeHtml(draft.filament_used_grams || "") + '" placeholder="58.98"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Cost</span><input id="metadata-correction-cost" class="metadata-input" type="number" min="0" step="0.01" value="' + this._escapeHtml(draft.cost || "") + '" placeholder="1.47"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Quantity</span><input id="metadata-correction-quantity" class="metadata-input" type="number" min="0" step="1" value="' + this._escapeHtml(draft.quantity || "") + '" placeholder="1"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">External URL</span><input id="metadata-correction-external_url" class="metadata-input" type="text" value="' + this._escapeHtml(draft.external_url || "") + '" placeholder="https://printables.com/model/12345"></label>' +
           '<label class="metadata-field metadata-field-full"><span class="metadata-field-label">Failure Reason</span><input id="metadata-correction-failure_reason" class="metadata-input" type="text" value="' + this._escapeHtml(draft.failure_reason || "") + '" placeholder="Optional"></label>' +
           '<label class="metadata-field metadata-field-full"><span class="metadata-field-label">Reason</span><textarea id="metadata-correction-reason" class="metadata-textarea" rows="3" placeholder="Document why this correction is needed.">' + this._escapeHtml(draft.reason || "") + '</textarea></label>' +
         '</div>' +
@@ -1050,6 +1102,28 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
               : '<div class="section-copy">No warnings were returned for this correction preview.</div>') +
             this._renderMetadataCorrectionImpactList(preview.derived_impacts)
           : '<div class="section-copy">Run Preview Changes to validate the update, see warnings, and review runtime/day-bucket impacts before applying.</div>'
+      ) +
+      '</div>';
+  }
+
+  _renderRepairChooserView(archive) {
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "this archive";
+    return '<div class="section-stack repair-chooser-view">' +
+      this._renderActionSection(
+        "Repair Archive",
+        '<div class="actions-grid metadata-toolbar">' +
+          this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+          this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
+        '</div>' +
+        '<div class="section-copy">Choose the repair path that matches the problem for <strong>' + this._escapeHtml(archiveName) + '</strong>. Metadata correction keeps the existing archive row and repairs canonical timing or status fields. Replacement repair launches the existing restore workflow when the archived file-backed record itself is wrong or incomplete.</div>'
+      ) +
+      this._renderActionSection(
+        "Repair Paths",
+        '<div class="actions-grid">' +
+          this._renderActionButton("repair-choose-metadata", "Correct Metadata", "mdi:file-edit-outline", { tone: "warning", disabled: this._busy }) +
+          this._renderActionButton("repair-choose-replacement", "Repair From Replacement 3MF", "mdi:file-replace-outline", { tone: "warning", disabled: this._busy }) +
+        '</div>' +
+        '<div class="section-copy">Use Correct Metadata when the archive row is correct but historical timing or outcome data needs repair. Use Repair From Replacement 3MF when the archived source file or parser-derived metadata needs to be replaced or merged.</div>'
       ) +
       '</div>';
   }
@@ -1938,6 +2012,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   async _handleRepair() {
+    this._mode = "repair-chooser";
+    this._render();
+  }
+
+  _launchReplacementRepair() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
     if (archiveId <= 0) {
@@ -3012,7 +3091,6 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       "Archive",
       '<div class="actions-grid">' +
         this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
-        this._renderActionButton("open-correct-metadata", "Correct Metadata", "mdi:file-edit-outline", { tone: "warning", disabled: this._busy }) +
         this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
       '</div>'
     );
@@ -3210,6 +3288,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
         : this._mode === "metadata"
           ? this._renderMetadataView(archive)
+          : this._mode === "repair-chooser"
+            ? this._renderRepairChooserView(archive)
           : this._mode === "correct-metadata"
             ? this._renderMetadataCorrectionView(archive)
           : this._mode === "related"

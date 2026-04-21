@@ -951,6 +951,10 @@ SERVICE_CORRECT_ARCHIVE_METADATA_SCHEMA = vol.Schema(
         vol.Optional("created_at"): str,
         vol.Optional("status"): str,
         vol.Optional("failure_reason"): vol.Any(None, str),
+        vol.Optional("filament_used_grams"): vol.Any(None, vol.Coerce(float)),
+        vol.Optional("cost"): vol.Any(None, vol.Coerce(float)),
+        vol.Optional("quantity"): vol.Any(None, vol.Coerce(int)),
+        vol.Optional("external_url"): vol.Any(None, str),
         vol.Required("reason"): str,
         vol.Optional("dry_run", default=False): bool,
         vol.Optional("trigger_source"): str,
@@ -1541,6 +1545,10 @@ def _archive_metadata_revision(archive: dict[str, Any]) -> str:
         "created_at": archive.get("created_at"),
         "status": archive.get("status"),
         "failure_reason": archive.get("failure_reason"),
+        "filament_used_grams": archive.get("filament_used_grams"),
+        "cost": archive.get("cost"),
+        "quantity": archive.get("quantity"),
+        "external_url": archive.get("external_url"),
         "notes": archive.get("notes"),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
@@ -1558,6 +1566,12 @@ def _normalize_metadata_correction_fields(call_data: dict[str, Any]) -> dict[str
     if "failure_reason" in call_data:
         raw_failure_reason = call_data.get("failure_reason")
         fields["failure_reason"] = None if raw_failure_reason in (None, "") else str(raw_failure_reason)
+    for field_name in ("filament_used_grams", "cost", "quantity"):
+        if field_name in call_data:
+            fields[field_name] = call_data.get(field_name)
+    if "external_url" in call_data:
+        raw_external_url = call_data.get("external_url")
+        fields["external_url"] = None if raw_external_url in (None, "") else str(raw_external_url)
     return fields
 
 
