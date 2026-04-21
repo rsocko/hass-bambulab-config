@@ -374,6 +374,24 @@ def test_variant3_query_contract_supports_archived_status_filter() -> None:
     assert [archive["id"] for archive in result.page_items] == [303]
 
 
+def test_project_archive_preserves_timelapse_path_for_ui_indicators() -> None:
+    archive = project_archive(
+        {
+            "id": 461,
+            "printer_id": 1,
+            "printer_name": "Kung-Fu Panda",
+            "print_name": "Hulk - Stained Glass Style",
+            "status": "archived",
+            "file_path": "archive/unassigned/20260419_183704_hulk/hulk.3mf",
+            "thumbnail_path": "archive/unassigned/20260419_183704_hulk/thumbnail.png",
+            "timelapse_path": "archive/unassigned/20260419_183704_hulk/timelapse.mp4",
+            "extra_data": {},
+        }
+    )
+
+    assert archive["timelapse_path"] == "archive/unassigned/20260419_183704_hulk/timelapse.mp4"
+
+
 def test_variant3_query_contract_prefers_note_payload_names_when_slot_names_blank() -> None:
     archives = [_live_style_projected_archive()]
     states = {

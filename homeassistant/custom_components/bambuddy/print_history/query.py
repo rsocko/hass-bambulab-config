@@ -700,6 +700,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         "file_path": as_text(raw_archive.get("file_path")).strip(),
         "file_size": as_int(raw_archive.get("file_size")),
         "thumbnail_path": as_text(raw_archive.get("thumbnail_path")).strip(),
+        "timelapse_path": as_text(raw_archive.get("timelapse_path")).strip(),
         "source_3mf_path": as_text(raw_archive.get("source_3mf_path")).strip(),
         "no_3mf_available": bool(
             isinstance(raw_archive.get("extra_data"), dict) and raw_archive.get("extra_data", {}).get("no_3mf_available") is True
