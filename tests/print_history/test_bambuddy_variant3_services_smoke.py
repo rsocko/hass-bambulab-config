@@ -2125,16 +2125,20 @@ def test_variant3_timelapse_process_view_refreshes_archive_detail(tmp_path: Path
         ],
     )
 
+    original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
     original_api_client = init_module.BambuddyApiClient
     original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
     init_module.BambuddyApiClient = FakeApiClient
     manager_module.BambuddyApiClient = FakeApiClient
     FakeApiClient.archives = manager.archives
     FakeApiClient.processed_timelapses = []
+    FakeRuntimeRepairClient.storage_scan_calls = []
 
     try:
         response = asyncio.run(process_view.post(request))
     finally:
+        init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
         init_module.BambuddyApiClient = original_api_client
         manager_module.BambuddyApiClient = original_manager_api_client
 
@@ -2144,6 +2148,11 @@ def test_variant3_timelapse_process_view_refreshes_archive_detail(tmp_path: Path
     assert payload["process"]["status"] == "completed"
     assert payload["process"]["message"] == "Timelapse replaced successfully"
     assert payload["process"]["output_path"] == "archive_timelapses/101/print-101.mp4"
+    assert payload["storage_metrics"]["metrics"]["timelapse_bytes"] == 5242880
+    assert payload["archive"]["storage_metrics"]["metrics"]["timelapse_bytes"] == 5242880
+    assert FakeRuntimeRepairClient.storage_scan_calls == [
+        {"archive_id": 101, "force": True, "include_other_files": True, "include_extension_breakdown": False}
+    ]
     assert FakeApiClient.processed_timelapses == [
         {
             "archive_id": 101,
@@ -2156,6 +2165,73 @@ def test_variant3_timelapse_process_view_refreshes_archive_detail(tmp_path: Path
             "audio_mime_type": "audio/mpeg",
             "audio_byte_count": 16,
         }
+    ]
+
+
+def test_variant3_timelapse_upload_view_refreshes_nested_storage_metrics(tmp_path: Path) -> None:
+    const_module, query_module, manager_module, init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={
+            "base_url": "http://example.local",
+            "api_key": "token",
+            "runtime_repair_base_url": "http://repair.local",
+            "runtime_repair_token": "repair-token",
+        },
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+    hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
+
+    asyncio.run(init_module.async_setup(hass, {}))
+
+    upload_view = next(view for view in hass.http.views if getattr(view, "url", "") == const_module.TIMELAPSE_UPLOAD_URL)
+    request = FakeMultipartRequest(
+        hass,
+        101,
+        [
+            FakeMultipartPart("entry_id", text="entry-1"),
+            FakeMultipartPart(
+                "file",
+                filename="replacement.mp4",
+                content=b"replacement-video-bytes",
+                content_type="video/mp4",
+            ),
+        ],
+    )
+
+    original_runtime_repair_client = init_module.BambuddyRuntimeRepairClient
+    original_api_client = init_module.BambuddyApiClient
+    original_manager_api_client = manager_module.BambuddyApiClient
+    init_module.BambuddyRuntimeRepairClient = FakeRuntimeRepairClient
+    init_module.BambuddyApiClient = FakeApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+    FakeApiClient.archives = manager.archives
+    FakeApiClient.uploaded_photos = []
+    FakeRuntimeRepairClient.storage_scan_calls = []
+
+    try:
+        response = asyncio.run(upload_view.post(request))
+    finally:
+        init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
+        init_module.BambuddyApiClient = original_api_client
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    payload = response["payload"]
+    assert response["status"] == 200
+    assert payload["success"] is True
+    assert payload["upload"]["file_name"] == "replacement.mp4"
+    assert payload["storage_metrics"]["metrics"]["timelapse_bytes"] == 5242880
+    assert payload["archive"]["storage_metrics"]["metrics"]["timelapse_bytes"] == 5242880
+    assert payload["archive"]["timelapse_path"] == "archive_timelapses/101/replacement.mp4"
+    assert FakeRuntimeRepairClient.storage_scan_calls == [
+        {"archive_id": 101, "force": True, "include_other_files": True, "include_extension_breakdown": False}
     ]
 
 

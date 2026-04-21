@@ -368,6 +368,15 @@ async def _build_archive_action_response(
         response = manager.build_archive_detail_response(archive_id)
         if response is None:
             raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+        _apply_storage_metrics_to_archive_response(
+            response,
+            await _async_refresh_archive_storage_metrics_after_mutation(
+                hass,
+                entry_id=entry_id,
+                manager=manager,
+                archive_id=archive_id,
+            ),
+        )
         response.update(
             {
                 CONF_ENTRY_ID: entry_id,
@@ -1492,6 +1501,20 @@ async def _async_refresh_archive_storage_metrics_after_mutation(
     )
 
 
+def _apply_storage_metrics_to_archive_response(
+    response: dict[str, Any] | None,
+    storage_metrics: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(response, dict) or not isinstance(storage_metrics, dict):
+        return storage_metrics
+
+    response["storage_metrics"] = storage_metrics
+    archive = response.get("archive")
+    if isinstance(archive, dict):
+        archive["storage_metrics"] = storage_metrics
+    return storage_metrics
+
+
 def _normalize_restore_request_payload(call_data: dict[str, Any], *, dry_run: bool) -> dict[str, Any]:
     payload: dict[str, Any] = {
         CONF_SOURCE_ARCHIVE_ID: int(call_data[CONF_SOURCE_ARCHIVE_ID]),
@@ -1921,11 +1944,14 @@ class ArchiveSource3mfUploadView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
-            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
-                hass,
-                entry_id=resolved_entry_id,
-                manager=manager,
-                archive_id=archive_id_value,
+            _apply_storage_metrics_to_archive_response(
+                response,
+                await _async_refresh_archive_storage_metrics_after_mutation(
+                    hass,
+                    entry_id=resolved_entry_id,
+                    manager=manager,
+                    archive_id=archive_id_value,
+                ),
             )
             response.update(
                 {
@@ -2133,11 +2159,14 @@ class ArchiveTimelapseUploadView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after upload")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
-            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
-                hass,
-                entry_id=resolved_entry_id,
-                manager=manager,
-                archive_id=archive_id_value,
+            _apply_storage_metrics_to_archive_response(
+                response,
+                await _async_refresh_archive_storage_metrics_after_mutation(
+                    hass,
+                    entry_id=resolved_entry_id,
+                    manager=manager,
+                    archive_id=archive_id_value,
+                ),
             )
             response.update(
                 {
@@ -2254,11 +2283,14 @@ class ArchiveTimelapseDeleteView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after timelapse deletion")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
-            response["storage_metrics"] = await _async_refresh_archive_storage_metrics_after_mutation(
-                hass,
-                entry_id=resolved_entry_id,
-                manager=manager,
-                archive_id=archive_id_value,
+            _apply_storage_metrics_to_archive_response(
+                response,
+                await _async_refresh_archive_storage_metrics_after_mutation(
+                    hass,
+                    entry_id=resolved_entry_id,
+                    manager=manager,
+                    archive_id=archive_id_value,
+                ),
             )
             response.update(
                 {
@@ -2460,6 +2492,15 @@ class ArchiveTimelapseProcessView(HomeAssistantView):
                 raise HomeAssistantError(f"Archive {archive_id_value} could not be refreshed after timelapse processing")
 
             response = manager.build_archive_detail_response(archive_id_value) or {"archive": refreshed_archive}
+            _apply_storage_metrics_to_archive_response(
+                response,
+                await _async_refresh_archive_storage_metrics_after_mutation(
+                    hass,
+                    entry_id=resolved_entry_id,
+                    manager=manager,
+                    archive_id=archive_id_value,
+                ),
+            )
             response.update(
                 {
                     "success": True,

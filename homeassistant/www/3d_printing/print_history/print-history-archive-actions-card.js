@@ -1738,6 +1738,29 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return String(storagePath || "").trim();
   }
 
+  _storageMetricsNeedForceRefresh(archive) {
+    if (!archive || typeof archive !== "object") {
+      return false;
+    }
+    var storageMetrics = archive.storage_metrics;
+    if (!storageMetrics || typeof storageMetrics !== "object") {
+      return false;
+    }
+    var directTimelapsePath = archive && typeof archive === "object" && Object.prototype.hasOwnProperty.call(archive, "timelapse_path")
+      ? String(archive.timelapse_path || "").trim()
+      : String(archive && archive.timelapse_path || "").trim();
+    var timelapseBytes = storageMetrics.metrics ? Number(storageMetrics.metrics.timelapse_bytes || 0) : 0;
+    var artifactPath = storageMetrics.artifacts
+      && storageMetrics.artifacts.timelapse_path
+      && storageMetrics.artifacts.timelapse_path.relative_path
+      ? String(storageMetrics.artifacts.timelapse_path.relative_path || "").trim()
+      : "";
+    if (directTimelapsePath) {
+      return timelapseBytes <= 0 || !artifactPath;
+    }
+    return timelapseBytes > 0 || !!artifactPath;
+  }
+
   _openTimelapsePopup() {
     var archive = this._resolveArchive();
     var timelapsePath = this._timelapsePath(archive);
@@ -1859,18 +1882,20 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _maybeLoadStorageMetrics() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var forceRefresh = this._storageMetricsNeedForceRefresh(archive);
+    var requestKey = String(archiveId) + ":" + (forceRefresh ? "force" : "cache");
     if (!archiveId || this._busy) {
       return;
     }
-    if (archive && archive.storage_metrics && typeof archive.storage_metrics === "object") {
-      this._storageMetricsLoadedKey = String(archiveId);
+    if (archive && archive.storage_metrics && typeof archive.storage_metrics === "object" && !forceRefresh) {
+      this._storageMetricsLoadedKey = requestKey;
       return;
     }
-    if (this._storageMetricsLoadedKey === String(archiveId) || this._storageMetricsRequestKey === String(archiveId)) {
+    if (this._storageMetricsLoadedKey === requestKey || this._storageMetricsRequestKey === requestKey) {
       return;
     }
-    this._storageMetricsRequestKey = String(archiveId);
-    this._fetchArchiveStorageMetrics(false).catch(function () {
+    this._storageMetricsRequestKey = requestKey;
+    this._fetchArchiveStorageMetrics(forceRefresh).catch(function () {
       this._storageMetricsRequestKey = "";
     }.bind(this));
   }

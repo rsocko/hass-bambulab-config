@@ -302,12 +302,36 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     return window.confirm("Delete this Bambuddy archive timelapse now? This cannot be undone.");
   }
 
-  async _closePopupAfterDelete() {
-    if (!this._hass || typeof this._hass.callService !== "function") {
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
       return;
     }
+
+    this.dispatchEvent(event);
+  }
+
+  async _closePopupAfterDelete() {
     try {
-      await this._hass.callService("browser_mod", "close_popup", {});
+      this._fireBrowserModEvent("browser_mod.sequence", {
+        sequence: [
+          {
+            service: "browser_mod.close_popup",
+          },
+        ],
+      });
     } catch (_error) {
       // Fall back to leaving the success state visible if popup close fails.
     }
