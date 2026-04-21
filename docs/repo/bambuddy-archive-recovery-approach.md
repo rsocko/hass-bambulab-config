@@ -14,6 +14,7 @@ Additional print_history design references for canonical runtime repair and depl
 - [../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md](../features/print_history/runtime-repair/archive-runtime-repair-script-and-n8n-flow.md)
 - [../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md](../features/print_history/runtime-repair/archive-runtime-sidecar-api-and-compose.md)
 - [../features/print_history/imports/archive-historical-backfill-from-sd-card.md](../features/print_history/imports/archive-historical-backfill-from-sd-card.md)
+- [../features/print_history/imports/folder-3mf-catalog-design.md](../features/print_history/imports/folder-3mf-catalog-design.md)
 - [../features/print_history/imports/source-3mf-import-design.md](../features/print_history/imports/source-3mf-import-design.md)
 
 ## Executive Summary
@@ -58,6 +59,8 @@ The recommended orchestration stack is:
 4. **sidecar service only if recovery frequency or complexity later justifies it**
 
 For historical backfill and local forensic recovery, the repo now also documents a manifest-driven queue layer that sits ahead of the existing upload script. That path uses the forensics viewer only for operator triage and source selection; it does not change the decision that canonical archive creation should still flow through `POST /archives/upload`.
+
+That manifest-driven queue layer now has a second intake path for user-selected historical folders, documented in `imports/folder-3mf-catalog-design.md`. The folder-catalog flow keeps the selected source tree read-only, stores operator decisions in a separate state file, supports reconciliation against existing Bambuddy archives, and can now run `inspect`, `dry-run`, and explicitly confirmed `run-backfill` directly from its local browser viewer.
 
 That queue layer now supports two executable branches from the same manifest writeback:
 
@@ -167,6 +170,15 @@ Detection and surfacing are more important than silent best-effort recovery. A v
 - automatically upload recovered `.3mf` files to Bambuddy
 - auto-link old and recovered archives
 - auto-close exceptions when the replacement archive is created
+
+## Current Deferred UX Follow-Ups
+
+The folder-catalog workflow is implemented enough to execute from the browser, but two UX follow-ups remain intentionally deferred:
+
+1. add a compact success or error summary card above the raw queue-action JSON output in the viewer
+2. persist viewer runner defaults such as synthetic manifest path, `base_url`, `printer_id`, and preferred backfill action in catalog state so they survive across sessions
+
+Those follow-ups are design-level polish, not architectural blockers.
 
 ## Recommended Archive Linking Model
 

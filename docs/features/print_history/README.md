@@ -18,6 +18,7 @@ Tag color assignment for archive tags is documented in `ui-media/tag-color-contr
 
 Source `.3mf` import workflow and long-term storage policy are documented in:
 
+- `imports/folder-3mf-catalog-design.md`
 - `imports/source-3mf-import-design.md`
 - `imports/source-3mf-import-implementation-plan.md`
 - `imports/source-3mf-storage-strategy.md`
@@ -483,6 +484,7 @@ For detailed design of the two major subsystems, see:
 - **[photo-review-design.md](ui-media/photo-review-design.md)** — Store-backed post-print media review in the existing popup/gallery: delete, replace, dismiss, and local primary-photo selection
 - **[source-3mf-import-design.md](imports/source-3mf-import-design.md)** — Archive-popup workflow for parsing a user-supplied source `.3mf`, previewing embedded images and metadata, and selectively importing them into Bambuddy as archive photos
 - **[source-3mf-import-implementation-plan.md](imports/source-3mf-import-implementation-plan.md)** — Phased implementation plan, backend contracts, parser scope, and rollout order for the source-3MF import workflow
+- **[folder-3mf-catalog-design.md](imports/folder-3mf-catalog-design.md)** — Nondestructive folder-driven catalog, reconciliation, editable viewer, browser queue actions, and confirmed backfill workflow for historical `.3mf` collections
 - **[filter-sort-design.md](browser/filter-sort-design.md)** — Server-side archive browsing with projected full-archive fields, filters, sorting, and paging
 - **[multi-select-actions-design.md](browser/multi-select-actions-design.md)** — Issue #919 shipped browser multi-select mode, toolbar/card coordination, and bulk action semantics
 - **[archive-detail-popup-design.md](ui-media/archive-detail-popup-design.md)** — Issue #753 phased popup plan and current implementation status: per-card drilldown plus the initial helper-backed edit slice are shipped
