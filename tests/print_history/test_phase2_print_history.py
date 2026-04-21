@@ -2343,7 +2343,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=37", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=116", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
@@ -2602,6 +2602,9 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         self.assertIn('this._preview = preview;', script)
         self.assertIn('preview.processGCode(previewGcode);', script)
         self.assertIn('_showFallback(', script)
+        self.assertIn('_describeError(error, fallbackMessage)', script)
+        self.assertIn('Home Assistant websocket unavailable. Retry after the connection recovers.', script)
+        self.assertIn('this._setCaptureStatus(this._describeError(error, "Capture upload failed."), "error");', script)
         self.assertIn('customElements.define("print-history-3d-viewer-card", PrintHistory3dViewerCard);', script)
 
     def test_archive_viewer_popup_passes_archive_payload_to_viewer_card(self):

@@ -1878,6 +1878,55 @@ class PrintHistory3dViewerCard extends HTMLElement {
     this._setCropMode(false);
   }
 
+  _describeError(error, fallbackMessage) {
+    if (!error) {
+      return fallbackMessage;
+    }
+
+    if (typeof error === "string") {
+      const textError = error.trim();
+      return textError || fallbackMessage;
+    }
+
+    const normalizeMessage = (value) => {
+      const message = String(value == null ? "" : value).trim();
+      if (!message || message === "[object Object]" || message.toLowerCase() === "unknown error") {
+        return "";
+      }
+      if (/websocket unavailable|websocket disconnected|connection lost|socket closed/i.test(message)) {
+        return "Home Assistant websocket unavailable. Retry after the connection recovers.";
+      }
+      const httpDetailMatch = message.match(/^Bambuddy returned HTTP \d+:\s*(.+)$/i);
+      if (httpDetailMatch && httpDetailMatch[1]) {
+        return String(httpDetailMatch[1]).trim();
+      }
+      return message;
+    };
+
+    if (error && typeof error === "object") {
+      const message = normalizeMessage(error.message);
+      if (message) {
+        return message;
+      }
+
+      if (error.body && typeof error.body === "object") {
+        const bodyMessage = normalizeMessage(error.body.message || error.body.error || error.body.details);
+        if (bodyMessage) {
+          return bodyMessage;
+        }
+      }
+
+      if (error.code && String(error.code).trim() && String(error.code).trim() !== "unknown_error") {
+        const code = String(error.code).trim();
+        const details = normalizeMessage(error.details);
+        return details ? code + ": " + details : code;
+      }
+    }
+
+    const fallback = normalizeMessage(error);
+    return fallback || fallbackMessage;
+  }
+
   async _handleCropToggle() {
     try {
       if (!this._cropMode) {
@@ -1886,8 +1935,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
       await this._captureCurrentView();
     } catch (error) {
-      const message = error && error.message ? error.message : String(error);
-      this._setCaptureStatus(message || "Crop capture failed.", "error");
+      this._setCaptureStatus(this._describeError(error, "Crop capture failed."), "error");
     }
   }
 
@@ -1952,8 +2000,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
       await this._captureCurrentView();
     } catch (error) {
-      const message = error && error.message ? error.message : String(error);
-      this._setCaptureStatus(message || "Capture failed.", "error");
+      this._setCaptureStatus(this._describeError(error, "Capture failed."), "error");
     }
   }
 
@@ -1993,8 +2040,7 @@ class PrintHistory3dViewerCard extends HTMLElement {
       }
       this._setCaptureStatus("Capture uploaded to the archive photo gallery.", "success");
     } catch (error) {
-      const message = error && error.message ? error.message : String(error);
-      this._setCaptureStatus(message || "Capture upload failed.", "error");
+      this._setCaptureStatus(this._describeError(error, "Capture upload failed."), "error");
     } finally {
       this._uploadInProgress = false;
       this._updateCapturePanel();
@@ -2754,13 +2800,13 @@ class PrintHistory3dViewerCard extends HTMLElement {
             : "Rendered G-code preview. Use drag, pan, and zoom inside the canvas."
         );
       } catch (error) {
-        const message = error && error.message ? error.message : String(error);
+        const message = this._describeError(error, "The viewer library could not be loaded, so the popup fell back to raw G-code.");
         this._setStageStatus("Interactive preview failed", "The viewer library could not load, so the popup fell back to raw G-code.", "error");
         this._setStatus("The interactive preview library could not be loaded, so the popup fell back to raw G-code.", true);
         this._showFallback(`Interactive preview failed to load: ${message}`, gcodeText);
       }
     } catch (error) {
-      const message = error && error.message ? error.message : String(error);
+      const message = this._describeError(error, "The popup could not load this archive preview.");
       this._setStageStatus("Viewer load failed", message || "The popup could not load this archive preview.", "error");
       this._setStatus(message, true);
       this._showFallback(message, "");
