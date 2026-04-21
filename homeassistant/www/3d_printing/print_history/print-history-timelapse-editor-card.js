@@ -4,6 +4,7 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = null;
     this._hass = null;
+    this._archiveOverride = null;
     this._loaded = false;
     this._loading = false;
     this._saving = false;
@@ -12,6 +13,15 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
     this._infoBundle = null;
     this._thumbnailBundle = null;
     this._lastRenderSignature = "";
+    this._boundArchiveUpdatedHandler = this._handleExternalArchiveUpdate.bind(this);
+  }
+
+  connectedCallback() {
+    window.addEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("bambuddy-print-history-archive-updated", this._boundArchiveUpdatedHandler);
   }
 
   setConfig(config) {
@@ -21,6 +31,7 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       title: config && config.title ? config.title : "Timelapse Editor",
     };
+    this._archiveOverride = null;
     this._loaded = false;
     this._loading = false;
     this._saving = false;
@@ -65,6 +76,10 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
   }
 
   _resolveArchive() {
+    if (this._archiveOverride && typeof this._archiveOverride === "object") {
+      return this._archiveOverride;
+    }
+
     var parsed = {};
     try {
       parsed = JSON.parse(this._config && this._config.archive_json ? this._config.archive_json : "{}");
@@ -170,6 +185,34 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
   _setStatus(message, tone) {
     this._status = String(message || "").trim();
     this._statusTone = tone || "info";
+    this._render();
+  }
+
+  _handleExternalArchiveUpdate(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : null;
+    var updatedArchive = detail && detail.archive && typeof detail.archive === "object" ? detail.archive : null;
+    var archiveId = updatedArchive && updatedArchive.id != null
+      ? String(updatedArchive.id)
+      : detail && detail.archive_id != null
+        ? String(detail.archive_id)
+        : "";
+    var currentArchive = this._resolveArchive();
+    var currentArchiveId = currentArchive && currentArchive.id != null ? String(currentArchive.id) : "";
+    if (!archiveId || !updatedArchive || !currentArchiveId || archiveId !== currentArchiveId) {
+      return;
+    }
+
+    this._archiveOverride = Object.assign({}, currentArchive, updatedArchive);
+    if (!this._timelapsePath()) {
+      this._loaded = false;
+      this._loading = false;
+      this._saving = false;
+      this._infoBundle = null;
+      this._thumbnailBundle = null;
+      this._status = "";
+      this._statusTone = "info";
+    }
+    this._lastRenderSignature = "";
     this._render();
   }
 
@@ -312,6 +355,9 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
       }
       this._status = String(payload.process && payload.process.message || payload.message || "Timelapse processing finished.");
       this._statusTone = "success";
+      this._archiveOverride = payload.archive && typeof payload.archive === "object"
+        ? Object.assign({}, this._resolveArchive(), payload.archive)
+        : this._archiveOverride;
       this._infoBundle = null;
       this._thumbnailBundle = null;
       this._loaded = false;

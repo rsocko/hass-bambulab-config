@@ -25,6 +25,7 @@ try:
         canonical_color_tooltip_names,
         enrichment_provenance_rows,
         effective_duration_seconds,
+        format_storage_bytes,
         has_active_filters,
         local_timezone,
         normalize_filter_date_value,
@@ -53,6 +54,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         canonical_color_tooltip_names,
         enrichment_provenance_rows,
         effective_duration_seconds,
+        format_storage_bytes,
         has_active_filters,
         local_timezone,
         normalize_filter_date_value,
@@ -1091,6 +1093,7 @@ class PrintHistoryStore:
                     "actual_time_seconds": base["actual_time_seconds"],
                     "print_time_seconds": base["print_time_seconds"],
                     "effective_duration_seconds": effective_duration_seconds(base),
+                    "storage_total_bytes": max(0, as_int(base.get("storage_total_bytes"))),
                     "filament_used_grams": base["filament_used_grams"],
                     "filament_type": base["filament_type"],
                     "filament_color": base["filament_color"],
@@ -3106,6 +3109,7 @@ class PrintHistoryStore:
                     COUNT(*) AS metric_archive_count,
                     COUNT(DISTINCT CASE WHEN TRIM(COALESCE(a.archive_day_local, '')) != '' THEN a.archive_day_local END) AS active_day_count,
                     COALESCE(SUM(a.filament_used_grams), 0) AS total_filament_used_grams,
+                    COALESCE(SUM(COALESCE(asm.total_bytes, 0)), 0) AS total_storage_bytes,
                     COALESCE(SUM(CASE WHEN COALESCE(a.object_count, 0) > 0 THEN a.object_count ELSE 1 END), 0) AS total_object_count,
                     COALESCE(SUM(a.cost), 0) AS total_cost,
                     COALESCE(SUM({duration_sql}), 0) AS total_duration_seconds,
@@ -3113,6 +3117,7 @@ class PrintHistoryStore:
                     COALESCE(SUM(CASE WHEN LOWER(COALESCE(a.status, '')) = 'completed' THEN 1 ELSE 0 END), 0) AS completed_count,
                     COALESCE(SUM(CASE WHEN LOWER(COALESCE(a.status, '')) = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count
                 FROM archives a
+                LEFT JOIN archive_storage_metrics asm ON asm.archive_id = a.archive_id
                 LEFT JOIN (
                     SELECT archive_id, COUNT(*) AS slot_count
                     FROM archive_filament_rows
@@ -3126,15 +3131,18 @@ class PrintHistoryStore:
             metric_archive_count = 0 if row is None else as_int(row[0])
             active_day_count = 0 if row is None else as_int(row[1])
             total_filament_used_grams = 0.0 if row is None else as_float(row[2])
-            total_object_count = 0 if row is None else as_int(row[3])
-            total_cost = 0.0 if row is None else as_float(row[4])
-            total_duration_seconds = 0 if row is None else as_int(row[5])
-            total_slot_count = 0 if row is None else as_int(row[6])
-            completed_count = 0 if row is None else as_int(row[7])
-            failed_count = 0 if row is None else as_int(row[8])
+            total_storage_bytes = 0 if row is None else as_int(row[3])
+            total_object_count = 0 if row is None else as_int(row[4])
+            total_cost = 0.0 if row is None else as_float(row[5])
+            total_duration_seconds = 0 if row is None else as_int(row[6])
+            total_slot_count = 0 if row is None else as_int(row[7])
+            completed_count = 0 if row is None else as_int(row[8])
+            failed_count = 0 if row is None else as_int(row[9])
 
             if activity_mode == "Filament Weight":
                 total_label, total_compact_label = activity_filament_weight_total_labels(total_filament_used_grams)
+            elif activity_mode == "Storage Used":
+                total_label = total_compact_label = format_storage_bytes(total_storage_bytes)
             elif activity_mode == "Number of Printed Objects":
                 total_label, total_compact_label = f"{total_object_count:,} objects", f"{total_object_count:,}"
             elif activity_mode == "Cost of Prints":
@@ -3419,6 +3427,9 @@ class PrintHistoryStore:
     def _metric_total_labels(self, metric_rows: list[dict[str, Any]], activity_mode: str) -> tuple[str, str]:
         if activity_mode == "Filament Weight":
             return activity_filament_weight_total_labels(sum(row["filament_used_grams"] for row in metric_rows))
+        if activity_mode == "Storage Used":
+            total = format_storage_bytes(sum(max(0, as_int(row.get("storage_total_bytes"))) for row in metric_rows))
+            return total, total
         if activity_mode == "Number of Printed Objects":
             total_objects = sum(row["object_count"] for row in metric_rows)
             return f"{total_objects:,} objects", f"{total_objects:,}"
@@ -3470,34 +3481,36 @@ class PrintHistoryStore:
             rows = active_connection.execute(
                 f"""
                 SELECT
-                    archive_id,
-                    printer_id,
-                    printer_name,
-                    print_name,
-                    status,
-                    enrichment_status,
-                    project_id,
-                    project_name,
-                    duplicate_count,
-                    duplicate_sequence,
-                    original_archive_id,
-                    started_at,
-                    completed_at,
-                    created_at,
-                    actual_time_seconds,
-                    print_time_seconds,
-                    filament_used_grams,
-                    filament_type,
-                    filament_color,
-                    cost,
-                    designer,
-                    is_favorite,
-                    object_count,
-                    layer_height,
-                    tags,
-                    thumbnail_path
+                    archives.archive_id,
+                    archives.printer_id,
+                    archives.printer_name,
+                    archives.print_name,
+                    archives.status,
+                    archives.enrichment_status,
+                    archives.project_id,
+                    archives.project_name,
+                    archives.duplicate_count,
+                    archives.duplicate_sequence,
+                    archives.original_archive_id,
+                    archives.started_at,
+                    archives.completed_at,
+                    archives.created_at,
+                    archives.actual_time_seconds,
+                    archives.print_time_seconds,
+                    archives.filament_used_grams,
+                    archives.filament_type,
+                    archives.filament_color,
+                    archives.cost,
+                    archives.designer,
+                    archives.is_favorite,
+                    archives.object_count,
+                    archives.layer_height,
+                    archives.tags,
+                    archives.thumbnail_path,
+                    COALESCE(asm.total_bytes, 0) AS storage_total_bytes
                 FROM archives
-                WHERE archive_id IN ({placeholders})
+                LEFT JOIN archive_storage_metrics asm ON asm.archive_id = archives.archive_id
+                WHERE archives.archive_id IN ({placeholders})
                 """,
                 normalized_ids,
             ).fetchall()
@@ -3528,6 +3541,7 @@ class PrintHistoryStore:
                 "layer_height": as_text(row[23]).strip(),
                 "tags": as_text(row[24]).strip(),
                 "thumbnail_path": as_text(row[25]).strip(),
+                "storage_total_bytes": max(0, as_int(row[26])),
             }
             for row in rows
         }

@@ -115,6 +115,19 @@ def as_text(value: Any) -> str:
     return str(value)
 
 
+def format_storage_bytes(total_bytes: Any) -> str:
+    value = max(0, as_float(total_bytes))
+    units = ["B", "KB", "MB", "GB", "TB"]
+    unit_index = 0
+    while value >= 1024 and unit_index < len(units) - 1:
+        value /= 1024
+        unit_index += 1
+    if unit_index == 0:
+        return f"{int(value)} {units[unit_index]}"
+    formatted = f"{value:.1f}".rstrip("0").rstrip(".")
+    return f"{formatted} {units[unit_index]}"
+
+
 def normalize_filter_date_value(value: Any) -> str:
     raw = as_text(value).strip()
     if not raw:
@@ -854,6 +867,8 @@ def color_tooltip_names(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
 
 
 def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
+    storage_metrics = archive.get("storage_metrics") if isinstance(archive.get("storage_metrics"), dict) else {}
+    storage_metric_values = storage_metrics.get("metrics") if isinstance(storage_metrics.get("metrics"), dict) else {}
     return {
         "id": archive.get("id"),
         "printer_id": archive.get("printer_id"),
@@ -867,6 +882,13 @@ def archive_activity_row(archive: dict[str, Any]) -> dict[str, Any]:
         "actual_time_seconds": as_int(archive.get("actual_time_seconds")),
         "print_time_seconds": as_int(archive.get("print_time_seconds")),
         "effective_duration_seconds": effective_duration_seconds(archive),
+        "storage_total_bytes": max(
+            0,
+            as_int(
+                archive.get("storage_total_bytes"),
+                as_int(storage_metric_values.get("total_bytes"), as_int(storage_metrics.get("total_bytes"))),
+            ),
+        ),
         "filament_used_grams": as_float(archive.get("filament_used_grams")),
         "filament_type": as_text(archive.get("filament_type")).strip(),
         "cost": as_float(archive.get("cost")),
@@ -1299,6 +1321,19 @@ def activity_metric_total_labels(sorted_matches: list[dict[str, Any]], activity_
         return activity_filament_weight_total_labels(
             sum(as_float(archive.get("filament_used_grams")) for archive in sorted_matches)
         )
+    if activity_mode == "Storage Used":
+        total_storage_bytes = sum(
+            max(
+                0,
+                as_int(
+                    archive.get("storage_total_bytes"),
+                    as_int((((archive.get("storage_metrics") or {}).get("metrics") or {}).get("total_bytes"))),
+                ),
+            )
+            for archive in sorted_matches
+        )
+        total = format_storage_bytes(total_storage_bytes)
+        return total, total
     if activity_mode == "Number of Printed Objects":
         total_objects = sum(as_int(archive.get("object_count"), 1) for archive in sorted_matches)
         return f"{total_objects:,} objects", f"{total_objects:,}"

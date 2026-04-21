@@ -56,6 +56,7 @@ cards:
                 'Outcome': 'mdi:list-status',
                 'Number of Printed Objects': 'mdi:cube-outline',
                 'Cost of Prints': 'mdi:currency-usd',
+                'Storage Used': 'mdi:harddisk',
                 'Filaments Used': 'mdi:palette-swatch-outline',
                 'Number of Unique Tags': 'mdi:tag-multiple-outline',
                 'Single vs Multi-Color Prints': 'mdi:compare-horizontal',

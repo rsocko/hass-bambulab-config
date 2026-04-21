@@ -8,6 +8,7 @@ print_history_activity_metric:
     - Outcome
     - Number of Printed Objects
     - Cost of Prints
+    - Storage Used
     - Filaments Used
     - Number of Unique Tags
     - Single vs Multi-Color Prints

@@ -46,6 +46,7 @@ def _projected_archives() -> list[dict]:
                 {"url": "detail-angle.png"},
             ],
             "thumbnail_path": "/api/v1/archives/101/thumbnail",
+            "storage_metrics": {"metrics": {"total_bytes": 1572864}},
             "project_name": "Wall Art",
             "extra_data": {
                 "filament_slots": [
@@ -1051,7 +1052,9 @@ def test_variant3_store_connection_errors_include_db_path_diagnostics(tmp_path: 
 
 
 def test_variant3_activity_rows_expose_only_summary_fields() -> None:
-    rows = archive_activity_rows(_projected_archives())
+    archives = _projected_archives()
+    archives[0] = dict(archives[0], storage_total_bytes=1572864)
+    rows = archive_activity_rows(archives)
 
     assert rows[0]["print_name"] == "Hueforge Batman"
     assert rows[0]["printer_name"] == "Workshop P1S"
@@ -1059,6 +1062,7 @@ def test_variant3_activity_rows_expose_only_summary_fields() -> None:
     assert rows[0]["enrichment_status"] == _projected_archives()[0]["enrichment_status"]
     assert rows[0]["project_name"] == "Wall Art"
     assert rows[0]["duplicate_count"] == 2
+    assert rows[0]["storage_total_bytes"] == 1572864
     assert "notes" not in rows[0]
     assert "payload_hash" not in rows[0]
 
@@ -1580,6 +1584,7 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
             "original_archive_id": 101,
             "id": 101,
             "enrichment_status": "c",
+            "storage_total_bytes": 1048576,
             "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":10.0}],"s":"c"}',
             "filament_slots": [],
         },
@@ -1592,6 +1597,7 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
             "original_archive_id": 101,
             "id": 202,
             "enrichment_status": "p",
+            "storage_total_bytes": 524288,
             "notes": '+>{"F":[{"f":9,"s":12,"n":"Matte Marine Blue","h":"#0078BF","type":"PLA","w":4.0},{"f":15,"n":"White","h":"#FFFFFF","type":"PLA","w":3.0}],"s":"p"}',
             "filament_slots": [],
         },
@@ -1604,6 +1610,96 @@ def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
     assert activity_metric_total_labels(archives, "Number of Duplicates / Similar") == ("3 duplicate/similar matches", "3")
     assert activity_metric_total_labels(archives, "Enrichment Status") == ("1/2 Complete", "1/2")
     assert activity_metric_total_labels(archives, "Number of Favorites") == ("1 favorite", "1")
+    assert activity_metric_total_labels(archives, "Storage Used") == ("1.5 MB", "1.5 MB")
+
+
+def test_variant3_store_activity_metric_total_uses_storage_metrics(tmp_path: Path) -> None:
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    archives = [
+        project_archive(
+            {
+                "id": 901,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Storage Heavy Print",
+                "actual_time_seconds": 600,
+                "print_time_seconds": 600,
+                "filament_used_grams": 10.0,
+                "filament_type": "PLA",
+                "filament_color": "#123456",
+                "status": "completed",
+                "started_at": "2026-04-10T10:00:00Z",
+                "completed_at": "2026-04-10T10:10:00Z",
+                "created_at": "2026-04-10T10:00:00Z",
+                "cost": 1.0,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": False,
+                "tags": "",
+                "notes": "",
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+        project_archive(
+            {
+                "id": 902,
+                "printer_id": 1,
+                "printer_name": "Workshop P1S",
+                "print_name": "Storage Light Print",
+                "actual_time_seconds": 900,
+                "print_time_seconds": 900,
+                "filament_used_grams": 12.0,
+                "filament_type": "PLA",
+                "filament_color": "#654321",
+                "status": "completed",
+                "started_at": "2026-04-11T10:00:00Z",
+                "completed_at": "2026-04-11T10:15:00Z",
+                "created_at": "2026-04-11T10:00:00Z",
+                "cost": 1.5,
+                "object_count": 1,
+                "layer_height": 0.2,
+                "designer": "Maker",
+                "is_favorite": False,
+                "tags": "",
+                "notes": "",
+                "project_name": "",
+                "extra_data": {},
+            }
+        ),
+    ]
+    store.replace_archives(archives)
+    store.save_archive_storage_metrics(901, {"scan_status": "complete", "metrics": {"total_bytes": 1048576}})
+    store.save_archive_storage_metrics(902, {"scan_status": "complete", "metrics": {"total_bytes": 524288}})
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Storage Used",
+        "input_number.print_history_page_size": "10",
+        "input_number.history_current_page": "1",
+    }
+
+    result = store.load_query_result(states)
+    activity_rows = store.load_activity_rows(states)
+
+    assert result.activity_metric_total_label == "1.5 MB"
+    assert result.activity_metric_total_compact_label == "1.5 MB"
+    assert sorted(row["storage_total_bytes"] for row in activity_rows) == [524288, 1048576]
 
 
 def test_variant3_store_activity_metric_total_uses_new_modes_without_full_payload_scans(tmp_path: Path) -> None:

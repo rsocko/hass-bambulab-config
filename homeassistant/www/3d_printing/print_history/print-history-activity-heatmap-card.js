@@ -822,6 +822,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       formattedDate: date ? this._formatDateTime(date) : "Unknown date",
       objectCount: Math.max(1, this._toNumber(archive && archive.object_count)),
       filamentWeight: this._toNumber(archive && archive.filament_used_grams),
+      storageBytes: this._archiveStorageBytes(archive),
       filamentCount: this._countDistinctFilaments(archive),
       filamentIdentityKeys: filamentIdentityKeys,
       colorMode: this._resolveSingleMultiState(filamentIdentityKeys, colors),
@@ -961,6 +962,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             count: 0,
             objectCount: 0,
             weight: 0,
+            storageBytes: 0,
             cost: 0,
             filamentCount: 0,
             uniqueTagCount: 0,
@@ -990,6 +992,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         day.count += 1;
         day.objectCount += archive.objectCount;
         day.weight += archive.filamentWeight;
+        day.storageBytes += archive.storageBytes;
         day.cost += archive.cost;
         day.durationHours += archive.durationHours;
         day.filamentCount += archive.filamentCount;
@@ -1050,6 +1053,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var maxCount = 0;
     var maxObjectCount = 0;
     var maxWeight = 0;
+    var maxStorageBytes = 0;
     var maxCost = 0;
     var maxFilamentCount = 0;
     var maxDurationHours = 0;
@@ -1063,6 +1067,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       maxCount = Math.max(maxCount, day.count || 0);
       maxObjectCount = Math.max(maxObjectCount, day.objectCount || 0);
       maxWeight = Math.max(maxWeight, day.weight || 0);
+      maxStorageBytes = Math.max(maxStorageBytes, day.storageBytes || 0);
       maxCost = Math.max(maxCost, day.cost || 0);
       maxFilamentCount = Math.max(maxFilamentCount, day.filamentCount || 0);
       maxDurationHours = Math.max(maxDurationHours, day.durationHours || 0);
@@ -1110,6 +1115,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
           maxCount: maxCount,
           maxObjectCount: maxObjectCount,
           maxWeight: maxWeight,
+          maxStorageBytes: maxStorageBytes,
           maxCost: maxCost,
           maxFilamentCount: maxFilamentCount,
           maxDurationHours: maxDurationHours,
@@ -1135,6 +1141,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         maxCount: maxCount,
         maxObjectCount: maxObjectCount,
         maxWeight: maxWeight,
+        maxStorageBytes: maxStorageBytes,
         maxCost: maxCost,
         maxFilamentCount: maxFilamentCount,
         maxDurationHours: maxDurationHours,
@@ -1180,6 +1187,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       if (input.mode === "Filament Weight") {
         value = Number(stats.weight || 0);
         color = this._buildIntensityColor(value, input.maxWeight || 0, "#DBEAFE", "#1D4ED8");
+      } else if (input.mode === "Storage Used") {
+        value = Number(stats.storageBytes || 0);
+        color = this._buildIntensityColor(value, input.maxStorageBytes || 0, "#E0F7FA", "#006064");
       } else if (input.mode === "Number of Printed Objects") {
         value = Number(stats.objectCount || 0);
         color = this._buildIntensityColor(value, input.maxObjectCount || 0, "#FEF3C7", "#D97706");
@@ -1236,6 +1246,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         count: stats ? stats.count : 0,
         objectCount: stats ? stats.objectCount : 0,
         weight: stats ? stats.weight : 0,
+        storageBytes: stats ? stats.storageBytes : 0,
         cost: stats ? stats.cost : 0,
         filamentCount: stats ? stats.filamentCount : 0,
         uniqueTagCount: stats ? stats.uniqueTagCount : 0,
@@ -1829,6 +1840,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     if (mode === "Filament Weight") {
       return { maxValue: maxima.maxWeight || 0, startColor: "#DBEAFE", endColor: "#1D4ED8" };
     }
+    if (mode === "Storage Used") {
+      return { maxValue: maxima.maxStorageBytes || 0, startColor: "#E0F7FA", endColor: "#006064" };
+    }
     if (mode === "Number of Printed Objects") {
       return { maxValue: maxima.maxObjectCount || 0, startColor: "#FEF3C7", endColor: "#D97706" };
     }
@@ -2173,6 +2187,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var totalWeight = archives.reduce(function (sum, archive) {
       return sum + Number(archive.filamentWeight || 0);
     }, 0);
+    var totalStorageBytes = archives.reduce(function (sum, archive) {
+      return sum + Number(archive.storageBytes || 0);
+    }, 0);
     var totalObjects = archives.reduce(function (sum, archive) {
       return sum + Number(archive.objectCount || 0);
     }, 0);
@@ -2188,6 +2205,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     if (mode === "Filament Weight") {
       return this._formatWeight(totalWeight);
+    }
+    if (mode === "Storage Used") {
+      return this._formatBytes(totalStorageBytes);
     }
     if (mode === "Number of Printed Objects") {
       return this._formatCount(totalObjects) + " objects";
@@ -2389,6 +2409,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       { key: 'Print Count', label: 'Prints', value: printCountText.slice(8) },
       { key: 'Number of Printed Objects', label: 'Objects', value: this._formatCount(meta.objectCount || 0) },
       { key: 'Filament Weight', label: 'Weight', value: this._formatWeight(meta.weight || 0) },
+      { key: 'Storage Used', label: 'Storage', value: this._formatBytes(meta.storageBytes || 0) },
       { key: 'Cost of Prints', label: 'Cost', value: this._formatCost(meta.cost || 0) },
       { key: 'Filaments Used', label: 'Filaments', value: this._formatCount(meta.filamentCount || 0) },
       { key: 'Number of Unique Tags', label: 'Unique tags', value: this._formatCount(meta.uniqueTagCount || 0) },
@@ -2527,6 +2548,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var aliases = {
       "print count": "Print Count",
       "filament weight": "Filament Weight",
+      "storage used": "Storage Used",
       "dominant color": "Dominant Color",
       outcome: "Outcome",
       "number of printed objects": "Number of Printed Objects",
@@ -3160,6 +3182,20 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return this._formatDecimal(weight, 1) + "g";
   }
 
+  _formatBytes(totalBytes) {
+    var value = Math.max(0, this._toNumber(totalBytes));
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    if (unitIndex === 0) {
+      return this._formatCount(value) + " " + units[unitIndex];
+    }
+    return this._formatTrimmedDecimal(value, 1) + " " + units[unitIndex];
+  }
+
   _formatCost(cost) {
     var value = this._toNumber(cost);
     return "$" + this._formatDecimal(value, 2);
@@ -3176,6 +3212,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
     }).format(this._toNumber(value));
+  }
+
+  _formatTrimmedDecimal(value, digits) {
+    return this._formatDecimal(value, digits).replace(/(?:\.0|,0)$/, "");
+  }
+
+  _archiveStorageBytes(archive) {
+    var directBytes = this._toNumber(archive && archive.storage_total_bytes);
+    if (directBytes > 0) {
+      return directBytes;
+    }
+    var storageMetrics = archive && archive.storage_metrics && typeof archive.storage_metrics === "object"
+      ? archive.storage_metrics
+      : null;
+    var metricValues = storageMetrics && storageMetrics.metrics && typeof storageMetrics.metrics === "object"
+      ? storageMetrics.metrics
+      : null;
+    return Math.max(0, this._toNumber(metricValues && metricValues.total_bytes));
   }
 
   _formatDateTime(date) {
