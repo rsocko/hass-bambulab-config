@@ -2342,10 +2342,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
   _buildArchiveTimelapsePopupContent(archive) {
     return {
       type: "vertical-stack",
-      cards: [
-        this._buildArchiveTimelapseCardConfig(archive),
-        this._buildArchiveTimelapseEditorCardConfig(archive),
-      ],
+      cards: [this._buildArchiveTimelapseCardConfig(archive)],
     };
   }
 

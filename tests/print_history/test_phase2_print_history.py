@@ -820,10 +820,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=117", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=118", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=39", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=40", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=6", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -865,7 +865,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('title: "Advanced Actions"', browser_content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', browser_content)
         self.assertIn('type: "custom:print-history-timelapse-card"', browser_content)
-        self.assertIn('type: "custom:print-history-timelapse-editor-card"', browser_content)
+        self.assertNotIn('cards: [\n        this._buildArchiveTimelapseCardConfig(archive),\n        this._buildArchiveTimelapseEditorCardConfig(archive),', browser_content)
         self.assertIn('.icon-action.advanced:hover,.icon-action.advanced:focus-visible', browser_content)
         self.assertIn('.action-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;margin-right:-4px;}', browser_content)
         self.assertIn('.media-thumb-overlay{position:absolute;inset:12px 8px auto 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:2;}', browser_content)
@@ -896,6 +896,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('summary-icon-button', action_content)
         self.assertIn('type: "custom:print-history-timelapse-editor-card"', action_content)
         self.assertIn('_buildArchiveTimelapseEditorCardConfig(archive)', action_content)
+        self.assertNotIn('cards: [\n        this._buildArchiveTimelapseCardConfig(archive),\n        this._buildArchiveTimelapseEditorCardConfig(archive),', action_content)
         self.assertIn('View Archive Metadata', action_content)
         self.assertIn('Open Failure Analysis', action_content)
         self.assertIn('_statisticsNavigationUrl', action_content)
@@ -2359,10 +2360,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=39", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=40", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=117", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=118", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
