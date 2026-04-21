@@ -4,7 +4,12 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
-from tools.bambuddy.build_synthetic_gcode_3mf import build_filaments_from_header, build_synthetic_package, main as build_main
+from tools.bambuddy.build_synthetic_gcode_3mf import (
+    build_filaments_from_header,
+    build_synthetic_package,
+    main as build_main,
+    summarize_remaining_filament_diffs,
+)
 
 
 def test_synthetic_gcode_3mf_builder_creates_expected_package(tmp_path: Path, monkeypatch) -> None:
@@ -188,4 +193,41 @@ def test_manual_overrides_replace_template_or_header_values(tmp_path: Path) -> N
     assert report["filaments"][0]["color"] == "#111111"
     assert report["filaments"][1]["tray_info_idx"] == "1"
     assert report["header_metadata"]["nozzle_diameter"] == "0.6"
+
+
+def test_summarize_remaining_filament_diffs_reports_resolved_when_template_closes_gap(tmp_path: Path) -> None:
+    reference_path = tmp_path / "KnownGood.gcode.3mf"
+    with ZipFile(reference_path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<types />")
+        archive.writestr("_rels/.rels", "<rels />")
+        archive.writestr(
+            "Metadata/slice_info.config",
+            '<config><plate /><filament id="1" type="PLA" color="#F98C36" tray_info_idx="1" group_id="0" setting_id="GFA00" /><filament id="2" type="PETG" color="#68724D" tray_info_idx="1" group_id="0" setting_id="GFG02" /></config>',
+        )
+        archive.writestr(
+            "Metadata/project_settings.config",
+            json.dumps(
+                {
+                    "filament_ids": ["GFA00", "GFG02"],
+                    "filament_type": ["PLA", "PETG"],
+                    "filament_colour": ["#F98C36", "#68724D"],
+                    "filament_colour_type": ["0", "0"],
+                    "filament_map": ["1", "1"],
+                }
+            ),
+        )
+    diff_summary = summarize_remaining_filament_diffs(
+        header_metadata={
+            "filament_slots": "GFA00;GFG02",
+            "filament_types": "PLA;PETG",
+            "filament_colours": ";",
+        },
+        printer_model_id="C11",
+        reference_template=reference_path,
+    )
+
+    assert diff_summary is not None
+    assert diff_summary["resolved"] is True
+    assert diff_summary["remaining_project_setting_differences"] == {}
+    assert diff_summary["remaining_slice_filament_differences"] == []
 

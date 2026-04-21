@@ -319,6 +319,92 @@ def summarize_slice_info(root: ET.Element) -> dict[str, Any]:
     }
 
 
+def build_synthetic_filament_snapshot(
+    *,
+    printer_model_id: str,
+    filaments: list[dict[str, Any]],
+    header_metadata: dict[str, str],
+) -> dict[str, Any]:
+    return {
+        "project_settings_filaments": summarize_project_settings(
+            json.loads(build_project_settings_config(printer_model_id, filaments, header_metadata))
+        ),
+        "slice_info_summary": {
+            "plate_count": 1,
+            "filament_count": len(filaments),
+            "metadata_keys": ["index", "name", "prediction", "printer_model_id"],
+            "filaments": [
+                {
+                    "id": str(filament.get("slot_id") or ""),
+                    "type": str(filament.get("type") or ""),
+                    "color": str(filament.get("color") or ""),
+                    "tray_info_idx": str(filament.get("tray_info_idx") or ""),
+                    "group_id": "" if filament.get("group_id") is None else str(filament.get("group_id")),
+                    "setting_id": str(filament.get("filament_id") or ""),
+                }
+                for filament in filaments
+            ],
+        },
+    }
+
+
+def summarize_remaining_filament_diffs(
+    *,
+    header_metadata: dict[str, str],
+    printer_model_id: str,
+    reference_template: Path | None = None,
+    manual_filament_colours: str | None = None,
+    manual_filament_colour_types: str | None = None,
+    manual_filament_map: str | None = None,
+    manual_nozzle_diameter: str | None = None,
+) -> dict[str, Any] | None:
+    if reference_template is None or not reference_template.exists():
+        return None
+    filaments = build_filaments_from_header(header_metadata)
+    filaments, merged_header, _ = merge_reference_template(filaments, header_metadata, reference_template)
+    filaments, merged_header = apply_manual_overrides(
+        filaments,
+        merged_header,
+        filament_colours=manual_filament_colours,
+        filament_colour_types=manual_filament_colour_types,
+        filament_map=manual_filament_map,
+        nozzle_diameter=manual_nozzle_diameter,
+    )
+    generated = build_synthetic_filament_snapshot(
+        printer_model_id=printer_model_id,
+        filaments=filaments,
+        header_metadata=merged_header,
+    )
+    reference = inspect_package_structure(reference_template)
+    focused_project_differences = {}
+    reference_project_keys = set(reference["project_settings_filaments"].keys())
+    for key in sorted(reference_project_keys):
+        if generated["project_settings_filaments"].get(key) != reference["project_settings_filaments"].get(key):
+            focused_project_differences[key] = {
+                "generated": generated["project_settings_filaments"].get(key),
+                "reference": reference["project_settings_filaments"].get(key),
+            }
+    generated_slice_filaments = generated["slice_info_summary"].get("filaments") or []
+    reference_slice_filaments = reference["slice_info_summary"].get("filaments") or []
+    focused_slice_differences: list[dict[str, Any]] = []
+    if reference_slice_filaments:
+        for index in range(max(len(generated_slice_filaments), len(reference_slice_filaments))):
+            generated_row = generated_slice_filaments[index] if index < len(generated_slice_filaments) else None
+            reference_row = reference_slice_filaments[index] if index < len(reference_slice_filaments) else None
+            if generated_row != reference_row:
+                focused_slice_differences.append({
+                    "index": index,
+                    "generated": generated_row,
+                    "reference": reference_row,
+                })
+    return {
+        "reference_path": str(reference_template),
+        "remaining_project_setting_differences": focused_project_differences,
+        "remaining_slice_filament_differences": focused_slice_differences,
+        "resolved": not focused_project_differences and not focused_slice_differences,
+    }
+
+
 def inspect_package_structure(package_path: Path) -> dict[str, Any]:
     with zipfile.ZipFile(package_path, "r") as archive:
         names = archive.namelist()

@@ -639,6 +639,8 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
     output_path = suggested_root / f"{source_path.stem}.gcode.3mf"
     report_path = suggested_root / f"{source_path.stem}.report.json"
     effective_import_plan = build_effective_import_plan(record, selected_source)
+    suggested_reference_template = suggest_path2_reference_template(source_path, source_root)
+    reference_template_path = effective_import_plan.get("path2_reference_template_path") or suggested_reference_template
     return {
         "generated_at": utc_now_iso(),
         "gcode_name": str(record.get("gcode_name") or ""),
@@ -649,7 +651,8 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
         "print_name": source_path.stem,
         "header_metadata": selected_source.get("header_metadata") or {},
         "inferred_duration_seconds": effective_import_plan.get("inferred_duration_seconds"),
-        "reference_template_path": effective_import_plan.get("path2_reference_template_path"),
+        "reference_template_path": reference_template_path,
+        "suggested_reference_template_path": suggested_reference_template,
         "manual_overrides": {
             "filament_colours": effective_import_plan.get("path2_manual_filament_colours"),
             "filament_colour_types": effective_import_plan.get("path2_manual_filament_colour_types"),
@@ -670,7 +673,7 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
             str(report_path),
             "--printer-model-id",
             str(effective_import_plan.get("path2_printer_model_id") or "C11"),
-            *(["--reference-template", str(effective_import_plan.get("path2_reference_template_path"))] if effective_import_plan.get("path2_reference_template_path") else []),
+            *(["--reference-template", str(reference_template_path)] if reference_template_path else []),
             *(["--manual-filament-colours", str(effective_import_plan.get("path2_manual_filament_colours"))] if effective_import_plan.get("path2_manual_filament_colours") else []),
             *(["--manual-filament-colour-types", str(effective_import_plan.get("path2_manual_filament_colour_types"))] if effective_import_plan.get("path2_manual_filament_colour_types") else []),
             *(["--manual-filament-map", str(effective_import_plan.get("path2_manual_filament_map"))] if effective_import_plan.get("path2_manual_filament_map") else []),
@@ -679,6 +682,54 @@ def build_path2_package_plan(record: dict[str, object], selected_source: dict[st
         ],
         "checklist": build_raw_wrap_checklist(record, selected_source),
     }
+
+
+def suggest_path2_reference_template(source_path: Path, source_root: Path) -> str | None:
+    base_name = re.sub(r"_plate_\d+$", "", source_path.stem, flags=re.IGNORECASE)
+    candidate_dirs = dedupe_preserve_order([str(source_path.parent), str(source_root), str(source_root / "cache")])
+    for directory_text in candidate_dirs:
+        directory = Path(directory_text)
+        if not directory.exists():
+            continue
+        for suffix in (".gcode.3mf", ".3mf"):
+            candidate = directory / f"{base_name}{suffix}"
+            if candidate.exists() and candidate.is_file():
+                return str(candidate.resolve())
+    return None
+
+
+def build_path2_remaining_filament_diff(record: dict[str, object], effective_import_plan: dict[str, object], selected_source: dict[str, Any] | None, source_root: Path) -> dict[str, Any] | None:
+    if selected_source is None or str(selected_source.get("source_type") or "") != "raw_gcode_file":
+        return None
+    header_metadata = selected_source.get("header_metadata") if isinstance(selected_source.get("header_metadata"), dict) else {}
+    reference_template_path = effective_import_plan.get("path2_reference_template_path") or suggest_path2_reference_template(Path(str(selected_source.get("path") or "")), source_root)
+    if not reference_template_path:
+        return None
+    from tools.bambuddy.build_synthetic_gcode_3mf import summarize_remaining_filament_diffs
+
+    return summarize_remaining_filament_diffs(
+        header_metadata=header_metadata,
+        printer_model_id=str(effective_import_plan.get("path2_printer_model_id") or "C11"),
+        reference_template=Path(reference_template_path),
+        manual_filament_colours=str(effective_import_plan.get("path2_manual_filament_colours") or "") or None,
+        manual_filament_colour_types=str(effective_import_plan.get("path2_manual_filament_colour_types") or "") or None,
+        manual_filament_map=str(effective_import_plan.get("path2_manual_filament_map") or "") or None,
+        manual_nozzle_diameter=str(effective_import_plan.get("path2_manual_nozzle_diameter") or "") or None,
+    )
+
+
+def render_remaining_filament_diff(diff_summary: dict[str, Any] | None) -> str:
+    if diff_summary is None:
+        return '<div class="empty">No reference template is selected or auto-suggested yet, so there is no focused filament diff to show.</div>'
+    if diff_summary.get("resolved"):
+        return f'''<div class="support-card"><h4>Remaining Filament Diffs</h4><div class="badges"><span class="badge keep">resolved</span></div><div class="status">The current header/template/override combination resolves the focused filament-specific differences against {html.escape(str(diff_summary.get("reference_path") or "reference template"))}.</div></div>'''
+    project_rows = []
+    for key, value in (diff_summary.get("remaining_project_setting_differences") or {}).items():
+        project_rows.append(f'<div class="meta"><div class="meta-label">{html.escape(str(key))}</div><div class="meta-value">generated: {html.escape(str(value.get("generated")))} | reference: {html.escape(str(value.get("reference")))}</div></div>')
+    slice_rows = []
+    for row in diff_summary.get("remaining_slice_filament_differences") or []:
+        slice_rows.append(f'<div class="meta"><div class="meta-label">slice[{html.escape(str(row.get("index"))) }]</div><div class="meta-value">generated: {html.escape(str(row.get("generated")))} | reference: {html.escape(str(row.get("reference")))}</div></div>')
+    return f'''<div class="support-card"><h4>Remaining Filament Diffs</h4><div class="badges"><span class="badge investigate">needs review</span></div><div class="status">Focused filament-only differences against {html.escape(str(diff_summary.get("reference_path") or "reference template"))}.</div><div class="meta-grid">{''.join(project_rows + slice_rows) or '<div class="empty">No remaining filament diffs.</div>'}</div></div>'''
 
 
 def render_raw_wrap_checklist(items: list[dict[str, str]]) -> str:
@@ -1674,7 +1725,10 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
     selected_source_row = get_selected_source_from_record(record)
     selected_source_path = str((selected_source_row or {}).get("path") or decision.get("selected_source_path") or "") or None
     effective_import_plan = build_effective_import_plan(record, selected_source_row)
+    suggested_reference_template = suggest_path2_reference_template(Path(str((selected_source_row or {}).get("path") or "")), source_root) if selected_source_row else None
+    displayed_reference_template_path = effective_import_plan.get("path2_reference_template_path") or suggested_reference_template
     queue_preview = build_runner_queue_preview(record, effective_import_plan, selected_source_row)
+    remaining_filament_diff_markup = render_remaining_filament_diff(build_path2_remaining_filament_diff(record, effective_import_plan, selected_source_row, source_root))
     manifest_links = record["manifest_links"]
     image_markup = "".join(
         f'<figure class="image-card"><img src="/image/{quote(image["name"])}" alt="{html.escape(image["name"])}" />'
@@ -1874,8 +1928,8 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
             <div class="support-grid">
                 <div class="support-card">
                     <h4>Path 2 Reference Template</h4>
-                    <input name="path2_reference_template_path" placeholder="C:\\...\\KnownGood.gcode.3mf" value="{html.escape(str(effective_import_plan['path2_reference_template_path'] or ''))}" />
-                    <div class="status">Optional working `.3mf` or `.gcode.3mf` used as a template for missing colors and map semantics.</div>
+                    <input name="path2_reference_template_path" placeholder="C:\\...\\KnownGood.gcode.3mf" value="{html.escape(str(displayed_reference_template_path or ''))}" />
+                    <div class="status">Optional working `.3mf` or `.gcode.3mf` used as a template for missing colors and map semantics.{f' Auto-suggested match: {html.escape(str(suggested_reference_template))}.' if suggested_reference_template and not effective_import_plan.get('path2_reference_template_path') else ''}</div>
                 </div>
                 <div class="support-card">
                     <h4>Path 2 Printer Model</h4>
@@ -1916,6 +1970,10 @@ def render_detail_panel(record: dict[str, object] | None, view: str, writeback_e
             <h3>Path 2 Viability Checklist</h3>
             <div class="support-grid">{raw_wrap_checklist_markup}</div>
             {f'<div class="button-row"><a class="filter" href="{html.escape(path2_plan_href)}">Download Path 2 Package Plan</a><div class="status">Exports a JSON handoff for tools/bambuddy/build_synthetic_gcode_3mf.py with suggested compare-to references from the backup root.</div></div>' if path2_plan_href else '<div class="status">Select a raw .gcode source to export a Path 2 package plan.</div>'}
+        </section>
+        <section class="section">
+            <h3>Remaining Filament Diffs</h3>
+            <div class="support-grid">{remaining_filament_diff_markup}</div>
         </section>
         <section class="section">
             <h3>Runner Preview</h3>
