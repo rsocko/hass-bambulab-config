@@ -1126,7 +1126,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     this._fireBrowserModEvent("browser_mod.popup", {
       title: "Advanced Actions",
-      size: "normal",
+      size: "wide",
       content: {
         type: "custom:print-history-archive-actions-card",
         archive_json: JSON.stringify(archive),

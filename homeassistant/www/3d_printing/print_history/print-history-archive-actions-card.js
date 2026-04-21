@@ -6,6 +6,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._config = null;
     this._archiveOverride = null;
     this._mode = "main";
+    this._mainTab = "media";
     this._metadataBundle = null;
     this._metadataArchiveId = "";
     this._metadataError = "";
@@ -63,6 +64,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     };
     this._archiveOverride = null;
     this._mode = "main";
+    this._mainTab = "media";
     this._metadataBundle = null;
     this._metadataArchiveId = "";
     this._metadataError = "";
@@ -217,6 +219,43 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._statusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
     this._lastRenderSignature = "";
     this._render();
+  }
+
+  _normalizeMainTab(tabId) {
+    var normalized = String(tabId || "").trim().toLowerCase();
+    return normalized === "analytics" || normalized === "repair" || normalized === "danger"
+      ? normalized
+      : "media";
+  }
+
+  _setMainTab(tabId) {
+    var nextTab = this._normalizeMainTab(tabId);
+    if (this._mainTab === nextTab) {
+      return;
+    }
+    this._mainTab = nextTab;
+    this._render();
+  }
+
+  _mainTabConfig() {
+    return [
+      { id: "media", label: "Files & Media", icon: "mdi:folder-play-outline" },
+      { id: "analytics", label: "Analytics", icon: "mdi:chart-box-outline" },
+      { id: "repair", label: "Repair & Metadata", icon: "mdi:wrench-cog-outline" },
+      { id: "danger", label: "Danger", icon: "mdi:alert-octagon-outline" },
+    ];
+  }
+
+  _renderMainTabs() {
+    return '<div class="main-tablist" role="tablist" aria-label="Advanced action groups">'
+      + this._mainTabConfig().map(function (tab) {
+          var isActive = tab.id === this._mainTab;
+          return '<button class="main-tab-button' + (isActive ? ' active' : '') + '" type="button" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" data-action="switch-main-tab" data-tab-id="' + this._escapeHtml(tab.id) + '">'
+            + '<ha-icon icon="' + this._escapeHtml(tab.icon) + '"></ha-icon>'
+            + '<span>' + this._escapeHtml(tab.label) + '</span>'
+            + '</button>';
+        }.bind(this)).join("")
+      + '</div>';
   }
 
   _setBusy(busy, message, tone) {
@@ -390,14 +429,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return;
     }
     if (action === "refresh-storage-metrics") {
+      this._mainTab = "analytics";
       this._handleRefreshStorageMetrics();
       return;
     }
     if (action === "view-metadata") {
+      this._mainTab = "repair";
       this._openMetadataViewer(false);
       return;
     }
     if (action === "open-correct-metadata") {
+      this._mainTab = "repair";
       this._openMetadataCorrection();
       return;
     }
@@ -410,19 +452,27 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return;
     }
     if (action === "open-failure-analysis") {
+      this._mainTab = "analytics";
       this._openFailureAnalysis();
       return;
     }
     if (action === "open-related") {
+      this._mainTab = "analytics";
       this._loadRelatedCandidates({ compareIntent: false });
       return;
     }
     if (action === "open-duplicates") {
+      this._mainTab = "analytics";
       this._loadDuplicateFamily();
       return;
     }
     if (action === "open-compare") {
+      this._mainTab = "analytics";
       this._loadRelatedCandidates({ compareIntent: true });
+      return;
+    }
+    if (action === "switch-main-tab") {
+      this._setMainTab(button.getAttribute("data-tab-id") || "media");
       return;
     }
     if (action === "related-open") {
@@ -526,6 +576,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         : JSON.stringify(this._config.archive_json || {}),
       JSON.stringify(this._archiveOverride || {}),
       this._mode,
+      this._mainTab,
       this._busy ? "1" : "0",
       this._status,
       this._statusTone,
@@ -2775,12 +2826,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       ) + '</div>'
     );
     var storageActions = this._renderStorageSection(archive);
-    var maintenanceActions = this._renderActionSection(
+    var analyticsActions = this._renderActionSection(
+      "Failure Analysis",
+      '<div class="actions-grid single-column">' +
+        this._renderActionButton("open-failure-analysis", "Open Failure Analysis", "mdi:chart-line", { disabled: this._busy }) +
+      '</div>' +
+      '<div class="section-copy">Open the statistics failure-analysis view seeded to this archive so you can inspect nearby outcome context and comparable failed prints.</div>'
+    );
+    var repairActions = this._renderActionSection(
       "Archive",
       '<div class="actions-grid">' +
         this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
         this._renderActionButton("open-correct-metadata", "Correct Metadata", "mdi:file-edit-outline", { tone: "warning", disabled: this._busy }) +
-        this._renderActionButton("open-failure-analysis", "Open Failure Analysis", "mdi:chart-line", { disabled: this._busy }) +
         this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
       '</div>'
     );
@@ -2791,17 +2848,23 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '</div>',
       { tone: "danger" }
     );
-    return '<div class="section-stack">' +
-      relationActions +
-      this._renderActionSection("Files", fileActions) +
-      linkActions +
-      timelapseActions +
-      storageActions +
-      maintenanceActions +
-      dangerActions +
-      '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">' +
-        '<input id="timelapse-upload-input" class="hidden-file-input" type="file" accept=".mp4,.avi,.mkv,video/mp4,video/x-msvideo,video/x-matroska">' +
-      '</div>';
+    var mainBody = this._mainTab === "analytics"
+      ? '<div class="main-tab-panel" role="tabpanel">' + relationActions + storageActions + analyticsActions + '</div>'
+      : this._mainTab === "repair"
+        ? '<div class="main-tab-panel" role="tabpanel">' + repairActions + '</div>'
+        : this._mainTab === "danger"
+          ? '<div class="main-tab-panel" role="tabpanel">' + dangerActions + '</div>'
+          : '<div class="main-tab-panel" role="tabpanel">'
+            + this._renderActionSection("Files", fileActions)
+            + linkActions
+            + timelapseActions
+            + '</div>';
+    return '<div class="section-stack tabbed-main">'
+      + this._renderMainTabs()
+      + mainBody
+      + '<input id="source-upload-input" class="hidden-file-input" type="file" accept=".3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml">'
+      + '<input id="timelapse-upload-input" class="hidden-file-input" type="file" accept=".mp4,.avi,.mkv,video/mp4,video/x-msvideo,video/x-matroska">'
+      + '</div>';
   }
 
   _renderDeleteConfirm(archive, secondLevel) {
@@ -2850,6 +2913,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.status.error{background:rgba(183,28,28,0.14);color:var(--primary-text-color);}' +
       '.hidden-file-input{display:none;}' +
       '.section-stack{display:flex;flex-direction:column;gap:12px;}' +
+      '.tabbed-main{gap:14px;}' +
+      '.main-tablist{display:flex;align-items:stretch;gap:10px;overflow:auto;padding:2px 0 4px;scrollbar-width:thin;}' +
+      '.main-tab-button{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.10);background:rgba(255,255,255,0.03);color:var(--primary-text-color);font:inherit;font-size:13px;font-weight:800;line-height:1.2;white-space:nowrap;cursor:pointer;flex:0 0 auto;}' +
+      '.main-tab-button:hover,.main-tab-button:focus-visible{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.18);outline:none;}' +
+      '.main-tab-button.active{background:rgba(30,64,175,0.20);border-color:rgba(96,165,250,0.40);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}' +
+      '.main-tab-button ha-icon{--mdc-icon-size:18px;flex:0 0 auto;}' +
+      '.main-tab-panel{display:flex;flex-direction:column;gap:12px;min-width:0;}' +
       '.action-section{border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.025);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;}' +
       '.action-section.danger{border-color:rgba(239,68,68,0.18);background:rgba(183,28,28,0.05);}' +
       '.section-title{font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:var(--secondary-text-color);padding:0 2px;}' +
@@ -2948,7 +3018,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.token.null{color:#c586c0;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
       '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}}' +
+      '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}' +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +

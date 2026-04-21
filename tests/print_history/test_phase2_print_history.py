@@ -820,10 +820,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=118", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=119", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=40", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=57", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=41", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=6", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -863,6 +863,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('data-action="advanced-actions"', browser_content)
         self.assertIn('icon="mdi:dots-horizontal"', browser_content)
         self.assertIn('title: "Advanced Actions"', browser_content)
+        self.assertIn('size: "wide"', browser_content)
         self.assertIn('type: "custom:print-history-archive-actions-card"', browser_content)
         self.assertIn('type: "custom:print-history-timelapse-card"', browser_content)
         self.assertNotIn('cards: [\n        this._buildArchiveTimelapseCardConfig(archive),\n        this._buildArchiveTimelapseEditorCardConfig(archive),', browser_content)
@@ -882,6 +883,13 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('Links', action_content)
         self.assertIn('Archive', action_content)
         self.assertIn('Danger Zone', action_content)
+        self.assertIn('Files & Media', action_content)
+        self.assertIn('Analytics', action_content)
+        self.assertIn('Repair & Metadata', action_content)
+        self.assertIn('data-action="switch-main-tab"', action_content)
+        self.assertIn('main-tablist', action_content)
+        self.assertIn('Failure Analysis', action_content)
+        self.assertIn('@media (max-width: 700px)', action_content)
         self.assertIn('Source 3MF attached:', action_content)
         self.assertIn('Timelapse attached:', action_content)
         self.assertIn('if (thumbnailPath && !hasPrimaryOverride)', action_content)
@@ -2360,10 +2368,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=40", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=41", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=118", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=119", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
