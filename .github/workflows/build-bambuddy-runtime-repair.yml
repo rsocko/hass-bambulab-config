@@ -3,10 +3,20 @@ name: Build Bambuddy Runtime Repair Image
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: Docker image tag to build
+      version_mode:
+        description: How to determine the image tag
         required: true
-        default: 0.1.0
+        type: choice
+        default: next_patch
+        options:
+          - explicit
+          - next_major
+          - next_minor
+          - next_patch
+      image_tag:
+        description: Explicit Docker image tag to build when version_mode=explicit
+        required: false
+        default: ""
       registry:
         description: Registry/repository prefix
         required: true
@@ -23,15 +33,59 @@ on:
 jobs:
   build:
     runs-on: [self-hosted, linux, docker, homelab, dockhand]
+    outputs:
+      resolved_tag: ${{ steps.version.outputs.resolved_tag }}
+      resolved_image: ${{ steps.version.outputs.resolved_image }}
+      latest_tag: ${{ steps.version.outputs.latest_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Resolve image tag
+        id: version
+        shell: bash
+        env:
+          REGISTRY_REPOSITORY: ${{ github.event.inputs.registry }}
+          VERSION_MODE: ${{ github.event.inputs.version_mode }}
+          EXPLICIT_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/resolve_registry_version.py
+
+      - name: Show resolved image target
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
+          echo "Resolved image: $IMAGE"
+          echo "Latest semantic tag in registry: ${{ steps.version.outputs.latest_tag || 'none' }}"
+
+      - name: Publish version summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOLVED_TAG='${{ steps.version.outputs.resolved_tag }}'
+          RESOLVED_IMAGE='${{ steps.version.outputs.resolved_image }}'
+          LATEST_TAG='${{ steps.version.outputs.latest_tag }}'
+          {
+            echo '## Bambuddy Runtime Repair Image Version'
+            echo
+            echo "Resolved tag: \`$RESOLVED_TAG\`"
+            echo
+            echo "Resolved image: \`$RESOLVED_IMAGE\`"
+            echo
+            echo 'Compose update:'
+            echo "\`BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=$RESOLVED_TAG\`"
+            echo
+            echo "Latest existing semantic tag: \`${LATEST_TAG:-none}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Resolved Bambuddy sidecar image::$RESOLVED_IMAGE"
 
       - name: Build image
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="${{ github.event.inputs.registry }}:${{ github.event.inputs.image_tag }}"
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
           docker build -f sidecars/bambuddy-runtime-repair/Dockerfile -t "$IMAGE" .
           echo "Built $IMAGE"
 
@@ -40,5 +94,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="${{ github.event.inputs.registry }}:${{ github.event.inputs.image_tag }}"
+          IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
           docker push "$IMAGE"

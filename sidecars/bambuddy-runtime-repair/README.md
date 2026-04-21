@@ -47,6 +47,45 @@ Default workflow registry:
 
 - `registry.socko.us/bambuddy-runtime-repair`
 
+Workflow tag resolution:
+
+- `version_mode=explicit` uses the exact `image_tag` you provide
+- `version_mode=next_patch` inspects the registry, finds the latest semantic tag, and increments patch
+- `version_mode=next_minor` inspects the registry, finds the latest semantic tag, and increments minor
+- `version_mode=next_major` inspects the registry, finds the latest semantic tag, and increments major
+- if the registry has no semantic tags yet, the workflow bootstraps to `0.1.0` for `next_patch` and `next_minor`, or `1.0.0` for `next_major`
+
+The workflow resolves the tag before build/push, so the built image always uses the resolved semantic version rather than a hard-coded default.
+
+The workflow also writes a copy-ready version block into the GitHub Actions run summary:
+
+- resolved tag
+- full image reference
+- `.env` line for compose such as `BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=0.1.4`
+
+## Compose Tag Management
+
+The example compose file now uses an environment variable for the image tag instead of hard-coding the full image reference:
+
+```yaml
+image: registry.socko.us/bambuddy-runtime-repair:${BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG:-0.1.3}
+```
+
+That makes updates simpler:
+
+1. run the workflow
+2. copy the `BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=...` line from the run summary
+3. paste it into the compose `.env`
+4. run `docker compose pull && docker compose up -d`
+
+Suggested `.env` entry:
+
+```text
+BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=0.1.3
+```
+
+This is smoother than editing the compose YAML on every release and safer than pointing the stack at an always-moving tag like `latest`.
+
 ## Required Environment Variables
 
 - `BAMBUDDY_DB_PATH`

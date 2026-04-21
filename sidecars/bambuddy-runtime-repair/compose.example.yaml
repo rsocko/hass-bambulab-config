@@ -1,6 +1,6 @@
 services:
   bambuddy-runtime-repair:
-    image: registry.socko.us/bambuddy-runtime-repair:0.1.3
+    image: registry.socko.us/bambuddy-runtime-repair:${BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG:-0.1.3}
     container_name: bambuddy-runtime-repair
     # Default access path: localhost-only port bind.
     # Optional Traefik example is included below as commented config.
