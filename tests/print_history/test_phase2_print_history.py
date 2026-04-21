@@ -823,9 +823,9 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=117", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=38", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=5", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=4", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=39", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=6", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=5", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -909,6 +909,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('the scan will assign it automatically first', action_content)
         self.assertIn('Timelapse upload only accepts .mp4, .avi, or .mkv files.', action_content)
         self.assertIn('type: "custom:print-history-timelapse-card"', action_content)
+        self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', action_content)
+        self.assertIn('var detailStorageRaw = detailState.attributes.storage_metrics_json;', action_content)
         self.assertIn('return Object.assign({}, parsed, detailArchive);', action_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', action_content)
         self.assertIn('if (!parsedId || !detailId || parsedId === detailId)', action_content)
@@ -1006,6 +1008,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('_updateRateButtons()', viewer_content)
         self.assertIn('Open or Download', viewer_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', viewer_content)
+        self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', viewer_content)
+        self.assertIn('var detailStorageRaw = detailState.attributes.storage_metrics_json;', viewer_content)
         self.assertIn('if (!parsedId || !detailId || parsedId === detailId)', viewer_content)
         self.assertIn('Load Editor Tools', editor_content)
         self.assertIn('/timelapse/thumbnails', editor_content)
@@ -1015,6 +1019,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('color-scheme:light dark', editor_content)
         self.assertIn('editor data stays on-demand and out of Layer 1', editor_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', editor_content)
+        self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', editor_content)
+        self.assertIn('var detailStorageRaw = detailState.attributes.storage_metrics_json;', editor_content)
         self.assertIn('if (!parsedId || !detailId || parsedId === detailId)', editor_content)
 
     def test_browser_card_renders_variant_skeletons_while_loading(self):
@@ -1970,6 +1976,8 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "template_sensors" / "print_history_popup_archive_detail.yaml").read_text("utf-8")
         self.assertIn("enrichment_provenance_json:", content)
         self.assertIn("result.get('enrichment_provenance', [])", content)
+        self.assertIn("storage_metrics_json:", content)
+        self.assertIn("result.get('storage_metrics', {})", content)
 
     def test_archive_enrichment_ui_uses_candidate_match_wording_for_ambiguity_codes(self):
         popup_content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboard_cards" / "card_templates" / "print_history_archive_popup_content.yaml").read_text("utf-8")
@@ -2351,7 +2359,7 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=38", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=39", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=117", content)

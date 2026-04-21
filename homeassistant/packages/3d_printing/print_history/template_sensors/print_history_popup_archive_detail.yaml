@@ -46,6 +46,21 @@
             {% endif %}
             {{ detail | tojson }}
           {% endif %}
+        storage_metrics_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            {}
+          {% else %}
+            {% set content = result.get('storage_metrics', {}) if result is defined and result is mapping else {} %}
+            {% if content is string %}
+              {% set metrics = content | from_json({}) %}
+            {% elif content is mapping %}
+              {% set metrics = content %}
+            {% else %}
+              {% set metrics = {} %}
+            {% endif %}
+            {{ metrics | tojson }}
+          {% endif %}
         event_timeline_json: >-
           {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
           {% if archive_id == '' %}
