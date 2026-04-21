@@ -22,6 +22,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._relatedArchiveId = "";
     this._relatedError = "";
     this._relatedCompareIntent = false;
+    this._duplicateFamily = null;
+    this._duplicateArchiveId = "";
+    this._duplicateError = "";
     this._comparePayload = null;
     this._compareArchiveIds = [];
     this._compareError = "";
@@ -76,6 +79,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._relatedArchiveId = "";
     this._relatedError = "";
     this._relatedCompareIntent = false;
+    this._duplicateFamily = null;
+    this._duplicateArchiveId = "";
+    this._duplicateError = "";
     this._comparePayload = null;
     this._compareArchiveIds = [];
     this._compareError = "";
@@ -405,6 +411,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._loadRelatedCandidates({ compareIntent: false });
       return;
     }
+    if (action === "open-duplicates") {
+      this._loadDuplicateFamily();
+      return;
+    }
     if (action === "open-compare") {
       this._loadRelatedCandidates({ compareIntent: true });
       return;
@@ -415,6 +425,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (action === "related-compare") {
       this._handleCompareAgainstArchive(button.getAttribute("data-archive-id") || "");
+      return;
+    }
+    if (action === "duplicate-open") {
+      this._handleOpenRelatedArchive(button.getAttribute("data-archive-id") || "");
+      return;
+    }
+    if (action === "duplicate-compare") {
+      this._handleCompareAgainstArchive(button.getAttribute("data-archive-id") || "", "duplicates");
       return;
     }
     if (action === "refresh-metadata") {
@@ -428,6 +446,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (action === "back-related") {
       this._mode = "related";
+      this._render();
+      return;
+    }
+    if (action === "back-duplicates") {
+      this._mode = "duplicates";
       this._render();
       return;
     }
@@ -514,6 +537,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     parts.push(String(this._relatedCandidatesLimit || 0));
     parts.push(this._relatedCompareIntent ? "1" : "0");
     parts.push(JSON.stringify(this._relatedCandidates || []));
+    parts.push(String(this._duplicateArchiveId || ""));
+    parts.push(String(this._duplicateError || ""));
+    parts.push(JSON.stringify(this._duplicateFamily || {}));
     parts.push(JSON.stringify(this._compareArchiveIds || []));
     parts.push(String(this._compareError || ""));
     parts.push(String(this._compareBackMode || "main"));
@@ -1976,6 +2002,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     });
   }
 
+  async _requestArchiveDuplicates() {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (!this._hass || typeof this._hass.callWS !== "function" || archiveId <= 0) {
+      throw new Error("Archive action context is unavailable");
+    }
+    return this._hass.callWS({
+      type: "bambuddy/print_history_archive_duplicates",
+      archive_id: archiveId,
+    });
+  }
+
   async _requestArchiveCompare(archiveIds) {
     var normalizedIds = this._normalizeCompareArchiveIds(archiveIds);
     if (!this._hass || typeof this._hass.callWS !== "function" || normalizedIds.length < 2) {
@@ -2044,6 +2082,22 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._relatedError = String(error || "").trim();
     this._relatedArchiveId = archiveId != null ? String(archiveId) : "";
     this._relatedCompareIntent = !!compareIntent;
+    this._lastRenderSignature = "";
+    this._render();
+  }
+
+  _matchingDuplicateFamily(archiveId) {
+    var normalizedArchiveId = archiveId != null ? String(archiveId) : "";
+    if (!normalizedArchiveId || this._duplicateArchiveId !== normalizedArchiveId || !this._duplicateFamily || typeof this._duplicateFamily !== "object") {
+      return null;
+    }
+    return this._duplicateFamily;
+  }
+
+  _setDuplicateState(payload, error, archiveId) {
+    this._duplicateFamily = payload && typeof payload === "object" ? payload : null;
+    this._duplicateError = String(error || "").trim();
+    this._duplicateArchiveId = archiveId != null ? String(archiveId) : "";
     this._lastRenderSignature = "";
     this._render();
   }
@@ -2241,6 +2295,41 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
+  async _loadDuplicateFamily(options) {
+    var settings = options || {};
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (archiveId <= 0) {
+      this._setStatus("Duplicate family details are unavailable for this archive.", "error");
+      return;
+    }
+
+    this._mode = "duplicates";
+    this._render();
+
+    var cachedFamily = !settings.forceRefresh ? this._matchingDuplicateFamily(archiveId) : null;
+    if (cachedFamily) {
+      this._lastRenderSignature = "";
+      this._render();
+      return;
+    }
+
+    try {
+      this._setBusyState(true, "Loading duplicate family...", "info", "duplicates");
+      var response = await this._requestArchiveDuplicates();
+      this._busy = false;
+      this._busyContext = "";
+      this._setDuplicateState(response, "", archiveId);
+      this._setStatus("Duplicate family loaded.", "success");
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      var message = this._describeError(error, "Could not load duplicate family");
+      this._setDuplicateState(null, message, archiveId);
+      this._setStatus(message, "error");
+    }
+  }
+
   async _loadCompareForArchives(archiveIds, backMode) {
     var normalizedIds = this._normalizeCompareArchiveIds(archiveIds);
     if (normalizedIds.length < 2) {
@@ -2267,7 +2356,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
-  async _handleCompareAgainstArchive(candidateArchiveId) {
+  async _handleCompareAgainstArchive(candidateArchiveId, backMode) {
     var archive = this._resolveArchive();
     var currentArchiveId = archive && archive.id != null ? Number(archive.id) : 0;
     var normalizedCandidateId = Number(candidateArchiveId || 0);
@@ -2275,7 +2364,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._setStatus("Compare target is unavailable.", "error");
       return;
     }
-    await this._loadCompareForArchives([currentArchiveId, normalizedCandidateId], "related");
+    await this._loadCompareForArchives([currentArchiveId, normalizedCandidateId], backMode || "related");
   }
 
   _buildArchiveDetailPopupContent(archive) {
@@ -2473,6 +2562,94 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return '<div class="section-stack">' + toolbar + this._renderActionSection("Candidates", body) + '</div>';
   }
 
+  _renderDuplicateFamilyMember(member) {
+    var archiveId = Number(member && member.archive_id || 0);
+    var roleLabel = String(member && member.role || "duplicate") === "source" ? "Source" : "Duplicate";
+    var currentLabel = member && member.is_current ? "Current Print" : "";
+    var sequence = Math.max(0, Number(member && member.duplicate_sequence || 0));
+    var metaParts = ['#' + this._escapeHtml(String(archiveId)), this._escapeHtml(this._formatArchiveDate(member && member.created_at))];
+    if (sequence > 0) {
+      metaParts.push('Copy ' + this._escapeHtml(String(sequence)));
+    }
+    return '<div class="related-candidate">' +
+      '<div class="related-candidate-header">' +
+        '<div class="related-candidate-title-block">' +
+          '<div class="related-candidate-title">' + this._escapeHtml(String(member && member.print_name || ("Archive " + archiveId))) + '</div>' +
+          '<div class="related-candidate-meta">' + metaParts.join(' · ') + '</div>' +
+        '</div>' +
+        '<div class="related-candidate-badges">' +
+          '<span class="candidate-status ' + this._escapeHtml(this._statusBadgeClass(member && member.status)) + '">' + this._escapeHtml(this._statusLabel(member && member.status)) + '</span>' +
+          '<span class="candidate-score" style="background:' + this._escapeHtml(String(member && member.role || "") === "source" ? 'rgba(21,101,192,0.18)' : 'rgba(0,137,123,0.18)') + ';">' + this._escapeHtml(roleLabel) + '</span>' +
+          (currentLabel ? '<span class="candidate-score" style="background:rgba(255,255,255,0.10);">' + this._escapeHtml(currentLabel) + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="related-candidate-copy">' + this._escapeHtml(
+        String(member && member.role || "") === "source"
+          ? 'Original source archive for this explicit duplicate family.'
+          : 'Duplicate copy in the same explicit Bambuddy duplicate family.'
+      ) + '</div>' +
+      '<div class="actions-grid related-actions">' +
+        this._renderActionButton("duplicate-open", "Open Archive", "mdi:open-in-new", { disabled: this._busy || archiveId <= 0 })
+          .replace('data-action="duplicate-open"', 'data-action="duplicate-open" data-archive-id="' + this._escapeHtml(String(archiveId)) + '"') +
+        this._renderActionButton("duplicate-compare", "Compare with This Print", "mdi:compare-horizontal", { disabled: this._busy || archiveId <= 0 || !!(member && member.is_current) })
+          .replace('data-action="duplicate-compare"', 'data-action="duplicate-compare" data-archive-id="' + this._escapeHtml(String(archiveId)) + '"') +
+      '</div>' +
+    '</div>';
+  }
+
+  _renderDuplicateGroup(title, copy, members, toneClass) {
+    if (!Array.isArray(members) || !members.length) {
+      return "";
+    }
+    return '<div class="related-confidence-group ' + this._escapeHtml(String(toneClass || "neutral")) + '">' +
+      '<div class="related-confidence-header">' +
+        '<div class="related-confidence-title">' + this._escapeHtml(title) + '</div>' +
+        '<div class="related-confidence-count">' + this._escapeHtml(String(members.length)) + '</div>' +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml(copy) + '</div>' +
+      '<div class="related-list">' + members.map(function (member) {
+        return this._renderDuplicateFamilyMember(member);
+      }.bind(this)).join("") + '</div>' +
+    '</div>';
+  }
+
+  _renderDuplicatesView(archive) {
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    var family = this._matchingDuplicateFamily(archiveId) || {};
+    var source = family && family.source && typeof family.source === "object" ? family.source : null;
+    var duplicates = family && Array.isArray(family.duplicates) ? family.duplicates : [];
+    var toolbar = this._renderActionSection(
+      "Duplicates",
+      '<div class="actions-grid related-toolbar">' +
+        this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+        this._renderActionButton("open-duplicates", this._busy ? "Loading..." : "Refresh Family", "mdi:refresh", { disabled: this._busy }) +
+      '</div>' +
+      '<div class="section-copy">' + this._escapeHtml("This view uses Bambuddy's explicit duplicate lineage fields, not the broader related-match feed. It works from either the source archive or any duplicate copy in the same family.") + '</div>'
+    );
+    var body;
+    if (this._duplicateError) {
+      body = '<div class="section-copy">' + this._escapeHtml(this._duplicateError) + '</div>';
+    } else if (!source && !duplicates.length) {
+      body = '<div class="section-copy">No explicit duplicate family is available for this archive yet.</div>';
+    } else {
+      body = '<div class="related-groups">' +
+        this._renderDuplicateGroup(
+          "Source Print",
+          "Anchor archive for this duplicate family.",
+          source ? [source] : [],
+          "high"
+        ) +
+        this._renderDuplicateGroup(
+          "Duplicate Copies",
+          "Other archives that Bambuddy marks as copies in the same family.",
+          duplicates,
+          "medium"
+        ) +
+      '</div>';
+    }
+    return '<div class="section-stack">' + toolbar + this._renderActionSection("Family", body) + '</div>';
+  }
+
   _renderCompareTable(comparePayload) {
     var archives = comparePayload && Array.isArray(comparePayload.archives) ? comparePayload.archives : [];
     var comparisonRows = comparePayload && Array.isArray(comparePayload.comparison) ? comparePayload.comparison : [];
@@ -2522,8 +2699,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _renderCompareView() {
     var comparePayload = this._comparePayload;
     var differences = comparePayload && Array.isArray(comparePayload.differences) ? comparePayload.differences : [];
-    var toolbarAction = this._compareBackMode === "related" ? "back-related" : "back-main";
-    var toolbarLabel = this._compareBackMode === "related" ? "Back to Matches" : "Back to Actions";
+    var toolbarAction = this._compareBackMode === "related" ? "back-related" : this._compareBackMode === "duplicates" ? "back-duplicates" : "back-main";
+    var toolbarLabel = this._compareBackMode === "related" ? "Back to Matches" : this._compareBackMode === "duplicates" ? "Back to Duplicates" : "Back to Actions";
     return '<div class="section-stack">' +
       this._renderActionSection(
         "Compare Archives",
@@ -2558,12 +2735,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = "View on MakerWorld";
     var relationActions = this._renderActionSection(
-      "Related & Compare",
+      "Related, Duplicates & Compare",
       '<div class="actions-grid">' +
         this._renderActionButton("open-related", "Related Prints", "mdi:relation-many", { disabled: this._busy }) +
+        this._renderActionButton("open-duplicates", "Duplicates", "mdi:content-copy", { disabled: this._busy }) +
         this._renderActionButton("open-compare", "Compare with Another Print", "mdi:compare-horizontal", { disabled: this._busy }) +
       '</div>' +
-      '<div class="section-copy">Use on-demand related candidates to inspect duplicate-family matches, open a related archive popup, or choose another archive to compare against this print without widening the browser payload.</div>'
+      '<div class="section-copy">Use Related Prints for broader similarity matches, Duplicates for explicit Bambuddy duplicate families, or Compare to inspect selected archives side by side without widening the browser payload.</div>'
     );
     var fileActions = '<div class="actions-grid">' +
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
@@ -2772,6 +2950,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
             ? this._renderMetadataCorrectionView(archive)
           : this._mode === "related"
             ? this._renderRelatedView(archive)
+            : this._mode === "duplicates"
+              ? this._renderDuplicatesView(archive)
             : this._mode === "compare"
               ? this._renderCompareView(archive)
           : this._renderMain(archive)) +

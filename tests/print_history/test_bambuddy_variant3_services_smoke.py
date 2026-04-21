@@ -1529,6 +1529,9 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     related_handler = next(
         handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_related"
     )
+    duplicates_handler = next(
+        handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_duplicates"
+    )
     compare_handler = next(
         handler for handler in hass.websocket_handlers if getattr(handler, "__name__", "") == "websocket_handle_archive_compare"
     )
@@ -1557,6 +1560,20 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
                 {"id": 2, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE, "archive_ids": [101, 202]},
             )
         )
+        asyncio.run(
+            duplicates_handler(
+                hass,
+                connection,
+                {"id": 3, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_DUPLICATES, "archive_id": 101},
+            )
+        )
+        asyncio.run(
+            duplicates_handler(
+                hass,
+                connection,
+                {"id": 4, "type": init_module.WS_TYPE_PRINT_HISTORY_ARCHIVE_DUPLICATES, "archive_id": 202},
+            )
+        )
     finally:
         init_module.BambuddyApiClient = original_api_client
         manager_module.BambuddyApiClient = original_manager_api_client
@@ -1564,6 +1581,8 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     assert not connection.errors
     related_result = connection.results[0][1]
     compare_result = connection.results[1][1]
+    source_duplicates_result = connection.results[2][1]
+    child_duplicates_result = connection.results[3][1]
     assert related_result["archive_id"] == 101
     assert related_result["limit"] == 4
     assert related_result["candidates"][0]["archive_id"] == 202
@@ -1580,6 +1599,15 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     assert compare_result["differences"][0]["field"] == "status"
     assert compare_result["differences"][-1]["field"] == "content_hash"
     assert compare_result["success_correlation"]["has_both_outcomes"] is True
+    assert source_duplicates_result["archive_id"] == 101
+    assert source_duplicates_result["family_anchor_id"] == 101
+    assert source_duplicates_result["source"]["archive_id"] == 101
+    assert sorted(member["archive_id"] for member in source_duplicates_result["duplicates"]) == [202, 303, 404]
+    assert child_duplicates_result["archive_id"] == 202
+    assert child_duplicates_result["family_anchor_id"] == 101
+    assert child_duplicates_result["source"]["archive_id"] == 101
+    assert child_duplicates_result["duplicates"][0]["archive_id"] == 202
+    assert child_duplicates_result["duplicates"][0]["is_current"] is True
     assert FakeApiClient.related_requests == [{"archive_id": 101, "limit": 4}]
     assert FakeApiClient.compare_requests == [[101, 202]]
 

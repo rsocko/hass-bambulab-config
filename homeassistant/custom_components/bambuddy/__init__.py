@@ -79,8 +79,14 @@ from .print_history.query import (
     SYSTEM_TAG_PREFIXES,
     SYSTEM_TAG_VALUES,
     build_enrichment_notes,
+    duplicate_count,
+    duplicate_sequence,
     filter_note_payload_rows,
+    is_duplicate_archive,
+    is_duplicate_original,
+    is_duplicate_source,
     note_payload_rows,
+    original_archive_id,
     project_archive,
     split_enrichment_notes,
     system_tags,
@@ -111,6 +117,7 @@ WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF = "bambuddy/print_history_upload_source_
 WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER = "bambuddy/print_history_archive_viewer"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION = "bambuddy/print_history_archive_action"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED = "bambuddy/print_history_archive_related"
+WS_TYPE_PRINT_HISTORY_ARCHIVE_DUPLICATES = "bambuddy/print_history_archive_duplicates"
 WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE = "bambuddy/print_history_archive_compare"
 WS_TYPE_FAILURE_ANALYSIS_QUERY = "bambuddy/failure_analysis_query"
 MAX_MANUAL_PHOTO_UPLOAD_BYTES = 8 * 1024 * 1024
@@ -454,6 +461,125 @@ def _sort_related_candidates(candidates: list[dict[str, Any]]) -> list[dict[str,
             int(candidate.get("archive_id") or 0),
         ),
     )
+
+
+def _duplicate_family_anchor_id(archive: dict[str, Any]) -> int:
+    archive_id = _extract_archive_id(archive.get("id")) if isinstance(archive, dict) else 0
+    if archive_id <= 0:
+        return 0
+    original_id = original_archive_id(archive.get("original_archive_id")) if isinstance(archive, dict) else None
+    if is_duplicate_archive(archive) and original_id and original_id != archive_id:
+        return int(original_id)
+    return archive_id
+
+
+def _sort_duplicate_family_members(members: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        members,
+        key=lambda member: (
+            0 if bool(member.get("is_current")) else 1,
+            int(member.get("duplicate_sequence") or 0),
+            str(member.get("created_at") or ""),
+            str(member.get("print_name") or "").casefold(),
+            int(member.get("archive_id") or 0),
+        ),
+    )
+
+
+def _normalize_duplicate_family_member(
+    archive: dict[str, Any],
+    *,
+    current_archive_id: int,
+    source_archive_id: int,
+) -> dict[str, Any]:
+    archive_id = _extract_archive_id(archive.get("id"))
+    return {
+        "archive_id": archive_id,
+        "print_name": str(archive.get("print_name") or archive.get("filename") or f"Archive {archive_id}").strip(),
+        "status": str(archive.get("status") or "").strip(),
+        "created_at": archive.get("created_at"),
+        "duplicate_count": duplicate_count(archive.get("duplicate_count")),
+        "duplicate_sequence": duplicate_sequence(archive.get("duplicate_sequence")),
+        "original_archive_id": original_archive_id(archive.get("original_archive_id")),
+        "is_current": archive_id == current_archive_id,
+        "role": "source" if archive_id == source_archive_id else "duplicate",
+        "archive": archive,
+    }
+
+
+async def _build_archive_duplicates_response(
+    manager: PrintHistoryBrowserManager,
+    archive_id: int,
+    *,
+    entry_id: str,
+) -> dict[str, Any]:
+    normalized_archive_id = int(archive_id)
+    archive_map = {
+        int(archive.get("id") or 0): archive
+        for archive in manager.archives
+        if isinstance(archive, dict) and int(archive.get("id") or 0) > 0
+    }
+    current_archive = archive_map.get(normalized_archive_id)
+    if current_archive is None:
+        detail = manager.build_archive_detail_response(normalized_archive_id) or {}
+        archive = detail.get("archive") if isinstance(detail, dict) else None
+        current_archive = archive if isinstance(archive, dict) else None
+    if current_archive is None:
+        raise HomeAssistantError("Archive not found")
+
+    family_anchor_id = _duplicate_family_anchor_id(current_archive)
+    if family_anchor_id <= 0:
+        family_anchor_id = normalized_archive_id
+
+    family_archives = [
+        archive
+        for archive in archive_map.values()
+        if _duplicate_family_anchor_id(archive) == family_anchor_id or int(archive.get("id") or 0) == family_anchor_id
+    ]
+
+    if not any(int(archive.get("id") or 0) == family_anchor_id for archive in family_archives):
+        detail = manager.build_archive_detail_response(family_anchor_id) or {}
+        archive = detail.get("archive") if isinstance(detail, dict) else None
+        if isinstance(archive, dict):
+            family_archives.append(archive)
+
+    source_archive = next(
+        (archive for archive in family_archives if int(archive.get("id") or 0) == family_anchor_id),
+        None,
+    )
+    if source_archive is None:
+        source_archive = next((archive for archive in family_archives if is_duplicate_source(archive)), None)
+    if source_archive is None:
+        source_archive = next((archive for archive in family_archives if is_duplicate_original(archive)), None)
+    if source_archive is None:
+        source_archive = current_archive
+
+    source_archive_id = _extract_archive_id(source_archive.get("id"))
+    normalized_source = _normalize_duplicate_family_member(
+        source_archive,
+        current_archive_id=normalized_archive_id,
+        source_archive_id=source_archive_id,
+    )
+    duplicate_members = _sort_duplicate_family_members(
+        [
+            _normalize_duplicate_family_member(
+                archive,
+                current_archive_id=normalized_archive_id,
+                source_archive_id=source_archive_id,
+            )
+            for archive in family_archives
+            if int(archive.get("id") or 0) != source_archive_id
+        ]
+    )
+
+    return {
+        CONF_ENTRY_ID: entry_id,
+        CONF_ARCHIVE_ID: normalized_archive_id,
+        "family_anchor_id": family_anchor_id,
+        "group_size": 1 + len(duplicate_members),
+        "source": normalized_source,
+        "duplicates": duplicate_members,
+    }
 
 
 def _compare_hash_row(manager: PrintHistoryBrowserManager, archive_ids: list[int]) -> dict[str, Any] | None:
@@ -2445,6 +2571,37 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         connection.send_result(msg["id"], response)
 
     websocket_api.async_register_command(hass, websocket_handle_archive_related)
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): WS_TYPE_PRINT_HISTORY_ARCHIVE_DUPLICATES,
+            vol.Optional(CONF_ENTRY_ID): str,
+            vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        }
+    )
+    @websocket_api.async_response
+    async def websocket_handle_archive_duplicates(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        try:
+            entry_id, manager = _resolve_manager(hass, msg.get(CONF_ENTRY_ID))
+            response = await _build_archive_duplicates_response(
+                manager,
+                int(msg[CONF_ARCHIVE_ID]),
+                entry_id=entry_id,
+            )
+        except HomeAssistantError as err:
+            connection.send_error(msg["id"], "archive_duplicates_failed", str(err))
+            return
+        except RuntimeError as err:
+            connection.send_error(msg["id"], "archive_duplicates_failed", str(err))
+            return
+
+        connection.send_result(msg["id"], response)
+
+    websocket_api.async_register_command(hass, websocket_handle_archive_duplicates)
 
     @websocket_api.websocket_command(
         {
