@@ -4,6 +4,11 @@
 >
 > **Scope**: Define where original source `.3mf` files should live, when they should be kept at all, how to avoid unnecessary duplicate storage, and how to preserve the useful Bambuddy and Home Assistant behaviors that source files can unlock.
 
+See also:
+
+- `../../model_library/model-library-strategy.md`
+- `../../model_library/integration/archive-to-library-linkage.md`
+
 ## Why This Needs A Separate Policy
 
 The existing source-3MF import design covers:
