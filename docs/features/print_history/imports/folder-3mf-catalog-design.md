@@ -2,6 +2,11 @@
 
 > **Status**: Implemented vertical slices exist in repo tooling. This document is the current design and operator reference for the nondestructive folder-catalog workflow.
 
+See also:
+
+- `../../model_library/model-library-strategy.md`
+- `../../model_library/integration/archive-to-library-linkage.md`
+
 ## Purpose
 
 Define the workflow for cataloging a user-selected folder of historical `.3mf` and `.gcode.3mf` files, reconciling that catalog against Bambuddy archives, preserving operator decisions outside the source tree, and executing preview or import actions without mutating the selected folder.

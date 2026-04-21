@@ -258,7 +258,8 @@ Current queue states are:
 - `blocked`
    - missing source file, missing selected source, or source not eligible for canonical upload
 - `manual`
-   - source provenance flow such as `attach_source_only` when it still needs an existing `archive_id` or operator review
+   - non-canonical provenance flow such as `attach_source_only`
+   - stays in the manual lane even when an `archive_id` is already present because it is executed as a direct archive source-attachment step, not as synthetic manifest upload work
 - `skipped`
    - disposition is not `Keep`
 
@@ -711,7 +712,8 @@ Current live checkpoint:
       --source-root '.\bambuddy\Backup SD Card - 2026-04-03' `
       --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
       --pairings '.\tmp\cache_gcode_pairing_analysis.json' `
-      --port 8768
+      --port 8768 `
+      --single-threaded
    ```
 
    - launch command for the first backup with direct manifest writeback enabled:
@@ -723,8 +725,11 @@ Current live checkpoint:
       --manifest '.\bambuddy\backfill-state\archive_backfill_manifest_v2.json' `
       --pairings '.\tmp\cache_gcode_pairing_analysis.json' `
       --port 8769 `
-      --manifest-writeback
+      --manifest-writeback `
+      --single-threaded
    ```
+
+   If your local Windows launch is fully interactive and threaded mode behaves normally, `--single-threaded` is optional. Keep it enabled when the viewer is started through redirected/backgrounded terminal sessions and local requests begin failing with empty or closed responses.
 
 ### Optional runtime-repair flow
 

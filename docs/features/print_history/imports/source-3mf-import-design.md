@@ -1,8 +1,15 @@
 # Source 3MF Import Design
 
-> **Status**: Design only. No Home Assistant or Bambuddy implementation exists yet.
+> **Status**: Popup-driven Home Assistant source-3MF image import is still design-only.
+>
+> **Current live state**: The repo already ships a separate forensics provenance path through [tools/bambuddy/gcode_forensics_viewer.py](../../../tools/bambuddy/gcode_forensics_viewer.py) and [tools/bambuddy/run_forensics_import_queue.py](../../../tools/bambuddy/run_forensics_import_queue.py) for local source selection, manifest writeback, and optional Bambuddy `POST /api/v1/archives/{id}/source` attachment. That existing path is not the popup/gallery feature designed in this document.
 >
 > **Scope boundary**: This feature is about importing useful images and limited metadata from a user-supplied source `.3mf` into an existing Bambuddy archive from the Home Assistant print-history popup. It is not a replacement for Bambuddy's canonical archive upload flow and it is not an in-place archive repair mechanism.
+
+See also:
+
+- `../../model_library/model-library-strategy.md`
+- `../../model_library/integration/ha-model-library-integration.md`
 
 ## Overview
 

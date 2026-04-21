@@ -5,11 +5,17 @@ import argparse
 import base64
 import json
 import re
+import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from tools.bambuddy.gcode_forensics_viewer import (
     inspect_local_artifact,

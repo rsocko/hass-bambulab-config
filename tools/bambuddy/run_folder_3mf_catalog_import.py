@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import sys
 import tempfile
 import urllib.error
 import urllib.parse
@@ -13,6 +14,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from tools.bambuddy.folder_3mf_catalog_state import CatalogStateStore, load_json, write_json
 from tools.bambuddy.generate_archive_backfill_manifest import compute_hashes

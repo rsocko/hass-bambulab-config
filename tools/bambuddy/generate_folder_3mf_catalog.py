@@ -7,9 +7,16 @@ import copy
 import json
 import os
 import re
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from tools.bambuddy.generate_archive_backfill_manifest import (
     build_path_hash,
@@ -28,6 +35,25 @@ WINDOWS_CLOUD_REPARSE_TAG_MASK = 0xFFFF0000
 WINDOWS_CLOUD_REPARSE_TAG_PREFIX = 0x90000000
 DEFAULT_INCLUDE_PATTERNS = ["*.3mf", "*.gcode.3mf"]
 SUPPORT_FILE_EXTENSIONS = {".gcode", ".png", ".jpg", ".jpeg", ".webp", ".txt", ".md", ".json", ".bbl", ".log"}
+PREVIEW_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+PREVIEW_GROUP_PATTERNS: list[tuple[str, str]] = [
+    ("model_pictures", "auxiliaries/model pictures/"),
+    ("profile_pictures", "auxiliaries/profile pictures/"),
+    ("project_thumbnails", "auxiliaries/.thumbnails/"),
+    ("plate_previews", "metadata/plate_"),
+    ("top_previews", "metadata/top_"),
+    ("pick_previews", "metadata/pick_"),
+    ("project_thumbnails", "metadata/thumbnail"),
+]
+PREVIEW_GROUP_ORDER = {
+    "model_pictures": 0,
+    "profile_pictures": 1,
+    "project_thumbnails": 2,
+    "plate_previews": 3,
+    "top_previews": 4,
+    "pick_previews": 5,
+}
+PREVIEW_IMAGE_LIMIT = 4
 
 
 class _Win32FindDataW(ctypes.Structure):
@@ -278,6 +304,50 @@ def classify_primary_artifact(file_path: Path, three_mf: dict[str, Any], file_st
     return "source_3mf", "bambu_studio_source_3mf", False, "defaulting to source project classification"
 
 
+def classify_preview_group(member_name: str) -> str | None:
+    normalized = member_name.replace("\\", "/").strip().lower()
+    extension = Path(normalized).suffix.lower()
+    if extension not in PREVIEW_IMAGE_EXTENSIONS:
+        return None
+    for group, prefix in PREVIEW_GROUP_PATTERNS:
+        if normalized.startswith(prefix):
+            return group
+    return None
+
+
+def extract_preview_images(file_path: Path, preview_root: Path, record_id: str, *, limit: int = PREVIEW_IMAGE_LIMIT) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    extracted: list[dict[str, Any]] = []
+    with ZipFile(file_path) as archive:
+        members = []
+        for info in archive.infolist():
+            group = classify_preview_group(info.filename)
+            if group is None or info.is_dir():
+                continue
+            members.append((group, info.filename, info))
+        members.sort(key=lambda item: (PREVIEW_GROUP_ORDER.get(item[0], 99), item[1].lower()))
+
+        preview_dir = preview_root / record_id
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        for index, (group, member_name, info) in enumerate(members[:limit]):
+            suffix = Path(member_name).suffix.lower() or ".png"
+            safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(member_name).stem).strip("._") or f"preview_{index + 1}"
+            target_name = f"{index:02d}_{group}_{safe_name}{suffix}"
+            target_path = preview_dir / target_name
+            target_path.write_bytes(archive.read(info))
+            extracted.append(
+                {
+                    "group": group,
+                    "member_name": member_name,
+                    "relative_path": target_path.relative_to(preview_root).as_posix(),
+                    "label": Path(member_name).name,
+                    "is_primary": index == 0,
+                }
+            )
+    return extracted
+
+
 def build_time_evidence(file_path: Path) -> tuple[list[dict[str, str]], str, str]:
     saved_at = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC).replace(microsecond=0).isoformat()
     evidence = [
@@ -292,7 +362,7 @@ def build_time_evidence(file_path: Path) -> tuple[list[dict[str, str]], str, str
     return evidence, saved_at, "filesystem:saved_timestamp"
 
 
-def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
+def build_candidate(source_root: Path, file_path: Path, *, preview_root: Path) -> dict[str, Any]:
     relative_path = normalize_relative_path(str(file_path.relative_to(source_root)))
     availability = classify_file_availability(file_path)
     file_status = str(availability["file_status"])
@@ -346,6 +416,7 @@ def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
                 "has_slice_info": False,
                 "plate_preview_count": 0,
                 "project_object_count": 0,
+                "preview_images": [],
             }
         )
         return record
@@ -371,6 +442,7 @@ def build_candidate(source_root: Path, file_path: Path) -> dict[str, Any]:
             "has_slice_info": bool(three_mf.get("has_slice_info")),
             "plate_preview_count": int(three_mf.get("plate_preview_count") or 0),
             "project_object_count": int(three_mf.get("project_object_count") or 0),
+            "preview_images": extract_preview_images(file_path, preview_root, str(record["record_id"])) if bool(three_mf.get("is_zip")) else [],
         }
     )
     if file_status == "broken_artifact":
@@ -451,8 +523,9 @@ def build_manifest(
     previous_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     working_paths = build_working_paths(source_root, working_root)
+    preview_root = Path(working_paths["preview_root"])
     current_candidates = [
-        build_candidate(source_root, path) for path in iter_catalog_files(source_root, include_patterns, exclude_patterns, recurse)
+        build_candidate(source_root, path, preview_root=preview_root) for path in iter_catalog_files(source_root, include_patterns, exclude_patterns, recurse)
     ]
     assign_same_hash_groups(current_candidates)
     candidates = merge_previous_candidates(current_candidates, previous_manifest)

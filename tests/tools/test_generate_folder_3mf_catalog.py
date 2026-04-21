@@ -24,6 +24,7 @@ def _write_zip(path: Path, members: dict[str, str | bytes]) -> Path:
 
 def test_build_manifest_catalogs_candidates_and_support_files(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
+    working_root = tmp_path / "working"
     model_path = _write_zip(
         source_root / "Projects" / "Widget.3mf",
         {
@@ -40,6 +41,7 @@ def test_build_manifest_catalogs_candidates_and_support_files(tmp_path: Path) ->
         include_patterns=["*.3mf"],
         exclude_patterns=[],
         recurse=True,
+        working_root=working_root,
     )
 
     assert manifest["workflow"] == "folder_3mf_catalog"
@@ -48,6 +50,9 @@ def test_build_manifest_catalogs_candidates_and_support_files(tmp_path: Path) ->
     assert candidate["primary_artifact_kind"] == "sliced_3mf"
     assert candidate["canonical_archive_ready"] is True
     assert candidate["best_inferred_print_time_source"] == "filesystem:saved_timestamp"
+    assert candidate["preview_images"]
+    preview_path = working_root / "previews" / candidate["preview_images"][0]["relative_path"]
+    assert preview_path.exists()
     support_paths = {row["relative_path"] for row in candidate["supporting_files"]}
     assert "projects/widget.gcode" in support_paths
     assert "projects/widget.txt" in support_paths

@@ -10,13 +10,19 @@ import mimetypes
 import os
 import re
 import subprocess
+import sys
 import webbrowser
 from datetime import datetime, timezone
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from zipfile import BadZipFile, ZipFile
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 GENERIC_MULTI_PLATE_PREFIXES = {
@@ -57,6 +63,11 @@ DEFAULT_SEARCH_HORIZON_HOURS = 48
 def load_json(path: Path):
     with path.open("r", encoding="utf-8-sig") as handle:
         return json.load(handle)
+
+
+def build_http_server(host: str, port: int, *, threaded: bool):
+    server_class = ThreadingHTTPServer if threaded else HTTPServer
+    return server_class((host, port), ForensicsHandler)
 
 
 def write_json(path: Path, payload) -> None:
@@ -2581,6 +2592,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--studio-executable", help="Optional Bambu Studio executable path used by the Open File action.")
     parser.add_argument("--export-command", default="", help="Optional shell command template for export automation. Supported placeholders: {source_path}, {source_name}, {gcode_name}, {record_prefix}, {output_path}.")
     parser.add_argument("--max-upload-mb", type=int, default=64, help="Maximum size in megabytes for browser-uploaded local source files.")
+    parser.add_argument("--single-threaded", action="store_true", help="Use a plain HTTPServer instead of ThreadingHTTPServer. Useful for local Windows launches where backgrounded threaded sessions can drop connections.")
     parser.add_argument("--no-browser", action="store_true", help="Do not automatically open a browser window.")
     return parser.parse_args()
 
@@ -2597,9 +2609,10 @@ def main() -> int:
     ForensicsHandler.studio_executable = Path(args.studio_executable).expanduser().resolve() if args.studio_executable else None
     ForensicsHandler.export_command = str(args.export_command or "")
     ForensicsHandler.max_upload_bytes = int(args.max_upload_mb) * 1024 * 1024
-    server = ThreadingHTTPServer((args.host, args.port), ForensicsHandler)
+    server = build_http_server(args.host, args.port, threaded=not args.single_threaded)
     url = f"http://{args.host}:{args.port}/?view=ambiguous"
     print(f"Serving G-code forensics viewer at {url}")
+    print(f"HTTP server mode: {'threaded' if not args.single_threaded else 'single-threaded'}")
     print(f"Decision export path: {export_path}")
     if args.manifest_writeback:
         print(f"Manifest writeback enabled: {args.manifest}")
