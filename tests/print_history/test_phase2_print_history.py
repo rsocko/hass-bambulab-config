@@ -824,8 +824,8 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=41", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=6", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=5", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=7", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=6", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
@@ -1016,6 +1016,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('print-history-timelapse-processed', viewer_content)
         self.assertIn('_updateRateButtons()', viewer_content)
         self.assertIn('Open or Download', viewer_content)
+        self.assertIn('_parseJson(value, fallbackValue)', viewer_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', viewer_content)
         self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', viewer_content)
         self.assertIn('var detailStorageRaw = detailState.attributes.storage_metrics_json;', viewer_content)
@@ -1027,6 +1028,7 @@ class TestHeatmapActivityCard(unittest.TestCase):
         self.assertIn('appearance:none', editor_content)
         self.assertIn('color-scheme:light dark', editor_content)
         self.assertIn('editor data stays on-demand and out of Layer 1', editor_content)
+        self.assertIn('_parseJson(value, fallbackValue)', editor_content)
         self.assertIn('archive.storage_metrics.artifacts.timelapse_path.relative_path', editor_content)
         self.assertIn('var detailArchiveRaw = detailState.attributes.archive_json;', editor_content)
         self.assertIn('var detailStorageRaw = detailState.attributes.storage_metrics_json;', editor_content)

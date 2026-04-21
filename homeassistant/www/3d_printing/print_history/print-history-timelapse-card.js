@@ -113,6 +113,15 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     return parsed;
   }
 
+  _parseJson(value, fallbackValue) {
+    try {
+      var parsed = typeof value === "string" ? JSON.parse(value || "null") : value;
+      return parsed && typeof parsed === "object" ? parsed : fallbackValue;
+    } catch (_error) {
+      return fallbackValue;
+    }
+  }
+
   _getBaseUrl() {
     var entityId = this._config ? this._config.api_base_entity : "input_text.bambuddy_api_base_url";
     var raw = this._hass && this._hass.states && this._hass.states[entityId]

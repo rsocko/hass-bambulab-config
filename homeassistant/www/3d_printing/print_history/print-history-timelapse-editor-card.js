@@ -93,6 +93,15 @@ class PrintHistoryTimelapseEditorCard extends HTMLElement {
     return parsed;
   }
 
+  _parseJson(value, fallbackValue) {
+    try {
+      var parsed = typeof value === "string" ? JSON.parse(value || "null") : value;
+      return parsed && typeof parsed === "object" ? parsed : fallbackValue;
+    } catch (_error) {
+      return fallbackValue;
+    }
+  }
+
   _escapeHtml(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
