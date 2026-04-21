@@ -58,6 +58,7 @@ EVENT_LABELS = {
     "photo_captured": "Photo captured",
     "enrichment_applied": "Enrichment applied",
     "repair_applied": "Repair applied",
+    "metadata_corrected": "Metadata corrected",
 }
 
 EVENT_COLOR_KEYS = {
@@ -70,6 +71,7 @@ EVENT_COLOR_KEYS = {
     "photo_captured": "media",
     "enrichment_applied": "enrichment",
     "repair_applied": "repair",
+    "metadata_corrected": "repair",
 }
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import re
@@ -55,6 +56,7 @@ from .const import (
     SERVICE_REFRESH_PRINT_HISTORY_BROWSER,
     SERVICE_SET_PRINT_HISTORY_ARCHIVE_FAVORITE,
     SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD,
+    SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA,
     SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE,
     SERVICE_APPLY_PRINT_HISTORY_ARCHIVE_RESTORE,
     SERVICE_VERIFY_PRINT_HISTORY_ARCHIVE_RESTORE,
@@ -395,12 +397,40 @@ def _match_confidence_bucket(score: Any) -> str:
     return "low"
 
 
+def _related_match_type(candidate: dict[str, Any], match_score: int) -> str:
+    match_reason = str(candidate.get("match_reason") or "").strip().lower() if isinstance(candidate, dict) else ""
+    if "content hash" in match_reason or "same file" in match_reason:
+        return "same_content"
+    if "print name" in match_reason or "same name" in match_reason:
+        return "same_name"
+    if "filament" in match_reason:
+        return "same_filament"
+    if match_score >= 95:
+        return "exact_match"
+    if match_score >= 75:
+        return "strong_match"
+    return "fallback"
+
+
+def _related_match_priority(match_type: str) -> int:
+    priorities = {
+        "same_name": 0,
+        "same_content": 1,
+        "exact_match": 2,
+        "strong_match": 3,
+        "same_filament": 4,
+        "fallback": 5,
+    }
+    return priorities.get(str(match_type or "").strip().lower(), 99)
+
+
 def _normalize_related_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     archive = candidate.get("archive") if isinstance(candidate, dict) else None
     if not isinstance(archive, dict):
         archive = {}
     archive_id = _extract_archive_id(archive.get("id"))
     match_score = int(candidate.get("match_score") or 0) if isinstance(candidate, dict) else 0
+    match_type = _related_match_type(candidate, match_score)
     return {
         "archive_id": archive_id,
         "print_name": str(archive.get("print_name") or archive.get("filename") or f"Archive {archive_id}").strip(),
@@ -408,9 +438,22 @@ def _normalize_related_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
         "created_at": archive.get("created_at"),
         "match_reason": str(candidate.get("match_reason") or "").strip() if isinstance(candidate, dict) else "",
         "match_score": match_score,
+        "match_type": match_type,
         "confidence_bucket": _match_confidence_bucket(match_score),
         "archive": archive,
     }
+
+
+def _sort_related_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        candidates,
+        key=lambda candidate: (
+            -int(candidate.get("match_score") or 0),
+            _related_match_priority(str(candidate.get("match_type") or "")),
+            str(candidate.get("print_name") or "").casefold(),
+            int(candidate.get("archive_id") or 0),
+        ),
+    )
 
 
 async def _build_archive_related_response(
@@ -422,7 +465,7 @@ async def _build_archive_related_response(
     limit: int,
 ) -> dict[str, Any]:
     normalized_archive_id = int(archive_id)
-    normalized_limit = max(1, min(12, int(limit)))
+    normalized_limit = max(1, min(20, int(limit)))
 
     session = aiohttp_client.async_get_clientsession(hass)
     client = BambuddyApiClient(
@@ -434,6 +477,7 @@ async def _build_archive_related_response(
     candidates = await client.async_fetch_archive_similar(normalized_archive_id, limit=normalized_limit)
     normalized_candidates = [_normalize_related_candidate(candidate) for candidate in candidates]
     normalized_candidates = [candidate for candidate in normalized_candidates if candidate.get("archive_id", 0) > 0]
+    normalized_candidates = _sort_related_candidates(normalized_candidates)
     return {
         CONF_ENTRY_ID: entry_id,
         CONF_ARCHIVE_ID: normalized_archive_id,
@@ -689,6 +733,22 @@ SERVICE_REPAIR_ARCHIVE_FROM_START_SCHEMA = vol.Schema(
         vol.Optional("dry_run", default=False): bool,
         vol.Optional("response_detail", default="full"): vol.In({"full", "summary"}),
         vol.Optional("set_status_completed", default=False): bool,
+    }
+)
+SERVICE_CORRECT_ARCHIVE_METADATA_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_ENTRY_ID): str,
+        vol.Required(CONF_ARCHIVE_ID): vol.Coerce(int),
+        vol.Optional("started_at"): str,
+        vol.Optional("completed_at"): str,
+        vol.Optional("created_at"): str,
+        vol.Optional("status"): str,
+        vol.Optional("failure_reason"): vol.Any(None, str),
+        vol.Required("reason"): str,
+        vol.Optional("dry_run", default=False): bool,
+        vol.Optional("trigger_source"): str,
+        vol.Optional("request_id"): str,
+        vol.Optional("expected_archive_revision"): str,
     }
 )
 SERVICE_GET_RESTORE_WORKFLOW_SCHEMA = vol.Schema(
@@ -1179,6 +1239,33 @@ def _normalize_restore_request_payload(call_data: dict[str, Any], *, dry_run: bo
     if call_data.get("run_reenrich") is not None:
         payload["run_reenrich"] = bool(call_data.get("run_reenrich"))
     return payload
+
+
+def _archive_metadata_revision(archive: dict[str, Any]) -> str:
+    payload = {
+        "started_at": archive.get("started_at"),
+        "completed_at": archive.get("completed_at"),
+        "created_at": archive.get("created_at"),
+        "status": archive.get("status"),
+        "failure_reason": archive.get("failure_reason"),
+        "notes": archive.get("notes"),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _normalize_metadata_correction_fields(call_data: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    for field_name in ("started_at", "completed_at", "created_at", "status"):
+        if field_name not in call_data:
+            continue
+        normalized = str(call_data.get(field_name) or "").strip()
+        if normalized:
+            fields[field_name] = normalized
+    if "failure_reason" in call_data:
+        raw_failure_reason = call_data.get("failure_reason")
+        fields["failure_reason"] = None if raw_failure_reason in (None, "") else str(raw_failure_reason)
+    return fields
 
 
 def _normalize_archive_ids(raw_value: Any) -> list[int]:
@@ -2301,7 +2388,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 manager,
                 int(msg[CONF_ARCHIVE_ID]),
                 entry_id=entry_id,
-                limit=int(msg.get("limit") or 6),
+                limit=int(msg.get("limit") or 10),
             )
         except HomeAssistantError as err:
             connection.send_error(msg["id"], "archive_related_failed", str(err))
@@ -3525,6 +3612,116 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         )
         return response
 
+    async def async_handle_correct_archive_metadata(call: ServiceCall) -> ServiceResponse:
+        entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
+        archive_id = int(call.data[CONF_ARCHIVE_ID])
+        if not await manager.async_ensure_archive_loaded(archive_id):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        detail_response = manager.build_archive_detail_response(archive_id)
+        if detail_response is None or not isinstance(detail_response.get("archive"), dict):
+            raise HomeAssistantError(f"Archive {archive_id} was not found in the Bambuddy local store")
+
+        current_archive = detail_response["archive"]
+        reason = str(call.data.get("reason") or "").strip()
+        if not reason:
+            raise HomeAssistantError("reason is required")
+
+        fields = _normalize_metadata_correction_fields(call.data)
+        if not fields:
+            raise HomeAssistantError("At least one metadata field must be provided")
+
+        payload: dict[str, Any] = {
+            "archive_id": archive_id,
+            "fields": fields,
+            "reason": reason,
+            "dry_run": bool(call.data.get("dry_run", False)),
+            "trigger_source": str(call.data.get("trigger_source") or "home_assistant_archive_actions").strip(),
+            "request_id": str(call.data.get("request_id") or "").strip() or None,
+            "expected_archive_revision": str(call.data.get("expected_archive_revision") or "").strip() or _archive_metadata_revision(current_archive),
+        }
+
+        client, error_response = _build_runtime_repair_client(hass, entry_id, manager)
+        if error_response is not None:
+            error_response["archive_id"] = archive_id
+            return error_response
+
+        started = perf_counter()
+        try:
+            correction = await client.async_metadata_correction(payload)
+        except RuntimeError as error:
+            return {
+                "success": False,
+                "entry_id": entry_id,
+                "archive_id": archive_id,
+                "error": "metadata_correction_request_failed",
+                "message": str(error),
+            }
+
+        response: dict[str, Any] = {
+            "success": True,
+            "entry_id": entry_id,
+            "archive_id": archive_id,
+            "dry_run": bool(payload["dry_run"]),
+            "correction": correction,
+        }
+
+        correction_id = str(correction.get("correction_id") or correction.get("request_id") or "").strip()
+        if correction_id:
+            await hass.async_add_executor_job(
+                lambda: manager.store.save_metadata_correction_audit(
+                    archive_id,
+                    correction_id=correction_id,
+                    request_id=str(correction.get("request_id") or "").strip(),
+                    requested_at=str(correction.get("requested_at") or "").strip(),
+                    applied_at=str(correction.get("applied_at") or "").strip(),
+                    status="applied" if bool(correction.get("applied")) else "preview" if bool(payload["dry_run"]) else "noop",
+                    reason=reason,
+                    trigger_source=str(payload["trigger_source"]),
+                    updated_fields=correction.get("updated_fields") if isinstance(correction.get("updated_fields"), list) else [],
+                    warnings=correction.get("warnings") if isinstance(correction.get("warnings"), list) else [],
+                    before=correction.get("before") if isinstance(correction.get("before"), dict) else {},
+                    after=correction.get("after") if isinstance(correction.get("after"), dict) else {},
+                    derived_impacts=correction.get("derived_impacts") if isinstance(correction.get("derived_impacts"), dict) else {},
+                    response=correction,
+                )
+            )
+
+        if not bool(payload["dry_run"]) and bool(correction.get("applied")):
+            refreshed_archive = await manager.async_refresh_archive_detail(
+                archive_id,
+                operation="correct_archive_metadata",
+                extra_details={
+                    "updated_fields": correction.get("updated_fields", []),
+                    "correction_id": correction_id,
+                },
+            )
+            response["archive"] = refreshed_archive
+            await manager.async_record_archive_event(
+                archive_id,
+                event_type="metadata_corrected",
+                event_source="ha_service",
+                event_status="applied",
+                payload={
+                    "correction_id": correction_id,
+                    "updated_fields": correction.get("updated_fields", []),
+                    "reason": reason,
+                },
+                derived_from="correct_print_history_archive_metadata",
+            )
+
+        manager.record_mutation(
+            operation="correct_archive_metadata_preview" if bool(payload["dry_run"]) else "correct_archive_metadata",
+            archive_id=archive_id,
+            duration_ms=round((perf_counter() - started) * 1000, 1),
+            details={
+                "dry_run": bool(payload["dry_run"]),
+                "updated_fields": correction.get("updated_fields", []),
+                "changed": bool(correction.get("changed")),
+            },
+        )
+        return response
+
     async def async_handle_get_restore_workflow(call: ServiceCall) -> ServiceResponse:
         entry_id, manager = _resolve_manager(hass, call.data.get(CONF_ENTRY_ID))
         source_archive_id = _extract_archive_id(call.data.get(CONF_SOURCE_ARCHIVE_ID))
@@ -4087,6 +4284,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             SERVICE_REPAIR_PRINT_HISTORY_ARCHIVE_FROM_START,
             async_handle_repair_archive_from_start,
             schema=SERVICE_REPAIR_ARCHIVE_FROM_START_SCHEMA,
+            supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA,
+            async_handle_correct_archive_metadata,
+            schema=SERVICE_CORRECT_ARCHIVE_METADATA_SCHEMA,
             supports_response=SupportsResponse.ONLY,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW):

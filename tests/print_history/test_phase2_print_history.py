@@ -820,10 +820,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=116", content)
         self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=57", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=56", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=32", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=3", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=4", content)
@@ -1818,6 +1818,10 @@ class TestPrintHistoryTagFilterOptions(unittest.TestCase):
         self.assertIn("mdi:select-all", content)
         self.assertIn("mdi:tag-multiple-outline", content)
         self.assertIn("mdi:folder-multiple-outline", content)
+        self.assertIn("mdi:compare-horizontal", content)
+        self.assertIn("action: compare", content)
+        self.assertIn("Select 2 to ${compareLimit} prints to compare.", content)
+        self.assertIn("Compare supports up to ${compareLimit} prints.", content)
         self.assertIn("mdi:trash-can-outline", content)
 
 
@@ -2194,10 +2198,14 @@ class TestPrintHistoryArchivePopupRegression(unittest.TestCase):
         content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "services.yaml").read_text("utf-8")
         self.assertIn("refresh_print_history_archive_detail:", content)
         self.assertIn("Fetch one archive from Bambuddy and immediately upsert it into the local Variant 3 store.", content)
+        self.assertIn("correct_print_history_archive_metadata:", content)
+        self.assertIn("Sidecar-backed advanced correction flow for archived runtime metadata.", content)
         const_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
         init_content = (ROOT / "homeassistant" / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
         self.assertIn('SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL = "refresh_print_history_archive_detail"', const_content)
+        self.assertIn('SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA = "correct_print_history_archive_metadata"', const_content)
         self.assertIn("async_handle_refresh_archive_detail", init_content)
+        self.assertIn("async_handle_correct_archive_metadata", init_content)
         self.assertIn("SERVICE_REFRESH_PRINT_HISTORY_ARCHIVE_DETAIL", init_content)
 
     def test_bambuddy_services_expose_enrichment_metadata_management(self):
@@ -2333,10 +2341,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=32", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=35", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=63", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=115", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=116", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
@@ -2630,11 +2638,17 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
 
         self.assertIn('type: "bambuddy/print_history_archive_related"', script)
         self.assertIn('type: "bambuddy/print_history_archive_compare"', script)
+        self.assertIn('input_number.print_history_related_candidate_limit', script)
+        self.assertIn('compare_archive_ids_json', script)
+        self.assertIn('initial_mode', script)
         self.assertIn('this._renderActionButton("open-related", "Related Prints", "mdi:relation-many"', script)
-        self.assertIn('this._renderActionButton("open-compare", "Compare Print", "mdi:compare-horizontal"', script)
+        self.assertIn('this._renderActionButton("open-compare", "Compare with Another Print", "mdi:compare-horizontal"', script)
         self.assertIn('this._mode === "related"', script)
         self.assertIn('this._mode === "compare"', script)
         self.assertIn('Compare is rendered locally in Home Assistant from Bambuddy\'s structured compare API.', script)
+        self.assertIn('choose another archive to compare against this print', script)
+        self.assertIn('Home Assistant now keeps the list score-first without a newest-first bias.', script)
+        self.assertIn('Requesting up to ', script)
         self.assertIn('Could not open the related archive popup', script)
         self.assertIn('.related-candidate{border-radius:16px;', script)
         self.assertIn('High Confidence', script)
@@ -2820,6 +2834,7 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
 
         self.assertIn("input_text.print_history_multi_select_request", request_content)
         self.assertIn("requested_action ~ '|' ~ (now().timestamp() | int(0))", request_content)
+        self.assertIn("compare, favorite, storage, or delete", request_content)
         self.assertIn("input_boolean.print_history_multi_select_mode", enter_content)
         self.assertIn("input_number.print_history_multi_select_count", enter_content)
         self.assertIn("input_boolean.print_history_multi_select_all_favorites", cancel_content)
@@ -2859,6 +2874,10 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("select option,.bulk-dialog-field select optgroup", content)
         self.assertIn("bulk_update_print_history_user_tags", content)
         self.assertIn("bulk_assign_print_history_project", content)
+        self.assertIn("_bulkCompareLimit()", content)
+        self.assertIn("_openBulkComparePopup()", content)
+        self.assertIn('action === "compare"', content)
+        self.assertIn('compare_archive_ids_json: JSON.stringify(compareArchiveIds)', content)
         self.assertIn("bulk_set_print_history_archive_favorite", content)
         self.assertIn("bulk_delete_print_history_archives", content)
         self.assertGreaterEqual(content.count("_completeBulkActionAndExitMode()"), 3)

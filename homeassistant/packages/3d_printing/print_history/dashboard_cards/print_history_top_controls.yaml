@@ -48,6 +48,13 @@ card:
       const multiSelectMode = states['input_boolean.print_history_multi_select_mode']?.state === 'on';
       const selectedCount = Math.max(0, Number(states['input_number.print_history_multi_select_count']?.state || 0) || 0);
       const hasSelection = selectedCount > 0;
+      const compareLimit = 5;
+      const compareTooFew = selectedCount < 2;
+      const compareTooMany = selectedCount > compareLimit;
+      const compareInvalid = compareTooFew || compareTooMany;
+      const compareTooltip = compareTooMany
+        ? `Compare supports up to ${compareLimit} prints. Deselect ${selectedCount - compareLimit} to continue.`
+        : `Select 2 to ${compareLimit} prints to compare.`;
       const currentPage = Math.max(1, Number(pageInfoAttrs.current_page || 1) || 1);
       const totalPages = Math.max(1, Number(pageInfoAttrs.total_pages || 1) || 1);
       const atFirstPage = currentPage <= 1;
@@ -77,6 +84,7 @@ card:
       const selectAllSelector = byIcon('mdi:select-all');
       const tagSelector = byIcon('mdi:tag-multiple-outline');
       const projectSelector = byIcon('mdi:folder-multiple-outline');
+      const compareSelector = byIcon('mdi:compare-horizontal');
       const favoriteSelector = byIcon('mdi:star-circle-outline');
       const storageSelector = byIcon('mdi:database-sync-outline');
       const deleteSelector = byIcon('mdi:trash-can-outline');
@@ -86,6 +94,7 @@ card:
         selectAllSelector,
         tagSelector,
         projectSelector,
+        compareSelector,
         favoriteSelector,
         storageSelector,
         deleteSelector,
@@ -233,6 +242,37 @@ card:
         ${multiSelectMode ? `${selectedCountSelector} {
           pointer-events: none !important;
         }
+        ${compareInvalid ? `${compareSelector} {
+          cursor: not-allowed !important;
+          ${compareTooMany ? 'background: rgba(198, 40, 40, 0.12) !important;' : 'opacity: 0.52 !important;'}
+        }
+        ${compareSelector} ha-icon {
+          ${compareTooMany ? 'color: #c62828 !important;' : 'color: var(--disabled-text-color) !important;'}
+        }
+        ${compareSelector}:hover::after,
+        ${compareSelector}:focus-within::after {
+          content: '${compareTooltip.replace(/'/g, "\\'")}';
+          position: absolute;
+          left: 50%;
+          bottom: calc(100% + 8px);
+          transform: translateX(-50%);
+          padding: 6px 10px;
+          border-radius: 10px;
+          background: rgba(17, 24, 39, 0.94);
+          color: #f9fafb;
+          font-size: 11px;
+          font-weight: 600;
+          line-height: 1.2;
+          white-space: nowrap;
+          pointer-events: none;
+          z-index: 6;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+        }` : `${compareSelector} {
+          background: rgba(21, 101, 192, 0.14) !important;
+        }
+        ${compareSelector} ha-icon {
+          color: #1565c0 !important;
+        }`}
         ${multiDisabledSelectors.length ? `${multiDisabledSelectors.join(',\n        ')} {
           opacity: 0.42 !important;
           pointer-events: none !important;
@@ -493,6 +533,18 @@ card:
               perform_action: script.request_print_history_multi_select_action
               data:
                 action: project
+          - name: Compare
+            icon: mdi:compare-horizontal
+            show_icon: true
+            show_name: true
+            show_state: false
+            show_background: true
+            fill_width: false
+            tap_action:
+              action: perform-action
+              perform_action: script.request_print_history_multi_select_action
+              data:
+                action: compare
           - name: >-
               ${states['input_boolean.print_history_multi_select_all_favorites']?.state === 'on' ? 'Unfavorite' : 'Favorite'}
             icon: mdi:star-circle-outline

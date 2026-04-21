@@ -269,6 +269,26 @@ class PrintHistoryStore:
                 PRIMARY KEY (archive_id, related_archive_id, relation_type)
             );
 
+            CREATE TABLE IF NOT EXISTS archive_metadata_correction_audit (
+                correction_id TEXT PRIMARY KEY,
+                archive_id INTEGER NOT NULL,
+                request_id TEXT NOT NULL DEFAULT '',
+                requested_at TEXT NOT NULL DEFAULT '',
+                applied_at TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT '',
+                reason TEXT NOT NULL DEFAULT '',
+                trigger_source TEXT NOT NULL DEFAULT '',
+                updated_fields_json TEXT NOT NULL DEFAULT '',
+                warnings_json TEXT NOT NULL DEFAULT '',
+                before_json TEXT NOT NULL DEFAULT '',
+                after_json TEXT NOT NULL DEFAULT '',
+                derived_impacts_json TEXT NOT NULL DEFAULT '',
+                response_json TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (archive_id) REFERENCES archives(archive_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_archive_metadata_correction_audit_archive_id
+                ON archive_metadata_correction_audit(archive_id, requested_at DESC);
+
             CREATE TABLE IF NOT EXISTS archive_review_state (
                 archive_id INTEGER PRIMARY KEY,
                 review_status TEXT NOT NULL DEFAULT 'unreviewed',
@@ -881,6 +901,10 @@ class PrintHistoryStore:
             ordered_ids + ordered_ids,
         )
         connection.execute(
+            f"DELETE FROM archive_metadata_correction_audit WHERE archive_id IN ({placeholders})",
+            ordered_ids,
+        )
+        connection.execute(
             f"DELETE FROM archives WHERE archive_id IN ({placeholders})",
             ordered_ids,
         )
@@ -1322,6 +1346,10 @@ class PrintHistoryStore:
                 """,
                 (normalized_archive_id, normalized_archive_id),
             )
+            correction_cursor = connection.execute(
+                "DELETE FROM archive_metadata_correction_audit WHERE archive_id = ?",
+                (normalized_archive_id,),
+            )
             archive_cursor = connection.execute(
                 "DELETE FROM archives WHERE archive_id = ?",
                 (normalized_archive_id,),
@@ -1331,6 +1359,7 @@ class PrintHistoryStore:
             "archive_id": normalized_archive_id,
             "deleted": archive_cursor.rowcount,
             "lineage_deleted": lineage_cursor.rowcount,
+            "metadata_corrections_deleted": correction_cursor.rowcount,
         }
 
     def load_primary_photo_selection(
@@ -1851,6 +1880,115 @@ class PrintHistoryStore:
             for row in rows
         ]
 
+    def load_metadata_correction_audit(
+        self,
+        archive_id: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._borrow_connection(connection) as active_connection:
+            rows = active_connection.execute(
+                """
+                SELECT correction_id, request_id, requested_at, applied_at, status, reason, trigger_source,
+                       updated_fields_json, warnings_json, before_json, after_json, derived_impacts_json, response_json
+                FROM archive_metadata_correction_audit
+                WHERE archive_id = ?
+                ORDER BY requested_at DESC, correction_id DESC
+                """,
+                (archive_id,),
+            ).fetchall()
+        corrections: list[dict[str, Any]] = []
+        for row in rows:
+            corrections.append(
+                {
+                    "correction_id": row[0],
+                    "request_id": row[1],
+                    "requested_at": row[2],
+                    "applied_at": row[3],
+                    "status": row[4],
+                    "reason": row[5],
+                    "trigger_source": row[6],
+                    "updated_fields": self._parse_payload_json(row[7]),
+                    "warnings": self._parse_payload_json(row[8]),
+                    "before": self._parse_payload_json(row[9]),
+                    "after": self._parse_payload_json(row[10]),
+                    "derived_impacts": self._parse_payload_json(row[11]),
+                    "response": self._parse_payload_json(row[12]),
+                }
+            )
+        return corrections
+
+    def save_metadata_correction_audit(
+        self,
+        archive_id: int,
+        *,
+        correction_id: str,
+        request_id: str = "",
+        requested_at: str = "",
+        applied_at: str = "",
+        status: str = "",
+        reason: str = "",
+        trigger_source: str = "",
+        updated_fields: list[str] | None = None,
+        warnings: list[str] | None = None,
+        before: dict[str, Any] | None = None,
+        after: dict[str, Any] | None = None,
+        derived_impacts: dict[str, Any] | None = None,
+        response: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_archive_id = as_int(archive_id)
+        normalized_correction_id = as_text(correction_id).strip()
+        if normalized_archive_id <= 0:
+            raise ValueError("archive_id must be a positive integer")
+        if not normalized_correction_id:
+            raise ValueError("correction_id is required")
+
+        record = {
+            "archive_id": normalized_archive_id,
+            "correction_id": normalized_correction_id,
+            "request_id": as_text(request_id).strip(),
+            "requested_at": as_text(requested_at).strip() or datetime.now(timezone.utc).isoformat(),
+            "applied_at": as_text(applied_at).strip(),
+            "status": as_text(status).strip(),
+            "reason": as_text(reason),
+            "trigger_source": as_text(trigger_source).strip(),
+            "updated_fields": list(updated_fields or []),
+            "warnings": list(warnings or []),
+            "before": before if isinstance(before, dict) else {},
+            "after": after if isinstance(after, dict) else {},
+            "derived_impacts": derived_impacts if isinstance(derived_impacts, dict) else {},
+            "response": response if isinstance(response, dict) else {},
+        }
+
+        with self._connect() as connection:
+            if connection.execute("SELECT 1 FROM archives WHERE archive_id = ?", (normalized_archive_id,)).fetchone() is None:
+                raise ValueError(f"Archive {normalized_archive_id} was not found in the Bambuddy local store")
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO archive_metadata_correction_audit (
+                    correction_id, archive_id, request_id, requested_at, applied_at, status, reason, trigger_source,
+                    updated_fields_json, warnings_json, before_json, after_json, derived_impacts_json, response_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_correction_id,
+                    normalized_archive_id,
+                    record["request_id"],
+                    record["requested_at"],
+                    record["applied_at"],
+                    record["status"],
+                    record["reason"],
+                    record["trigger_source"],
+                    self._payload_json(record["updated_fields"]),
+                    self._payload_json(record["warnings"]),
+                    self._payload_json(record["before"]),
+                    self._payload_json(record["after"]),
+                    self._payload_json(record["derived_impacts"]),
+                    self._payload_json(record["response"]),
+                ),
+            )
+        return record
+
     def load_media_review_summary(
         self,
         *,
@@ -2057,6 +2195,9 @@ class PrintHistoryStore:
             ).fetchone()[0]
             event_timeline_count = active_connection.execute("SELECT COUNT(*) FROM archive_event_timeline").fetchone()[0]
             lineage_count = active_connection.execute("SELECT COUNT(*) FROM archive_repair_lineage").fetchone()[0]
+            correction_audit_count = active_connection.execute(
+                "SELECT COUNT(*) FROM archive_metadata_correction_audit"
+            ).fetchone()[0]
             review_count = active_connection.execute("SELECT COUNT(*) FROM archive_review_state").fetchone()[0]
             media_review_count = active_connection.execute("SELECT COUNT(*) FROM archive_media_review_state").fetchone()[0]
             storage_metrics_count = active_connection.execute("SELECT COUNT(*) FROM archive_storage_metrics").fetchone()[0]
@@ -2077,6 +2218,7 @@ class PrintHistoryStore:
             "enrichment_provenance_row_count": enrichment_provenance_count,
             "event_timeline_count": event_timeline_count,
             "repair_lineage_count": lineage_count,
+            "metadata_correction_audit_count": correction_audit_count,
             "review_state_count": review_count,
             "media_review_state_count": media_review_count,
             "archive_storage_metrics_count": storage_metrics_count,
@@ -2111,6 +2253,7 @@ class PrintHistoryStore:
                 "review_state": self.load_review_state(archive_id, connection=connection),
                 "media_review": self.load_media_review_state(archive_id, connection=connection),
                 "repair_lineage": self.load_repair_lineage(archive_id, connection=connection),
+                "metadata_corrections": self.load_metadata_correction_audit(archive_id, connection=connection),
                 "storage_metrics": self.load_archive_storage_metrics(archive_id, connection=connection),
                 "sync": self.load_sync_metadata(archive_id, connection=connection),
                 "store": self.load_store_stats(connection=connection),

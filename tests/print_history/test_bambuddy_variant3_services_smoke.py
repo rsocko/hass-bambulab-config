@@ -287,7 +287,7 @@ class FakeApiClient:
                 return dict(item)
         raise RuntimeError("Bambuddy returned HTTP 404")
 
-    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 6) -> list[dict[str, object]]:
+    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 10) -> list[dict[str, object]]:
         normalized_archive_id = int(archive_id)
         type(self).related_requests.append({"archive_id": normalized_archive_id, "limit": int(limit)})
         candidates: list[dict[str, object]] = []
@@ -549,6 +549,7 @@ class FakeApiClient:
 
 
 class FakeRuntimeRepairClient:
+    metadata_correction_calls: list[dict[str, object]] = []
     restore_from_calls: list[dict[str, object]] = []
     restore_verify_calls: list[dict[str, object]] = []
     storage_scan_calls: list[dict[str, object]] = []
@@ -565,6 +566,47 @@ class FakeRuntimeRepairClient:
             "totals": {"estimated_used_g_total": 12.5, "matched_slots": 1, "unmatched_slots": 0},
             "per_slot": [{"slot_id": 0, "estimated_used_g": 12.5, "spoolman_spool_id": 123}],
             "dedupe": {"dedupe_key": "101:failed:4:42.5", "already_consumed": False, "consumed_by": None},
+        }
+
+    async def async_metadata_correction(self, payload: dict[str, object]) -> dict[str, object]:
+        type(self).metadata_correction_calls.append(dict(payload))
+        fields = dict(payload.get("fields", {}))
+        after = {
+            "started_at": fields.get("started_at", "2026-04-10T00:00:00+00:00"),
+            "completed_at": fields.get("completed_at", "2026-04-10T04:00:00+00:00"),
+            "created_at": fields.get("created_at", "2026-04-10T00:00:00+00:00"),
+            "status": fields.get("status", "completed"),
+            "failure_reason": fields.get("failure_reason"),
+        }
+        return {
+            "archive_id": int(payload["archive_id"]),
+            "applied": not bool(payload.get("dry_run")),
+            "changed": True,
+            "correction_id": str(payload.get("request_id") or "corr-101"),
+            "request_id": str(payload.get("request_id") or "corr-101"),
+            "requested_at": "2026-04-19T10:00:00Z",
+            "applied_at": None if payload.get("dry_run") else "2026-04-19T10:00:01Z",
+            "before": {
+                "started_at": "2026-04-10T00:00:00+00:00",
+                "completed_at": "2026-04-10T04:00:00+00:00",
+                "created_at": "2026-04-10T00:00:00+00:00",
+                "status": "completed",
+                "failure_reason": None,
+            },
+            "after": after,
+            "updated_fields": sorted(list(fields.keys())),
+            "warnings": ["Changing started_at or completed_at updates the effective runtime used by print-history views."],
+            "derived_impacts": {
+                "duration_seconds_before": 14400,
+                "duration_seconds_after": 14400,
+                "duration_seconds_changed": False,
+                "created_day_before": "2026-04-10",
+                "created_day_after": str(after["created_at"])[:10],
+                "created_day_changed": str(after["created_at"])[:10] != "2026-04-10",
+                "status_changed": after["status"] != "completed",
+                "failure_reason_changed": after["failure_reason"] is not None,
+            },
+            "archive_revision": "rev-1",
         }
 
     async def async_restore_from(self, payload: dict[str, object]) -> dict[str, object]:
@@ -784,6 +826,7 @@ def _default_state_map() -> dict[str, str]:
         "input_number.print_history_page_size": "10",
         "input_number.history_current_page": "1",
         "input_number.print_history_max_archives": "500",
+        "input_number.print_history_related_candidate_limit": "10",
         "input_boolean.bambuddy_integration_enabled": "on",
         "input_boolean.bambuddy_history_sync_enabled": "on",
     }
@@ -989,6 +1032,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert (const_module.DOMAIN, const_module.SERVICE_SET_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_DELETE_PRINT_HISTORY_REPAIR_LINEAGE) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_ESTIMATE_PARTIAL_USAGE) in registered
+    assert (const_module.DOMAIN, const_module.SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_GET_PRINT_HISTORY_ARCHIVE_RESTORE_WORKFLOW) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_CREATE_PRINT_HISTORY_ARCHIVE_REPLACEMENT_FROM_UPLOAD) in registered
     assert (const_module.DOMAIN, const_module.SERVICE_PLAN_PRINT_HISTORY_ARCHIVE_RESTORE) in registered
@@ -1032,6 +1076,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
         "trend": [],
     }
     FakeApiClient.uploaded_source_3mfs = []
+    FakeRuntimeRepairClient.metadata_correction_calls = []
     FakeRuntimeRepairClient.storage_scan_calls = []
     FakeRuntimeRepairClient.storage_scan_batch_calls = []
 
@@ -1194,6 +1239,19 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
                 )
             )
         )
+        metadata_correction_preview_response = asyncio.run(
+            hass.services.handler(const_module.DOMAIN, const_module.SERVICE_CORRECT_PRINT_HISTORY_ARCHIVE_METADATA)(
+                SimpleNamespace(
+                    data={
+                        "archive_id": 101,
+                        "created_at": "2026-04-11T00:00:00+00:00",
+                        "reason": "Correct archive day",
+                        "dry_run": True,
+                        "request_id": "corr-preview-101",
+                    }
+                )
+            )
+        )
     finally:
         init_module.BambuddyRuntimeRepairClient = original_runtime_repair_client
         init_module.BambuddyApiClient = original_api_client
@@ -1269,6 +1327,21 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert estimate_response["success"] is True
     assert estimate_response["estimate"]["totals"]["estimated_used_g_total"] == 12.5
     assert estimate_response["estimate"]["dedupe"]["dedupe_key"] == "101:failed:4:42.5"
+    assert metadata_correction_preview_response["success"] is True
+    assert metadata_correction_preview_response["dry_run"] is True
+    assert metadata_correction_preview_response["correction"]["updated_fields"] == ["created_at"]
+    assert manager.store.load_metadata_correction_audit(101)[0]["status"] == "preview"
+    assert FakeRuntimeRepairClient.metadata_correction_calls == [
+        {
+            "archive_id": 101,
+            "fields": {"created_at": "2026-04-11T00:00:00+00:00"},
+            "reason": "Correct archive day",
+            "dry_run": True,
+            "trigger_source": "home_assistant_archive_actions",
+            "request_id": "corr-preview-101",
+            "expected_archive_revision": FakeRuntimeRepairClient.metadata_correction_calls[0]["expected_archive_revision"],
+        }
+    ]
     assert FakeRuntimeRepairClient.storage_scan_calls == [
         {"archive_id": 101, "force": False, "include_other_files": True, "include_extension_breakdown": False},
         {"archive_id": 101, "force": True, "include_other_files": True, "include_extension_breakdown": False},
@@ -1281,8 +1354,8 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert manager.query_stats["count"] == 2
     assert manager.query_stats["last_source"] == "service"
     assert manager.result.page_items[0]["primary_photo_path"] == "topdown-closeup.jpg"
-    assert manager.mutation_stats["count"] == 16
-    assert manager.mutation_stats["last_operation"] == "delete_print_history_archive"
+    assert manager.mutation_stats["count"] == 17
+    assert manager.mutation_stats["last_operation"] == "correct_archive_metadata_preview"
 
 
 def test_variant3_archive_viewer_proxy_view_returns_gcode(tmp_path: Path) -> None:
@@ -1428,6 +1501,24 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     manager.archives = manager.store.load_archives()
     manager.archives[1]["print_name"] = "Hueforge Batman"
     manager.archives[1]["status"] = "failed"
+    manager.archives.extend(
+        [
+            {
+                **manager.archives[1],
+                "id": 404,
+                "print_name": "Zulu Fixture",
+                "status": "completed",
+                "created_at": "2026-04-19T07:55:00Z",
+            },
+            {
+                **manager.archives[1],
+                "id": 303,
+                "print_name": "Alpha Fixture",
+                "status": "completed",
+                "created_at": "2026-01-03T07:55:00Z",
+            },
+        ]
+    )
     manager._recompute_query()
     hass.data[const_module.DOMAIN] = {entry.entry_id: {const_module.DATA_MANAGER: manager}}
 
@@ -1475,7 +1566,10 @@ def test_variant3_archive_related_and_compare_websockets_return_normalized_paylo
     assert related_result["limit"] == 4
     assert related_result["candidates"][0]["archive_id"] == 202
     assert related_result["candidates"][0]["confidence_bucket"] == "high"
+    assert related_result["candidates"][0]["match_type"] == "same_name"
     assert related_result["candidates"][0]["archive"]["print_name"] == "Hueforge Batman"
+    assert related_result["candidates"][1]["archive_id"] == 303
+    assert related_result["candidates"][2]["archive_id"] == 404
     assert compare_result["archive_ids"] == [101, 202]
     assert compare_result["comparison"][0]["field"] == "status"
     assert compare_result["differences"][0]["field"] == "status"

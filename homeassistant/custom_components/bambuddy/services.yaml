@@ -866,7 +866,6 @@ repair_print_history_archive_from_start:
       selector:
         number:
           min: 1
-          mode: box
     started_at:
       name: Started At
       description: ISO timestamp to treat as the historical print start.
@@ -926,6 +925,68 @@ repair_print_history_archive_from_start:
           options:
             - full
             - summary
+
+correct_print_history_archive_metadata:
+  name: Correct print history archive metadata
+  description: >
+    Sidecar-backed advanced correction flow for archived runtime metadata. Use this from Advanced Actions when you need
+    to preview or apply direct corrections to created_at, started_at, completed_at, status, or failure_reason and keep a
+    local audit record in the Variant 3 store.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: Optional Bambuddy config entry to target when multiple entries are loaded.
+      selector:
+        text:
+    archive_id:
+      name: Archive ID
+      description: Archive ID to preview or correct.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    started_at:
+      name: Started At
+      description: Optional ISO timestamp override for started_at.
+      selector:
+        text:
+    completed_at:
+      name: Completed At
+      description: Optional ISO timestamp override for completed_at.
+      selector:
+        text:
+    created_at:
+      name: Created At
+      description: Optional ISO timestamp override for created_at.
+      selector:
+        text:
+    status:
+      name: Status
+      description: Optional status override.
+      selector:
+        select:
+          options:
+            - completed
+            - failed
+            - cancelled
+            - printing
+    failure_reason:
+      name: Failure Reason
+      description: Optional failure reason override. Set blank to clear it.
+      selector:
+        text:
+    reason:
+      name: Reason
+      description: Required operator note explaining why the correction is being made.
+      required: true
+      selector:
+        text:
+    dry_run:
+      name: Preview Only
+      description: When enabled, validate and preview the correction without writing to Bambuddy.
+      selector:
+        boolean:
 
 get_print_history_archive_restore_workflow:
   name: Get Print History Archive Restore Workflow

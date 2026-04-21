@@ -18,6 +18,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._storageMetricsRequestKey = "";
     this._storageMetricsLoadedKey = "";
     this._relatedCandidates = [];
+    this._relatedCandidatesLimit = 0;
     this._relatedArchiveId = "";
     this._relatedError = "";
     this._relatedCompareIntent = false;
@@ -25,6 +26,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._compareArchiveIds = [];
     this._compareError = "";
     this._compareBackMode = "main";
+    this._initialCompareRequestKey = "";
+    this._metadataCorrectionDraft = null;
+    this._metadataCorrectionPreview = null;
+    this._metadataCorrectionError = "";
+    this._metadataCorrectionPreviewKey = "";
     this._lastRenderSignature = "";
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
@@ -35,6 +41,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
+      related_limit_entity:
+        config && config.related_limit_entity
+          ? config.related_limit_entity
+          : "input_number.print_history_related_candidate_limit",
+      compare_archive_ids_json: config && config.compare_archive_ids_json ? config.compare_archive_ids_json : "[]",
+      initial_mode: config && config.initial_mode ? config.initial_mode : "",
+      compare_back_mode: config && config.compare_back_mode ? config.compare_back_mode : "main",
       entry_id: config && config.entry_id ? config.entry_id : "",
       upload_endpoint:
         config && config.upload_endpoint
@@ -59,6 +72,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._storageMetricsRequestKey = "";
     this._storageMetricsLoadedKey = "";
     this._relatedCandidates = [];
+    this._relatedCandidatesLimit = 0;
     this._relatedArchiveId = "";
     this._relatedError = "";
     this._relatedCompareIntent = false;
@@ -66,6 +80,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._compareArchiveIds = [];
     this._compareError = "";
     this._compareBackMode = "main";
+    this._initialCompareRequestKey = "";
+    this._metadataCorrectionDraft = null;
+    this._metadataCorrectionPreview = null;
+    this._metadataCorrectionError = "";
+    this._metadataCorrectionPreviewKey = "";
     this._lastRenderSignature = "";
     this._render();
   }
@@ -80,6 +99,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._lastRenderSignature = nextSignature;
     this._render();
     this._maybeLoadStorageMetrics();
+    this._maybeLoadInitialCompare();
   }
 
   connectedCallback() {
@@ -87,6 +107,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this.shadowRoot.addEventListener("click", this._boundClickHandler);
       this.shadowRoot.addEventListener("change", this._boundSourceUploadChangeHandler);
     }
+    this._maybeLoadInitialCompare();
   }
 
   disconnectedCallback() {
@@ -133,6 +154,42 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._lastRenderSignature = "";
     this._render();
     this._maybeLoadStorageMetrics();
+    this._maybeLoadInitialCompare();
+  }
+
+  _configuredCompareArchiveIds() {
+    var parsed = [];
+    try {
+      parsed = JSON.parse(this._config && this._config.compare_archive_ids_json ? this._config.compare_archive_ids_json : "[]");
+    } catch (_error) {
+      parsed = [];
+    }
+    return this._normalizeCompareArchiveIds(Array.isArray(parsed) ? parsed : [parsed]);
+  }
+
+  _maybeLoadInitialCompare() {
+    if (!this._hass || !this._config || this._busy) {
+      return;
+    }
+    if (String(this._config.initial_mode || "").trim().toLowerCase() !== "compare") {
+      return;
+    }
+    var compareIds = this._configuredCompareArchiveIds();
+    if (compareIds.length < 2) {
+      return;
+    }
+    var requestKey = compareIds.join(",") + "|" + String(this._config.compare_back_mode || "main");
+    if (this._initialCompareRequestKey === requestKey) {
+      return;
+    }
+    if (this._comparePayload && JSON.stringify(this._compareArchiveIds || []) === JSON.stringify(compareIds)) {
+      this._initialCompareRequestKey = requestKey;
+      return;
+    }
+    this._initialCompareRequestKey = requestKey;
+    this._mode = "compare";
+    this._render();
+    this._loadCompareForArchives(compareIds, this._config.compare_back_mode || "main");
   }
 
   _mergeArchivePatch(patch) {
@@ -328,6 +385,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._openMetadataViewer(false);
       return;
     }
+    if (action === "open-correct-metadata") {
+      this._openMetadataCorrection();
+      return;
+    }
+    if (action === "preview-correct-metadata") {
+      this._handleMetadataCorrectionPreview();
+      return;
+    }
+    if (action === "apply-correct-metadata") {
+      this._handleMetadataCorrectionApply();
+      return;
+    }
     if (action === "open-failure-analysis") {
       this._openFailureAnalysis();
       return;
@@ -442,6 +511,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     parts.push(String(this._metadataRevision || 0));
     parts.push(String(this._relatedArchiveId || ""));
     parts.push(String(this._relatedError || ""));
+    parts.push(String(this._relatedCandidatesLimit || 0));
     parts.push(this._relatedCompareIntent ? "1" : "0");
     parts.push(JSON.stringify(this._relatedCandidates || []));
     parts.push(JSON.stringify(this._compareArchiveIds || []));
@@ -453,6 +523,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var baseState = hass.states[baseEntityId];
     parts.push(baseState ? String(baseState.state || "") : "");
     parts.push(baseState ? String(baseState.last_updated || baseState.last_changed || "") : "");
+
+    var relatedLimitEntityId = this._config.related_limit_entity || "input_number.print_history_related_candidate_limit";
+    var relatedLimitState = hass.states[relatedLimitEntityId];
+    parts.push(relatedLimitState ? String(relatedLimitState.state || "") : "");
+    parts.push(relatedLimitState ? String(relatedLimitState.last_updated || relatedLimitState.last_changed || "") : "");
 
     return parts.join("|");
   }
@@ -678,6 +753,189 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         "Local detail bundle JSON",
         localDetailPayload,
         true
+      ) +
+      '</div>';
+  }
+
+  _buildMetadataCorrectionDraft(archive) {
+    return {
+      started_at: archive && archive.started_at ? String(archive.started_at) : "",
+      completed_at: archive && archive.completed_at ? String(archive.completed_at) : "",
+      created_at: archive && archive.created_at ? String(archive.created_at) : "",
+      status: archive && archive.status ? String(archive.status) : "",
+      failure_reason: archive && archive.failure_reason ? String(archive.failure_reason) : "",
+      reason: "",
+    };
+  }
+
+  _openMetadataCorrection() {
+    var archive = this._resolveArchive();
+    this._metadataCorrectionDraft = this._buildMetadataCorrectionDraft(archive);
+    this._metadataCorrectionPreview = null;
+    this._metadataCorrectionError = "";
+    this._metadataCorrectionPreviewKey = "";
+    this._mode = "correct-metadata";
+    this._render();
+  }
+
+  _metadataCorrectionFieldValue(fieldName) {
+    var input = this.shadowRoot ? this.shadowRoot.getElementById("metadata-correction-" + fieldName) : null;
+    return input ? String(input.value || "") : "";
+  }
+
+  _collectMetadataCorrectionPayload() {
+    var archive = this._resolveArchive();
+    var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
+    if (archiveId <= 0) {
+      throw new Error("Archive context is unavailable");
+    }
+    var draft = {
+      started_at: this._metadataCorrectionFieldValue("started_at"),
+      completed_at: this._metadataCorrectionFieldValue("completed_at"),
+      created_at: this._metadataCorrectionFieldValue("created_at"),
+      status: this._metadataCorrectionFieldValue("status"),
+      failure_reason: this._metadataCorrectionFieldValue("failure_reason"),
+      reason: this._metadataCorrectionFieldValue("reason"),
+    };
+    this._metadataCorrectionDraft = draft;
+
+    var payload = {
+      archive_id: archiveId,
+      reason: draft.reason.trim(),
+    };
+    ["started_at", "completed_at", "created_at", "status"].forEach(function (fieldName) {
+      var value = String(draft[fieldName] || "").trim();
+      var currentValue = archive && archive[fieldName] != null ? String(archive[fieldName]) : "";
+      if (value && value !== currentValue) {
+        payload[fieldName] = value;
+      }
+    });
+    var currentFailureReason = archive && archive.failure_reason != null ? String(archive.failure_reason) : "";
+    if (draft.failure_reason !== currentFailureReason) {
+      payload.failure_reason = draft.failure_reason;
+    }
+    if (!payload.reason) {
+      throw new Error("Reason is required before previewing metadata changes.");
+    }
+    if (!("started_at" in payload) && !("completed_at" in payload) && !("created_at" in payload) && !("status" in payload) && !("failure_reason" in payload)) {
+      throw new Error("Change at least one metadata field before previewing.");
+    }
+    return payload;
+  }
+
+  async _runMetadataCorrection(dryRun) {
+    var payload = this._collectMetadataCorrectionPayload();
+    payload.dry_run = !!dryRun;
+    var payloadKey = JSON.stringify(payload);
+    this._metadataCorrectionError = "";
+    this._setBusyState(true, dryRun ? "Previewing metadata correction..." : "Applying metadata correction...", "info", dryRun ? "metadata-correction-preview" : "metadata-correction-apply");
+    try {
+      var response = await this._callServiceWithResponse("bambuddy", "correct_print_history_archive_metadata", payload);
+      var correction = response && response.correction && typeof response.correction === "object" ? response.correction : {};
+      this._metadataCorrectionPreview = correction;
+      this._metadataCorrectionPreviewKey = payloadKey;
+      if (!dryRun && response && response.archive && typeof response.archive === "object") {
+        this._setArchive(response.archive);
+      }
+      this._busy = false;
+      this._busyContext = "";
+      this._setStatus(dryRun ? "Metadata correction preview ready." : "Metadata correction applied.", "success");
+      return correction;
+    } catch (error) {
+      this._busy = false;
+      this._busyContext = "";
+      this._metadataCorrectionError = this._describeError(error, dryRun ? "Metadata correction preview failed" : "Metadata correction failed");
+      this._setStatus(this._metadataCorrectionError, "error");
+      throw error;
+    }
+  }
+
+  async _handleMetadataCorrectionPreview() {
+    try {
+      await this._runMetadataCorrection(true);
+    } catch (_error) {
+      // Status is already surfaced to the user.
+    }
+  }
+
+  async _handleMetadataCorrectionApply() {
+    try {
+      var nextPayload = this._collectMetadataCorrectionPayload();
+      var payloadKey = JSON.stringify(Object.assign({}, nextPayload, { dry_run: true }));
+      if (!this._metadataCorrectionPreview || payloadKey !== this._metadataCorrectionPreviewKey) {
+        this._metadataCorrectionError = "Preview the current changes again before applying them.";
+        this._setStatus(this._metadataCorrectionError, "error");
+        this._render();
+        return;
+      }
+      await this._runMetadataCorrection(false);
+    } catch (_error) {
+      // Status is already surfaced to the user.
+    }
+  }
+
+  _renderMetadataCorrectionImpactList(impacts) {
+    if (!impacts || typeof impacts !== "object") {
+      return '<div class="section-copy">Derived impact preview is unavailable.</div>';
+    }
+    var rows = [];
+    rows.push("Runtime before: " + (impacts.duration_seconds_before != null ? String(impacts.duration_seconds_before) + "s" : "unknown"));
+    rows.push("Runtime after: " + (impacts.duration_seconds_after != null ? String(impacts.duration_seconds_after) + "s" : "unknown"));
+    rows.push("Created day: " + String(impacts.created_day_before || "unknown") + " -> " + String(impacts.created_day_after || "unknown"));
+    rows.push("Status changed: " + (impacts.status_changed ? "yes" : "no"));
+    rows.push("Failure reason changed: " + (impacts.failure_reason_changed ? "yes" : "no"));
+    return '<div class="metadata-impact-list">' + rows.map(function (row) {
+      return '<div class="metadata-impact-item">' + this._escapeHtml(row) + '</div>';
+    }.bind(this)).join("") + '</div>';
+  }
+
+  _renderMetadataCorrectionView(archive) {
+    var draft = this._metadataCorrectionDraft || this._buildMetadataCorrectionDraft(archive);
+    var preview = this._metadataCorrectionPreview;
+    var warnings = preview && Array.isArray(preview.warnings) ? preview.warnings : [];
+    var updatedFields = preview && Array.isArray(preview.updated_fields) ? preview.updated_fields : [];
+    return '<div class="section-stack metadata-correction-view">' +
+      this._renderActionSection(
+        "Correct Metadata",
+        '<div class="actions-grid metadata-toolbar">' +
+          this._renderActionButton("back-main", "Back to Actions", "mdi:arrow-left", { disabled: this._busy }) +
+          this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
+        '</div>' +
+        '<div class="section-copy">Advanced correction writes directly to archived runtime metadata. Preview first, confirm the derived impact summary, then apply. A local audit record is written to the Variant 3 store when this runs.</div>'
+      ) +
+      this._renderActionSection(
+        "Editable Fields",
+        '<div class="metadata-form-grid">' +
+          '<label class="metadata-field"><span class="metadata-field-label">Created At</span><input id="metadata-correction-created_at" class="metadata-input" type="text" value="' + this._escapeHtml(draft.created_at || "") + '" placeholder="2026-04-21T13:00:00+00:00"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Started At</span><input id="metadata-correction-started_at" class="metadata-input" type="text" value="' + this._escapeHtml(draft.started_at || "") + '" placeholder="2026-04-21T13:05:00+00:00"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Completed At</span><input id="metadata-correction-completed_at" class="metadata-input" type="text" value="' + this._escapeHtml(draft.completed_at || "") + '" placeholder="2026-04-21T15:05:00+00:00"></label>' +
+          '<label class="metadata-field"><span class="metadata-field-label">Status</span><select id="metadata-correction-status" class="metadata-input"><option value="">Keep current</option>' + ["completed", "failed", "cancelled", "printing"].map(function (statusValue) {
+            var selected = String(draft.status || "").trim().toLowerCase() === statusValue ? ' selected' : '';
+            return '<option value="' + statusValue + '"' + selected + '>' + statusValue + '</option>';
+          }).join("") + '</select></label>' +
+          '<label class="metadata-field metadata-field-full"><span class="metadata-field-label">Failure Reason</span><input id="metadata-correction-failure_reason" class="metadata-input" type="text" value="' + this._escapeHtml(draft.failure_reason || "") + '" placeholder="Optional"></label>' +
+          '<label class="metadata-field metadata-field-full"><span class="metadata-field-label">Reason</span><textarea id="metadata-correction-reason" class="metadata-textarea" rows="3" placeholder="Document why this correction is needed.">' + this._escapeHtml(draft.reason || "") + '</textarea></label>' +
+        '</div>' +
+        (this._metadataCorrectionError ? '<div class="metadata-inline-error">' + this._escapeHtml(this._metadataCorrectionError) + '</div>' : '') +
+        '<div class="actions-grid metadata-toolbar">' +
+          this._renderActionButton("preview-correct-metadata", this._busy && this._busyContext === "metadata-correction-preview" ? "Previewing..." : "Preview Changes", "mdi:clipboard-text-search-outline", { tone: "warning", disabled: this._busy }) +
+          this._renderActionButton("apply-correct-metadata", this._busy && this._busyContext === "metadata-correction-apply" ? "Applying..." : "Apply Correction", "mdi:content-save-alert-outline", { tone: "warning", disabled: this._busy || !preview }) +
+        '</div>'
+      ) +
+      this._renderActionSection(
+        "Preview",
+        preview
+          ? '<div class="metadata-preview-summary">' +
+              '<div class="metadata-preview-line"><strong>Updated fields:</strong> ' + this._escapeHtml(updatedFields.length ? updatedFields.join(", ") : "none") + '</div>' +
+              '<div class="metadata-preview-line"><strong>Correction ID:</strong> ' + this._escapeHtml(String(preview.correction_id || "pending")) + '</div>' +
+            '</div>' +
+            (warnings.length
+              ? '<div class="metadata-warning-list">' + warnings.map(function (warning) {
+                  return '<div class="metadata-warning-item">' + this._escapeHtml(String(warning || "")) + '</div>';
+                }.bind(this)).join("") + '</div>'
+              : '<div class="section-copy">No warnings were returned for this correction preview.</div>') +
+            this._renderMetadataCorrectionImpactList(preview.derived_impacts)
+          : '<div class="section-copy">Run Preview Changes to validate the update, see warnings, and review runtime/day-bucket impacts before applying.</div>'
       ) +
       '</div>';
   }
@@ -1714,7 +1972,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return this._hass.callWS({
       type: "bambuddy/print_history_archive_related",
       archive_id: archiveId,
-      limit: Math.max(1, Math.min(12, Number(limit || 6))),
+      limit: this._normalizeRelatedCandidateLimit(limit),
     });
   }
 
@@ -1744,16 +2002,45 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return normalized;
   }
 
-  _matchingRelatedCandidates(archiveId) {
+  _relatedLimitEntityId() {
+    return this._config && this._config.related_limit_entity
+      ? this._config.related_limit_entity
+      : "input_number.print_history_related_candidate_limit";
+  }
+
+  _configuredRelatedCandidateLimit() {
+    var entityId = this._relatedLimitEntityId();
+    var state = entityId && this._hass && this._hass.states ? this._hass.states[entityId] : null;
+    var numericValue = Number(state && state.state || 10);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      numericValue = 10;
+    }
+    return Math.max(1, Math.min(20, numericValue));
+  }
+
+  _normalizeRelatedCandidateLimit(limit) {
+    var numericValue = Number(limit);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+      return this._configuredRelatedCandidateLimit();
+    }
+    return Math.max(1, Math.min(20, numericValue));
+  }
+
+  _matchingRelatedCandidates(archiveId, limit) {
     var normalizedArchiveId = archiveId != null ? String(archiveId) : "";
+    var normalizedLimit = this._normalizeRelatedCandidateLimit(limit);
     if (!normalizedArchiveId || this._relatedArchiveId !== normalizedArchiveId || !Array.isArray(this._relatedCandidates)) {
+      return null;
+    }
+    if (normalizedLimit !== Math.max(1, Number(this._relatedCandidatesLimit || 0))) {
       return null;
     }
     return this._relatedCandidates;
   }
 
-  _setRelatedState(candidates, error, archiveId, compareIntent) {
+  _setRelatedState(candidates, error, archiveId, compareIntent, limit) {
     this._relatedCandidates = Array.isArray(candidates) ? candidates : [];
+    this._relatedCandidatesLimit = this._normalizeRelatedCandidateLimit(limit);
     this._relatedError = String(error || "").trim();
     this._relatedArchiveId = archiveId != null ? String(archiveId) : "";
     this._relatedCompareIntent = !!compareIntent;
@@ -1905,10 +2192,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
 
     var compareIntent = !!settings.compareIntent;
+    var requestedLimit = this._normalizeRelatedCandidateLimit(settings.limit);
     this._mode = "related";
     this._render();
 
-    var cachedCandidates = !settings.forceRefresh ? this._matchingRelatedCandidates(archiveId) : null;
+    var cachedCandidates = !settings.forceRefresh ? this._matchingRelatedCandidates(archiveId, requestedLimit) : null;
     if (cachedCandidates) {
       this._relatedCompareIntent = compareIntent;
       if (compareIntent) {
@@ -1925,11 +2213,11 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
     try {
       this._setBusyState(true, compareIntent ? "Loading compare candidates..." : "Loading related prints...", "info", "related");
-      var response = await this._requestArchiveRelated(settings.limit || 6);
+      var response = await this._requestArchiveRelated(requestedLimit);
       var candidates = response && Array.isArray(response.candidates) ? response.candidates : [];
       this._busy = false;
       this._busyContext = "";
-      this._setRelatedState(candidates, "", archiveId, compareIntent);
+      this._setRelatedState(candidates, "", archiveId, compareIntent, response && response.limit);
       if (!candidates.length) {
         this._setStatus(compareIntent ? "No compare candidates were found for this print." : "No related prints were found for this archive.", "info");
         return;
@@ -2139,7 +2427,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _renderRelatedView(archive) {
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
-    var candidates = this._matchingRelatedCandidates(archiveId) || [];
+    var configuredLimit = this._configuredRelatedCandidateLimit();
+    var candidates = this._matchingRelatedCandidates(archiveId, configuredLimit) || [];
     var groupedCandidates = this._relatedConfidenceGroups(candidates);
     var toolbar = this._renderActionSection(
       this._relatedCompareIntent ? "Choose Compare Target" : "Related Prints",
@@ -2149,9 +2438,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '</div>' +
       '<div class="section-copy">' + this._escapeHtml(
         this._relatedCompareIntent
-          ? "Compare starts from the same on-demand related-candidate feed. Exact content matches and failure-to-success pairs are preferred when a clear suggestion exists."
-          : "These candidates come from Bambuddy on demand. Exact duplicate-family matches rank above weaker name or filament suggestions, and nothing here expands the base browser projection."
-      ) + '</div>'
+          ? "Compare starts from the same on-demand related-candidate feed. Exact content matches and failure-to-success pairs are preferred when a clear suggestion exists, and Home Assistant now applies a stable score-first sort instead of newest-first ordering."
+          : "These candidates come from Bambuddy on demand. Exact duplicate-family matches rank above weaker name or filament suggestions, and Home Assistant now keeps the list score-first without a newest-first bias."
+      ) + '</div>' +
+      '<div class="section-copy">' + this._escapeHtml('Requesting up to ' + configuredLimit + ' related candidates per archive from the configuration popup.') + '</div>'
     );
     var body;
     if (this._relatedError) {
@@ -2235,7 +2525,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         "Compare Archives",
         '<div class="actions-grid related-toolbar">' +
           this._renderActionButton(toolbarAction, toolbarLabel, "mdi:arrow-left", { disabled: this._busy }) +
-          this._renderActionButton("open-compare", this._busy ? "Loading..." : "Change Selection", "mdi:swap-horizontal", { disabled: this._busy }) +
+          this._renderActionButton("open-compare", this._busy ? "Loading..." : "Change Selection", "mdi:swap-horizontal", { disabled: this._busy || this._compareBackMode === "bulk" }) +
         '</div>' +
         '<div class="section-copy">' + this._escapeHtml("Compare is rendered locally in Home Assistant from Bambuddy's structured compare API. This keeps the workflow stable without depending on an upstream compare deep link.") + '</div>'
       ) +
@@ -2267,9 +2557,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       "Related & Compare",
       '<div class="actions-grid">' +
         this._renderActionButton("open-related", "Related Prints", "mdi:relation-many", { disabled: this._busy }) +
-        this._renderActionButton("open-compare", "Compare Print", "mdi:compare-horizontal", { disabled: this._busy }) +
+        this._renderActionButton("open-compare", "Compare with Another Print", "mdi:compare-horizontal", { disabled: this._busy }) +
       '</div>' +
-      '<div class="section-copy">Use on-demand related candidates to inspect duplicate-family matches, open a related archive popup, or compare this print against a likely prior run without widening the browser payload.</div>'
+      '<div class="section-copy">Use on-demand related candidates to inspect duplicate-family matches, open a related archive popup, or choose another archive to compare against this print without widening the browser payload.</div>'
     );
     var fileActions = '<div class="actions-grid">' +
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
@@ -2301,6 +2591,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       "Archive",
       '<div class="actions-grid">' +
         this._renderActionButton("repair-archive", "Repair Archive", "mdi:wrench-cog", { tone: "warning", disabled: this._busy }) +
+        this._renderActionButton("open-correct-metadata", "Correct Metadata", "mdi:file-edit-outline", { tone: "warning", disabled: this._busy }) +
         this._renderActionButton("open-failure-analysis", "Open Failure Analysis", "mdi:chart-line", { disabled: this._busy }) +
         this._renderActionButton("view-metadata", "View Archive Metadata", "mdi:code-json", { disabled: this._busy }) +
       '</div>'
@@ -2428,6 +2719,18 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.confirm-copy{padding:4px 2px 2px;font-size:14px;line-height:1.55;color:var(--primary-text-color);}' +
       '.confirm-grid{grid-template-columns:1fr;}' +
       '.metadata-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));}' +
+      '.metadata-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}' +
+      '.metadata-field{display:grid;gap:6px;}' +
+      '.metadata-field-full{grid-column:1 / -1;}' +
+      '.metadata-field-label{font-size:11px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--secondary-text-color);}' +
+      '.metadata-input,.metadata-textarea{width:100%;border-radius:14px;border:1px solid rgba(255,255,255,0.10);background:rgba(15,23,42,0.50);color:var(--primary-text-color);font:inherit;padding:10px 12px;box-sizing:border-box;}' +
+      '.metadata-input:focus,.metadata-textarea:focus{outline:none;border-color:rgba(96,165,250,0.38);background:rgba(15,23,42,0.7);}' +
+      '.metadata-textarea{resize:vertical;min-height:88px;}' +
+      '.metadata-inline-error{border-radius:14px;padding:10px 12px;background:rgba(183,28,28,0.14);font-size:12px;line-height:1.5;color:var(--primary-text-color);}' +
+      '.metadata-preview-summary{display:grid;gap:8px;font-size:12px;line-height:1.5;}' +
+      '.metadata-preview-line{color:var(--primary-text-color);}' +
+      '.metadata-warning-list,.metadata-impact-list{display:grid;gap:8px;margin-top:10px;}' +
+      '.metadata-warning-item,.metadata-impact-item{border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(239,108,0,0.10);padding:10px 12px;font-size:12px;line-height:1.5;}' +
       '.json-panel{border:1px solid rgba(255,255,255,0.08);background:rgba(9,14,23,0.78);border-radius:18px;overflow:hidden;}' +
       '.json-panel[open]{border-color:rgba(96,165,250,0.18);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}' +
       '.json-panel-summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.03);cursor:pointer;}' +
@@ -2451,7 +2754,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.token.null{color:#c586c0;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
       '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}}' +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +
@@ -2460,6 +2763,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
         : this._mode === "metadata"
           ? this._renderMetadataView(archive)
+          : this._mode === "correct-metadata"
+            ? this._renderMetadataCorrectionView(archive)
           : this._mode === "related"
             ? this._renderRelatedView(archive)
             : this._mode === "compare"

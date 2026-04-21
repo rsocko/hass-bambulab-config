@@ -190,6 +190,8 @@ cards:
                           name: History Sync Enabled
                         - entity: input_number.print_history_max_archives
                           name: Max Cached Archives
+                        - entity: input_number.print_history_related_candidate_limit
+                          name: Related / Compare Candidate Limit
                         - entity: input_text.print_history_filter_start_date
                           name: Filter Start Date (YYYY-MM-DD)
                         - entity: input_text.print_history_filter_end_date

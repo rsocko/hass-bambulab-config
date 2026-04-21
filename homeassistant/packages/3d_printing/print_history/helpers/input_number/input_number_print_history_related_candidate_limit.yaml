@@ -1,0 +1,8 @@
+print_history_related_candidate_limit:
+  name: Print History Related Candidate Limit
+  min: 1
+  max: 20
+  step: 1
+  initial: 10
+  icon: mdi:relation-many
+  mode: box

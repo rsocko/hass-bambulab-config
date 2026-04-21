@@ -636,6 +636,23 @@ class PrintHistoryBrowserCard extends HTMLElement {
     return this._selectedArchiveIdList().length;
   }
 
+  _bulkCompareLimit() {
+    return 5;
+  }
+
+  _selectedArchiveIdNumbers() {
+    return this._selectedArchiveIdList().map(function (archiveId) {
+      return Number(archiveId || 0);
+    }).filter(function (archiveId) {
+      return archiveId > 0;
+    });
+  }
+
+  _canBulkCompareSelection() {
+    var selectedCount = this._selectedArchiveCount();
+    return selectedCount >= 2 && selectedCount <= this._bulkCompareLimit();
+  }
+
   _archiveById(archiveId) {
     var archives = Array.isArray(this._response.archives) ? this._response.archives : [];
     for (var index = 0; index < archives.length; index += 1) {
@@ -1100,6 +1117,29 @@ class PrintHistoryBrowserCard extends HTMLElement {
     });
   }
 
+  _openBulkComparePopup() {
+    if (!this._hass || !this._canBulkCompareSelection()) {
+      return;
+    }
+    var compareArchiveIds = this._selectedArchiveIdNumbers();
+    if (compareArchiveIds.length < 2 || compareArchiveIds.length > this._bulkCompareLimit()) {
+      return;
+    }
+    var primaryArchive = this._archiveById(compareArchiveIds[0]) || { id: compareArchiveIds[0] };
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: "Compare Selected Prints",
+      size: "wide",
+      content: {
+        type: "custom:print-history-archive-actions-card",
+        archive_json: JSON.stringify(primaryArchive),
+        api_base_entity: this._config && this._config.api_base_entity ? this._config.api_base_entity : "input_text.bambuddy_api_base_url",
+        compare_archive_ids_json: JSON.stringify(compareArchiveIds),
+        initial_mode: "compare",
+        compare_back_mode: "main",
+      },
+    });
+  }
+
   _renderBulkDialog() {
     var host = this.shadowRoot && this.shadowRoot.getElementById ? this.shadowRoot.getElementById("dialog-host") : null;
     if (!host) {
@@ -1325,6 +1365,10 @@ class PrintHistoryBrowserCard extends HTMLElement {
     }
     if (action === "project") {
       this._openBulkProjectDialog();
+      return;
+    }
+    if (action === "compare") {
+      this._openBulkComparePopup();
       return;
     }
     if (action === "favorite") {

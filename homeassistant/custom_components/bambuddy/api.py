@@ -110,7 +110,7 @@ class BambuddyApiClient:
                 raise RuntimeError("Bambuddy archive detail response was not a JSON object")
             return payload
 
-    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 6) -> list[dict[str, Any]]:
+    async def async_fetch_archive_similar(self, archive_id: int, *, limit: int = 10) -> list[dict[str, Any]]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
         if not self._api_key:
@@ -863,6 +863,9 @@ class BambuddyRuntimeRepairClient:
 
     async def async_runtime_repair(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._async_post_json("/admin/archive-runtime-repair", payload)
+    
+    async def async_metadata_correction(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._async_post_json("/admin/archive-metadata-correction", payload)
 
     async def async_restore_from(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._async_post_json("/admin/archive-restore-from", payload)

@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 
 from app.inspection import inspect_archive_spool_linkage
+from app.metadata_correction import correct_archive_metadata
 from app.partial_usage import consume_archive_partial_usage, estimate_archive_partial_usage
 from app.repair import restore_archive_from_source, restore_verify_after_merge
 from app.storage import scan_archive_storage, scan_archive_storage_batch, summarize_archive_storage
@@ -22,6 +23,8 @@ from app.models import (
     ArchivePartialUsageConsumeResponse,
     ArchivePartialUsageEstimateRequest,
     ArchivePartialUsageEstimateResponse,
+    ArchiveMetadataCorrectionRequest,
+    ArchiveMetadataCorrectionResponse,
     ArchiveSpoolInspectionResponse,
     HealthResponse,
     RestoreFromRequest,
@@ -188,6 +191,26 @@ def archive_runtime_repair(
         return _build_runtime_repair_response(result=result, detail=request.response_detail)
     except (FileNotFoundError, ValueError) as exc:
         logger.warning("Runtime repair rejected archive_id=%s error=%s", request.archive_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/admin/archive-metadata-correction", response_model=ArchiveMetadataCorrectionResponse)
+def archive_metadata_correction(
+    request: ArchiveMetadataCorrectionRequest,
+    authorization: str | None = Header(default=None),
+) -> ArchiveMetadataCorrectionResponse:
+    _require_token(authorization)
+
+    try:
+        logger.info(
+            "Metadata correction request archive_id=%s dry_run=%s request_id=%s",
+            request.archive_id,
+            request.dry_run,
+            request.request_id,
+        )
+        return correct_archive_metadata(_db_path(), request)
+    except (FileNotFoundError, ValueError) as exc:
+        logger.warning("Metadata correction rejected archive_id=%s error=%s", request.archive_id, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

@@ -74,6 +74,24 @@ class RuntimeRepairRequest(BaseModel):
     response_detail: RuntimeRepairResponseDetail = RuntimeRepairResponseDetail.FULL
 
 
+class ArchiveMetadataCorrectionFields(BaseModel):
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_at: str | None = None
+    status: str | None = None
+    failure_reason: str | None = None
+
+
+class ArchiveMetadataCorrectionRequest(BaseModel):
+    archive_id: int
+    fields: ArchiveMetadataCorrectionFields
+    reason: str
+    trigger_source: str = "home_assistant"
+    expected_archive_revision: str | None = None
+    request_id: str | None = None
+    dry_run: bool = False
+
+
 class HealthResponse(BaseModel):
     status: str
     db_path: str
@@ -225,6 +243,22 @@ class RuntimeRepairResponse(BaseModel):
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
     updated_fields: list[str]
+
+
+class ArchiveMetadataCorrectionResponse(BaseModel):
+    archive_id: int
+    applied: bool
+    changed: bool
+    correction_id: str
+    request_id: str = ""
+    requested_at: str
+    applied_at: str | None = None
+    before: dict[str, Any] = Field(default_factory=dict)
+    after: dict[str, Any] = Field(default_factory=dict)
+    updated_fields: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    derived_impacts: dict[str, Any] = Field(default_factory=dict)
+    archive_revision: str = ""
 
 
 class RestoreFromOverrides(BaseModel):
