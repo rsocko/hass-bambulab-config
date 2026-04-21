@@ -15,18 +15,20 @@ The goal is not to replace `print_history`. The goal is to define how long-lived
 
 ## Documentation Map
 
-- `model-library-strategy.md` - main architecture, comparison matrix, recommendation, and intake workflow
-- `integration/archive-to-library-linkage.md` - proposed local SQL linkage contract and matching rules
-- `integration/manyfold-api-design.md` - current Manyfold integration surface relevant to HA and sync work
-- `integration/ha-model-library-integration.md` - Home Assistant iframe/API/hybrid integration options and recommended direction
-- `integration/archive-model-link-ha-service-and-popup-contract.md` - exact first-slice HA service payloads, response shapes, and archive popup UX contract
+- [Model Library Strategy](model-library-strategy.md) - main architecture, comparison matrix, recommendation, and intake workflow
+- [External Services Design Review](external-services-design-review-2026-04.md) - broader comparison of model-library candidates and why the shortlist still narrows to Bambuddy, Manyfold, and benchmark-scale alternatives
+- [Archive To Library Linkage](integration/archive-to-library-linkage.md) - proposed local SQL linkage contract and matching rules
+- [Manyfold API Design](integration/manyfold-api-design.md) - current Manyfold integration surface relevant to HA and sync work
+- [Home Assistant Model Library Integration](integration/ha-model-library-integration.md) - Home Assistant iframe/API/hybrid integration options and recommended direction
+- [Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) - exact first-slice HA service payloads, response shapes, and archive popup UX contract
 
 Current contract depth:
 
-- `model-library-strategy.md` now includes the operator decision matrix and phased rollout plan
-- `integration/archive-to-library-linkage.md` now includes a concrete schema proposal, index plan, and repo-side storage direction
-- `integration/ha-model-library-integration.md` now includes configuration, entity, service, and phased HA integration guidance
-- `integration/archive-model-link-ha-service-and-popup-contract.md` now includes exact first-slice HA service payloads, response envelopes, and archive popup review behavior
+- [Model Library Strategy](model-library-strategy.md) now includes the operator decision matrix and phased rollout plan
+- [External Services Design Review](external-services-design-review-2026-04.md) now captures the broader alternatives pass, including why STLShelf and other adjacent tools do not currently displace the Bambuddy or Manyfold shortlist
+- [Archive To Library Linkage](integration/archive-to-library-linkage.md) now includes a concrete schema proposal, index plan, and repo-side storage direction
+- [Home Assistant Model Library Integration](integration/ha-model-library-integration.md) now includes configuration, entity, service, and phased HA integration guidance
+- [Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) now includes exact first-slice HA service payloads, response envelopes, and archive popup review behavior
 
 ## Related Docs
 

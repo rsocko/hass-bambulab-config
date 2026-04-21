@@ -15,6 +15,8 @@ The current repo already has strong archive-centric capabilities through Bambudd
 
 The main design tension is that Bambuddy and Manyfold overlap in some library-adjacent capabilities, but they are optimized for different jobs.
 
+For the broader alternatives pass, see [External Services Design Review](external-services-design-review-2026-04.md).
+
 ## Current Upstream Findings
 
 ### Bambuddy
