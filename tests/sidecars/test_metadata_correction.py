@@ -8,7 +8,7 @@ from app.models import ArchiveMetadataCorrectionFields, ArchiveMetadataCorrectio
 
 
 CREATE_ARCHIVES_SQL = """
-CREATE TABLE archives (
+CREATE TABLE print_archives (
     id INTEGER PRIMARY KEY,
     started_at TEXT,
     completed_at TEXT,
@@ -31,7 +31,7 @@ def _create_metadata_db(tmp_path: Path) -> Path:
         connection.execute(CREATE_ARCHIVES_SQL)
         connection.execute(
             """
-            INSERT INTO archives (
+            INSERT INTO print_archives (
                 id, started_at, completed_at, created_at, status, failure_reason,
                 filament_used_grams, cost, quantity, external_url, notes
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -94,7 +94,7 @@ def test_metadata_correction_applies_advanced_archive_fields(tmp_path: Path) -> 
     connection = sqlite3.connect(db_path)
     try:
         row = connection.execute(
-            "SELECT created_at, filament_used_grams, cost, quantity, external_url, notes FROM archives WHERE id = ?",
+            "SELECT created_at, filament_used_grams, cost, quantity, external_url, notes FROM print_archives WHERE id = ?",
             (101,),
         ).fetchone()
     finally:

@@ -73,7 +73,7 @@ def _load_row(connection: sqlite3.Connection, archive_id: int) -> MetadataRow:
         """
         SELECT id, started_at, completed_at, created_at, status, failure_reason,
                filament_used_grams, cost, quantity, external_url, notes
-        FROM archives
+        FROM print_archives
         WHERE id = ?
         """,
         (archive_id,),
@@ -212,7 +212,7 @@ def correct_archive_metadata(db_path: Path, request: ArchiveMetadataCorrectionRe
                 continue
             raw_value = requested_fields.get(field_name)
             if field_name in {"started_at", "completed_at", "created_at"}:
-                normalized_value = normalize_datetime(raw_value)
+                normalized_value = normalize_datetime(raw_value, field_name)
                 if not normalized_value:
                     raise ValueError(f"{field_name} must be a valid ISO datetime")
             elif field_name == "status":
@@ -267,7 +267,7 @@ def correct_archive_metadata(db_path: Path, request: ArchiveMetadataCorrectionRe
             assignments.append("notes = ?")
             values.append(after_notes)
             values.append(int(request.archive_id))
-            connection.execute(f"UPDATE archives SET {', '.join(assignments)} WHERE id = ?", values)
+            connection.execute(f"UPDATE print_archives SET {', '.join(assignments)} WHERE id = ?", values)
             connection.commit()
             after["notes"] = after_notes
             applied_at = datetime.now(timezone.utc).isoformat()
