@@ -95,7 +95,13 @@ def _load_row(connection: sqlite3.Connection, archive_id: int) -> MetadataRow:
 
 
 def compute_archive_metadata_revision(snapshot: dict[str, Any]) -> str:
-    payload = {field: snapshot.get(field) for field in REVISION_FIELDS}
+    def _canonical_revision_value(value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized if normalized else None
+        return value
+
+    payload = {field: _canonical_revision_value(snapshot.get(field)) for field in REVISION_FIELDS}
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from app.metadata_correction import AUDIT_MARKER, correct_archive_metadata
+from app.metadata_correction import compute_archive_metadata_revision
 from app.models import ArchiveMetadataCorrectionFields, ArchiveMetadataCorrectionRequest
 
 
@@ -154,3 +155,30 @@ def test_metadata_correction_revision_ignores_notes_only_changes(tmp_path: Path)
     assert apply_response.archive_revision != ""
     assert preview_response.changed is True
     assert preview_response.updated_fields == ["filament_used_grams"]
+
+
+def test_metadata_correction_revision_treats_blank_and_null_as_equal() -> None:
+    blank_snapshot = {
+        "started_at": "",
+        "completed_at": "2026-04-19T22:35:36.838594",
+        "created_at": "2026-04-19T22:35:36",
+        "status": "archived",
+        "failure_reason": "",
+        "filament_used_grams": 20.3,
+        "cost": 0.41,
+        "quantity": 1,
+        "external_url": "",
+    }
+    null_snapshot = {
+        "started_at": None,
+        "completed_at": "2026-04-19T22:35:36.838594",
+        "created_at": "2026-04-19T22:35:36",
+        "status": "archived",
+        "failure_reason": None,
+        "filament_used_grams": 20.3,
+        "cost": 0.41,
+        "quantity": 1,
+        "external_url": None,
+    }
+
+    assert compute_archive_metadata_revision(blank_snapshot) == compute_archive_metadata_revision(null_snapshot)

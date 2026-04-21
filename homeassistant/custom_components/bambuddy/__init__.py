@@ -1539,16 +1539,22 @@ def _normalize_restore_request_payload(call_data: dict[str, Any], *, dry_run: bo
 
 
 def _archive_metadata_revision(archive: dict[str, Any]) -> str:
+    def _canonical_revision_value(value: Any) -> Any:
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized if normalized else None
+        return value
+
     payload = {
-        "started_at": archive.get("started_at"),
-        "completed_at": archive.get("completed_at"),
-        "created_at": archive.get("created_at"),
-        "status": archive.get("status"),
-        "failure_reason": archive.get("failure_reason"),
-        "filament_used_grams": archive.get("filament_used_grams"),
-        "cost": archive.get("cost"),
-        "quantity": archive.get("quantity"),
-        "external_url": archive.get("external_url"),
+        "started_at": _canonical_revision_value(archive.get("started_at")),
+        "completed_at": _canonical_revision_value(archive.get("completed_at")),
+        "created_at": _canonical_revision_value(archive.get("created_at")),
+        "status": _canonical_revision_value(archive.get("status")),
+        "failure_reason": _canonical_revision_value(archive.get("failure_reason")),
+        "filament_used_grams": _canonical_revision_value(archive.get("filament_used_grams")),
+        "cost": _canonical_revision_value(archive.get("cost")),
+        "quantity": _canonical_revision_value(archive.get("quantity")),
+        "external_url": _canonical_revision_value(archive.get("external_url")),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
