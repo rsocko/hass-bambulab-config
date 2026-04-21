@@ -292,6 +292,27 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     }));
   }
 
+  _confirmTimelapseDelete() {
+    if (typeof window === "undefined" || typeof window.confirm !== "function") {
+      return true;
+    }
+    if (!window.confirm("Delete the timelapse attached to this archive? This only removes Bambuddy's stored archive copy and does not delete files from the printer SD card.")) {
+      return false;
+    }
+    return window.confirm("Delete this Bambuddy archive timelapse now? This cannot be undone.");
+  }
+
+  async _closePopupAfterDelete() {
+    if (!this._hass || typeof this._hass.callService !== "function") {
+      return;
+    }
+    try {
+      await this._hass.callService("browser_mod", "close_popup", {});
+    } catch (_error) {
+      // Fall back to leaving the success state visible if popup close fails.
+    }
+  }
+
   async _deleteTimelapse() {
     var archive = this._resolveArchive();
     var archiveId = archive && archive.id != null ? Number(archive.id) : 0;
@@ -299,11 +320,8 @@ class PrintHistoryTimelapseCard extends HTMLElement {
     if (this._actionBusy || archiveId <= 0 || !endpoint || !this._timelapsePath(archive)) {
       return;
     }
-    if (typeof window !== "undefined" && typeof window.confirm === "function") {
-      var confirmed = window.confirm("Delete the timelapse attached to this archive? This only removes Bambuddy's stored archive copy and does not delete files from the printer SD card.");
-      if (!confirmed) {
-        return;
-      }
+    if (!this._confirmTimelapseDelete()) {
+      return;
     }
 
     this._actionBusy = true;
@@ -355,6 +373,7 @@ class PrintHistoryTimelapseCard extends HTMLElement {
       this._actionStatus = String(payload.message || "Timelapse deleted.");
       this._actionStatusTone = "success";
       this._emitArchiveStateChanged(nextArchive);
+      await this._closePopupAfterDelete();
     } catch (error) {
       this._actionStatus = String(error && error.message ? error.message : error || "Could not delete timelapse");
       this._actionStatusTone = "error";
