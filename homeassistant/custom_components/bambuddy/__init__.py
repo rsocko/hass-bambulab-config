@@ -2766,6 +2766,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             connection.send_error(msg["id"], "upload_failed", str(err))
         except RuntimeError as err:
             connection.send_error(msg["id"], "upload_failed", str(err))
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.exception("Unhandled error during Bambuddy archive photo upload", exc_info=err)
+            message = str(err).strip() or "Archive photo upload failed unexpectedly"
+            connection.send_error(msg["id"], "upload_failed", message)
 
     websocket_api.async_register_command(hass, websocket_handle_upload_photo)
 

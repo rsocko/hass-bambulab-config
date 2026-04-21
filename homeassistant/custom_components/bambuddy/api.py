@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from aiohttp import ClientResponseError, ClientSession, ClientTimeout, FormData
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout, FormData
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -354,28 +355,31 @@ class BambuddyApiClient:
             + content
             + f"\r\n--{boundary}--\r\n".encode("utf-8")
         )
+        try:
+            async with self._session.post(
+                f"{self._base_url}/api/v1/archives/{normalized_archive_id}/photos",
+                headers={
+                    "X-API-Key": self._api_key,
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    "Content-Length": str(len(body)),
+                },
+                data=body,
+                timeout=self._timeout,
+            ) as response:
+                try:
+                    response.raise_for_status()
+                except ClientResponseError as error:
+                    raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
 
-        async with self._session.post(
-            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/photos",
-            headers={
-                "X-API-Key": self._api_key,
-                "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "Content-Length": str(len(body)),
-            },
-            data=body,
-            timeout=self._timeout,
-        ) as response:
-            try:
-                response.raise_for_status()
-            except ClientResponseError as error:
-                raise RuntimeError(f"Bambuddy returned HTTP {error.status}") from error
+                try:
+                    payload = await response.json()
+                except Exception:  # noqa: BLE001
+                    return None
 
-            try:
-                payload = await response.json()
-            except Exception:  # noqa: BLE001
-                return None
-
-            return payload if isinstance(payload, dict) else None
+                return payload if isinstance(payload, dict) else None
+        except (ClientError, asyncio.TimeoutError, OSError) as error:
+            message = str(error).strip() or type(error).__name__
+            raise RuntimeError(f"Bambuddy photo upload request failed: {message}") from error
 
     async def async_delete_archive_photo(self, archive_id: int, *, photo_path: str) -> None:
         if not self._base_url:

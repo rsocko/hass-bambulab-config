@@ -14,6 +14,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 HOMEASSISTANT_ROOT = REPO_ROOT / "homeassistant"
 
 
+def test_archive_photo_upload_backend_normalizes_transport_errors() -> None:
+    api_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "api.py").read_text("utf-8")
+    init_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+
+    assert "except (ClientError, asyncio.TimeoutError, OSError) as error:" in api_content
+    assert "Bambuddy photo upload request failed:" in api_content
+    assert "Unhandled error during Bambuddy archive photo upload" in init_content
+    assert 'connection.send_error(msg["id"], "upload_failed", message)' in init_content
+
+
 def _install_homeassistant_stubs() -> None:
     voluptuous_module = ModuleType("voluptuous")
     aiohttp_module = ModuleType("aiohttp")
