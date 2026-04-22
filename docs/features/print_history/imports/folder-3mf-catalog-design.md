@@ -229,3 +229,4 @@ Expected output when successful:
 - `source-3mf-import-design.md`
 - `source-3mf-storage-strategy.md`
 - `../../../repo/bambuddy-archive-recovery-approach.md`
+- `manual-reconciliation-launchpad.md`
