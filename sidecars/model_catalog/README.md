@@ -83,6 +83,7 @@ MANYFOLD_MODELS_PATH=/models.json
 MANYFOLD_OAUTH_TOKEN_PATH=/oauth/token
 MANYFOLD_CLIENT_ID=replace-with-oauth-client-id
 MANYFOLD_CLIENT_SECRET=replace-with-oauth-client-secret
+MANYFOLD_OAUTH_SCOPES=public read
 MODEL_CATALOG_REFRESH_TTL_SECONDS=900
 ```
 
@@ -107,8 +108,7 @@ For the Manyfold stack example, the expected pattern is:
 - `MANYFOLD_OAUTH_TOKEN_PATH` — OAuth token endpoint path; default `/oauth/token`
 - `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
 - `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access
-- `MANYFOLD_OAUTH_SCOPES` — optional scopes to request with the token grant, such as `public read`
-- The sidecar now relies on the OAuth application's own allowed/default scopes rather than trying to request a scope string itself.
+- `MANYFOLD_OAUTH_SCOPES` — optional scope string sent during token acquisition when the OAuth server requires explicit requested permissions
 - `MODEL_CATALOG_DB_PATH` — SQLite path for sidecar local state
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
@@ -121,7 +121,7 @@ The sidecar now supports OAuth client-credentials for Manyfold API access.
 Current recommendation:
 
 - use a client with read-only access for the current phase
-- set `MANYFOLD_OAUTH_SCOPES=public read` unless your Manyfold app/client configuration indicates a different minimum read scope
+- set `MANYFOLD_OAUTH_SCOPES=public read` if your Manyfold OAuth server requires explicit requested permissions during client-credentials token acquisition
 
 Why scopes are configurable instead of hard-coded:
 

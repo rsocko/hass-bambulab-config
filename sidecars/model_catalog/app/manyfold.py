@@ -24,6 +24,7 @@ class ManyfoldClient:
         oauth_token_path: str = "/oauth/token",
         client_id: str | None = None,
         client_secret: str | None = None,
+        oauth_scopes: str | None = None,
         http_client: httpx.Client | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -31,6 +32,7 @@ class ManyfoldClient:
         self.oauth_token_path = oauth_token_path
         self.client_id = client_id
         self.client_secret = client_secret
+        self.oauth_scopes = oauth_scopes
         self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0)
         self._owns_client = http_client is None
         self._access_token: str | None = None
@@ -48,6 +50,8 @@ class ManyfoldClient:
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
             }
+            if self.oauth_scopes:
+                form_data["scope"] = self.oauth_scopes
             response = self._client.post(self.oauth_token_path, data=form_data)
             response.raise_for_status()
             payload = response.json()

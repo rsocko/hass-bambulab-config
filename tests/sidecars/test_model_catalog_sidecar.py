@@ -18,6 +18,7 @@ def _build_settings(tmp_path: Path) -> Settings:
         manyfold_oauth_token_path="/oauth/token",
         manyfold_client_id="client-id",
         manyfold_client_secret="client-secret",
+        manyfold_oauth_scopes="public read",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -65,6 +66,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             assert "grant_type=client_credentials" in body
             assert "client_id=client-id" in body
             assert "client_secret=client-secret" in body
+            assert "scope=public+read" in body
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
         if request.url.path == "/models.json":
             assert request.headers.get("Authorization") == "Bearer token-123"
@@ -94,6 +96,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         oauth_token_path=settings.manyfold_oauth_token_path,
         client_id=settings.manyfold_client_id,
         client_secret=settings.manyfold_client_secret,
+        oauth_scopes=settings.manyfold_oauth_scopes,
         http_client=httpx.Client(base_url=settings.manyfold_base_url, transport=transport),
     )
     app = create_app(settings=settings, manyfold_client=client)
@@ -108,6 +111,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert config.status_code == 200
         assert config.json()["manyfold_models_path"] == "/models.json"
         assert config.json()["manyfold_oauth_enabled"] is True
+        assert config.json()["manyfold_oauth_scopes"] == "public read"
 
         models = test_client.get("/api/models")
         assert models.status_code == 200

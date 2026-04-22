@@ -29,6 +29,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             oauth_token_path=resolved_settings.manyfold_oauth_token_path,
             client_id=resolved_settings.manyfold_client_id,
             client_secret=resolved_settings.manyfold_client_secret,
+            oauth_scopes=resolved_settings.manyfold_oauth_scopes,
         )
         try:
             yield
@@ -55,6 +56,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_models_path": state.settings.manyfold_models_path,
             "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
+            "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
             "db_path": str(state.settings.db_path),
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,
