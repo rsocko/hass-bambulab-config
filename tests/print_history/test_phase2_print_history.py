@@ -3193,6 +3193,19 @@ class TestPhotoCaptureFlow(unittest.TestCase):
                 "Finish stage must NOT be gated by a capture toggle",
             )
 
+    def test_finish_stage_uses_native_bambu_trigger(self):
+        """Finish stage should start from ha-bambulab, not Bambuddy webhook timing."""
+        content = (HISTORY / "automations" / "bambuddy_capture_print_photos.yaml").read_text("utf-8")
+        self.assertIn("type: event_print_finished", content)
+        self.assertNotIn('event: "print_complete"', content)
+
+    def test_finish_stage_uses_burst_capture(self):
+        """Finish stage should attempt multiple frames inside the completion window."""
+        content = (HISTORY / "automations" / "bambuddy_capture_print_photos.yaml").read_text("utf-8")
+        self.assertIn("finish_burst_delays_seconds", content)
+        self.assertIn("repeat:", content)
+        self.assertIn("stage: \"finish\"", content)
+
 
 # =============================================================================
 # 17. DOCUMENTATION COMPLETENESS

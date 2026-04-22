@@ -45,6 +45,8 @@
       trigger_to_state_obj: "{{ trigger.get('to_state') if trigger is mapping else none }}"
       trigger_from_status: "{{ trigger_from_state_obj.state | string | lower if trigger_from_state_obj is not none else '' }}"
       trigger_to_status: "{{ trigger_to_state_obj.state | string | lower if trigger_to_state_obj is not none else '' }}"
+      archive_id_raw: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
+      archive_id_valid: "{{ archive_id_raw | regex_match('^-?\\d+$') }}"
       task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
       current_total_weight_raw: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string }}"
       current_has_attributes: >-
@@ -340,6 +342,26 @@
             with no per-tray weight data. Total weight: {{
             states('sensor.ntk_ryansoffice_3dprinter_print_weight') }}g.
             Spoolman not updated - manual update required.
+      - if:
+          - condition: template
+            value_template: "{{ archive_id_valid }}"
+        then:
+          - action: bambuddy.append_print_history_event
+            data:
+              archive_id: "{{ archive_id_raw | int(0) }}"
+              event_type: spool_usage_not_recorded
+              event_source: spoolman_sync
+              event_time: "{{ now().isoformat() }}"
+              event_status: not_recorded
+              event_key: "spool_usage_not_recorded:{{ archive_id_raw }}:no_data"
+              payload:
+                reason_code: no_per_tray_weight_data
+                task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim }}"
+                total_weight_g: "{{ states('sensor.ntk_ryansoffice_3dprinter_print_weight') | string | trim }}"
+                current_has_attributes: "{{ current_has_attributes }}"
+                backup_available: "{{ backup_available }}"
+                backup_usable: "{{ backup_usable }}"
+                message: No per-tray weight data was available, so Spoolman usage was not updated.
   
   # Stop if no data is available at all
   - condition: template
@@ -462,6 +484,25 @@
                 message: >-
                   Skipped filament update for {{ tray_name }} ({{ tray_print_weight_display }}g) because tray UUID was missing.
                   Possible spool runout/swap during print.
+            - if:
+                - condition: template
+                  value_template: "{{ archive_id_valid }}"
+              then:
+                - action: bambuddy.append_print_history_event
+                  data:
+                    archive_id: "{{ archive_id_raw | int(0) }}"
+                    event_type: spool_usage_recording_failed
+                    event_source: spoolman_sync
+                    event_time: "{{ now().isoformat() }}"
+                    event_status: failed
+                    event_key: "spool_usage_recording_failed:{{ archive_id_raw }}:{{ tray_name | slugify }}:missing_uuid"
+                    payload:
+                      reason_code: missing_tray_uuid
+                      tray_name: "{{ tray_name }}"
+                      tray_entity_id: "{{ tray_entity_id }}"
+                      used_grams: "{{ tray_print_weight_display }}"
+                      task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim }}"
+                      message: Tray UUID was missing, so automatic spool usage recording was skipped for this tray.
   
         - condition: template
           value_template: >-
@@ -543,6 +584,26 @@
                       spoolman_print_complete_{{
                       states('sensor.ntk_ryansoffice_3dprinter_task_name') |
                       slugify }}_{{ tray_name | slugify }}
+                - if:
+                    - condition: template
+                      value_template: "{{ archive_id_valid }}"
+                  then:
+                    - action: bambuddy.append_print_history_event
+                      data:
+                        archive_id: "{{ archive_id_raw | int(0) }}"
+                        event_type: spool_usage_recorded
+                        event_source: spoolman_sync
+                        event_time: "{{ now().isoformat() }}"
+                        event_status: recorded
+                        event_key: "spool_usage_recorded:{{ archive_id_raw }}:{{ tray_name | slugify }}:{{ tray_print_weight_display }}"
+                        payload:
+                          tray_name: "{{ tray_name }}"
+                          tray_entity_id: "{{ tray_entity_id }}"
+                          spool_id: "{{ find_spool_response.spool.id }}"
+                          filament_name: "{{ find_spool_response.spool.filament.name }}"
+                          used_grams: "{{ tray_print_weight_display }}"
+                          task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') | string | trim }}"
+                          message: Spool usage was recorded successfully for this tray.
           default:
             - variables:
                 task_name: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
@@ -635,6 +696,29 @@
                   print "{{ task_name }}". Weight: {{ tray_print_weight_display }}g.
                   Error: {{ find_spool_response.message }}. Likely cause: {{
                   probable_cause }}
+            - if:
+                - condition: template
+                  value_template: "{{ archive_id_valid }}"
+              then:
+                - action: bambuddy.append_print_history_event
+                  data:
+                    archive_id: "{{ archive_id_raw | int(0) }}"
+                    event_type: spool_usage_recording_failed
+                    event_source: spoolman_sync
+                    event_time: "{{ error_timestamp }}"
+                    event_status: failed
+                    event_key: "spool_usage_recording_failed:{{ archive_id_raw }}:{{ tray_name | slugify }}:lookup_failed"
+                    payload:
+                      reason_code: spool_lookup_failed
+                      tray_name: "{{ tray_name }}"
+                      tray_entity_id: "{{ tray_entity_id }}"
+                      tray_uuid: "{{ selected_tray.uuid }}"
+                      tray_color: "{{ selected_tray.color }}"
+                      tray_type: "{{ selected_tray.type }}"
+                      used_grams: "{{ tray_print_weight_display }}"
+                      probable_cause: "{{ probable_cause }}"
+                      task_name: "{{ task_name | string | trim }}"
+                      message: "{{ find_spool_response.message | string | trim }}"
       for_each: "{{ ams_tray_list }}"
   
   - action: input_text.set_value

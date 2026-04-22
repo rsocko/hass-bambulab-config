@@ -980,6 +980,120 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
     hass = FakeHass(tmp_path, _default_state_map())
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+
+    response = manager.build_query_response({"page": 1, "page_size": 10})
+
+    assert response["archive_count"] >= 2
+    assert response["archives"][0]["id"] == 101
+    assert "duplicate_count" in response["archives"][0]
+    assert response["query"]["filtered_count"] >= 2
+
+def test_variant3_manager_build_archive_detail_response_summarizes_spool_usage_events(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_recorded",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:15:00Z",
+        event_status="recorded",
+        payload={
+            "tray_name": "AMS 1 Tray 1",
+            "spool_id": 501,
+            "used_grams": "21.2",
+            "message": "Spool usage was recorded successfully for this tray.",
+        },
+    )
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_recording_failed",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:16:00Z",
+        event_status="failed",
+        payload={
+            "tray_name": "AMS 1 Tray 2",
+            "reason_code": "missing_tray_uuid",
+            "message": "Tray UUID was missing, so automatic spool usage recording was skipped for this tray.",
+        },
+    )
+
+    detail = manager.build_archive_detail_response(101)
+
+    assert detail is not None
+    assert detail["event_timeline"][0]["label"] == "Spool usage recorded"
+    assert detail["event_timeline"][0]["color_key"] == "spoolman"
+    assert detail["event_timeline"][1]["label"] == "Spool usage recording failed"
+    assert detail["event_timeline"][1]["color_key"] == "failure"
+    assert detail["spool_usage_recording"]["status"] == "partial"
+    assert detail["spool_usage_recording"]["label"] == "Partial"
+    assert detail["spool_usage_recording"]["recorded_count"] == 1
+    assert detail["spool_usage_recording"]["failed_count"] == 1
+    assert detail["spool_usage_recording"]["recorded_spool_ids"] == [501]
+    assert detail["spool_usage_recording"]["failed_trays"] == ["AMS 1 Tray 2"]
+    assert detail["spool_usage_recording"]["reason_code"] == "missing_tray_uuid"
+
+
+def test_variant3_manager_build_archive_detail_response_marks_review_only_spool_usage(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_review_estimated",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:30:00Z",
+        event_status="review_only",
+        payload={
+            "outcome": "failed",
+            "matched_slots": 1,
+            "unmatched_slots": 1,
+            "message": "Review-only partial usage estimate captured. No Spoolman decrement was applied.",
+        },
+    )
+
+    detail = manager.build_archive_detail_response(101)
+
+    assert detail is not None
+    assert detail["event_timeline"][0]["label"] == "Spool usage review estimate"
+    assert detail["event_timeline"][0]["color_key"] == "neutral"
+    assert detail["spool_usage_recording"]["status"] == "review_only"
+    assert detail["spool_usage_recording"]["label"] == "Review Only"
+    assert detail["spool_usage_recording"]["review_only_count"] == 1
+
+
+def test_variant3_manager_build_query_response_includes_runtime_annotations(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
         data={
             "base_url": "http://example.local",
             "api_key": "token",
@@ -1030,7 +1144,7 @@ def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path
     const_module, query_module, manager_module, _init_module = _import_component_modules()
 
     state_map = _default_state_map()
-    state_map["input_select.print_history_filter_duplicates"] = "Duplicates Only"
+    state_map["input_select.print_history_filter_duplicates"] = "Dupes Only"
     hass = FakeHass(tmp_path, state_map)
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
@@ -1048,7 +1162,7 @@ def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path
     manager.archives = manager.store.load_archives()
     manager._recompute_query()
 
-    response = manager.build_query_response({"duplicates": "Duplicates Only"})
+    response = manager.build_query_response({"duplicates": "Dupes Only"})
 
     assert [archive["id"] for archive in response["archives"]] == [202]
     assert "duplicates" in response["query"]["active_filters"]
@@ -3094,6 +3208,24 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     assert detail["event_timeline"][1]["label"] == "Enrichment applied"
     assert detail["event_timeline"][1]["color_key"] == "enrichment"
     assert detail["skip_overlay_state"]["pick_image_asset_path"] == "Metadata/pick_2.png"
+
+
+def test_live_enrichment_automation_appends_timeline_events() -> None:
+    automation_content = (
+        HOMEASSISTANT_ROOT
+        / "packages"
+        / "3d_printing"
+        / "print_history"
+        / "automations"
+        / "bambuddy_enrich_archive_on_complete.yaml"
+    ).read_text("utf-8")
+
+    assert "- action: bambuddy.append_print_history_event" in automation_content
+    assert "event_type: enrichment_applied" in automation_content
+    assert "enrichment_applied:{{ archive_id }}:{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}" in automation_content
+    assert "mode: \"{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}\"" in automation_content
+    assert 'terminal_noop_reconciliation' in automation_content
+    assert 'Skipped duplicate enrichment write and timeline event.' in automation_content
 
 
 def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path: Path) -> None:

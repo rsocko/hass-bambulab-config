@@ -25,8 +25,8 @@ Source `.3mf` import workflow and long-term storage policy are documented in:
 
 Cross-system model-library strategy, including Manyfold comparison, Home Assistant surface options, and archive-to-library linkage planning, is documented in:
 
-- `../model_library/README.md`
-- `../model_library/model-library-strategy.md`
+- `../model_catalog/README.md`
+- `../model_catalog/model-library-strategy.md`
 
 For the active print-history control-strip structure and mobile pagination guardrails, see `browser/top-controls-contract.md`.
 

@@ -59,7 +59,7 @@ Its job is intentionally small:
 2. Read `.github/deploy/auto-deploy.env` from the pushed branch.
 3. Normalize booleans and branch filters.
 4. Decide whether deployment should be dispatched.
-5. Override `post_deploy_action` to `restart_core` when resource-related files changed in the pushed range.
+5. Override `post_deploy_action` to `restart_core` when the pushed range includes restart-required changes such as Lovelace resources, `custom_components/bambuddy`, or package `rest_sensors` / `rest_commands` changes.
 6. Dispatch the main workflow with the resolved input set.
 
 This means there is only one real deploy implementation in the repo. The push wrapper does not copy files itself; it only calls the main workflow.
@@ -78,7 +78,12 @@ Key settings:
 | `AUTO_DEPLOY_PACKAGE_SCOPE` | `all` or `selected`. |
 | `AUTO_DEPLOY_SELECTED_PACKAGES` | Selected package list when using selected scope. |
 | `AUTO_DEPLOY_INCLUDE_WWW_FOR_SELECTED` | Whether matching `www/` assets are included for selected scope. |
-| `AUTO_DEPLOY_POST_DEPLOY_ACTION` | Default post-deploy action before resource-related push overrides are applied. |
+| `AUTO_DEPLOY_POST_DEPLOY_ACTION` | Default post-deploy action before restart-required push overrides are applied. |
+
+Reload boundary:
+
+- `reload_domains` only covers domains with explicit reload services wired in the workflow.
+- Package changes under `rest_sensors/` and `rest_commands/`, and custom integration code under `custom_components/bambuddy/`, are deployed to `/config` but treated as restart-required.
 | `AUTO_DEPLOY_RESOURCE_SAFETY_MODE` | Resource deploy safety behavior. |
 | `AUTO_DEPLOY_FEATURE_INCLUDE_MODE` | Feature include management mode. |
 | `AUTO_DEPLOY_CONFIG_VALIDATION_MODE` | Post-sync config validation mode. |

@@ -574,6 +574,28 @@ def is_duplicate_original(archive: dict[str, Any]) -> bool:
     return duplicate_count(archive.get("duplicate_count")) > 0 and (is_duplicate_source(archive) or not is_duplicate_archive(archive))
 
 
+def is_non_duplicate_original(archive: dict[str, Any]) -> bool:
+    return not is_duplicate_source(archive) and not is_duplicate_archive(archive)
+
+
+def matches_duplicate_filter(archive: dict[str, Any], duplicate_filter: str) -> bool:
+    if duplicate_filter == "All":
+        return True
+
+    archive_is_source = is_duplicate_source(archive)
+    archive_is_duplicate = is_duplicate_archive(archive)
+
+    if duplicate_filter == "Sources":
+        return archive_is_source
+    if duplicate_filter == "Original Only":
+        return is_non_duplicate_original(archive)
+    if duplicate_filter == "Dupes Only":
+        return archive_is_duplicate
+    if duplicate_filter == "Source + Dupes":
+        return archive_is_source or archive_is_duplicate
+    return True
+
+
 def archive_has_project(archive: dict[str, Any]) -> bool:
     return bool(as_text(archive.get("project_name")).strip() or as_text(archive.get("project_id")).strip())
 
@@ -1428,8 +1450,6 @@ def query_archives(
         archive_designer = as_text(archive.get("designer")).lower()
         archive_project = as_text(archive.get("project_name")).strip()
         archive_layer_height = as_text(archive.get("layer_height")).strip()
-        archive_is_duplicate = is_duplicate_archive(archive)
-        archive_is_duplicate_original = is_duplicate_original(archive)
         archive_user_tags = [tag.lower() for tag in user_tags(as_text(archive.get("tags")))]
         archive_palette = archive_colors(archive)
         archive_day = archive_date_key(archive)
@@ -1449,9 +1469,7 @@ def query_archives(
             continue
         if material_filter != "All" and archive_material != material_filter.lower():
             continue
-        if duplicate_filter == "Originals Only" and not archive_is_duplicate_original:
-            continue
-        if duplicate_filter == "Duplicates Only" and not archive_is_duplicate:
+        if not matches_duplicate_filter(archive, duplicate_filter):
             continue
         if printer_filter != "All" and archive_printer not in selected_printer_ids:
             continue
@@ -1523,7 +1541,7 @@ def option_sets(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
     return {
         "input_select.print_history_filter_material": ["All", *material_values],
         "input_select.print_history_filter_color": ["All", *color_values],
-        "input_select.print_history_filter_duplicates": ["All", "Originals Only", "Duplicates Only"],
+        "input_select.print_history_filter_duplicates": ["All", "Sources", "Original Only", "Dupes Only", "Source + Dupes"],
         "input_select.print_history_filter_printer": ["All", *printer_values],
         "input_select.print_history_filter_designer": ["All", *designer_values],
         "input_select.print_history_filter_project": ["All", "None", *project_values],

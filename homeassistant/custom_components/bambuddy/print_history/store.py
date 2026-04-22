@@ -2808,10 +2808,16 @@ class PrintHistoryStore:
         if filters["material"] not in {"", "All"}:
             where_clauses.append("LOWER(a.filament_type) = ?")
             params.append(filters["material"].lower())
-        if filters["duplicates"] == "Originals Only":
-            where_clauses.append("a.duplicate_count > 0 AND COALESCE(a.duplicate_sequence, 0) = 0 AND (COALESCE(a.original_archive_id, 0) = 0 OR COALESCE(a.original_archive_id, 0) = a.archive_id)")
-        elif filters["duplicates"] == "Duplicates Only":
-            where_clauses.append("((COALESCE(a.original_archive_id, 0) > 0 AND COALESCE(a.original_archive_id, 0) != a.archive_id) OR COALESCE(a.duplicate_sequence, 0) > 0)")
+        duplicate_source_clause = "(COALESCE(a.duplicate_sequence, 0) = 0 AND COALESCE(a.original_archive_id, 0) = a.archive_id AND COALESCE(a.original_archive_id, 0) > 0)"
+        duplicate_archive_clause = "((COALESCE(a.original_archive_id, 0) > 0 AND COALESCE(a.original_archive_id, 0) != a.archive_id) OR COALESCE(a.duplicate_sequence, 0) > 0)"
+        if filters["duplicates"] == "Sources":
+            where_clauses.append(duplicate_source_clause)
+        elif filters["duplicates"] == "Original Only":
+            where_clauses.append(f"(NOT {duplicate_source_clause} AND NOT {duplicate_archive_clause})")
+        elif filters["duplicates"] == "Dupes Only":
+            where_clauses.append(duplicate_archive_clause)
+        elif filters["duplicates"] == "Source + Dupes":
+            where_clauses.append(f"({duplicate_source_clause} OR {duplicate_archive_clause})")
         if filters["printer"] not in {"", "All"}:
             selected_printer_ids = self._resolve_selected_printer_ids(filters["printer"], connection=connection)
             if not selected_printer_ids:

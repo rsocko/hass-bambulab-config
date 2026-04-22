@@ -60,6 +60,11 @@ EVENT_LABELS = {
     "enrichment_applied": "Enrichment applied",
     "repair_applied": "Repair applied",
     "metadata_corrected": "Metadata corrected",
+    "spool_usage_recorded": "Spool usage recorded",
+    "spool_usage_recording_failed": "Spool usage recording failed",
+    "spool_usage_not_recorded": "Spool usage not recorded",
+    "spool_usage_review_estimated": "Spool usage review estimate",
+    "spool_usage_review_failed": "Spool usage review failed",
 }
 
 EVENT_COLOR_KEYS = {
@@ -74,7 +79,102 @@ EVENT_COLOR_KEYS = {
     "enrichment_applied": "enrichment",
     "repair_applied": "repair",
     "metadata_corrected": "repair",
+    "spool_usage_recorded": "spoolman",
+    "spool_usage_recording_failed": "failure",
+    "spool_usage_not_recorded": "failure",
+    "spool_usage_review_estimated": "neutral",
+    "spool_usage_review_failed": "failure",
 }
+
+SPOOL_USAGE_EVENT_TYPES = {
+    "spool_usage_recorded",
+    "spool_usage_recording_failed",
+    "spool_usage_not_recorded",
+    "spool_usage_review_estimated",
+    "spool_usage_review_failed",
+}
+
+SPOOL_USAGE_SUCCESS_EVENT_TYPES = {"spool_usage_recorded"}
+SPOOL_USAGE_FAILURE_EVENT_TYPES = {
+    "spool_usage_recording_failed",
+    "spool_usage_not_recorded",
+    "spool_usage_review_failed",
+}
+SPOOL_USAGE_REVIEW_EVENT_TYPES = {"spool_usage_review_estimated"}
+
+
+def _summarize_spool_usage_recording(timeline: list[dict[str, Any]]) -> dict[str, Any] | None:
+    spool_usage_events = [
+        row
+        for row in timeline
+        if str(row.get("type") or "").strip().lower() in SPOOL_USAGE_EVENT_TYPES
+    ]
+    if not spool_usage_events:
+        return None
+
+    success_count = 0
+    failure_count = 0
+    review_only_count = 0
+    recorded_spool_ids: set[int] = set()
+    failed_trays: list[str] = []
+
+    for row in spool_usage_events:
+        event_type = str(row.get("type") or "").strip().lower()
+        payload = row.get("payload") if isinstance(row.get("payload"), dict) else {}
+        tray_name = str(payload.get("tray_name") or payload.get("tray") or "").strip()
+        spool_id = as_int(payload.get("spool_id"))
+
+        if event_type in SPOOL_USAGE_SUCCESS_EVENT_TYPES:
+            success_count += 1
+            if spool_id > 0:
+                recorded_spool_ids.add(spool_id)
+        elif event_type in SPOOL_USAGE_REVIEW_EVENT_TYPES:
+            review_only_count += 1
+        elif event_type in SPOOL_USAGE_FAILURE_EVENT_TYPES:
+            failure_count += 1
+            if tray_name:
+                failed_trays.append(tray_name)
+
+    if success_count > 0 and failure_count > 0:
+        status = "partial"
+        label = "Partial"
+    elif success_count > 0:
+        status = "recorded"
+        label = "Recorded"
+    elif review_only_count > 0 and failure_count == 0:
+        status = "review_only"
+        label = "Review Only"
+    elif any(
+        str(row.get("type") or "").strip().lower() == "spool_usage_not_recorded"
+        for row in spool_usage_events
+    ):
+        status = "not_recorded"
+        label = "Not Recorded"
+    else:
+        status = "failed"
+        label = "Failed"
+
+    latest_event = spool_usage_events[-1]
+    latest_payload = latest_event.get("payload") if isinstance(latest_event.get("payload"), dict) else {}
+    result = {
+        "status": status,
+        "label": label,
+        "event_count": len(spool_usage_events),
+        "recorded_count": success_count,
+        "failed_count": failure_count,
+        "review_only_count": review_only_count,
+        "recorded_spool_ids": sorted(recorded_spool_ids),
+        "failed_trays": failed_trays,
+        "last_event_type": latest_event.get("type", ""),
+        "last_event_time": latest_event.get("time", ""),
+        "last_event_label": latest_event.get("label", ""),
+        "last_event_payload": latest_payload,
+    }
+    if isinstance(latest_payload.get("reason_code"), str):
+        result["reason_code"] = latest_payload["reason_code"]
+    if isinstance(latest_payload.get("message"), str):
+        result["message"] = latest_payload["message"]
+    return result
 
 
 QUERY_OVERRIDE_ENTITY_MAP = {
@@ -722,6 +822,7 @@ class PrintHistoryBrowserManager:
             }
             for row in detail["event_timeline"]
         ]
+        detail["spool_usage_recording"] = _summarize_spool_usage_recording(detail["event_timeline"])
         return detail
 
     async def async_record_archive_event(

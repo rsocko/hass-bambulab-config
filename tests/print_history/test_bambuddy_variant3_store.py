@@ -265,7 +265,7 @@ def test_variant3_query_contract_matches_browser_filters() -> None:
         "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "PLA",
-        "input_select.print_history_filter_duplicates": "Originals Only",
+        "input_select.print_history_filter_duplicates": "Sources",
         "input_select.print_history_filter_printer": "Workshop P1S",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "Jane",
@@ -639,14 +639,14 @@ def test_variant3_store_quarantines_unopenable_cache_and_rebuilds(monkeypatch: p
     assert store._db_path.exists() is True
 
 
-def test_variant3_query_contract_filters_duplicates_and_originals() -> None:
+def test_variant3_query_contract_filters_duplicate_roles() -> None:
     archives = _projected_archives()
     base_states = {
         "input_select.print_history_filter_status": "All",
         "input_select.print_history_filter_archive_error": "All",
         "input_select.print_history_filter_enrichment_status": "All",
         "input_select.print_history_filter_material": "All",
-        "input_select.print_history_filter_duplicates": "Duplicates Only",
+        "input_select.print_history_filter_duplicates": "Dupes Only",
         "input_select.print_history_filter_printer": "All",
         "input_select.print_history_filter_date_range": "All Time",
         "input_select.print_history_filter_designer": "All",
@@ -667,10 +667,24 @@ def test_variant3_query_contract_filters_duplicates_and_originals() -> None:
     assert [archive["id"] for archive in duplicate_result.page_items] == [202]
     assert "duplicates" in duplicate_result.active_filters
 
-    original_states = dict(base_states)
-    original_states["input_select.print_history_filter_duplicates"] = "Originals Only"
-    original_result = query_archives(archives, original_states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
-    assert [archive["id"] for archive in original_result.page_items] == [101]
+    source_states = dict(base_states)
+    source_states["input_select.print_history_filter_duplicates"] = "Sources"
+    source_result = query_archives(archives, source_states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+    assert [archive["id"] for archive in source_result.page_items] == [101]
+
+    source_and_dupes_states = dict(base_states)
+    source_and_dupes_states["input_select.print_history_filter_duplicates"] = "Source + Dupes"
+    source_and_dupes_result = query_archives(archives, source_and_dupes_states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+    assert [archive["id"] for archive in source_and_dupes_result.page_items] == [101, 202]
+
+    original_only_states = dict(base_states)
+    original_only_states["input_select.print_history_filter_duplicates"] = "Original Only"
+    original_only_result = query_archives(
+        archives + [project_archive({"id": 303, "print_name": "Standalone", "status": "completed"})],
+        original_only_states,
+        now=datetime(2026, 4, 9, tzinfo=timezone.utc),
+    )
+    assert [archive["id"] for archive in original_only_result.page_items] == [303]
 
 
 def test_variant3_store_persists_sync_metadata_and_note_payload_rows(tmp_path: Path) -> None:
@@ -787,7 +801,7 @@ def test_variant3_store_preserves_archive_error_projection_fields(tmp_path: Path
 
 def test_variant3_option_sets_include_duplicate_filter() -> None:
     options = option_sets(_projected_archives())
-    assert options["input_select.print_history_filter_duplicates"] == ["All", "Originals Only", "Duplicates Only"]
+    assert options["input_select.print_history_filter_duplicates"] == ["All", "Sources", "Original Only", "Dupes Only", "Source + Dupes"]
 
 
 def test_variant3_project_archive_maps_tray_missing_status_code() -> None:

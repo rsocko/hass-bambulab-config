@@ -1,13 +1,14 @@
 # Multi-stage photo capture during normal print lifecycle.
 # Stages: start (delayed), midprint (% threshold), near_complete (99%+), finish.
-# Finish capture is always attempted when the print_complete webhook arrives.
+# Finish capture now starts from the native ha-bambulab completion event and
+# reuses the finish path for a short burst to improve odds of a clear frame.
 # Docs: docs/features/print_history/ui-media/photo-capture-design.md
 - alias: "Print History - Capture Print Photos"
   id: bambuddy_capture_print_photos
   description: >
     Captures photos at multiple print stages using the configured capture
     camera list. Start, mid-print, and near-complete
-    remain optional; finish capture always runs.
+    remain optional; finish capture always runs as a short burst.
 
   triggers:
     # Start: printer just began printing (delayed to show first layer)
@@ -28,11 +29,11 @@
       above: 98
       id: "near_complete"
 
-    # Finish: print_complete webhook
-    - trigger: event
-      event_type: bambuddy_webhook_event
-      event_data:
-        event: "print_complete"
+    # Finish: native ha-bambulab completion event
+    - device_id: 210dfdfa64085e8cf073e50eae757d90
+      domain: bambu_lab
+      type: event_print_finished
+      trigger: device
       id: "finish"
 
   conditions:
@@ -46,6 +47,10 @@
   actions:
     - variables:
         stage: "{{ trigger.id }}"
+        finish_burst_delays_seconds:
+          - 0
+          - 1
+          - 1
 
     - choose:
         # Start: gate + delay for first layer visibility
@@ -90,13 +95,22 @@
               data:
                 stage: "near_complete"
 
-        # Finish: always capture on print_complete
+        # Finish: always capture on native completion as a short burst.
         - conditions:
             - condition: trigger
               id: "finish"
           sequence:
-            - action: script.capture_and_upload_snapshot
-              data:
-                stage: "finish"
+            - repeat:
+                for_each: "{{ finish_burst_delays_seconds }}"
+                sequence:
+                  - if:
+                      - condition: template
+                        value_template: "{{ repeat.item | int(0) > 0 }}"
+                    then:
+                      - delay:
+                          seconds: "{{ repeat.item | int(0) }}"
+                  - action: script.capture_and_upload_snapshot
+                    data:
+                      stage: "finish"
 
   mode: single

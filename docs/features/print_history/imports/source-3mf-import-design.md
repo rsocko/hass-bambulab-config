@@ -8,8 +8,8 @@
 
 See also:
 
-- `../../model_library/model-library-strategy.md`
-- `../../model_library/integration/ha-model-library-integration.md`
+- `../../model_catalog/model-library-strategy.md`
+- `../../model_catalog/integration/ha-model-library-integration.md`
 
 ## Overview
 

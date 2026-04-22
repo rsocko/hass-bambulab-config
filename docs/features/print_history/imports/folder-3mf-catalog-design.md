@@ -4,8 +4,8 @@
 
 See also:
 
-- `../../model_library/model-library-strategy.md`
-- `../../model_library/integration/archive-to-library-linkage.md`
+- `../../model_catalog/model-library-strategy.md`
+- `../../model_catalog/integration/archive-to-library-linkage.md`
 
 ## Purpose
 
@@ -211,9 +211,22 @@ Those defaults should remain operational preferences only. They should not be me
 5. Run `inspect` or `dry-run` first from the browser.
 6. Only run browser `run-backfill` after reviewing the preview and entering the explicit confirmation phrase.
 
+## Quick Relaunch (OneDrive 3D Printing)
+
+Use this command to relaunch the local viewer for the OneDrive catalog workspace:
+
+```powershell
+& "c:\dev\hass-bambulab-config\.venv\Scripts\python.exe" "c:\dev\hass-bambulab-config\tools\bambuddy\folder_3mf_catalog_viewer.py" --manifest "c:\dev\hass-bambulab-config\tmp\folder_3mf_catalog\onedrive-3d-printing\manifests\catalog_manifest.json" --state "c:\dev\hass-bambulab-config\tmp\folder_3mf_catalog\onedrive-3d-printing\state\catalog_state.json"
+```
+
+Expected output when successful:
+
+`Serving folder 3MF catalog viewer at http://127.0.0.1:8766/`
+
 ## References
 
 - `archive-historical-backfill-from-sd-card.md`
 - `source-3mf-import-design.md`
 - `source-3mf-storage-strategy.md`
 - `../../../repo/bambuddy-archive-recovery-approach.md`
+- `manual-reconciliation-launchpad.md`

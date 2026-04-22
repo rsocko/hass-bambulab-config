@@ -13,6 +13,9 @@ node_modules/
 # Intermediate screenshot capture frames (stitched into GIFs then discarded)
 docs/screenshots/_frames/
 bambuddy/Backup SD Card - 2026-04-03/
+bambuddy/backfill-state/work/
+bambuddy/backfill-state/previews/
+bambuddy/backfill-state/cache/
 
 # Python cache files
 __pycache__/

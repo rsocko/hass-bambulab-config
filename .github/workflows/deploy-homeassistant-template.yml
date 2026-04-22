@@ -429,6 +429,96 @@ jobs:
             echo "Resource safety check passed."
           fi
 
+      - name: Restart-required deploy safety check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SAFETY_MODE="${{ github.event.inputs.resource_safety_mode }}"
+          [ "$SAFETY_MODE" = "off" ] && { echo "Restart-required safety check disabled (resource_safety_mode=off)."; exit 0; }
+
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch --no-tags origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+
+          CHANGED_FILES=""
+          if git rev-parse --verify "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only "origin/$DEFAULT_BRANCH...HEAD" || true)"
+          fi
+          if [ -z "$CHANGED_FILES" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+          fi
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No comparable git diff range found; skipping restart-required safety checks."
+            exit 0
+          fi
+
+          PACKAGE_SCOPE="${{ github.event.inputs.package_scope }}"
+          SELECTED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+          POST_DEPLOY_ACTION="${{ github.event.inputs.post_deploy_action }}"
+
+          package_is_selected() {
+            local pkg="$1"
+            local normalized_selected
+
+            [ "$PACKAGE_SCOPE" = "all" ] && return 0
+
+            normalized_selected="$(echo "$SELECTED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+            [ "$normalized_selected" = "all" ] && return 0
+            echo ",$normalized_selected," | grep -q ",$pkg,"
+          }
+
+          RESTART_REQUIRED_CHANGED=false
+          RESTART_REQUIRED_IN_SCOPE=false
+          RESTART_REASONS=""
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              homeassistant/custom_components/bambuddy/*)
+                RESTART_REQUIRED_CHANGED=true
+                if [ "$PACKAGE_SCOPE" = "all" ] || package_is_selected "print_history"; then
+                  RESTART_REQUIRED_IN_SCOPE=true
+                  RESTART_REASONS="${RESTART_REASONS} bambuddy-custom-component"
+                fi
+                ;;
+              homeassistant/packages/3d_printing/*/rest_commands/*|\
+              homeassistant/packages/3d_printing/*/rest_sensors/*)
+                RESTART_REQUIRED_CHANGED=true
+                path_tail="${f#homeassistant/packages/3d_printing/}"
+                pkg="${path_tail%%/*}"
+                if [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                  RESTART_REQUIRED_IN_SCOPE=true
+                  RESTART_REASONS="${RESTART_REASONS} ${pkg}-rest-domain"
+                fi
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          if [ "$RESTART_REQUIRED_CHANGED" != "true" ]; then
+            echo "No restart-required changes detected in diff range."
+            exit 0
+          fi
+
+          if [ "$RESTART_REQUIRED_IN_SCOPE" != "true" ]; then
+            echo "Restart-required changes detected, but not in selected deploy scope; skipping restart-required safety enforcement."
+            exit 0
+          fi
+
+          if [ "$POST_DEPLOY_ACTION" = "restart_core" ]; then
+            echo "Restart-required safety check passed."
+            exit 0
+          fi
+
+          MSG="Restart-required changes detected in deploy scope (${RESTART_REASONS# }), but post_deploy_action=$POST_DEPLOY_ACTION. Use post_deploy_action=restart_core for Bambuddy custom component changes and REST-backed package changes."
+          if [ "$SAFETY_MODE" = "warn" ]; then
+            echo "::warning::$MSG"
+            exit 0
+          fi
+
+          echo "$MSG"
+          exit 1
+
       - name: Preflight (HAOS SSH + tools)
         run: |
           set -euo pipefail

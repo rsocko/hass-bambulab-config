@@ -8,6 +8,21 @@ HA owns multi-camera, multi-stage photo capture during print jobs. Photos are sa
 
 Bambuddy also captures its own completion photo natively (when "Capture finish photo" is enabled); HA's photos supplement this with additional stages and cameras.
 
+## Current Recommendation
+
+Issue #1036 exposed two competing failure modes for the final archive photo:
+
+- a near-complete frame at 99% often still catches the toolhead or extruder in front of the model
+- a late completion frame can miss the model entirely from some camera angles once the bed has dropped
+
+The current recommended mitigation is therefore a finish-window burst rather than a single "perfect" final event.
+
+- Keep the near-complete capture as an early pre-finish frame because it still often preserves bed height better than a late completion shot.
+- Switch the primary finish trigger from the Bambuddy `print_complete` webhook to ha-bambulab's native `event_print_finished`, which fires earlier in the printer lifecycle.
+- On that native finish trigger, take a short burst of finish-stage captures over the next few seconds to increase the chance that at least one frame lands after the toolhead clears but before the bed drops too far.
+- Keep webhook usage focused on Bambuddy-specific lifecycle data such as exact `archive_id` binding at `print_started`.
+- Do not automatically raise the bed after completion in the default flow. While `bambu_lab.move_axis` can move Z, the integration does not expose trustworthy live bed-height or toolhead-coordinate telemetry, so an automatic recovery move is a higher-risk follow-up experiment rather than the default behavior.
+
 ## Webhook Requirement
 
 The current shipped package supports two practical operating modes:
@@ -42,14 +57,14 @@ For this design, that means the long-term recommendation is:
 
 ## Capture Stages
 
-Start, mid-print, near-complete, and error capture use helper gates. Finish capture is unconditional so the archive gets a final HA photo whenever the `print_complete` webhook arrives.
+Start, mid-print, near-complete, and error capture use helper gates. Finish capture is unconditional so the archive gets a final HA photo whenever the native ha-bambulab completion event fires.
 
 | Stage | Trigger | Boolean Gate | Notes |
 |---|---|---|---|
 | **Start** | Print status → `running` (after configurable delay ~2-5 min) | `input_boolean.capture_at_start` | Delay allows first layer to be visible |
 | **Mid-print** | `sensor.*_print_progress` crosses `input_number.midprint_capture_percent` | `input_boolean.capture_at_midprint` | Default: 50% |
 | **Near-complete** | `sensor.*_print_progress` ≥ 99% | `input_boolean.capture_near_complete` | Captures before bed lowers |
-| **Finished** | `bambuddy_webhook_event` where event=`print_complete` | None | Always capture a final HA snapshot; Bambuddy may also capture natively |
+| **Finished** | Native `bambu_lab` `event_print_finished` device trigger | None | Always capture a short finish-window burst; Bambuddy may also capture natively |
 | **Error** | `print_failed` webhook, `print_stopped` webhook, or `binary_sensor.*_print_error` / `binary_sensor.*_hms_errors` → on | `input_boolean.capture_on_error` | Immediate diagnostic capture |
 
 ### Stage Automations
@@ -74,13 +89,36 @@ triggers:
     entity_id: sensor.ntk_ryansoffice_3dprinter_print_progress
     above: 98
     id: "near_complete"
-  # Finish: unconditional print_complete capture
-  - trigger: event
-    event_type: bambuddy_webhook_event
-    event_data:
-      event: "print_complete"
+  # Finish: unconditional native completion burst
+  - device_id: 210dfdfa64085e8cf073e50eae757d90
+    domain: bambu_lab
+    type: event_print_finished
+    trigger: device
     id: "finish"
 ```
+
+The finish path then takes a short burst instead of a single frame. The initial implementation uses three finish-stage attempts with short follow-up delays so it can reuse the existing lighting, archive-resolution, and upload flow without introducing a second specialized capture script.
+
+```yaml
+- conditions:
+    - condition: trigger
+      id: "finish"
+  sequence:
+    - repeat:
+        for_each: [0, 1, 1]
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ repeat.item | int(0) > 0 }}"
+            then:
+              - delay:
+                  seconds: "{{ repeat.item | int(0) }}"
+          - action: script.capture_and_upload_snapshot
+            data:
+              stage: "finish"
+```
+
+This is intentionally a first-pass timing improvement, not a geometric certainty. The available upstream signals do not expose a direct "toolhead clear" or live bed-height event, so burst timing is the lowest-risk way to increase odds of a clean final frame.
 
 **`bambuddy_capture_error_photos.yaml`** — Error stages:
 ```yaml
@@ -128,6 +166,8 @@ triggers:
 10. If archive_id is empty:
   → Call script.resolve_current_archive_id first, then hand off if resolved
 11. Local copy always retained regardless of upload success
+
+When finish-stage burst capture is active, this sequence runs once per finish burst frame.
 ```
 
 ### Snapshot Light Integration
@@ -142,7 +182,7 @@ Reuses the existing pattern from `notifications/automations/print_complete_notif
 Successful completion photos now treat `light.magwled` as a dedicated capture light instead of depending on the generic snapshot-light helper.
 
 - The finish capture now uses `script.printer_led_magwled_photo_lighting`, owned by the `printer_led` package, so MagWLED photo-lighting behavior stays consistent across any future camera workflows.
-- The reusable script waits 2 seconds after the `print_complete` trigger so the WLED state machine can first settle into its normal completion state, including the green finish look.
+- The reusable script waits 2 seconds after the finish trigger so the WLED state machine can first settle into its normal completion state, including the green finish look.
 - It snapshots the live MagWLED state into a temporary HA scene, temporarily forces `light.magwled` to `Solid` with RGBW cool white for the camera capture, then restores the saved scene afterward.
 - This preserves the intended post-complete green appearance instead of leaving MagWLED white or turning it off.
 - If `input_text.3dprinter_snapshot_light` ever points to `light.magwled`, the generic helper path is automatically suppressed during finish capture so MagWLED is only controlled once.

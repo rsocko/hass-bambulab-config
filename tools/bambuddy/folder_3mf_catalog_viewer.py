@@ -60,16 +60,35 @@ DISPOSITION_LABELS = {
 
 
 class CatalogDataset:
-    def __init__(self, manifest_path: Path, state_path: Path | None = None, archive_base_url: str | None = None) -> None:
-        self.manifest_path = manifest_path
-        self.state_path = state_path
+    def __init__(
+        self,
+        manifest_path: Path,
+        state_path: Path | None = None,
+        archive_base_url: str | None = None,
+        writeback_manifest_path: Path | None = None,
+    ) -> None:
+        self.manifest_path = manifest_path.resolve()
+        self.state_path = state_path.resolve() if state_path is not None else None
         self.archive_base_url = str(archive_base_url or "").strip().rstrip("/") or None
-        self.state_store = CatalogStateStore(state_path) if state_path is not None else None
+        self.writeback_manifest_path = writeback_manifest_path.resolve() if writeback_manifest_path is not None else None
+        if self.writeback_manifest_path is not None and self.writeback_manifest_path == self.manifest_path:
+            raise ValueError("Writeback manifest path must differ from the discovery manifest path.")
+        self.state_store = CatalogStateStore(self.state_path) if self.state_path is not None else None
         self.reload()
 
     @property
     def write_enabled(self) -> bool:
         return self.state_store is not None
+
+    @property
+    def manifest_writeback_enabled(self) -> bool:
+        return self.writeback_manifest_path is not None
+
+    def sync_writeback_manifest(self) -> None:
+        if self.writeback_manifest_path is None:
+            return
+        self.writeback_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        self.writeback_manifest_path.write_text(json.dumps(self.payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     def reload(self) -> None:
         manifest = load_json(self.manifest_path)
@@ -81,6 +100,7 @@ class CatalogDataset:
         working_paths = self.payload.get("working_paths") or {}
         preview_root = str(working_paths.get("preview_root") or "").strip()
         self.preview_root = Path(preview_root) if preview_root else None
+        self.sync_writeback_manifest()
 
     def filtered_records(self, active_filters: dict[str, set[str]] | None = None) -> list[dict[str, Any]]:
         if not active_filters:
@@ -485,7 +505,7 @@ def render_page(dataset: CatalogDataset, params: dict[str, list[str]] | str, sel
 .empty {{ color:var(--muted); padding:16px; border:1px dashed var(--border); border-radius:14px; }} pre {{ margin:0; white-space:pre-wrap; word-break:break-word; font-size:12px; line-height:1.5; background:#f5ede0; border-radius:14px; padding:14px; border:1px solid var(--border); }}
 .editor-form {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }} .editor-form label, .runner-controls label {{ display:grid; gap:6px; font-size:12px; color:var(--muted); }} .editor-form input, .editor-form select, .editor-form textarea, .runner-controls input, .runner-controls select {{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#fffdf9; color:var(--ink); font:inherit; }} .editor-form textarea {{ min-height:88px; resize:vertical; }} .editor-form button, .runner-action {{ width:max-content; padding:10px 16px; border:0; border-radius:999px; background:var(--accent); color:#fff; cursor:pointer; font-weight:600; }} .runner-action.warn {{ background:var(--warn); }} .flash {{ display:none; margin-bottom:16px; padding:12px 14px; border-radius:14px; background:var(--accent-soft); color:var(--accent); }} .flash.visible {{ display:block; }} .section-copy {{ color:var(--muted); margin:0 0 12px; }} .action-row {{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }} .runner-controls {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:12px; }} .runner-result {{ min-height:120px; }}
 @media (max-width:1080px) {{ .layout {{ grid-template-columns:1fr; }} .sidebar {{ border-right:0; border-bottom:1px solid var(--border); }} }}
-</style></head><body><div class="layout"><aside class="sidebar"><h1>Folder 3MF Catalog Viewer</h1><p>{'Editable state + import-plan viewer for the folder-driven historical archive catalog.' if dataset.write_enabled else 'Read-only viewer for the new folder-driven historical archive catalog.'}</p><div class="filters">{filter_markup}</div><div class="record-list">{list_markup}</div></aside><main class="content"><div id="flash" class="flash"></div>{detail_markup}</main></div><script>
+</style></head><body><div class="layout"><aside class="sidebar"><h1>Folder 3MF Catalog Viewer</h1><p>{'Editable state + import-plan viewer for the folder-driven historical archive catalog.' if dataset.write_enabled else 'Read-only viewer for the new folder-driven historical archive catalog.'}</p><p>{html.escape(f'Merged manifest writeback: {dataset.writeback_manifest_path}' if dataset.manifest_writeback_enabled else 'Merged manifest writeback: disabled')}</p><div class="filters">{filter_markup}</div><div class="record-list">{list_markup}</div></aside><main class="content"><div id="flash" class="flash"></div>{detail_markup}</main></div><script>
 async function postJson(url, payload) {{
     const response = await fetch(url, {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify(payload) }});
     const data = await response.json();
@@ -668,6 +688,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Launch a folder 3MF catalog viewer")
     parser.add_argument("--manifest", required=True, help="Folder 3MF catalog manifest path")
     parser.add_argument("--state", help="Optional folder 3MF catalog state path")
+    parser.add_argument("--writeback-manifest", help="Optional merged manifest output path that mirrors state edits into a separate manifest file")
     parser.add_argument("--archive-base-url", help="Optional Bambuddy base URL used to render matched archive thumbnails")
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind host")
     parser.add_argument("--port", type=int, default=8766, help="HTTP bind port")
@@ -677,11 +698,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    dataset = CatalogDataset(Path(args.manifest), Path(args.state) if args.state else None, archive_base_url=args.archive_base_url)
+    dataset = CatalogDataset(
+        Path(args.manifest),
+        Path(args.state) if args.state else None,
+        archive_base_url=args.archive_base_url,
+        writeback_manifest_path=Path(args.writeback_manifest) if args.writeback_manifest else None,
+    )
     CatalogHandler.dataset = dataset
     server = ThreadingHTTPServer((args.host, args.port), CatalogHandler)
     url = f"http://{args.host}:{args.port}/"
     print(f"Serving folder 3MF catalog viewer at {url}")
+    if dataset.manifest_writeback_enabled:
+        print(f"Merged manifest writeback path: {dataset.writeback_manifest_path}")
     if not args.no_browser:
         webbrowser.open(url)
     try:
