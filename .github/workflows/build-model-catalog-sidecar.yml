@@ -29,6 +29,14 @@ on:
         options:
           - "false"
           - "true"
+      push_latest:
+        description: Also tag and push this image as latest
+        required: true
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
 
 jobs:
   build:
@@ -67,6 +75,7 @@ jobs:
           RESOLVED_TAG='${{ steps.version.outputs.resolved_tag }}'
           RESOLVED_IMAGE='${{ steps.version.outputs.resolved_image }}'
           LATEST_TAG='${{ steps.version.outputs.latest_tag }}'
+          PUSH_LATEST='${{ github.event.inputs.push_latest }}'
           {
             echo '## Model Catalog Sidecar Image Version'
             echo
@@ -76,6 +85,11 @@ jobs:
             echo
             echo 'Compose update:'
             echo "\`MODEL_CATALOG_IMAGE_TAG=$RESOLVED_TAG\`"
+            if [ "$PUSH_LATEST" = 'true' ]; then
+              echo
+              echo 'Mutable tag update:'
+              echo "\`MODEL_CATALOG_IMAGE_TAG=latest\`"
+            fi
             echo
             echo "Latest existing semantic tag: \`${LATEST_TAG:-none}\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -87,6 +101,9 @@ jobs:
           set -euo pipefail
           IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
           docker build -f sidecars/model_catalog/Dockerfile -t "$IMAGE" .
+          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
+            docker tag "$IMAGE" "${{ github.event.inputs.registry }}:latest"
+          fi
           echo "Built $IMAGE"
 
       - name: Push image
@@ -96,3 +113,6 @@ jobs:
           set -euo pipefail
           IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
           docker push "$IMAGE"
+          if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
+            docker push "${{ github.event.inputs.registry }}:latest"
+          fi

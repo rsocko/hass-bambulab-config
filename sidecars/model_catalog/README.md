@@ -49,6 +49,7 @@ The workflow writes a copy-ready version block into the GitHub Actions run summa
 - resolved tag
 - full image reference
 - `.env` line for compose such as `MODEL_CATALOG_IMAGE_TAG=0.1.0`
+- optional `.env` line for compose as `MODEL_CATALOG_IMAGE_TAG=latest` when `push_latest=true`
 
 ## Compose Tag Management
 
@@ -64,6 +65,14 @@ Recommended update flow:
 2. copy the `MODEL_CATALOG_IMAGE_TAG=...` line from the run summary
 3. paste it into the stack `.env`
 4. run `docker compose pull && docker compose up -d`
+
+If you want to stop updating the stack `.env` for every release, run the workflow with `push_latest=true` and set the compose tag to `latest` once:
+
+```text
+MODEL_CATALOG_IMAGE_TAG=latest
+```
+
+That gives Dockhand a stable image reference to pull and recreate on demand, while the workflow still publishes the immutable semantic tag for rollback.
 
 Suggested `.env` entries:
 

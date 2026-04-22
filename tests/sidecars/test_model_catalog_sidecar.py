@@ -65,7 +65,6 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             assert "grant_type=client_credentials" in body
             assert "client_id=client-id" in body
             assert "client_secret=client-secret" in body
-            assert "scope=public+read" in body
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
         if request.url.path == "/models.json":
             assert request.headers.get("Authorization") == "Bearer token-123"

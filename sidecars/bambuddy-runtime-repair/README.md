@@ -62,6 +62,7 @@ The workflow also writes a copy-ready version block into the GitHub Actions run 
 - resolved tag
 - full image reference
 - `.env` line for compose such as `BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=0.1.4`
+- optional `.env` line for compose as `BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=latest` when `push_latest=true`
 
 ## Compose Tag Management
 
@@ -84,7 +85,13 @@ Suggested `.env` entry:
 BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=0.1.3
 ```
 
-This is smoother than editing the compose YAML on every release and safer than pointing the stack at an always-moving tag like `latest`.
+If you prefer a mutable deployment target, run the workflow with `push_latest=true` and set the compose tag once:
+
+```text
+BAMBUDDY_RUNTIME_REPAIR_IMAGE_TAG=latest
+```
+
+That removes the need to update the stack file or `.env` for each release. The semantic tag is still pushed alongside `latest`, so you keep a pinned rollback target if you need one.
 
 ## Required Environment Variables
 
