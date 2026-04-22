@@ -2,10 +2,10 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY sidecars/model_catalog/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY app ./app
+COPY sidecars/model_catalog/app /app/app
 
 ENV MODEL_CATALOG_HOST=0.0.0.0
 ENV MODEL_CATALOG_PORT=8314
