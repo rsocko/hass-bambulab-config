@@ -1,0 +1,19 @@
+services:
+  model-catalog-sidecar:
+    image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+    container_name: model-catalog-sidecar
+    environment:
+      MANYFOLD_BASE_URL: http://manyfold:3214
+      MODEL_CATALOG_DB_PATH: /data/model_catalog.db
+      MODEL_CATALOG_REFRESH_TTL_SECONDS: 900
+      MODEL_CATALOG_HOST: 0.0.0.0
+      MODEL_CATALOG_PORT: 8314
+    volumes:
+      - model_catalog_data:/data
+    ports:
+      - "127.0.0.1:8314:8314"
+    restart: unless-stopped
+
+volumes:
+  model_catalog_data:
+
