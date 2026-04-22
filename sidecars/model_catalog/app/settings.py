@@ -21,7 +21,7 @@ class Settings:
 
 def load_settings() -> Settings:
     base_url = os.getenv("MANYFOLD_BASE_URL", "http://manyfold.socko.us")
-    models_path = os.getenv("MANYFOLD_MODELS_PATH", "/models.json")
+    models_path = os.getenv("MANYFOLD_MODELS_PATH", "/models")
     token_path = os.getenv("MANYFOLD_OAUTH_TOKEN_PATH", "/oauth/token")
     client_id = str(os.getenv("MANYFOLD_CLIENT_ID", "")).strip() or None
     client_secret = str(os.getenv("MANYFOLD_CLIENT_SECRET", "")).strip() or None

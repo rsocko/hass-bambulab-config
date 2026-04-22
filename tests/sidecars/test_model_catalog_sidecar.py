@@ -14,7 +14,7 @@ from sidecars.model_catalog.app.settings import Settings
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
         manyfold_base_url="http://manyfold.test",
-        manyfold_models_path="/models.json",
+        manyfold_models_path="/models",
         manyfold_oauth_token_path="/oauth/token",
         manyfold_client_id="client-id",
         manyfold_client_secret="client-secret",
@@ -58,6 +58,19 @@ def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
     assert summary.keyword_names == ("storage", "bin")
 
 
+def test_normalize_model_summary_handles_manyfold_api_member_shape() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "API Benchy",
+        },
+    )
+
+    assert summary.model_url == "http://manyfold.test/models/abc123"
+    assert summary.name == "API Benchy"
+
+
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -68,20 +81,15 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             assert "client_secret=client-secret" in body
             assert "scope=public+read" in body
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
-        if request.url.path == "/models.json":
+        if request.url.path == "/models":
             assert request.headers.get("Authorization") == "Bearer token-123"
             return httpx.Response(
                 200,
                 json={
-                    "models": [
+                    "member": [
                         {
-                            "id": 101,
-                            "public_id": "mk101",
+                            "@id": "/models/mk101",
                             "name": "AMS Desiccant Pod",
-                            "preview": {"url": "http://manyfold.test/previews/ams-pod.png"},
-                            "creator": {"name": "socko"},
-                            "collections": [{"name": "Bambu"}],
-                            "keywords": [{"name": "ams"}, {"name": "drybox"}],
                         }
                     ]
                 },
@@ -109,7 +117,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         config = test_client.get("/config")
         assert config.status_code == 200
-        assert config.json()["manyfold_models_path"] == "/models.json"
+        assert config.json()["manyfold_models_path"] == "/models"
         assert config.json()["manyfold_oauth_enabled"] is True
         assert config.json()["manyfold_oauth_scopes"] == "public read"
 
@@ -119,9 +127,9 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert payload["source"] == "manyfold"
         assert payload["count"] == 1
         assert payload["models"][0]["name"] == "AMS Desiccant Pod"
-        assert payload["models"][0]["collection_names"] == ["Bambu"]
+        assert payload["models"][0]["model_url"] == "http://manyfold.test/models/mk101"
 
         cached = test_client.get("/api/models")
         assert cached.status_code == 200
         assert cached.json()["source"] == "cache"
-        assert cached.json()["models"][0]["keyword_names"] == ["ams", "drybox"]
+        assert cached.json()["models"][0]["name"] == "AMS Desiccant Pod"

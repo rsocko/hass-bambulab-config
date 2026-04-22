@@ -20,7 +20,7 @@ class ManyfoldClient:
         self,
         base_url: str,
         *,
-        models_path: str = "/models.json",
+        models_path: str = "/models",
         oauth_token_path: str = "/oauth/token",
         client_id: str | None = None,
         client_secret: str | None = None,
@@ -64,7 +64,7 @@ class ManyfoldClient:
         response = self._client.get(self.models_path, headers=self._auth_headers())
         response.raise_for_status()
         payload = response.json()
-        rows = payload if isinstance(payload, list) else payload.get("models") or payload.get("data") or []
+        rows = payload if isinstance(payload, list) else payload.get("member") or payload.get("models") or payload.get("data") or []
         return [normalize_model_summary(self.base_url, row) for row in rows]
 
 
@@ -73,9 +73,11 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
     creator = payload.get("creator") or {}
     collections = payload.get("collections") or []
     keywords = payload.get("keywords") or payload.get("tags") or []
-    model_url = str(payload.get("url") or "").strip()
+    model_url = str(payload.get("url") or payload.get("@id") or "").strip()
     if not model_url and payload.get("id") is not None:
         model_url = f"{base_url.rstrip('/')}/models/{payload['id']}"
+    elif model_url.startswith("/"):
+        model_url = f"{base_url.rstrip('/')}{model_url}"
 
     def _extract_name(value: Any) -> str | None:
         if isinstance(value, str):

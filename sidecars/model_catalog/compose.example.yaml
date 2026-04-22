@@ -4,7 +4,7 @@ services:
     container_name: model-catalog-sidecar
     environment:
       MANYFOLD_BASE_URL: http://manyfold:3214
-      MANYFOLD_MODELS_PATH: /models.json
+      MANYFOLD_MODELS_PATH: /models
       MANYFOLD_OAUTH_TOKEN_PATH: /oauth/token
       MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
       MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}

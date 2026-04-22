@@ -79,7 +79,7 @@ Suggested `.env` entries:
 ```text
 MODEL_CATALOG_IMAGE_TAG=0.1.0
 MANYFOLD_BASE_URL=http://manyfold:3214
-MANYFOLD_MODELS_PATH=/models.json
+MANYFOLD_MODELS_PATH=/models
 MANYFOLD_OAUTH_TOKEN_PATH=/oauth/token
 MANYFOLD_CLIENT_ID=replace-with-oauth-client-id
 MANYFOLD_CLIENT_SECRET=replace-with-oauth-client-secret
@@ -104,7 +104,7 @@ For the Manyfold stack example, the expected pattern is:
 ## Environment Variables
 
 - `MANYFOLD_BASE_URL` — base URL for the Manyfold instance
-- `MANYFOLD_MODELS_PATH` — JSON endpoint used to list Manyfold models; default `/models.json`
+- `MANYFOLD_MODELS_PATH` — API endpoint used to list Manyfold models; default `/models`
 - `MANYFOLD_OAUTH_TOKEN_PATH` — OAuth token endpoint path; default `/oauth/token`
 - `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
 - `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access
@@ -122,6 +122,7 @@ Current recommendation:
 
 - use a client with read-only access for the current phase
 - set `MANYFOLD_OAUTH_SCOPES=public read` if your Manyfold OAuth server requires explicit requested permissions during client-credentials token acquisition
+- use the official Manyfold REST API documented at `http://manyfold.socko.us/api/index.html`, which exposes `GET /models` with `client_credentials` scopes `public` and `read`
 
 Why scopes are configurable instead of hard-coded:
 
