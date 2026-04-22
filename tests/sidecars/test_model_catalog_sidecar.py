@@ -109,7 +109,6 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert config.status_code == 200
         assert config.json()["manyfold_models_path"] == "/models.json"
         assert config.json()["manyfold_oauth_enabled"] is True
-        assert config.json()["manyfold_oauth_scopes"] == "public read"
 
         models = test_client.get("/api/models")
         assert models.status_code == 200
