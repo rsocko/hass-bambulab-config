@@ -252,6 +252,30 @@ def test_viewer_dataset_update_state_persists_edits(tmp_path: Path) -> None:
     assert persisted["manual_tags"] == ["historical"]
 
 
+def test_viewer_dataset_writeback_manifest_tracks_merged_state(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    _write_zip(
+        source_root / "Widget.3mf",
+        {
+            "3D/Objects/object_1.model": "<model />",
+        },
+    )
+    manifest = build_manifest(source_root=source_root, include_patterns=["*.3mf"], exclude_patterns=[], recurse=True)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    state_path = tmp_path / "state" / "catalog_state.json"
+    writeback_manifest_path = tmp_path / "exports" / "catalog_with_state.json"
+    dataset = CatalogDataset(manifest_path, state_path, writeback_manifest_path=writeback_manifest_path)
+    record_id = manifest["candidates"][0]["record_id"]
+
+    dataset.update_state(record_id, {"disposition": "Keep", "manual_tags": ["historical"]})
+
+    exported = json.loads(writeback_manifest_path.read_text(encoding="utf-8"))
+    assert exported["candidates"][0]["record_id"] == record_id
+    assert exported["candidates"][0]["state"]["disposition"] == "Keep"
+    assert exported["candidates"][0]["state"]["manual_tags"] == ["historical"]
+
+
 def test_viewer_dataset_runner_action_returns_inspect_payload(tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     _write_zip(

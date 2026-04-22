@@ -6,8 +6,8 @@
 
 See also:
 
-- `../../model_library/model-library-strategy.md`
-- `../../model_library/integration/archive-to-library-linkage.md`
+- `../../model_catalog/model-library-strategy.md`
+- `../../model_catalog/integration/archive-to-library-linkage.md`
 
 ## Why This Needs A Separate Policy
 
