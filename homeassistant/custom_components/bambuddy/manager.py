@@ -79,7 +79,7 @@ EVENT_COLOR_KEYS = {
     "enrichment_applied": "enrichment",
     "repair_applied": "repair",
     "metadata_corrected": "repair",
-    "spool_usage_recorded": "success",
+    "spool_usage_recorded": "spoolman",
     "spool_usage_recording_failed": "failure",
     "spool_usage_not_recorded": "failure",
     "spool_usage_review_estimated": "neutral",

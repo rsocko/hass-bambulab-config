@@ -414,6 +414,15 @@
         effective_payload: >-
           {{ (existing_payload if use_existing_payload else current_payload) | tojson | from_json }}
         effective_payload_status_label: "{{ {'c': 'complete', 't': 'near complete', 'm': 'mostly complete', 'n': 'mostly complete', 'p': 'partially complete', 'u': 'unavailable'}.get(effective_payload.s | default('', true), effective_payload.s | default('', true)) }}"
+        effective_filament_rows: "{{ effective_payload.F | default([], true) | count }}"
+        effective_resolved_rows: >-
+          {% set ns = namespace(count=0) %}
+          {% for row in effective_payload.F | default([], true) %}
+            {% if row.s is not none and row.f is not none and row.h is not none %}
+              {% set ns.count = ns.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.count }}
         effective_system_tags: >-
           {% set ns = namespace(tags=[], spool_ids=[], filament_ids=[]) %}
           {% for item in effective_payload.F | default([], true) %}
@@ -454,6 +463,10 @@
           {% endif %}
           {% set parts.values = parts.values + [enrichment_marker ~ (effective_payload | to_json)] %}
           {{ parts.values | join('\n\n') }}
+        existing_tags_normalized: "{{ existing_tags_raw | string | trim }}"
+        merged_tags_normalized: "{{ merged_tags | string | trim }}"
+        existing_notes_normalized: "{{ existing_notes_raw | string }}"
+        merged_notes_normalized: "{{ merged_notes | string }}"
         live_print_cost_available: >-
           {{ live_print_cost_raw not in ['', 'unknown', 'unavailable', 'none', 'None']
              and (live_print_cost_raw | regex_match('^-?\d+(\.\d+)?$')) }}
@@ -461,6 +474,16 @@
           {{ live_print_cost_available and (live_print_cost_raw | float(0)) > 0 }}
         existing_archive_cost_positive: >-
           {{ existing_archive_cost_raw is not none and (existing_archive_cost_raw | float(0)) > 0 }}
+        existing_archive_cost_defined: >-
+          {{ existing_archive_cost_raw is not none
+             and (existing_archive_cost_raw | string | trim) not in ['', 'unknown', 'unavailable', 'none', 'None']
+             and (existing_archive_cost_raw | string | trim | regex_match('^-?\d+(\.\d+)?$')) }}
+        existing_archive_cost_value: >-
+          {% if existing_archive_cost_defined %}
+            {{ existing_archive_cost_raw | float(0) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
         archive_cost_breakdown: >-
           {% set default_price_per_kg = states('input_number.print_cost_default_per_kg') | float(20.0) %}
           {% set default_spool_weight_g = 1000 %}
@@ -521,6 +544,14 @@
           {% else %}
             preserved_bambuddy_value
           {% endif %}
+        terminal_cost_unchanged: >-
+          {{ (not archive_cost_defined)
+             or (existing_archive_cost_defined and (existing_archive_cost_value | float(0)) == (archive_cost_value | float(0))) }}
+        terminal_noop_reconciliation: >-
+          {{ is_terminal_trigger
+             and existing_tags_normalized == merged_tags_normalized
+             and existing_notes_normalized == merged_notes_normalized
+             and terminal_cost_unchanged }}
 
     - if:
         - condition: template
@@ -601,6 +632,24 @@
             message: >-
               WARNING: Archive {{ archive_id }} had no reliable terminal per-tray enrichment data.
               Enrichment was not updated automatically.
+    - if:
+        - condition: template
+          value_template: "{{ terminal_noop_reconciliation }}"
+      then:
+        - action: system_log.write
+          data:
+            message: >-
+              Print History skipped terminal reconciliation write for archive {{ archive_id }} because
+              tags, notes, and cost were unchanged from the earlier enrichment pass.
+              source={{ effective_payload_source }}, status={{ effective_payload_status_label }}.
+            level: info
+            logger: homeassistant.components.bambulab.print_history
+        - action: logbook.log
+          data:
+            name: Print History Reconciliation
+            message: >-
+              Terminal reconciliation found no archive changes for {{ archive_id }}.
+              Skipped duplicate enrichment write and timeline event.
       else:
         - choose:
             - conditions:
@@ -619,6 +668,24 @@
                 archive_id: "{{ archive_id }}"
                 tags: "{{ merged_tags }}"
                 notes: "{{ merged_notes }}"
+        - action: bambuddy.append_print_history_event
+          data:
+            archive_id: "{{ archive_id | int(0) }}"
+            event_type: enrichment_applied
+            event_source: print_history_enrichment
+            event_time: "{{ now().isoformat() }}"
+            event_status: "{{ 'completed' if is_terminal_trigger else 'printing' }}"
+            derived_from: "{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}"
+            event_key: >-
+              enrichment_applied:{{ archive_id }}:{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}
+            payload:
+              mode: "{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}"
+              source: "{{ effective_payload_source }}"
+              enrichment_status: "{{ effective_payload_status_label }}"
+              filament_rows: "{{ effective_filament_rows | int(0) }}"
+              resolved_rows: "{{ effective_resolved_rows | int(0) }}"
+              archive_cost_defined: "{{ archive_cost_defined }}"
+              archive_cost_source: "{{ archive_cost_source }}"
         - action: bambuddy.refresh_print_history_archive_detail
           data:
             archive_id: "{{ archive_id }}"
@@ -661,6 +728,9 @@
               {% if skip_patch_no_reliable_payload %}
                 Terminal reconciliation found no reliable per-tray enrichment data for archive {{ archive_id }}.
                 Archive enrichment was not updated automatically.
+              {% elif terminal_noop_reconciliation %}
+                Terminal reconciliation found no archive changes for {{ archive_id }}.
+                Skipped duplicate enrichment write and timeline event.
               {% else %}
                 Reconciled archive {{ archive_id }} with {{ effective_payload_status_label }}
                 enrichment data (source={{ effective_payload_source }}),

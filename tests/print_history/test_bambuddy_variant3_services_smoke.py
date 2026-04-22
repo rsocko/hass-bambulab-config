@@ -979,6 +979,22 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
 
     hass = FakeHass(tmp_path, _default_state_map())
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+
+    response = manager.build_query_response({"page": 1, "page_size": 10})
+
+    assert response["archive_count"] >= 2
+    assert response["archives"][0]["id"] == 101
+    assert "duplicate_count" in response["archives"][0]
+    assert response["query"]["filtered_count"] >= 2
 
 def test_variant3_manager_build_archive_detail_response_summarizes_spool_usage_events(tmp_path: Path) -> None:
     _const_module, query_module, manager_module, _init_module = _import_component_modules()
@@ -1023,7 +1039,7 @@ def test_variant3_manager_build_archive_detail_response_summarizes_spool_usage_e
 
     assert detail is not None
     assert detail["event_timeline"][0]["label"] == "Spool usage recorded"
-    assert detail["event_timeline"][0]["color_key"] == "success"
+    assert detail["event_timeline"][0]["color_key"] == "spoolman"
     assert detail["event_timeline"][1]["label"] == "Spool usage recording failed"
     assert detail["event_timeline"][1]["color_key"] == "failure"
     assert detail["spool_usage_recording"]["status"] == "partial"
@@ -1070,6 +1086,13 @@ def test_variant3_manager_build_archive_detail_response_marks_review_only_spool_
     assert detail["spool_usage_recording"]["status"] == "review_only"
     assert detail["spool_usage_recording"]["label"] == "Review Only"
     assert detail["spool_usage_recording"]["review_only_count"] == 1
+
+
+def test_variant3_manager_build_query_response_includes_runtime_annotations(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
         data={
             "base_url": "http://example.local",
@@ -3185,6 +3208,24 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     assert detail["event_timeline"][1]["label"] == "Enrichment applied"
     assert detail["event_timeline"][1]["color_key"] == "enrichment"
     assert detail["skip_overlay_state"]["pick_image_asset_path"] == "Metadata/pick_2.png"
+
+
+def test_live_enrichment_automation_appends_timeline_events() -> None:
+    automation_content = (
+        HOMEASSISTANT_ROOT
+        / "packages"
+        / "3d_printing"
+        / "print_history"
+        / "automations"
+        / "bambuddy_enrich_archive_on_complete.yaml"
+    ).read_text("utf-8")
+
+    assert "- action: bambuddy.append_print_history_event" in automation_content
+    assert "event_type: enrichment_applied" in automation_content
+    assert "enrichment_applied:{{ archive_id }}:{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}" in automation_content
+    assert "mode: \"{{ 'terminal_reconciliation' if is_terminal_trigger else 'during_print' }}\"" in automation_content
+    assert 'terminal_noop_reconciliation' in automation_content
+    assert 'Skipped duplicate enrichment write and timeline event.' in automation_content
 
 
 def test_variant3_manager_project_options_disambiguate_duplicate_names(tmp_path: Path) -> None:
