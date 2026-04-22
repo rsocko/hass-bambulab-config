@@ -775,6 +775,20 @@ ams_tray_popup:
         const dateStr = filledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         desiccantText = ageDays + (ageDays === 1 ? ' day ago' : ' days ago') + ' (' + dateStr + ')';
       }
+      const dryYellow = 45;
+      const dryOrange = 60;
+      const dryRed = 90;
+      let driedStatus = isSealed ? 'green' : 'empty';
+      let driedDays = null;
+      if (lastDried) {
+        const driedDate = new Date(lastDried);
+        driedDays = Math.floor((Date.now() - driedDate) / 86400000);
+        if (isSealed) driedStatus = 'green';
+        else if (driedDays < dryYellow) driedStatus = 'green';
+        else if (driedDays < dryOrange) driedStatus = 'yellow';
+        else if (driedDays < dryRed) driedStatus = 'orange';
+        else driedStatus = 'red';
+      }
       const weightText = (remainingWeight !== undefined && remainingWeight !== null) ? remainingWeight.toFixed(1) + ' g' : 'N/A';
       const printWeightText = (printWeight && printWeight > 0) ? printWeight.toFixed(1) + ' g' : 'N/A';
       const printWeightSecondary = usingBackupPrintWeight ? 'This Print (backup)' : 'This Print';
@@ -1687,7 +1701,7 @@ ams_tray_popup:
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
+                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[driedStatus] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
