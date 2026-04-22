@@ -97,7 +97,6 @@
         {% set external_weight = weight_attrs.get('External') %}
       {% endif %}
       {% set ns.result = ns.result | combine({ 'External Spool': external_weight | float(0) }) %}
-      {% set ns.result = ns.result | combine({ 'External': external_weight | float(0) }) %}
 
       {{ ns.result | tojson | from_json }}
 
@@ -166,18 +165,6 @@
       {{ weight_attrs.get('AMS 2 Tray 4') | float(0) }}
 
     "External Spool": >
-      {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
-      {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
-      {% set backup_weight_attrs = backup_raw | from_json(None) %}
-      {% set live_has_keys = live_weight_attrs.keys() | select('match', '^(AMS|External)') | list | length > 0 %}
-      {% set weight_attrs = live_weight_attrs if live_has_keys else (backup_weight_attrs if backup_weight_attrs is mapping else dict()) %}
-      {% set external_weight = weight_attrs.get('External Spool') %}
-      {% if external_weight is none %}
-        {% set external_weight = weight_attrs.get('External') %}
-      {% endif %}
-      {{ external_weight | float(0) }}
-
-    External: >
       {% set live_weight_attrs = states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes %}
       {% set backup_raw = states('input_text.print_weight_backup') | string | trim %}
       {% set backup_weight_attrs = backup_raw | from_json(None) %}
