@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database
 from sidecars.model_catalog.app.main import create_app
-from sidecars.model_catalog.app.manyfold import ManyfoldClient, normalize_model_summary
+from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -83,6 +83,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
         if request.url.path == "/models":
             assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             return httpx.Response(
                 200,
                 json={

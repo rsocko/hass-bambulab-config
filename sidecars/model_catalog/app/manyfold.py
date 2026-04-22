@@ -11,6 +11,9 @@ from .db import connect
 from .models import ManyfoldModelSummary
 
 
+MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -61,7 +64,11 @@ class ManyfoldClient:
         return {"Authorization": f"Bearer {self._access_token}"}
 
     def list_models(self) -> list[ManyfoldModelSummary]:
-        response = self._client.get(self.models_path, headers=self._auth_headers())
+        headers = {
+            "Accept": MANYFOLD_API_ACCEPT,
+            **self._auth_headers(),
+        }
+        response = self._client.get(self.models_path, headers=headers)
         response.raise_for_status()
         payload = response.json()
         rows = payload if isinstance(payload, list) else payload.get("member") or payload.get("models") or payload.get("data") or []
