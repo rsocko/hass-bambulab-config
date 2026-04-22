@@ -979,6 +979,97 @@ def test_variant3_manager_build_query_response_includes_store_annotations(tmp_pa
 
     hass = FakeHass(tmp_path, _default_state_map())
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+
+def test_variant3_manager_build_archive_detail_response_summarizes_spool_usage_events(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_recorded",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:15:00Z",
+        event_status="recorded",
+        payload={
+            "tray_name": "AMS 1 Tray 1",
+            "spool_id": 501,
+            "used_grams": "21.2",
+            "message": "Spool usage was recorded successfully for this tray.",
+        },
+    )
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_recording_failed",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:16:00Z",
+        event_status="failed",
+        payload={
+            "tray_name": "AMS 1 Tray 2",
+            "reason_code": "missing_tray_uuid",
+            "message": "Tray UUID was missing, so automatic spool usage recording was skipped for this tray.",
+        },
+    )
+
+    detail = manager.build_archive_detail_response(101)
+
+    assert detail is not None
+    assert detail["event_timeline"][0]["label"] == "Spool usage recorded"
+    assert detail["event_timeline"][0]["color_key"] == "success"
+    assert detail["event_timeline"][1]["label"] == "Spool usage recording failed"
+    assert detail["event_timeline"][1]["color_key"] == "failure"
+    assert detail["spool_usage_recording"]["status"] == "partial"
+    assert detail["spool_usage_recording"]["label"] == "Partial"
+    assert detail["spool_usage_recording"]["recorded_count"] == 1
+    assert detail["spool_usage_recording"]["failed_count"] == 1
+    assert detail["spool_usage_recording"]["recorded_spool_ids"] == [501]
+    assert detail["spool_usage_recording"]["failed_trays"] == ["AMS 1 Tray 2"]
+    assert detail["spool_usage_recording"]["reason_code"] == "missing_tray_uuid"
+
+
+def test_variant3_manager_build_archive_detail_response_marks_review_only_spool_usage(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+
+    manager.store.append_archive_event(
+        101,
+        event_type="spool_usage_review_estimated",
+        event_source="spoolman_sync",
+        event_time="2026-04-08T12:30:00Z",
+        event_status="review_only",
+        payload={
+            "outcome": "failed",
+            "matched_slots": 1,
+            "unmatched_slots": 1,
+            "message": "Review-only partial usage estimate captured. No Spoolman decrement was applied.",
+        },
+    )
+
+    detail = manager.build_archive_detail_response(101)
+
+    assert detail is not None
+    assert detail["event_timeline"][0]["label"] == "Spool usage review estimate"
+    assert detail["event_timeline"][0]["color_key"] == "neutral"
+    assert detail["spool_usage_recording"]["status"] == "review_only"
+    assert detail["spool_usage_recording"]["label"] == "Review Only"
+    assert detail["spool_usage_recording"]["review_only_count"] == 1
         entry_id="entry-1",
         data={
             "base_url": "http://example.local",

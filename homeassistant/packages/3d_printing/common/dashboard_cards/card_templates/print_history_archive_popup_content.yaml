@@ -36,6 +36,7 @@ print_history_archive_popup_content:
         let archive = snapshotArchive;
         let detailEventTimeline = [];
         let detailEnrichmentProvenance = [];
+        let detailSpoolUsageRecording = null;
         let detailSkipOverlayState = null;
         const detailState = states['sensor.print_history_popup_archive_detail'];
         if (detailState && String(detailState.state || '') === String(snapshotArchiveId || '')) {
@@ -48,6 +49,11 @@ print_history_archive_popup_content:
             const timelineRaw = detailState.attributes?.event_timeline_json || '[]';
             const parsedTimeline = typeof timelineRaw === 'string' ? JSON.parse(timelineRaw || '[]') : timelineRaw;
             detailEventTimeline = Array.isArray(parsedTimeline) ? parsedTimeline : [];
+            const spoolUsageRaw = detailState.attributes?.spool_usage_recording_json || '{}';
+            const parsedSpoolUsage = typeof spoolUsageRaw === 'string' ? JSON.parse(spoolUsageRaw || '{}') : spoolUsageRaw;
+            detailSpoolUsageRecording = parsedSpoolUsage && typeof parsedSpoolUsage === 'object' && !Array.isArray(parsedSpoolUsage)
+              ? parsedSpoolUsage
+              : null;
             const skipOverlayRaw = detailState.attributes?.skip_overlay_state_json || '{}';
             const parsedSkipOverlay = typeof skipOverlayRaw === 'string' ? JSON.parse(skipOverlayRaw || '{}') : skipOverlayRaw;
             detailSkipOverlayState = parsedSkipOverlay && typeof parsedSkipOverlay === 'object' && !Array.isArray(parsedSkipOverlay)
@@ -59,6 +65,7 @@ print_history_archive_popup_content:
           } catch (_error) {
             archive = snapshotArchive;
             detailEventTimeline = [];
+            detailSpoolUsageRecording = null;
             detailSkipOverlayState = null;
             detailEnrichmentProvenance = [];
           }
@@ -374,6 +381,63 @@ print_history_archive_popup_content:
             border: '',
             color: '',
             chips: [],
+          };
+        };
+
+        const buildSpoolUsageRecordingState = (value) => {
+          const summary = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+          const status = String(summary?.status || '').trim().toLowerCase();
+          if (!summary || !status) {
+            return { visible: false, label: '', icon: '', color: '', background: '', title: '' };
+          }
+          const stateMap = {
+            recorded: {
+              label: 'Spool Usage Recorded',
+              icon: 'mdi:check-circle',
+              color: '#2E7D32',
+              background: 'rgba(46,125,50,0.18)',
+            },
+            partial: {
+              label: 'Spool Usage Partial',
+              icon: 'mdi:alert-circle',
+              color: '#EF6C00',
+              background: 'rgba(239,108,0,0.18)',
+            },
+            not_recorded: {
+              label: 'Spool Usage Not Recorded',
+              icon: 'mdi:close-circle',
+              color: '#C62828',
+              background: 'rgba(198,40,40,0.18)',
+            },
+            failed: {
+              label: 'Spool Usage Failed',
+              icon: 'mdi:alert-circle-outline',
+              color: '#C62828',
+              background: 'rgba(198,40,40,0.18)',
+            },
+            review_only: {
+              label: 'Spool Usage Review Only',
+              icon: 'mdi:clipboard-text-clock-outline',
+              color: '#78909C',
+              background: 'rgba(120,144,156,0.18)',
+            },
+          };
+          const mapped = stateMap[status];
+          if (!mapped) {
+            return { visible: false, label: '', icon: '', color: '', background: '', title: '' };
+          }
+          const titleParts = [];
+          if (Number(summary?.recorded_count || 0) > 0) titleParts.push(`${summary.recorded_count} recorded`);
+          if (Number(summary?.failed_count || 0) > 0) titleParts.push(`${summary.failed_count} failed`);
+          if (Number(summary?.review_only_count || 0) > 0) titleParts.push(`${summary.review_only_count} review-only`);
+          if (summary?.message) titleParts.push(String(summary.message));
+          return {
+            visible: true,
+            label: mapped.label,
+            icon: mapped.icon,
+            color: mapped.color,
+            background: mapped.background,
+            title: titleParts.join(' | '),
           };
         };
 
@@ -702,6 +766,7 @@ print_history_archive_popup_content:
           };
         };
         const duplicateState = buildDuplicateState(archive);
+        const spoolUsageRecordingState = buildSpoolUsageRecordingState(detailSpoolUsageRecording);
         const favoriteButtonLabel = isFavorite ? 'Remove from favorites' : 'Add to favorites';
         const favoriteButtonTitle = `${favoriteButtonLabel} (toggle favorite)`;
         const favoriteButtonSequence = JSON.stringify({
@@ -722,6 +787,7 @@ print_history_archive_popup_content:
           `<span style="background:${statusColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><span>${statusIcon}</span><span>${escapeHtml(statusLabel)}</span></span>`,
             archiveId != null ? renderInfoChip('', `#${archiveId}`, { fontWeight: 700, title: `Archive ID #${archiveId}` }) : '',
           archiveError.hasArchiveError ? `<span style="background:${archiveError.severity === 'error' ? '#C62828' : '#EF6C00'};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:15px;color:#fff;"></ha-icon><span>${escapeHtml(archiveError.label)}</span></span>` : '',
+          spoolUsageRecordingState.visible ? renderInfoChip(spoolUsageRecordingState.icon, spoolUsageRecordingState.label, { background: spoolUsageRecordingState.background, color: spoolUsageRecordingState.color, border: `1px solid ${spoolUsageRecordingState.color}`, fontWeight: 700, title: spoolUsageRecordingState.title }) : '',
           duplicateState.hasDuplicateContext ? `<span style="background:${duplicateState.chipColor};color:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:8px;line-height:1.2;"><ha-icon icon="${escapeHtml(duplicateState.icon)}" style="--mdc-icon-size:15px;color:#fff;"></ha-icon><span>${escapeHtml(duplicateState.chipLabel)}</span></span>` : '',
           renderInfoChip('mdi:palette-swatch-outline', archive?.designer, { fontWeight: 500 }),
           favoriteChip

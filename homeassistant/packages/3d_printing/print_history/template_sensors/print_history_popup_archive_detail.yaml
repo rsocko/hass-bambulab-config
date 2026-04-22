@@ -76,6 +76,21 @@
             {% endif %}
             {{ timeline | tojson }}
           {% endif %}
+        spool_usage_recording_json: >-
+          {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
+          {% if archive_id == '' %}
+            {}
+          {% else %}
+            {% set content = result.get('spool_usage_recording', {}) if result is defined and result is mapping else {} %}
+            {% if content is string %}
+              {% set summary = content | from_json({}) %}
+            {% elif content is mapping %}
+              {% set summary = content %}
+            {% else %}
+              {% set summary = {} %}
+            {% endif %}
+            {{ summary | tojson }}
+          {% endif %}
         skip_overlay_state_json: >-
           {% set archive_id = states('input_text.print_history_popup_archive_id') | string | trim %}
           {% if archive_id == '' %}

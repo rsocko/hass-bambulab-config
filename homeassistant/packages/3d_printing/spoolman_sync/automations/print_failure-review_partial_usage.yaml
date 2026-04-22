@@ -161,6 +161,24 @@
               message: >-
                 Review-only estimate captured for archive {{ archive_id_raw }} ({{ print_status }}).
                 Method={{ estimate_calc.get('method', 'unknown') }}, total={{ estimate_totals.get('estimated_used_g_total', 0) }}g.
+          - action: bambuddy.append_print_history_event
+            data:
+              archive_id: "{{ archive_id_raw | int }}"
+              event_type: spool_usage_review_estimated
+              event_source: spoolman_sync
+              event_time: "{{ now().isoformat() }}"
+              event_status: review_only
+              event_key: "spool_usage_review_estimated:{{ archive_id_raw }}:{{ estimate_dedupe.get('dedupe_key', print_status) }}"
+              payload:
+                outcome: "{{ print_status }}"
+                method: "{{ estimate_calc.get('method', 'unknown') }}"
+                confidence: "{{ estimate_calc.get('confidence', 'unknown') }}"
+                estimated_total_g: "{{ estimate_totals.get('estimated_used_g_total', 0) }}"
+                matched_slots: "{{ estimate_totals.get('matched_slots', 0) }}"
+                unmatched_slots: "{{ estimate_totals.get('unmatched_slots', 0) }}"
+                dedupe_key: "{{ estimate_dedupe.get('dedupe_key', '') }}"
+                task_name: "{{ task_name }}"
+                message: Review-only partial usage estimate captured. No Spoolman decrement was applied.
     default:
       - action: persistent_notification.create
         data:
@@ -181,4 +199,16 @@
             error={{ partial_usage_estimate_response.error if partial_usage_estimate_response is defined else 'unknown' }}.
           level: warning
           logger: homeassistant.components.bambulab.spoolman_sync
+      - action: bambuddy.append_print_history_event
+        data:
+          archive_id: "{{ archive_id_raw | int }}"
+          event_type: spool_usage_review_failed
+          event_source: spoolman_sync
+          event_time: "{{ now().isoformat() }}"
+          event_status: failed
+          event_key: "spool_usage_review_failed:{{ archive_id_raw }}:{{ print_status }}"
+          payload:
+            outcome: "{{ print_status }}"
+            error: "{{ partial_usage_estimate_response.error if partial_usage_estimate_response is defined else 'unknown' }}"
+            message: "{{ partial_usage_estimate_response.message if partial_usage_estimate_response is defined else 'unknown' }}"
   mode: single
