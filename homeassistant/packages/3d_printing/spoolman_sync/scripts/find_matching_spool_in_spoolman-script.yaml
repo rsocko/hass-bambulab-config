@@ -86,10 +86,19 @@ find_matching_spool_in_spoolman:
   - variables:
       bambu_only: >-
         {{ bambu_only | default(false) or parameters.target_name | default('', true) | string | trim | regex_match('^Bambu', ignorecase=false) | bool }}
+      target_type_normalized: >-
+        {% set m = parameters.target_type | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[\s]+\d.*$', '') | trim %}
+        {% if m == 'NYLON' %}
+          PA
+        {% elif m in ['PLA-S', 'PLA-S (PLA FOR SUPPORT)'] %}
+          PLA
+        {% else %}
+          {{ m }}
+        {% endif %}
   - variables:
       spools_lower: |-
         [ {% for spool in spools.content %}
-          {"id": "{{ spool.id }}", "color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6] }}", "multi_first_hex_lower": "{{ (((spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',')) | map('trim') | map('replace', '#', '') | list | first | default('', true))[:6] }}", "multi_hexes_lower": [{% set ns_multi = namespace(vals=[]) %}{% for hex in (spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}{% set parsed = hex | trim | replace('#', '') %}{% if parsed | length >= 6 %}{% set ns_multi.vals = ns_multi.vals + [parsed[:6]] %}{% endif %}{% endfor %}{% for v in ns_multi.vals %}"{{ v }}"{% if not loop.last %}, {% endif %}{% endfor %}], "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "location": "{{ spool.location }}"}
+          {"id": "{{ spool.id }}", "color_hex_lower": "{{ (spool.filament.color_hex | default('', true) | string | trim | replace('#', '') | replace('"', '') | lower)[:6] }}", "multi_first_hex_lower": "{{ (((spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',')) | map('trim') | map('replace', '#', '') | list | first | default('', true))[:6] }}", "multi_hexes_lower": [{% set ns_multi = namespace(vals=[]) %}{% for hex in (spool.filament.multi_color_hexes | default('', true) | string | trim | replace('"', '') | lower).split(',') %}{% set parsed = hex | trim | replace('#', '') %}{% if parsed | length >= 6 %}{% set ns_multi.vals = ns_multi.vals + [parsed[:6]] %}{% endif %}{% endfor %}{% for v in ns_multi.vals %}"{{ v }}"{% if not loop.last %}, {% endif %}{% endfor %}], "profile_name": "{{ spool.filament.extra.profile_name | trim('"') }}", "sealed": "{{ spool.extra.sealed }}", "vendor": "{{ spool.filament.vendor.name }}", "material": "{{ spool.filament.material }}", "material_normalized": "{% set m = spool.filament.material | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[\s]+\d.*$', '') | trim %}{% if m == 'NYLON' %}PA{% elif m in ['PLA-S', 'PLA-S (PLA FOR SUPPORT)'] %}PLA{% else %}{{ m }}{% endif %}", "location": "{{ spool.location }}"}
           {% if not loop.last %},{% endif %}
         {% endfor %} ]
       enable_multi_any_hex_fallback: true
@@ -100,32 +109,32 @@ find_matching_spool_in_spoolman:
       matched_spools_single: >-
         {{ spools_lower | selectattr('color_hex_lower', 'equalto',
         query_hex_lower | string)
-              | selectattr('material', 'equalto', parameters.target_type)
+            | selectattr('material_normalized', 'equalto', target_type_normalized)
               | selectattr('profile_name', 'equalto', parameters.target_name)
               | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else 
               spools_lower | selectattr('color_hex_lower', 'equalto', query_hex_lower | string)
               | selectattr('vendor', 'ne', 'Bambu Lab') 
-              | selectattr('material', 'equalto', parameters.target_type) | list }}
+            | selectattr('material_normalized', 'equalto', target_type_normalized) | list }}
       matched_spools_multi_first: >-
         {{ spools_lower | selectattr('multi_first_hex_lower', 'equalto',
         query_hex_lower | string)
-              | selectattr('material', 'equalto', parameters.target_type)
+            | selectattr('material_normalized', 'equalto', target_type_normalized)
               | selectattr('profile_name', 'equalto', parameters.target_name)
               | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else
               spools_lower | selectattr('multi_first_hex_lower', 'equalto', query_hex_lower | string)
               | selectattr('vendor', 'ne', 'Bambu Lab')
-              | selectattr('material', 'equalto', parameters.target_type) | list }}
+            | selectattr('material_normalized', 'equalto', target_type_normalized) | list }}
       matched_spools_multi_any: >-
         {% if enable_multi_any_hex_fallback %}
         {{ spools_lower
               | selectattr('multi_hexes_lower', 'contains', query_hex_lower | string)
-              | selectattr('material', 'equalto', parameters.target_type)
+            | selectattr('material_normalized', 'equalto', target_type_normalized)
               | selectattr('profile_name', 'equalto', parameters.target_name)
               | selectattr('vendor', 'equalto', 'Bambu Lab') | list if bambu_only else
               spools_lower
               | selectattr('multi_hexes_lower', 'contains', query_hex_lower | string)
               | selectattr('vendor', 'ne', 'Bambu Lab')
-              | selectattr('material', 'equalto', parameters.target_type) | list }}
+            | selectattr('material_normalized', 'equalto', target_type_normalized) | list }}
         {% else %}
         {{ [] }}
         {% endif %}
