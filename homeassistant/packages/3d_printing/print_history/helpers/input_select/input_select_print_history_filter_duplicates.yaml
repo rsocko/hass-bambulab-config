@@ -3,6 +3,8 @@ print_history_filter_duplicates:
   icon: mdi:content-copy
   options:
     - All
-    - Originals Only
-    - Duplicates Only
+    - Sources
+    - Original Only
+    - Dupes Only
+    - Source + Dupes
   initial: All

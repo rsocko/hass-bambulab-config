@@ -48,7 +48,7 @@ query_print_history_browser:
         text:
     duplicates:
       name: Duplicates
-      description: Filter by duplicate role such as Originals Only or Duplicates Only.
+      description: Filter by duplicate role such as Sources, Original Only, Dupes Only, or Source + Dupes.
       required: false
       selector:
         text:

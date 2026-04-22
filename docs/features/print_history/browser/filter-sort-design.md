@@ -54,14 +54,16 @@ The current contract is:
 
 - Layer 1 archive projection may persist only the reusable scalar fields needed across browser consumers: `duplicate_count`, `duplicate_sequence`, and `original_archive_id`
 - Layer 1 should not mirror Bambuddy's full `duplicates` array or card-specific wording
-- Layer 2 owns duplicate filter semantics and classification rules for `All`, `Originals Only`, and `Duplicates Only`
+- Layer 2 owns duplicate filter semantics and classification rules for `All`, `Sources`, `Original Only`, `Dupes Only`, and `Source + Dupes`
 - Layer 3 owns final wording and chip text for the archive cards and popup
 
 Current filter semantics:
 
-- `Originals Only` means rows with `duplicate_count > 0` that are not themselves duplicate children
-- `Duplicates Only` means rows with `original_archive_id` present or `duplicate_sequence > 0`
-- non-duplicate rows remain visible only in the default `All` view
+- `Sources` means rows whose explicit duplicate lineage identifies the row as the source archive for a duplicate family
+- `Original Only` means rows that are neither duplicate children nor explicit duplicate sources
+- `Dupes Only` means duplicate children identified by `original_archive_id` or `duplicate_sequence > 0`
+- `Source + Dupes` means the union of explicit sources and duplicate children
+- `All` remains the unfiltered view
 
 Follow-on work such as related-item navigation, compare flows, or suspicious same-hash review should use popup detail hydration or a dedicated query path rather than widening the base archive projection.
 

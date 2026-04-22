@@ -1121,7 +1121,7 @@ def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path
     const_module, query_module, manager_module, _init_module = _import_component_modules()
 
     state_map = _default_state_map()
-    state_map["input_select.print_history_filter_duplicates"] = "Duplicates Only"
+    state_map["input_select.print_history_filter_duplicates"] = "Dupes Only"
     hass = FakeHass(tmp_path, state_map)
     entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
         entry_id="entry-1",
@@ -1139,7 +1139,7 @@ def test_variant3_manager_build_query_response_filters_duplicates(tmp_path: Path
     manager.archives = manager.store.load_archives()
     manager._recompute_query()
 
-    response = manager.build_query_response({"duplicates": "Duplicates Only"})
+    response = manager.build_query_response({"duplicates": "Dupes Only"})
 
     assert [archive["id"] for archive in response["archives"]] == [202]
     assert "duplicates" in response["query"]["active_filters"]
