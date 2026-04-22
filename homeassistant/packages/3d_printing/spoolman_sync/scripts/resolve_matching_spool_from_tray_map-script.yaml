@@ -40,8 +40,13 @@ resolve_matching_spool_from_tray_map:
             {% set active_type = state_attr(tray_entity_id, 'type') | default('', true) | string %}
             {% set active_name = state_attr(tray_entity_id, 'name') | default('', true) | string %}
             {% set active_color = state_attr(tray_entity_id, 'color') | default('', true) | string | replace('#', '') | lower %}
+            {% set external_active = state_attr('sensor.ntk_ryansoffice_3dprinter_external_spool', 'active') is true %}
             {% if active_color | length == 8 %}
               {% set active_color = active_color[0:6] %}
+            {% endif %}
+
+            {% if ns.key | length == 0 and external_active %}
+              {% set ns.key = 'external_spool' %}
             {% endif %}
 
             {% if active_uuid | length > 0 and not active_uuid | regex_match('^0+$') %}
