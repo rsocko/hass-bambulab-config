@@ -6,6 +6,31 @@ Last updated: 2026-04-22
 
 Single operator launch point for manual reconciliation and correction across the three source areas.
 
+## Quick Lane Helper
+
+The launchpad below remains the full reference (all canonical paths and explicit commands).
+The helper script is a convenience wrapper that launches the correct lane using those same paths.
+
+Helper script:
+
+`c:\dev\hass-bambulab-config\tools\bambuddy\open_reconciliation_lane.ps1`
+
+Examples:
+
+```powershell
+# Lane A: open working folder and start folder-catalog viewer
+& "c:\dev\hass-bambulab-config\tools\bambuddy\open_reconciliation_lane.ps1" -Lane A
+
+# Lane B1: open working folder and start SD forensics viewer
+& "c:\dev\hass-bambulab-config\tools\bambuddy\open_reconciliation_lane.ps1" -Lane B1
+
+# Lane B2: open working folder and start SD forensics viewer
+& "c:\dev\hass-bambulab-config\tools\bambuddy\open_reconciliation_lane.ps1" -Lane B2
+
+# Show lane selection and paths without launching the viewer
+& "c:\dev\hass-bambulab-config\tools\bambuddy\open_reconciliation_lane.ps1" -Lane A -NoViewer
+```
+
 ## Operational vs Versioned
 
 - Operational (live triage): keep active manifests/state in OneDrive lane workspaces for fast iteration and local preview assets.
