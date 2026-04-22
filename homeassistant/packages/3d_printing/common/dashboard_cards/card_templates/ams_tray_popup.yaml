@@ -1672,9 +1672,18 @@ ams_tray_popup:
                           show_name: false,
                           show_background: true,
                           tap_action: {
-                            action: 'call-service',
-                            service: 'spoolman.patch_spool',
-                            service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.sequence',
+                                data: {
+                                  sequence: [
+                                    { service: 'script.mark_spool_as_dried_in_spoolman', data: { spool_id: String(spoolIdInt) } },
+                                    { service: 'homeassistant.update_entity', data: { entity_id: spoolEntityId } },
+                                    { service: 'browser_mod.delay', data: { time: 1000 } },
+                                    { service: 'browser_mod.close_popup' }
+                                  ]
+                                }
+                              }
                           }
                         }
                       ],
