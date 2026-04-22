@@ -52,6 +52,22 @@ def test_selected_auto_deploy_packages_cover_cross_package_dashboard_views() -> 
     )
 
 
+def test_selected_auto_deploy_packages_include_spoolman_sync() -> None:
+    selected_packages_raw = _read_env_value("AUTO_DEPLOY_SELECTED_PACKAGES")
+    assert selected_packages_raw is not None
+
+    selected_packages = {
+        package.strip()
+        for package in selected_packages_raw.split(",")
+        if package.strip()
+    }
+
+    assert "spoolman_sync" in selected_packages, (
+        "AUTO_DEPLOY_SELECTED_PACKAGES must include spoolman_sync so auto-deploy "
+        "pushes the spool matching scripts and helpers used by the 3D printing stack."
+    )
+
+
 def test_auto_dispatch_workflow_summarizes_resolved_inputs() -> None:
     content = AUTO_DISPATCH_WORKFLOW.read_text(encoding="utf-8")
 
