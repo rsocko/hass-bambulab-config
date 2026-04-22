@@ -767,6 +767,8 @@ ams_tray_popup:
       addAnnotation(firstUsed, '#4CAF50', 'First Use');
       addAnnotation(desiccantFilled, '#2196F3', 'Desiccant Filled');
       addAnnotation(lastDried, '#FF9800', 'Last Dried');
+      const _sealedVal = spoolEntity?.attributes?.extra_sealed;
+      const isSealed = _sealedVal === true || _sealedVal === 'true' || _sealedVal === 'True' || _sealedVal === 1 || _sealedVal === '1';
       const desiccantMushColor = { green: 'green', yellow: 'yellow', orange: 'orange', red: 'red' }[status] || 'grey';
       let desiccantText = 'No desiccant data';
       if (desiccantFilled) {
