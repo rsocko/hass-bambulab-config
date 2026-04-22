@@ -1,4 +1,5 @@
 import math
+import re
 import unittest
 from copy import deepcopy
 
@@ -30,6 +31,18 @@ def _norm_multi_hexes(value):
     return normalized
 
 
+def _norm_material(value):
+    material = (value or "").strip().upper()
+    material = re.sub(r"[\s]*\+.*$", "", material)
+    material = re.sub(r"[-\s]+\d.*$", "", material)
+    material = material.strip()
+    if material == "NYLON":
+        return "PA"
+    if material in {"PLA-S", "PLA-S (PLA FOR SUPPORT)"}:
+        return "PLA"
+    return material
+
+
 def _is_valid_uuid(value):
     value = _norm_uuid(value)
     if not value:
@@ -50,7 +63,7 @@ def match_tray_to_spool(tray, spools):
     """
     tray_uuid = _norm_uuid(tray.get("tray_uuid"))
     tray_color = _norm_color(tray.get("color"))
-    tray_material = tray.get("type", "")
+    tray_material = _norm_material(tray.get("type", ""))
     tray_profile_name = tray.get("name", "")
     enable_multi_any_hex_fallback = True
 
@@ -93,7 +106,7 @@ def match_tray_to_spool(tray, spools):
         spool_color = _norm_color(spool.get("filament_color_hex"))
         spool_multi_hexes = _norm_multi_hexes(spool.get("filament_multi_color_hexes"))
         spool_multi_first = spool_multi_hexes[0] if spool_multi_hexes else ""
-        spool_material = spool.get("filament_material", "")
+        spool_material = _norm_material(spool.get("filament_material", ""))
         spool_vendor = spool.get("filament_vendor_name", "")
         spool_profile = (spool.get("filament_extra_profile_name", "") or spool.get("extra_profile_name", "")).strip('"')
 
@@ -436,6 +449,30 @@ class OptionAMatchingTests(unittest.TestCase):
         result = match_tray_to_spool(tray, spools)
         self.assertTrue(result["success"])
         self.assertEqual(result["spool_id"], 501)
+
+    def test_external_bambu_tpu_hyphenated_grade_matches(self):
+        spools = [
+            {
+                "id": 151,
+                "extra_spool_uuid": "",
+                "filament_color_hex": "898D8D",
+                "filament_material": "TPU-95A",
+                "filament_vendor_name": "Bambu Lab",
+                "filament_extra_profile_name": '"Bambu TPU 95A HF"',
+                "location": "Under Desk (Right Side)",
+                "extra_sealed": False,
+            }
+        ]
+        tray = {
+            "tray_uuid": "00000000000000000000000000000000",
+            "color": "#898D8DFF",
+            "type": "TPU",
+            "name": "Bambu TPU 95A HF",
+        }
+        result = match_tray_to_spool(tray, spools)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["spool_id"], 151)
+        self.assertEqual(result["match_strategy"], "color_type")
 
     def test_multiple_non_bambu_none_in_ams_is_error(self):
         spools = [

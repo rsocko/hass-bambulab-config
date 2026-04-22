@@ -50,7 +50,7 @@
         {% set tray_uuid_normalized = tray_uuid | trim('"') | lower %}
         {% set tray_color = state_attr(tray_entity, 'color') | default('', true) | string | lower %}
         {% set tray_profile_name = state_attr(tray_entity, 'name') | default('', true) | string %}
-        {% set tray_material = tray_type | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[\s]+\d.*$', '') | trim %}
+        {% set tray_material = tray_type | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[-\s]+\d.*$', '') | trim %}
         {% if tray_material == 'NYLON' %}
           {% set tray_material = 'PA' %}
         {% elif tray_material in ['PLA-S', 'PLA-S (PLA FOR SUPPORT)'] %}
@@ -209,7 +209,7 @@
           {% for s in spool_entities %}
             {% set spool_color = s.attributes.filament_color_hex | default('', true) | string | lower %}
             {% set spool_multi_raw = s.attributes.filament_multi_color_hexes | default('', true) | string %}
-            {% set spool_material = s.attributes.filament_material | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[\s]+\d.*$', '') | trim %}
+            {% set spool_material = s.attributes.filament_material | default('', true) | string | upper | regex_replace('[\s]*[\+].*$', '') | regex_replace('[-\s]+\d.*$', '') | trim %}
             {% if spool_material == 'NYLON' %}
               {% set spool_material = 'PA' %}
             {% elif spool_material in ['PLA-S', 'PLA-S (PLA FOR SUPPORT)'] %}
