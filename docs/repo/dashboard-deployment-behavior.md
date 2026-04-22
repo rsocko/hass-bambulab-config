@@ -75,7 +75,7 @@ when `www` assets are deployed (either `packages_www` profile or `include_www_fo
 This is handled by the `Sync Lovelace resources to HA storage` workflow step, which:
 
 1. Reads `common/dashboards/_resources.yaml` as the source of truth.
-2. SSHes into HA and fetches the current Lovelace resource list via the Supervisor API.
+2. SSHes into HA and reads the current Lovelace resource registry from `.storage/lovelace_resources`.
 3. Compares by base URL (query string stripped) to detect matching resources.
 4. Creates missing entries and updates existing entries when the URL (for example `?v=` cache-bust suffix) changes.
 5. Skips resources that are already registered with the same URL.
@@ -130,6 +130,7 @@ Typical action: refresh browser or reopen dashboard.
   - changing sidebar/title/icon metadata
 - Changing package loader/include wiring (`_feature_loaders.yaml`, `*_loader.yaml`)
 - Adding new custom JS card resources (registered automatically by the workflow's resource sync step; may still need a browser hard refresh)
+- Changing package `rest_sensors/**` or `rest_commands/**`
 - Changing `homeassistant/custom_components/bambuddy/**` integration code
 
 Typical action: restart Home Assistant after config check.
@@ -211,9 +212,9 @@ Notes:
 The push-triggered wrapper workflow `.github/workflows/auto-dispatch-homeassistant-deploy.yml`
 now inspects the pushed file set.
 
-When it detects resource-related changes (`common/common_loader.yaml`, `common/dashboards/_resources.yaml`, or `homeassistant/www/3d_printing/**`), it automatically overrides the dispatched `post_deploy_action` to `restart_core` for that run.
+When it detects restart-required changes such as resource-related files (`common/common_loader.yaml`, `common/dashboards/_resources.yaml`, or `homeassistant/www/3d_printing/**`), `homeassistant/custom_components/bambuddy/**`, or package `rest_sensors/**` / `rest_commands/**` changes, it automatically overrides the dispatched `post_deploy_action` to `restart_core` for that run.
 
-This keeps normal pushes on the lighter default action while making JS resource pushes use the reliable restart path without manual intervention.
+This keeps normal pushes on the lighter default action while making restart-required pushes use the reliable restart path without manual intervention.
 
 ## 10) `www/` Static Assets vs Lovelace Resources
 

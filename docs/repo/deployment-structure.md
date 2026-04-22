@@ -117,6 +117,7 @@ Workflow dispatch includes `post_deploy_action` and `reload_domains_strict`:
 - `post_deploy_action=reload_domains`:
   - Runs an expanded best-effort reload loop for commonly used reloadable domains:
     - `automation`, `script`, `template`, `scene`, `group`, `input_boolean`, `input_number`, `input_text`, `input_select`, `input_datetime`, `input_button`, `timer`, `counter`, `person`, `zone`
+  - This does **not** reload package `rest_sensors`, `rest_commands`, or custom integration Python code.
   - Always prints a success/failure summary in workflow logs.
   - Default behavior (`reload_domains_strict=false`) is non-blocking: failed domain reloads are reported but do not fail the workflow.
 - `post_deploy_action=refresh_lovelace_yaml`:
@@ -180,7 +181,13 @@ Scope behavior:
 - With `package_scope=all`, any matching resource-related change is enforced.
 - With `package_scope=selected`, checks are enforced only when resource-related changes are in selected scope (for example package `common` and/or matching `www/3d_printing/<selected_package>/...` paths).
 
-For push-driven auto deploys, the wrapper workflow also inspects the pushed file set and upgrades the dispatched `post_deploy_action` to `restart_core` automatically when resource-related files changed.
+For push-driven auto deploys, the wrapper workflow also inspects the pushed file set and upgrades the dispatched `post_deploy_action` to `restart_core` automatically when restart-required files changed.
+
+Current restart-required auto-dispatch triggers include:
+
+- resource-related files such as `common/common_loader.yaml`, `common/dashboards/_resources.yaml`, and `homeassistant/www/3d_printing/**`
+- `homeassistant/custom_components/bambuddy/**`
+- package `rest_commands/**` and `rest_sensors/**` changes under `homeassistant/packages/3d_printing/**`
 
 For manual break-glass cache busting of dashboard JS modules, see:
 
