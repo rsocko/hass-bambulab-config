@@ -2,23 +2,35 @@ services:
   model-catalog-sidecar:
     image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
     container_name: model-catalog-sidecar
+    networks:
+      - manyfold
+      - traefik
     environment:
-      MANYFOLD_BASE_URL: ${MANYFOLD_BASE_URL:-http://manyfold:3214}
+      MANYFOLD_BASE_URL: ${MANYFOLD_BASE_URL:-http://app:3214}
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       MODEL_CATALOG_REFRESH_TTL_SECONDS: ${MODEL_CATALOG_REFRESH_TTL_SECONDS:-900}
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
     volumes:
       - model_catalog_data:/data
-    networks:
-      - manyfold
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog.rule=Host(`${MODEL_CATALOG_HOSTNAME:-model-catalog.socko.us}`)"
+      - "traefik.http.routers.model-catalog.entrypoints=web"
+      - "traefik.http.routers.model-catalog.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog.loadbalancer.server.port=8314"
+      - "traefik.docker.network=traefik"
     ports:
       - "127.0.0.1:8314:8314"
     restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   model_catalog_data:
 
 networks:
   manyfold:
+  traefik:
     external: true
