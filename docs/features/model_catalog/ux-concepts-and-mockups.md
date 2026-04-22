@@ -1,11 +1,20 @@
 # UX Concepts And Mockups
 
-> **Status**: UX planning reference.
+> **Status**: UX planning reference with embedded low-fi visuals.
 > **Last updated**: 2026-04-22
 
 ## Purpose
 
 Capture the agreed UX direction for the major operator surfaces so implementation and future mockups stay aligned with the approved plan.
+
+## Visual Coverage Status
+
+This document now includes embedded **low-fidelity wireframe visuals** for the primary operator surfaces.
+
+Still useful later:
+
+- polished mid-fi mockups for visual density and card styling
+- screenshots once the first implementation slices exist
 
 ## Fidelity Expectation
 
@@ -14,7 +23,7 @@ The design set should eventually include both:
 - **annotated low-fi flows** for state, hierarchy, and interaction decisions
 - **mid-fi mockup-style surfaces** for layout, density, and content prioritization
 
-This doc records the target surfaces and what they need to communicate.
+The low-fi visuals below are the current baseline.
 
 ## Surface 1: Archive Popup Linked-Model Block
 
@@ -38,6 +47,51 @@ Must support:
 - open model in Manyfold or catalog browser
 - upload photo or enrichment entrypoints later
 
+### Low-Fi Visual
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Archive Details Popup                                              │
+├─────────────────────────────────────────────────────────────────────┤
+│ Print: Gridfinity Bit Holder v3            Status: Success         │
+│ Printer: X1C                               Filament: PLA Matte      │
+│ Duration: 6h 14m                           Printed: 2026-04-18      │
+│                                                                     │
+│ ┌── Linked Model ────────────────────────────────────────────────┐  │
+│ │ [preview]  Gridfinity Bit Holder                               │  │
+│ │            Collection: Shop / Gridfinity                       │  │
+│ │            Tags: holder · tool · bit                           │  │
+│ │            Last printed: 4d ago   Archives: 7   Queue: queued  │  │
+│ │                                                                 │  │
+│ │  [Open Catalog] [Open Manyfold] [Upload Photo]                 │  │
+│ └─────────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│ ┌── Candidate Match Review ──────────────────────────────────────┐  │
+│ │ Suggested: Gridfinity Bit Holder (92%)                         │  │
+│ │ Match basis: filename + archive title + source hints           │  │
+│ │ [Accept] [Reject] [Search Other]                               │  │
+│ └─────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Empty / Unlinked Variant
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Archive Details Popup                                              │
+├─────────────────────────────────────────────────────────────────────┤
+│ ┌── Linked Model ────────────────────────────────────────────────┐  │
+│ │ No accepted linked model yet                                   │  │
+│ │                                                                 │  │
+│ │ Candidates: 2                                                   │  │
+│ │ 1. Gridfinity Bit Holder (92%)    [Accept]                      │  │
+│ │ 2. Tool Tray Insert (61%)         [Accept]                      │  │
+│ │                                                                 │  │
+│ │ [Search Catalog] [Create Manual Link]                           │  │
+│ └─────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ## Surface 2: Curated Catalog Browser
 
 Primary purpose:
@@ -58,6 +112,47 @@ Important content hierarchy:
 3. core metadata such as collection or tags
 4. linked archive count or last printed signal
 
+### Low-Fi Visual
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Curated Catalog Browser                                                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Search: [gridfinity holder________________]  View: [Grid v]  Sort: Recent   │
+│ Filters: [Collection v] [Tags v] [Queue v] [Recent] [Frequent] [Common]     │
+│                                                                              │
+│ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐              │
+│ │ [preview image]  │ │ [preview image]  │ │ [preview image]  │              │
+│ │ Gridfinity Bit   │ │ Hex Driver Rack  │ │ Scraper Handle   │              │
+│ │ Holder           │ │                  │ │                  │              │
+│ │ queued   recent  │ │ frequent         │ │ last print 15d   │              │
+│ │ archives: 7      │ │ archives: 12     │ │ archives: 3      │              │
+│ │ tags: holder ... │ │ tags: tool ...   │ │ tags: scraper... │              │
+│ │ [Open] [Queue]   │ │ [Open] [Queue]   │ │ [Open] [Queue]   │              │
+│ └──────────────────┘ └──────────────────┘ └──────────────────┘              │
+│                                                                              │
+│ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐              │
+│ │ [preview image]  │ │ [preview image]  │ │ [preview image]  │              │
+│ │ Cable Clip Set   │ │ Bit Tray         │ │ Drill Gauge      │              │
+│ │ common           │ │ queued           │ │ frequent         │              │
+│ │ archives: 5      │ │ archives: 2      │ │ archives: 9      │              │
+│ │ [Open] [Queue]   │ │ [Open] [Queue]   │ │ [Open] [Queue]   │              │
+│ └──────────────────┘ └──────────────────┘ └──────────────────┘              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### List-Density Variant
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ [preview] Gridfinity Bit Holder   queued   recent   archives: 7  [Open]     │
+│          collection: Shop / Gridfinity   tags: holder · tool                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [preview] Hex Driver Rack         frequent archives: 12      [Open] [Queue] │
+│          collection: Shop / Tools       tags: tool · rack                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Surface 3: Working Board
 
 Primary purpose:
@@ -76,6 +171,49 @@ Important distinction:
 
 - this surface is not just a file browser; it is a logical work-item board
 
+### Low-Fi Visual
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Working Board                                                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [Draft] (2)          [In Progress] (3)        [Ready To Publish] (1)         │
+│                                                                              │
+│ ┌───────────────┐   ┌───────────────┐         ┌───────────────┐              │
+│ │ Knob Jig      │   │ Vacuum Hose   │         │ Gridfinity    │              │
+│ │ primary:      │   │ Adapter       │         │ Bit Holder v3 │              │
+│ │ knob_jig.3mf  │   │ primary:      │         │ primary:      │              │
+│ │ files: 4      │   │ hose.step     │         │ holder_v3.3mf │              │
+│ │ source: local │   │ files: 7      │         │ files: 6      │              │
+│ │ [Open]        │   │ linked model: │         │ linked model: │              │
+│ │ [Folder]      │   │ Hose Adapter  │         │ Bit Holder v2 │              │
+│ │ [Edit Group]  │   │ [Open]        │         │ [Publish]     │              │
+│ └───────────────┘   │ [Folder]      │         │ [Open]        │              │
+│                     │ [Edit Group]  │         └───────────────┘              │
+│                     └───────────────┘                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Group Detail Variant
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Working Group: Gridfinity Bit Holder v3                            │
+├─────────────────────────────────────────────────────────────────────┤
+│ Stage: Ready To Publish       Related curated model: v2            │
+│ Source URLs: Makerworld, local remix                               │
+│ Notes: widened bit sockets, reinforced wall                        │
+│                                                                     │
+│ Files                                                                │
+│  - holder_v3.3mf                      primary                        │
+│  - holder_label.svg                                                 │
+│  - print-notes.md                                                   │
+│  - compare-photo.jpg                                                │
+│                                                                     │
+│ [Open Primary] [Open Folder] [Attach File] [Publish To Catalog]    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ## Surface 4: Backlog / Queue
 
 Primary purpose:
@@ -87,6 +225,33 @@ Must show:
 - curated models queued for later printing
 - optional Working groups ready to publish or ready to print
 - clear distinction from Bambuddy's printer-ready queue
+
+### Low-Fi Visual
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Print Planning                                                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Catalog Backlog                 Working Ready                Printer Ready    │
+│                                                                              │
+│ ┌──────────────────────────┐  ┌──────────────────────────┐  ┌──────────────┐ │
+│ │ 1. Gridfinity Bit Holder │  │ Hose Adapter v4          │  │ Bambuddy     │ │
+│ │    priority: 90          │  │ stage: ready_to_publish  │  │ queue item 1 │ │
+│ │    last print: 4d ago    │  │ files: 7                 │  │ queue item 2 │ │
+│ │    [Open] [Unqueue]      │  │ [Open] [Publish]         │  │ [Open Queue] │ │
+│ ├──────────────────────────┤  ├──────────────────────────┤  └──────────────┘ │
+│ │ 2. Drill Gauge           │  │ Knob Jig                 │                    │
+│ │    priority: 70          │  │ stage: in_progress       │                    │
+│ │    [Open] [Unqueue]      │  │ [Open]                   │                    │
+│ └──────────────────────────┘  └──────────────────────────┘                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Interaction Rule
+
+- catalog backlog is for planning what should be printed later
+- printer-ready queue remains Bambuddy-owned and execution-focused
+- Working items can appear only as readiness context, not as a replacement for Bambuddy queue semantics
 
 ## Surface 5: Publish Flow
 
@@ -101,11 +266,67 @@ Must communicate:
 - storage target implications when external scanned storage is chosen
 - lineage outcome
 
-## Mockup Guidance
+### Low-Fi Visual
 
-When visual mockups are produced, favor:
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Publish To Curated Catalog                                          │
+├─────────────────────────────────────────────────────────────────────┤
+│ Source group: Gridfinity Bit Holder v3                              │
+│                                                                     │
+│ Canonical files                                                     │
+│ [x] holder_v3.3mf                                                   │
+│ [x] holder_label.svg                                                │
+│ [ ] compare-photo.jpg                                               │
+│                                                                     │
+│ Publish target                                                      │
+│ ( ) Create new curated model                                        │
+│ (x) Publish new revision of existing model: Gridfinity Bit Holder   │
+│                                                                     │
+│ Curated storage                                                     │
+│ (x) Manyfold-managed curated storage                                │
+│ ( ) External scanned library                                        │
+│     Warning: path stability required                                │
+│                                                                     │
+│ Lineage outcome                                                     │
+│ New revision supersedes: Bit Holder v2                              │
+│                                                                     │
+│ [Review Summary] [Cancel] [Publish]                                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Review Summary Variant
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Publish Review                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│ Working group: Gridfinity Bit Holder v3                             │
+│ Action: Publish new canonical revision                              │
+│ Target: Existing curated model                                      │
+│ Storage: Manyfold-managed                                           │
+│ Sidecar lineage update: v2 -> v3                                    │
+│ Archive links affected: none automatically                          │
+│                                                                     │
+│ [Back] [Confirm Publish]                                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Cross-Surface Layout Guidance
+
+When visual mockups are refined further, favor:
 
 - compact, information-dense operator layouts
 - preview-led browsing where appropriate
 - visible authority boundaries between Working, curated, and archive zones
 - actions that read as deliberate state transitions, not magic sync behavior
+- sidecar-owned fields clearly surfaced without pretending they are native Manyfold fields
+
+## Next Visuals To Add Later
+
+If higher-fidelity documentation is needed, the next most valuable assets would be:
+
+1. a mid-fi archive popup mockup with real card proportions
+2. a desktop and mobile curated catalog browse view
+3. a publish-flow stepper mockup
+4. screenshots once the first HA surfaces are implemented

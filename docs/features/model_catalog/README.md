@@ -21,7 +21,7 @@ The approved baseline is:
 
 External sources such as Printables and Makerworld are in scope for discovery, provenance capture, and optional ingestion. Publishing or broader social workflows remain out of scope.
 
-## Key Decisions
+## Key Decisions & Facts
 
 - **No GraphQL dependency**: the design assumes Manyfold's documented REST API only
 - **No native promote/demote assumption**: the design does not assume Manyfold can convert a model between external and internal storage modes in place
@@ -51,12 +51,14 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Custom Fields Schema](custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
 - [Working Groups And Veneer](working-groups-and-veneer.md) — Logical Working-file grouping model, folder vs virtual grouping, and operator flows
+- [Cross-Feature Data Contracts](cross-feature-data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
+- [Historical Print Backfill Via Model Catalog](historical-print-backfill-via-model-catalog.md) — Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
 
 ### Home Assistant And UX
 
 - [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA responsibilities, service boundaries, and how curated catalog + Working veneer should surface in HA
 - [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Archive popup service contract and linked-model interaction surface
-- [UX Concepts And Mockups](ux-concepts-and-mockups.md) — Low-fi and mid-fi design concepts for the key operator surfaces
+- [UX Concepts And Mockups](ux-concepts-and-mockups.md) — Embedded low-fi wireframes plus guidance for future mid-fi mockups of the key operator surfaces
 
 ### Supporting Analysis
 
@@ -95,10 +97,12 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ## Issue Alignment
 
-The revised plan incorporates the architecture work already tracked in the model-catalog docs and folds in the newer planning priorities reviewed from issues `#1037` and `#1040`:
+The revised plan incorporates the architecture work already tracked in the model-catalog docs and folds in the newer planning priorities reviewed from issues `#1037`, `#1040`, `#1042`, and `#1043`:
 
 - `#1037` drives prioritization around Working-file access, frequent/recent/common prints, curated quick reprint, backlog/queue, archive linkage, and source capture
 - `#1040` corrects the mistaken GraphQL and replace-in-place assumptions and pushes the design toward a source-verified REST-only baseline
+- `#1042` adds explicit duplicate-handling requirements for repeat downloads, especially Makerworld reacquisition cases that may already overlap Working groups or curated Manyfold records
+- `#1043` adds a later operator-driven flow where the model catalog can help backfill older print-history records by reusing existing forensics manifests, source-attachment flows, and archive-creation tooling
 
 ## Related Feature Docs
 

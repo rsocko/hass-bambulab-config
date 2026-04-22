@@ -91,6 +91,16 @@ For downloaded models:
 - inspect contents
 - create or update a `working_group` if the files are worth iterating on
 
+For repeated downloads of the same external model:
+
+- do not assume a new filename such as `(2)` means it is a new logical work item
+- check for an existing Working group using source URL, close filename match, content hash, or other sidecar-managed duplicate signals
+- if a likely Working duplicate exists, prefer an explicit operator choice:
+  - attach to the existing Working group
+  - keep both as separate variants
+  - replace the earlier Working copy deliberately
+- if a likely curated duplicate exists in Manyfold, warn before treating the file as a brand-new catalog candidate
+
 For original designs:
 
 - create the files directly in `Working/`
@@ -108,16 +118,53 @@ For original designs:
 When a Working group is stable enough for long-term reuse:
 
 1. select the canonical file set for publication
-2. create or update a curated Manyfold model record
-3. record lineage in the sidecar if this supersedes an earlier curated revision
-4. copy forward only the metadata that is safe and intentional
-5. leave the Working group in place if more iteration is expected, or close/archive it if not
+2. check for likely duplicate or overlapping curated records when the source was reacquired or re-downloaded
+3. create or update a curated Manyfold model record
+4. record lineage in the sidecar if this supersedes an earlier curated revision
+5. copy forward only the metadata that is safe and intentional
+6. leave the Working group in place if more iteration is expected, or close/archive it if not
+
+Recommended reconciliation choices when a duplicate is detected:
+
+- publish as a new canonical revision of an existing curated model
+- add as an additional file or variant under an existing curated model when appropriate
+- keep separate intentionally when the duplicate signals are weak or the operator wants parallel variants
+- cancel and clean up when the re-download is just accidental duplication
 
 ### 5. Post-Print Archive Linkage
 
 - link the resulting Bambuddy archive to the curated Manyfold model from the archive popup
 - optionally upload finished-print photos
 - optionally update backlog/queue state when a model is completed
+
+## Historical Print-History Backfill From The Catalog
+
+Some older or incomplete history recovery work starts from the model side rather than from an existing Bambuddy archive.
+
+This is a later workflow, not part of the baseline publish flow.
+
+Use it when:
+
+- you have a known model or source artifact in the catalog or Working area
+- the corresponding historical archive is missing, incomplete, or only partially represented in print history
+- prior manifest or forensics analysis already exists and should help the operator make the recovery decision
+
+Recommended operator flow:
+
+1. start from the model-catalog detail or related recovery surface
+2. inspect likely archive matches using filename similarity, timestamp proximity, source provenance, or previously curated manifest/forensics analysis
+3. choose one of these actions:
+  - link to an existing archive
+  - create a canonical archive from an archive-ready sliced artifact
+  - attach source-only provenance to an existing archive
+  - defer when the evidence is still ambiguous
+4. if a new archive is created or a provenance attachment succeeds, return immediately to archive linkage and catalog review
+
+This flow should reuse the existing recovery tooling where possible rather than replacing it outright.
+
+Important constraint:
+
+- source/project `.3mf` files are useful provenance, but they are not by themselves proof that a canonical historical archive can be rebuilt without a sliced archive-ready artifact
 
 ## Revising An Existing Curated Model
 
@@ -224,5 +271,7 @@ Phase 1 provenance rule:
 
 - record the source URL and platform in the sidecar as early as useful
 - do not force immediate catalog creation just because a source URL exists
+
+This provenance should also help later duplicate review for repeat downloads from sources such as Makerworld, but provenance alone should not be treated as perfect duplicate proof.
 
 Later phases may add metadata scrape and draft-record creation, but the baseline design does not require automated full ingestion.

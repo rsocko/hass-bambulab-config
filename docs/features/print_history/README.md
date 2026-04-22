@@ -23,10 +23,16 @@ Source `.3mf` import workflow and long-term storage policy are documented in:
 - `imports/source-3mf-import-implementation-plan.md`
 - `imports/source-3mf-storage-strategy.md`
 
-Cross-system model-library strategy, including Manyfold comparison, Home Assistant surface options, and archive-to-library linkage planning, is documented in:
+Cross-system model-catalog strategy, including the active Manyfold/sidecar/Home Assistant split and archive-to-model linkage planning, is documented in:
 
 - `../model_catalog/README.md`
-- `../model_catalog/model-library-strategy.md`
+- `../model_catalog/architecture-overview.md`
+- `../model_catalog/integration/ha-model-library-integration.md`
+
+Important current boundary:
+
+- the print-history Variant 3 local SQLite store remains print-history-owned
+- cross-feature model-catalog linkage should anchor on archive identity and integration/service contracts, not direct reads of print-history internal tables
 
 For the active print-history control-strip structure and mobile pagination guardrails, see `browser/top-controls-contract.md`.
 

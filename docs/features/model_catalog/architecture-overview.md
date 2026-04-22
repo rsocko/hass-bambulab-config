@@ -194,6 +194,29 @@ The archive popup is still the best first operator surface because it naturally 
 
 ## Operator Surface Summary
 
+### UI Ownership And Evolution
+
+The intended operator experience is a **Home Assistant-first hybrid UI**, not a single monolithic replacement for every native surface on day one.
+
+Baseline expectation:
+
+- use **Home Assistant** as the main day-to-day operator surface for joined workflows across archives, curated catalog summaries, Working groups, and backlog/queue state
+- use **Manyfold UI** directly for deeper curated-catalog-native workflows that are either already good there or not yet safely exposed through API-backed repo surfaces
+- use the **catalog sidecar** primarily as a backend/domain service, not as the primary end-user UI in the baseline design
+
+That means the practical ownership split is:
+
+- **Working files**: primarily surfaced through Home Assistant via the sidecar-owned Working veneer
+- **Curated catalog common browse/actions**: primarily surfaced through Home Assistant, backed by Manyfold data through the sidecar
+- **Curated catalog deep/native flows**: remain in Manyfold UI until there is a clear reason and safe contract to absorb them
+
+Expected evolution:
+
+1. Home Assistant owns the joined operator workflows first
+2. additional curated actions may be absorbed into the repo implementation over time where Manyfold REST support is sufficient and the workflow is worth owning locally
+3. native-only or admin-heavy Manyfold flows may remain Manyfold UI only indefinitely if there is no strong value in duplicating them
+4. a richer sidecar-hosted browser or SPA is allowed later, but it is future flexibility rather than the current primary UI plan
+
 ### Home Assistant Owns
 
 - archive popup linked-model summary and candidate review
@@ -214,6 +237,57 @@ The archive popup is still the best first operator surface because it naturally 
 - runtime context
 - printer-ready queue behavior
 - spool and filament truth
+
+## Relationship To Print History And Its Local Store
+
+The current `print_history` design already uses a **Home Assistant integration-owned local SQLite store** for archive-adjacent metadata that does not belong in Bambuddy's archive-core contract.
+
+That store remains part of the print-history domain.
+
+Important boundary:
+
+- model-catalog does **not** treat the print-history local store as its primary system of record
+- model-catalog archive linkage should anchor on stable archive identity exposed through Bambuddy and the HA integration contracts, not on direct reads from print-history's internal local tables
+- print-history may surface useful archive-facing details into popup/detail/service responses, and model-catalog can consume those contracts where appropriate
+- model-catalog should not couple itself to the internal schema of the print-history Variant 3 store unless a later cross-feature need proves that boundary is too strict
+
+This keeps the dependency direction clean:
+
+- **print_history** remains the archive-view and archive-enrichment domain
+- **model_catalog** remains the curated/Working/linkage domain
+- shared identity crosses the boundary at the archive level, not by sharing an internal local database
+
+## Model-Catalog Persistence Direction
+
+The catalog sidecar is expected to have its **own persistent store**.
+
+Recommended baseline:
+
+- keep model-catalog persistence in a **separate sidecar-owned SQLite database**
+- do **not** use Manyfold's Postgres DB as a shared custom-schema host for model-catalog state
+- do **not** store model-catalog local state inside Home Assistant's print-history SQLite store
+
+Why this separation is preferred:
+
+1. it preserves authority boundaries between Manyfold-native curated data, print-history local archive metadata, and model-catalog local linkage/Working metadata
+2. it avoids coupling repo-specific schema evolution to Manyfold DB internals or HA integration internals
+3. it keeps same-stack deployment simple without making the data boundary implicit or fragile
+4. it leaves open the option for the sidecar to serve multiple clients later without first extracting its state back out of HA
+
+What belongs in the model-catalog store:
+
+- archive-to-model links and review state
+- Working groups and Working items
+- custom fields and ranking overrides
+- provenance/source records
+- revision lineage outside Manyfold where needed
+- sidecar caches and ingestion state
+
+What does not belong there as primary truth:
+
+- Manyfold-native curated model records and files
+- Bambuddy archive-core records
+- print-history's local archive review/media/timeline schema unless a later feature explicitly requires replicated summary data
 
 ## Architecture Consequences For Implementation
 

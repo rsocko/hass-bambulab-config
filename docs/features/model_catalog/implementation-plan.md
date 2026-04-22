@@ -21,6 +21,8 @@ Deliver a model-catalog system that:
 - avoid assuming native storage-mode conversion or automatic relink of moved external paths
 - use sidecar-owned metadata for anything that does not naturally belong in Manyfold
 - prefer same-stack sidecar deployment without direct Manyfold DB writes
+- keep model-catalog persistence in a separate sidecar-owned SQLite database rather than reusing Manyfold Postgres or the print-history Variant 3 local store
+- consume print-history/archive intelligence through stable archive-facing contracts, not direct reads of print-history internal tables
 
 ## Phase Plan
 
@@ -37,10 +39,13 @@ Work items:
 - publish the external-storage truth table and recovery matrix
 - publish the implementation-strategy decision matrix
 - freeze the Working-group model and its HA-facing surface
+- freeze the cross-feature data-contract boundary between model-catalog, print_history, Bambuddy, and HA
+- freeze the persistence decision: sidecar-owned SQLite for model-catalog local state
 
 Deliverables:
 
 - architecture docs and strategy appendix approved
+- cross-feature contract doc approved
 - first implementation milestone chosen from the updated phases below
 
 ### Phase 1: Sidecar Scaffold And Manyfold Read Baseline
@@ -60,6 +65,7 @@ Work items:
   - Manyfold model summary cache
   - Working groups and Working items
   - review/audit events
+- define the first archive-facing dependency contract from HA/print_history into model-catalog as DTO/service consumption rather than shared DB reads
 - add Manyfold REST client for:
   - list models
   - get model detail
@@ -129,12 +135,15 @@ Deliverables:
 Outcome:
 
 - Working files gain a first-class operator surface without forcing them into Manyfold
+- repeated acquisition of the same external source can be reconciled safely before curated publish
 
 Work items:
 
 - implement Working-group data model in the sidecar
 - support logical grouping of one or more files plus supporting assets
 - allow grouping independent of the exact filesystem folder shape
+- add Working-side duplicate detection for reacquired source files, especially common Makerworld or Printables re-download cases such as filename suffixes like `(2)`
+- support operator-safe reacquisition choices such as attach to existing Working group, keep both as variants, or replace an earlier Working copy deliberately
 - add sidecar endpoints for:
   - list Working groups
   - create/update group metadata
@@ -148,12 +157,14 @@ Deliverables:
 
 - Working files become visible and manageable from HA
 - group-oriented workflow exists without Manyfold ownership of active edits
+- Working reacquisition and duplicate-handling rules exist before publish-to-curated flows become common
 
 ### Phase 5: Publish Workflow And Revision Lineage
 
 Outcome:
 
 - the boundary between Working and curated catalog becomes explicit and operator-safe
+- duplicate or repeat-acquired source files can be reconciled against existing curated records intentionally
 
 Work items:
 
@@ -162,6 +173,8 @@ Work items:
   - canonical revision
   - supersedes / superseded_by
   - optional metadata carry-forward rules
+- add curated duplicate and reconciliation checks before publish, including warnings when a reacquired file appears to overlap an existing Manyfold model
+- support deliberate publish-time choices such as publish as new revision, add as additional file, keep separate, or cancel for cleanup
 - support two publish targets:
   - Manyfold-managed/internal-style curated storage (preferred baseline)
   - external scanned curated storage when deliberately chosen
@@ -171,6 +184,7 @@ Deliverables:
 
 - clear Working-to-curated publish action
 - revision lineage captured outside Manyfold where needed
+- duplicate warning and reconciliation behavior exists for Working-to-curated publish decisions
 
 ### Phase 6: Photo Upload And 3MF Enrichment
 
@@ -199,13 +213,42 @@ Work items:
 
 - add source recording for Printables/Makerworld URLs
 - surface pending source records in HA
+- preserve enough source identity to assist repeat-download review where practical
 - add metadata-scrape draft flow later when justified
 
 Deliverables:
 
 - provenance capture works before or after cataloging
+- source provenance can assist duplicate/re-download review but is not required for the first Working-side duplicate checks
 
-### Phase 8: Storage Monitoring, Preview Quality, And External Recovery Support
+### Phase 8: Historical Print-History Backfill From Model Catalog
+
+Outcome:
+
+- the model-catalog UI can assist operator-driven backfill of older or incomplete print-history records by reusing existing forensics and folder-catalog workflows
+
+Work items:
+
+- add a catalog-driven review flow for historical backfill candidates from curated or Working model records
+- surface nearby or candidate archive matches using archive identity, filename similarity, source provenance, existing manifests, or related analyzed artifacts when available
+- support operator choices such as:
+  - link to an existing archive
+  - create a new canonical archive from an archive-ready sliced artifact
+  - attach source-only provenance to an existing archive
+  - defer when the candidate remains ambiguous
+- reuse existing runner and manifest concepts from:
+  - folder 3MF catalog workflow
+  - forensics import queue
+  - source-3MF provenance attachment flow
+- keep the first slice operator-driven and review-heavy rather than attempting a fully automatic archive recreation path
+
+Deliverables:
+
+- a model-catalog-driven backfill workflow exists for older records
+- existing forensics/backfill tooling is integrated as an execution engine rather than stranded as a separate operator-only path
+- created or attached archives can be linked back into the catalog flow immediately
+
+### Phase 9: Storage Monitoring, Preview Quality, And External Recovery Support
 
 Outcome:
 
@@ -221,7 +264,7 @@ Deliverables:
 
 - operators can identify when rescan is enough and when recreate/relink is required
 
-### Phase 9: Upstream Improvement Track
+### Phase 10: Upstream Improvement Track
 
 Outcome:
 

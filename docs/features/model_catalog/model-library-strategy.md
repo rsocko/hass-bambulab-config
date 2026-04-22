@@ -1,8 +1,10 @@
 # Model Library Strategy
 
 > **Status**: Historical context and design rationale. This was the initial strategy document before the model_catalog design was finalized.
+> **Do not use for current design or implementation decisions**: this document is retained for background only and is superseded by the active model_catalog docs.
 > **Current architecture**: See [Architecture Overview](architecture-overview.md) for the settled design and component topology.
 > **Important note**: terminology in this historical document such as "promote" or earlier assumptions about storage flows should be read as historical context only. The current lifecycle language and Manyfold capability constraints are defined in [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) and [External Storage Behavior](external-storage-behavior.md).
+> **Use these instead for active work**: [Architecture Overview](architecture-overview.md), [Implementation Plan](implementation-plan.md), [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md), and [External Storage Behavior](external-storage-behavior.md).
 > **Last updated**: 2026-04-21
 
 ## Problem Statement

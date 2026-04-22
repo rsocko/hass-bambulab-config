@@ -122,6 +122,20 @@ The design should leave room for either:
 - extending `bambuddy` initially for archive-centric slices, or
 - introducing a dedicated `model_catalog` integration once the surface becomes broader
 
+## Relationship To Print History Integration State
+
+The current print-history implementation already owns a local Variant 3 SQLite store inside the `bambuddy` custom integration for archive-adjacent metadata, review state, and query acceleration.
+
+Model-catalog should not assume direct reads from that internal store as its primary dependency.
+
+Preferred integration direction:
+
+- consume archive-facing contracts that the HA/Bambuddy integration already exposes
+- use Bambuddy archive identity plus detail/read services as the stable cross-feature anchor
+- keep model-catalog persistence in its own sidecar-owned store rather than adding a second domain's schema into the print-history local DB
+
+If a future cross-feature need emerges, the first preference should be to expose a stable service or DTO from print-history/integration code rather than letting model-catalog bind to the internal Variant 3 table layout.
+
 ## What HA Owns Versus Defers
 
 ### HA Owns
