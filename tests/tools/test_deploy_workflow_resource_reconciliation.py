@@ -28,3 +28,16 @@ def test_restart_core_waits_and_reconciles_lovelace_resources() -> None:
     assert "steps.verify_resources_post_restart.outcome != 'success'" in content[resync_index:final_verify_index]
     assert "bash .github/scripts/sync_lovelace_resources.sh --dry-run --strict" in content[verify_index:reminder_index]
     assert "bash .github/scripts/sync_lovelace_resources.sh\n" in content[resync_index:final_verify_index]
+
+
+def test_deploy_workflow_writes_input_and_outcome_summaries() -> None:
+    content = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "- name: Write deploy input summary" in content
+    assert "- name: Write deploy outcome summary" in content
+    assert '>> "$GITHUB_STEP_SUMMARY"' in content
+    assert "| Deploy mode | ${{ github.event.inputs.delete_mode }} |" in content
+    assert "| Selected packages | $RESOLVED_PACKAGES |" in content
+    assert "| Requested post action | $REQUESTED_POST_ACTION |" in content
+    assert "| Executed post action | $EXECUTED_POST_ACTION |" in content
+    assert "id: post_action" in content

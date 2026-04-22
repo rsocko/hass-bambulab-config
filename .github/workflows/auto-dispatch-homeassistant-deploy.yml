@@ -87,7 +87,8 @@ jobs:
           AUTO_DEPLOY_RELOAD_DOMAINS_STRICT="$(normalize_bool "${AUTO_DEPLOY_RELOAD_DOMAINS_STRICT:-false}")"
 
           AUTO_DEPLOY_BRANCHES="$(trim "${AUTO_DEPLOY_BRANCHES:-}")"
-          AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")"
+          AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED="$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")"
+          AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED"
           RESTART_REQUIRED_PUSH=false
           RESTART_REQUIRED_REASONS=""
           BEFORE_SHA="${{ github.event.before }}"
@@ -151,6 +152,7 @@ jobs:
           echo "check_ui_name_conflicts=$AUTO_DEPLOY_CHECK_UI_NAME_CONFLICTS" >> "$GITHUB_OUTPUT"
           echo "debug_deploy_sync=$AUTO_DEPLOY_DEBUG_DEPLOY_SYNC" >> "$GITHUB_OUTPUT"
           echo "fail_on_ui_conflict=$AUTO_DEPLOY_FAIL_ON_UI_CONFLICT" >> "$GITHUB_OUTPUT"
+          echo "requested_post_deploy_action=$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED" >> "$GITHUB_OUTPUT"
           echo "post_deploy_action=$AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED" >> "$GITHUB_OUTPUT"
           echo "reload_domains_strict=$AUTO_DEPLOY_RELOAD_DOMAINS_STRICT" >> "$GITHUB_OUTPUT"
           echo "resource_safety_mode=$(trim "${AUTO_DEPLOY_RESOURCE_SAFETY_MODE:-warn}")" >> "$GITHUB_OUTPUT"
@@ -179,8 +181,30 @@ jobs:
           echo "  include_www_for_selected=${{ steps.config.outputs.include_www_for_selected }}"
           echo "  restart_required_push=${{ steps.config.outputs.restart_required_push }}"
           echo "  restart_required_reasons=${{ steps.config.outputs.restart_required_reasons }}"
+          echo "  requested_post_deploy_action=${{ steps.config.outputs.requested_post_deploy_action }}"
           echo "  post_deploy_action=${{ steps.config.outputs.post_deploy_action }}"
           echo "  config_validation_mode=${{ steps.config.outputs.config_validation_mode }}"
+
+          {
+            echo "## Auto-Dispatch Inputs"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Dry run | ${{ steps.config.outputs.dry_run }} |"
+            echo "| Deploy mode | ${{ steps.config.outputs.delete_mode }} |"
+            echo "| Allowlist profile | ${{ steps.config.outputs.allowlist_profile }} |"
+            echo "| Package scope | ${{ steps.config.outputs.package_scope }} |"
+            echo "| Selected packages | ${{ steps.config.outputs.selected_packages }} |"
+            echo "| Package preset | ${{ steps.config.outputs.package_preset }} |"
+            echo "| Include www for selected | ${{ steps.config.outputs.include_www_for_selected }} |"
+            echo "| Restart required push | ${{ steps.config.outputs.restart_required_push }} |"
+            echo "| Restart required reasons | ${{ steps.config.outputs.restart_required_reasons }} |"
+            echo "| Requested post action | ${{ steps.config.outputs.requested_post_deploy_action }} |"
+            echo "| Resolved post action | ${{ steps.config.outputs.post_deploy_action }} |"
+            echo "| Config validation mode | ${{ steps.config.outputs.config_validation_mode }} |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Dispatch deploy workflow
         if: ${{ steps.config.outputs.should_dispatch == 'true' }}

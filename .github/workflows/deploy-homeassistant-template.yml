@@ -318,6 +318,42 @@ jobs:
             echo "Note: homeassistant/custom_components/bambuddy is synced separately when in deploy scope."
           fi
 
+      - name: Write deploy input summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESOLVED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+          EFFECTIVE_ALLOWLIST="${{ steps.selection.outputs.effective_allowlist }}"
+
+          echo "Deploy input summary:"
+          echo "  dry_run=${{ github.event.inputs.dry_run }}"
+          echo "  delete_mode=${{ github.event.inputs.delete_mode }}"
+          echo "  allowlist_profile=${{ github.event.inputs.allowlist_profile }}"
+          echo "  package_scope=${{ github.event.inputs.package_scope }}"
+          echo "  selected_packages=$RESOLVED_PACKAGES"
+          echo "  package_preset=${{ github.event.inputs.package_preset }}"
+          echo "  include_www_for_selected=${{ github.event.inputs.include_www_for_selected }}"
+          echo "  requested_post_deploy_action=${{ github.event.inputs.post_deploy_action }}"
+
+          {
+            echo "## Deploy Inputs"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Dry run | ${{ github.event.inputs.dry_run }} |"
+            echo "| Deploy mode | ${{ github.event.inputs.delete_mode }} |"
+            echo "| Allowlist profile | ${{ github.event.inputs.allowlist_profile }} |"
+            echo "| Effective allowlist | $EFFECTIVE_ALLOWLIST |"
+            echo "| Package scope | ${{ github.event.inputs.package_scope }} |"
+            echo "| Selected packages | $RESOLVED_PACKAGES |"
+            echo "| Package preset | ${{ github.event.inputs.package_preset }} |"
+            echo "| Include www for selected | ${{ github.event.inputs.include_www_for_selected }} |"
+            echo "| Requested post action | ${{ github.event.inputs.post_deploy_action }} |"
+            echo "| Config validation mode | ${{ github.event.inputs.config_validation_mode }} |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Lovelace resource deploy safety check
         shell: bash
         run: |
@@ -1279,6 +1315,7 @@ jobs:
           bash .github/scripts/sync_lovelace_resources.sh --dry-run
 
       - name: Execute post-deploy action
+        id: post_action
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
@@ -1720,6 +1757,79 @@ jobs:
 
           export SSH_OPTS
           bash .github/scripts/sync_lovelace_resources.sh --dry-run --strict
+
+      - name: Write deploy outcome summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESOLVED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          REQUESTED_POST_ACTION="${{ github.event.inputs.post_deploy_action }}"
+          POST_ACTION_OUTCOME="${{ steps.post_action.outcome }}"
+          RESOURCE_VERIFY_OUTCOME="${{ steps.verify_resources_post_restart.outcome }}"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            EXECUTED_POST_ACTION="not executed (dry run)"
+            POST_ACTION_RESULT="skipped"
+          else
+            EXECUTED_POST_ACTION="$REQUESTED_POST_ACTION"
+            case "$POST_ACTION_OUTCOME" in
+              success)
+                POST_ACTION_RESULT="success"
+                ;;
+              failure)
+                POST_ACTION_RESULT="failed"
+                ;;
+              skipped)
+                POST_ACTION_RESULT="skipped"
+                ;;
+              *)
+                POST_ACTION_RESULT="unknown"
+                ;;
+            esac
+          fi
+
+          RESOURCE_RESTART_NOTE="not applicable"
+          if [ "$DRY_RUN" != "true" ] && [ "$REQUESTED_POST_ACTION" = "restart_core" ]; then
+            case "$RESOURCE_VERIFY_OUTCOME" in
+              success)
+                RESOURCE_RESTART_NOTE="post-restart resource verification passed"
+                ;;
+              failure)
+                RESOURCE_RESTART_NOTE="post-restart resource verification failed"
+                ;;
+              skipped)
+                RESOURCE_RESTART_NOTE="post-restart resource verification skipped"
+                ;;
+              *)
+                RESOURCE_RESTART_NOTE="post-restart resource verification not run"
+                ;;
+            esac
+          fi
+
+          echo "Deploy outcome summary:"
+          echo "  selected_packages=$RESOLVED_PACKAGES"
+          echo "  deploy_mode=${{ github.event.inputs.delete_mode }}"
+          echo "  requested_post_action=$REQUESTED_POST_ACTION"
+          echo "  executed_post_action=$EXECUTED_POST_ACTION"
+          echo "  post_action_result=$POST_ACTION_RESULT"
+          echo "  restart_resource_check=$RESOURCE_RESTART_NOTE"
+
+          {
+            echo "## Deploy Outcome"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Selected packages | $RESOLVED_PACKAGES |"
+            echo "| Deploy mode | ${{ github.event.inputs.delete_mode }} |"
+            echo "| Requested post action | $REQUESTED_POST_ACTION |"
+            echo "| Executed post action | $EXECUTED_POST_ACTION |"
+            echo "| Post action result | $POST_ACTION_RESULT |"
+            echo "| Restart resource verification | $RESOURCE_RESTART_NOTE |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Post-deploy reminder
         run: |

@@ -33,6 +33,8 @@ It is designed for `workflow_dispatch` runs from GitHub Actions and executes on 
 8. Execute the requested post-deploy action: none, reload domains, refresh Lovelace YAML, both, or restart core.
 9. Re-verify Lovelace resources after restart when resource-related deploys require restart-based reconciliation.
 
+Each run also writes a compact GitHub Actions summary alongside the normal step logs. The summary is intended to answer the operator questions that otherwise get spread across multiple steps: which packages were selected, whether the deploy mode was `safe` or `mirror`, and which post-deploy action was requested and then executed.
+
 ### Workflow Inputs That Matter Most
 
 | Input | Purpose |
@@ -61,6 +63,8 @@ Its job is intentionally small:
 4. Decide whether deployment should be dispatched.
 5. Override `post_deploy_action` to `restart_core` when the pushed range includes restart-required changes such as Lovelace resources, `custom_components/bambuddy`, or package `rest_sensors` / `rest_commands` changes.
 6. Dispatch the main workflow with the resolved input set.
+
+The wrapper writes the resolved dispatch inputs to the GitHub Actions summary too. That includes both the requested post action from `.github/deploy/auto-deploy.env` and the resolved post action after any automatic restart-required override to `restart_core`.
 
 This means there is only one real deploy implementation in the repo. The push wrapper does not copy files itself; it only calls the main workflow.
 

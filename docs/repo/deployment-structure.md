@@ -183,6 +183,8 @@ Scope behavior:
 
 For push-driven auto deploys, the wrapper workflow also inspects the pushed file set and upgrades the dispatched `post_deploy_action` to `restart_core` automatically when restart-required files changed.
 
+The wrapper and the main deploy workflow both write a compact GitHub Actions summary and matching log lines that show the resolved package selection, deploy mode (`safe` or `mirror`), and the requested or resolved post action. When auto-dispatch upgrades a push-driven run to `restart_core`, the summary also records the override reason.
+
 Current restart-required auto-dispatch triggers include:
 
 - resource-related files such as `common/common_loader.yaml`, `common/dashboards/_resources.yaml`, and `homeassistant/www/3d_printing/**`

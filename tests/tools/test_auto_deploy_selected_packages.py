@@ -6,6 +6,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AUTO_DEPLOY_ENV = REPO_ROOT / ".github" / "deploy" / "auto-deploy.env"
+AUTO_DISPATCH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "auto-dispatch-homeassistant-deploy.yml"
 THREE_D_PRINTING_DASHBOARD = (
     REPO_ROOT
     / "homeassistant"
@@ -49,3 +50,14 @@ def test_selected_auto_deploy_packages_cover_cross_package_dashboard_views() -> 
         "AUTO_DEPLOY_SELECTED_PACKAGES is missing dashboard view packages referenced by "
         f"common/dashboards/3d_printing.yaml: {sorted(missing_packages)}"
     )
+
+
+def test_auto_dispatch_workflow_summarizes_resolved_inputs() -> None:
+    content = AUTO_DISPATCH_WORKFLOW.read_text(encoding="utf-8")
+
+    assert 'echo "requested_post_deploy_action=$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED" >> "$GITHUB_OUTPUT"' in content
+    assert 'echo "| Deploy mode | ${{ steps.config.outputs.delete_mode }} |"' in content
+    assert 'echo "| Selected packages | ${{ steps.config.outputs.selected_packages }} |"' in content
+    assert 'echo "| Requested post action | ${{ steps.config.outputs.requested_post_deploy_action }} |"' in content
+    assert 'echo "| Resolved post action | ${{ steps.config.outputs.post_deploy_action }} |"' in content
+    assert 'echo "| Restart required reasons | ${{ steps.config.outputs.restart_required_reasons }} |"' in content
