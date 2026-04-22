@@ -664,6 +664,7 @@ jobs:
           ssh $SSH_OPTS "$HA_SSH_USER@$HA_HOST" "echo connected as: \$(whoami); id; command -v rsync || echo rsync-not-found; sudo -n sh -c 'command -v rsync' || echo sudo-rsync-not-found; sudo -n rsync --version 2>/dev/null | head -n1 || true"
 
       - name: Deploy sync to HAOS /config (SSH add-on)
+        id: deploy_sync
         run: |
           set -euo pipefail
 
@@ -684,6 +685,7 @@ jobs:
           INCLUDE_WWW_SELECTED="${{ github.event.inputs.include_www_for_selected }}"
           DELETE_MODE="${{ github.event.inputs.delete_mode }}"
           SELECTED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
+          CHANGED_FILE_LIMIT=40
 
           PACKAGES_ROOT_SRC="$SOURCE_ROOT/packages/3d_printing"
           WWW_ROOT_SRC="$SOURCE_ROOT/www/3d_printing"
@@ -757,6 +759,121 @@ jobs:
             echo "Rsync summary: add=${add_count:-0}, update=${update_count:-0}, delete=${delete_count:-0}"
           }
 
+          AGGREGATED_RSYNC_CHANGES="$(mktemp)"
+          AGGREGATED_RSYNC_DISPLAY="$(mktemp)"
+
+          append_rsync_change_details() {
+            local rsync_log="$1"
+            local display_prefix="$2"
+            local normalized_prefix
+            local change_type
+            local relative_path
+            local full_path
+
+            [ -f "$rsync_log" ] || return 0
+
+            normalized_prefix="${display_prefix%/}"
+
+            while IFS='|' read -r change_type relative_path; do
+              [ -n "$relative_path" ] || continue
+              [ "$relative_path" = "." ] && continue
+              case "$relative_path" in
+                */)
+                  continue
+                  ;;
+              esac
+
+              full_path="$relative_path"
+              if [ -n "$normalized_prefix" ]; then
+                full_path="$normalized_prefix/$relative_path"
+              fi
+
+              echo "$change_type|$full_path" >> "$AGGREGATED_RSYNC_CHANGES"
+            done < <(
+              {
+                grep -E '^\*deleting ' "$rsync_log" | sed -E 's/^\*deleting (.*)$/DELETE|\1/'
+                grep -E '^[<>ch\.][fdLDS][+]{9} ' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/ADD|\1/'
+                grep -E '^[<>ch\.][fdLDS][^+*]' "$rsync_log" | sed -E 's/^[^ ]+ +(.*)$/UPDATE|\1/'
+              } || true
+            )
+          }
+
+          emit_deploy_change_outputs() {
+            local add_count
+            local update_count
+            local delete_count
+            local total_count
+            local truncated=false
+
+            if [ -f "$AGGREGATED_RSYNC_CHANGES" ]; then
+              sort -u "$AGGREGATED_RSYNC_CHANGES" > "$AGGREGATED_RSYNC_DISPLAY"
+            else
+              : > "$AGGREGATED_RSYNC_DISPLAY"
+            fi
+
+            add_count="$(grep -c '^ADD|' "$AGGREGATED_RSYNC_DISPLAY" || true)"
+            update_count="$(grep -c '^UPDATE|' "$AGGREGATED_RSYNC_DISPLAY" || true)"
+            delete_count="$(grep -c '^DELETE|' "$AGGREGATED_RSYNC_DISPLAY" || true)"
+            total_count="$(wc -l < "$AGGREGATED_RSYNC_DISPLAY" | tr -d ' ')"
+
+            if [ "${total_count:-0}" -gt "$CHANGED_FILE_LIMIT" ]; then
+              truncated=true
+            fi
+
+            echo "changed_add_count=${add_count:-0}" >> "$GITHUB_OUTPUT"
+            echo "changed_update_count=${update_count:-0}" >> "$GITHUB_OUTPUT"
+            echo "changed_delete_count=${delete_count:-0}" >> "$GITHUB_OUTPUT"
+            echo "changed_file_count=${total_count:-0}" >> "$GITHUB_OUTPUT"
+            echo "changed_files_truncated=$truncated" >> "$GITHUB_OUTPUT"
+
+            echo "changed_files<<__DEPLOY_CHANGED_FILES__" >> "$GITHUB_OUTPUT"
+            if [ "${total_count:-0}" -eq 0 ]; then
+              echo "- none" >> "$GITHUB_OUTPUT"
+            else
+              head -n "$CHANGED_FILE_LIMIT" "$AGGREGATED_RSYNC_DISPLAY" | while IFS='|' read -r change_type full_path; do
+                echo "- $change_type $full_path" >> "$GITHUB_OUTPUT"
+              done
+            fi
+            echo "__DEPLOY_CHANGED_FILES__" >> "$GITHUB_OUTPUT"
+
+            echo "added_files<<__DEPLOY_ADDED_FILES__" >> "$GITHUB_OUTPUT"
+            if [ "${add_count:-0}" -eq 0 ]; then
+              echo "- none" >> "$GITHUB_OUTPUT"
+            else
+              grep '^ADD|' "$AGGREGATED_RSYNC_DISPLAY" | head -n "$CHANGED_FILE_LIMIT" | sed -E 's/^ADD\|(.*)$/- \1/' >> "$GITHUB_OUTPUT" || true
+            fi
+            echo "__DEPLOY_ADDED_FILES__" >> "$GITHUB_OUTPUT"
+
+            echo "updated_files<<__DEPLOY_UPDATED_FILES__" >> "$GITHUB_OUTPUT"
+            if [ "${update_count:-0}" -eq 0 ]; then
+              echo "- none" >> "$GITHUB_OUTPUT"
+            else
+              grep '^UPDATE|' "$AGGREGATED_RSYNC_DISPLAY" | head -n "$CHANGED_FILE_LIMIT" | sed -E 's/^UPDATE\|(.*)$/- \1/' >> "$GITHUB_OUTPUT" || true
+            fi
+            echo "__DEPLOY_UPDATED_FILES__" >> "$GITHUB_OUTPUT"
+
+            echo "deleted_files<<__DEPLOY_DELETED_FILES__" >> "$GITHUB_OUTPUT"
+            if [ "${delete_count:-0}" -eq 0 ]; then
+              echo "- none" >> "$GITHUB_OUTPUT"
+            else
+              grep '^DELETE|' "$AGGREGATED_RSYNC_DISPLAY" | head -n "$CHANGED_FILE_LIMIT" | sed -E 's/^DELETE\|(.*)$/- \1/' >> "$GITHUB_OUTPUT" || true
+            fi
+            echo "__DEPLOY_DELETED_FILES__" >> "$GITHUB_OUTPUT"
+
+            echo "Deploy file change summary: add=${add_count:-0}, update=${update_count:-0}, delete=${delete_count:-0}, total=${total_count:-0}"
+            if [ "${total_count:-0}" -gt 0 ]; then
+              echo "Deploy file changes (first $CHANGED_FILE_LIMIT entries):"
+              head -n "$CHANGED_FILE_LIMIT" "$AGGREGATED_RSYNC_DISPLAY" | while IFS='|' read -r change_type full_path; do
+                echo "  - $change_type $full_path"
+              done
+              if [ "$truncated" = "true" ]; then
+                echo "  - ... truncated; see rsync logs for the full list"
+              fi
+            fi
+
+            rm -f "$AGGREGATED_RSYNC_CHANGES" "$AGGREGATED_RSYNC_DISPLAY"
+          }
+
           should_sync_bambuddy_component() {
             local normalized_selected
 
@@ -770,6 +887,7 @@ jobs:
           sync_yaml_only() {
             local src="$1"
             local dst="$2"
+            local display_prefix="$3"
             local rsync_log
 
             if [ ! -d "$src" ]; then
@@ -793,6 +911,7 @@ jobs:
             set -e
 
             summarize_rsync_changes "$rsync_log"
+            append_rsync_change_details "$rsync_log" "$display_prefix"
             rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
@@ -814,6 +933,7 @@ jobs:
               set -e
 
               summarize_rsync_changes "$rsync_log"
+              append_rsync_change_details "$rsync_log" "$display_prefix"
               rm -f "$rsync_log"
 
               if [ $rsync_exit -ne 0 ]; then
@@ -827,6 +947,7 @@ jobs:
           sync_all_files() {
             local src="$1"
             local dst="$2"
+            local display_prefix="$3"
             local rsync_log
 
             if [ ! -d "$src" ]; then
@@ -846,6 +967,7 @@ jobs:
             set -e
 
             summarize_rsync_changes "$rsync_log"
+            append_rsync_change_details "$rsync_log" "$display_prefix"
             rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
@@ -863,6 +985,7 @@ jobs:
               set -e
 
               summarize_rsync_changes "$rsync_log"
+              append_rsync_change_details "$rsync_log" "$display_prefix"
               rm -f "$rsync_log"
 
               if [ $rsync_exit -ne 0 ]; then
@@ -876,6 +999,7 @@ jobs:
           sync_single_yaml_file() {
             local src="$1"
             local dst="$2"
+            local display_prefix="$3"
             local rsync_log
 
             if [ ! -f "$src" ]; then
@@ -895,6 +1019,7 @@ jobs:
             set -e
 
             summarize_rsync_changes "$rsync_log"
+            append_rsync_change_details "$rsync_log" "$display_prefix"
             rm -f "$rsync_log"
 
             if [ $rsync_exit -ne 0 ] && [ "$REMOTE_RSYNC_PATH" != "sudo -n rsync" ]; then
@@ -912,6 +1037,7 @@ jobs:
               set -e
 
               summarize_rsync_changes "$rsync_log"
+              append_rsync_change_details "$rsync_log" "$display_prefix"
               rm -f "$rsync_log"
 
               if [ $rsync_exit -ne 0 ]; then
@@ -981,7 +1107,7 @@ jobs:
           log_remote_targets
 
           ensure_remote_dir "$PACKAGES_ROOT_REMOTE"
-          sync_single_yaml_file "$FEATURE_INCLUDE_FILE_SRC" "$FEATURE_INCLUDE_FILE_DST"
+          sync_single_yaml_file "$FEATURE_INCLUDE_FILE_SRC" "$FEATURE_INCLUDE_FILE_DST" "homeassistant/packages/3d_printing"
 
           if [ "$PACKAGE_SCOPE" = "selected" ]; then
             if [ "$SELECTED_PACKAGES" = "all" ] || [ -z "$SELECTED_PACKAGES" ]; then
@@ -995,27 +1121,29 @@ jobs:
 
               ensure_remote_dir "$PACKAGES_ROOT_REMOTE/$package_name"
 
-              sync_yaml_only "$PACKAGES_ROOT_SRC/$package_name" "$PACKAGES_ROOT_DST$package_name/"
+              sync_yaml_only "$PACKAGES_ROOT_SRC/$package_name" "$PACKAGES_ROOT_DST$package_name/" "homeassistant/packages/3d_printing/$package_name"
 
               if [ "$INCLUDE_WWW_SELECTED" = "true" ]; then
                 ensure_remote_dir "$WWW_ROOT_REMOTE/$package_name"
-                sync_all_files "$WWW_ROOT_SRC/$package_name" "$WWW_ROOT_DST$package_name/"
+                sync_all_files "$WWW_ROOT_SRC/$package_name" "$WWW_ROOT_DST$package_name/" "homeassistant/www/3d_printing/$package_name"
               fi
             done
           else
-            sync_yaml_only "$PACKAGES_ROOT_SRC" "$PACKAGES_ROOT_DST"
+            sync_yaml_only "$PACKAGES_ROOT_SRC" "$PACKAGES_ROOT_DST" "homeassistant/packages/3d_printing"
 
             if [ "$ALLOWLIST_PROFILE" = "packages_www" ]; then
               ensure_remote_dir "$WWW_ROOT_REMOTE"
-              sync_all_files "$WWW_ROOT_SRC" "$WWW_ROOT_DST"
+              sync_all_files "$WWW_ROOT_SRC" "$WWW_ROOT_DST" "homeassistant/www/3d_printing"
             fi
           fi
 
           if should_sync_bambuddy_component; then
             ensure_remote_dir "$CUSTOM_COMPONENTS_ROOT_REMOTE"
             ensure_remote_dir "$BAMBUDDY_COMPONENT_REMOTE"
-            sync_all_files "$BAMBUDDY_COMPONENT_SRC" "$BAMBUDDY_COMPONENT_DST"
+            sync_all_files "$BAMBUDDY_COMPONENT_SRC" "$BAMBUDDY_COMPONENT_DST" "homeassistant/custom_components/bambuddy"
           fi
+
+          emit_deploy_change_outputs
 
       - name: Check/update feature includes (post-sync)
         if: ${{ github.event.inputs.dry_run != 'true' }}
@@ -1769,6 +1897,93 @@ jobs:
           REQUESTED_POST_ACTION="${{ github.event.inputs.post_deploy_action }}"
           POST_ACTION_OUTCOME="${{ steps.post_action.outcome }}"
           RESOURCE_VERIFY_OUTCOME="${{ steps.verify_resources_post_restart.outcome }}"
+          DEPLOY_CHANGED_FILES="${{ steps.deploy_sync.outputs.changed_files }}"
+          DEPLOY_CHANGED_FILE_COUNT="${{ steps.deploy_sync.outputs.changed_file_count }}"
+          DEPLOY_CHANGED_ADD_COUNT="${{ steps.deploy_sync.outputs.changed_add_count }}"
+          DEPLOY_CHANGED_UPDATE_COUNT="${{ steps.deploy_sync.outputs.changed_update_count }}"
+          DEPLOY_CHANGED_DELETE_COUNT="${{ steps.deploy_sync.outputs.changed_delete_count }}"
+          DEPLOY_CHANGED_FILES_TRUNCATED="${{ steps.deploy_sync.outputs.changed_files_truncated }}"
+          DEPLOY_ADDED_FILES="${{ steps.deploy_sync.outputs.added_files }}"
+          DEPLOY_UPDATED_FILES="${{ steps.deploy_sync.outputs.updated_files }}"
+          DEPLOY_DELETED_FILES="${{ steps.deploy_sync.outputs.deleted_files }}"
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          PACKAGE_SCOPE="${{ github.event.inputs.package_scope }}"
+          INCLUDE_WWW_SELECTED="${{ github.event.inputs.include_www_for_selected }}"
+          ALLOWLIST_PROFILE="${{ github.event.inputs.allowlist_profile }}"
+          DIFF_FILE_LIMIT=40
+          IN_SCOPE_DIFF_FILES_TMP="$(mktemp)"
+          IN_SCOPE_DIFF_COUNT=0
+          IN_SCOPE_DIFF_TRUNCATED=false
+
+          package_is_selected() {
+            local pkg="$1"
+            local normalized_selected
+
+            [ "$PACKAGE_SCOPE" = "all" ] && return 0
+
+            normalized_selected="$(echo "$RESOLVED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+            [ "$normalized_selected" = "all" ] && return 0
+            echo ",$normalized_selected," | grep -q ",$pkg,"
+          }
+
+          should_include_bambuddy_diff() {
+            [ "$PACKAGE_SCOPE" = "all" ] && return 0
+            package_is_selected "print_history"
+          }
+
+          git fetch --no-tags origin "$DEFAULT_BRANCH" >/dev/null 2>&1 || true
+
+          CHANGED_FILES=""
+          if git rev-parse --verify "origin/$DEFAULT_BRANCH" >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only "origin/$DEFAULT_BRANCH...HEAD" || true)"
+          fi
+          if [ -z "$CHANGED_FILES" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+          fi
+
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+
+            in_scope=false
+            case "$f" in
+              homeassistant/packages/3d_printing/_feature_loaders.yaml)
+                in_scope=true
+                ;;
+              homeassistant/packages/3d_printing/*)
+                path_tail="${f#homeassistant/packages/3d_printing/}"
+                pkg="${path_tail%%/*}"
+                if [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                  in_scope=true
+                fi
+                ;;
+              homeassistant/www/3d_printing/*)
+                path_tail="${f#homeassistant/www/3d_printing/}"
+                pkg="${path_tail%%/*}"
+                if [ "$PACKAGE_SCOPE" = "all" ] && [ "$ALLOWLIST_PROFILE" = "packages_www" ]; then
+                  in_scope=true
+                elif [ "$PACKAGE_SCOPE" = "selected" ] && [ "$INCLUDE_WWW_SELECTED" = "true" ] && [ -n "$pkg" ] && package_is_selected "$pkg"; then
+                  in_scope=true
+                fi
+                ;;
+              homeassistant/custom_components/bambuddy/*)
+                if should_include_bambuddy_diff; then
+                  in_scope=true
+                fi
+                ;;
+            esac
+
+            if [ "$in_scope" = "true" ]; then
+              echo "$f" >> "$IN_SCOPE_DIFF_FILES_TMP"
+            fi
+          done <<< "$CHANGED_FILES"
+
+          if [ -f "$IN_SCOPE_DIFF_FILES_TMP" ]; then
+            sort -u "$IN_SCOPE_DIFF_FILES_TMP" -o "$IN_SCOPE_DIFF_FILES_TMP"
+            IN_SCOPE_DIFF_COUNT="$(wc -l < "$IN_SCOPE_DIFF_FILES_TMP" | tr -d ' ')"
+            if [ "${IN_SCOPE_DIFF_COUNT:-0}" -gt "$DIFF_FILE_LIMIT" ]; then
+              IN_SCOPE_DIFF_TRUNCATED=true
+            fi
+          fi
 
           if [ "$DRY_RUN" = "true" ]; then
             EXECUTED_POST_ACTION="not executed (dry run)"
@@ -1816,6 +2031,18 @@ jobs:
           echo "  executed_post_action=$EXECUTED_POST_ACTION"
           echo "  post_action_result=$POST_ACTION_RESULT"
           echo "  restart_resource_check=$RESOURCE_RESTART_NOTE"
+          echo "  deploy_file_changes=add:$DEPLOY_CHANGED_ADD_COUNT update:$DEPLOY_CHANGED_UPDATE_COUNT delete:$DEPLOY_CHANGED_DELETE_COUNT total:$DEPLOY_CHANGED_FILE_COUNT"
+          echo "  in_scope_git_diff_files=$IN_SCOPE_DIFF_COUNT"
+
+          if [ -n "$DEPLOY_CHANGED_FILES" ]; then
+            echo "  deploy_changed_files:"
+            printf '%s\n' "$DEPLOY_CHANGED_FILES"
+          fi
+
+          if [ "${IN_SCOPE_DIFF_COUNT:-0}" -gt 0 ]; then
+            echo "  in_scope_git_diff:"
+            head -n "$DIFF_FILE_LIMIT" "$IN_SCOPE_DIFF_FILES_TMP" | sed 's/^/  - /'
+          fi
 
           {
             echo "## Deploy Outcome"
@@ -1828,8 +2055,43 @@ jobs:
             echo "| Executed post action | $EXECUTED_POST_ACTION |"
             echo "| Post action result | $POST_ACTION_RESULT |"
             echo "| Restart resource verification | $RESOURCE_RESTART_NOTE |"
+            echo "| Files changed in deploy | $DEPLOY_CHANGED_FILE_COUNT |"
+            echo "| Added / Updated / Deleted | $DEPLOY_CHANGED_ADD_COUNT / $DEPLOY_CHANGED_UPDATE_COUNT / $DEPLOY_CHANGED_DELETE_COUNT |"
+            echo "| In-scope git diff files | $IN_SCOPE_DIFF_COUNT |"
+            echo ""
+            echo "### Actual Files Changed In Deploy"
+            echo ""
+            echo "#### Added"
+            echo ""
+            printf '%s\n' "$DEPLOY_ADDED_FILES"
+            echo ""
+            echo "#### Updated"
+            echo ""
+            printf '%s\n' "$DEPLOY_UPDATED_FILES"
+            echo ""
+            echo "#### Deleted"
+            echo ""
+            printf '%s\n' "$DEPLOY_DELETED_FILES"
+            if [ "$DEPLOY_CHANGED_FILES_TRUNCATED" = "true" ]; then
+              echo ""
+              echo "Actual deploy file list truncated in summary; see the rsync step logs for the full path list."
+            fi
+            echo ""
+            echo "### In-Scope Git Diff Files"
+            echo ""
+            if [ "${IN_SCOPE_DIFF_COUNT:-0}" -eq 0 ]; then
+              echo "- none"
+            else
+              head -n "$DIFF_FILE_LIMIT" "$IN_SCOPE_DIFF_FILES_TMP" | sed 's/^/- /'
+            fi
+            if [ "$IN_SCOPE_DIFF_TRUNCATED" = "true" ]; then
+              echo ""
+              echo "In-scope git diff list truncated in summary."
+            fi
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
+
+          rm -f "$IN_SCOPE_DIFF_FILES_TMP"
 
       - name: Post-deploy reminder
         run: |

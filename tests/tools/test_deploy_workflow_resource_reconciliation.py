@@ -35,9 +35,18 @@ def test_deploy_workflow_writes_input_and_outcome_summaries() -> None:
 
     assert "- name: Write deploy input summary" in content
     assert "- name: Write deploy outcome summary" in content
+    assert "id: deploy_sync" in content
     assert '>> "$GITHUB_STEP_SUMMARY"' in content
     assert "| Deploy mode | ${{ github.event.inputs.delete_mode }} |" in content
     assert "| Selected packages | $RESOLVED_PACKAGES |" in content
     assert "| Requested post action | $REQUESTED_POST_ACTION |" in content
     assert "| Executed post action | $EXECUTED_POST_ACTION |" in content
+    assert "| Files changed in deploy | $DEPLOY_CHANGED_FILE_COUNT |" in content
+    assert "| In-scope git diff files | $IN_SCOPE_DIFF_COUNT |" in content
+    assert "printf '%s\\n' \"$DEPLOY_ADDED_FILES\"" in content
+    assert "printf '%s\\n' \"$DEPLOY_UPDATED_FILES\"" in content
+    assert "printf '%s\\n' \"$DEPLOY_DELETED_FILES\"" in content
+    assert "echo \"added_files<<__DEPLOY_ADDED_FILES__\" >> \"$GITHUB_OUTPUT\"" in content
+    assert "echo \"### In-Scope Git Diff Files\"" in content
+    assert "echo \"changed_files<<__DEPLOY_CHANGED_FILES__\" >> \"$GITHUB_OUTPUT\"" in content
     assert "id: post_action" in content
