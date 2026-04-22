@@ -17,31 +17,41 @@ External sources (Printables, Makerworld) are in scope only for download and loc
 
 ## Documentation Map
 
-### Architecture
+### Architecture & Strategy
 
-- [Architecture Overview](architecture-overview.md) — Component roles, topology, folder structure, evolution path, and key design decisions
-- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Current Manyfold API coverage and capability gaps
-- [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for the cross-system link table
+- [Architecture Overview](architecture-overview.md) — Component roles, topology, folder structure, evolution path, and key design decisions *(current)*
+- [Model Library Strategy](model-library-strategy.md) — Earlier architecture analysis, comparison matrix, and phased rollout rationale that led to the current design *(historical context)*
+- [External Services Design Review](external-services-design-review-2026-04.md) — Broader evaluation of external service candidates (Manyfold, Bambuddy, O.D.I.N., etc.) and why the current shortlist was chosen
+
+### Manyfold & Linkage
+
+- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Current Manyfold API coverage and capability gaps *(current)*
+- [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for the cross-system link table *(current)*
+- [integration/Manyfold API Design Notes](integration/manyfold-api-design.md) — Earlier Manyfold API notes and coexistence behavior *(superseded by gap analysis above)*
+- [integration/Archive To Library Linkage](integration/archive-to-library-linkage.md) — Original linkage schema proposal and SQL shape *(superseded by linkage model above)*
 
 ### Data Model
 
 - [Custom Fields Schema](custom-fields-schema.md) — Fields stored in the local sidecar DB outside Manyfold (origin type, published status, queue flags, etc.)
 - [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime data flow between Manyfold, Bambuddy, sidecar, and HA
 
+### Home Assistant Integration
+
+- [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA config contract, entity and service surface, iframe vs. API vs. hybrid options
+- [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Exact first-slice HA service payloads, response shapes, and archive popup UX contract
+
 ### Implementation
 
 - [Implementation Plan](implementation-plan.md) — Phased work breakdown with all issues mapped to phases
 - [Print Queue Assessment](print-queue-assessment.md) — Comparison of Bambuddy Queue vs. custom catalog queue; recommendation
 
-### Workflows
+### Workflows & Operations
 
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — File lifecycle, folder structure, 3MF parsing, photo workflow, and online model ingestion
+- [Operator Workflow](operator-workflow.md) — Day-to-day operator rules: where files should live, when to use Manyfold, how Bambuddy fits
 
-### Related Docs
+### Related Feature Docs
 
-- [Model Library Strategy](../model_library/model-library-strategy.md)
-- [External Services Design Review](../model_library/external-services-design-review-2026-04.md)
-- [Operator Workflow](../model_library/operator-workflow.md)
 - [Print History README](../print_history/README.md)
 
 ## Component Map

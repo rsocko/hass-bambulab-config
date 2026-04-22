@@ -1,6 +1,7 @@
 # Model Library Strategy
 
-> **Status**: Design and planning only.
+> **Status**: Historical context and design rationale. This was the initial strategy document before the model_catalog design was finalized.
+> **Current architecture**: See [Architecture Overview](architecture-overview.md) for the settled design and component topology.
 > **Last updated**: 2026-04-21
 
 ## Problem Statement

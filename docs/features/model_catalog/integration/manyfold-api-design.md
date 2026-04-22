@@ -1,6 +1,7 @@
 # Manyfold API Design Notes
 
-> **Status**: Current-state integration notes based on upstream review as of 2026-04-21.
+> **Status**: Earlier integration notes from the model_library design phase.
+> **Superseded by**: [Manyfold API Gap Analysis](../manyfold-api-gap-analysis-2026-04-21.md) for the current formal gap analysis.
 
 ## Purpose
 
