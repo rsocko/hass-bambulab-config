@@ -16,17 +16,48 @@ def utc_now_iso() -> str:
 
 
 class ManyfoldClient:
-    def __init__(self, base_url: str, http_client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        models_path: str = "/models.json",
+        oauth_token_path: str = "/oauth/token",
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        http_client: httpx.Client | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.models_path = models_path
+        self.oauth_token_path = oauth_token_path
+        self.client_id = client_id
+        self.client_secret = client_secret
         self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0)
         self._owns_client = http_client is None
+        self._access_token: str | None = None
 
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
 
+    def _auth_headers(self) -> dict[str, str]:
+        if not self.client_id or not self.client_secret:
+            return {}
+        if not self._access_token:
+            form_data: dict[str, str] = {
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+            }
+            response = self._client.post(self.oauth_token_path, data=form_data)
+            response.raise_for_status()
+            payload = response.json()
+            self._access_token = str(payload.get("access_token") or "").strip() or None
+            if not self._access_token:
+                raise RuntimeError("Manyfold OAuth token response did not include access_token.")
+        return {"Authorization": f"Bearer {self._access_token}"}
+
     def list_models(self) -> list[ManyfoldModelSummary]:
-        response = self._client.get("/api/models")
+        response = self._client.get(self.models_path, headers=self._auth_headers())
         response.raise_for_status()
         payload = response.json()
         rows = payload if isinstance(payload, list) else payload.get("models") or payload.get("data") or []

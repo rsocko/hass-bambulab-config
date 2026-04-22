@@ -23,7 +23,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.model_catalog = AppState(resolved_settings)
-        app.state.manyfold_client = manyfold_client or ManyfoldClient(resolved_settings.manyfold_base_url)
+        app.state.manyfold_client = manyfold_client or ManyfoldClient(
+            resolved_settings.manyfold_base_url,
+            models_path=resolved_settings.manyfold_models_path,
+            oauth_token_path=resolved_settings.manyfold_oauth_token_path,
+            client_id=resolved_settings.manyfold_client_id,
+            client_secret=resolved_settings.manyfold_client_secret,
+        )
         try:
             yield
         finally:
@@ -46,6 +52,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         state: AppState = app.state.model_catalog
         return {
             "manyfold_base_url": state.settings.manyfold_base_url,
+            "manyfold_models_path": state.settings.manyfold_models_path,
+            "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
+            "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             "db_path": str(state.settings.db_path),
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,
@@ -59,6 +68,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "service": "model-catalog-sidecar",
             "db_tables": list(state.db_info.tables),
             "manyfold_base_url": state.settings.manyfold_base_url,
+            "manyfold_models_path": state.settings.manyfold_models_path,
+            "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
         }
 
     @app.get("/api/models")

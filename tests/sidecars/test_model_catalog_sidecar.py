@@ -14,6 +14,10 @@ from sidecars.model_catalog.app.settings import Settings
 def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
         manyfold_base_url="http://manyfold.test",
+        manyfold_models_path="/models.json",
+        manyfold_oauth_token_path="/oauth/token",
+        manyfold_client_id="client-id",
+        manyfold_client_secret="client-secret",
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -55,7 +59,16 @@ def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
 
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api/models":
+        if request.url.path == "/oauth/token":
+            assert request.method == "POST"
+            body = request.read().decode("utf-8")
+            assert "grant_type=client_credentials" in body
+            assert "client_id=client-id" in body
+            assert "client_secret=client-secret" in body
+            assert "scope=public+read" in body
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models.json":
+            assert request.headers.get("Authorization") == "Bearer token-123"
             return httpx.Response(
                 200,
                 json={
@@ -78,6 +91,10 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     client = ManyfoldClient(
         settings.manyfold_base_url,
+        models_path=settings.manyfold_models_path,
+        oauth_token_path=settings.manyfold_oauth_token_path,
+        client_id=settings.manyfold_client_id,
+        client_secret=settings.manyfold_client_secret,
         http_client=httpx.Client(base_url=settings.manyfold_base_url, transport=transport),
     )
     app = create_app(settings=settings, manyfold_client=client)
@@ -87,6 +104,12 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json()["ok"] is True
         assert health.json()["table_count"] >= 5
+
+        config = test_client.get("/config")
+        assert config.status_code == 200
+        assert config.json()["manyfold_models_path"] == "/models.json"
+        assert config.json()["manyfold_oauth_enabled"] is True
+        assert config.json()["manyfold_oauth_scopes"] == "public read"
 
         models = test_client.get("/api/models")
         assert models.status_code == 200
