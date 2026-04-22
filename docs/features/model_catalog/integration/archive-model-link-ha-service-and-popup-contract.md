@@ -242,7 +242,7 @@ Behavior:
 
 Purpose:
 
-- promote a candidate or unreviewed link to the accepted active link for the archive
+- mark a candidate or unreviewed link as the accepted active link for the archive
 
 Inputs:
 

@@ -1,22 +1,19 @@
-# Model Library Operator Workflow
+# Model Catalog Operator Workflow
 
-> **Status**: Planning guidance for the first implementation slice.
+> **Status**: Revised operator guidance.
+> **Last updated**: 2026-04-22
 
 ## Purpose
 
-Provide a short operator-facing guide for where models should live, when Manyfold should be used, and how Bambuddy fits into the workflow.
-
-This document is the practical companion to the broader architecture in [Model Library Strategy](model-library-strategy.md).
+Provide short operator-facing guidance for where files should live, when Manyfold should be used, and how Bambuddy and the Working veneer fit together.
 
 ## Default Working Model
 
-Use three distinct roles:
+Use three roles:
 
 - `Working` for files you expect to change
-- `Library` for curated source models worth keeping long-term
-- Bambuddy archives for historical print outcomes and archive-local attachments
-
-The important boundary is that only one application should ever have write or reorganization authority over a given library tree.
+- curated Manyfold catalog for stable reusable source models
+- Bambuddy archives for historical print outcomes and print-specific context
 
 ## Directory Roles
 
@@ -26,98 +23,87 @@ Use `Working` for:
 
 - active edits
 - experiments and branches
-- files you expect to re-save
-- short-lived in-progress model variants
+- short-lived variants
+- supporting files that belong to a work item but not yet to the curated catalog
 
-`Working` is where desktop CAD, slicers, and general operator changes should happen.
+`Working` is paired with a sidecar-owned `working_group`, so the filesystem layout does not have to be perfect before the work is usable.
 
-### Library
+### Curated Catalog
 
-Use `Library` for:
+Use the curated Manyfold catalog for:
 
 - stable reusable source models
-- curated models you want to browse over time
-- models that should carry long-lived metadata in Manyfold
-- files that should remain part of the reusable catalog after the current print is done
-
-If Manyfold is enabled, `Library` is the tree Manyfold may own and curate.
+- long-lived metadata and previews
+- things you want to rediscover later by browsing, tags, collections, and quick reprint views
 
 ### Bambuddy Archives
 
 Use Bambuddy archives for:
 
-- historical print records
-- printer-facing reprint workflows
-- archive-local source attachments when you need a source file preserved with one specific archive
-- outcome history, photos, failure state, and reprint context
+- print outcomes
+- spool and filament truth
+- archive-local media
+- print-history drill-in and reprint context
 
-Archives are not the same thing as the long-lived reusable model library.
+## Day-To-Day Rules
 
-## Issue 1003: Shared Directory Rule
+### When A Model Is Still Changing
 
-If Bambuddy points at the same directory Manyfold stores files in, treat that tree as Manyfold-owned.
-
-Safe Bambuddy behaviors on a Manyfold-owned tree:
-
-- read-only external-folder indexing
-- browsing and preview
-- download, queue, and print flows
-- navigation and linkage assistance
-
-Unsafe Bambuddy behaviors on a Manyfold-owned tree:
-
-- rename, move, delete, or cleanup flows
-- any attempt to co-manage paths or filenames
-- treating Bambuddy as the source of truth for that tree
-
-Bambuddy external folders default to read-only, but that is still a configuration choice rather than a hard invariant. The stronger safeguard is a host-level read-only bind mount plus least-privilege Bambuddy permissions.
-
-## Issue 1034: Actively Printing A Model
-
-When a model is still changing, keep it in `Working`.
+Keep it in `Working`.
 
 Recommended flow:
 
-1. Create or edit the model in `Working`.
-2. Slice and print from that working copy as needed.
-3. Let Bambuddy capture the archive outcome.
-4. Promote the source into `Library` only when it becomes a stable reusable source model.
+1. create or reopen a `working_group`
+2. edit files in `Working/`
+3. print from that working copy as needed
+4. let Bambuddy capture archive outcomes
+5. publish to the curated catalog only when the source is worth keeping long term
 
-This avoids polluting the curated library with temporary or in-progress files.
+### When You Want To Reopen A Curated Model
 
-## Issue 1035: Reopening A Model Later
-
-If you only need to inspect or reprint a model, opening it from Manyfold is fine.
+If you only need to inspect or reprint it, opening the curated Manyfold record is fine.
 
 If you expect to save changes:
 
-1. copy or branch the source into `Working`
-2. make the edits there
-3. print from the revised working copy if needed
-4. intentionally promote the revised version back into `Library` if it should become part of the curated catalog
+1. copy or branch the source into `Working/`
+2. attach it to a `working_group`
+3. edit there
+4. publish a new canonical revision later if the updated version should replace or supersede the curated one
 
-Do not treat a curated Manyfold library entry as the default place for ad hoc iterative editing.
+Do not treat the curated catalog as the default place for ad hoc iterative editing.
 
-## Archive Attachments Versus Library Identity
+### When You Want To Keep A Source Around Only For One Archive
 
-Archive-local source attachments are useful when:
+Use archive-local attachments when the source belongs with one archive outcome, not yet with the reusable catalog as a whole.
 
-- you want the exact source file preserved with one archive
-- the archive needs a local source companion for later inspection
-- you do not yet want to promote the file into the reusable library
+## External Storage Rule
 
-They should not be treated as the complete reusable-library model.
+If you use filesystem-scanned curated storage in Manyfold, path stability becomes your responsibility.
 
-If you want durable provenance between source models, optional Manyfold records, library entries, and multiple archives, use the custom linkage model described in [Archive To Library Linkage](integration/archive-to-library-linkage.md).
+Safe assumption:
+
+- scans can detect new content in a stable folder and flag missing content
+
+Unsafe assumption:
+
+- Manyfold will automatically relink moved or renamed external paths
+
+When paths change materially, treat the situation as recreate/relink plus deliberate cleanup.
 
 ## Quick Decision Guide
 
-Use `Working` when the file is still changing.
+Use `Working` when:
 
-Use `Library` when the file is stable enough to become part of the curated reusable catalog.
+- the file is still changing
+- you need unrestricted filesystem access
+- the work consists of multiple related files that are not yet curated
 
-Use Manyfold when you want browsing, metadata curation, and long-lived source-library identity.
+Use the curated Manyfold catalog when:
 
-Use Bambuddy when you want archive detail, queueing, reprint workflows, and print-history context.
+- the model is stable enough to keep long term
+- browsing and metadata curation matter
+- you want archive links and quick reprint visibility on a durable record
 
-Use archive-local attachments when the source belongs with one archive, not yet with the reusable library as a whole.
+Use Bambuddy when:
+
+- you want archive details, runtime history, filament truth, or printer-ready queue behavior

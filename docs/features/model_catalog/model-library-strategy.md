@@ -2,6 +2,7 @@
 
 > **Status**: Historical context and design rationale. This was the initial strategy document before the model_catalog design was finalized.
 > **Current architecture**: See [Architecture Overview](architecture-overview.md) for the settled design and component topology.
+> **Important note**: terminology in this historical document such as "promote" or earlier assumptions about storage flows should be read as historical context only. The current lifecycle language and Manyfold capability constraints are defined in [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) and [External Storage Behavior](external-storage-behavior.md).
 > **Last updated**: 2026-04-21
 
 ## Problem Statement
@@ -402,7 +403,7 @@ Archive-local source attachments remain useful, but they should stay selective a
 
 If the goal is only to inspect, browse, or reprint without changing the source, opening from Manyfold is fine.
 
-If the goal is to save changes, branch or copy the model into `Working` first, then intentionally promote the revised model back into `Library` if it deserves to become part of the long-lived catalog.
+If the goal is to save changes, branch or copy the model into `Working` first, then intentionally publish the revised model back into the curated catalog if it deserves to become part of the long-lived reusable set.
 
 That keeps archive history, curated source identity, and in-progress working copies from collapsing into one ambiguous path contract.
 

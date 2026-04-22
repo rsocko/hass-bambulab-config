@@ -1,87 +1,105 @@
 # Model Catalog — Feature Overview
 
-> **Status**: Phased design and early implementation.
-> **Last updated**: 2026-04-21
-> **Scope**: Single-user personal 3D model catalog for personal prints, spanning Manyfold, Bambuddy, and a new catalog sidecar.
+> **Status**: Revised design baseline.
+> **Last updated**: 2026-04-22
+> **Scope**: Single-user personal 3D model catalog spanning Manyfold, Bambuddy, a catalog sidecar, and Home Assistant.
 
-## Feature Purpose
+## Purpose
 
-Provide a cohesive operator surface for managing a personal 3D model library that:
+Provide a cohesive operator surface for managing personal 3D model assets across three distinct jobs:
 
-- uses Manyfold as the authoritative model catalog and file store
-- uses Bambuddy as the authoritative print archive and runtime store
-- adds a lightweight catalog sidecar service for operations Manyfold does not natively support
-- surfaces everything coherently in Home Assistant
+- **Curated catalog**: stable, reusable source models with long-lived metadata and previews
+- **Working files**: actively edited or in-flight files that need filesystem freedom and lightweight organization
+- **Archive intelligence**: completed print outcomes, runtime facts, filament usage, and print-history context
 
-External sources (Printables, Makerworld) are in scope only for download and local cataloging. Publishing or social features are explicitly out of scope.
+The approved baseline is:
+
+- Manyfold is the authority for the curated catalog
+- Bambuddy is the authority for print archives and printer/runtime workflows
+- a dedicated catalog sidecar owns cross-system linkage, Working-file veneer, ranking signals, and custom metadata that does not belong in Manyfold
+- Home Assistant is the operator-facing control plane
+
+External sources such as Printables and Makerworld are in scope for discovery, provenance capture, and optional ingestion. Publishing or broader social workflows remain out of scope.
+
+## Key Decisions
+
+- **No GraphQL dependency**: the design assumes Manyfold's documented REST API only
+- **No native promote/demote assumption**: the design does not assume Manyfold can convert a model between external and internal storage modes in place
+- **Working stays outside Manyfold by default**: the Working experience is a sidecar/HA veneer, not a Manyfold-owned tree
+- **Curated catalog goes through Manyfold**: curated models are cataloged in Manyfold, with internal/managed storage preferred when the operator wants Manyfold to own organization
+- **External scanned libraries are folder-oriented**: for Manyfold-managed external storage, a model is fundamentally a folder path plus the files found under it
+- **Same-stack sidecar is the preferred integration shape**: deploy the sidecar alongside Manyfold if operationally convenient, but avoid direct Manyfold DB writes as the product contract
 
 ## Documentation Map
 
-### Architecture & Strategy
+### Core Design
 
-- [Architecture Overview](architecture-overview.md) — Component roles, topology, folder structure, evolution path, and key design decisions *(current)*
-- [Model Library Strategy](model-library-strategy.md) — Earlier architecture analysis, comparison matrix, and phased rollout rationale that led to the current design *(historical context)*
-- [External Services Design Review](external-services-design-review-2026-04.md) — Broader evaluation of external service candidates (Manyfold, Bambuddy, O.D.I.N., etc.) and why the current shortlist was chosen
+- [Architecture Overview](architecture-overview.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
+- [Implementation Plan](implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
+- [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
+- [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
 
-### Manyfold & Linkage
+### Manyfold Constraints
 
-- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Current Manyfold API coverage and capability gaps *(current)*
-- [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for the cross-system link table *(current)*
-- [integration/Manyfold API Design Notes](integration/manyfold-api-design.md) — Earlier Manyfold API notes and coexistence behavior *(superseded by gap analysis above)*
-- [integration/Archive To Library Linkage](integration/archive-to-library-linkage.md) — Original linkage schema proposal and SQL shape *(superseded by linkage model above)*
+- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Verified API coverage, corrected assumptions from issue review, and implications for this feature
+- [External Storage Behavior](external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
+- [Implementation Strategy Options](implementation-strategy-options.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
 
-### Data Model
+### Data Model And Working Layer
 
-- [Custom Fields Schema](custom-fields-schema.md) — Fields stored in the local sidecar DB outside Manyfold (origin type, published status, queue flags, etc.)
-- [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime data flow between Manyfold, Bambuddy, sidecar, and HA
+- [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for archive-to-model links
+- [Custom Fields Schema](custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
+- [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
+- [Working Groups And Veneer](working-groups-and-veneer.md) — Logical Working-file grouping model, folder vs virtual grouping, and operator flows
 
-### Home Assistant Integration
+### Home Assistant And UX
 
-- [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA config contract, entity and service surface, iframe vs. API vs. hybrid options
-- [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Exact first-slice HA service payloads, response shapes, and archive popup UX contract
+- [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA responsibilities, service boundaries, and how curated catalog + Working veneer should surface in HA
+- [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Archive popup service contract and linked-model interaction surface
+- [UX Concepts And Mockups](ux-concepts-and-mockups.md) — Low-fi and mid-fi design concepts for the key operator surfaces
 
-### Implementation
+### Supporting Analysis
 
-- [Implementation Plan](implementation-plan.md) — Phased work breakdown with all issues mapped to phases
-- [Print Queue Assessment](print-queue-assessment.md) — Comparison of Bambuddy Queue vs. custom catalog queue; recommendation
-
-### Workflows & Operations
-
-- [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — File lifecycle, folder structure, 3MF parsing, photo workflow, and online model ingestion
-- [Operator Workflow](operator-workflow.md) — Day-to-day operator rules: where files should live, when to use Manyfold, how Bambuddy fits
-
-### Related Feature Docs
-
-- [Print History README](../print_history/README.md)
+- [Print Queue Assessment](print-queue-assessment.md) — Queue/backlog guidance updated for catalog, Working groups, and archive-aware status
+- [Model Library Strategy](model-library-strategy.md) — Historical strategy document; useful for background but superseded by the docs above
+- [External Services Design Review](external-services-design-review-2026-04.md) — Earlier broader services evaluation
 
 ## Component Map
 
 | Component | Role | Authority |
 |---|---|---|
-| Manyfold | Model catalog: records, files, previews, tags, creators, collections | Separate Docker service |
-| Bambuddy | Archive: print history, runtime metrics, spool tracking, printer queue | Separate Docker service |
-| Model Catalog Sidecar | Extended ops: 3MF parsing, photo upload, ingestion, custom fields, storage monitoring | New separate Docker service |
-| Local SQLite DB | Cross-system linkage, custom fields, annotations | Owned by sidecar |
-| Home Assistant | Coordination surface: dashboards, archive popups, automation | HA custom integration |
+| Manyfold | Curated model catalog: model records, files, previews, tags, creators, collections | Separate Docker service |
+| Bambuddy | Archive truth: print history, runtime metrics, spool tracking, queue, archive media | Separate Docker service |
+| Model Catalog Sidecar | Cross-system logic: Working groups, linkage, custom fields, ranking, ingestion, 3MF parsing, photo proxy | Separate Docker service |
+| Local Sidecar DB | Persistent sidecar state: links, fields, Working groups, review states, caches | Owned by sidecar |
+| Home Assistant | Control plane: popups, dashboards, filtered views, lightweight actions, automations | HA custom integration/cards |
 
-## Issue Tracker
+## High-Level Scope Boundaries
 
-| Issue | Topic | Phase |
-|---|---|---|
-| [#171](https://github.com/rsocko/hass-bambulab-config/issues/171) | Custom fields outside Manyfold (origin type, publish status, notes) | Phase 1 |
-| [#173](https://github.com/rsocko/hass-bambulab-config/issues/173) | 3MF parsing and asset extraction | Phase 5 |
-| [#175](https://github.com/rsocko/hass-bambulab-config/issues/175) | Refresh preview after model file change | Phase 6 |
-| [#177](https://github.com/rsocko/hass-bambulab-config/issues/177) | File lifecycle workflow definition | Architecture |
-| [#178](https://github.com/rsocko/hass-bambulab-config/issues/178) | Save print image to Manyfold | Phase 4 |
-| [#179](https://github.com/rsocko/hass-bambulab-config/issues/179) | Manually adding files, rescan pickup | Phase 5 |
-| [#180](https://github.com/rsocko/hass-bambulab-config/issues/180) | Manyfold folder/file structure setup | Architecture |
-| [#181](https://github.com/rsocko/hass-bambulab-config/issues/181) | Document workflow actions (edit, print, etc.) | Architecture |
-| [#182](https://github.com/rsocko/hass-bambulab-config/issues/182) | Naming conflict handling on upload | Phase 5 |
-| [#183](https://github.com/rsocko/hass-bambulab-config/issues/183) | Online model ingestion from Printables/Makerworld | Phase 7/8 |
-| [#186](https://github.com/rsocko/hass-bambulab-config/issues/186) | Photo workflow for finished printed models | Phase 4 |
-| [#190](https://github.com/rsocko/hass-bambulab-config/issues/190) | Print queue | Phase 1 (fields), Phase 5 (card) |
-| [#215](https://github.com/rsocko/hass-bambulab-config/issues/215) | Collection hierarchy visible as tree in custom UX | Phase 6 |
-| [#221](https://github.com/rsocko/hass-bambulab-config/issues/221) | Adding images via 3MF parse, rescan pickup | Phase 5 |
-| [#222](https://github.com/rsocko/hass-bambulab-config/issues/222) | Storage size monitoring and preview trimming | Phase 6 |
-| [#224](https://github.com/rsocko/hass-bambulab-config/issues/224) | OEmbed investigation (blocks Manyfold embed) | Phase 3 |
-| [#642](https://github.com/rsocko/hass-bambulab-config/issues/642) | Spool/filament tracking per print | Via archive linkage (Bambuddy authority) |
+### In Scope
+
+- curated Manyfold catalog browsing and enrichment
+- archive-to-model linkage and review
+- Working-file veneer with logical grouping
+- quick reprint, recent/common/frequent signals derived from archive history and sidecar fields
+- queue/backlog state for cataloged or grouped work
+- provenance capture and phased ingestion from online sources
+
+### Deliberately Out Of Scope For The Baseline
+
+- managing `Downloads/` as a first-class system
+- true Manyfold storage-mode conversion workflows
+- relying on Manyfold DB internals as the primary integration contract
+- reimplementing all native Manyfold admin and library-management flows in HA
+- full social/publishing parity with Manyfold's native UI
+
+## Issue Alignment
+
+The revised plan incorporates the architecture work already tracked in the model-catalog docs and folds in the newer planning priorities reviewed from issues `#1037` and `#1040`:
+
+- `#1037` drives prioritization around Working-file access, frequent/recent/common prints, curated quick reprint, backlog/queue, archive linkage, and source capture
+- `#1040` corrects the mistaken GraphQL and replace-in-place assumptions and pushes the design toward a source-verified REST-only baseline
+
+## Related Feature Docs
+
+- [Print History README](../print_history/README.md)

@@ -1,249 +1,225 @@
 # Model Catalog — Architecture Overview
 
-> **Status**: Finalized design direction.
-> **Last updated**: 2026-04-21
-> **Scope**: Single-user personal model catalog, hybrid sidecar topology.
+> **Status**: Approved design baseline.
+> **Last updated**: 2026-04-22
+> **Scope**: Single-user personal model catalog with Working-file veneer, curated Manyfold catalog, and Bambuddy-backed archive intelligence.
 
 ## Problem Statement
 
-Manyfold and Bambuddy serve adjacent needs but do not naturally communicate. Manyfold is the right model-library authority; Bambuddy is the right archive authority. No existing system provides:
+The repo already has strong archive-centric workflows via Bambuddy and `print_history`, but it still needs a coherent operating model for:
 
-- structured linkage between a Manyfold model and its Bambuddy print archives
-- custom metadata fields beyond what Manyfold natively supports
-- 3MF parsing and asset extraction for catalog enrichment
-- mobile-friendly photo upload for finished prints linked back to a catalog model
-- a surface for discovering and ingesting models from Printables and Makerworld
+- stable reusable source models
+- actively changing Working files
+- archive-to-model linkage and drill-in
+- quick reprint and frequency-oriented discovery
+- structured metadata that does not naturally belong in Manyfold
+- a practical operator surface in Home Assistant
 
-## Chosen Topology: Hybrid With Separate Catalog Sidecar
+The final design has to respect what Manyfold can actually do today, not what would be convenient if its API were broader.
 
-This is the agreed architecture. The sidecar handles everything Manyfold does not natively support. Home Assistant coordinates and surfaces the joined view.
+## Approved Topology
+
+The approved architecture separates three zones:
+
+1. **Working veneer** — filesystem-native files and logical groups managed by the sidecar
+2. **Curated catalog** — stable Manyfold-backed model records and files
+3. **Archive intelligence** — Bambuddy archives, runtime facts, filament usage, and print-history context
 
 ```
-[Printables / Makerworld]
+[Online sources / original design]
           |
-          v (manual download or future scraper)
-[Downloads/]
+          v
+[Working files on disk] <-----> [Working-group veneer in sidecar]
           |
-          v (operator action: ready for edits)
-[Working/]
+          | publish new canonical revision
+          v
+[Curated catalog entry in Manyfold] <-----> [Catalog sidecar]
+          |                                      |
+          | linked model summary, ranking        | linkage, custom fields,
+          v                                      | working groups, caches,
+[Home Assistant surfaces] <--------------------> | ingestion, review state
           |
-          v (operator promotes when ready)
-[Library/] ──────────────────────────> [Manyfold]
-                                            |
-                                            | REST API
-                                            v
-[HA Model Catalog Integration] <──> [Model Catalog Sidecar]
-          |                                 |
-          | REST API                        | SQLite DB
-          v                                 v
-[Bambuddy]                        [Linkage, custom fields,
-  (archives, spool data,           annotations, ingestion state]
-   print queue)
+          v
+[Bambuddy archives / print history / queue]
 ```
 
-### Evolution Path
+## Baseline Decisions
 
-The architecture is designed to evolve without forcing rewrites:
+### Manyfold Is The Curated Catalog Authority
 
-- **Phases 1–4**: HA-centric with sidecar handling linkage storage and background operations
-- **Phases 5–7**: Sidecar grows into a richer REST service with dedicated endpoints for parsing, photo upload, ingestion
-- **Future (Option C path)**: A standalone web SPA could call the sidecar directly, not unlike the Bambuddy evolution trajectory from embedded config to standalone service
+Manyfold owns:
 
-## Why A Separate Sidecar, Not An Extension Of Bambuddy
+- model records
+- curated model files
+- preview selection and derivative-backed visual browsing
+- tags, creators, collections, and human-facing notes
 
-The catalog sidecar runs as a new, separate Docker container. It is not merged into Bambuddy.
+Manyfold does **not** own:
 
-**Reasons:**
+- Working-file group state
+- archive linkage state
+- print queue or backlog state
+- ranking fields such as recent/common/frequent overrides
+- provenance or custom metadata that has no clean native home in Manyfold
 
-1. **Different concerns**: Bambuddy is printer-runtime and archive centric; the catalog sidecar is asset and metadata centric. Mixing them makes both harder to reason about.
-2. **Different dependencies**: catalog operations need 3MF parsing libraries, image handling, and possibly scraping. Those runtime dependencies do not belong in a printer workflow service.
-3. **Different cadence**: catalog enrichment is non-time-critical; printer automation is time-sensitive. Separation makes each independently deployable.
-4. **Independent evolution**: the sidecar can grow into a standalone web app (Option C) without touching Bambuddy.
-5. **Independent risk isolation**: a catalog sidecar failure should not affect print workflows.
+### Working Is Filesystem-Native And Sidecar-Owned
 
-## Component Roles
+The `Working` area is intentionally outside Manyfold by default.
 
-### Manyfold
+Reasons:
 
-**Is the authority for:**
+- active edits need unrestricted filesystem access
+- filenames and folder structure may churn during iteration
+- Manyfold's scanned external-library model is folder-oriented and path-sensitive
+- the sidecar can provide grouping and status without forcing an unstable tree into the curated catalog
 
-- Model records: name, caption, description
-- Model files: STL, 3MF, source assets
-- Preview images and thumbnails
-- Taxonomy: tags (`keywords`), creators, collections
-- External human-facing links
-- License information
+The Working experience should be implemented as a sidecar/HA veneer with logical grouping, notes, stage tracking, and quick-open actions.
 
-**Is NOT the authority for:**
+### Bambuddy Is The Archive Authority
 
-- Bambuddy archive linkage (no native custom fields for this)
-- Custom workflow state or annotations
-- Print queue flags
-- Private operator notes separate from the public-facing description
-- Download provenance (source URL from Printables or Makerworld)
-- Origin type (original design vs. remix)
+Bambuddy remains the primary source for:
 
-**Operations that still require the Manyfold native UI:**
+- print archives and outcomes
+- runtime telemetry
+- spool and filament usage
+- printer-ready queue workflows
+- archive-local media
 
-- Library setup and path-template configuration (#180)
-- OAuth application and long-lived token management
-- Bulk model operations (merge, scan) not yet exposed in the REST API
-- Site-wide admin and settings
+The catalog uses Bambuddy archives as a navigation and ranking input, not as the place to store long-lived source model identity.
 
-See [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) for the full coverage picture.
+## Storage Guidance
 
-### Bambuddy
+### Recommended Curated Storage Direction
 
-**Is the authority for:**
+For curated storage, the preferred baseline is to let Manyfold manage organization when practical.
 
-- Print archives: all runtime facts, timestamps, printer identity
-- Spool and filament tracking per archive (#642)
-- Native printer queue (files ready to send to the printer)
-- Archive media: printer camera captures, timelapse, print-in-progress thumbnails
+Why:
 
-**Is NOT the authority for:**
+- external scanned storage expects a model to map cleanly to a stable folder path
+- multi-file models in external scanned storage are naturally folder-based
+- the operator has already expressed a preference not to manually compose curated folder trees when Manyfold can do that work
 
-- Model catalog metadata
-- Model-to-archive linking (that lives in the sidecar DB)
-- Model preview images (that lives in Manyfold)
+This means the default recommendation is:
 
-**Note on spool tracking (#642):** Spool and filament data stays in Bambuddy archives. The model→archive link in the catalog is the navigation bridge. When a user wants to know what filament was used for a specific print of a given model, they follow the archive link into Bambuddy where that data lives. There is no need to mirror spool data into the catalog.
+- **Working**: external filesystem, sidecar-owned veneer
+- **Curated catalog**: Manyfold catalog, with Manyfold-managed/internal-style organization preferred when the operator wants Manyfold to own structure
 
-### Model Catalog Sidecar
+### External Scanned Storage Is Still Valid, But Narrower
 
-**Is the authority for:**
+Filesystem-scanned curated storage is valid when you want direct filesystem access to curated models. The tradeoff is that path stability becomes an operator concern.
 
-- Custom metadata fields not in Manyfold (see [Custom Fields Schema](custom-fields-schema.md))
-- Archive-to-model linkage: match confidence, review state, provenance
-- Ingestion state for online model capture workflows
-- Photo upload proxy: accepts uploads from HA/iOS and forwards to Manyfold API
-- 3MF parsing and asset extraction operations
-- Storage monitoring metrics for Manyfold
+Use it only when:
 
-**Technology:**
+- the curated folder tree is intentionally stable
+- you are comfortable treating each model as a folder-oriented unit
+- you accept that moved or renamed paths are not automatically relinked by Manyfold
 
-- Python (consistent with existing repo tooling)
-- FastAPI for the REST service
-- SQLite for local persistent state
-- Separate Docker container
+See [External Storage Behavior](external-storage-behavior.md) for the source-verified rules.
 
-**Does NOT:**
+## Manyfold Constraints That Shape The Architecture
 
-- Replace the Manyfold UI or library management
-- Replace Bambuddy printer workflows
-- Own print archive media
-- Write to the Manyfold Library filesystem directly (always uses the Manyfold API)
+The architecture explicitly accounts for the following verified constraints:
 
-### Home Assistant
+- Manyfold exposes a documented REST API, not GraphQL
+- the documented API does not provide library admin, path-template preview, or broad scan/workflow parity with the native UI
+- native custom fields do not exist in a way that fits archive linkage and Working-group state
+- external scanned models are path/folder oriented
+- rescans can detect new content and clear some missing-file problems, but they do not provide a general automatic relink for moved models
 
-**Role:**
+These constraints are why the sidecar exists as more than a thin cache.
 
-- Operator-facing coordination surface
-- Surfaces archive→model linkage in print history popups
-- Provides model catalog browse cards and the print queue view
-- Enables linking actions, photo upload, 3MF parse triggers
-- Automation triggers based on archive completion
+## Why The Sidecar Is Separate
 
-**Implementation:**
+The catalog sidecar remains a separate service instead of being merged into Bambuddy or Manyfold.
 
-- Extends `homeassistant/custom_components/bambuddy/` or a new `model_catalog` custom component
-- Custom JS cards under `homeassistant/www/3d_printing/`
+Reasons:
 
-## Folder Structure Design (#177, #180, #181)
+1. **Concern isolation**: catalog/Working metadata and 3MF parsing are distinct from printer-runtime behavior
+2. **Dependency isolation**: parsing, ingestion, search/indexing, and optional filesystem indexing do not belong in Bambuddy's runtime-critical stack
+3. **Upgrade safety**: the sidecar should integrate with Manyfold without depending on direct DB writes or private internals
+4. **Future flexibility**: the sidecar can eventually grow a richer browser or SPA without forcing the same choice on the rest of the stack
 
-### Recommended Layout
+## Same-Stack Sidecar Recommendation
 
-```
-/3d_prints/
-  Downloads/            ← Raw downloads from internet. NOT synced to Manyfold.
-  Working/              ← Active edits. NOT synced to Manyfold.
-  Library/              ← Catalog-ready models. Synced to Manyfold.
-    {Collection}/
-      {ModelName}/
-          *.3mf
-          *.stl
-          *.pdf
-          images/
-```
+The preferred deployment shape is a same-stack sidecar:
 
-### Why Working Is NOT Synced to Manyfold
+- deploy beside Manyfold in the same Docker stack when convenient
+- allow shared network and carefully scoped shared volume access where useful
+- continue to treat Manyfold's documented REST API as the primary integration contract
 
-The `Working/` folder is intentionally excluded from Manyfold library scanning.
+The baseline explicitly avoids treating direct Manyfold DB writes as a supported product path.
 
-**Reasons:**
+See [Implementation Strategy Options](implementation-strategy-options.md) for the full decision matrix.
 
-- Working files are in-progress and not catalog-quality; they would create noise in the Manyfold browse view
-- Manyfold's path-template behavior can rename and reorganize files on scan; that behavior is only safe for files that are considered final and catalog-owned
-- Adding half-finished models creates messy duplicate or version-fragmented entries
+## Working Groups
 
-**Considered exception:** Using Manyfold as a 3D viewer while iterating on a model in `Working/` is occasionally useful. The better path for that is: copy the file to a temporary Manyfold model, or use a local file viewer, rather than syncing the entire `Working/` tree.
+The Working layer gets a first-class `working_group` concept.
 
-**Rule**: promote a model from `Working/` to `Library/` only when it is ready to become a stable catalog entry.
+Goals:
 
-### Manyfold Path Templates (#180)
+- let one or more files be treated as a related work item
+- support supporting files such as SVG, PDF, notes, screenshots, and alternate 3MF variants
+- avoid making the filesystem folder structure the only grouping mechanism
 
-Manyfold path-template setup is done once in the Manyfold native UI and is not managed via API. Recommended configuration:
+Recommended default:
 
-- Collection = top-level category (`Tools`, `Miniatures`, `Household`, `Mechanical`, etc.)
-- Sub-collection = designer name or sub-category
-- Model folder = short descriptive name, no version numbers
-- Recommended template: `{collection}/{model}`
+- logical/virtual grouping in the sidecar as the primary model
+- folder structure used as a hint, not a requirement
 
-After initial setup, the template does not change. New models added to `Library/` under a matching collection path are picked up by Manyfold rescan.
+See [Working Groups And Veneer](working-groups-and-veneer.md) for the working data model and UX implications.
 
-## Naming Conflict Handling (#182)
+## Lifecycle Language
 
-When the sidecar or HA integration creates or links a model with a name that already exists in Manyfold:
+The updated design avoids vague “promote/demote” language for model storage modes.
 
-1. Surface the conflict in the HA UI before proceeding
-2. Present options: skip (do nothing), navigate to the existing model, or proceed under a distinct name
-3. Never silently create duplicates or overwrite without operator review
+Preferred language:
 
-Manyfold itself does not prevent duplicate model names. The sidecar is responsible for detecting likely duplicates (same name + same collection) before triggering an upload.
+- **publish to curated catalog** — when a Working group becomes stable enough for Manyfold cataloging
+- **publish new canonical revision** — when an existing curated model gets a new approved source revision
+- **relink/recreate** — when external path changes require a new Manyfold record or new link state
 
-## OEmbed Investigation (#224)
+This terminology reflects what is actually supportable today.
 
-Manyfold provides oEmbed endpoints for models, collections, and creators. This issue is marked as a bug blocking issue #172 (Embed Manyfold model UX into LowCode UX).
+## Archive Linkage Summary
 
-**Investigation checklist:**
+Only the sidecar DB owns the archive-to-model relationship.
 
-- Does the Manyfold oEmbed endpoint require authentication from the consuming client?
-- Does Manyfold return `Access-Control-Allow-Origin` headers compatible with HA iframe embedding?
-- Does Manyfold require a specific Content Security Policy relaxation in HA?
-- Is there an HTTP vs. HTTPS mismatch within the local network that prevents the embed?
+Why:
 
-**Resolution target:** once the root cause is identified, the fix is likely a small Manyfold configuration change or an HA CSP header override. This should unblock the 3D viewer embed in archive popups.
+- Manyfold is not the right place to store structured archive linkage metadata
+- Bambuddy is not the right place to own curated model identity
+- the linkage needs review state, provenance, and possibly candidate sets
 
-## Archive→Model Linkage Summary
+The archive popup is still the best first operator surface because it naturally bridges completed print outcomes back to reusable source identity.
 
-For the full data model behind archive linkage, see [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md).
+## Operator Surface Summary
 
-**Key principle:** only the local sidecar SQLite DB owns the archive-to-model relationship. Neither Manyfold nor Bambuddy is an appropriate primary store for this cross-system fact.
+### Home Assistant Owns
 
-### What The User Sees In The Print History Popup (archive → model direction)
+- archive popup linked-model summary and candidate review
+- Working-group boards and lightweight actions
+- queue/backlog views derived from sidecar fields and archive signals
+- curated catalog quick actions and drill-ins
+- deterministic write-back actions that are safe and explicit
 
-1. Model name, preview thumbnail, tags, collection — from Manyfold (cached in sidecar)
-2. Link to full Manyfold model page
-3. Custom fields: origin type, publish status, internal notes — from sidecar DB
-4. Option to open linked model or change the link
+### Manyfold Native UI Still Owns
 
-### What The User Sees In The Model Catalog Card (model → archive direction)
+- library setup and path-template configuration
+- deeper model editing workflows not yet represented in the API
+- broader admin, settings, and scan orchestration flows
 
-1. List of linked archives: name, completion date, status — from Bambuddy via sidecar cache
-2. Link to print history popup for each archive (full archive detail + spool tracking info)
+### Bambuddy Still Owns
 
-Spool and filament data (#642) is navigated to via the archive link, not duplicated in the catalog.
+- archive details
+- runtime context
+- printer-ready queue behavior
+- spool and filament truth
 
-## Storage Monitoring (#222)
+## Architecture Consequences For Implementation
 
-HA sensors provided by the sidecar:
+The first implementation slices should optimize:
 
-- `sensor.manyfold_library_total_mb` — total size of the Manyfold library on disk
-- `sensor.manyfold_preview_storage_mb` — size of Manyfold-generated preview derivatives
-
-HA actions:
-
-- `model_catalog.refresh_storage_stats` — refresh sensor values on demand
-- `model_catalog.trim_stale_previews` — remove preview derivatives for models whose source files have since changed
-
-An alert automation is recommended when preview storage exceeds a configurable threshold.
+1. curated catalog visibility and archive linkage
+2. ranking and queue signals from archive history plus sidecar fields
+3. Working-group veneer after the curated baseline is stable
+4. optional deeper strategy work such as upstream API improvements only after the sidecar boundary is proven
