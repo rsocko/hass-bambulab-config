@@ -3037,7 +3037,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
             ROOT / "homeassistant" / "packages" / "3d_printing" / "print_history" / "automations" / "bambuddy_capture_skipped_objects_timeline.yaml"
         ).read_text("utf-8")
 
-        self.assertIn("sensor.ntk_ryansoffice_3dprinter_skipped_objects", content)
+        self.assertIn("sensor.3d_printer_skipped_objects", content)
+        self.assertIn("sensor.3d_printer_printable_objects", content)
         self.assertIn("input_text.bambuddy_current_archive_id", content)
         self.assertIn("event_type: objects_skipped", content)
         self.assertIn("response_variable: append_event_result", content)

@@ -9,7 +9,7 @@
 
   triggers:
     - trigger: state
-      entity_id: sensor.ntk_ryansoffice_3dprinter_skipped_objects
+      entity_id: sensor.3d_printer_skipped_objects
 
   conditions:
     - condition: state
@@ -26,7 +26,7 @@
     - variables:
         archive_id: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
         current_ids: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_skipped_objects', 'objects') | default([], true) | map('int') | list | sort }}
+          {{ state_attr('sensor.3d_printer_skipped_objects', 'objects') | default([], true) | map('int') | list | sort }}
         previous_ids: >-
           {{ trigger.from_state.attributes.objects if trigger.from_state is not none and trigger.from_state.attributes is mapping else [] | default([], true) | map('int') | list | sort }}
         newly_skipped_ids: >-
@@ -34,7 +34,7 @@
           {% set previous = previous_ids | default([], true) %}
           {{ current | reject('in', previous) | list }}
         printable_objects: >-
-          {{ state_attr('sensor.ntk_ryansoffice_3dprinter_printable_objects', 'objects') | default({}, true) }}
+          {{ state_attr('sensor.3d_printer_printable_objects', 'objects') | default({}, true) }}
         pick_image_path: >-
           {{ state_attr('image.3d_printer_pick_image', 'entity_picture') | default('', true) }}
         event_time: >-
@@ -64,7 +64,7 @@
                 printable_objects: "{{ printable_objects | tojson | from_json }}"
                 pick_image_path: "{{ pick_image_path }}"
                 pick_image_source: ha_image_entity
-                printer_prefix: ntk_ryansoffice_3dprinter
+                printer_prefix: "3d_printer"
                 trigger_source: automation.bambuddy_capture_skipped_objects_timeline
                 captured_at: "{{ event_time }}"
           response_variable: append_event_result
