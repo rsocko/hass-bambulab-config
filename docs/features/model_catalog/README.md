@@ -1,7 +1,7 @@
 # Model Catalog — Feature Overview
 
-> **Status**: Revised design baseline.
-> **Last updated**: 2026-04-22
+> **Status**: Revised design baseline with Phase 2 archive-linkage slice implemented.
+> **Last updated**: 2026-04-23
 > **Scope**: Single-user personal 3D model catalog spanning Manyfold, Bambuddy, a catalog sidecar, and Home Assistant.
 
 ## Purpose
@@ -36,6 +36,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 - [Architecture Overview](architecture-overview.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
 - [Implementation Plan](implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
+- Current implementation status: Phase 2 archive popup linkage is live; heuristic candidate broadening, curated search/picker, and queue/backlog fields remain later-phase work
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
 - [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
 
@@ -85,7 +86,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - archive-to-model linkage and review
 - Working-file veneer with logical grouping
 - quick reprint, recent/common/frequent signals derived from archive history and sidecar fields
-- queue/backlog state for cataloged or grouped work
+- queue/backlog state for cataloged or grouped work in later phases
 - provenance capture and phased ingestion from online sources
 
 ### Deliberately Out Of Scope For The Baseline

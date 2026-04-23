@@ -88,7 +88,7 @@ Outcome:
 Work items:
 
 - implement archive-link CRUD and candidate-review endpoints
-- broaden archive-scoped candidate discovery beyond name overlap using deterministic and heuristic signals such as source-hash identity, normalized filename overlap, and time-proximity boosts, while keeping heuristic matches review-only
+- add `force_refresh_model_cache` support so candidate refresh can pull newly uploaded Manyfold models into the cache before scoring
 - expose HA services for:
   - fetch link summary
   - refresh candidates
@@ -97,12 +97,12 @@ Work items:
   - deactivate link
 - update archive popup contract and HA card surfaces
 - show Manyfold model summary in popup
-- allow queue/backlog state updates from confirmed archive linkage when appropriate
 
 Deliverables:
 
 - end-to-end archive-to-model linking from HA
 - accepted/rejected review flow
+- popup surfaces active confirmed links alongside reviewable candidates
 
 ### Phase 3: Queue, Ranking, And Curated Browse
 
@@ -112,10 +112,12 @@ Outcome:
 
 Work items:
 
+- broaden archive-scoped candidate discovery beyond name overlap using deterministic and heuristic signals such as source-hash identity, normalized filename overlap, and time-proximity boosts, while keeping heuristic matches review-only
 - add sidecar-owned queue/backlog fields:
   - `to_print_status`
   - `to_print_priority`
   - optional manual favorite/frequent overrides if needed
+- allow confirmed archive linkage to update queue/backlog state only after those sidecar-owned fields exist
 - derive archive-backed ranking fields such as recent/common/frequent views
 - add archive-initiated curated-catalog search or picker flows so operators can explicitly find and link a model when candidate refresh misses
 - add HA browse card for curated catalog with:
@@ -134,7 +136,7 @@ Deliverables:
 
 Design note:
 
-- see `docs/features/model_catalog/candidate-discovery-strategy.md` for the proposed split between Phase 2 candidate broadening, Phase 3 search/picker flows, and Phase 8 reverse model-to-archive review
+- see `docs/features/model_catalog/candidate-discovery-strategy.md` for the revised split between the shipped Phase 2 popup-linkage baseline, Phase 3 candidate broadening plus search/picker flows, and Phase 8 reverse model-to-archive review
 
 ### Phase 4: Working Groups And Working Veneer
 

@@ -121,6 +121,9 @@ That keeps each phase reviewable without relying on chat memory.
 - First executable milestone selected: **Phase 1A sidecar scaffold and Manyfold read baseline**
 - Phase 1A scaffold: **implemented and validated locally with focused pytest coverage**
 - Phase 1 target (archive-facing DTO contract): **implemented** (`GET /api/archive-links/{archive_id}`)
-- Phase 2 backend slice: **implemented and test-validated**
-- Implemented in this slice: archive-link CRUD and candidate review endpoints (`create`, `update`, `deactivate`, `candidates/refresh`, `accept`, `reject`)
-- Next implementation target: **wire HA archive linkage service endpoints and popup card integration**
+- Phase 2 archive-linkage slice: **implemented and test-validated end to end**
+- Implemented in this slice: archive-link CRUD and candidate review endpoints (`create`, `update`, `deactivate`, `candidates/refresh`, `accept`, `reject`), cache-refresh support for candidate refresh, manual-link URL canonicalization, duplicate prevention, confirmed-link preservation across candidate refresh, and popup card integration through HA rest-command wiring
+- Manual and live validation completed for the popup linkage surface, including candidate acceptance, manual link create, and confirmed-link display with Manyfold model name
+- Open follow-on endpoint in repo: duplicate cleanup for inactive historical link rows (`POST /api/archive-links/{archive_id}/cleanup-duplicates`)
+- Deferred from Phase 2 into later phases: heuristic candidate broadening beyond the current name-overlap baseline, curated catalog picker/search, and queue/backlog field behavior
+- Next implementation target: **Phase 3 candidate broadening, curated search/picker, ranking, and queue/backlog fields**

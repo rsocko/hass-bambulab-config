@@ -236,7 +236,7 @@ curl "http://127.0.0.1:8314/api/archive-links/4812?include_inactive=true"
 
 ## Archive Link Workflow Endpoints (Phase 2)
 
-Phase 2 extends archive-link support with CRUD and candidate review endpoints.
+Phase 2 extends archive-link support with CRUD and candidate review endpoints. The shipped baseline is popup-focused linkage and review; richer heuristic candidate discovery and queue/backlog behavior remain later-phase work.
 
 CRUD:
 
@@ -250,11 +250,16 @@ Candidate workflow:
 - `POST /api/archive-links/{archive_id}/{link_id}/accept`
 - `POST /api/archive-links/{archive_id}/{link_id}/reject`
 
+Cleanup workflow:
+
+- `POST /api/archive-links/{archive_id}/cleanup-duplicates`
+
 Candidate refresh request payload:
 
 - `archive_name` (required)
 - `min_score` (optional, default `0.3`)
 - `max_candidates` (optional, default `10`)
+- `force_refresh_model_cache` (optional, default `false`)
 
 Candidate review states currently used:
 

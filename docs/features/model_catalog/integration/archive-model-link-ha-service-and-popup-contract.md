@@ -167,6 +167,17 @@ Inputs:
 - optional `entry_id`
 - required `archive_id`
 - required `archive_name`
+- optional `force_refresh_model_cache` default `false`
+
+Current shipped baseline:
+
+- `archive_name`
+- optional `min_score`
+- optional `max_candidates`
+- optional `force_refresh_model_cache`
+
+Deferred candidate-broadening inputs for a later phase:
+
 - optional `archive_completed_at`
 - optional `source_file_name`
 - optional `source_hash`
@@ -174,7 +185,6 @@ Inputs:
 - optional `allow_time_proximity` default `true`
 - optional `prefer_recent_uploads` default `true`
 - optional `recent_upload_window_days` default `14`
-- optional `force_refresh_model_cache` default `false`
 
 Suggested payload schema:
 
@@ -204,6 +214,11 @@ Behavior:
 - recent-upload or time-proximity boosts should only affect ranking when another identity hint overlaps
 - filename/name/time fallback matches should remain `needs_operator_review` or `unreviewed`
 - candidate rows should include enough explanation for the popup to show why the candidate was suggested
+
+Status note:
+
+- the shipped Phase 2 popup linkage baseline only implements review-first candidate refresh using archive-name overlap plus optional cache refresh
+- heuristic broadening and richer candidate rationale remain planned for a later phase
 
 ## 3. `create_archive_model_link`
 

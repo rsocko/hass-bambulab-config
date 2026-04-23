@@ -1,6 +1,6 @@
 # Candidate Discovery Strategy
 
-> Status: Proposed design update.
+> Status: Revised design update with shipped Phase 2 baseline noted.
 > Scope: Archive-to-model candidate discovery, operator review, and later picker/search flows.
 
 ## Purpose
@@ -22,13 +22,14 @@ Current sidecar candidate refresh behavior is intentionally narrow:
 - both archive name and Manyfold model name are tokenized to lowercase alphanumeric words
 - score is token overlap divided by the larger token set
 - candidates below the minimum score threshold are discarded
+- the caller may request `force_refresh_model_cache=true` before scoring
 - surviving candidates are stored as review rows with `match_method=name_similarity`
 
 Current limitations:
 
 - does not inspect uploaded source 3MF or any source-file hash
 - does not use archive completion time or model upload time
-- does not refresh the Manyfold summary cache unless the cache is empty
+- does not yet use refreshed cache data for anything beyond the current name-overlap baseline
 - does not expose a picker/search UI when heuristic discovery misses
 
 ## Design Principles
@@ -85,28 +86,31 @@ These should not be treated as candidate discovery at all. They are explicit ope
 
 ## Proposed Phase Mapping
 
-### Phase 2: Better Archive-Scoped Candidate Refresh
+### Phase 2: Popup Linkage Baseline
 
-Phase 2 should remain popup-first, but broaden candidate inputs and ranking.
+Phase 2 is now the shipped popup-first linkage baseline.
+
+Implemented baseline:
+
+- pass `archive_name` explicitly as the current matching signal
+- support `force_refresh_model_cache` so candidate refresh can pull newly uploaded Manyfold models into the cache before scoring
+- keep candidate refresh review-only
+- enrich popup rows with cached Manyfold summary fields such as model name
+- support manual link create, candidate accept/reject, and deactivate flows from the popup
+
+This gives the archive popup a stable linking surface without yet expanding candidate heuristics beyond name overlap.
+
+### Phase 3: Candidate Broadening, Archive Search, And Curated Browse
+
+Phase 3 should introduce both richer candidate scoring and explicit search/picker surfaces instead of relying only on the current background matcher.
 
 Recommended additions:
 
-- pass `archive_name` explicitly as the baseline signal
 - optionally pass `archive_completed_at`, `archive_started_at`, and source-file hints when available
-- add `force_refresh_model_cache` so candidate refresh can pull newly uploaded Manyfold models into the cache before scoring
 - add a recent-upload boost for models or files created near the archive completion time
 - add normalized filename overlap when archive-side source file names are available
 - store candidate rationale in `review_note` or structured annotations so the popup can show why a row appeared
-- enrich popup candidate rows with cached Manyfold summary fields such as model name first, and later preview thumbnail support when the compact review layout can accommodate it safely
-
-Phase 2 should still avoid automatic acceptance for these heuristic matches.
-
-### Phase 3: Archive-Initiated Search And Curated Browse
-
-Phase 3 should introduce explicit search/picker surfaces instead of relying only on background candidate generation.
-
-Recommended additions:
-
+- add later preview thumbnail support when the compact review layout can accommodate it safely
 - archive popup action to search/browse the curated catalog
 - sidecar endpoint for searchable model-library queries with pagination and filter support
 - result ranking that can incorporate recent uploads, recent prints, and accepted-link history
@@ -144,7 +148,7 @@ force_refresh_model_cache: bool = false
 max_candidates: int = 10
 ```
 
-Not every field must be available in Phase 2, but the contract should leave room for them.
+Not every field needs to exist in the shipped Phase 2 baseline, but the contract should leave room for them when Phase 3 broadening begins.
 
 ## Ranking Guidance
 
@@ -163,7 +167,7 @@ Example reasoning strings:
 - `normalized filename overlap + upload within 3 days of print`
 - `name overlap + recent upload + same creator`
 
-## Non-Goals For Phase 2
+## Non-Goals For The Shipped Phase 2 Baseline
 
 - full-text catalog search in the popup
 - large browse/filter UI inside the candidate refresh action
@@ -172,6 +176,6 @@ Example reasoning strings:
 
 ## Suggested Follow-On Work Items
 
-- Phase 2 enhancement: broaden candidate discovery with cache refresh, filename overlap, and time-proximity scoring
+- Phase 3 feature: broaden candidate discovery with filename overlap, deterministic identity signals, and time-proximity scoring
 - Phase 3 feature: archive popup model picker/search backed by a searchable curated-catalog endpoint
 - Phase 8 feature: reverse model-to-archive candidate review and backfill flow
