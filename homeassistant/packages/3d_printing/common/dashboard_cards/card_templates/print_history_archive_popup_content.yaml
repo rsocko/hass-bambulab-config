@@ -682,24 +682,27 @@ print_history_archive_popup_content:
           if (!hasMeaningfulValue(skipOverlayPathLabel)) return '';
           const pathWithoutQuery = String(skipOverlayPathLabel).split('?')[0] || '';
           const proxyMatch = pathWithoutQuery.match(/^\/api\/image_proxy\/(.+)$/) || pathWithoutQuery.match(/^\/api\/image_proxy_stream\/(.+)$/);
-          if (!proxyMatch) {
-            return skipOverlayPathLabel;
-          }
           let entityId = '';
-          try {
-            entityId = decodeURIComponent(proxyMatch[1] || '').trim();
-          } catch (_error) {
-            entityId = String(proxyMatch[1] || '').trim();
+          if (proxyMatch) {
+            try {
+              entityId = decodeURIComponent(proxyMatch[1] || '').trim();
+            } catch (_error) {
+              entityId = String(proxyMatch[1] || '').trim();
+            }
           }
           if (!hasMeaningfulValue(entityId)) {
             const printerPrefix = String(skipOverlayState?.printer_prefix || '').trim();
             if (hasMeaningfulValue(printerPrefix)) {
               entityId = `image.${printerPrefix}_pick_image`;
-            } else {
-              return skipOverlayPathLabel;
             }
           }
-          return `/api/image_proxy/${encodeURIComponent(entityId)}`;
+          const liveEntityPicture = hasMeaningfulValue(entityId)
+            ? String(states?.[entityId]?.attributes?.entity_picture || '').trim()
+            : '';
+          if (hasMeaningfulValue(liveEntityPicture)) {
+            return liveEntityPicture;
+          }
+          return skipOverlayPathLabel;
         };
         const skipOverlayImageSrc = resolveSkipOverlayImageSrc();
         const skipOverlayImageMarkup = hasMeaningfulValue(skipOverlayImageSrc)
