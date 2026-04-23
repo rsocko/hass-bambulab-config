@@ -3199,9 +3199,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var entityId = this._config && this._config.model_catalog_sidecar_base_url_entity
       ? this._config.model_catalog_sidecar_base_url_entity
       : "input_text.model_catalog_sidecar_base_url";
-    return this._hass && this._hass.states && this._hass.states[entityId]
-      ? String(this._hass.states[entityId].state || "").trim().replace(/\/$/, "")
-      : "";
+    if (!this._hass || !this._hass.states || !this._hass.states[entityId]) {
+      return "";
+    }
+    var baseUrl = String(this._hass.states[entityId].state || "").trim();
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      return "";
+    }
+    return baseUrl.replace(/\/$/, "");
   }
 
   async _loadModelLinks(archiveId) {
@@ -3336,7 +3341,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return this._renderActionSection(
         "Model Catalog",
         '<div class="model-tab-empty"><ha-icon icon="mdi:server-off"></ha-icon>'
-        + '<p>Set <code>input_text.model_catalog_sidecar_base_url</code> to enable model linking.</p></div>'
+        + '<p>Set <code>input_text.model_catalog_sidecar_base_url</code> to a full sidecar base URL such as <code>http://host:8314</code> to enable model linking.</p></div>'
       );
     }
 
