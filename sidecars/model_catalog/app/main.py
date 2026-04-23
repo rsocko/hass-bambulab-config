@@ -2,11 +2,22 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+import re
 from typing import Any
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
-from .db import ArchiveModelLink, bootstrap_database, read_archive_links
+from .db import (
+    ArchiveModelLink,
+    bootstrap_database,
+    create_archive_link,
+    deactivate_archive_link,
+    read_archive_links,
+    refresh_archive_link_candidates,
+    set_archive_link_review_state,
+    update_archive_link,
+)
 from .manyfold import ManyfoldClient, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .settings import Settings, load_settings
 
@@ -38,10 +49,46 @@ def _archive_link_to_response(link: ArchiveModelLink) -> dict[str, Any]:
         "match_method": link.match_method,
         "match_confidence": link.match_confidence,
         "review_state": link.review_state,
+        "review_note": link.review_note,
         "is_active": link.is_active,
         "created_at": link.created_at,
         "updated_at": link.updated_at,
     }
+
+
+def _error_response(*, archive_id: int, error: str, message: str, status_code: int = 400) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "success": False,
+            "error": error,
+            "message": message,
+            "archive_id": archive_id,
+        },
+    )
+
+
+def _normalize_tokens(text: str) -> set[str]:
+    return {token for token in re.findall(r"[a-z0-9]+", text.lower()) if len(token) > 1}
+
+
+def _score_candidate(archive_name: str, model_name: str) -> float:
+    archive_tokens = _normalize_tokens(archive_name)
+    model_tokens = _normalize_tokens(model_name)
+    if not archive_tokens or not model_tokens:
+        return 0.0
+    overlap = archive_tokens.intersection(model_tokens)
+    if not overlap:
+        return 0.0
+    return len(overlap) / max(len(archive_tokens), len(model_tokens))
+
+
+def _confidence_for_score(score: float) -> str:
+    if score >= 0.8:
+        return "high"
+    if score >= 0.5:
+        return "medium"
+    return "low"
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
@@ -149,6 +196,200 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "count": len(links),
                 "include_inactive": include_inactive,
             },
+        }
+
+    @app.post("/api/archive-links/{archive_id}")
+    def create_archive_link_endpoint(archive_id: int, payload: dict[str, Any]) -> Any:
+        manyfold_model_url = str(payload.get("manyfold_model_url") or "").strip()
+        relationship_type = str(payload.get("relationship_type") or "source_for").strip()
+        link_role = str(payload.get("link_role") or "primary").strip()
+        match_method = str(payload.get("match_method") or "manual").strip()
+        match_confidence = str(payload.get("match_confidence") or "high").strip()
+        review_state = str(payload.get("review_state") or "accepted").strip()
+        review_note = str(payload.get("review_note") or "").strip() or None
+        is_active = bool(payload.get("is_active", True))
+        if not manyfold_model_url:
+            return _error_response(
+                archive_id=archive_id,
+                error="invalid_payload",
+                message="manyfold_model_url is required.",
+            )
+
+        created = create_archive_link(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            manyfold_model_url=manyfold_model_url,
+            manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None,
+            manyfold_model_file_id=str(payload.get("manyfold_model_file_id") or "").strip() or None,
+            relationship_type=relationship_type,
+            link_role=link_role,
+            match_method=match_method,
+            match_confidence=match_confidence,
+            review_state=review_state,
+            is_active=is_active,
+            review_note=review_note,
+        )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(created),
+        }
+
+    @app.patch("/api/archive-links/{archive_id}/{link_id}")
+    def update_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any]) -> Any:
+        updated = update_archive_link(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            link_id=link_id,
+            manyfold_model_url=str(payload.get("manyfold_model_url") or "").strip() or None,
+            manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None,
+            manyfold_model_file_id=str(payload.get("manyfold_model_file_id") or "").strip() or None,
+            relationship_type=str(payload.get("relationship_type") or "").strip() or None,
+            link_role=str(payload.get("link_role") or "").strip() or None,
+            match_method=str(payload.get("match_method") or "").strip() or None,
+            match_confidence=str(payload.get("match_confidence") or "").strip() or None,
+            review_state=str(payload.get("review_state") or "").strip() or None,
+            is_active=payload.get("is_active") if "is_active" in payload else None,
+            review_note=str(payload.get("review_note") or "").strip() or None,
+        )
+        if updated is None:
+            return _error_response(
+                archive_id=archive_id,
+                error="link_not_found",
+                message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.",
+                status_code=404,
+            )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(updated),
+        }
+
+    @app.post("/api/archive-links/{archive_id}/{link_id}/deactivate")
+    def deactivate_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
+        note_payload = payload or {}
+        updated = deactivate_archive_link(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            link_id=link_id,
+            note=str(note_payload.get("review_note") or note_payload.get("reason") or "").strip() or None,
+        )
+        if updated is None:
+            return _error_response(
+                archive_id=archive_id,
+                error="link_not_found",
+                message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.",
+                status_code=404,
+            )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(updated),
+        }
+
+    @app.post("/api/archive-links/{archive_id}/candidates/refresh")
+    def refresh_archive_candidates_endpoint(archive_id: int, payload: dict[str, Any]) -> Any:
+        archive_name = str(payload.get("archive_name") or "").strip()
+        min_score = float(payload.get("min_score") or 0.3)
+        max_candidates = int(payload.get("max_candidates") or 10)
+        if not archive_name:
+            return _error_response(
+                archive_id=archive_id,
+                error="invalid_payload",
+                message="archive_name is required for candidate refresh.",
+            )
+
+        summaries = read_cached_manyfold_summaries(db_path=app.state.model_catalog.settings.db_path)
+        if not summaries:
+            summaries = refresh_manyfold_cache(
+                db_path=app.state.model_catalog.settings.db_path,
+                client=app.state.manyfold_client,
+            )
+
+        ranked_candidates: list[tuple[float, dict[str, str]]] = []
+        for summary in summaries:
+            score = _score_candidate(archive_name, summary.name)
+            if score < min_score:
+                continue
+            ranked_candidates.append(
+                (
+                    score,
+                    {
+                        "manyfold_model_url": summary.model_url,
+                        "manyfold_model_public_id": summary.public_id or "",
+                        "match_method": "name_similarity",
+                        "match_confidence": _confidence_for_score(score),
+                        "review_note": f"candidate refresh: archive_name='{archive_name}', score={score:.2f}",
+                    },
+                )
+            )
+
+        ranked_candidates.sort(key=lambda item: item[0], reverse=True)
+        selected_candidates = [item[1] for item in ranked_candidates[:max_candidates]]
+
+        candidate_links, changed_count = refresh_archive_link_candidates(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            candidates=selected_candidates,
+        )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "candidates": [_archive_link_to_response(link) for link in candidate_links],
+            "created_or_updated_count": changed_count,
+            "meta": {
+                "archive_name": archive_name,
+                "min_score": min_score,
+                "max_candidates": max_candidates,
+            },
+        }
+
+    @app.post("/api/archive-links/{archive_id}/{link_id}/accept")
+    def accept_archive_candidate_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
+        note_payload = payload or {}
+        updated = set_archive_link_review_state(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            link_id=link_id,
+            review_state="accepted",
+            is_active=True,
+            review_note=str(note_payload.get("review_note") or "").strip() or None,
+        )
+        if updated is None:
+            return _error_response(
+                archive_id=archive_id,
+                error="link_not_found",
+                message=f"No candidate link found for archive_id={archive_id}, link_id={link_id}.",
+                status_code=404,
+            )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(updated),
+        }
+
+    @app.post("/api/archive-links/{archive_id}/{link_id}/reject")
+    def reject_archive_candidate_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
+        note_payload = payload or {}
+        updated = set_archive_link_review_state(
+            db_path=app.state.model_catalog.settings.db_path,
+            archive_id=archive_id,
+            link_id=link_id,
+            review_state="rejected",
+            is_active=False,
+            review_note=str(note_payload.get("review_note") or "").strip() or None,
+        )
+        if updated is None:
+            return _error_response(
+                archive_id=archive_id,
+                error="link_not_found",
+                message=f"No candidate link found for archive_id={archive_id}, link_id={link_id}.",
+                status_code=404,
+            )
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(updated),
         }
 
     return app

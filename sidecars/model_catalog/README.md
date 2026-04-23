@@ -233,3 +233,32 @@ Example:
 ```bash
 curl "http://127.0.0.1:8314/api/archive-links/4812?include_inactive=true"
 ```
+
+## Archive Link Workflow Endpoints (Phase 2)
+
+Phase 2 extends archive-link support with CRUD and candidate review endpoints.
+
+CRUD:
+
+- `POST /api/archive-links/{archive_id}`
+- `PATCH /api/archive-links/{archive_id}/{link_id}`
+- `POST /api/archive-links/{archive_id}/{link_id}/deactivate`
+
+Candidate workflow:
+
+- `POST /api/archive-links/{archive_id}/candidates/refresh`
+- `POST /api/archive-links/{archive_id}/{link_id}/accept`
+- `POST /api/archive-links/{archive_id}/{link_id}/reject`
+
+Candidate refresh request payload:
+
+- `archive_name` (required)
+- `min_score` (optional, default `0.3`)
+- `max_candidates` (optional, default `10`)
+
+Candidate review states currently used:
+
+- `new`
+- `accepted`
+- `rejected`
+- `expired`

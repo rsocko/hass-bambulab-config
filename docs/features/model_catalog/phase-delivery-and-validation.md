@@ -120,6 +120,7 @@ That keeps each phase reviewable without relying on chat memory.
 - Phase 0 baseline: **closed in docs**
 - First executable milestone selected: **Phase 1A sidecar scaffold and Manyfold read baseline**
 - Phase 1A scaffold: **implemented and validated locally with focused pytest coverage**
-- Phase 1 next target (archive-facing DTO contract): **in progress**
-- Implemented in this slice: `GET /api/archive-links/{archive_id}` with contract id `archive-link.v1alpha1` and focused test coverage
-- Next implementation target after this slice: **add archive-link write/review operations (create, accept/reject, deactivate) behind the same contract boundary**
+- Phase 1 target (archive-facing DTO contract): **implemented** (`GET /api/archive-links/{archive_id}`)
+- Phase 2 backend slice: **implemented and test-validated**
+- Implemented in this slice: archive-link CRUD and candidate review endpoints (`create`, `update`, `deactivate`, `candidates/refresh`, `accept`, `reject`)
+- Next implementation target: **wire HA archive linkage service endpoints and popup card integration**

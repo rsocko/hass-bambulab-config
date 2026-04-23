@@ -382,3 +382,152 @@ def test_archive_link_endpoint_returns_active_link_and_can_include_inactive(tmp_
         returned_urls = [item["manyfold_model_url"] for item in full_payload["links"]]
         assert "http://manyfold.test/models/active" in returned_urls
         assert "http://manyfold.test/models/inactive" in returned_urls
+
+
+def test_archive_link_crud_endpoints(tmp_path: Path) -> None:
+    app = create_app(settings=_build_settings(tmp_path))
+
+    with TestClient(app) as test_client:
+        created_response = test_client.post(
+            "/api/archive-links/7001",
+            json={
+                "manyfold_model_url": "http://manyfold.test/models/abc123",
+                "manyfold_model_public_id": "abc123",
+                "relationship_type": "source_for",
+                "match_method": "manual",
+                "match_confidence": "high",
+                "review_state": "accepted",
+                "review_note": "manual link",
+                "is_active": True,
+            },
+        )
+        assert created_response.status_code == 200
+        created_payload = created_response.json()
+        assert created_payload["success"] is True
+        assert created_payload["link"]["review_note"] == "manual link"
+        link_id = int(created_payload["link"]["id"])
+
+        updated_response = test_client.patch(
+            f"/api/archive-links/7001/{link_id}",
+            json={
+                "match_confidence": "medium",
+                "review_note": "confidence adjusted",
+            },
+        )
+        assert updated_response.status_code == 200
+        updated_payload = updated_response.json()
+        assert updated_payload["link"]["match_confidence"] == "medium"
+        assert updated_payload["link"]["review_note"] == "confidence adjusted"
+
+        deactivated_response = test_client.post(
+            f"/api/archive-links/7001/{link_id}/deactivate",
+            json={"reason": "operator disabled"},
+        )
+        assert deactivated_response.status_code == 200
+        deactivated_payload = deactivated_response.json()
+        assert deactivated_payload["link"]["is_active"] is False
+
+        all_links = test_client.get("/api/archive-links/7001?include_inactive=true")
+        assert all_links.status_code == 200
+        assert all_links.json()["meta"]["count"] == 1
+        assert all_links.json()["links"][0]["review_note"] == "operator disabled"
+
+
+def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/wolv",
+                "wolv",
+                "Wolverine Bookmark",
+                "wolv",
+                None,
+                None,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/random-cup",
+                "cup",
+                "Wolverine Storage Box",
+                "cup",
+                None,
+                None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/archive-links/8101/candidates/refresh",
+            json={
+                "archive_name": "Wolverine Bookmark",
+                "min_score": 0.0,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed.status_code == 200
+        refreshed_payload = refreshed.json()
+        assert refreshed_payload["success"] is True
+        assert refreshed_payload["created_or_updated_count"] >= 2
+        candidate_ids = [int(candidate["id"]) for candidate in refreshed_payload["candidates"]]
+        assert len(candidate_ids) >= 2
+
+        accepted = test_client.post(
+            f"/api/archive-links/8101/{candidate_ids[0]}/accept",
+            json={"review_note": "best match"},
+        )
+        assert accepted.status_code == 200
+        accepted_payload = accepted.json()
+        assert accepted_payload["link"]["review_state"] == "accepted"
+        assert accepted_payload["link"]["is_active"] is True
+        assert accepted_payload["link"]["review_note"] == "best match"
+
+        rejected = test_client.post(
+            f"/api/archive-links/8101/{candidate_ids[1]}/reject",
+            json={"review_note": "not correct model"},
+        )
+        assert rejected.status_code == 200
+        rejected_payload = rejected.json()
+        assert rejected_payload["link"]["review_state"] == "rejected"
+        assert rejected_payload["link"]["is_active"] is False
+
+        full_view = test_client.get("/api/archive-links/8101?include_inactive=true")
+        assert full_view.status_code == 200
+        links_by_id = {int(link["id"]): link for link in full_view.json()["links"]}
+        assert links_by_id[candidate_ids[0]]["review_state"] == "accepted"
+        assert links_by_id[candidate_ids[1]]["review_state"] == "rejected"
