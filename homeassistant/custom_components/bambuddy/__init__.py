@@ -2652,7 +2652,7 @@ class ArchiveViewerGcodeView(HomeAssistantView):
 class ArchivePickImageView(HomeAssistantView):
     url = ARCHIVE_PICK_IMAGE_URL
     name = "api:bambuddy:print-history:archive:pick-image"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
         resolved = await _resolve_archive_viewer_request(request)
