@@ -35,6 +35,22 @@ def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: 
     return normalized
 
 
+def _extract_model_id(payload: dict[str, Any]) -> str | None:
+    explicit_id = str(payload.get("id") or "").strip()
+    if explicit_id:
+        return explicit_id
+
+    ref = str(payload.get("@id") or payload.get("url") or "").strip()
+    if not ref:
+        return None
+
+    path = urlsplit(ref).path or ref
+    parts = [segment for segment in path.split("/") if segment]
+    if len(parts) >= 2 and parts[-2] == "models":
+        return parts[-1]
+    return None
+
+
 class ManyfoldClient:
     def __init__(
         self,
@@ -175,10 +191,11 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
     creator = payload.get("creator") or {}
     collections = payload.get("collections") or []
     keywords = payload.get("keywords") or payload.get("tags") or []
+    model_id = _extract_model_id(payload)
     model_url = canonicalize_model_url(
         base_url,
         str(payload.get("url") or payload.get("@id") or "").strip(),
-        fallback_model_id=payload.get("id"),
+        fallback_model_id=model_id,
     )
 
     def _extract_name(value: Any) -> str | None:
@@ -193,7 +210,7 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
     return ManyfoldModelSummary(
         model_url=model_url,
         public_id=str(payload.get("public_id") or "").strip() or None,
-        model_id=str(payload.get("id") or "").strip() or None,
+        model_id=model_id,
         name=str(payload.get("name") or payload.get("title") or "Unnamed Model").strip(),
         preview_url=str(preview.get("url") or preview.get("thumbnail_url") or "").strip() or None,
         creator_name=_extract_name(creator),

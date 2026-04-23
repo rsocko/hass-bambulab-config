@@ -81,6 +81,7 @@ def test_normalize_model_summary_handles_manyfold_api_member_shape() -> None:
     )
 
     assert summary.model_url == "http://manyfold.test/models/abc123"
+    assert summary.model_id == "abc123"
     assert summary.name == "API Benchy"
 
 
@@ -94,6 +95,58 @@ def test_normalize_model_summary_rewrites_absolute_model_url_to_base_host() -> N
     )
 
     assert summary.model_url == "http://manyfold.socko.us/models/x9dcd59s3g60"
+
+
+def test_model_fields_can_be_addressed_by_full_model_url(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/abc123",
+                None,
+                "API Benchy",
+                None,
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        response = test_client.put(
+            "/api/models/http://manyfold.test/models/abc123/fields/to_print_status",
+            json={"value": "queued"},
+        )
+        assert response.status_code == 200
+        assert response.json()["field_value"] == "queued"
+
+        fields = test_client.get("/api/models/http://manyfold.test/models/abc123/fields")
+        assert fields.status_code == 200
+        assert fields.json()["fields"] == {"to_print_status": "queued"}
 
 
 def test_manyfold_client_disables_env_proxy_lookup(monkeypatch: pytest.MonkeyPatch) -> None:

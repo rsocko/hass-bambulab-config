@@ -353,7 +353,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "models": models,
         }
 
-    @app.get("/api/models/{model_ref}/fields")
+    @app.get("/api/models/{model_ref:path}/fields")
     def get_model_fields(model_ref: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -367,7 +367,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "fields": read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref)),
         }
 
-    @app.get("/api/models/{model_ref}/fields/{field_key}")
+    @app.get("/api/models/{model_ref:path}/fields/{field_key}")
     def get_model_field(model_ref: str, field_key: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -385,7 +385,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "field_value": value,
         }
 
-    @app.put("/api/models/{model_ref}/fields/{field_key}")
+    @app.put("/api/models/{model_ref:path}/fields/{field_key}")
     def put_model_field(model_ref: str, field_key: str, payload: dict[str, Any]) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -403,7 +403,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "field_value": value,
         }
 
-    @app.delete("/api/models/{model_ref}/fields/{field_key}")
+    @app.delete("/api/models/{model_ref:path}/fields/{field_key}")
     def remove_model_field(model_ref: str, field_key: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -415,7 +415,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
         return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
 
-    @app.get("/api/models/{model_ref}/ranking")
+    @app.get("/api/models/{model_ref:path}/ranking")
     def get_model_ranking_endpoint(model_ref: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -467,7 +467,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             ],
         }
 
-    @app.put("/api/models/{model_ref}/ranking")
+    @app.put("/api/models/{model_ref:path}/ranking")
     def put_model_ranking_endpoint(model_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
