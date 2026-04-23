@@ -667,6 +667,9 @@ print_history_archive_popup_content:
         const skipOverlayPrintableObjects = skipOverlayState?.printable_objects && typeof skipOverlayState.printable_objects === 'object'
           ? skipOverlayState.printable_objects
           : {};
+        const skipOverlayPrintableIds = Object.keys(skipOverlayPrintableObjects)
+          .map((item) => Number(item))
+          .filter((item) => Number.isInteger(item));
         const skipOverlayObjectLabels = skipOverlaySkippedIds.map((item) => {
           const label = skipOverlayPrintableObjects?.[String(item)] ?? skipOverlayPrintableObjects?.[item];
           return label ? `${item}: ${String(label)}` : String(item);
@@ -695,9 +698,12 @@ print_history_archive_popup_content:
           }
           return hasMeaningfulValue(skipOverlayPathLabel) ? skipOverlayPathLabel : '';
         };
+        const skipOverlayCanvasHandler = `try{const img=this;const shell=img.closest('.print-history-popup-skip-image-shell');if(!shell)return;const canvas=shell.querySelector('.print-history-popup-skip-image-canvas');if(!canvas)return;const printableIds=String(canvas.dataset.printableIds||'').split(',').map((value)=>Number(value)).filter((value)=>Number.isInteger(value));if(!printableIds.length)return;const printableSet=new Set(printableIds);const skippedSet=new Set(String(canvas.dataset.skippedIds||'').split(',').map((value)=>Number(value)).filter((value)=>Number.isInteger(value)));const size=512;const readCanvas=document.createElement('canvas');readCanvas.width=size;readCanvas.height=size;const read=readCanvas.getContext('2d',{willReadFrequently:true});const write=canvas.getContext('2d',{willReadFrequently:true});if(!read||!write)return;canvas.width=size;canvas.height=size;read.clearRect(0,0,size,size);write.clearRect(0,0,size,size);read.drawImage(img,0,0,size,size);const readImageData=read.getImageData(0,0,size,size);const writeImageData=write.createImageData(size,size);const readData=readImageData.data;const writeData=writeImageData.data;writeData.set(readData);const red=[220,38,38,230];const green=[34,197,94,215];for(let index=0;index<readData.length;index+=4){const key=(readData[index]|(readData[index+1]<<8)|(readData[index+2]<<16))>>>0;if(!key||!printableSet.has(key))continue;const color=skippedSet.has(key)?red:green;writeData[index]=color[0];writeData[index+1]=color[1];writeData[index+2]=color[2];writeData[index+3]=color[3];}write.putImageData(writeImageData,0,0);canvas.style.display='block';img.style.display='none';const legend=shell.querySelector('.print-history-popup-skip-image-legend');if(legend)legend.style.display='flex';}catch(_error){return;}`;
         const skipOverlayImageSrc = resolveSkipOverlayImageSrc();
         const skipOverlayImageMarkup = hasMeaningfulValue(skipOverlayImageSrc)
-          ? `<div class="print-history-popup-skip-image-shell"><img class="print-history-popup-skip-image" src="${escapeHtml(skipOverlayImageSrc)}" alt="Skipped object overlay preview" loading="lazy" referrerpolicy="same-origin"></div>`
+          ? skipOverlayPrintableIds.length
+            ? `<div class="print-history-popup-skip-image-shell"><canvas class="print-history-popup-skip-image-canvas" data-printable-ids="${escapeHtml(skipOverlayPrintableIds.join(','))}" data-skipped-ids="${escapeHtml(skipOverlaySkippedIds.join(','))}" aria-label="Skipped object overlay preview"></canvas><img class="print-history-popup-skip-image print-history-popup-skip-image--source" src="${escapeHtml(skipOverlayImageSrc)}" alt="Skipped object raw overlay map" loading="lazy" referrerpolicy="same-origin" onload='${escapeHtml(skipOverlayCanvasHandler)}'><div class="print-history-popup-skip-image-legend" style="display:none;"><span class="print-history-popup-skip-image-legend-item"><span class="print-history-popup-skip-image-legend-dot print-history-popup-skip-image-legend-dot--active"></span><span>Printed</span></span><span class="print-history-popup-skip-image-legend-item"><span class="print-history-popup-skip-image-legend-dot print-history-popup-skip-image-legend-dot--skipped"></span><span>Skipped</span></span></div></div>`
+            : `<div class="print-history-popup-skip-image-shell"><img class="print-history-popup-skip-image" src="${escapeHtml(skipOverlayImageSrc)}" alt="Skipped object overlay preview" loading="lazy" referrerpolicy="same-origin"></div>`
           : '';
         const skipOverlaySummaryText = skipOverlaySkippedIds.length
           ? `${skipOverlaySkippedIds.length} object${skipOverlaySkippedIds.length === 1 ? '' : 's'} skipped`
@@ -1093,8 +1099,15 @@ print_history_archive_popup_content:
             .print-history-popup-skip-toggle-hint{font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;}
             .print-history-popup-skip-toggle-icon{display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;transition:transform .16s ease;}
             .print-history-popup-skip-details{display:none;flex-direction:column;gap:10px;}
-            .print-history-popup-skip-image-shell{display:flex;align-items:center;justify-content:center;padding:10px;border-radius:14px;background:rgba(8,12,16,0.32);border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
+            .print-history-popup-skip-image-shell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:10px;border-radius:14px;background:rgba(8,12,16,0.32);border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
             .print-history-popup-skip-image{display:block;max-width:100%;width:100%;max-height:240px;object-fit:contain;border-radius:10px;background:rgba(0,0,0,0.18);}
+            .print-history-popup-skip-image--source{display:block;}
+            .print-history-popup-skip-image-canvas{display:none;max-width:100%;width:100%;max-height:240px;height:auto;border-radius:10px;background:rgba(0,0,0,0.18);}
+            .print-history-popup-skip-image-legend{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font-size:11px;color:rgba(236,239,241,0.78);}
+            .print-history-popup-skip-image-legend-item{display:inline-flex;align-items:center;gap:6px;}
+            .print-history-popup-skip-image-legend-dot{display:inline-flex;width:10px;height:10px;border-radius:999px;box-shadow:0 0 0 1px rgba(255,255,255,0.16) inset;}
+            .print-history-popup-skip-image-legend-dot--active{background:rgba(34,197,94,0.92);}
+            .print-history-popup-skip-image-legend-dot--skipped{background:rgba(220,38,38,0.92);}
             .print-history-popup-skip-shell.is-open .print-history-popup-skip-details{display:flex;}
             .print-history-popup-skip-shell.is-open .print-history-popup-skip-toggle-icon{transform:rotate(90deg);}
             .print-history-popup-match-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;}

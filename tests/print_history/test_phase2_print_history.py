@@ -3062,6 +3062,10 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("View details", popup_content)
         self.assertIn("if (hasMeaningfulValue(skipOverlayPathLabel))", popup_content)
         self.assertIn("return skipOverlayPathLabel;", popup_content)
+        self.assertIn("const skipOverlayPrintableIds = Object.keys(skipOverlayPrintableObjects)", popup_content)
+        self.assertIn("const skipOverlayCanvasHandler = `try{const img=this;", popup_content)
+        self.assertIn("print-history-popup-skip-image-canvas", popup_content)
+        self.assertIn("print-history-popup-skip-image-legend", popup_content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (
