@@ -1,0 +1,6 @@
+# Reject a candidate archive-link (sets review_state=rejected, is_active remains false).
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_reject_archive_link:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}/{{ link_id }}/reject
+  method: POST

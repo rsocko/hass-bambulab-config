@@ -23,3 +23,4 @@ print_history_loader: !include print_history/print_history_loader.yaml
 #print_queue_loader: !include print_queue/print_queue_loader.yaml
 print_statistics_loader: !include print_statistics/print_statistics_loader.yaml
 #printer_maintenance_loader: !include printer_maintenance/printer_maintenance_loader.yaml
+model_catalog_loader: !include model_catalog/model_catalog_loader.yaml

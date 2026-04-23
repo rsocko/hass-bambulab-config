@@ -1,0 +1,6 @@
+# Accept a candidate or manual archive-link (sets review_state=accepted, is_active=true).
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_accept_archive_link:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}/{{ link_id }}/accept
+  method: POST

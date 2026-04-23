@@ -1,0 +1,6 @@
+# Soft-delete an archive-link record (sets is_active=false, review_state unchanged).
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_deactivate_archive_link:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}/{{ link_id }}/deactivate
+  method: POST

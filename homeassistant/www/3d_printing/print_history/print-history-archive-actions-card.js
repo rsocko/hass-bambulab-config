@@ -40,6 +40,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._boundClickHandler = this._handleClick.bind(this);
     this._boundSourceUploadChangeHandler = this._handleSourceUploadChange.bind(this);
     this._boundArchiveUpdatedHandler = this._handleExternalArchiveUpdate.bind(this);
+    // Model Catalog state
+    this._modelLinks = [];
+    this._modelLinksArchiveId = "";
+    this._modelLinksBusy = false;
+    this._modelLinksError = "";
+    this._modelManualUrl = "";
   }
 
   setConfig(config) {
@@ -47,6 +53,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       archive_json: config && config.archive_json ? config.archive_json : "{}",
       detail_entity: config && config.detail_entity ? config.detail_entity : "",
       api_base_entity: config && config.api_base_entity ? config.api_base_entity : "input_text.bambuddy_api_base_url",
+      model_catalog_sidecar_base_url_entity: config && config.model_catalog_sidecar_base_url_entity ? config.model_catalog_sidecar_base_url_entity : "input_text.model_catalog_sidecar_base_url",
       related_limit_entity:
         config && config.related_limit_entity
           ? config.related_limit_entity
@@ -98,6 +105,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._metadataCorrectionBackMode = "main";
     this._timelapseScanResponse = null;
     this._lastRenderSignature = "";
+    // Model Catalog state reset
+    this._modelLinks = [];
+    this._modelLinksArchiveId = "";
+    this._modelLinksBusy = false;
+    this._modelLinksError = "";
+    this._modelManualUrl = "";
     this._render();
   }
 
@@ -187,7 +200,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return this._normalizeCompareArchiveIds(Array.isArray(parsed) ? parsed : [parsed]);
   }
 
-  _maybeLoadInitialCompare() {
+  _resolveCurrentArchiveId() {
+    var archive = this._resolveArchive();
+    return archive && archive.id != null ? String(archive.id) : "";
+  }
     if (!this._hass || !this._config || this._busy) {
       return;
     }
@@ -263,6 +279,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   _mainTabConfig() {
     return [
       { id: "media", label: "Files & Media", icon: "mdi:folder-play-outline" },
+      { id: "model", label: "Model", icon: "mdi:cube-outline" },
       { id: "analytics", label: "Analytics", icon: "mdi:chart-box-outline" },
       { id: "repair", label: "Repair & Metadata", icon: "mdi:wrench-cog-outline" },
       { id: "danger", label: "Danger", icon: "mdi:alert-octagon-outline" },
@@ -568,6 +585,40 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     if (action === "cancel") {
       this._mode = "main";
       this._render();
+    }
+    // ─── Model Catalog actions ──────────────────────────────────────────────
+    if (action === "model-reload-links") {
+      this._modelLinksArchiveId = "";
+      this._loadModelLinks(this._resolveCurrentArchiveId());
+      return;
+    }
+    if (action === "model-refresh-candidates") {
+      this._modelCatalogAction("refresh-candidates", this._resolveCurrentArchiveId(), null, null);
+      return;
+    }
+    if (action === "model-accept-link") {
+      this._modelCatalogAction("accept-link", this._resolveCurrentArchiveId(),
+        button.getAttribute("data-link-id"),
+        { manyfold_model_url: button.getAttribute("data-model-url") || "" });
+      return;
+    }
+    if (action === "model-reject-link") {
+      this._modelCatalogAction("reject-link", this._resolveCurrentArchiveId(),
+        button.getAttribute("data-link-id"), null);
+      return;
+    }
+    if (action === "model-deactivate-link") {
+      this._modelCatalogAction("deactivate-link", this._resolveCurrentArchiveId(),
+        button.getAttribute("data-link-id"), null);
+      return;
+    }
+    if (action === "model-create-link") {
+      var manualInput = this.shadowRoot ? this.shadowRoot.querySelector("#model-manual-url-input") : null;
+      var manualUrl = manualInput ? String(manualInput.value || "").trim() : "";
+      this._modelManualUrl = manualUrl;
+      this._modelCatalogAction("create-manual-link", this._resolveCurrentArchiveId(), null,
+        { manyfold_model_url: manualUrl });
+      return;
     }
   }
 
@@ -3113,11 +3164,13 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         ? '<div class="main-tab-panel" role="tabpanel">' + repairActions + '</div>'
         : this._mainTab === "danger"
           ? '<div class="main-tab-panel" role="tabpanel">' + dangerActions + '</div>'
-          : '<div class="main-tab-panel" role="tabpanel">'
-            + this._renderActionSection("Files", fileActions)
-            + linkActions
-            + timelapseActions
-            + '</div>';
+          : this._mainTab === "model"
+            ? '<div class="main-tab-panel" role="tabpanel">' + this._renderModelTab(archive) + '</div>'
+            : '<div class="main-tab-panel" role="tabpanel">'
+              + this._renderActionSection("Files", fileActions)
+              + linkActions
+              + timelapseActions
+              + '</div>';
     return '<div class="section-stack tabbed-main">'
       + this._renderMainTabs()
       + mainBody
@@ -3127,6 +3180,194 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
   }
 
   _renderDeleteConfirm(archive, secondLevel) {
+    var archiveName = archive && archive.print_name ? String(archive.print_name) : "this archive";
+    var body = secondLevel
+      ? 'Delete <strong>' + this._escapeHtml(archiveName) + '</strong> from Bambuddy?<br><br><strong>PERMANENTLY REMOVES</strong> the archive, photos, thumbnails, source media, timeline, and related local metadata.<br><br>This also immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata.'
+      : 'Delete <strong>' + this._escapeHtml(archiveName) + '</strong> from Bambuddy?<br><br>This will remove the archive, photos, thumbnails, source media, timeline, and related metadata as part of the archive delete.';
+    return '<div class="confirm-copy">' + body + '</div>' +
+      '<div class="actions-grid confirm-grid">' +
+      this._renderActionButton(secondLevel ? "delete-archive-final" : "continue-delete", secondLevel ? "Delete Archive Now" : "Yes, Continue to Delete", secondLevel ? "mdi:delete-forever-outline" : "mdi:alert-outline", { tone: secondLevel ? "danger" : "warning", wide: true, disabled: this._busy }) +
+      this._renderActionButton("cancel", "Cancel", "mdi:close", { wide: true, disabled: this._busy }) +
+      '</div>';
+  }
+
+  // ─── Model Catalog Tab ────────────────────────────────────────────────────
+
+  _modelCatalogBaseUrl() {
+    var entityId = this._config && this._config.model_catalog_sidecar_base_url_entity
+      ? this._config.model_catalog_sidecar_base_url_entity
+      : "input_text.model_catalog_sidecar_base_url";
+    return this._hass && this._hass.states && this._hass.states[entityId]
+      ? String(this._hass.states[entityId].state || "").trim().replace(/\/$/, "")
+      : "";
+  }
+
+  async _loadModelLinks(archiveId) {
+    if (!archiveId || this._modelLinksBusy) {
+      return;
+    }
+    this._modelLinksBusy = true;
+    this._modelLinksError = "";
+    this._lastRenderSignature = "";
+    this._render();
+    try {
+      var result = await this._callServiceWithResponse("rest_command", "model_catalog_get_archive_links", {
+        archive_id: String(archiveId),
+        include_inactive: false,
+      });
+      this._modelLinks = Array.isArray(result && result.links) ? result.links : [];
+      this._modelLinksArchiveId = String(archiveId);
+    } catch (err) {
+      this._modelLinksError = err && err.message ? String(err.message) : "Failed to load model links";
+      this._modelLinks = [];
+    } finally {
+      this._modelLinksBusy = false;
+      this._lastRenderSignature = "";
+      this._render();
+    }
+  }
+
+  async _modelCatalogAction(action, archiveId, linkId, extra) {
+    if (this._modelLinksBusy) {
+      return;
+    }
+    this._modelLinksBusy = true;
+    this._modelLinksError = "";
+    this._lastRenderSignature = "";
+    this._render();
+    try {
+      if (action === "refresh-candidates") {
+        await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
+          archive_id: String(archiveId),
+        });
+      } else if (action === "accept-link") {
+        await this._callServiceWithResponse("script", "model_catalog_accept_and_notify", {
+          archive_id: String(archiveId),
+          link_id: Number(linkId),
+          manyfold_model_url: extra && extra.manyfold_model_url ? String(extra.manyfold_model_url) : "",
+        });
+      } else if (action === "reject-link") {
+        await this._callServiceWithResponse("rest_command", "model_catalog_reject_archive_link", {
+          archive_id: String(archiveId),
+          link_id: Number(linkId),
+        });
+      } else if (action === "deactivate-link") {
+        await this._callServiceWithResponse("rest_command", "model_catalog_deactivate_archive_link", {
+          archive_id: String(archiveId),
+          link_id: Number(linkId),
+        });
+      } else if (action === "create-manual-link") {
+        var manualUrl = String(extra && extra.manyfold_model_url ? extra.manyfold_model_url : "").trim();
+        if (!manualUrl) {
+          this._modelLinksError = "Enter a Manyfold model URL to create a manual link.";
+          this._modelLinksBusy = false;
+          this._lastRenderSignature = "";
+          this._render();
+          return;
+        }
+        await this._callServiceWithResponse("rest_command", "model_catalog_create_archive_link", {
+          archive_id: String(archiveId),
+          manyfold_model_url: manualUrl,
+          relationship_type: "printed_from",
+        });
+        this._modelManualUrl = "";
+      }
+    } catch (err) {
+      this._modelLinksError = err && err.message ? String(err.message) : "Action failed";
+    } finally {
+      this._modelLinksBusy = false;
+    }
+    // Reload links after any action
+    this._modelLinksArchiveId = "";
+    await this._loadModelLinks(archiveId);
+  }
+
+  _renderModelLinkRow(link, archiveId) {
+    var modelUrl = link.manyfold_model_url ? String(link.manyfold_model_url) : "";
+    var displayUrl = modelUrl.length > 60 ? modelUrl.slice(0, 57) + "…" : modelUrl;
+    var role = String(link.link_role || "manual");
+    var confidence = String(link.match_confidence || "");
+    var reviewState = String(link.review_state || "");
+    var isAccepted = reviewState === "accepted";
+
+    var statusBadge = isAccepted
+      ? '<span class="model-link-badge badge-accepted">confirmed</span>'
+      : role === "candidate"
+        ? '<span class="model-link-badge badge-candidate">candidate' + (confidence ? " · " + this._escapeHtml(confidence) : "") + '</span>'
+        : '<span class="model-link-badge badge-manual">manual</span>';
+
+    var noteHtml = link.review_note
+      ? '<div class="model-link-note">' + this._escapeHtml(String(link.review_note)) + '</div>'
+      : "";
+
+    var acceptBtn = !isAccepted
+      ? '<button class="model-link-action-btn btn-accept" type="button" data-action="model-accept-link" data-link-id="' + String(link.id) + '" data-model-url="' + this._escapeHtml(modelUrl) + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>Accept</button>'
+      : "";
+    var rejectBtn = !isAccepted && role === "candidate"
+      ? '<button class="model-link-action-btn btn-reject" type="button" data-action="model-reject-link" data-link-id="' + String(link.id) + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>Reject</button>'
+      : "";
+    var deactivateBtn = isAccepted
+      ? '<button class="model-link-action-btn btn-deactivate" type="button" data-action="model-deactivate-link" data-link-id="' + String(link.id) + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>Remove</button>'
+      : "";
+
+    var manyfoldLink = modelUrl
+      ? '<a class="model-link-url" href="' + this._escapeHtml(modelUrl) + '" target="_blank" rel="noopener noreferrer">' + this._escapeHtml(displayUrl) + '</a>'
+      : '<span class="model-link-url-empty">(no URL)</span>';
+
+    return '<div class="model-link-row">'
+      + '<div class="model-link-row-header">' + statusBadge + manyfoldLink + '</div>'
+      + noteHtml
+      + '<div class="model-link-row-actions">' + acceptBtn + rejectBtn + deactivateBtn + '</div>'
+      + '</div>';
+  }
+
+  _renderModelTab(archive) {
+    var archiveId = archive && archive.id ? String(archive.id) : "";
+
+    // Auto-load on first view
+    if (archiveId && archiveId !== this._modelLinksArchiveId && !this._modelLinksBusy) {
+      this._loadModelLinks(archiveId);
+    }
+
+    var baseUrl = this._modelCatalogBaseUrl();
+    if (!baseUrl) {
+      return this._renderActionSection(
+        "Model Catalog",
+        '<div class="model-tab-empty"><ha-icon icon="mdi:server-off"></ha-icon>'
+        + '<p>Set <code>input_text.model_catalog_sidecar_base_url</code> to enable model linking.</p></div>'
+      );
+    }
+
+    var linksHtml = "";
+    if (this._modelLinksBusy) {
+      linksHtml = '<div class="model-tab-loading"><ha-icon icon="mdi:loading" class="spin-icon"></ha-icon> Loading…</div>';
+    } else if (this._modelLinksError) {
+      linksHtml = '<div class="model-tab-error">' + this._escapeHtml(this._modelLinksError) + '</div>';
+    } else if (!this._modelLinks.length) {
+      linksHtml = '<div class="model-tab-empty"><ha-icon icon="mdi:cube-off-outline"></ha-icon><p>No model links yet.</p></div>';
+    } else {
+      var self = this;
+      linksHtml = this._modelLinks.map(function (link) {
+        return self._renderModelLinkRow(link, archiveId);
+      }).join("");
+    }
+
+    var manualForm = '<div class="model-manual-form">'
+      + '<label class="model-manual-label">Manyfold model URL</label>'
+      + '<input class="model-manual-input" type="text" id="model-manual-url-input" placeholder="http://manyfold.local/models/abc123" value="' + this._escapeHtml(this._modelManualUrl || "") + '" ' + (this._modelLinksBusy ? "disabled" : "") + '>'
+      + '<button class="model-link-action-btn btn-accept" type="button" data-action="model-create-link" ' + (this._modelLinksBusy ? "disabled" : "") + '>Link</button>'
+      + '</div>';
+
+    var header = '<div class="model-tab-toolbar">'
+      + '<button class="model-link-action-btn" type="button" data-action="model-refresh-candidates" ' + (this._modelLinksBusy ? "disabled" : "") + '><ha-icon icon="mdi:magnify"></ha-icon> Find Candidates</button>'
+      + '<button class="model-link-action-btn" type="button" data-action="model-reload-links" ' + (this._modelLinksBusy ? "disabled" : "") + '><ha-icon icon="mdi:refresh"></ha-icon> Reload</button>'
+      + '</div>';
+
+    return this._renderActionSection(
+      "Model Links",
+      header + '<div class="model-links-list">' + linksHtml + '</div>' + manualForm
+    );
+  }
     var archiveName = archive && archive.print_name ? String(archive.print_name) : "this archive";
     var body = secondLevel
       ? 'Delete <strong>' + this._escapeHtml(archiveName) + '</strong> from Bambuddy?<br><br><strong>PERMANENTLY REMOVES</strong> the archive, photos, thumbnails, source media, timeline, and related local metadata.<br><br>This also immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata.'
@@ -3283,6 +3524,34 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.token.null{color:#c586c0;}' +
       '.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}' +
       '@keyframes phaSpin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}' +
+      '.model-tab-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}' +
+      '.model-tab-empty,.model-tab-loading,.model-tab-error{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;color:var(--secondary-text-color);font-size:13px;text-align:center;}' +
+      '.model-tab-error{color:var(--error-color,#cf6679);}' +
+      '.model-tab-loading .spin-icon,.model-tab-empty ha-icon,.model-tab-error ha-icon{--mdc-icon-size:28px;}' +
+      '.model-links-list{display:grid;gap:10px;margin-bottom:14px;}' +
+      '.model-link-row{border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:10px 12px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:6px;}' +
+      '.model-link-row-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}' +
+      '.model-link-badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;letter-spacing:.04em;}' +
+      '.badge-accepted{background:rgba(34,197,94,0.18);color:#4ade80;}' +
+      '.badge-candidate{background:rgba(234,179,8,0.18);color:#facc15;}' +
+      '.badge-manual{background:rgba(96,165,250,0.18);color:#60a5fa;}' +
+      '.model-link-url{font-size:12px;color:var(--primary-color,#03a9f4);word-break:break-all;text-decoration:none;}' +
+      '.model-link-url:hover{text-decoration:underline;}' +
+      '.model-link-url-empty{font-size:12px;color:var(--secondary-text-color);}' +
+      '.model-link-note{font-size:11px;color:var(--secondary-text-color);font-style:italic;}' +
+      '.model-link-row-actions{display:flex;gap:6px;flex-wrap:wrap;}' +
+      '.model-link-action-btn{appearance:none;-webkit-appearance:none;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}' +
+      '.model-link-action-btn:hover:not(:disabled){background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);}' +
+      '.model-link-action-btn:disabled{opacity:.4;cursor:default;}' +
+      '.btn-accept{border-color:rgba(34,197,94,0.36);color:#4ade80;}' +
+      '.btn-accept:hover:not(:disabled){background:rgba(34,197,94,0.12);}' +
+      '.btn-reject{border-color:rgba(239,68,68,0.36);color:#f87171;}' +
+      '.btn-reject:hover:not(:disabled){background:rgba(239,68,68,0.08);}' +
+      '.btn-deactivate{border-color:rgba(148,163,184,0.24);color:var(--secondary-text-color);}' +
+      '.model-manual-form{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:rgba(255,255,255,0.02);}' +
+      '.model-manual-label{font-size:11px;font-weight:700;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}' +
+      '.model-manual-input{background:rgba(9,14,23,0.78);border:1px solid rgba(148,163,184,0.20);border-radius:8px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:12px;width:100%;box-sizing:border-box;}' +
+      '.model-manual-input:focus{outline:none;border-color:rgba(96,165,250,0.36);}' +
       '@media (max-width: 900px){.analytics-overview{grid-template-columns:repeat(2,minmax(0,1fr));}}' +
       '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}' +
       '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}}' +

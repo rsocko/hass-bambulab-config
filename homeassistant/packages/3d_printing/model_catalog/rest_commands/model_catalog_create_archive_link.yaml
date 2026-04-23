@@ -1,0 +1,23 @@
+# Create a manual archive-link record for a given archive.
+# Required: archive_id, manyfold_model_url, relationship_type (default "printed_from").
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_create_archive_link:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% set ns.body = dict(ns.body, manyfold_model_url=manyfold_model_url) %}
+    {% set ns.body = dict(ns.body, relationship_type=(relationship_type | default('printed_from', true))) %}
+    {% if manyfold_model_public_id is defined %}
+      {% set ns.body = dict(ns.body, manyfold_model_public_id=manyfold_model_public_id) %}
+    {% endif %}
+    {% if manyfold_model_file_id is defined %}
+      {% set ns.body = dict(ns.body, manyfold_model_file_id=(manyfold_model_file_id | int(0))) %}
+    {% endif %}
+    {% if review_note is defined %}
+      {% set ns.body = dict(ns.body, review_note=review_note) %}
+    {% endif %}
+    {{ ns.body | to_json }}

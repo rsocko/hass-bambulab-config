@@ -29,6 +29,14 @@ def test_archive_photo_upload_backend_normalizes_transport_errors() -> None:
     assert 'name="Bambuddy Print History Temp Storage"' in sensor_content
 
 
+def test_archive_pick_image_view_is_browser_loadable_without_auth() -> None:
+    init_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+
+    assert 'class ArchivePickImageView(HomeAssistantView):' in init_content
+    assert 'name = "api:bambuddy:print-history:archive:pick-image"' in init_content
+    assert 'requires_auth = False' in init_content
+
+
 def _install_homeassistant_stubs() -> None:
     voluptuous_module = ModuleType("voluptuous")
     aiohttp_module = ModuleType("aiohttp")

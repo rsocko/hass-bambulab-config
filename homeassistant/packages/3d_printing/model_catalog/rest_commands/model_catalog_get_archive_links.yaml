@@ -1,0 +1,7 @@
+# Fetch active archive-link records for a given archive.
+# Pass include_inactive=true to also return deactivated links.
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_get_archive_links:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}{% if include_inactive | default(false) | bool %}?include_inactive=true{% endif %}
+  method: GET

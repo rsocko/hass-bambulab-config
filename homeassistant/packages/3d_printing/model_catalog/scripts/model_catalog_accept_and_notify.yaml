@@ -1,0 +1,40 @@
+# Accept an archive-link and fire a model_catalog_link_accepted event for downstream consumers.
+# Phase 3 queue/backlog automation listens on model_catalog_link_accepted to update queue state.
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_accept_and_notify:
+  alias: Accept Archive Link and Notify
+  description: >-
+    Accepts an archive-model link in the sidecar and fires a
+    model_catalog_link_accepted event for downstream Phase 3 queue/backlog consumers.
+  fields:
+    archive_id:
+      name: Archive ID
+      description: Bambuddy archive ID the link belongs to.
+      required: true
+      selector:
+        text:
+    link_id:
+      name: Link ID
+      description: Sidecar link record ID to accept.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    manyfold_model_url:
+      name: Manyfold Model URL
+      description: Canonical URL of the Manyfold model (for the event payload).
+      required: false
+      selector:
+        text:
+  sequence:
+    - action: rest_command.model_catalog_accept_archive_link
+      data:
+        archive_id: "{{ archive_id }}"
+        link_id: "{{ link_id | int }}"
+      response_variable: accept_result
+    - event: model_catalog_link_accepted
+      event_data:
+        archive_id: "{{ archive_id | string }}"
+        link_id: "{{ link_id | int }}"
+        manyfold_model_url: "{{ manyfold_model_url | default('', true) }}"

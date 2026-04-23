@@ -1,0 +1,22 @@
+# Stub: react to model_catalog_link_accepted and update queue/backlog state.
+# Phase 3 deliverable — replace the notify action with real queue update logic.
+# Docs: docs/features/model_catalog/implementation-plan.md
+- id: model_catalog_on_link_accepted
+  alias: "Model Catalog: On Archive Link Accepted"
+  description: >-
+    Fires when an archive-model link is accepted via script.model_catalog_accept_and_notify.
+    Phase 3 will replace the logbook action here with queue/backlog state updates
+    (e.g., marking the linked model's to_print_status as "printed").
+  trigger:
+    - trigger: event
+      event_type: model_catalog_link_accepted
+  action:
+    - action: logbook.log
+      data:
+        name: "Model Catalog"
+        message: >-
+          Archive {{ trigger.event.data.archive_id }} linked to model
+          {{ trigger.event.data.manyfold_model_url | default('(url not recorded)') }}
+          (link_id={{ trigger.event.data.link_id }}).
+          Phase 3 queue update pending.
+        entity_id: input_text.model_catalog_sidecar_base_url

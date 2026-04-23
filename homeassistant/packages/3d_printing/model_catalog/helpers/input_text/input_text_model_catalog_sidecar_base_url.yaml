@@ -1,0 +1,4 @@
+model_catalog_sidecar_base_url:
+  name: Model Catalog Sidecar Base URL
+  max: 255
+  icon: mdi:server-network

@@ -1,0 +1,7 @@
+# Run name-similarity scoring against all cached Manyfold models and store
+# top candidates as archive-link rows with review_state=new.
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_refresh_archive_candidates:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}/candidates/refresh
+  method: POST
