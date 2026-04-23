@@ -679,7 +679,7 @@ print_history_archive_popup_content:
         const skipOverlaySourceLabel = String(skipOverlayState?.trigger_source || skipOverlayState?.pick_image_source || '').trim();
         const skipOverlayPathLabel = String(skipOverlayState?.pick_image_asset_path || skipOverlayState?.pick_image_path || '').trim();
         const resolveSkipOverlayImageSrc = () => {
-          const archiveId = Number(currentArchive?.id || 0);
+          const archiveId = Number(archive?.id || 0);
           if (archiveId > 0) {
             const plateNumber = Math.max(0, Number(skipOverlayState?.plate_number || 0));
             return `/api/bambuddy/print-history/archive/${encodeURIComponent(String(archiveId))}/pick-image?plate=${encodeURIComponent(String(plateNumber))}`;
