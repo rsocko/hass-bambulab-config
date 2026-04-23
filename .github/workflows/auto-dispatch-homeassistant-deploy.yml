@@ -87,12 +87,25 @@ jobs:
           AUTO_DEPLOY_RELOAD_DOMAINS_STRICT="$(normalize_bool "${AUTO_DEPLOY_RELOAD_DOMAINS_STRICT:-false}")"
 
           AUTO_DEPLOY_BRANCHES="$(trim "${AUTO_DEPLOY_BRANCHES:-}")"
+          AUTO_DEPLOY_PACKAGE_SCOPE="$(trim "${AUTO_DEPLOY_PACKAGE_SCOPE:-selected}")"
+          AUTO_DEPLOY_SELECTED_PACKAGES="$(trim "${AUTO_DEPLOY_SELECTED_PACKAGES:-}")"
           AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED="$(trim "${AUTO_DEPLOY_POST_DEPLOY_ACTION:-reload_domains_and_lovelace}")"
           AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED"
           RESTART_REQUIRED_PUSH=false
           RESTART_REQUIRED_REASONS=""
           DEPLOY_RELEVANT_PUSH=false
           BEFORE_SHA="${{ github.event.before }}"
+
+          package_is_selected() {
+            local pkg="$1"
+            local normalized_selected
+
+            [ "$AUTO_DEPLOY_PACKAGE_SCOPE" = "all" ] && return 0
+
+            normalized_selected="$(echo "$AUTO_DEPLOY_SELECTED_PACKAGES" | tr ',[:space:]' '\n' | sed '/^$/d' | paste -sd ',' -)"
+            [ "$normalized_selected" = "all" ] && return 0
+            echo ",$normalized_selected," | grep -q ",$pkg,"
+          }
 
           if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
             CHANGED_FILES="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" || true)"
@@ -125,6 +138,11 @@ jobs:
                 ;;
             esac
           done <<< "$CHANGED_FILES"
+
+          if package_is_selected "print_history"; then
+            RESTART_REQUIRED_PUSH=true
+            RESTART_REQUIRED_REASONS="${RESTART_REQUIRED_REASONS} bambuddy-custom-component-in-scope"
+          fi
 
           if [ "$RESTART_REQUIRED_PUSH" = "true" ] && [ "$AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED" != "restart_core" ]; then
             echo "Restart-required changes detected in push range (${RESTART_REQUIRED_REASONS# }); overriding auto-deploy post action to restart_core."
