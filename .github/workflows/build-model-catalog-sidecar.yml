@@ -100,7 +100,15 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="${{ github.event.inputs.registry }}:${{ steps.version.outputs.resolved_tag }}"
-          docker build -f sidecars/model_catalog/Dockerfile -t "$IMAGE" .
+          BUILD_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker build \
+            -f sidecars/model_catalog/Dockerfile \
+            -t "$IMAGE" \
+            --build-arg MODEL_CATALOG_IMAGE_TAG="${{ steps.version.outputs.resolved_tag }}" \
+            --build-arg MODEL_CATALOG_IMAGE_VERSION="${{ steps.version.outputs.resolved_tag }}" \
+            --build-arg MODEL_CATALOG_IMAGE_REVISION="${{ github.sha }}" \
+            --build-arg MODEL_CATALOG_IMAGE_CREATED="$BUILD_CREATED" \
+            .
           if [ "${{ github.event.inputs.push_latest }}" = 'true' ]; then
             docker tag "$IMAGE" "${{ github.event.inputs.registry }}:latest"
           fi

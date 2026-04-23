@@ -17,6 +17,15 @@ class AppState:
         self.db_info = bootstrap_database(settings.db_path)
 
 
+def _image_metadata(settings: Settings) -> dict[str, str]:
+    return {
+        "image_tag": settings.image_tag,
+        "image_version": settings.image_version,
+        "image_revision": settings.image_revision,
+        "image_created": settings.image_created,
+    }
+
+
 def _archive_link_to_response(link: ArchiveModelLink) -> dict[str, Any]:
     return {
         "id": link.id,
@@ -79,6 +88,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,
             "port": state.settings.port,
+            **_image_metadata(state.settings),
         }
 
     @app.get("/diagnostics")
@@ -90,6 +100,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
+            **_image_metadata(state.settings),
         }
 
     @app.get("/api/models")

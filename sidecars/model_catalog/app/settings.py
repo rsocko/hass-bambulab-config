@@ -17,6 +17,10 @@ class Settings:
     refresh_ttl_seconds: int
     host: str
     port: int
+    image_tag: str
+    image_version: str
+    image_revision: str
+    image_created: str
 
 
 def load_settings() -> Settings:
@@ -30,6 +34,10 @@ def load_settings() -> Settings:
     refresh_ttl_seconds = int(os.getenv("MODEL_CATALOG_REFRESH_TTL_SECONDS", "900"))
     host = os.getenv("MODEL_CATALOG_HOST", "127.0.0.1")
     port = int(os.getenv("MODEL_CATALOG_PORT", "8314"))
+    image_tag = os.getenv("MODEL_CATALOG_IMAGE_TAG", "unknown")
+    image_version = os.getenv("MODEL_CATALOG_IMAGE_VERSION", "unknown")
+    image_revision = os.getenv("MODEL_CATALOG_IMAGE_REVISION", "unknown")
+    image_created = os.getenv("MODEL_CATALOG_IMAGE_CREATED", "unknown")
     return Settings(
         manyfold_base_url=base_url.rstrip("/"),
         manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
@@ -41,4 +49,8 @@ def load_settings() -> Settings:
         refresh_ttl_seconds=refresh_ttl_seconds,
         host=host,
         port=port,
+        image_tag=image_tag,
+        image_version=image_version,
+        image_revision=image_revision,
+        image_created=image_created,
     )

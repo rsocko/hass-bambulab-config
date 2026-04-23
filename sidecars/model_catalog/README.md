@@ -123,6 +123,10 @@ For the Manyfold stack example, the expected pattern is:
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
 - `MODEL_CATALOG_PORT` — local bind port for manual `uvicorn` runs
+- `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
+- `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
+- `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)
+- `MODEL_CATALOG_IMAGE_CREATED` — image build timestamp emitted by `/config` and `/diagnostics` (injected at build time)
 
 ## OAuth Notes
 

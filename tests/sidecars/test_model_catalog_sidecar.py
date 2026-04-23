@@ -25,6 +25,10 @@ def _build_settings(tmp_path: Path) -> Settings:
         refresh_ttl_seconds=900,
         host="127.0.0.1",
         port=8314,
+        image_tag="0.1.0",
+        image_version="0.1.0",
+        image_revision="abc123",
+        image_created="2026-04-22T00:00:00Z",
     )
 
 
@@ -186,6 +190,17 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert config.json()["manyfold_models_path"] == "/models"
         assert config.json()["manyfold_oauth_enabled"] is True
         assert config.json()["manyfold_oauth_scopes"] == "public read"
+        assert config.json()["image_tag"] == "0.1.0"
+        assert config.json()["image_version"] == "0.1.0"
+        assert config.json()["image_revision"] == "abc123"
+        assert config.json()["image_created"] == "2026-04-22T00:00:00Z"
+
+        diagnostics = test_client.get("/diagnostics")
+        assert diagnostics.status_code == 200
+        assert diagnostics.json()["image_tag"] == "0.1.0"
+        assert diagnostics.json()["image_version"] == "0.1.0"
+        assert diagnostics.json()["image_revision"] == "abc123"
+        assert diagnostics.json()["image_created"] == "2026-04-22T00:00:00Z"
 
         models = test_client.get("/api/models")
         assert models.status_code == 200
