@@ -180,11 +180,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.get("/api/archive-links/{archive_id}")
     def get_archive_links(archive_id: int, include_inactive: bool = False) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
-        links = read_archive_links(
+        all_links = read_archive_links(
             db_path=state.settings.db_path,
             archive_id=archive_id,
-            active_only=not include_inactive,
+            active_only=False,
         )
+        if include_inactive:
+            links = all_links
+        else:
+            links = [
+                link
+                for link in all_links
+                if link.is_active or (link.link_role == "candidate" and link.review_state == "new")
+            ]
         active_link = next((link for link in links if link.is_active), None)
         return {
             "success": True,

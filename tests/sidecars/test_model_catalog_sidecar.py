@@ -291,7 +291,7 @@ def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Pa
         assert payload["meta"]["include_inactive"] is False
 
 
-def test_archive_link_endpoint_returns_active_link_and_can_include_inactive(tmp_path: Path) -> None:
+def test_archive_link_endpoint_returns_active_link_and_pending_candidates_by_default(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
@@ -362,6 +362,38 @@ def test_archive_link_endpoint_returns_active_link_and_can_include_inactive(tmp_
                 "2026-04-22T00:00:00Z",
             ),
         )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/candidate",
+                "pub-candidate",
+                None,
+                9001,
+                "printed_from",
+                "candidate",
+                "name_similarity",
+                "medium",
+                "new",
+                0,
+                "2026-04-22T02:00:00Z",
+                "2026-04-22T02:00:00Z",
+            ),
+        )
         connection.commit()
     finally:
         connection.close()
@@ -370,18 +402,22 @@ def test_archive_link_endpoint_returns_active_link_and_can_include_inactive(tmp_
         active_only = test_client.get("/api/archive-links/9001")
         assert active_only.status_code == 200
         active_payload = active_only.json()
-        assert active_payload["meta"]["count"] == 1
+        assert active_payload["meta"]["count"] == 2
         assert active_payload["link"]["manyfold_model_url"] == "http://manyfold.test/models/active"
-        assert active_payload["links"][0]["is_active"] is True
+        returned_urls = [item["manyfold_model_url"] for item in active_payload["links"]]
+        assert "http://manyfold.test/models/active" in returned_urls
+        assert "http://manyfold.test/models/candidate" in returned_urls
+        assert "http://manyfold.test/models/inactive" not in returned_urls
 
         include_inactive = test_client.get("/api/archive-links/9001?include_inactive=true")
         assert include_inactive.status_code == 200
         full_payload = include_inactive.json()
-        assert full_payload["meta"]["count"] == 2
+        assert full_payload["meta"]["count"] == 3
         assert full_payload["link"]["manyfold_model_public_id"] == "pub-active"
         returned_urls = [item["manyfold_model_url"] for item in full_payload["links"]]
         assert "http://manyfold.test/models/active" in returned_urls
         assert "http://manyfold.test/models/inactive" in returned_urls
+        assert "http://manyfold.test/models/candidate" in returned_urls
 
 
 def test_archive_link_crud_endpoints(tmp_path: Path) -> None:
@@ -506,6 +542,13 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         assert refreshed_payload["created_or_updated_count"] >= 2
         candidate_ids = [int(candidate["id"]) for candidate in refreshed_payload["candidates"]]
         assert len(candidate_ids) >= 2
+
+        default_view = test_client.get("/api/archive-links/8101")
+        assert default_view.status_code == 200
+        default_links_by_id = {int(link["id"]): link for link in default_view.json()["links"]}
+        assert candidate_ids[0] in default_links_by_id
+        assert candidate_ids[1] in default_links_by_id
+        assert all(link["review_state"] == "new" for link in default_links_by_id.values())
 
         accepted = test_client.post(
             f"/api/archive-links/8101/{candidate_ids[0]}/accept",
