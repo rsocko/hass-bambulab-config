@@ -1677,6 +1677,7 @@ class PrintHistoryStore:
                             inferred_plate = candidate
                 if inferred_plate is not None:
                     plate_number = inferred_plate
+            state["plate_number"] = plate_number
             pick_image_url = (
                 f"/api/bambuddy/print-history/archive/{normalized_archive_id}/pick-image"
                 f"?plate={plate_number}"

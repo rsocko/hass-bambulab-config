@@ -3060,6 +3060,8 @@ class TestPrintHistoryBrowserCardPopupFavoriteRegression(unittest.TestCase):
         self.assertIn("skipOverlayPanelMarkup", popup_content)
         self.assertIn("print-history-popup-skip-shell", popup_content)
         self.assertIn("View details", popup_content)
+        self.assertIn("if (hasMeaningfulValue(skipOverlayPathLabel))", popup_content)
+        self.assertIn("return skipOverlayPathLabel;", popup_content)
 
     def test_tag_editor_card_reads_existing_options_and_writes_popup_helper(self):
         content = (

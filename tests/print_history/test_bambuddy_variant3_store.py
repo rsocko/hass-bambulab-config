@@ -2199,6 +2199,7 @@ def test_variant3_store_skip_overlay_infers_plate_from_print_name_when_stored_pl
     loaded = store.load_archive_skip_overlay_state(303)
 
     assert loaded is not None
+    assert loaded["plate_number"] == 4
     # Plate should be inferred as 4 from print_name "Starscream Figure - Plate 4"
     assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/303/pick-image?plate=4"
     assert loaded["pick_image_path"] == "/api/bambuddy/print-history/archive/303/pick-image?plate=4"
@@ -2264,6 +2265,7 @@ def test_variant3_store_skip_overlay_infers_plate_from_raw_payload_plate_id(tmp_
     loaded = store.load_archive_skip_overlay_state(304)
 
     assert loaded is not None
+    assert loaded["plate_number"] == 7
     # plate_id=7 in json_payload takes priority over "Plate 2" in print_name
     assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/304/pick-image?plate=7"
     assert loaded["pick_image_path"] == "/api/bambuddy/print-history/archive/304/pick-image?plate=7"

@@ -679,6 +679,9 @@ print_history_archive_popup_content:
         const skipOverlaySourceLabel = String(skipOverlayState?.trigger_source || skipOverlayState?.pick_image_source || '').trim();
         const skipOverlayPathLabel = String(skipOverlayState?.pick_image_asset_path || skipOverlayState?.pick_image_path || '').trim();
         const resolveSkipOverlayImageSrc = () => {
+          if (hasMeaningfulValue(skipOverlayPathLabel)) {
+            return skipOverlayPathLabel;
+          }
           const archiveId = Number(
             archive?.id
             || snapshotArchiveId
