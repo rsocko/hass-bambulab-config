@@ -44,18 +44,31 @@ class ManyfoldClient:
         if self._owns_client:
             self._client.close()
 
+    def _token_form_data(self, *, include_client_credentials: bool) -> dict[str, str]:
+        form_data: dict[str, str] = {
+            "grant_type": "client_credentials",
+        }
+        if include_client_credentials:
+            form_data["client_id"] = str(self.client_id)
+            form_data["client_secret"] = str(self.client_secret)
+        if self.oauth_scopes:
+            form_data["scope"] = self.oauth_scopes
+        return form_data
+
     def _auth_headers(self) -> dict[str, str]:
         if not self.client_id or not self.client_secret:
             return {}
         if not self._access_token:
-            form_data: dict[str, str] = {
-                "grant_type": "client_credentials",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-            }
-            if self.oauth_scopes:
-                form_data["scope"] = self.oauth_scopes
-            response = self._client.post(self.oauth_token_path, data=form_data)
+            response = self._client.post(
+                self.oauth_token_path,
+                data=self._token_form_data(include_client_credentials=True),
+            )
+            if response.status_code == 401:
+                response = self._client.post(
+                    self.oauth_token_path,
+                    auth=(self.client_id, self.client_secret),
+                    data=self._token_form_data(include_client_credentials=False),
+                )
             response.raise_for_status()
             payload = response.json()
             self._access_token = str(payload.get("access_token") or "").strip() or None

@@ -141,6 +141,52 @@ Why scopes are configurable instead of hard-coded:
 - some expect an explicit space-delimited scope string
 - the sidecar only needs read access today, so keeping scopes explicit helps avoid accidentally over-privileged tokens
 
+## Manyfold OAuth Troubleshooting
+
+Observed on Manyfold `0.138.0 (cf629cff)` in single-user mode:
+
+- deleting an OAuth application or API key from the UI can return a 404 instead of removing it
+- this appears distinct from the older owner-authorization bug fixed upstream in `v0.135.0`
+- in single-user mode, current policy checks may still block OAuth application delete paths and surface as a 404 via the authorization handler
+
+Practical workaround for now:
+
+- open a shell in the Manyfold app container
+- start Rails console with `bin/rails console`
+- if that fails, run `bundle exec rails console`
+- if you are not already in the app directory, `cd /app` first
+
+Useful Rails console commands:
+
+```ruby
+Doorkeeper::Application.all.pluck(:id, :name)
+Doorkeeper::AccessToken.all.pluck(:id, :application_id, :created_at, :revoked_at)
+```
+
+Delete an OAuth application by id:
+
+```ruby
+Doorkeeper::Application.find(ID).destroy!
+```
+
+Revoke a token by id without deleting the application:
+
+```ruby
+Doorkeeper::AccessToken.find(ID).revoke
+```
+
+If you are not already inside the container, the usual host-side command is:
+
+```bash
+docker compose exec app bin/rails console
+```
+
+and the common fallback is:
+
+```bash
+docker compose exec app bundle exec rails console
+```
+
 ## Run Locally
 
 ```powershell

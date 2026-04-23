@@ -93,6 +93,48 @@ def test_manyfold_client_disables_env_proxy_lookup(monkeypatch: pytest.MonkeyPat
     client.close()
 
 
+def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -> None:
+    seen_requests: list[tuple[str, str, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        auth_header = request.headers.get("Authorization")
+        seen_requests.append((request.method, request.url.path, auth_header))
+        if request.url.path == "/oauth/token":
+            if auth_header:
+                body = request.read().decode("utf-8")
+                assert "grant_type=client_credentials" in body
+                assert "scope=public+read" in body
+                assert "client_id=" not in body
+                assert "client_secret=" not in body
+                return httpx.Response(200, json={"access_token": "token-basic", "token_type": "Bearer"})
+            return httpx.Response(401, json={"error": "invalid_client"})
+        if request.url.path == "/models":
+            assert auth_header == "Bearer token-basic"
+            return httpx.Response(200, json={"member": [{"@id": "/models/fallback", "name": "Fallback Model"}]})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    transport = httpx.MockTransport(handler)
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        oauth_scopes="public read",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=transport),
+    )
+
+    try:
+        models = client.list_models()
+    finally:
+        client.close()
+
+    assert models[0].name == "Fallback Model"
+    assert seen_requests[0] == ("POST", "/oauth/token", None)
+    assert seen_requests[1][0] == "POST"
+    assert seen_requests[1][1] == "/oauth/token"
+    assert seen_requests[1][2] is not None
+    assert seen_requests[2] == ("GET", "/models", "Bearer token-basic")
+
+
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
