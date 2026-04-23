@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sidecars.model_catalog.app.db import bootstrap_database
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary
+from sidecars.model_catalog.app.models import ManyfoldModelSummary
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -80,6 +81,18 @@ def test_normalize_model_summary_handles_manyfold_api_member_shape() -> None:
 
     assert summary.model_url == "http://manyfold.test/models/abc123"
     assert summary.name == "API Benchy"
+
+
+def test_normalize_model_summary_rewrites_absolute_model_url_to_base_host() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.socko.us",
+        {
+            "url": "http://localhost:3214/models/x9dcd59s3g60",
+            "name": "Starscream",
+        },
+    )
+
+    assert summary.model_url == "http://manyfold.socko.us/models/x9dcd59s3g60"
 
 
 def test_manyfold_client_disables_env_proxy_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -420,6 +433,82 @@ def test_archive_link_endpoint_returns_active_link_and_pending_candidates_by_def
         assert "http://manyfold.test/models/candidate" in returned_urls
 
 
+def test_archive_link_endpoint_enriches_links_with_cached_manyfold_summary(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/starscream",
+                "starscream",
+                "Transformers Devastation Starscream Action Figure",
+                "starscream",
+                "http://manyfold.test/previews/starscream.png",
+                None,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/starscream",
+                "starscream",
+                None,
+                497,
+                "printed_from",
+                "candidate",
+                "name_similarity",
+                "high",
+                "new",
+                0,
+                "2026-04-23T00:00:00Z",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/archive-links/497")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["meta"]["count"] == 1
+        assert payload["links"][0]["manyfold_model_name"] == "Transformers Devastation Starscream Action Figure"
+        assert payload["links"][0]["manyfold_preview_url"] == "http://manyfold.test/previews/starscream.png"
+
+
 def test_archive_link_crud_endpoints(tmp_path: Path) -> None:
     app = create_app(settings=_build_settings(tmp_path))
 
@@ -574,3 +663,96 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         links_by_id = {int(link["id"]): link for link in full_view.json()["links"]}
         assert links_by_id[candidate_ids[0]]["review_state"] == "accepted"
         assert links_by_id[candidate_ids[1]]["review_state"] == "rejected"
+
+
+def test_refresh_candidates_can_force_refresh_manyfold_cache(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/stale",
+                "stale",
+                "Old Cache Entry",
+                "stale",
+                None,
+                None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class RefreshingManyfoldClient:
+        def __init__(self) -> None:
+            self.list_models_calls = 0
+
+        def list_models(self) -> list[ManyfoldModelSummary]:
+            self.list_models_calls += 1
+            return [
+                ManyfoldModelSummary(
+                    model_url="http://manyfold.test/models/starscream",
+                    public_id="starscream",
+                    model_id="starscream",
+                    name="Transformers Devastation Starscream Action Figure",
+                    preview_url=None,
+                    creator_name=None,
+                    collection_names=(),
+                    keyword_names=(),
+                )
+            ]
+
+        def close(self) -> None:
+            return None
+
+    manyfold_client = RefreshingManyfoldClient()
+    app = create_app(settings=settings, manyfold_client=manyfold_client)
+
+    with TestClient(app) as test_client:
+        cached_only = test_client.post(
+            "/api/archive-links/497/candidates/refresh",
+            json={
+                "archive_name": "Transformers Devastation Starscream Action Figure",
+                "min_score": 0.0,
+                "max_candidates": 5,
+            },
+        )
+        assert cached_only.status_code == 200
+        cached_payload = cached_only.json()
+        assert cached_payload["success"] is True
+        assert cached_payload["candidates"] == []
+        assert cached_payload["meta"]["force_refresh_model_cache"] is False
+        assert manyfold_client.list_models_calls == 0
+
+        refreshed = test_client.post(
+            "/api/archive-links/497/candidates/refresh",
+            json={
+                "archive_name": "Transformers Devastation Starscream Action Figure",
+                "min_score": 0.0,
+                "max_candidates": 5,
+                "force_refresh_model_cache": True,
+            },
+        )
+        assert refreshed.status_code == 200
+        refreshed_payload = refreshed.json()
+        assert refreshed_payload["success"] is True
+        assert refreshed_payload["meta"]["force_refresh_model_cache"] is True
+        assert len(refreshed_payload["candidates"]) == 1
+        assert refreshed_payload["candidates"][0]["manyfold_model_url"] == "http://manyfold.test/models/starscream"
+        assert manyfold_client.list_models_calls == 1

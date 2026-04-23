@@ -3296,6 +3296,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         var refreshResult = await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
           archive_id: String(archiveId),
           archive_name: extra && extra.archive_name ? String(extra.archive_name) : "",
+          force_refresh_model_cache: true,
         });
         var candidateCount = Array.isArray(refreshResult && refreshResult.candidates) ? refreshResult.candidates.length : 0;
         if (candidateCount > 0) {
@@ -3362,6 +3363,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _renderModelLinkRow(link, archiveId) {
     var modelUrl = link.manyfold_model_url ? String(link.manyfold_model_url) : "";
+    var modelName = link.manyfold_model_name ? String(link.manyfold_model_name) : "";
     var displayUrl = modelUrl.length > 60 ? modelUrl.slice(0, 57) + "…" : modelUrl;
     var role = String(link.link_role || "manual");
     var confidence = String(link.match_confidence || "");
@@ -3391,9 +3393,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var manyfoldLink = modelUrl
       ? '<a class="model-link-url" href="' + this._escapeHtml(modelUrl) + '" target="_blank" rel="noopener noreferrer">' + this._escapeHtml(displayUrl) + '</a>'
       : '<span class="model-link-url-empty">(no URL)</span>';
+    var nameHtml = modelName
+      ? '<div class="model-link-name">' + this._escapeHtml(modelName) + '</div>'
+      : '';
 
     return '<div class="model-link-row">'
-      + '<div class="model-link-row-header">' + statusBadge + manyfoldLink + '</div>'
+      + '<div class="model-link-row-header">' + statusBadge + '</div>'
+      + nameHtml
+      + manyfoldLink
       + noteHtml
       + '<div class="model-link-row-actions">' + acceptBtn + rejectBtn + deactivateBtn + '</div>'
       + '</div>';
@@ -3460,6 +3467,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.summary-card{border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);border-radius:18px;padding:10px 12px;}' +
       '.summary-grid{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:center;}' +
       '.summary-preview{width:104px;height:58px;border-radius:12px;overflow:hidden;background:rgba(15,23,42,0.32);display:flex;align-items:center;justify-content:center;}' +
+        '.model-link-name{margin-top:6px;font-size:14px;font-weight:700;line-height:1.35;color:var(--primary-text-color);word-break:break-word;}' +
+        '.model-link-url,.model-link-url-empty{display:inline-flex;margin-top:4px;font-size:12px;line-height:1.4;word-break:break-all;}' +
       '.summary-preview img{display:block;width:100%;height:100%;object-fit:cover;}' +
       '.summary-preview.placeholder{background:rgba(15,23,42,0.20);color:var(--secondary-text-color);}' +
       '.summary-preview.placeholder ha-icon{--mdc-icon-size:20px;}' +

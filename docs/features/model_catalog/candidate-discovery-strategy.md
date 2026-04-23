@@ -97,6 +97,7 @@ Recommended additions:
 - add a recent-upload boost for models or files created near the archive completion time
 - add normalized filename overlap when archive-side source file names are available
 - store candidate rationale in `review_note` or structured annotations so the popup can show why a row appeared
+- enrich popup candidate rows with cached Manyfold summary fields such as model name first, and later preview thumbnail support when the compact review layout can accommodate it safely
 
 Phase 2 should still avoid automatic acceptance for these heuristic matches.
 

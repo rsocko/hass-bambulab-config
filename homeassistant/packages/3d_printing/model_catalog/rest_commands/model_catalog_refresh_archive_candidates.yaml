@@ -16,4 +16,7 @@ model_catalog_refresh_archive_candidates:
     {% if max_candidates is defined %}
       {% set ns.body = dict(ns.body, max_candidates=max_candidates) %}
     {% endif %}
+    {% if force_refresh_model_cache is defined %}
+      {% set ns.body = dict(ns.body, force_refresh_model_cache=force_refresh_model_cache) %}
+    {% endif %}
     {{ ns.body | to_json }}

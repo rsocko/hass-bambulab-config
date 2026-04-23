@@ -164,6 +164,12 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
         model_url = f"{base_url.rstrip('/')}/models/{payload['id']}"
     elif model_url.startswith("/"):
         model_url = f"{base_url.rstrip('/')}{model_url}"
+    elif model_url.startswith("http://") or model_url.startswith("https://"):
+        parsed_model_url = urlsplit(model_url)
+        if parsed_model_url.path.startswith("/models/"):
+            model_url = f"{base_url.rstrip('/')}{parsed_model_url.path}"
+            if parsed_model_url.query:
+                model_url += f"?{parsed_model_url.query}"
 
     def _extract_name(value: Any) -> str | None:
         if isinstance(value, str):

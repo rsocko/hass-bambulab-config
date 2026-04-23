@@ -19,6 +19,7 @@ from .db import (
     update_archive_link,
 )
 from .manyfold import ManyfoldClient, read_cached_manyfold_summaries, refresh_manyfold_cache
+from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
 
 
@@ -37,13 +38,25 @@ def _image_metadata(settings: Settings) -> dict[str, str]:
     }
 
 
-def _archive_link_to_response(link: ArchiveModelLink) -> dict[str, Any]:
+def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
+    summaries = read_cached_manyfold_summaries(db_path=db_path)
+    return {summary.model_url: summary for summary in summaries}
+
+
+def _archive_link_to_response(
+    link: ArchiveModelLink,
+    *,
+    summary_by_url: dict[str, ManyfoldModelSummary] | None = None,
+) -> dict[str, Any]:
+    summary = summary_by_url.get(link.manyfold_model_url) if summary_by_url else None
     return {
         "id": link.id,
         "archive_id": link.bambuddy_archive_id,
         "manyfold_model_url": link.manyfold_model_url,
         "manyfold_model_public_id": link.manyfold_model_public_id,
         "manyfold_model_file_id": link.manyfold_model_file_id,
+        "manyfold_model_name": summary.name if summary else None,
+        "manyfold_preview_url": summary.preview_url if summary else None,
         "relationship_type": link.relationship_type,
         "link_role": link.link_role,
         "match_method": link.match_method,
@@ -89,6 +102,20 @@ def _confidence_for_score(score: float) -> str:
     if score >= 0.5:
         return "medium"
     return "low"
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off", ""}:
+            return False
+    return bool(value)
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
@@ -185,6 +212,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             archive_id=archive_id,
             active_only=False,
         )
+        summary_by_url = _summary_map(state.settings.db_path)
         if include_inactive:
             links = all_links
         else:
@@ -198,8 +226,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "contract": "archive-link.v1alpha1",
             "archive_id": archive_id,
-            "link": _archive_link_to_response(active_link) if active_link else None,
-            "links": [_archive_link_to_response(link) for link in links],
+            "link": _archive_link_to_response(active_link, summary_by_url=summary_by_url) if active_link else None,
+            "links": [_archive_link_to_response(link, summary_by_url=summary_by_url) for link in links],
             "meta": {
                 "count": len(links),
                 "include_inactive": include_inactive,
@@ -300,6 +328,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         archive_name = str(payload.get("archive_name") or "").strip()
         min_score = float(payload.get("min_score") or 0.3)
         max_candidates = int(payload.get("max_candidates") or 10)
+        force_refresh_model_cache = _coerce_bool(payload.get("force_refresh_model_cache"))
         if not archive_name:
             return _error_response(
                 archive_id=archive_id,
@@ -307,12 +336,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message="archive_name is required for candidate refresh.",
             )
 
-        summaries = read_cached_manyfold_summaries(db_path=app.state.model_catalog.settings.db_path)
-        if not summaries:
+        summaries: list[Any]
+        if force_refresh_model_cache:
             summaries = refresh_manyfold_cache(
                 db_path=app.state.model_catalog.settings.db_path,
                 client=app.state.manyfold_client,
             )
+        else:
+            summaries = read_cached_manyfold_summaries(db_path=app.state.model_catalog.settings.db_path)
+            if not summaries:
+                summaries = refresh_manyfold_cache(
+                    db_path=app.state.model_catalog.settings.db_path,
+                    client=app.state.manyfold_client,
+                )
 
         ranked_candidates: list[tuple[float, dict[str, str]]] = []
         for summary in summaries:
@@ -340,15 +376,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             archive_id=archive_id,
             candidates=selected_candidates,
         )
+        summary_by_url = _summary_map(app.state.model_catalog.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "candidates": [_archive_link_to_response(link) for link in candidate_links],
+            "candidates": [_archive_link_to_response(link, summary_by_url=summary_by_url) for link in candidate_links],
             "created_or_updated_count": changed_count,
             "meta": {
                 "archive_name": archive_name,
                 "min_score": min_score,
                 "max_candidates": max_candidates,
+                "force_refresh_model_cache": force_refresh_model_cache,
             },
         }
 
