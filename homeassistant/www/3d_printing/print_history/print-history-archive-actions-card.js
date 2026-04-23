@@ -3275,30 +3275,47 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     this._modelLinksBusy = true;
     this._modelLinksError = "";
+    var statusMessage = "";
+    var statusTone = "info";
     this._lastRenderSignature = "";
     this._render();
     try {
       if (action === "refresh-candidates") {
-        await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
+        var refreshResult = await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
           archive_id: String(archiveId),
           archive_name: extra && extra.archive_name ? String(extra.archive_name) : "",
         });
+        var candidateCount = Array.isArray(refreshResult && refreshResult.candidates) ? refreshResult.candidates.length : 0;
+        if (candidateCount > 0) {
+          statusMessage = candidateCount === 1
+            ? "Found 1 model candidate."
+            : "Found " + String(candidateCount) + " model candidates.";
+          statusTone = "success";
+        } else {
+          statusMessage = "No model candidates found for this archive name.";
+        }
       } else if (action === "accept-link") {
         await this._callServiceWithResponse("script", "model_catalog_accept_and_notify", {
           archive_id: String(archiveId),
           link_id: Number(linkId),
           manyfold_model_url: extra && extra.manyfold_model_url ? String(extra.manyfold_model_url) : "",
         });
+        statusMessage = "Model link accepted.";
+        statusTone = "success";
       } else if (action === "reject-link") {
         await this._callServiceWithResponse("rest_command", "model_catalog_reject_archive_link", {
           archive_id: String(archiveId),
           link_id: Number(linkId),
         });
+        statusMessage = "Model candidate rejected.";
+        statusTone = "success";
       } else if (action === "deactivate-link") {
         await this._callServiceWithResponse("rest_command", "model_catalog_deactivate_archive_link", {
           archive_id: String(archiveId),
           link_id: Number(linkId),
         });
+        statusMessage = "Model link removed.";
+        statusTone = "success";
       } else if (action === "create-manual-link") {
         var manualUrl = String(extra && extra.manyfold_model_url ? extra.manyfold_model_url : "").trim();
         if (!manualUrl) {
@@ -3314,15 +3331,21 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
           relationship_type: "printed_from",
         });
         this._modelManualUrl = "";
+        statusMessage = "Manual model link created.";
+        statusTone = "success";
       }
     } catch (err) {
       this._modelLinksError = err && err.message ? String(err.message) : "Action failed";
+      this._setStatus(this._modelLinksError, "error");
     } finally {
       this._modelLinksBusy = false;
     }
     // Reload links after any action
     this._modelLinksArchiveId = "";
     await this._loadModelLinks(archiveId);
+    if (statusMessage) {
+      this._setStatus(statusMessage, statusTone);
+    }
   }
 
   _renderModelLinkRow(link, archiveId) {
