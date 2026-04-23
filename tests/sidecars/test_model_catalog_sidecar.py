@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 
 import httpx
 import pytest
@@ -198,3 +199,112 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert cached.status_code == 200
         assert cached.json()["source"] == "cache"
         assert cached.json()["models"][0]["name"] == "AMS Desiccant Pod"
+
+
+def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:
+    app = create_app(settings=_build_settings(tmp_path))
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/archive-links/4812")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["contract"] == "archive-link.v1alpha1"
+        assert payload["archive_id"] == 4812
+        assert payload["link"] is None
+        assert payload["links"] == []
+        assert payload["meta"]["count"] == 0
+        assert payload["meta"]["include_inactive"] is False
+
+
+def test_archive_link_endpoint_returns_active_link_and_can_include_inactive(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/active",
+                "pub-active",
+                "file-active",
+                9001,
+                "source_for",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                1,
+                "2026-04-22T01:00:00Z",
+                "2026-04-22T01:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/inactive",
+                "pub-inactive",
+                "file-inactive",
+                9001,
+                "source_for",
+                "primary",
+                "manual",
+                "medium",
+                "rejected",
+                0,
+                "2026-04-22T00:00:00Z",
+                "2026-04-22T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        active_only = test_client.get("/api/archive-links/9001")
+        assert active_only.status_code == 200
+        active_payload = active_only.json()
+        assert active_payload["meta"]["count"] == 1
+        assert active_payload["link"]["manyfold_model_url"] == "http://manyfold.test/models/active"
+        assert active_payload["links"][0]["is_active"] is True
+
+        include_inactive = test_client.get("/api/archive-links/9001?include_inactive=true")
+        assert include_inactive.status_code == 200
+        full_payload = include_inactive.json()
+        assert full_payload["meta"]["count"] == 2
+        assert full_payload["link"]["manyfold_model_public_id"] == "pub-active"
+        returned_urls = [item["manyfold_model_url"] for item in full_payload["links"]]
+        assert "http://manyfold.test/models/active" in returned_urls
+        assert "http://manyfold.test/models/inactive" in returned_urls

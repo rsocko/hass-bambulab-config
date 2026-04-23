@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI
 
-from .db import bootstrap_database
+from .db import ArchiveModelLink, bootstrap_database, read_archive_links
 from .manyfold import ManyfoldClient, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .settings import Settings, load_settings
 
@@ -15,6 +15,24 @@ class AppState:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.db_info = bootstrap_database(settings.db_path)
+
+
+def _archive_link_to_response(link: ArchiveModelLink) -> dict[str, Any]:
+    return {
+        "id": link.id,
+        "archive_id": link.bambuddy_archive_id,
+        "manyfold_model_url": link.manyfold_model_url,
+        "manyfold_model_public_id": link.manyfold_model_public_id,
+        "manyfold_model_file_id": link.manyfold_model_file_id,
+        "relationship_type": link.relationship_type,
+        "link_role": link.link_role,
+        "match_method": link.match_method,
+        "match_confidence": link.match_confidence,
+        "review_state": link.review_state,
+        "is_active": link.is_active,
+        "created_at": link.created_at,
+        "updated_at": link.updated_at,
+    }
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
@@ -91,6 +109,27 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "source": source,
             "count": len(summaries),
             "models": [asdict(summary) for summary in summaries],
+        }
+
+    @app.get("/api/archive-links/{archive_id}")
+    def get_archive_links(archive_id: int, include_inactive: bool = False) -> dict[str, Any]:
+        state: AppState = app.state.model_catalog
+        links = read_archive_links(
+            db_path=state.settings.db_path,
+            archive_id=archive_id,
+            active_only=not include_inactive,
+        )
+        active_link = next((link for link in links if link.is_active), None)
+        return {
+            "success": True,
+            "contract": "archive-link.v1alpha1",
+            "archive_id": archive_id,
+            "link": _archive_link_to_response(active_link) if active_link else None,
+            "links": [_archive_link_to_response(link) for link in links],
+            "meta": {
+                "count": len(links),
+                "include_inactive": include_inactive,
+            },
         }
 
     return app

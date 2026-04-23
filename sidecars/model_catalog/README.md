@@ -9,6 +9,7 @@ Current scope:
 - SQLite schema bootstrap for model-catalog local state
 - Manyfold read baseline for model summaries
 - normalized summary endpoint for fetched or cached models
+- first archive-link read contract endpoint for HA/print_history integration
 
 ## Build An Image Locally
 
@@ -197,4 +198,32 @@ docker compose exec app bundle exec rails console
 
 ```bash
 curl http://127.0.0.1:8314/healthz
+```
+
+## Archive Link DTO Contract (Phase 1)
+
+Phase 1 now includes an initial archive-facing read contract endpoint that avoids shared DB reads across features.
+
+Endpoint:
+
+```text
+GET /api/archive-links/{archive_id}
+```
+
+Query params:
+
+- `include_inactive` (optional, default `false`)
+
+Response highlights:
+
+- `contract`: currently `archive-link.v1alpha1`
+- `archive_id`: requested Bambuddy archive ID
+- `link`: current active link summary or `null`
+- `links`: returned link rows (active only by default)
+- `meta.count`: number of returned rows
+
+Example:
+
+```bash
+curl "http://127.0.0.1:8314/api/archive-links/4812?include_inactive=true"
 ```
