@@ -1508,7 +1508,7 @@ def test_variant3_async_setup_registers_services_and_mutations_work(tmp_path: Pa
     assert append_event_response["event_timeline"][0]["type"] == "objects_skipped"
     assert append_event_response["event_timeline"][0]["label"] == "Objects skipped"
     assert append_event_response["skip_overlay_state"]["requested_skip_ids"] == [7]
-    assert append_event_response["skip_overlay_state"]["pick_image_path"] == "/api/image_proxy/image.3d_printer_pick_image"
+    assert append_event_response["skip_overlay_state"]["pick_image_path"] == "/api/bambuddy/print-history/archive/101/pick-image?plate=0"
     assert review_response["review_state"]["review_status"] == "reviewed"
     assert review_response["review_state"]["mismatch_flags"] == "color_mismatch"
     assert lineage_response["repair_lineage"][0]["relation_type"] == "derived_from"
@@ -3207,7 +3207,7 @@ def test_variant3_manager_detail_response_includes_normalized_event_timeline(tmp
     assert detail["event_timeline"][1]["type"] == "enrichment_applied"
     assert detail["event_timeline"][1]["label"] == "Enrichment applied"
     assert detail["event_timeline"][1]["color_key"] == "enrichment"
-    assert detail["skip_overlay_state"]["pick_image_asset_path"] == "Metadata/pick_2.png"
+    assert detail["skip_overlay_state"]["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/101/pick-image?plate=2"
 
 
 def test_live_enrichment_automation_appends_timeline_events() -> None:

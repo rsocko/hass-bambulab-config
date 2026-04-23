@@ -1648,6 +1648,16 @@ class PrintHistoryStore:
         state.setdefault("pick_image_asset_path", as_text(row[2]).strip())
         state["archive_id"] = as_int(archive_id)
         state["updated_at"] = as_text(row[4]).strip()
+        normalized_archive_id = as_int(state.get("archive_id"))
+        if normalized_archive_id > 0:
+            plate_number = max(0, as_int(state.get("plate_number")))
+            pick_image_url = (
+                f"/api/bambuddy/print-history/archive/{normalized_archive_id}/pick-image"
+                f"?plate={plate_number}"
+            )
+            # Always expose the stable archive proxy URL so consumers avoid expiring /api/image_proxy tokens.
+            state["pick_image_asset_path"] = pick_image_url
+            state["pick_image_path"] = pick_image_url
         return state
 
     def load_media_review_state(

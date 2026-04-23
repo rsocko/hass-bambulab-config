@@ -2149,7 +2149,7 @@ def test_variant3_store_persists_skip_overlay_state_and_exposes_detail_bundle(tm
     assert persisted["overlay_version"] == "v1"
     assert persisted["plate_number"] == 4
     assert loaded is not None
-    assert loaded["pick_image_asset_path"] == "Metadata/pick_4.png"
+    assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/101/pick-image?plate=4"
     assert loaded["skipped_ids"] == [12, 18]
     assert detail_bundle["skip_overlay_state"]["requested_skip_ids"] == [12, 18]
     assert stats["archive_skip_overlay_state_count"] == 1
