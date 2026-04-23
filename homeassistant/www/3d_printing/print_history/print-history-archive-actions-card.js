@@ -1482,10 +1482,22 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (payload && typeof payload === "object") {
       if (payload.service_response && typeof payload.service_response === "object") {
-        return payload.service_response;
+        return this._normalizeServiceResponse(payload.service_response);
       }
       if (payload.response && typeof payload.response === "object") {
-        return payload.response;
+        return this._normalizeServiceResponse(payload.response);
+      }
+      if (
+        payload.content
+        && typeof payload.content === "object"
+        && (Object.prototype.hasOwnProperty.call(payload, "status")
+          || Object.prototype.hasOwnProperty.call(payload, "headers"))
+      ) {
+        return Object.assign({}, payload.content, {
+          content: payload.content,
+          status: payload.status,
+          headers: payload.headers,
+        });
       }
     }
     return payload && typeof payload === "object" ? payload : {};
