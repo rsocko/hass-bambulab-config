@@ -1405,6 +1405,257 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         assert default_links_after_refresh[candidate_ids[1]]["review_state"] == "new"
 
 
+def test_candidate_refresh_uses_filename_and_time_proximity_rationale(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/alpha",
+                "alpha",
+                "Storage Box",
+                "alpha",
+                None,
+                None,
+                '{"created_at":"2026-04-22T12:00:00Z","hasPart":[{"filename":"wolverine_bookmark.3mf"}]}',
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/beta",
+                "beta",
+                "Recent Upload Cup",
+                "beta",
+                None,
+                None,
+                '{"created_at":"2026-04-22T12:00:00Z","hasPart":[{"filename":"plain_cup.3mf"}]}',
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/archive-links/8201/candidates/refresh",
+            json={
+                "archive_name": "Archived Print",
+                "source_file_name": "wolverine_bookmark.3mf",
+                "archive_completed_at": "2026-04-23T12:00:00Z",
+                "min_score": 0.1,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed.status_code == 200
+        payload = refreshed.json()
+        assert [candidate["manyfold_model_url"] for candidate in payload["candidates"]] == ["http://manyfold.test/models/alpha"]
+        assert payload["candidates"][0]["review_state"] == "new"
+        assert payload["candidates"][0]["match_method"] == "filename_overlap"
+        assert "normalized filename overlap" in payload["candidates"][0]["review_note"]
+        assert "upload within" in payload["candidates"][0]["review_note"]
+
+
+def test_candidate_refresh_auto_accepts_unique_source_hash_match_without_overwriting_confirmed_link(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/hash-match",
+                "hash-match",
+                "Wolverine Bookmark",
+                "hash-match",
+                None,
+                None,
+                '{"source_hash":"abc123"}',
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/confirmed",
+                "confirmed",
+                "Already Linked Model",
+                "confirmed",
+                None,
+                None,
+                '{"source_hash":"different"}',
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                90,
+                "http://manyfold.test/models/confirmed",
+                "confirmed",
+                None,
+                8202,
+                "printed_from",
+                "candidate",
+                "manual",
+                "high",
+                "accepted",
+                1,
+                "2026-04-23T10:00:00Z",
+                "2026-04-23T10:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/archive-links/8202/candidates/refresh",
+            json={
+                "archive_name": "Wolverine Bookmark",
+                "source_hash": "abc123",
+                "min_score": 0.1,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed.status_code == 200
+        payload = refreshed.json()
+        links_by_url = {candidate["manyfold_model_url"]: candidate for candidate in payload["candidates"]}
+        assert links_by_url["http://manyfold.test/models/hash-match"]["review_state"] == "new"
+        assert links_by_url["http://manyfold.test/models/hash-match"]["is_active"] is False
+        assert "exact source hash match" in links_by_url["http://manyfold.test/models/hash-match"]["review_note"]
+
+        confirmed = test_client.get("/api/archive-links/8202?include_inactive=true")
+        assert confirmed.status_code == 200
+        confirmed_links = {link["manyfold_model_url"]: link for link in confirmed.json()["links"]}
+        assert confirmed_links["http://manyfold.test/models/confirmed"]["review_state"] == "accepted"
+        assert confirmed_links["http://manyfold.test/models/confirmed"]["is_active"] is True
+
+
+def test_candidate_refresh_auto_accepts_unique_source_hash_match_when_uncontested(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/hash-only",
+                "hash-only",
+                "Source Hash Model",
+                "hash-only",
+                None,
+                None,
+                '{"source_hash":"def456"}',
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/archive-links/8203/candidates/refresh",
+            json={
+                "archive_name": "Noisy Archive Name",
+                "source_hash": "def456",
+                "min_score": 0.1,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed.status_code == 200
+        payload = refreshed.json()
+        assert len(payload["candidates"]) == 1
+        assert payload["candidates"][0]["review_state"] == "accepted"
+        assert payload["candidates"][0]["is_active"] is True
+        assert payload["candidates"][0]["match_method"] == "source_hash"
+
+
 def test_refresh_candidates_can_force_refresh_manyfold_cache(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

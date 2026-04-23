@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -13,6 +13,12 @@ from .models import ManyfoldModelSummary
 
 
 MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
+
+
+@dataclass(frozen=True)
+class CachedManyfoldModel:
+    summary: ManyfoldModelSummary
+    raw_payload: dict[str, Any]
 
 
 def utc_now_iso() -> str:
@@ -142,11 +148,14 @@ class ManyfoldClient:
         return []
 
     def list_models(self) -> list[ManyfoldModelSummary]:
+        rows = self.list_model_payloads()
+        return [normalize_model_summary(self.base_url, row) for row in rows]
+
+    def list_model_payloads(self) -> list[dict[str, Any]]:
         response = self._client.get(self.models_path, headers=self._request_headers())
         response.raise_for_status()
         payload = response.json()
-        rows = self._extract_rows(payload)
-        return [normalize_model_summary(self.base_url, row) for row in rows]
+        return self._extract_rows(payload)
 
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
         path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
@@ -220,11 +229,17 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
 
 
 def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldModelSummary]:
-    summaries = client.list_models()
+    model_rows: list[dict[str, Any]] | None = None
+    if hasattr(client, "list_model_payloads"):
+        model_rows = client.list_model_payloads()
+        summaries = [normalize_model_summary(client.base_url, row) for row in model_rows]
+    else:
+        summaries = client.list_models()
     connection = connect(db_path)
     try:
         refreshed_at = utc_now_iso()
-        for summary in summaries:
+        for index, summary in enumerate(summaries):
+            raw_payload = model_rows[index] if model_rows is not None else asdict(summary)
             connection.execute(
                 """
                 INSERT INTO manyfold_model_summary_cache (
@@ -259,7 +274,7 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                     summary.creator_name,
                     json.dumps(summary.collection_names),
                     json.dumps(summary.keyword_names),
-                    json.dumps(asdict(summary), sort_keys=True),
+                    json.dumps(raw_payload, sort_keys=True),
                     refreshed_at,
                 ),
             )
@@ -298,3 +313,45 @@ def read_cached_manyfold_summaries(*, db_path) -> list[ManyfoldModelSummary]:
             )
         )
     return summaries
+
+
+def read_cached_manyfold_models(*, db_path) -> list[CachedManyfoldModel]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, manyfold_model_id,
+                   manyfold_model_name, preview_url, creator_name,
+                   collection_names_json, keyword_names_json, raw_json
+            FROM manyfold_model_summary_cache
+            ORDER BY manyfold_model_name COLLATE NOCASE
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    cached_models: list[CachedManyfoldModel] = []
+    for row in rows:
+        raw_json = str(row["raw_json"] or "{}").strip() or "{}"
+        try:
+            raw_payload = json.loads(raw_json)
+        except json.JSONDecodeError:
+            raw_payload = {}
+        if not isinstance(raw_payload, dict):
+            raw_payload = {}
+        cached_models.append(
+            CachedManyfoldModel(
+                summary=ManyfoldModelSummary(
+                    model_url=str(row["manyfold_model_url"]),
+                    public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+                    model_id=str(row["manyfold_model_id"] or "").strip() or None,
+                    name=str(row["manyfold_model_name"]),
+                    preview_url=str(row["preview_url"] or "").strip() or None,
+                    creator_name=str(row["creator_name"] or "").strip() or None,
+                    collection_names=tuple(json.loads(str(row["collection_names_json"] or "[]"))),
+                    keyword_names=tuple(json.loads(str(row["keyword_names_json"] or "[]"))),
+                ),
+                raw_payload=raw_payload,
+            )
+        )
+    return cached_models

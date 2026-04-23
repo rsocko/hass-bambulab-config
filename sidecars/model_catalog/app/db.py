@@ -799,6 +799,8 @@ def refresh_archive_link_candidates(
 
         for candidate in candidates:
             model_url = candidate["manyfold_model_url"]
+            desired_review_state = str(candidate.get("review_state") or "new")
+            desired_is_active = bool(candidate.get("is_active", False))
             candidate_urls.append(model_url)
             existing = connection.execute(
                 """
@@ -819,6 +821,16 @@ def refresh_archive_link_candidates(
             ).fetchone()
 
             if existing is None:
+                if desired_is_active:
+                    connection.execute(
+                        """
+                        UPDATE model_catalog_links
+                        SET is_active = 0,
+                            updated_at = ?
+                        WHERE bambuddy_archive_id = ? AND is_active = 1
+                        """,
+                        (now, archive_id),
+                    )
                 connection.execute(
                     """
                     INSERT INTO model_catalog_links (
@@ -835,7 +847,7 @@ def refresh_archive_link_candidates(
                         review_note,
                         created_at,
                         updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         model_url,
@@ -846,7 +858,8 @@ def refresh_archive_link_candidates(
                         "candidate",
                         candidate["match_method"],
                         candidate["match_confidence"],
-                        "new",
+                        desired_review_state,
+                        1 if desired_is_active else 0,
                         candidate.get("review_note"),
                         now,
                         now,
@@ -873,13 +886,24 @@ def refresh_archive_link_candidates(
                         ),
                     )
                 else:
+                    if desired_is_active:
+                        connection.execute(
+                            """
+                            UPDATE model_catalog_links
+                            SET is_active = 0,
+                                updated_at = ?
+                            WHERE bambuddy_archive_id = ? AND id != ? AND is_active = 1
+                            """,
+                            (now, archive_id, int(existing["id"])),
+                        )
                     connection.execute(
                         """
                         UPDATE model_catalog_links
                         SET manyfold_model_public_id = ?,
                             match_method = ?,
                             match_confidence = ?,
-                            review_state = 'new',
+                            review_state = ?,
+                            is_active = ?,
                             review_note = ?,
                             updated_at = ?
                         WHERE id = ?
@@ -888,6 +912,8 @@ def refresh_archive_link_candidates(
                             candidate.get("manyfold_model_public_id"),
                             candidate["match_method"],
                             candidate["match_confidence"],
+                            desired_review_state,
+                            1 if desired_is_active else 0,
                             candidate.get("review_note"),
                             now,
                             int(existing["id"]),

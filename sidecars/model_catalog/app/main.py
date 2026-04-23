@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from dataclasses import asdict
 from datetime import datetime, timezone
 import re
@@ -30,7 +31,7 @@ from .db import (
     upsert_model_ranking,
     update_archive_link,
 )
-from .manyfold import ManyfoldClient, canonicalize_model_url, read_cached_manyfold_summaries, refresh_manyfold_cache
+from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
 
@@ -39,6 +40,16 @@ class AppState:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.db_info = bootstrap_database(settings.db_path)
+
+
+@dataclass(frozen=True)
+class CandidateMatch:
+    summary: ManyfoldModelSummary
+    score: float
+    deterministic: bool
+    rationale: tuple[str, ...]
+    match_method: str
+    match_confidence: str
 
 
 def _image_metadata(settings: Settings) -> dict[str, str]:
@@ -196,6 +207,15 @@ def _normalize_tokens(text: str) -> set[str]:
     return {token for token in re.findall(r"[a-z0-9]+", text.lower()) if len(token) > 1}
 
 
+def _normalized_filename_stem(value: str | None) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    stem = re.sub(r"\.[a-z0-9]{1,8}$", "", normalized)
+    stem = re.sub(r"[^a-z0-9]+", " ", stem)
+    return re.sub(r"\s+", " ", stem).strip()
+
+
 def _score_candidate(archive_name: str, model_name: str) -> float:
     archive_tokens = _normalize_tokens(archive_name)
     model_tokens = _normalize_tokens(model_name)
@@ -205,6 +225,135 @@ def _score_candidate(archive_name: str, model_name: str) -> float:
     if not overlap:
         return 0.0
     return len(overlap) / max(len(archive_tokens), len(model_tokens))
+
+
+def _extract_string_values(payload: Any, field_names: set[str]) -> list[str]:
+    values: list[str] = []
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key in field_names and isinstance(value, str) and value.strip():
+                values.append(value.strip())
+            values.extend(_extract_string_values(value, field_names))
+    elif isinstance(payload, list):
+        for item in payload:
+            values.extend(_extract_string_values(item, field_names))
+    return values
+
+
+def _extract_model_hashes(payload: dict[str, Any]) -> set[str]:
+    return {
+        value.lower()
+        for value in _extract_string_values(payload, {"source_hash", "source_sha256", "sha256", "content_hash"})
+        if value
+    }
+
+
+def _extract_model_filenames(summary: ManyfoldModelSummary, payload: dict[str, Any]) -> set[str]:
+    names = {summary.name}
+    names.update(_extract_string_values(payload, {"source_file_name", "filename", "original_filename", "name", "title"}))
+    return {normalized for normalized in (_normalized_filename_stem(name) for name in names) if normalized}
+
+
+def _extract_candidate_timestamps(payload: dict[str, Any]) -> list[datetime]:
+    timestamps: list[datetime] = []
+    for raw_value in _extract_string_values(payload, {"created_at", "createdAt", "updated_at", "updatedAt", "published_at", "publishedAt"}):
+        parsed = _parse_iso_datetime(raw_value)
+        if parsed is not None:
+            timestamps.append(parsed)
+    return timestamps
+
+
+def _time_proximity_boost(*, archive_times: list[datetime], candidate_times: list[datetime], recent_upload_window_days: int) -> tuple[float, str | None]:
+    if not archive_times or not candidate_times or recent_upload_window_days <= 0:
+        return 0.0, None
+    closest_days: float | None = None
+    for archive_time in archive_times:
+        for candidate_time in candidate_times:
+            delta_days = abs((archive_time - candidate_time).total_seconds()) / 86400.0
+            if closest_days is None or delta_days < closest_days:
+                closest_days = delta_days
+    if closest_days is None or closest_days > recent_upload_window_days:
+        return 0.0, None
+    boost = 0.15 + (0.35 * (1.0 - (closest_days / recent_upload_window_days)))
+    return boost, f"upload within {closest_days:.1f} days of archive"
+
+
+def _build_candidate_match(
+    *,
+    cached_model: CachedManyfoldModel,
+    archive_name: str,
+    source_file_name: str | None,
+    source_hash: str | None,
+    archive_times: list[datetime],
+    allow_filename_fallback: bool,
+    allow_time_proximity: bool,
+    recent_upload_window_days: int,
+) -> CandidateMatch | None:
+    summary = cached_model.summary
+    payload = cached_model.raw_payload
+    rationale: list[str] = []
+    score = 0.0
+    deterministic = False
+
+    normalized_source_hash = str(source_hash or "").strip().lower()
+    model_hashes = _extract_model_hashes(payload)
+    if normalized_source_hash and normalized_source_hash in model_hashes:
+        deterministic = True
+        score += 10.0
+        rationale.append("exact source hash match")
+
+    name_score = _score_candidate(archive_name, summary.name)
+    if name_score > 0:
+        score += name_score
+        rationale.append(f"name overlap {name_score:.2f}")
+
+    normalized_source_filename = _normalized_filename_stem(source_file_name)
+    filename_score = 0.0
+    if allow_filename_fallback and normalized_source_filename:
+        source_tokens = _normalize_tokens(normalized_source_filename)
+        for candidate_filename in _extract_model_filenames(summary, payload):
+            candidate_tokens = _normalize_tokens(candidate_filename)
+            if not source_tokens or not candidate_tokens:
+                continue
+            overlap = source_tokens.intersection(candidate_tokens)
+            if not overlap:
+                continue
+            overlap_score = len(overlap) / max(len(source_tokens), len(candidate_tokens))
+            filename_score = max(filename_score, overlap_score)
+        if filename_score > 0:
+            score += 1.5 * filename_score
+            rationale.append(f"normalized filename overlap {filename_score:.2f}")
+
+    if allow_time_proximity and (deterministic or name_score > 0 or filename_score > 0):
+        time_boost, time_reason = _time_proximity_boost(
+            archive_times=archive_times,
+            candidate_times=_extract_candidate_timestamps(payload),
+            recent_upload_window_days=recent_upload_window_days,
+        )
+        if time_boost > 0 and time_reason:
+            score += time_boost
+            rationale.append(time_reason)
+
+    if score <= 0 or not rationale:
+        return None
+
+    if deterministic:
+        match_method = "source_hash"
+    elif filename_score > 0 and name_score > 0:
+        match_method = "filename_and_name_similarity"
+    elif filename_score > 0:
+        match_method = "filename_overlap"
+    else:
+        match_method = "name_similarity"
+
+    return CandidateMatch(
+        summary=summary,
+        score=score,
+        deterministic=deterministic,
+        rationale=tuple(rationale),
+        match_method=match_method,
+        match_confidence=_confidence_for_score(min(score, 1.0) if not deterministic else 1.0),
+    )
 
 
 def _confidence_for_score(score: float) -> str:
@@ -697,6 +846,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         archive_name = str(payload.get("archive_name") or "").strip()
         min_score = float(payload.get("min_score") or 0.3)
         max_candidates = int(payload.get("max_candidates") or 10)
+        archive_completed_at = _parse_iso_datetime(str(payload.get("archive_completed_at") or "").strip())
+        archive_started_at = _parse_iso_datetime(str(payload.get("archive_started_at") or "").strip())
+        source_file_name = str(payload.get("source_file_name") or "").strip() or None
+        source_hash = str(payload.get("source_hash") or "").strip() or None
+        allow_filename_fallback = _coerce_bool(payload.get("allow_filename_fallback", True))
+        allow_time_proximity = _coerce_bool(payload.get("allow_time_proximity", True))
+        prefer_recent_uploads = _coerce_bool(payload.get("prefer_recent_uploads", True))
+        recent_upload_window_days = int(payload.get("recent_upload_window_days") or 14)
         force_refresh_model_cache = _coerce_bool(payload.get("force_refresh_model_cache"))
         if not archive_name:
             return _error_response(
@@ -705,40 +862,62 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message="archive_name is required for candidate refresh.",
             )
 
-        summaries: list[Any]
         if force_refresh_model_cache:
-            summaries = refresh_manyfold_cache(
+            refresh_manyfold_cache(
                 db_path=app.state.model_catalog.settings.db_path,
                 client=app.state.manyfold_client,
             )
         else:
             summaries = read_cached_manyfold_summaries(db_path=app.state.model_catalog.settings.db_path)
             if not summaries:
-                summaries = refresh_manyfold_cache(
+                refresh_manyfold_cache(
                     db_path=app.state.model_catalog.settings.db_path,
                     client=app.state.manyfold_client,
                 )
 
-        ranked_candidates: list[tuple[float, dict[str, str]]] = []
-        for summary in summaries:
-            score = _score_candidate(archive_name, summary.name)
-            if score < min_score:
-                continue
-            ranked_candidates.append(
-                (
-                    score,
-                    {
-                        "manyfold_model_url": summary.model_url,
-                        "manyfold_model_public_id": summary.public_id or "",
-                        "match_method": "name_similarity",
-                        "match_confidence": _confidence_for_score(score),
-                        "review_note": f"candidate refresh: archive_name='{archive_name}', score={score:.2f}",
-                    },
-                )
+        cached_models = read_cached_manyfold_models(db_path=app.state.model_catalog.settings.db_path)
+        archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
+        candidate_matches: list[CandidateMatch] = []
+        for cached_model in cached_models:
+            match = _build_candidate_match(
+                cached_model=cached_model,
+                archive_name=archive_name,
+                source_file_name=source_file_name,
+                source_hash=source_hash,
+                archive_times=archive_times if prefer_recent_uploads else [],
+                allow_filename_fallback=allow_filename_fallback,
+                allow_time_proximity=allow_time_proximity and prefer_recent_uploads,
+                recent_upload_window_days=recent_upload_window_days,
             )
+            if match is None or match.score < min_score:
+                continue
+            candidate_matches.append(match)
 
-        ranked_candidates.sort(key=lambda item: item[0], reverse=True)
-        selected_candidates = [item[1] for item in ranked_candidates[:max_candidates]]
+        candidate_matches.sort(key=lambda match: (match.deterministic, match.score, match.summary.name.lower()), reverse=True)
+        deterministic_matches = [match for match in candidate_matches if match.deterministic]
+        active_confirmed_link = any(
+            link.review_state == "accepted" and link.is_active
+            for link in read_archive_links(
+                db_path=app.state.model_catalog.settings.db_path,
+                archive_id=archive_id,
+                active_only=False,
+            )
+        )
+
+        selected_candidates = []
+        for match in candidate_matches[:max_candidates]:
+            auto_accept = match.deterministic and len(deterministic_matches) == 1 and not active_confirmed_link
+            selected_candidates.append(
+                {
+                    "manyfold_model_url": match.summary.model_url,
+                    "manyfold_model_public_id": match.summary.public_id or "",
+                    "match_method": match.match_method,
+                    "match_confidence": match.match_confidence,
+                    "review_state": "accepted" if auto_accept else "new",
+                    "is_active": auto_accept,
+                    "review_note": f"candidate refresh: {'; '.join(match.rationale)}",
+                }
+            )
 
         candidate_links, changed_count = refresh_archive_link_candidates(
             db_path=app.state.model_catalog.settings.db_path,
@@ -753,6 +932,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "created_or_updated_count": changed_count,
             "meta": {
                 "archive_name": archive_name,
+                "archive_completed_at": archive_completed_at.isoformat().replace("+00:00", "Z") if archive_completed_at else None,
+                "archive_started_at": archive_started_at.isoformat().replace("+00:00", "Z") if archive_started_at else None,
+                "source_file_name": source_file_name,
+                "source_hash": source_hash,
+                "allow_filename_fallback": allow_filename_fallback,
+                "allow_time_proximity": allow_time_proximity,
+                "prefer_recent_uploads": prefer_recent_uploads,
+                "recent_upload_window_days": recent_upload_window_days,
                 "min_score": min_score,
                 "max_candidates": max_candidates,
                 "force_refresh_model_cache": force_refresh_model_cache,
