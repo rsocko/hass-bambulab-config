@@ -352,7 +352,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     @app.put("/api/models/{model_ref}/fields/{field_key}")
-    def put_model_field(model_ref: str, field_key: str, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    def put_model_field(model_ref: str, field_key: str, payload: dict[str, Any]) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
@@ -370,7 +370,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     @app.delete("/api/models/{model_ref}/fields/{field_key}")
-    def remove_model_field(model_ref: str, field_key: str) -> dict[str, Any] | JSONResponse:
+    def remove_model_field(model_ref: str, field_key: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
@@ -382,7 +382,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
 
     @app.get("/api/models/{model_ref}/ranking")
-    def get_model_ranking_endpoint(model_ref: str) -> dict[str, Any] | JSONResponse:
+    def get_model_ranking_endpoint(model_ref: str) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
@@ -404,7 +404,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     @app.put("/api/models/{model_ref}/ranking")
-    def put_model_ranking_endpoint(model_ref: str, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    def put_model_ranking_endpoint(model_ref: str, payload: dict[str, Any]) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
