@@ -3,9 +3,21 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 
-SCHEMA_STATEMENTS = (
+MIGRATION_TABLE_STATEMENT = """
+    CREATE TABLE IF NOT EXISTS model_catalog_schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    )
+"""
+
+
+MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
+    (
+        1,
+        (
     """
     CREATE TABLE IF NOT EXISTS manyfold_model_summary_cache (
         manyfold_model_url TEXT PRIMARY KEY,
@@ -72,6 +84,27 @@ SCHEMA_STATEMENTS = (
         created_at TEXT NOT NULL
     )
     """,
+        ),
+    ),
+    (
+        2,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS model_catalog_custom_fields (
+        id INTEGER PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        field_namespace TEXT NOT NULL DEFAULT 'model_catalog',
+        field_key TEXT NOT NULL,
+        field_value_json TEXT NOT NULL,
+        value_type TEXT NOT NULL DEFAULT 'json',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(entity_type, entity_id, field_namespace, field_key)
+    )
+    """,
+        ),
+    ),
 )
 
 
@@ -79,6 +112,7 @@ SCHEMA_STATEMENTS = (
 class DatabaseInfo:
     path: str
     tables: tuple[str, ...]
+    schema_version: int
 
 
 @dataclass(frozen=True)
@@ -109,15 +143,43 @@ def connect(db_path: Path) -> sqlite3.Connection:
 def bootstrap_database(db_path: Path) -> DatabaseInfo:
     connection = connect(db_path)
     try:
-        for statement in SCHEMA_STATEMENTS:
-            connection.execute(statement)
+        connection.execute(MIGRATION_TABLE_STATEMENT)
+        _apply_migrations(connection)
         connection.commit()
         rows = connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         ).fetchall()
+        schema_version = _current_schema_version(connection)
     finally:
         connection.close()
-    return DatabaseInfo(path=str(db_path), tables=tuple(str(row["name"]) for row in rows))
+    return DatabaseInfo(path=str(db_path), tables=tuple(str(row["name"]) for row in rows), schema_version=schema_version)
+
+
+def _current_schema_version(connection: sqlite3.Connection) -> int:
+    row = connection.execute("SELECT COALESCE(MAX(version), 0) AS version FROM model_catalog_schema_migrations").fetchone()
+    return int(row["version"] if row is not None else 0)
+
+
+def _applied_versions(connection: sqlite3.Connection) -> set[int]:
+    rows = connection.execute("SELECT version FROM model_catalog_schema_migrations").fetchall()
+    return {int(row["version"]) for row in rows}
+
+
+def _execute_statements(connection: sqlite3.Connection, statements: Iterable[str]) -> None:
+    for statement in statements:
+        connection.execute(statement)
+
+
+def _apply_migrations(connection: sqlite3.Connection) -> None:
+    applied_versions = _applied_versions(connection)
+    for version, statements in MIGRATIONS:
+        if version in applied_versions:
+            continue
+        _execute_statements(connection, statements)
+        connection.execute(
+            "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
+            (version,),
+        )
 
 
 def read_archive_links(*, db_path: Path, archive_id: int, active_only: bool = True) -> list[ArchiveModelLink]:

@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -24,6 +25,8 @@ class ManyfoldClient:
         base_url: str,
         *,
         models_path: str = "/models",
+        collections_path: str = "/collections",
+        creators_path: str = "/creators",
         oauth_token_path: str = "/oauth/token",
         client_id: str | None = None,
         client_secret: str | None = None,
@@ -32,6 +35,8 @@ class ManyfoldClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.models_path = models_path
+        self.collections_path = collections_path
+        self.creators_path = creators_path
         self.oauth_token_path = oauth_token_path
         self.client_id = client_id
         self.client_secret = client_secret
@@ -76,16 +81,77 @@ class ManyfoldClient:
                 raise RuntimeError("Manyfold OAuth token response did not include access_token.")
         return {"Authorization": f"Bearer {self._access_token}"}
 
-    def list_models(self) -> list[ManyfoldModelSummary]:
-        headers = {
+    def _request_headers(self) -> dict[str, str]:
+        return {
             "Accept": MANYFOLD_API_ACCEPT,
             **self._auth_headers(),
         }
-        response = self._client.get(self.models_path, headers=headers)
+
+    def _resolve_ref_path(self, ref: str, *, default_prefix: str) -> str:
+        normalized = str(ref or "").strip()
+        if not normalized:
+            raise ValueError("Manyfold reference cannot be empty.")
+        if normalized.startswith("http://") or normalized.startswith("https://"):
+            parsed = urlsplit(normalized)
+            return parsed.path or "/"
+        if normalized.startswith("/"):
+            return normalized
+        encoded = quote(normalized, safe="")
+        return f"{default_prefix.rstrip('/')}/{encoded}"
+
+    @staticmethod
+    def _extract_rows(payload: Any) -> list[dict[str, Any]]:
+        if isinstance(payload, list):
+            return [row for row in payload if isinstance(row, dict)]
+        if isinstance(payload, dict):
+            rows = payload.get("member") or payload.get("models") or payload.get("data") or payload.get("items") or []
+            if isinstance(rows, list):
+                return [row for row in rows if isinstance(row, dict)]
+        return []
+
+    def list_models(self) -> list[ManyfoldModelSummary]:
+        response = self._client.get(self.models_path, headers=self._request_headers())
         response.raise_for_status()
         payload = response.json()
-        rows = payload if isinstance(payload, list) else payload.get("member") or payload.get("models") or payload.get("data") or []
+        rows = self._extract_rows(payload)
         return [normalize_model_summary(self.base_url, row) for row in rows]
+
+    def get_model_detail(self, model_ref: str) -> dict[str, Any]:
+        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        response = self._client.get(path, headers=self._request_headers())
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("Manyfold model detail response was not a JSON object.")
+        return payload
+
+    def get_model_file_detail(self, file_ref: str, *, model_ref: str | None = None) -> dict[str, Any]:
+        normalized_file_ref = str(file_ref or "").strip()
+        if not normalized_file_ref:
+            raise ValueError("Manyfold file reference cannot be empty.")
+        if normalized_file_ref.startswith("http://") or normalized_file_ref.startswith("https://") or normalized_file_ref.startswith("/"):
+            path = self._resolve_ref_path(normalized_file_ref, default_prefix="/model_files")
+        elif model_ref:
+            model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+            path = f"{model_path.rstrip('/')}/files/{quote(normalized_file_ref, safe='')}"
+        else:
+            path = f"/model_files/{quote(normalized_file_ref, safe='')}"
+        response = self._client.get(path, headers=self._request_headers())
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("Manyfold model file detail response was not a JSON object.")
+        return payload
+
+    def list_collections(self) -> list[dict[str, Any]]:
+        response = self._client.get(self.collections_path, headers=self._request_headers())
+        response.raise_for_status()
+        return self._extract_rows(response.json())
+
+    def list_creators(self) -> list[dict[str, Any]]:
+        response = self._client.get(self.creators_path, headers=self._request_headers())
+        response.raise_for_status()
+        return self._extract_rows(response.json())
 
 
 def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldModelSummary:

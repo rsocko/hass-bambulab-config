@@ -53,6 +53,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         app.state.manyfold_client = manyfold_client or ManyfoldClient(
             resolved_settings.manyfold_base_url,
             models_path=resolved_settings.manyfold_models_path,
+            collections_path=resolved_settings.manyfold_collections_path,
+            creators_path=resolved_settings.manyfold_creators_path,
             oauth_token_path=resolved_settings.manyfold_oauth_token_path,
             client_id=resolved_settings.manyfold_client_id,
             client_secret=resolved_settings.manyfold_client_secret,
@@ -73,6 +75,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "ok": True,
             "db_path": state.db_info.path,
             "table_count": len(state.db_info.tables),
+            "schema_version": state.db_info.schema_version,
         }
 
     @app.get("/config")
@@ -81,6 +84,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
+            "manyfold_collections_path": state.settings.manyfold_collections_path,
+            "manyfold_creators_path": state.settings.manyfold_creators_path,
             "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
@@ -97,8 +102,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "service": "model-catalog-sidecar",
             "db_tables": list(state.db_info.tables),
+            "schema_version": state.db_info.schema_version,
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
+            "manyfold_collections_path": state.settings.manyfold_collections_path,
+            "manyfold_creators_path": state.settings.manyfold_creators_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             **_image_metadata(state.settings),
         }

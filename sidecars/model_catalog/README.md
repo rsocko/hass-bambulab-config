@@ -115,6 +115,8 @@ For the Manyfold stack example, the expected pattern is:
 
 - `MANYFOLD_BASE_URL` — base URL for the Manyfold instance
 - `MANYFOLD_MODELS_PATH` — API endpoint used to list Manyfold models; default `/models`
+- `MANYFOLD_COLLECTIONS_PATH` — API endpoint used to list collections; default `/collections`
+- `MANYFOLD_CREATORS_PATH` — API endpoint used to list creators; default `/creators`
 - `MANYFOLD_OAUTH_TOKEN_PATH` — OAuth token endpoint path; default `/oauth/token`
 - `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
 - `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access

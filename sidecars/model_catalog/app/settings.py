@@ -9,6 +9,8 @@ from pathlib import Path
 class Settings:
     manyfold_base_url: str
     manyfold_models_path: str
+    manyfold_collections_path: str
+    manyfold_creators_path: str
     manyfold_oauth_token_path: str
     manyfold_client_id: str | None
     manyfold_client_secret: str | None
@@ -26,6 +28,8 @@ class Settings:
 def load_settings() -> Settings:
     base_url = os.getenv("MANYFOLD_BASE_URL", "http://manyfold.socko.us")
     models_path = os.getenv("MANYFOLD_MODELS_PATH", "/models")
+    collections_path = os.getenv("MANYFOLD_COLLECTIONS_PATH", "/collections")
+    creators_path = os.getenv("MANYFOLD_CREATORS_PATH", "/creators")
     token_path = os.getenv("MANYFOLD_OAUTH_TOKEN_PATH", "/oauth/token")
     client_id = str(os.getenv("MANYFOLD_CLIENT_ID", "")).strip() or None
     client_secret = str(os.getenv("MANYFOLD_CLIENT_SECRET", "")).strip() or None
@@ -41,6 +45,8 @@ def load_settings() -> Settings:
     return Settings(
         manyfold_base_url=base_url.rstrip("/"),
         manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
+        manyfold_collections_path=collections_path if collections_path.startswith("/") else f"/{collections_path}",
+        manyfold_creators_path=creators_path if creators_path.startswith("/") else f"/{creators_path}",
         manyfold_oauth_token_path=token_path if token_path.startswith("/") else f"/{token_path}",
         manyfold_client_id=client_id,
         manyfold_client_secret=client_secret,

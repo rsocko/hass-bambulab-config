@@ -17,6 +17,8 @@ def _build_settings(tmp_path: Path) -> Settings:
     return Settings(
         manyfold_base_url="http://manyfold.test",
         manyfold_models_path="/models",
+        manyfold_collections_path="/collections",
+        manyfold_creators_path="/creators",
         manyfold_oauth_token_path="/oauth/token",
         manyfold_client_id="client-id",
         manyfold_client_secret="client-secret",
@@ -37,9 +39,12 @@ def test_bootstrap_database_creates_phase1a_tables(tmp_path: Path) -> None:
 
     assert "manyfold_model_summary_cache" in info.tables
     assert "model_catalog_links" in info.tables
+    assert "model_catalog_custom_fields" in info.tables
+    assert "model_catalog_schema_migrations" in info.tables
     assert "working_groups" in info.tables
     assert "working_items" in info.tables
     assert "model_catalog_events" in info.tables
+    assert info.schema_version >= 2
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
@@ -140,6 +145,54 @@ def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -
     assert seen_requests[2] == ("GET", "/models", "Bearer token-basic")
 
 
+def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> None:
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+        if request.url.path == "/models/abc123":
+            return httpx.Response(200, json={"id": "abc123", "name": "Detail Model"})
+        if request.url.path == "/model_files/file-99":
+            return httpx.Response(200, json={"id": "file-99", "filename": "part.3mf"})
+        if request.url.path == "/models/abc123/files/file-88":
+            return httpx.Response(200, json={"id": "file-88", "filename": "derived.3mf"})
+        if request.url.path == "/collections":
+            return httpx.Response(200, json={"member": [{"id": "c1", "name": "Functional"}]})
+        if request.url.path == "/creators":
+            return httpx.Response(200, json={"member": [{"id": "u1", "name": "Rysock"}]})
+        raise AssertionError(f"Unexpected request path: {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        detail = client.get_model_detail("abc123")
+        assert detail["name"] == "Detail Model"
+
+        file_direct = client.get_model_file_detail("file-99")
+        assert file_direct["filename"] == "part.3mf"
+
+        file_nested = client.get_model_file_detail("file-88", model_ref="abc123")
+        assert file_nested["filename"] == "derived.3mf"
+
+        collections = client.list_collections()
+        assert collections[0]["name"] == "Functional"
+
+        creators = client.list_creators()
+        assert creators[0]["name"] == "Rysock"
+    finally:
+        client.close()
+
+    assert "/models/abc123" in seen_paths
+    assert "/model_files/file-99" in seen_paths
+    assert "/models/abc123/files/file-88" in seen_paths
+    assert "/collections" in seen_paths
+    assert "/creators" in seen_paths
+
+
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -184,10 +237,13 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json()["ok"] is True
         assert health.json()["table_count"] >= 5
+        assert health.json()["schema_version"] >= 2
 
         config = test_client.get("/config")
         assert config.status_code == 200
         assert config.json()["manyfold_models_path"] == "/models"
+        assert config.json()["manyfold_collections_path"] == "/collections"
+        assert config.json()["manyfold_creators_path"] == "/creators"
         assert config.json()["manyfold_oauth_enabled"] is True
         assert config.json()["manyfold_oauth_scopes"] == "public read"
         assert config.json()["image_tag"] == "0.1.0"
@@ -197,6 +253,9 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         diagnostics = test_client.get("/diagnostics")
         assert diagnostics.status_code == 200
+        assert diagnostics.json()["schema_version"] >= 2
+        assert diagnostics.json()["manyfold_collections_path"] == "/collections"
+        assert diagnostics.json()["manyfold_creators_path"] == "/creators"
         assert diagnostics.json()["image_tag"] == "0.1.0"
         assert diagnostics.json()["image_version"] == "0.1.0"
         assert diagnostics.json()["image_revision"] == "abc123"
