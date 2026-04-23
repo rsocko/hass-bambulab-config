@@ -204,6 +204,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var archive = this._resolveArchive();
     return archive && archive.id != null ? String(archive.id) : "";
   }
+
+  _maybeLoadInitialCompare() {
     if (!this._hass || !this._config || this._busy) {
       return;
     }
