@@ -1123,6 +1123,160 @@ def test_archive_link_cleanup_duplicates_removes_inactive_host_variants(tmp_path
         assert 9 not in remaining_ids
 
 
+def test_repair_canonical_model_urls_repairs_historical_localhost_links_and_rankings(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', ?)
+            """,
+            (
+                "http://manyfold.test/models/x9dcd59s3g60",
+                None,
+                "Transformers Devastation Starscream Action Figure",
+                "x9dcd59s3g60",
+                None,
+                None,
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                41,
+                "http://192.168.1.77:3214/models/x9dcd59s3g60",
+                None,
+                None,
+                501,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                1,
+                "2026-04-23T20:00:00Z",
+                "2026-04-23T20:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                42,
+                "http://manyfold.test/models/x9dcd59s3g60",
+                None,
+                None,
+                501,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                0,
+                "2026-04-23T19:00:00Z",
+                "2026-04-23T19:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_model_ranking (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                last_printed_at,
+                linked_archive_count,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://192.168.1.77:3214/models/x9dcd59s3g60",
+                None,
+                "2026-04-23T20:00:00Z",
+                1,
+                1,
+                0.75,
+                1.0,
+                0.75,
+                "2026-04-23T20:05:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        repaired = test_client.post("/api/admin/archive-links/repair-canonical-model-urls")
+        assert repaired.status_code == 200
+        repaired_payload = repaired.json()
+        assert repaired_payload["updated_link_count"] == 1
+        assert repaired_payload["removed_link_count"] == 1
+        assert repaired_payload["updated_ranking_count"] == 1
+        assert repaired_payload["removed_ranking_count"] == 0
+
+        links = test_client.get("/api/archive-links/501?include_inactive=true")
+        assert links.status_code == 200
+        payload = links.json()
+        assert payload["meta"]["count"] == 1
+        assert payload["links"][0]["manyfold_model_url"] == "http://manyfold.test/models/x9dcd59s3g60"
+
+        refreshed = test_client.post(
+            "/api/models/ranking/refresh",
+            json={"reference_time": "2026-04-23T23:59:00Z"},
+        )
+        assert refreshed.status_code == 200
+        refreshed_urls = [item["manyfold_model_url"] for item in refreshed.json()["rankings"]]
+        assert refreshed_urls == ["http://manyfold.test/models/x9dcd59s3g60"]
+
+
 def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

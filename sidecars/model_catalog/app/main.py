@@ -23,6 +23,7 @@ from .db import (
     read_model_link_counts,
     read_model_ranking_inputs,
     read_model_ranking,
+    repair_canonical_model_urls,
     refresh_archive_link_candidates,
     set_archive_link_review_state,
     set_model_field,
@@ -670,6 +671,25 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 _archive_link_to_response(link, summary_by_url=summary_by_url)
                 for link in removed_links
             ],
+        }
+
+    @app.post("/api/admin/archive-links/repair-canonical-model-urls")
+    def repair_canonical_model_urls_endpoint() -> dict[str, Any]:
+        state: AppState = app.state.model_catalog
+        result = repair_canonical_model_urls(
+            db_path=state.settings.db_path,
+            canonicalize_url=lambda model_url: _normalized_model_url(state.settings, model_url),
+        )
+        return {
+            "success": True,
+            "updated_link_count": len(result.updated_link_ids),
+            "removed_link_count": len(result.removed_link_ids),
+            "updated_ranking_count": len(result.updated_ranking_urls),
+            "removed_ranking_count": len(result.removed_ranking_urls),
+            "updated_link_ids": list(result.updated_link_ids),
+            "removed_link_ids": list(result.removed_link_ids),
+            "updated_ranking_urls": list(result.updated_ranking_urls),
+            "removed_ranking_urls": list(result.removed_ranking_urls),
         }
 
     @app.post("/api/archive-links/{archive_id}/candidates/refresh")

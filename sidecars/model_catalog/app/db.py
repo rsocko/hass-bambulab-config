@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 
 def utc_now_iso() -> str:
@@ -181,6 +181,14 @@ class ModelRankingInput:
     linked_archive_count: int
     print_count: int
     last_linked_at: str | None
+
+
+@dataclass(frozen=True)
+class CanonicalModelUrlRepairResult:
+    updated_link_ids: tuple[int, ...]
+    removed_link_ids: tuple[int, ...]
+    updated_ranking_urls: tuple[str, ...]
+    removed_ranking_urls: tuple[str, ...]
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -496,6 +504,169 @@ def update_archive_link(
         if cursor.rowcount == 0:
             return None
         return _read_archive_link_by_id(connection, archive_id=archive_id, link_id=link_id)
+    finally:
+        connection.close()
+
+
+def repair_canonical_model_urls(
+    *,
+    db_path: Path,
+    canonicalize_url: Callable[[str], str | None],
+) -> CanonicalModelUrlRepairResult:
+    connection = connect(db_path)
+    try:
+        now = utc_now_iso()
+
+        link_rows = connection.execute(
+            """
+            SELECT
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                review_note,
+                is_active,
+                created_at,
+                updated_at
+            FROM model_catalog_links
+            ORDER BY updated_at DESC, id DESC
+            """
+        ).fetchall()
+
+        grouped_links: dict[tuple[int, str], list[ArchiveModelLink]] = {}
+        affected_link_groups: set[tuple[int, str]] = set()
+        for row in link_rows:
+            link = ArchiveModelLink(
+                id=int(row["id"]),
+                manyfold_model_url=str(row["manyfold_model_url"]),
+                manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+                manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+                bambuddy_archive_id=int(row["bambuddy_archive_id"]),
+                relationship_type=str(row["relationship_type"]),
+                link_role=str(row["link_role"]),
+                match_method=str(row["match_method"]),
+                match_confidence=str(row["match_confidence"]),
+                review_state=str(row["review_state"]),
+                review_note=str(row["review_note"] or "").strip() or None,
+                is_active=bool(int(row["is_active"])),
+                created_at=str(row["created_at"]),
+                updated_at=str(row["updated_at"]),
+            )
+            canonical_url = canonicalize_url(link.manyfold_model_url) or link.manyfold_model_url
+            group_key = (link.bambuddy_archive_id, canonical_url)
+            grouped_links.setdefault(group_key, []).append(link)
+            if canonical_url != link.manyfold_model_url:
+                affected_link_groups.add(group_key)
+
+        updated_link_ids: list[int] = []
+        removed_link_ids: list[int] = []
+        for group_key in sorted(affected_link_groups):
+            archive_id, canonical_url = group_key
+            links = grouped_links[group_key]
+            survivor = sorted(
+                links,
+                key=lambda link: (
+                    1 if link.is_active else 0,
+                    1 if link.review_state == "accepted" else 0,
+                    1 if link.manyfold_model_url == canonical_url else 0,
+                    link.updated_at,
+                    link.id,
+                ),
+                reverse=True,
+            )[0]
+            merged_public_id = next((link.manyfold_model_public_id for link in links if link.manyfold_model_public_id), None)
+            merged_file_id = next((link.manyfold_model_file_id for link in links if link.manyfold_model_file_id), None)
+            if (
+                survivor.manyfold_model_url != canonical_url
+                or (merged_public_id and merged_public_id != survivor.manyfold_model_public_id)
+                or (merged_file_id and merged_file_id != survivor.manyfold_model_file_id)
+            ):
+                connection.execute(
+                    """
+                    UPDATE model_catalog_links
+                    SET manyfold_model_url = ?,
+                        manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
+                        manyfold_model_file_id = COALESCE(?, manyfold_model_file_id),
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (canonical_url, merged_public_id, merged_file_id, now, survivor.id),
+                )
+                updated_link_ids.append(survivor.id)
+
+            loser_ids = [link.id for link in links if link.id != survivor.id]
+            if loser_ids:
+                placeholders = ",".join("?" for _ in loser_ids)
+                connection.execute(
+                    f"DELETE FROM model_catalog_links WHERE id IN ({placeholders})",
+                    tuple(loser_ids),
+                )
+                removed_link_ids.extend(loser_ids)
+
+        ranking_rows = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, refreshed_at
+            FROM model_catalog_model_ranking
+            ORDER BY refreshed_at DESC, manyfold_model_url ASC
+            """
+        ).fetchall()
+        grouped_rankings: dict[str, list[sqlite3.Row]] = {}
+        affected_ranking_groups: set[str] = set()
+        for row in ranking_rows:
+            original_url = str(row["manyfold_model_url"])
+            canonical_url = canonicalize_url(original_url) or original_url
+            grouped_rankings.setdefault(canonical_url, []).append(row)
+            if canonical_url != original_url:
+                affected_ranking_groups.add(canonical_url)
+
+        updated_ranking_urls: list[str] = []
+        removed_ranking_urls: list[str] = []
+        for canonical_url in sorted(affected_ranking_groups):
+            rows = grouped_rankings[canonical_url]
+            survivor = sorted(
+                rows,
+                key=lambda row: (
+                    1 if str(row["manyfold_model_url"]) == canonical_url else 0,
+                    str(row["refreshed_at"]),
+                    str(row["manyfold_model_url"]),
+                ),
+                reverse=True,
+            )[0]
+            merged_public_id = next((str(row["manyfold_model_public_id"] or "").strip() for row in rows if str(row["manyfold_model_public_id"] or "").strip()), None)
+            survivor_url = str(survivor["manyfold_model_url"])
+            if survivor_url != canonical_url or merged_public_id:
+                connection.execute(
+                    """
+                    UPDATE model_catalog_model_ranking
+                    SET manyfold_model_url = ?,
+                        manyfold_model_public_id = COALESCE(?, manyfold_model_public_id)
+                    WHERE manyfold_model_url = ?
+                    """,
+                    (canonical_url, merged_public_id, survivor_url),
+                )
+                updated_ranking_urls.append(canonical_url)
+            loser_urls = [str(row["manyfold_model_url"]) for row in rows if str(row["manyfold_model_url"]) != survivor_url]
+            if loser_urls:
+                placeholders = ",".join("?" for _ in loser_urls)
+                connection.execute(
+                    f"DELETE FROM model_catalog_model_ranking WHERE manyfold_model_url IN ({placeholders})",
+                    tuple(loser_urls),
+                )
+                removed_ranking_urls.extend(loser_urls)
+
+        connection.commit()
+        return CanonicalModelUrlRepairResult(
+            updated_link_ids=tuple(sorted(set(updated_link_ids))),
+            removed_link_ids=tuple(sorted(set(removed_link_ids))),
+            updated_ranking_urls=tuple(sorted(set(updated_ranking_urls))),
+            removed_ranking_urls=tuple(sorted(set(removed_ranking_urls))),
+        )
     finally:
         connection.close()
 
