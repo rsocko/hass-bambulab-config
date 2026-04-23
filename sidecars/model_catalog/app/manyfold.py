@@ -19,6 +19,22 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: Any | None = None) -> str:
+    normalized = str(model_url or "").strip()
+    if not normalized and fallback_model_id is not None:
+        return f"{base_url.rstrip('/')}/models/{fallback_model_id}"
+    if normalized.startswith("/"):
+        return f"{base_url.rstrip('/')}{normalized}"
+    if normalized.startswith("http://") or normalized.startswith("https://"):
+        parsed = urlsplit(normalized)
+        if parsed.path.startswith("/models/"):
+            canonical = f"{base_url.rstrip('/')}{parsed.path}"
+            if parsed.query:
+                canonical += f"?{parsed.query}"
+            return canonical
+    return normalized
+
+
 class ManyfoldClient:
     def __init__(
         self,
@@ -159,17 +175,11 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
     creator = payload.get("creator") or {}
     collections = payload.get("collections") or []
     keywords = payload.get("keywords") or payload.get("tags") or []
-    model_url = str(payload.get("url") or payload.get("@id") or "").strip()
-    if not model_url and payload.get("id") is not None:
-        model_url = f"{base_url.rstrip('/')}/models/{payload['id']}"
-    elif model_url.startswith("/"):
-        model_url = f"{base_url.rstrip('/')}{model_url}"
-    elif model_url.startswith("http://") or model_url.startswith("https://"):
-        parsed_model_url = urlsplit(model_url)
-        if parsed_model_url.path.startswith("/models/"):
-            model_url = f"{base_url.rstrip('/')}{parsed_model_url.path}"
-            if parsed_model_url.query:
-                model_url += f"?{parsed_model_url.query}"
+    model_url = canonicalize_model_url(
+        base_url,
+        str(payload.get("url") or payload.get("@id") or "").strip(),
+        fallback_model_id=payload.get("id"),
+    )
 
     def _extract_name(value: Any) -> str | None:
         if isinstance(value, str):

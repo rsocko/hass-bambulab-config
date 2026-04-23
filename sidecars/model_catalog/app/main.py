@@ -18,7 +18,7 @@ from .db import (
     set_archive_link_review_state,
     update_archive_link,
 )
-from .manyfold import ManyfoldClient, read_cached_manyfold_summaries, refresh_manyfold_cache
+from .manyfold import ManyfoldClient, canonicalize_model_url, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
 
@@ -116,6 +116,13 @@ def _coerce_bool(value: Any) -> bool:
         if normalized in {"0", "false", "no", "off", ""}:
             return False
     return bool(value)
+
+
+def _normalized_model_url(settings: Settings, model_url: str | None) -> str | None:
+    normalized = str(model_url or "").strip()
+    if not normalized:
+        return None
+    return canonicalize_model_url(settings.manyfold_base_url, normalized)
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
@@ -236,7 +243,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
     @app.post("/api/archive-links/{archive_id}")
     def create_archive_link_endpoint(archive_id: int, payload: dict[str, Any]) -> Any:
-        manyfold_model_url = str(payload.get("manyfold_model_url") or "").strip()
+        state: AppState = app.state.model_catalog
+        manyfold_model_url = _normalized_model_url(state.settings, payload.get("manyfold_model_url")) or ""
         relationship_type = str(payload.get("relationship_type") or "source_for").strip()
         link_role = str(payload.get("link_role") or "primary").strip()
         match_method = str(payload.get("match_method") or "manual").strip()
@@ -252,7 +260,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
 
         created = create_archive_link(
-            db_path=app.state.model_catalog.settings.db_path,
+            db_path=state.settings.db_path,
             archive_id=archive_id,
             manyfold_model_url=manyfold_model_url,
             manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None,
@@ -265,19 +273,21 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             is_active=is_active,
             review_note=review_note,
         )
+        summary_by_url = _summary_map(state.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "link": _archive_link_to_response(created),
+            "link": _archive_link_to_response(created, summary_by_url=summary_by_url),
         }
 
     @app.patch("/api/archive-links/{archive_id}/{link_id}")
     def update_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any]) -> Any:
+        state: AppState = app.state.model_catalog
         updated = update_archive_link(
-            db_path=app.state.model_catalog.settings.db_path,
+            db_path=state.settings.db_path,
             archive_id=archive_id,
             link_id=link_id,
-            manyfold_model_url=str(payload.get("manyfold_model_url") or "").strip() or None,
+            manyfold_model_url=_normalized_model_url(state.settings, payload.get("manyfold_model_url")),
             manyfold_model_public_id=str(payload.get("manyfold_model_public_id") or "").strip() or None,
             manyfold_model_file_id=str(payload.get("manyfold_model_file_id") or "").strip() or None,
             relationship_type=str(payload.get("relationship_type") or "").strip() or None,
@@ -295,17 +305,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        summary_by_url = _summary_map(state.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "link": _archive_link_to_response(updated),
+            "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
     @app.post("/api/archive-links/{archive_id}/{link_id}/deactivate")
     def deactivate_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
         note_payload = payload or {}
+        state: AppState = app.state.model_catalog
         updated = deactivate_archive_link(
-            db_path=app.state.model_catalog.settings.db_path,
+            db_path=state.settings.db_path,
             archive_id=archive_id,
             link_id=link_id,
             note=str(note_payload.get("review_note") or note_payload.get("reason") or "").strip() or None,
@@ -317,10 +329,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        summary_by_url = _summary_map(state.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "link": _archive_link_to_response(updated),
+            "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
     @app.post("/api/archive-links/{archive_id}/candidates/refresh")
@@ -393,8 +406,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.post("/api/archive-links/{archive_id}/{link_id}/accept")
     def accept_archive_candidate_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
         note_payload = payload or {}
+        state: AppState = app.state.model_catalog
         updated = set_archive_link_review_state(
-            db_path=app.state.model_catalog.settings.db_path,
+            db_path=state.settings.db_path,
             archive_id=archive_id,
             link_id=link_id,
             review_state="accepted",
@@ -408,17 +422,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No candidate link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        summary_by_url = _summary_map(state.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "link": _archive_link_to_response(updated),
+            "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
     @app.post("/api/archive-links/{archive_id}/{link_id}/reject")
     def reject_archive_candidate_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
         note_payload = payload or {}
+        state: AppState = app.state.model_catalog
         updated = set_archive_link_review_state(
-            db_path=app.state.model_catalog.settings.db_path,
+            db_path=state.settings.db_path,
             archive_id=archive_id,
             link_id=link_id,
             review_state="rejected",
@@ -432,10 +448,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No candidate link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        summary_by_url = _summary_map(state.settings.db_path)
         return {
             "success": True,
             "archive_id": archive_id,
-            "link": _archive_link_to_response(updated),
+            "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
     return app

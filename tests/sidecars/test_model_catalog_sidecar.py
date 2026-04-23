@@ -558,6 +558,83 @@ def test_archive_link_crud_endpoints(tmp_path: Path) -> None:
         assert all_links.json()["links"][0]["review_note"] == "operator disabled"
 
 
+def test_archive_link_create_canonicalizes_and_deduplicates_manual_links(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/abc123",
+                "abc123",
+                "Captain America Prototype Shield",
+                "abc123",
+                None,
+                None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        created_response = test_client.post(
+            "/api/archive-links/7002",
+            json={
+                "manyfold_model_url": "http://192.168.1.77:3214/models/abc123",
+                "relationship_type": "source_for",
+                "match_method": "manual",
+                "match_confidence": "high",
+                "review_state": "accepted",
+                "review_note": "manual link",
+                "is_active": True,
+            },
+        )
+        assert created_response.status_code == 200
+        created_payload = created_response.json()
+        assert created_payload["link"]["manyfold_model_url"] == "http://manyfold.test/models/abc123"
+        assert created_payload["link"]["manyfold_model_name"] == "Captain America Prototype Shield"
+        first_link_id = int(created_payload["link"]["id"])
+
+        duplicate_response = test_client.post(
+            "/api/archive-links/7002",
+            json={
+                "manyfold_model_url": "http://manyfold.test/models/abc123",
+                "relationship_type": "source_for",
+                "match_method": "manual",
+                "match_confidence": "high",
+                "review_state": "accepted",
+                "review_note": "same link again",
+                "is_active": True,
+            },
+        )
+        assert duplicate_response.status_code == 200
+        duplicate_payload = duplicate_response.json()
+        assert int(duplicate_payload["link"]["id"]) == first_link_id
+        assert duplicate_payload["link"]["review_note"] == "same link again"
+
+        all_links = test_client.get("/api/archive-links/7002?include_inactive=true")
+        assert all_links.status_code == 200
+        assert all_links.json()["meta"]["count"] == 1
+        assert all_links.json()["links"][0]["manyfold_model_name"] == "Captain America Prototype Shield"
+
+
 def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
@@ -663,6 +740,27 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         links_by_id = {int(link["id"]): link for link in full_view.json()["links"]}
         assert links_by_id[candidate_ids[0]]["review_state"] == "accepted"
         assert links_by_id[candidate_ids[1]]["review_state"] == "rejected"
+
+        refreshed_again = test_client.post(
+            "/api/archive-links/8101/candidates/refresh",
+            json={
+                "archive_name": "Wolverine Bookmark",
+                "min_score": 0.0,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed_again.status_code == 200
+        refreshed_again_payload = refreshed_again.json()
+        refreshed_again_links = {int(link["id"]): link for link in refreshed_again_payload["candidates"]}
+        assert refreshed_again_links[candidate_ids[0]]["review_state"] == "accepted"
+        assert refreshed_again_links[candidate_ids[0]]["is_active"] is True
+
+        default_view_after_refresh = test_client.get("/api/archive-links/8101")
+        assert default_view_after_refresh.status_code == 200
+        default_links_after_refresh = {int(link["id"]): link for link in default_view_after_refresh.json()["links"]}
+        assert default_links_after_refresh[candidate_ids[0]]["review_state"] == "accepted"
+        assert default_links_after_refresh[candidate_ids[0]]["is_active"] is True
+        assert default_links_after_refresh[candidate_ids[1]]["review_state"] == "new"
 
 
 def test_refresh_candidates_can_force_refresh_manyfold_cache(tmp_path: Path) -> None:

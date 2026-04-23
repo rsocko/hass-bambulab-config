@@ -263,41 +263,113 @@ def create_archive_link(
     now = utc_now_iso()
     connection = connect(db_path)
     try:
-        connection.execute(
+        existing = connection.execute(
             """
-            INSERT INTO model_catalog_links (
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
-                bambuddy_archive_id,
-                relationship_type,
-                link_role,
-                match_method,
-                match_confidence,
-                review_state,
-                is_active,
-                review_note,
-                created_at,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            SELECT id
+            FROM model_catalog_links
+            WHERE bambuddy_archive_id = ?
+              AND manyfold_model_url = ?
+            ORDER BY is_active DESC,
+                     CASE review_state
+                         WHEN 'accepted' THEN 0
+                         WHEN 'new' THEN 1
+                         ELSE 2
+                     END,
+                     id DESC
+            LIMIT 1
             """,
-            (
-                manyfold_model_url,
-                manyfold_model_public_id,
-                manyfold_model_file_id,
-                archive_id,
-                relationship_type,
-                link_role,
-                match_method,
-                match_confidence,
-                review_state,
-                1 if is_active else 0,
-                review_note,
-                now,
-                now,
-            ),
-        )
-        link_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+            (archive_id, manyfold_model_url),
+        ).fetchone()
+
+        if is_active:
+            if existing is None:
+                connection.execute(
+                    """
+                    UPDATE model_catalog_links
+                    SET is_active = 0,
+                        updated_at = ?
+                    WHERE bambuddy_archive_id = ? AND is_active = 1
+                    """,
+                    (now, archive_id),
+                )
+            else:
+                connection.execute(
+                    """
+                    UPDATE model_catalog_links
+                    SET is_active = 0,
+                        updated_at = ?
+                    WHERE bambuddy_archive_id = ? AND id != ? AND is_active = 1
+                    """,
+                    (now, archive_id, int(existing["id"])),
+                )
+
+        if existing is None:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_links (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    bambuddy_archive_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    is_active,
+                    review_note,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    archive_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    1 if is_active else 0,
+                    review_note,
+                    now,
+                    now,
+                ),
+            )
+            link_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+        else:
+            link_id = int(existing["id"])
+            connection.execute(
+                """
+                UPDATE model_catalog_links
+                SET manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
+                    manyfold_model_file_id = COALESCE(?, manyfold_model_file_id),
+                    relationship_type = ?,
+                    link_role = ?,
+                    match_method = ?,
+                    match_confidence = ?,
+                    review_state = ?,
+                    is_active = ?,
+                    review_note = COALESCE(?, review_note),
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    1 if is_active else 0,
+                    review_note,
+                    now,
+                    link_id,
+                ),
+            )
         connection.commit()
         created = _read_archive_link_by_id(connection, archive_id=archive_id, link_id=link_id)
     finally:
@@ -441,12 +513,17 @@ def refresh_archive_link_candidates(
             candidate_urls.append(model_url)
             existing = connection.execute(
                 """
-                SELECT id
+                SELECT id, review_state, is_active
                 FROM model_catalog_links
                 WHERE bambuddy_archive_id = ?
                   AND manyfold_model_url = ?
-                  AND link_role = 'candidate'
-                ORDER BY id DESC
+                ORDER BY is_active DESC,
+                         CASE review_state
+                             WHEN 'accepted' THEN 0
+                             WHEN 'new' THEN 1
+                             ELSE 2
+                         END,
+                         id DESC
                 LIMIT 1
                 """,
                 (archive_id, model_url),
@@ -488,26 +565,45 @@ def refresh_archive_link_candidates(
                 )
                 changed_count += 1
             else:
-                connection.execute(
-                    """
-                    UPDATE model_catalog_links
-                    SET manyfold_model_public_id = ?,
-                        match_method = ?,
-                        match_confidence = ?,
-                        review_state = 'new',
-                        review_note = ?,
-                        updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        candidate.get("manyfold_model_public_id"),
-                        candidate["match_method"],
-                        candidate["match_confidence"],
-                        candidate.get("review_note"),
-                        now,
-                        int(existing["id"]),
-                    ),
-                )
+                if str(existing["review_state"]) == "accepted" or bool(int(existing["is_active"])):
+                    connection.execute(
+                        """
+                        UPDATE model_catalog_links
+                        SET manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
+                            match_method = ?,
+                            match_confidence = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            candidate.get("manyfold_model_public_id"),
+                            candidate["match_method"],
+                            candidate["match_confidence"],
+                            now,
+                            int(existing["id"]),
+                        ),
+                    )
+                else:
+                    connection.execute(
+                        """
+                        UPDATE model_catalog_links
+                        SET manyfold_model_public_id = ?,
+                            match_method = ?,
+                            match_confidence = ?,
+                            review_state = 'new',
+                            review_note = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            candidate.get("manyfold_model_public_id"),
+                            candidate["match_method"],
+                            candidate["match_confidence"],
+                            candidate.get("review_note"),
+                            now,
+                            int(existing["id"]),
+                        ),
+                    )
                 changed_count += 1
 
         if candidate_urls:
