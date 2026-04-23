@@ -12,11 +12,19 @@ from .db import (
     ArchiveModelLink,
     bootstrap_database,
     create_archive_link,
+    delete_model_field,
     deactivate_archive_link,
     delete_archive_links,
+    read_all_model_ranking,
     read_archive_links,
+    read_model_field,
+    read_model_fields,
+    read_model_link_counts,
+    read_model_ranking,
     refresh_archive_link_candidates,
     set_archive_link_review_state,
+    set_model_field,
+    upsert_model_ranking,
     update_archive_link,
 )
 from .manyfold import ManyfoldClient, canonicalize_model_url, read_cached_manyfold_summaries, refresh_manyfold_cache
@@ -42,6 +50,73 @@ def _image_metadata(settings: Settings) -> dict[str, str]:
 def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
     summaries = read_cached_manyfold_summaries(db_path=db_path)
     return {summary.model_url: summary for summary in summaries}
+
+
+def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
+    normalized_ref = str(model_ref or "").strip()
+    if not normalized_ref:
+        return None
+    if normalized_ref in summary_by_url:
+        return summary_by_url[normalized_ref]
+    for summary in summary_by_url.values():
+        if normalized_ref == str(summary.public_id or "").strip():
+            return summary
+        if normalized_ref == str(summary.model_id or "").strip():
+            return summary
+    return None
+
+
+def _coerce_int(value: object | None) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
+    ranking = model_payload.get("ranking") or {}
+    if sort_by == "priority":
+        priority = _coerce_int((model_payload.get("custom_fields") or {}).get("to_print_priority"))
+        return (0 if priority is not None else 1, -(priority or 0), model_payload["name"].lower())
+    if sort_by == "recent":
+        last_printed_at = ranking.get("last_printed_at")
+        return (0 if last_printed_at else 1, str(last_printed_at or ""), model_payload["name"].lower())
+    if sort_by == "frequent":
+        frequent_score = ranking.get("frequent_score")
+        return (0 if frequent_score is not None else 1, -(float(frequent_score or 0)), model_payload["name"].lower())
+    if sort_by == "common":
+        common_score = ranking.get("common_score")
+        return (0 if common_score is not None else 1, -(float(common_score or 0)), model_payload["name"].lower())
+    return (0, model_payload["name"].lower())
+
+
+def _serialize_model_summary(
+    summary: ManyfoldModelSummary,
+    *,
+    custom_fields: dict[str, object],
+    ranking_by_url: dict[str, Any],
+    link_counts_by_url: dict[str, int],
+) -> dict[str, Any]:
+    ranking = ranking_by_url.get(summary.model_url)
+    ranking_payload = None
+    if ranking is not None:
+        ranking_payload = {
+            "last_printed_at": ranking.last_printed_at,
+            "linked_archive_count": ranking.linked_archive_count,
+            "print_count": ranking.print_count,
+            "recent_score": ranking.recent_score,
+            "frequent_score": ranking.frequent_score,
+            "common_score": ranking.common_score,
+            "refreshed_at": ranking.refreshed_at,
+        }
+    return {
+        **asdict(summary),
+        "custom_fields": custom_fields,
+        "ranking": ranking_payload,
+        "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
+    }
 
 
 def _archive_link_to_response(
@@ -203,7 +278,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     @app.get("/api/models")
-    def list_models(refresh: bool = False) -> dict[str, Any]:
+    def list_models(
+        refresh: bool = False,
+        to_print_status: str | None = None,
+        sort: str = "name",
+    ) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
         if refresh:
@@ -215,10 +294,145 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             if not summaries:
                 summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
                 source = "manyfold"
+
+        ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
+        link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+        models = []
+        for summary in summaries:
+            model_ref = summary.public_id or summary.model_id or summary.model_url
+            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
+            if to_print_status and str(custom_fields.get("to_print_status") or "") != to_print_status:
+                continue
+            models.append(
+                _serialize_model_summary(
+                    summary,
+                    custom_fields=custom_fields,
+                    ranking_by_url=ranking_by_url,
+                    link_counts_by_url=link_counts_by_url,
+                )
+            )
+
+        models.sort(key=lambda item: _sort_value(item, sort))
         return {
             "source": source,
-            "count": len(summaries),
-            "models": [asdict(summary) for summary in summaries],
+            "count": len(models),
+            "models": models,
+        }
+
+    @app.get("/api/models/{model_ref}/fields")
+    def get_model_fields(model_ref: str) -> dict[str, Any]:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "fields": read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref)),
+        }
+
+    @app.get("/api/models/{model_ref}/fields/{field_key}")
+    def get_model_field(model_ref: str, field_key: str) -> dict[str, Any]:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        value = read_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key)
+        if value is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "field_key": field_key,
+            "field_value": value,
+        }
+
+    @app.put("/api/models/{model_ref}/fields/{field_key}")
+    def put_model_field(model_ref: str, field_key: str, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        if "value" not in payload:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "value is required"})
+        resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        value = set_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key, field_value=payload["value"])
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "field_key": field_key,
+            "field_value": value,
+        }
+
+    @app.delete("/api/models/{model_ref}/fields/{field_key}")
+    def remove_model_field(model_ref: str, field_key: str) -> dict[str, Any] | JSONResponse:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        deleted = delete_model_field(db_path=state.settings.db_path, model_ref=str(resolved_ref), field_key=field_key)
+        if not deleted:
+            return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
+        return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
+
+    @app.get("/api/models/{model_ref}/ranking")
+    def get_model_ranking_endpoint(model_ref: str) -> dict[str, Any] | JSONResponse:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "ranking": None if ranking is None else {
+                "last_printed_at": ranking.last_printed_at,
+                "linked_archive_count": ranking.linked_archive_count,
+                "print_count": ranking.print_count,
+                "recent_score": ranking.recent_score,
+                "frequent_score": ranking.frequent_score,
+                "common_score": ranking.common_score,
+                "refreshed_at": ranking.refreshed_at,
+            },
+        }
+
+    @app.put("/api/models/{model_ref}/ranking")
+    def put_model_ranking_endpoint(model_ref: str, payload: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+        ranking = upsert_model_ranking(
+            db_path=state.settings.db_path,
+            manyfold_model_url=summary.model_url,
+            manyfold_model_public_id=summary.public_id,
+            last_printed_at=str(payload.get("last_printed_at") or "").strip() or None,
+            linked_archive_count=int(payload.get("linked_archive_count") or 0),
+            print_count=int(payload.get("print_count") or 0),
+            recent_score=float(payload["recent_score"]) if payload.get("recent_score") is not None else None,
+            frequent_score=float(payload["frequent_score"]) if payload.get("frequent_score") is not None else None,
+            common_score=float(payload["common_score"]) if payload.get("common_score") is not None else None,
+        )
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "ranking": {
+                "last_printed_at": ranking.last_printed_at,
+                "linked_archive_count": ranking.linked_archive_count,
+                "print_count": ranking.print_count,
+                "recent_score": ranking.recent_score,
+                "frequent_score": ranking.frequent_score,
+                "common_score": ranking.common_score,
+                "refreshed_at": ranking.refreshed_at,
+            },
         }
 
     @app.get("/api/archive-links/{archive_id}")

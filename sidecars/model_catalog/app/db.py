@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -114,6 +115,24 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         3,
         (),
     ),
+    (
+        4,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS model_catalog_model_ranking (
+        manyfold_model_url TEXT PRIMARY KEY,
+        manyfold_model_public_id TEXT,
+        last_printed_at TEXT,
+        linked_archive_count INTEGER NOT NULL DEFAULT 0,
+        print_count INTEGER NOT NULL DEFAULT 0,
+        recent_score REAL,
+        frequent_score REAL,
+        common_score REAL,
+        refreshed_at TEXT NOT NULL
+    )
+    """,
+        ),
+    ),
 )
 
 
@@ -140,6 +159,19 @@ class ArchiveModelLink:
     is_active: bool
     created_at: str
     updated_at: str
+
+
+@dataclass(frozen=True)
+class ModelRankingSnapshot:
+    manyfold_model_url: str
+    manyfold_model_public_id: str | None
+    last_printed_at: str | None
+    linked_archive_count: int
+    print_count: int
+    recent_score: float | None
+    frequent_score: float | None
+    common_score: float | None
+    refreshed_at: str
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -243,6 +275,21 @@ def _read_archive_link_by_id(connection: sqlite3.Connection, *, archive_id: int,
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )
+
+
+def _normalize_model_ref(model_ref: str) -> str:
+    return str(model_ref).strip()
+
+
+def _field_entity(model_ref: str) -> tuple[str, str]:
+    return ("manyfold_model", _normalize_model_ref(model_ref))
+
+
+def _coerce_json_value(raw_value: str) -> object:
+    try:
+        return json.loads(raw_value)
+    except json.JSONDecodeError:
+        return raw_value
 
 
 def create_archive_link(
@@ -778,6 +825,298 @@ def read_archive_links(*, db_path: Path, archive_id: int, active_only: bool = Tr
         rows = connection.execute(query, params).fetchall()
     finally:
         connection.close()
+
+    return [
+        ArchiveModelLink(
+            id=int(row["id"]),
+            manyfold_model_url=str(row["manyfold_model_url"]),
+            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+            manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+            bambuddy_archive_id=int(row["bambuddy_archive_id"]),
+            relationship_type=str(row["relationship_type"]),
+            link_role=str(row["link_role"]),
+            match_method=str(row["match_method"]),
+            match_confidence=str(row["match_confidence"]),
+            review_state=str(row["review_state"]),
+            review_note=str(row["review_note"] or "").strip() or None,
+            is_active=bool(int(row["is_active"])),
+            created_at=str(row["created_at"]),
+            updated_at=str(row["updated_at"]),
+        )
+        for row in rows
+    ]
+
+
+def set_model_field(
+    *,
+    db_path: Path,
+    model_ref: str,
+    field_key: str,
+    field_value: object,
+    field_namespace: str = "model_catalog",
+) -> object:
+    now = utc_now_iso()
+    entity_type, entity_id = _field_entity(model_ref)
+    encoded_value = json.dumps(field_value)
+    value_type = type(field_value).__name__
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_catalog_custom_fields (
+                entity_type,
+                entity_id,
+                field_namespace,
+                field_key,
+                field_value_json,
+                value_type,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(entity_type, entity_id, field_namespace, field_key)
+            DO UPDATE SET
+                field_value_json = excluded.field_value_json,
+                value_type = excluded.value_type,
+                updated_at = excluded.updated_at
+            """,
+            (
+                entity_type,
+                entity_id,
+                field_namespace,
+                field_key,
+                encoded_value,
+                value_type,
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return field_value
+
+
+def read_model_fields(
+    *,
+    db_path: Path,
+    model_ref: str,
+    field_namespace: str = "model_catalog",
+) -> dict[str, object]:
+    entity_type, entity_id = _field_entity(model_ref)
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT field_key, field_value_json
+            FROM model_catalog_custom_fields
+            WHERE entity_type = ? AND entity_id = ? AND field_namespace = ?
+            ORDER BY field_key ASC
+            """,
+            (entity_type, entity_id, field_namespace),
+        ).fetchall()
+    finally:
+        connection.close()
+    return {str(row["field_key"]): _coerce_json_value(str(row["field_value_json"])) for row in rows}
+
+
+def read_model_field(
+    *,
+    db_path: Path,
+    model_ref: str,
+    field_key: str,
+    field_namespace: str = "model_catalog",
+) -> object | None:
+    entity_type, entity_id = _field_entity(model_ref)
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            """
+            SELECT field_value_json
+            FROM model_catalog_custom_fields
+            WHERE entity_type = ? AND entity_id = ? AND field_namespace = ? AND field_key = ?
+            """,
+            (entity_type, entity_id, field_namespace, field_key),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return _coerce_json_value(str(row["field_value_json"]))
+
+
+def delete_model_field(
+    *,
+    db_path: Path,
+    model_ref: str,
+    field_key: str,
+    field_namespace: str = "model_catalog",
+) -> bool:
+    entity_type, entity_id = _field_entity(model_ref)
+    connection = connect(db_path)
+    try:
+        cursor = connection.execute(
+            """
+            DELETE FROM model_catalog_custom_fields
+            WHERE entity_type = ? AND entity_id = ? AND field_namespace = ? AND field_key = ?
+            """,
+            (entity_type, entity_id, field_namespace, field_key),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+    finally:
+        connection.close()
+
+
+def upsert_model_ranking(
+    *,
+    db_path: Path,
+    manyfold_model_url: str,
+    manyfold_model_public_id: str | None = None,
+    last_printed_at: str | None = None,
+    linked_archive_count: int = 0,
+    print_count: int = 0,
+    recent_score: float | None = None,
+    frequent_score: float | None = None,
+    common_score: float | None = None,
+) -> ModelRankingSnapshot:
+    refreshed_at = utc_now_iso()
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO model_catalog_model_ranking (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                last_printed_at,
+                linked_archive_count,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(manyfold_model_url)
+            DO UPDATE SET
+                manyfold_model_public_id = COALESCE(excluded.manyfold_model_public_id, model_catalog_model_ranking.manyfold_model_public_id),
+                last_printed_at = excluded.last_printed_at,
+                linked_archive_count = excluded.linked_archive_count,
+                print_count = excluded.print_count,
+                recent_score = excluded.recent_score,
+                frequent_score = excluded.frequent_score,
+                common_score = excluded.common_score,
+                refreshed_at = excluded.refreshed_at
+            """,
+            (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                last_printed_at,
+                linked_archive_count,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                refreshed_at,
+            ),
+        )
+        connection.commit()
+        row = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+                   print_count, recent_score, frequent_score, common_score, refreshed_at
+            FROM model_catalog_model_ranking
+            WHERE manyfold_model_url = ?
+            """,
+            (manyfold_model_url,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        raise RuntimeError("Failed to read model ranking after upsert.")
+    return ModelRankingSnapshot(
+        manyfold_model_url=str(row["manyfold_model_url"]),
+        manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+        last_printed_at=str(row["last_printed_at"] or "").strip() or None,
+        linked_archive_count=int(row["linked_archive_count"]),
+        print_count=int(row["print_count"]),
+        recent_score=float(row["recent_score"]) if row["recent_score"] is not None else None,
+        frequent_score=float(row["frequent_score"]) if row["frequent_score"] is not None else None,
+        common_score=float(row["common_score"]) if row["common_score"] is not None else None,
+        refreshed_at=str(row["refreshed_at"]),
+    )
+
+
+def read_model_ranking(*, db_path: Path, manyfold_model_url: str) -> ModelRankingSnapshot | None:
+    connection = connect(db_path)
+    try:
+        row = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+                   print_count, recent_score, frequent_score, common_score, refreshed_at
+            FROM model_catalog_model_ranking
+            WHERE manyfold_model_url = ?
+            """,
+            (manyfold_model_url,),
+        ).fetchone()
+    finally:
+        connection.close()
+    if row is None:
+        return None
+    return ModelRankingSnapshot(
+        manyfold_model_url=str(row["manyfold_model_url"]),
+        manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+        last_printed_at=str(row["last_printed_at"] or "").strip() or None,
+        linked_archive_count=int(row["linked_archive_count"]),
+        print_count=int(row["print_count"]),
+        recent_score=float(row["recent_score"]) if row["recent_score"] is not None else None,
+        frequent_score=float(row["frequent_score"]) if row["frequent_score"] is not None else None,
+        common_score=float(row["common_score"]) if row["common_score"] is not None else None,
+        refreshed_at=str(row["refreshed_at"]),
+    )
+
+
+def read_all_model_ranking(*, db_path: Path) -> dict[str, ModelRankingSnapshot]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, last_printed_at, linked_archive_count,
+                   print_count, recent_score, frequent_score, common_score, refreshed_at
+            FROM model_catalog_model_ranking
+            ORDER BY manyfold_model_url ASC
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+    return {
+        str(row["manyfold_model_url"]): ModelRankingSnapshot(
+            manyfold_model_url=str(row["manyfold_model_url"]),
+            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+            last_printed_at=str(row["last_printed_at"] or "").strip() or None,
+            linked_archive_count=int(row["linked_archive_count"]),
+            print_count=int(row["print_count"]),
+            recent_score=float(row["recent_score"]) if row["recent_score"] is not None else None,
+            frequent_score=float(row["frequent_score"]) if row["frequent_score"] is not None else None,
+            common_score=float(row["common_score"]) if row["common_score"] is not None else None,
+            refreshed_at=str(row["refreshed_at"]),
+        )
+        for row in rows
+    }
+
+
+def read_model_link_counts(*, db_path: Path) -> dict[str, int]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT manyfold_model_url, COUNT(DISTINCT bambuddy_archive_id) AS linked_archive_count
+            FROM model_catalog_links
+            WHERE is_active = 1 AND review_state = 'accepted'
+            GROUP BY manyfold_model_url
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+    return {str(row["manyfold_model_url"]): int(row["linked_archive_count"]) for row in rows}
 
     return [
         ArchiveModelLink(

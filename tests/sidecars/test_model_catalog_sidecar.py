@@ -41,11 +41,12 @@ def test_bootstrap_database_creates_phase1a_tables(tmp_path: Path) -> None:
     assert "manyfold_model_summary_cache" in info.tables
     assert "model_catalog_links" in info.tables
     assert "model_catalog_custom_fields" in info.tables
+    assert "model_catalog_model_ranking" in info.tables
     assert "model_catalog_schema_migrations" in info.tables
     assert "working_groups" in info.tables
     assert "working_items" in info.tables
     assert "model_catalog_events" in info.tables
-    assert info.schema_version >= 2
+    assert info.schema_version >= 4
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
@@ -286,6 +287,182 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert cached.status_code == 200
         assert cached.json()["source"] == "cache"
         assert cached.json()["models"][0]["name"] == "AMS Desiccant Pod"
+
+
+def test_model_fields_can_be_managed_and_used_for_model_list_filters(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/gridfinity-bin",
+                "gridfinity-bin",
+                "Gridfinity Bin",
+                "101",
+                None,
+                "Rysock",
+                '["Gridfinity"]',
+                '["storage"]',
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/tool-rack",
+                "tool-rack",
+                "Tool Rack",
+                "102",
+                None,
+                "Rysock",
+                '["Shop"]',
+                '["tool"]',
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        response = test_client.put("/api/models/gridfinity-bin/fields/to_print_status", json={"value": "queued"})
+        assert response.status_code == 200
+        assert response.json()["field_value"] == "queued"
+
+        response = test_client.put("/api/models/gridfinity-bin/fields/to_print_priority", json={"value": 8})
+        assert response.status_code == 200
+        assert response.json()["field_value"] == 8
+
+        fields = test_client.get("/api/models/gridfinity-bin/fields")
+        assert fields.status_code == 200
+        assert fields.json()["fields"] == {"to_print_priority": 8, "to_print_status": "queued"}
+
+        filtered = test_client.get("/api/models?to_print_status=queued&sort=priority")
+        assert filtered.status_code == 200
+        payload = filtered.json()
+        assert payload["count"] == 1
+        assert payload["models"][0]["public_id"] == "gridfinity-bin"
+        assert payload["models"][0]["custom_fields"]["to_print_status"] == "queued"
+        assert payload["models"][0]["custom_fields"]["to_print_priority"] == 8
+
+        deleted = test_client.delete("/api/models/gridfinity-bin/fields/to_print_priority")
+        assert deleted.status_code == 200
+
+        missing = test_client.get("/api/models/gridfinity-bin/fields/to_print_priority")
+        assert missing.status_code == 404
+
+
+def test_model_ranking_can_be_stored_and_used_for_model_sorting(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url, public_id, name, model_id in [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin", "101"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack", "102"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    model_id,
+                    None,
+                    "Rysock",
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        first = test_client.put(
+            "/api/models/gridfinity-bin/ranking",
+            json={
+                "last_printed_at": "2026-04-22T10:00:00Z",
+                "linked_archive_count": 4,
+                "print_count": 7,
+                "recent_score": 0.95,
+                "frequent_score": 0.85,
+                "common_score": 0.80,
+            },
+        )
+        assert first.status_code == 200
+        assert first.json()["ranking"]["print_count"] == 7
+
+        second = test_client.put(
+            "/api/models/tool-rack/ranking",
+            json={
+                "last_printed_at": "2026-04-20T10:00:00Z",
+                "linked_archive_count": 2,
+                "print_count": 3,
+                "recent_score": 0.60,
+                "frequent_score": 0.40,
+                "common_score": 0.55,
+            },
+        )
+        assert second.status_code == 200
+
+        ranking = test_client.get("/api/models/gridfinity-bin/ranking")
+        assert ranking.status_code == 200
+        assert ranking.json()["ranking"]["frequent_score"] == pytest.approx(0.85)
+
+        frequent = test_client.get("/api/models?sort=frequent")
+        assert frequent.status_code == 200
+        assert [model["public_id"] for model in frequent.json()["models"]] == ["gridfinity-bin", "tool-rack"]
+        assert frequent.json()["models"][0]["ranking"]["recent_score"] == pytest.approx(0.95)
 
 
 def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:
