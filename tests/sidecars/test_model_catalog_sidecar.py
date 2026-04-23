@@ -1405,6 +1405,148 @@ def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
         assert default_links_after_refresh[candidate_ids[1]]["review_state"] == "new"
 
 
+def test_accepting_candidate_transitions_queued_model_to_done(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/gridfinity-bin",
+                "gridfinity-bin",
+                "Gridfinity Bin",
+                "gridfinity-bin",
+                None,
+                None,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                301,
+                "http://manyfold.test/models/gridfinity-bin",
+                "gridfinity-bin",
+                None,
+                8301,
+                "printed_from",
+                "candidate",
+                "name_similarity",
+                "high",
+                "new",
+                0,
+                "2026-04-23T10:00:00Z",
+                "2026-04-23T10:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        test_client.put("/api/models/gridfinity-bin/fields/to_print_status", json={"value": "queued"})
+        test_client.put("/api/models/gridfinity-bin/fields/to_print_priority", json={"value": 7})
+
+        accepted = test_client.post("/api/archive-links/8301/301/accept", json={"review_note": "printed successfully"})
+        assert accepted.status_code == 200
+        accepted_payload = accepted.json()
+        assert accepted_payload["queue_update"]["previous_value"] == "queued"
+        assert accepted_payload["queue_update"]["field_value"] == "done"
+
+        fields = test_client.get("/api/models/gridfinity-bin/fields")
+        assert fields.status_code == 200
+        assert fields.json()["fields"]["to_print_status"] == "done"
+        assert fields.json()["fields"]["to_print_priority"] == 7
+
+
+def test_manual_confirmed_link_creation_transitions_queued_model_to_done(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/tool-rack",
+                "tool-rack",
+                "Tool Rack",
+                "tool-rack",
+                None,
+                None,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        test_client.put("/api/models/tool-rack/fields/to_print_status", json={"value": "queued"})
+        test_client.put("/api/models/tool-rack/fields/to_print_priority", json={"value": 3})
+
+        created = test_client.post(
+            "/api/archive-links/8302",
+            json={
+                "manyfold_model_url": "http://manyfold.test/models/tool-rack",
+                "relationship_type": "printed_from",
+                "match_method": "manual",
+                "match_confidence": "high",
+                "review_state": "accepted",
+                "is_active": True,
+            },
+        )
+        assert created.status_code == 200
+        created_payload = created.json()
+        assert created_payload["queue_update"]["field_value"] == "done"
+
+        fields = test_client.get("/api/models/tool-rack/fields")
+        assert fields.status_code == 200
+        assert fields.json()["fields"] == {"to_print_priority": 3, "to_print_status": "done"}
+
+
 def test_candidate_refresh_uses_filename_and_time_proximity_rationale(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

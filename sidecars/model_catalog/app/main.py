@@ -385,6 +385,42 @@ def _normalized_model_url(settings: Settings, model_url: str | None) -> str | No
     return canonicalize_model_url(settings.manyfold_base_url, normalized)
 
 
+def _resolved_model_field_ref(summary: ManyfoldModelSummary) -> str:
+    return str(summary.public_id or summary.model_id or summary.model_url)
+
+
+def _apply_confirmed_link_queue_updates(state: AppState, link: ArchiveModelLink) -> dict[str, object] | None:
+    if link.review_state != "accepted" or not link.is_active:
+        return None
+
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), link.manyfold_model_url)
+    if summary is None:
+        return None
+
+    model_ref = _resolved_model_field_ref(summary)
+    current_status = read_model_field(
+        db_path=state.settings.db_path,
+        model_ref=model_ref,
+        field_key="to_print_status",
+    )
+    if str(current_status or "") != "queued":
+        return None
+
+    updated_status = set_model_field(
+        db_path=state.settings.db_path,
+        model_ref=model_ref,
+        field_key="to_print_status",
+        field_value="done",
+    )
+    return {
+        "model_ref": model_ref,
+        "manyfold_model_url": summary.model_url,
+        "field_key": "to_print_status",
+        "previous_value": current_status,
+        "field_value": updated_status,
+    }
+
+
 def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
     return (
         1 if link.is_active else 0,
@@ -703,12 +739,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             is_active=is_active,
             review_note=review_note,
         )
+        queue_update = _apply_confirmed_link_queue_updates(state, created)
         summary_by_url = _summary_map(state.settings.db_path)
-        return {
+        response = {
             "success": True,
             "archive_id": archive_id,
             "link": _archive_link_to_response(created, summary_by_url=summary_by_url),
         }
+        if queue_update is not None:
+            response["queue_update"] = queue_update
+        return response
 
     @app.patch("/api/archive-links/{archive_id}/{link_id}")
     def update_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any]) -> Any:
@@ -735,12 +775,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No archive link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        queue_update = _apply_confirmed_link_queue_updates(state, updated)
         summary_by_url = _summary_map(state.settings.db_path)
-        return {
+        response = {
             "success": True,
             "archive_id": archive_id,
             "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
+        if queue_update is not None:
+            response["queue_update"] = queue_update
+        return response
 
     @app.post("/api/archive-links/{archive_id}/{link_id}/deactivate")
     def deactivate_archive_link_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:
@@ -990,12 +1034,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 message=f"No candidate link found for archive_id={archive_id}, link_id={link_id}.",
                 status_code=404,
             )
+        queue_update = _apply_confirmed_link_queue_updates(state, updated)
         summary_by_url = _summary_map(state.settings.db_path)
-        return {
+        response = {
             "success": True,
             "archive_id": archive_id,
             "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
+        if queue_update is not None:
+            response["queue_update"] = queue_update
+        return response
 
     @app.post("/api/archive-links/{archive_id}/{link_id}/reject")
     def reject_archive_candidate_endpoint(archive_id: int, link_id: int, payload: dict[str, Any] | None = None) -> Any:

@@ -135,11 +135,13 @@ Private operator notes that should NOT appear in the Manyfold public-facing `des
 
 A minimal print queue capability directly in the catalog. See [Print Queue Assessment](print-queue-assessment.md) for the full analysis of why this approach was chosen over alternatives.
 
-Status: planned for a later phase. These fields are not part of the shipped Phase 2 archive-linkage slice.
+Status: Phase 3 queue/backlog groundwork is now implemented in the sidecar. These fields were not part of the shipped Phase 2 archive-linkage slice.
 
 - `to_print_status: queued` marks a cataloged model as intended to be printed
 - `to_print_priority` allows manual ordering (1 = lowest, 10 = highest priority)
-- Later-phase behavior may update status to `done` when an archive is accepted as linked to this model, but that automatic state transition is not implemented today
+- when a confirmed archive link becomes `accepted` and active for a model whose current `to_print_status` is `queued`, the sidecar transitions `to_print_status` to `done`
+- this automatic transition does not change `to_print_priority`
+- if `to_print_status` is unset or already a value other than `queued`, linkage confirmation does not overwrite it
 
 ### `3mf_parsed_at` (#173)
 
