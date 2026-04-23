@@ -128,6 +128,9 @@ Recommended `match_method` values:
 - `file_hash_exact`
 - `path_exact`
 - `filename_plus_time_window`
+- `normalized_filename_overlap`
+- `time_proximity_plus_name`
+- `linked_plate_family_neighbor`
 - `name_only_fallback`
 
 Recommended `match_confidence` values:

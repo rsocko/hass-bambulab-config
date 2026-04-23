@@ -166,18 +166,30 @@ Inputs:
 
 - optional `entry_id`
 - required `archive_id`
+- required `archive_name`
+- optional `archive_completed_at`
+- optional `source_file_name`
+- optional `source_hash`
 - optional `allow_filename_fallback` default `true`
-- optional `allow_path_fallback` default `true`
-- optional `force_rescan` default `false`
+- optional `allow_time_proximity` default `true`
+- optional `prefer_recent_uploads` default `true`
+- optional `recent_upload_window_days` default `14`
+- optional `force_refresh_model_cache` default `false`
 
 Suggested payload schema:
 
 ```yaml
 entry_id: string?
 archive_id: int
+archive_name: string
+archive_completed_at: datetime?
+source_file_name: string?
+source_hash: string?
 allow_filename_fallback: bool = true
-allow_path_fallback: bool = true
-force_rescan: bool = false
+allow_time_proximity: bool = true
+prefer_recent_uploads: bool = true
+recent_upload_window_days: int = 14
+force_refresh_model_cache: bool = false
 ```
 
 Success response additions:
@@ -189,7 +201,9 @@ Success response additions:
 Behavior:
 
 - exact hash matches may be auto-created as `accepted` only when the result is unique and deterministic
-- fallback matches should remain `needs_operator_review` or `unreviewed`
+- recent-upload or time-proximity boosts should only affect ranking when another identity hint overlaps
+- filename/name/time fallback matches should remain `needs_operator_review` or `unreviewed`
+- candidate rows should include enough explanation for the popup to show why the candidate was suggested
 
 ## 3. `create_archive_model_link`
 

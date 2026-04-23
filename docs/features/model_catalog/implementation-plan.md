@@ -88,6 +88,7 @@ Outcome:
 Work items:
 
 - implement archive-link CRUD and candidate-review endpoints
+- broaden archive-scoped candidate discovery beyond name overlap using deterministic and heuristic signals such as source-hash identity, normalized filename overlap, and time-proximity boosts, while keeping heuristic matches review-only
 - expose HA services for:
   - fetch link summary
   - refresh candidates
@@ -116,6 +117,7 @@ Work items:
   - `to_print_priority`
   - optional manual favorite/frequent overrides if needed
 - derive archive-backed ranking fields such as recent/common/frequent views
+- add archive-initiated curated-catalog search or picker flows so operators can explicitly find and link a model when candidate refresh misses
 - add HA browse card for curated catalog with:
   - preview
   - tags
@@ -129,6 +131,10 @@ Deliverables:
 
 - curated catalog card optimized for quick rediscovery
 - simple backlog/queue view in HA
+
+Design note:
+
+- see `docs/features/model_catalog/candidate-discovery-strategy.md` for the proposed split between Phase 2 candidate broadening, Phase 3 search/picker flows, and Phase 8 reverse model-to-archive review
 
 ### Phase 4: Working Groups And Working Veneer
 
