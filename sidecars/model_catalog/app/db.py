@@ -454,6 +454,68 @@ def deactivate_archive_link(*, db_path: Path, archive_id: int, link_id: int, not
     )
 
 
+def delete_archive_links(*, db_path: Path, archive_id: int, link_ids: list[int]) -> list[ArchiveModelLink]:
+    if not link_ids:
+        return []
+
+    unique_link_ids = sorted(set(int(link_id) for link_id in link_ids))
+    connection = connect(db_path)
+    try:
+        placeholders = ",".join("?" for _ in unique_link_ids)
+        rows = connection.execute(
+            f"""
+            SELECT
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                review_note,
+                is_active,
+                created_at,
+                updated_at
+            FROM model_catalog_links
+            WHERE bambuddy_archive_id = ?
+              AND id IN ({placeholders})
+            ORDER BY updated_at DESC, id DESC
+            """,
+            (archive_id, *unique_link_ids),
+        ).fetchall()
+        removed_links = [
+            ArchiveModelLink(
+                id=int(row["id"]),
+                manyfold_model_url=str(row["manyfold_model_url"]),
+                manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+                manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
+                bambuddy_archive_id=int(row["bambuddy_archive_id"]),
+                relationship_type=str(row["relationship_type"]),
+                link_role=str(row["link_role"]),
+                match_method=str(row["match_method"]),
+                match_confidence=str(row["match_confidence"]),
+                review_state=str(row["review_state"]),
+                review_note=str(row["review_note"] or "").strip() or None,
+                is_active=bool(int(row["is_active"])),
+                created_at=str(row["created_at"]),
+                updated_at=str(row["updated_at"]),
+            )
+            for row in rows
+        ]
+        if removed_links:
+            connection.execute(
+                f"DELETE FROM model_catalog_links WHERE bambuddy_archive_id = ? AND id IN ({placeholders})",
+                (archive_id, *[link.id for link in removed_links]),
+            )
+            connection.commit()
+        return removed_links
+    finally:
+        connection.close()
+
+
 def set_archive_link_review_state(
     *,
     db_path: Path,

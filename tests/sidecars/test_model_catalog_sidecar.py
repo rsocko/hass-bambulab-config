@@ -635,6 +635,166 @@ def test_archive_link_create_canonicalizes_and_deduplicates_manual_links(tmp_pat
         assert all_links.json()["links"][0]["manyfold_model_name"] == "Captain America Prototype Shield"
 
 
+def test_archive_link_cleanup_duplicates_removes_inactive_host_variants(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', '{}', '2026-04-23T00:00:00Z')
+            """,
+            (
+                "http://manyfold.test/models/0s2hcm5tvk9l",
+                None,
+                "Bambu Lab - Spool Lock Shim",
+                None,
+                None,
+                None,
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                10,
+                "http://manyfold.test/models/0s2hcm5tvk9l",
+                None,
+                None,
+                330,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                1,
+                "2026-04-23T10:00:00Z",
+                "2026-04-23T10:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                9,
+                "http://192.168.1.77:3214/models/0s2hcm5tvk9l",
+                None,
+                None,
+                330,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                0,
+                "2026-04-23T09:00:00Z",
+                "2026-04-23T09:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                8,
+                "http://192.168.1.77:3214/models/other-model",
+                None,
+                None,
+                330,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                0,
+                "2026-04-23T08:00:00Z",
+                "2026-04-23T08:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        preview = test_client.post("/api/archive-links/330/cleanup-duplicates", json={"dry_run": True})
+        assert preview.status_code == 200
+        preview_payload = preview.json()
+        assert preview_payload["removed_count"] == 1
+        assert preview_payload["removed_links"] == []
+        assert preview_payload["duplicate_groups"][0]["survivor_id"] == 10
+        assert preview_payload["duplicate_groups"][0]["removed_link_ids"] == [9]
+
+        cleaned = test_client.post("/api/archive-links/330/cleanup-duplicates", json={"dry_run": False})
+        assert cleaned.status_code == 200
+        cleaned_payload = cleaned.json()
+        assert cleaned_payload["removed_count"] == 1
+        assert [link["id"] for link in cleaned_payload["removed_links"]] == [9]
+
+        remaining = test_client.get("/api/archive-links/330?include_inactive=true")
+        assert remaining.status_code == 200
+        remaining_ids = [link["id"] for link in remaining.json()["links"]]
+        assert 10 in remaining_ids
+        assert 8 in remaining_ids
+        assert 9 not in remaining_ids
+
+
 def test_archive_link_candidate_review_workflow(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

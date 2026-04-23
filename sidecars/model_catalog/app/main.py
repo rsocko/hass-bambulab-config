@@ -13,6 +13,7 @@ from .db import (
     bootstrap_database,
     create_archive_link,
     deactivate_archive_link,
+    delete_archive_links,
     read_archive_links,
     refresh_archive_link_candidates,
     set_archive_link_review_state,
@@ -123,6 +124,15 @@ def _normalized_model_url(settings: Settings, model_url: str | None) -> str | No
     if not normalized:
         return None
     return canonicalize_model_url(settings.manyfold_base_url, normalized)
+
+
+def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
+    return (
+        1 if link.is_active else 0,
+        1 if link.review_state == "accepted" else 0,
+        link.updated_at,
+        link.id,
+    )
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
@@ -334,6 +344,62 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "archive_id": archive_id,
             "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
+        }
+
+    @app.post("/api/archive-links/{archive_id}/cleanup-duplicates")
+    def cleanup_archive_link_duplicates_endpoint(archive_id: int, payload: dict[str, Any] | None = None) -> Any:
+        state: AppState = app.state.model_catalog
+        request_payload = payload or {}
+        dry_run = _coerce_bool(request_payload.get("dry_run"))
+
+        all_links = read_archive_links(
+            db_path=state.settings.db_path,
+            archive_id=archive_id,
+            active_only=False,
+        )
+        grouped_links: dict[str, list[ArchiveModelLink]] = {}
+        for link in all_links:
+            canonical_url = _normalized_model_url(state.settings, link.manyfold_model_url) or link.manyfold_model_url
+            grouped_links.setdefault(canonical_url, []).append(link)
+
+        removable_link_ids: list[int] = []
+        duplicate_groups: list[dict[str, Any]] = []
+        for canonical_url, links in grouped_links.items():
+            if len(links) <= 1:
+                continue
+            sorted_links = sorted(links, key=_cleanup_sort_key, reverse=True)
+            survivor = sorted_links[0]
+            removable = [link for link in sorted_links[1:] if not link.is_active]
+            if not removable:
+                continue
+            removable_link_ids.extend(link.id for link in removable)
+            duplicate_groups.append(
+                {
+                    "canonical_model_url": canonical_url,
+                    "survivor_id": survivor.id,
+                    "removed_link_ids": [link.id for link in removable],
+                }
+            )
+
+        removed_links: list[ArchiveModelLink] = []
+        if not dry_run and removable_link_ids:
+            removed_links = delete_archive_links(
+                db_path=state.settings.db_path,
+                archive_id=archive_id,
+                link_ids=removable_link_ids,
+            )
+
+        summary_by_url = _summary_map(state.settings.db_path)
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "removed_count": len(removable_link_ids),
+            "dry_run": dry_run,
+            "duplicate_groups": duplicate_groups,
+            "removed_links": [
+                _archive_link_to_response(link, summary_by_url=summary_by_url)
+                for link in removed_links
+            ],
         }
 
     @app.post("/api/archive-links/{archive_id}/candidates/refresh")
