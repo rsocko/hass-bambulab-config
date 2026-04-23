@@ -71,7 +71,11 @@ def test_selected_auto_deploy_packages_include_spoolman_sync() -> None:
 def test_auto_dispatch_workflow_summarizes_resolved_inputs() -> None:
     content = AUTO_DISPATCH_WORKFLOW.read_text(encoding="utf-8")
 
+    assert 'homeassistant/*)' in content
+    assert 'echo "skip_reason=push did not modify homeassistant/ content" >> "$GITHUB_OUTPUT"' in content
+    assert 'echo "deploy_relevant_push=$DEPLOY_RELEVANT_PUSH" >> "$GITHUB_OUTPUT"' in content
     assert 'echo "requested_post_deploy_action=$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED" >> "$GITHUB_OUTPUT"' in content
+    assert 'echo "| Deploy relevant push | ${{ steps.config.outputs.deploy_relevant_push }} |"' in content
     assert 'echo "| Deploy mode | ${{ steps.config.outputs.delete_mode }} |"' in content
     assert 'echo "| Selected packages | ${{ steps.config.outputs.selected_packages }} |"' in content
     assert 'echo "| Requested post action | ${{ steps.config.outputs.requested_post_deploy_action }} |"' in content

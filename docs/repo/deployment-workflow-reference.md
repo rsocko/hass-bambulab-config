@@ -60,7 +60,7 @@ Its job is intentionally small:
 1. Trigger on push.
 2. Read `.github/deploy/auto-deploy.env` from the pushed branch.
 3. Normalize booleans and branch filters.
-4. Decide whether deployment should be dispatched.
+4. Skip dispatch when the pushed range does not modify `homeassistant/` content.
 5. Override `post_deploy_action` to `restart_core` when the pushed range includes restart-required changes such as Lovelace resources, `custom_components/bambuddy`, or package `rest_sensors` / `rest_commands` changes.
 6. Dispatch the main workflow with the resolved input set.
 

@@ -91,6 +91,7 @@ jobs:
           AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="$AUTO_DEPLOY_POST_DEPLOY_ACTION_REQUESTED"
           RESTART_REQUIRED_PUSH=false
           RESTART_REQUIRED_REASONS=""
+          DEPLOY_RELEVANT_PUSH=false
           BEFORE_SHA="${{ github.event.before }}"
 
           if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
@@ -104,6 +105,9 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
+              homeassistant/*)
+                DEPLOY_RELEVANT_PUSH=true
+                ;;
               homeassistant/packages/3d_printing/common/common_loader.yaml|\
               homeassistant/packages/3d_printing/common/dashboards/_resources.yaml|\
               homeassistant/www/3d_printing/*)
@@ -130,6 +134,12 @@ jobs:
           if [ "$AUTO_DEPLOY_ENABLED" != "true" ]; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
             echo "skip_reason=auto deploy disabled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$DEPLOY_RELEVANT_PUSH" != "true" ]; then
+            echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=push did not modify homeassistant/ content" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -160,6 +170,7 @@ jobs:
           echo "ha_configuration_yaml_path=$(trim "${AUTO_DEPLOY_HA_CONFIGURATION_YAML_PATH:-/config/configuration.yaml}")" >> "$GITHUB_OUTPUT"
           echo "ha_feature_include_file_path=$(trim "${AUTO_DEPLOY_HA_FEATURE_INCLUDE_FILE_PATH:-/config/packages/3d_printing/_feature_loaders.yaml}")" >> "$GITHUB_OUTPUT"
           echo "config_validation_mode=$(trim "${AUTO_DEPLOY_CONFIG_VALIDATION_MODE:-smart}")" >> "$GITHUB_OUTPUT"
+          echo "deploy_relevant_push=$DEPLOY_RELEVANT_PUSH" >> "$GITHUB_OUTPUT"
           echo "restart_required_push=$RESTART_REQUIRED_PUSH" >> "$GITHUB_OUTPUT"
           echo "restart_required_reasons=${RESTART_REQUIRED_REASONS# }" >> "$GITHUB_OUTPUT"
 
@@ -179,6 +190,7 @@ jobs:
           echo "  selected_packages=${{ steps.config.outputs.selected_packages }}"
           echo "  package_preset=${{ steps.config.outputs.package_preset }}"
           echo "  include_www_for_selected=${{ steps.config.outputs.include_www_for_selected }}"
+          echo "  deploy_relevant_push=${{ steps.config.outputs.deploy_relevant_push }}"
           echo "  restart_required_push=${{ steps.config.outputs.restart_required_push }}"
           echo "  restart_required_reasons=${{ steps.config.outputs.restart_required_reasons }}"
           echo "  requested_post_deploy_action=${{ steps.config.outputs.requested_post_deploy_action }}"
@@ -198,6 +210,7 @@ jobs:
             echo "| Selected packages | ${{ steps.config.outputs.selected_packages }} |"
             echo "| Package preset | ${{ steps.config.outputs.package_preset }} |"
             echo "| Include www for selected | ${{ steps.config.outputs.include_www_for_selected }} |"
+            echo "| Deploy relevant push | ${{ steps.config.outputs.deploy_relevant_push }} |"
             echo "| Restart required push | ${{ steps.config.outputs.restart_required_push }} |"
             echo "| Restart required reasons | ${{ steps.config.outputs.restart_required_reasons }} |"
             echo "| Requested post action | ${{ steps.config.outputs.requested_post_deploy_action }} |"
