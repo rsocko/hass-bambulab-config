@@ -236,6 +236,24 @@ When Bambuddy sends the `print_started` webhook (API format), the payload includ
 
 > **Note**: Archives exist from print START (confirmed by user observation: archive appears with 3MF, 3D viewer, filament data while print is in progress). This means mid-print uploads work immediately — there is no window where the archive doesn't yet exist.
 
+### Forward Path: Bind-Time Current-Print Metadata Capture
+
+When Bambuddy exposes current-print linkage fields in printer status (for example `current_archive_id` and `current_plate_id`), treat that as a first-class binding signal and capture it at the same time we bind `input_text.bambuddy_current_archive_id`.
+
+Recommended bind-time flow:
+
+1. Resolve candidate archive using existing webhook-first and fallback rules.
+2. Fetch current printer status from Bambuddy and read `current_archive_id` plus plate context (`current_plate_id` or equivalent plate/index field).
+3. Accept the bind as high-confidence only when status `current_archive_id` matches the chosen archive id.
+4. Persist a compact local binding snapshot keyed by `archive_id` (source, bind timestamp, matched current archive id, matched plate id/index, and optional subtask id).
+5. Emit a timeline row so later repair/debug views can explain where plate/linkage metadata came from.
+
+Recommended persistence boundary:
+
+- Keep this as local Variant 3 metadata (integration-owned), not a PATCH back into Bambuddy archive notes/tags.
+- Keep Layer 1 archive projection lean; expose bind snapshot fields through popup/detail hydration and any plate-sensitive UI paths.
+- If current-print status is missing or conflicts with chosen archive id, keep existing fallback behavior and mark provenance as degraded rather than writing guessed plate metadata.
+
 ### What the Archive Pull Is Good Enough For
 
 The current archive list pull is good enough to answer two narrow questions in the common configured-printer case:

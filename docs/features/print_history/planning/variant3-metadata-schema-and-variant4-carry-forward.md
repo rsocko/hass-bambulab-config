@@ -107,10 +107,16 @@ Recommended additions:
 - `archive_spool_snapshots`
 - `archive_artifact_metadata`
 - `archive_lineage`
+- `archive_binding_snapshots`
 
 `archive_event_timeline` remains part of the normalized metadata model, but it is already present in the active Variant 3 store and should now be treated as an implemented prerequisite rather than a pending addition.
 
 The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../ui-media/archive-popup-timeline-design.md).
+
+Additional linkage recommendation:
+
+- when Bambuddy current-print status emits linkage fields such as `current_archive_id` and `current_plate_id`, persist a bind-time snapshot in a dedicated local table rather than flattening those fields into card-level state or hidden notes payloads
+- this preserves a stable provenance anchor for plate-aware archive behaviors while keeping mirrored archive-core rows lean
 
 These should be integration-owned in Variant 3. If Variant 4 happens later, the same tables or equivalent collections should move behind the sidecar without changing their semantic contract.
 
@@ -284,6 +290,35 @@ Current repo boundary:
 - duplicate-aware browser filtering and compact duplicate summaries already use `duplicate_count`, `duplicate_sequence`, and `original_archive_id` from the archive projection
 - that shipped duplicate slice means `archive_lineage` is not needed just to support current browser duplicate UX
 - add this table only when compare, reprint, project-grouping, or mismatch-review consumers need relationship types beyond compact duplicate metadata and `archive_repair_lineage`
+
+### 6. `archive_binding_snapshots`
+
+Purpose:
+
+- persist the exact linkage evidence available when an active print is bound to an archive
+- capture current-print fields that may not be mirrored as first-class archive API fields
+- provide deterministic provenance for plate-aware UI behavior and later repair/debug decisions
+
+Recommended columns:
+
+| Column | Type | Ownership | Notes |
+|---|---|---|---|
+| `id` | integer PK | local | |
+| `archive_id` | integer FK | local | |
+| `printer_id` | integer | mirrored/local | optional when known |
+| `binding_source` | text | local | `webhook`, `api_fallback`, `hybrid_status_verified` |
+| `status_current_archive_id` | integer/text | local | from current-print status payload |
+| `status_current_plate_id` | integer | local | from current-print status payload when present |
+| `status_subtask_id` | text | local | optional runtime bridge key |
+| `task_name_snapshot` | text | local | normalized active task at bind time |
+| `binding_confidence` | text | local | `high`, `medium`, `degraded` |
+| `bound_at` | text/datetime | local | |
+| `payload_json` | text | local | compact raw evidence for traceability |
+
+Validation rule for this table:
+
+- only mark `binding_confidence=high` when emitted `status_current_archive_id` matches the chosen local `archive_id`
+- mismatches should be retained as degraded snapshots for diagnostics, not silently rewritten
 
 ## Query-Surface Guidance
 

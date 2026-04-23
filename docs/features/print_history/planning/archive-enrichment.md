@@ -95,6 +95,39 @@ That archive-detail lookup is important in the current implementation because it
 
 The shipped automation does **not** currently inspect Bambuddy `extra_data._print_data.raw_data.ams` or archived tray UUID data when building the live enrichment payload.
 
+## Forward Design Note: Persist Bind-Time Current-Print Metadata
+
+This section is a design-direction note and not yet part of the shipped behavior.
+
+When Bambuddy emits current-print linkage fields (for example `current_archive_id` and `current_plate_id`) during active print status, capture that data at archive bind time and persist it as local metadata tied to the resolved `archive_id`.
+
+Suggested capture moment:
+
+- in the same logical window where `bambuddy_capture_archive_id.yaml` (or `script.resolve_current_archive_id`) establishes the active archive binding
+- before enrichment/photo uploads begin, so plate/linkage context is stable for downstream decisions
+
+Suggested persisted fields (local-store scope):
+
+- `archive_id`
+- `binding_source` (`webhook`, `api_fallback`, `hybrid_status_verified`)
+- `status_current_archive_id` (from Bambuddy current-print status)
+- `status_current_plate_id` (or equivalent current plate/index field)
+- optional `status_subtask_id` when available
+- `bound_at`
+- `confidence` (`high`, `medium`, `degraded`)
+
+Suggested validation rules:
+
+- `high` confidence only when status `current_archive_id` equals the resolved/bound archive id
+- if mismatch occurs, keep existing stale-binding guard behavior and avoid persisting guessed plate metadata
+- if status fields are absent, persist binding without plate metadata and mark confidence/provenance accordingly
+
+Why this helps enrichment and popup behavior:
+
+- gives a durable plate/linkage snapshot even if later archive fields are normalized or task names are ambiguous
+- improves explainability in timeline/review flows by separating "what was known at bind time" from later reconstructed metadata
+- avoids overloading tags/notes with transport-level linkage details that are better modeled as local structured metadata
+
 ## Current PATCH Contract
 
 The active REST command is `rest_command.bambuddy_update_archive`.
