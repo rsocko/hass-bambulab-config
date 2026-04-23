@@ -679,7 +679,13 @@ print_history_archive_popup_content:
         const skipOverlaySourceLabel = String(skipOverlayState?.trigger_source || skipOverlayState?.pick_image_source || '').trim();
         const skipOverlayPathLabel = String(skipOverlayState?.pick_image_asset_path || skipOverlayState?.pick_image_path || '').trim();
         const resolveSkipOverlayImageSrc = () => {
-          const archiveId = Number(archive?.id || 0);
+          const archiveId = Number(
+            archive?.id
+            || snapshotArchiveId
+            || popupArchiveId
+            || skipOverlayState?.archive_id
+            || 0
+          );
           if (archiveId > 0) {
             const plateNumber = Math.max(0, Number(skipOverlayState?.plate_number || 0));
             return `/api/bambuddy/print-history/archive/${encodeURIComponent(String(archiveId))}/pick-image?plate=${encodeURIComponent(String(plateNumber))}`;
@@ -699,7 +705,7 @@ print_history_archive_popup_content:
               skipOverlayRequestedIds.length ? renderInfoChip('mdi:plus-circle-outline', `${skipOverlayRequestedIds.length} newly skipped`, { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#ECEFF1' }) : '',
               hasMeaningfulValue(skipOverlayCaptureTime) && skipOverlayCaptureTime !== '-' ? renderInfoChip('mdi:clock-outline', skipOverlayCaptureTime, { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#ECEFF1' }) : '',
               hasMeaningfulValue(skipOverlaySourceLabel) ? renderInfoChip('mdi:source-branch', skipOverlaySourceLabel, { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#ECEFF1' }) : ''
-            ].filter(Boolean).join('')}</div>${skipOverlayImageMarkup}${skipOverlayRequestedLabels.length ? `<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Newly skipped</div><div style="font-size:12px;line-height:1.5;color:#ECEFF1;overflow-wrap:anywhere;">${escapeHtml(skipOverlayRequestedLabels.join(', '))}</div></div>` : ''}<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Current skipped set</div><div style="font-size:12px;line-height:1.5;color:#ECEFF1;overflow-wrap:anywhere;">${escapeHtml(skipOverlayObjectLabels.join(', '))}</div></div>${hasMeaningfulValue(skipOverlayPathLabel) ? `<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Overlay source</div><div style="font-size:11px;line-height:1.45;color:rgba(236,239,241,0.76);overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(skipOverlayPathLabel)}</div></div>` : ''}</div></div>`
+            ].filter(Boolean).join('')}</div>${skipOverlayImageMarkup}${skipOverlayRequestedLabels.length ? `<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Newly skipped</div><div style="font-size:12px;line-height:1.5;color:#ECEFF1;overflow-wrap:anywhere;">${escapeHtml(skipOverlayRequestedLabels.join(', '))}</div></div>` : ''}<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Current skipped set</div><div style="font-size:12px;line-height:1.5;color:#ECEFF1;overflow-wrap:anywhere;">${escapeHtml(skipOverlayObjectLabels.join(', '))}</div></div>${hasMeaningfulValue(skipOverlayImageSrc) ? `<div style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(236,239,241,0.72);">Overlay source</div><div style="font-size:11px;line-height:1.45;color:rgba(236,239,241,0.76);overflow-wrap:anywhere;word-break:break-word;">${escapeHtml(skipOverlayImageSrc)}</div></div>` : ''}</div></div>`
           : '';
         const buildDuplicateState = (currentArchive) => {
           const archiveId = Math.max(0, Number(currentArchive?.id || 0));
