@@ -465,6 +465,104 @@ def test_model_ranking_can_be_stored_and_used_for_model_sorting(tmp_path: Path) 
         assert frequent.json()["models"][0]["ranking"]["recent_score"] == pytest.approx(0.95)
 
 
+def test_model_ranking_can_be_refreshed_from_accepted_links(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url, public_id, name in [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (model_url, public_id, name, None, None, None, "[]", "[]", "{}", "2026-04-23T00:00:00Z"),
+            )
+
+        accepted_links = [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 8001, "2026-04-22T10:00:00Z"),
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", 8002, "2026-04-23T08:00:00Z"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", 8003, "2026-04-20T12:00:00Z"),
+        ]
+        for model_url, public_id, archive_id, updated_at in accepted_links:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_links (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_file_id,
+                    bambuddy_archive_id,
+                    relationship_type,
+                    link_role,
+                    match_method,
+                    match_confidence,
+                    review_state,
+                    is_active,
+                    review_note,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    None,
+                    archive_id,
+                    "source_for",
+                    "primary",
+                    "manual",
+                    "high",
+                    "accepted",
+                    1,
+                    None,
+                    updated_at,
+                    updated_at,
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/models/ranking/refresh",
+            json={"reference_time": "2026-04-23T12:00:00Z"},
+        )
+        assert refreshed.status_code == 200
+        payload = refreshed.json()
+        assert payload["success"] is True
+        assert payload["refreshed_count"] == 2
+
+        ranking = test_client.get("/api/models/gridfinity-bin/ranking")
+        assert ranking.status_code == 200
+        assert ranking.json()["ranking"]["print_count"] == 2
+        assert ranking.json()["ranking"]["linked_archive_count"] == 2
+        assert ranking.json()["ranking"]["last_printed_at"] == "2026-04-23T08:00:00Z"
+
+        recent = test_client.get("/api/models?sort=recent")
+        assert recent.status_code == 200
+        assert [model["public_id"] for model in recent.json()["models"]] == ["gridfinity-bin", "tool-rack"]
+
+        frequent = test_client.get("/api/models?sort=frequent")
+        assert frequent.status_code == 200
+        assert [model["public_id"] for model in frequent.json()["models"]] == ["gridfinity-bin", "tool-rack"]
+
+
 def test_archive_link_endpoint_returns_empty_contract_when_no_links(tmp_path: Path) -> None:
     app = create_app(settings=_build_settings(tmp_path))
 

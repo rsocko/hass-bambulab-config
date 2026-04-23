@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from dataclasses import asdict
+from datetime import datetime, timezone
 import re
 from typing import Any
 
@@ -20,6 +21,7 @@ from .db import (
     read_model_field,
     read_model_fields,
     read_model_link_counts,
+    read_model_ranking_inputs,
     read_model_ranking,
     refresh_archive_link_candidates,
     set_archive_link_review_state,
@@ -82,7 +84,9 @@ def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
         return (0 if priority is not None else 1, -(priority or 0), model_payload["name"].lower())
     if sort_by == "recent":
         last_printed_at = ranking.get("last_printed_at")
-        return (0 if last_printed_at else 1, str(last_printed_at or ""), model_payload["name"].lower())
+        parsed = _parse_iso_datetime(str(last_printed_at or ""))
+        timestamp = parsed.timestamp() if parsed is not None else 0.0
+        return (0 if parsed is not None else 1, -timestamp, model_payload["name"].lower())
     if sort_by == "frequent":
         frequent_score = ranking.get("frequent_score")
         return (0 if frequent_score is not None else 1, -(float(frequent_score or 0)), model_payload["name"].lower())
@@ -116,6 +120,36 @@ def _serialize_model_summary(
         "custom_fields": custom_fields,
         "ranking": ranking_payload,
         "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
+    }
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    try:
+        return datetime.fromisoformat(normalized.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _compute_recent_score(*, last_printed_at: str | None, reference_time: datetime) -> float | None:
+    parsed = _parse_iso_datetime(last_printed_at)
+    if parsed is None:
+        return None
+    delta_days = max((reference_time - parsed).total_seconds() / 86400.0, 0.0)
+    return 1.0 / (1.0 + delta_days)
+
+
+def _ranking_payload(ranking: Any) -> dict[str, Any]:
+    return {
+        "last_printed_at": ranking.last_printed_at,
+        "linked_archive_count": ranking.linked_archive_count,
+        "print_count": ranking.print_count,
+        "recent_score": ranking.recent_score,
+        "frequent_score": ranking.frequent_score,
+        "common_score": ranking.common_score,
+        "refreshed_at": ranking.refreshed_at,
     }
 
 
@@ -392,15 +426,45 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "model_ref": model_ref,
             "manyfold_model_url": summary.model_url,
-            "ranking": None if ranking is None else {
-                "last_printed_at": ranking.last_printed_at,
-                "linked_archive_count": ranking.linked_archive_count,
-                "print_count": ranking.print_count,
-                "recent_score": ranking.recent_score,
-                "frequent_score": ranking.frequent_score,
-                "common_score": ranking.common_score,
-                "refreshed_at": ranking.refreshed_at,
-            },
+            "ranking": None if ranking is None else _ranking_payload(ranking),
+        }
+
+    @app.post("/api/models/ranking/refresh")
+    def refresh_model_rankings_endpoint(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        state: AppState = app.state.model_catalog
+        request_payload = payload or {}
+        reference_time = _parse_iso_datetime(str(request_payload.get("reference_time") or "").strip()) or datetime.now(timezone.utc)
+        inputs = read_model_ranking_inputs(db_path=state.settings.db_path)
+        refreshed = []
+        for item in inputs:
+            recent_score = _compute_recent_score(last_printed_at=item.last_linked_at, reference_time=reference_time)
+            frequent_score = float(item.print_count)
+            common_score = None if recent_score is None else frequent_score * recent_score
+            refreshed.append(
+                upsert_model_ranking(
+                    db_path=state.settings.db_path,
+                    manyfold_model_url=item.manyfold_model_url,
+                    manyfold_model_public_id=item.manyfold_model_public_id,
+                    last_printed_at=item.last_linked_at,
+                    linked_archive_count=item.linked_archive_count,
+                    print_count=item.print_count,
+                    recent_score=recent_score,
+                    frequent_score=frequent_score,
+                    common_score=common_score,
+                )
+            )
+        return {
+            "success": True,
+            "refreshed_count": len(refreshed),
+            "reference_time": reference_time.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "rankings": [
+                {
+                    "manyfold_model_url": ranking.manyfold_model_url,
+                    "manyfold_model_public_id": ranking.manyfold_model_public_id,
+                    **_ranking_payload(ranking),
+                }
+                for ranking in refreshed
+            ],
         }
 
     @app.put("/api/models/{model_ref}/ranking")
@@ -424,15 +488,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "model_ref": model_ref,
             "manyfold_model_url": summary.model_url,
-            "ranking": {
-                "last_printed_at": ranking.last_printed_at,
-                "linked_archive_count": ranking.linked_archive_count,
-                "print_count": ranking.print_count,
-                "recent_score": ranking.recent_score,
-                "frequent_score": ranking.frequent_score,
-                "common_score": ranking.common_score,
-                "refreshed_at": ranking.refreshed_at,
-            },
+            "ranking": _ranking_payload(ranking),
         }
 
     @app.get("/api/archive-links/{archive_id}")

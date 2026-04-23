@@ -174,6 +174,15 @@ class ModelRankingSnapshot:
     refreshed_at: str
 
 
+@dataclass(frozen=True)
+class ModelRankingInput:
+    manyfold_model_url: str
+    manyfold_model_public_id: str | None
+    linked_archive_count: int
+    print_count: int
+    last_linked_at: str | None
+
+
 def connect(db_path: Path) -> sqlite3.Connection:
     if str(db_path) != ":memory:":
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1118,22 +1127,33 @@ def read_model_link_counts(*, db_path: Path) -> dict[str, int]:
         connection.close()
     return {str(row["manyfold_model_url"]): int(row["linked_archive_count"]) for row in rows}
 
+
+def read_model_ranking_inputs(*, db_path: Path) -> list[ModelRankingInput]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                manyfold_model_url,
+                MAX(NULLIF(TRIM(COALESCE(manyfold_model_public_id, '')), '')) AS manyfold_model_public_id,
+                COUNT(*) AS print_count,
+                COUNT(DISTINCT bambuddy_archive_id) AS linked_archive_count,
+                MAX(updated_at) AS last_linked_at
+            FROM model_catalog_links
+            WHERE is_active = 1 AND review_state = 'accepted'
+            GROUP BY manyfold_model_url
+            ORDER BY manyfold_model_url ASC
+            """
+        ).fetchall()
+    finally:
+        connection.close()
     return [
-        ArchiveModelLink(
-            id=int(row["id"]),
+        ModelRankingInput(
             manyfold_model_url=str(row["manyfold_model_url"]),
             manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
-            manyfold_model_file_id=str(row["manyfold_model_file_id"] or "").strip() or None,
-            bambuddy_archive_id=int(row["bambuddy_archive_id"]),
-            relationship_type=str(row["relationship_type"]),
-            link_role=str(row["link_role"]),
-            match_method=str(row["match_method"]),
-            match_confidence=str(row["match_confidence"]),
-            review_state=str(row["review_state"]),
-            review_note=str(row["review_note"] or "").strip() or None,
-            is_active=bool(int(row["is_active"])),
-            created_at=str(row["created_at"]),
-            updated_at=str(row["updated_at"]),
+            linked_archive_count=int(row["linked_archive_count"]),
+            print_count=int(row["print_count"]),
+            last_linked_at=str(row["last_linked_at"] or "").strip() or None,
         )
         for row in rows
     ]
