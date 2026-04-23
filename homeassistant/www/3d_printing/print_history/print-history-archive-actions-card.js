@@ -595,7 +595,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return;
     }
     if (action === "model-refresh-candidates") {
-      this._modelCatalogAction("refresh-candidates", this._resolveCurrentArchiveId(), null, null);
+      var currentArchive = this._resolveArchive();
+      this._modelCatalogAction("refresh-candidates", this._resolveCurrentArchiveId(), null, {
+        archive_name: currentArchive && currentArchive.print_name ? String(currentArchive.print_name) : "",
+      });
       return;
     }
     if (action === "model-accept-link") {
@@ -1488,6 +1491,26 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return payload && typeof payload === "object" ? payload : {};
   }
 
+  _serviceResponseErrorMessage(payload, fallbackMessage) {
+    var normalized = payload && typeof payload === "object" ? payload : {};
+    var content = normalized.content && typeof normalized.content === "object" ? normalized.content : {};
+    if (content.message && String(content.message).trim()) {
+      return String(content.message).trim();
+    }
+    if (content.error && String(content.error).trim()) {
+      return String(content.error).trim();
+    }
+    if (Array.isArray(content.detail) && content.detail.length) {
+      return content.detail.map(function (item) {
+        if (item && typeof item === "object" && item.msg) {
+          return String(item.msg);
+        }
+        return String(item || "");
+      }).filter(Boolean).join("; ") || fallbackMessage;
+    }
+    return fallbackMessage;
+  }
+
   async _callServiceWithResponse(domain, service, data) {
     if (!this._hass) {
       throw new Error("Home Assistant context is unavailable");
@@ -1526,7 +1549,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         : new Error("Service call failed (HTTP " + String(response.status) + ")");
     }
 
-    return this._normalizeServiceResponse(payload);
+    var normalized = this._normalizeServiceResponse(payload);
+    if (normalized && typeof normalized === "object" && Number(normalized.status || 0) >= 400) {
+      throw {
+        message: this._serviceResponseErrorMessage(
+          normalized,
+          "Service call failed (embedded HTTP " + String(normalized.status) + ")"
+        ),
+        body: normalized,
+        status: Number(normalized.status || 0),
+      };
+    }
+
+    return normalized;
   }
 
   _buildSourceUploadFormData(file) {
@@ -3246,6 +3281,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       if (action === "refresh-candidates") {
         await this._callServiceWithResponse("rest_command", "model_catalog_refresh_archive_candidates", {
           archive_id: String(archiveId),
+          archive_name: extra && extra.archive_name ? String(extra.archive_name) : "",
         });
       } else if (action === "accept-link") {
         await this._callServiceWithResponse("script", "model_catalog_accept_and_notify", {

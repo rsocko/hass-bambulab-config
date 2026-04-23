@@ -5,3 +5,15 @@ model_catalog_refresh_archive_candidates:
   url: >-
     {{ states('input_text.model_catalog_sidecar_base_url') }}/api/archive-links/{{ archive_id }}/candidates/refresh
   method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% set ns.body = dict(ns.body, archive_name=(archive_name | default('', true))) %}
+    {% if min_score is defined %}
+      {% set ns.body = dict(ns.body, min_score=min_score) %}
+    {% endif %}
+    {% if max_candidates is defined %}
+      {% set ns.body = dict(ns.body, max_candidates=max_candidates) %}
+    {% endif %}
+    {{ ns.body | to_json }}
