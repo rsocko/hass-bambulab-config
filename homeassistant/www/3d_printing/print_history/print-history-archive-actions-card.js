@@ -264,7 +264,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
 
   _normalizeMainTab(tabId) {
     var normalized = String(tabId || "").trim().toLowerCase();
-    return normalized === "analytics" || normalized === "repair" || normalized === "danger"
+    return normalized === "model" || normalized === "analytics" || normalized === "repair" || normalized === "danger"
       ? normalized
       : "media";
   }
