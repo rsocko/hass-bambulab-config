@@ -656,6 +656,7 @@ print_history_archive_popup_content:
           pointStyle: `display:block;width:10px;height:10px;border-radius:999px;background:${timelineEndColor};box-shadow:0 0 0 4px rgba(255,255,255,0.08);`
         });
         const archiveError = buildArchiveErrorState(archive);
+        const disclosureToggleHandler = 'event.preventDefault();event.stopPropagation();const container=this.parentElement;if(container){const isOpen=container.classList.toggle("is-open");this.setAttribute("aria-expanded",isOpen?"true":"false");}return false;';
         const skipOverlayState = detailSkipOverlayState && typeof detailSkipOverlayState === 'object' ? detailSkipOverlayState : null;
         const skipOverlayRequestedIds = Array.isArray(skipOverlayState?.requested_skip_ids)
           ? skipOverlayState.requested_skip_ids.map((item) => Number(item)).filter((item) => Number.isInteger(item))
@@ -944,7 +945,6 @@ print_history_archive_popup_content:
         const archivedAmsJson = stringifyJsonPreview(archivedAmsDisclosureUsesRawBlob ? archivedRawAms : archivedAmsTrayRows);
         const archivedAmsDisclosureLabel = 'Archived AMS evidence JSON';
         const enrichmentDetailToggleHandler = 'event.preventDefault();event.stopPropagation();const shell=this.closest(".print-history-popup-enrichment-shell");if(shell){const isOpen=shell.classList.toggle("is-open");this.setAttribute("aria-expanded",isOpen?"true":"false");const label=this.querySelector(".print-history-popup-enrichment-toggle-label");if(label){label.textContent=isOpen?"Hide Details":"Show Details";}const rowCount=Number(this.dataset.rowCount||"0");this.setAttribute("title",`${isOpen?"Hide details":"Show details"}${rowCount>0?` (${rowCount} row${rowCount===1?"":"s"})`:""}`);}return false;';
-        const disclosureToggleHandler = 'event.preventDefault();event.stopPropagation();const container=this.parentElement;if(container){const isOpen=container.classList.toggle("is-open");this.setAttribute("aria-expanded",isOpen?"true":"false");}return false;';
         const renderJsonDisclosure = (label, content) => `<div class="print-history-popup-json-disclosure"><button class="print-history-popup-json-toggle" type="button" aria-expanded="false" onclick='${escapeHtml(disclosureToggleHandler)}'><span class="print-history-popup-json-toggle-icon" aria-hidden="true">▸</span><span class="print-history-popup-json-toggle-label">${escapeHtml(label)}</span></button><pre>${escapeHtml(content || '[]')}</pre></div>`;
         const enrichmentEvidenceMarkup = enrichmentRowsWithState.length
           ? `<div class="print-history-popup-match-grid">${enrichmentRowsWithState.map(({ item, provenanceRow, storedWhy, reviewReasons, filamentHex }) => {
