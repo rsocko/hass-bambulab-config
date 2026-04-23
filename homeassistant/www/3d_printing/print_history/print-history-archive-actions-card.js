@@ -3368,16 +3368,6 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       header + '<div class="model-links-list">' + linksHtml + '</div>' + manualForm
     );
   }
-    var archiveName = archive && archive.print_name ? String(archive.print_name) : "this archive";
-    var body = secondLevel
-      ? 'Delete <strong>' + this._escapeHtml(archiveName) + '</strong> from Bambuddy?<br><br><strong>PERMANENTLY REMOVES</strong> the archive, photos, thumbnails, source media, timeline, and related local metadata.<br><br>This also immediately purges the mirrored Home Assistant cache rows for the archive, photos, timeline, review state, and related local metadata.'
-      : 'Delete <strong>' + this._escapeHtml(archiveName) + '</strong> from Bambuddy?<br><br>This will remove the archive, photos, thumbnails, source media, timeline, and related metadata as part of the archive delete.';
-    return '<div class="confirm-copy">' + body + '</div>' +
-      '<div class="actions-grid confirm-grid">' +
-      this._renderActionButton(secondLevel ? "delete-archive-final" : "continue-delete", secondLevel ? "Delete Archive Now" : "Yes, Continue to Delete", secondLevel ? "mdi:delete-forever-outline" : "mdi:alert-outline", { tone: secondLevel ? "danger" : "warning", wide: true, disabled: this._busy }) +
-      this._renderActionButton("cancel", "Cancel", "mdi:close", { wide: true, disabled: this._busy }) +
-      '</div>';
-  }
 
   _render() {
     if (!this.shadowRoot || !this._config) {
