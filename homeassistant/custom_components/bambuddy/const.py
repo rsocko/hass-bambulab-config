@@ -61,6 +61,7 @@ SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE = "clear_print_history_archive_resto
 STORE_FILENAME = "bambuddy_print_history_browser.db"
 RESTORE_UPLOAD_DISCOVER_URL = "/api/bambuddy/print-history/archive-repair/replacement/discover"
 ARCHIVE_VIEWER_GCODE_URL = "/api/bambuddy/print-history/archive-viewer/{archive_id}/gcode"
+ARCHIVE_PICK_IMAGE_URL = "/api/bambuddy/print-history/archive/{archive_id}/pick-image"
 SOURCE_3MF_UPLOAD_URL = "/api/bambuddy/print-history/archive/{archive_id}/source-3mf/upload"
 TIMELAPSE_DELETE_URL = "/api/bambuddy/print-history/archive/{archive_id}/timelapse"
 TIMELAPSE_INFO_URL = "/api/bambuddy/print-history/archive/{archive_id}/timelapse/info"

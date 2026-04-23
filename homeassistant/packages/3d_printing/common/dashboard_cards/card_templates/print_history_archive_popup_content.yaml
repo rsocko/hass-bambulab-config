@@ -679,30 +679,12 @@ print_history_archive_popup_content:
         const skipOverlaySourceLabel = String(skipOverlayState?.trigger_source || skipOverlayState?.pick_image_source || '').trim();
         const skipOverlayPathLabel = String(skipOverlayState?.pick_image_asset_path || skipOverlayState?.pick_image_path || '').trim();
         const resolveSkipOverlayImageSrc = () => {
-          if (!hasMeaningfulValue(skipOverlayPathLabel)) return '';
-          const pathWithoutQuery = String(skipOverlayPathLabel).split('?')[0] || '';
-          const proxyMatch = pathWithoutQuery.match(/^\/api\/image_proxy\/(.+)$/) || pathWithoutQuery.match(/^\/api\/image_proxy_stream\/(.+)$/);
-          let entityId = '';
-          if (proxyMatch) {
-            try {
-              entityId = decodeURIComponent(proxyMatch[1] || '').trim();
-            } catch (_error) {
-              entityId = String(proxyMatch[1] || '').trim();
-            }
+          const archiveId = Number(currentArchive?.id || 0);
+          if (archiveId > 0) {
+            const plateNumber = Math.max(0, Number(skipOverlayState?.plate_number || 0));
+            return `/api/bambuddy/print-history/archive/${encodeURIComponent(String(archiveId))}/pick-image?plate=${encodeURIComponent(String(plateNumber))}`;
           }
-          if (!hasMeaningfulValue(entityId)) {
-            const printerPrefix = String(skipOverlayState?.printer_prefix || '').trim();
-            if (hasMeaningfulValue(printerPrefix)) {
-              entityId = `image.${printerPrefix}_pick_image`;
-            }
-          }
-          const liveEntityPicture = hasMeaningfulValue(entityId)
-            ? String(states?.[entityId]?.attributes?.entity_picture || '').trim()
-            : '';
-          if (hasMeaningfulValue(liveEntityPicture)) {
-            return liveEntityPicture;
-          }
-          return skipOverlayPathLabel;
+          return hasMeaningfulValue(skipOverlayPathLabel) ? skipOverlayPathLabel : '';
         };
         const skipOverlayImageSrc = resolveSkipOverlayImageSrc();
         const skipOverlayImageMarkup = hasMeaningfulValue(skipOverlayImageSrc)

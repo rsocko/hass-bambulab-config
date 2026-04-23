@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import io
 import json
 import logging
 import re
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
 from urllib.parse import quote
+from zipfile import BadZipFile, ZipFile
 
 import voluptuous as vol
 from aiohttp import web
@@ -23,6 +25,7 @@ from homeassistant.helpers import aiohttp_client
 
 from .api import BambuddyApiClient, BambuddyRuntimeRepairClient
 from .const import (
+    ARCHIVE_PICK_IMAGE_URL,
     ARCHIVE_VIEWER_GCODE_URL,
     DATA_MANAGER,
     DATA_RESTORE_UPLOADS,
@@ -2646,6 +2649,97 @@ class ArchiveViewerGcodeView(HomeAssistantView):
         return web.Response(text=gcode, content_type="text/plain", charset="utf-8")
 
 
+class ArchivePickImageView(HomeAssistantView):
+    url = ARCHIVE_PICK_IMAGE_URL
+    name = "api:bambuddy:print-history:archive:pick-image"
+    requires_auth = True
+
+    async def get(self, request: web.Request, archive_id: str | None = None) -> web.Response:
+        resolved = await _resolve_archive_viewer_request(request)
+        if isinstance(resolved, web.Response):
+            return resolved
+
+        _hass, _entry_id, archive_id_value, _manager, client = resolved
+
+        plate_raw = str(request.query.get("plate", "0") or "0").strip()
+        try:
+            plate_number = max(0, int(plate_raw))
+        except ValueError:
+            return web.json_response(
+                {"success": False, "error": "invalid_query", "message": "plate must be a non-negative integer."},
+                status=400,
+            )
+
+        try:
+            package_bytes = await client.async_fetch_archive_download(archive_id_value)
+        except RuntimeError as error:
+            return web.json_response(
+                {"success": False, "error": "archive_download_failed", "message": str(error)},
+                status=502,
+            )
+
+        try:
+            with ZipFile(io.BytesIO(package_bytes)) as archive_package:
+                members = [
+                    member
+                    for member in archive_package.namelist()
+                    if member and not member.endswith("/")
+                ]
+
+                def normalized(name: str) -> str:
+                    return str(name).replace("\\", "/").strip().lower()
+
+                exact_prefix = f"metadata/pick_{plate_number}"
+                member_name = next(
+                    (name for name in members if normalized(name).startswith(exact_prefix)),
+                    None,
+                )
+                if member_name is None:
+                    member_name = next(
+                        (name for name in members if normalized(name).startswith("metadata/pick_")),
+                        None,
+                    )
+                if member_name is None:
+                    return web.json_response(
+                        {
+                            "success": False,
+                            "error": "pick_image_not_found",
+                            "message": "No embedded pick image was found in archive package metadata.",
+                        },
+                        status=404,
+                    )
+
+                image_bytes = archive_package.read(member_name)
+        except BadZipFile:
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "archive_package_invalid",
+                    "message": "Archive download is not a valid 3mf package.",
+                },
+                status=502,
+            )
+        except KeyError:
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": "pick_image_read_failed",
+                    "message": "Unable to read embedded pick image from archive package.",
+                },
+                status=502,
+            )
+
+        extension = member_name.rsplit(".", 1)[-1].strip().lower() if "." in member_name else "png"
+        content_type = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "webp": "image/webp",
+            "gif": "image/gif",
+        }.get(extension, "image/png")
+
+        return web.Response(body=image_bytes, content_type=content_type)
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
@@ -2657,6 +2751,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.http.register_view(ArchiveTimelapseThumbnailsView())
         hass.http.register_view(ArchiveTimelapseProcessView())
         hass.http.register_view(ArchiveViewerGcodeView())
+        hass.http.register_view(ArchivePickImageView())
         hass.data[DATA_HTTP_VIEW_REGISTERED] = True
 
     @websocket_api.websocket_command(

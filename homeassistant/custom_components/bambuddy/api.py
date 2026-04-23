@@ -262,6 +262,24 @@ class BambuddyApiClient:
 
             return await response.text()
 
+    async def async_fetch_archive_download(self, archive_id: int) -> bytes:
+        if not self._base_url:
+            raise RuntimeError("Bambuddy base URL is empty")
+        if not self._api_key:
+            raise RuntimeError("Bambuddy API key is empty")
+
+        normalized_archive_id = int(archive_id)
+        if normalized_archive_id <= 0:
+            raise RuntimeError("archive_id must be a positive integer")
+
+        async with self._session.get(
+            f"{self._base_url}/api/v1/archives/{normalized_archive_id}/download",
+            headers={"X-API-Key": self._api_key},
+            timeout=self._timeout,
+        ) as response:
+            await self._raise_for_status_with_detail(response)
+            return await response.read()
+
     async def async_fetch_archive_stats(self) -> dict[str, Any]:
         if not self._base_url:
             raise RuntimeError("Bambuddy base URL is empty")
