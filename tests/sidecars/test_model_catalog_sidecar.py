@@ -1656,6 +1656,104 @@ def test_candidate_refresh_auto_accepts_unique_source_hash_match_when_unconteste
         assert payload["candidates"][0]["match_method"] == "source_hash"
 
 
+def test_candidate_refresh_canonicalizes_duplicate_cache_rows_and_preserves_accepted_metadata(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url in [
+            "http://manyfold.test/models/x9dcd59s3g60",
+            "http://localhost:3214/models/x9dcd59s3g60",
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?, '2026-04-23T00:00:00Z')
+                """,
+                (
+                    model_url,
+                    None,
+                    "Transformers Devastation Starscream Action Figure",
+                    "x9dcd59s3g60",
+                    None,
+                    None,
+                    '{"hasPart":[{"filename":"transformers_devastation_starscream_action_figure.3mf"}]}',
+                ),
+            )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_links (
+                id,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_file_id,
+                bambuddy_archive_id,
+                relationship_type,
+                link_role,
+                match_method,
+                match_confidence,
+                review_state,
+                is_active,
+                review_note,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                201,
+                "http://manyfold.test/models/x9dcd59s3g60",
+                None,
+                None,
+                8501,
+                "printed_from",
+                "primary",
+                "manual",
+                "high",
+                "accepted",
+                1,
+                "operator confirmed",
+                "2026-04-23T10:00:00Z",
+                "2026-04-23T10:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        refreshed = test_client.post(
+            "/api/archive-links/8501/candidates/refresh",
+            json={
+                "archive_name": "Transformers Devastation Starscream Action Figure",
+                "source_file_name": "transformers_devastation_starscream_action_figure.3mf",
+                "min_score": 0.0,
+                "max_candidates": 5,
+            },
+        )
+        assert refreshed.status_code == 200
+        assert refreshed.json()["candidates"] == []
+
+        links = test_client.get("/api/archive-links/8501?include_inactive=true")
+        assert links.status_code == 200
+        payload = links.json()
+        assert payload["meta"]["count"] == 1
+        assert payload["links"][0]["manyfold_model_url"] == "http://manyfold.test/models/x9dcd59s3g60"
+        assert payload["links"][0]["match_method"] == "manual"
+        assert payload["links"][0]["match_confidence"] == "high"
+        assert payload["links"][0]["review_note"] == "operator confirmed"
+
+
 def test_refresh_candidates_can_force_refresh_manyfold_cache(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

@@ -872,15 +872,11 @@ def refresh_archive_link_candidates(
                         """
                         UPDATE model_catalog_links
                         SET manyfold_model_public_id = COALESCE(?, manyfold_model_public_id),
-                            match_method = ?,
-                            match_confidence = ?,
                             updated_at = ?
                         WHERE id = ?
                         """,
                         (
                             candidate.get("manyfold_model_public_id"),
-                            candidate["match_method"],
-                            candidate["match_confidence"],
                             now,
                             int(existing["id"]),
                         ),

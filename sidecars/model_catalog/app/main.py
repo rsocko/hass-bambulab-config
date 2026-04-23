@@ -877,7 +877,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
         cached_models = read_cached_manyfold_models(db_path=app.state.model_catalog.settings.db_path)
         archive_times = [value for value in (archive_completed_at, archive_started_at) if value is not None]
-        candidate_matches: list[CandidateMatch] = []
+        candidate_matches_by_url: dict[str, CandidateMatch] = {}
         for cached_model in cached_models:
             match = _build_candidate_match(
                 cached_model=cached_model,
@@ -891,9 +891,34 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
             if match is None or match.score < min_score:
                 continue
-            candidate_matches.append(match)
+            canonical_url = _normalized_model_url(app.state.model_catalog.settings, match.summary.model_url) or match.summary.model_url
+            canonical_summary = ManyfoldModelSummary(
+                model_url=canonical_url,
+                public_id=match.summary.public_id,
+                model_id=match.summary.model_id,
+                name=match.summary.name,
+                preview_url=match.summary.preview_url,
+                creator_name=match.summary.creator_name,
+                collection_names=match.summary.collection_names,
+                keyword_names=match.summary.keyword_names,
+            )
+            canonical_match = CandidateMatch(
+                summary=canonical_summary,
+                score=match.score,
+                deterministic=match.deterministic,
+                rationale=match.rationale,
+                match_method=match.match_method,
+                match_confidence=match.match_confidence,
+            )
+            existing_match = candidate_matches_by_url.get(canonical_url)
+            if existing_match is None or (canonical_match.deterministic, canonical_match.score) > (existing_match.deterministic, existing_match.score):
+                candidate_matches_by_url[canonical_url] = canonical_match
 
-        candidate_matches.sort(key=lambda match: (match.deterministic, match.score, match.summary.name.lower()), reverse=True)
+        candidate_matches = sorted(
+            candidate_matches_by_url.values(),
+            key=lambda match: (match.deterministic, match.score, match.summary.name.lower()),
+            reverse=True,
+        )
         deterministic_matches = [match for match in candidate_matches if match.deterministic]
         active_confirmed_link = any(
             link.review_state == "accepted" and link.is_active
