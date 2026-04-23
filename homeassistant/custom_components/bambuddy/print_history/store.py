@@ -1637,6 +1637,10 @@ class PrintHistoryStore:
                 """,
                 (archive_id,),
             ).fetchone()
+            archive_row = active_connection.execute(
+                "SELECT print_name, json_payload FROM archives WHERE archive_id = ?",
+                (archive_id,),
+            ).fetchone()
         if row is None:
             return None
         payload = self._parse_payload_json(row[3])
@@ -1651,6 +1655,28 @@ class PrintHistoryStore:
         normalized_archive_id = as_int(state.get("archive_id"))
         if normalized_archive_id > 0:
             plate_number = max(0, as_int(state.get("plate_number")))
+            # If stored plate_number is 0, try to infer the correct plate from the archive metadata.
+            # Priority: (1) plate_id in the archive's raw API payload (if Bambuddy provides it),
+            # (2) "- Plate N" suffix in print_name.
+            if plate_number == 0 and archive_row is not None:
+                inferred_plate: int | None = None
+                archive_json = self._parse_payload_json(archive_row[1])
+                if isinstance(archive_json, dict):
+                    raw_plate_id = archive_json.get("plate_id")
+                    if raw_plate_id is not None:
+                        candidate = as_int(raw_plate_id)
+                        if candidate > 0:
+                            inferred_plate = candidate
+                if inferred_plate is None:
+                    import re as _re
+                    print_name = as_text(archive_row[0]).strip()
+                    match = _re.search(r"[-\u2013]\s*[Pp]late\s+(\d+)\s*$", print_name)
+                    if match:
+                        candidate = int(match.group(1))
+                        if candidate > 0:
+                            inferred_plate = candidate
+                if inferred_plate is not None:
+                    plate_number = inferred_plate
             pick_image_url = (
                 f"/api/bambuddy/print-history/archive/{normalized_archive_id}/pick-image"
                 f"?plate={plate_number}"

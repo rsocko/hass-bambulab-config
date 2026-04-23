@@ -2155,6 +2155,165 @@ def test_variant3_store_persists_skip_overlay_state_and_exposes_detail_bundle(tm
     assert stats["archive_skip_overlay_state_count"] == 1
 
 
+def test_variant3_store_skip_overlay_infers_plate_from_print_name_when_stored_plate_is_zero(tmp_path: Path) -> None:
+    """When plate_number=0 is stored, load should infer the plate from the archive print_name."""
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    # Archive 101 has print_name "Hueforge Batman" (no plate suffix) – no inference expected.
+    # Use a custom archive with a "- Plate N" suffix to verify inference.
+    from query import project_archive
+    store.replace_archives([
+        project_archive({
+            "id": 303,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "Starscream Figure - Plate 4",
+            "actual_time_seconds": 7200,
+            "print_time_seconds": 7200,
+            "filament_used_grams": 30.0,
+            "filament_type": "PLA",
+            "filament_color": "#FFFFFF",
+            "status": "completed",
+            "started_at": "2026-04-20T10:00:00Z",
+            "completed_at": "2026-04-20T12:00:00Z",
+            "created_at": "2026-04-20T09:58:00Z",
+            "cost": 1.5,
+            "layer_height": 0.2,
+            "is_favorite": False,
+            "tags": "",
+            "notes": "",
+        }),
+    ])
+    store.save_archive_skip_overlay_state(
+        303,
+        {
+            "overlay_version": "v1",
+            "plate_number": 0,  # incorrectly stored as 0
+            "pick_image_asset_path": "Metadata/pick_0.png",
+            "pick_image_source": "archived_gcode_3mf",
+            "skipped_ids": [5],
+            "requested_skip_ids": [5],
+        },
+    )
+
+    loaded = store.load_archive_skip_overlay_state(303)
+
+    assert loaded is not None
+    # Plate should be inferred as 4 from print_name "Starscream Figure - Plate 4"
+    assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/303/pick-image?plate=4"
+    assert loaded["pick_image_path"] == "/api/bambuddy/print-history/archive/303/pick-image?plate=4"
+
+
+def test_variant3_store_skip_overlay_infers_plate_from_raw_payload_plate_id(tmp_path: Path) -> None:
+    """When plate_number=0 is stored and json_payload contains plate_id, that value is used.
+    NOTE: project_archive currently strips unknown fields so plate_id won't survive the
+    projection pipeline in practice. This test injects it directly via the store's upsert
+    to verify the extraction logic without requiring a project_archive change.
+    """
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    from query import project_archive
+    import json
+    # Start with a normal archive, then patch json_payload to include plate_id
+    base_archive = project_archive({
+        "id": 304,
+        "printer_id": 1,
+        "printer_name": "Workshop P1S",
+        "print_name": "My Model - Plate 2",  # plate 2 in name, but plate_id=7 in payload wins
+        "actual_time_seconds": 3600,
+        "print_time_seconds": 3600,
+        "filament_used_grams": 10.0,
+        "filament_type": "PLA",
+        "filament_color": "#AABBCC",
+        "status": "completed",
+        "started_at": "2026-04-21T10:00:00Z",
+        "completed_at": "2026-04-21T11:00:00Z",
+        "created_at": "2026-04-21T09:58:00Z",
+        "cost": 0.5,
+        "layer_height": 0.2,
+        "is_favorite": False,
+        "tags": "",
+        "notes": "",
+    })
+    store.replace_archives([base_archive])
+    # Directly patch json_payload to inject plate_id (simulates a future Bambuddy API field
+    # that has been projected and stored in json_payload)
+    import json
+    with store._borrow_connection(None) as conn:
+        existing_payload = json.loads(conn.execute(
+            "SELECT json_payload FROM archives WHERE archive_id = 304"
+        ).fetchone()[0])
+        existing_payload["plate_id"] = 7
+        conn.execute(
+            "UPDATE archives SET json_payload = ? WHERE archive_id = 304",
+            (json.dumps(existing_payload, separators=(",", ":"), sort_keys=True),),
+        )
+        conn.commit()
+    store.save_archive_skip_overlay_state(
+        304,
+        {
+            "overlay_version": "v1",
+            "plate_number": 0,
+            "pick_image_asset_path": "Metadata/pick_0.png",
+            "pick_image_source": "archived_gcode_3mf",
+            "skipped_ids": [3],
+            "requested_skip_ids": [3],
+        },
+    )
+
+    loaded = store.load_archive_skip_overlay_state(304)
+
+    assert loaded is not None
+    # plate_id=7 in json_payload takes priority over "Plate 2" in print_name
+    assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/304/pick-image?plate=7"
+    assert loaded["pick_image_path"] == "/api/bambuddy/print-history/archive/304/pick-image?plate=7"
+
+
+def test_variant3_store_skip_overlay_keeps_stored_plate_when_nonzero(tmp_path: Path) -> None:
+    """When plate_number > 0 is stored, inference should not override it even if print_name has a different plate."""
+    store = PrintHistoryStore(tmp_path / "print_history.db")
+    store.initialize()
+    from query import project_archive
+    store.replace_archives([
+        project_archive({
+            "id": 305,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "My Model - Plate 12",
+            "actual_time_seconds": 3600,
+            "print_time_seconds": 3600,
+            "filament_used_grams": 10.0,
+            "filament_type": "PLA",
+            "filament_color": "#AABBCC",
+            "status": "completed",
+            "started_at": "2026-04-21T10:00:00Z",
+            "completed_at": "2026-04-21T11:00:00Z",
+            "created_at": "2026-04-21T09:58:00Z",
+            "cost": 0.5,
+            "layer_height": 0.2,
+            "is_favorite": False,
+            "tags": "",
+            "notes": "",
+        }),
+    ])
+    store.save_archive_skip_overlay_state(
+        305,
+        {
+            "overlay_version": "v1",
+            "plate_number": 3,  # explicitly stored, should not be overridden
+            "pick_image_asset_path": "Metadata/pick_3.png",
+            "pick_image_source": "archived_gcode_3mf",
+            "skipped_ids": [],
+            "requested_skip_ids": [],
+        },
+    )
+
+    loaded = store.load_archive_skip_overlay_state(305)
+
+    assert loaded is not None
+    assert loaded["pick_image_asset_path"] == "/api/bambuddy/print-history/archive/305/pick-image?plate=3"
+
+
 def test_variant3_store_preserves_timeline_events_across_replace_archives(tmp_path: Path) -> None:
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()
