@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database
@@ -69,6 +70,27 @@ def test_normalize_model_summary_handles_manyfold_api_member_shape() -> None:
 
     assert summary.model_url == "http://manyfold.test/models/abc123"
     assert summary.name == "API Benchy"
+
+
+def test_manyfold_client_disables_env_proxy_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class DummyClient:
+        def close(self) -> None:
+            return None
+
+    def fake_client(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return DummyClient()
+
+    monkeypatch.setattr(httpx, "Client", fake_client)
+
+    client = ManyfoldClient("http://manyfold.test")
+
+    assert captured["kwargs"]["base_url"] == "http://manyfold.test"
+    assert captured["kwargs"]["trust_env"] is False
+    client.close()
 
 
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:

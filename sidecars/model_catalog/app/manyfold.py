@@ -36,7 +36,7 @@ class ManyfoldClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.oauth_scopes = oauth_scopes
-        self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0)
+        self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0, trust_env=False)
         self._owns_client = http_client is None
         self._access_token: str | None = None
 

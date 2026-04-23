@@ -87,6 +87,14 @@ MANYFOLD_OAUTH_SCOPES=public read
 MODEL_CATALOG_REFRESH_TTL_SECONDS=900
 ```
 
+Known-good fallback from live debugging:
+
+```text
+MANYFOLD_BASE_URL=http://host.docker.internal:3214
+```
+
+That path previously worked from an n8n container using the same OAuth client against `GET /models` with `Accept: application/vnd.manyfold.v0+json`.
+
 ## Dockhand / Manyfold Stack Compose
 
 There is not currently a committed Manyfold Dockhand stack file in this repo, so this sidecar ships two compose examples instead:
@@ -100,6 +108,7 @@ For the Manyfold stack example, the expected pattern is:
 - keep the sidecar state in its own Docker volume
 - keep the image tag in the stack `.env`
 - point `MANYFOLD_BASE_URL` at the service name reachable inside the stack network
+- if authenticated `GET /models` still redirects to `/users/sign_in`, switch `MANYFOLD_BASE_URL` to `http://host.docker.internal:3214` and keep the `host-gateway` mapping in the sidecar service
 
 ## Environment Variables
 
@@ -124,6 +133,7 @@ Current recommendation:
 - set `MANYFOLD_OAUTH_SCOPES=public read` if your Manyfold OAuth server requires explicit requested permissions during client-credentials token acquisition
 - use the official Manyfold REST API documented at `http://manyfold.socko.us/api/index.html`, which exposes `GET /models` with `client_credentials` scopes `public` and `read`
 - send `Accept: application/vnd.manyfold.v0+json` when calling `GET /models`, because Manyfold uses content negotiation on that route and can otherwise redirect to the browser sign-in page
+- in this deployment, `http://host.docker.internal:3214` is the known-good direct path from a container to Manyfold when service-name or public-host routes still redirect authenticated API requests to the sign-in page
 
 Why scopes are configurable instead of hard-coded:
 
