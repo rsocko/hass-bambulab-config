@@ -453,6 +453,38 @@ def test_normalize_model_summary_uses_preview_file_detail_url() -> None:
     assert summary.preview_url == "http://manyfold.test/model_files/abc123/preview.png"
 
 
+def test_normalize_model_summary_canonicalizes_relative_preview_content_url() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "Preview Model",
+            "preview_file_detail": {
+                "contentUrl": "/models/abc123/model_files/file123.webp?derivative=preview",
+                "encodingFormat": "image/webp",
+            },
+        },
+    )
+
+    assert summary.preview_url == "http://manyfold.test/models/abc123/model_files/file123.webp?derivative=preview"
+
+
+def test_normalize_model_summary_suppresses_non_image_content_url_preview() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "Renderable Preview Model",
+            "preview_file_detail": {
+                "contentUrl": "/models/abc123/model_files/file123.3mf",
+                "encodingFormat": "model/3mf",
+            },
+        },
+    )
+
+    assert summary.preview_url is None
+
+
 def test_model_fields_can_be_addressed_by_full_model_url(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

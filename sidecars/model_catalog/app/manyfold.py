@@ -44,6 +44,16 @@ def canonicalize_model_url(base_url: str, model_url: str, *, fallback_model_id: 
     return normalized
 
 
+def _append_query_param(url: str, key: str, value: str) -> str:
+    normalized = str(url or "").strip()
+    if not normalized:
+        return normalized
+    if f"{key}=" in normalized:
+        return normalized
+    separator = "&" if "?" in normalized else "?"
+    return f"{normalized}{separator}{key}={quote(value, safe='')}"
+
+
 def _extract_model_id(payload: dict[str, Any]) -> str | None:
     explicit_id = str(payload.get("id") or "").strip()
     if explicit_id:
@@ -321,14 +331,25 @@ def normalize_model_summary(
     # Priority: contentUrl (resolved preview file) > fallback URL fields
     # contentUrl is a relative path like /models/{id}/model_files/{fid}.{ext}
     # which Manyfold serves with proper image headers and content negotiation.
+    raw_content_url = str(preview.get("contentUrl") or "").strip()
+    preview_mime = str(preview.get("encodingFormat") or "").strip().lower()
+
     preview_url = str(
-        preview.get("contentUrl")
+        raw_content_url
         or preview.get("url")
         or preview.get("thumbnail_url")
         or preview.get("preview_url")
         or preview.get("download_url")
         or ""
     ).strip() or None
+
+    if preview_url:
+        preview_url = canonicalize_model_url(base_url, preview_url)
+        if raw_content_url:
+            if preview_mime.startswith("image/"):
+                preview_url = _append_query_param(preview_url, "derivative", "preview")
+            else:
+                preview_url = None
 
     # Last-resort fallback: if Manyfold gives only an image @id reference, map it
     # to a canonical URL so the frontend can attempt rendering it.
