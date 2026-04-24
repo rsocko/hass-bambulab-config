@@ -347,6 +347,13 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
             for row in model_rows
         ]
 
+        # Log collection population status
+        models_with_collections = sum(1 for s in summaries if s.collection_names)
+        logger.info(f"After normalization: {models_with_collections}/{len(summaries)} models have collection_names")
+        if models_with_collections > 0:
+            sample_names = [s.collection_names for s in summaries if s.collection_names][:3]
+            logger.info(f"Sample collection names: {sample_names}")
+
         # Fallback for deployments where list payloads omit collection refs.
         # If we have a collection lookup but zero resolved collection names, hydrate from detail endpoints.
         if collection_lookup and summaries and all(not summary.collection_names for summary in summaries):

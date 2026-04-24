@@ -721,10 +721,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             step2["status"] = "ok"
             step2["count"] = len(collections)
             if collections:
-                step2["sample_collections"] = [
-                    {"name": c.get("name"), "@id": c.get("@id"), "id": c.get("id")}
-                    for c in collections[:3]
-                ]
+                sample_col = collections[0]
+                step2["sample_collection"] = {
+                    "name": sample_col.get("name"),
+                    "@id": sample_col.get("@id"),
+                    "id": sample_col.get("id"),
+                    "has_models_key": "models" in sample_col,
+                    "has_items_key": "items" in sample_col,
+                    "has_member_key": "member" in sample_col,
+                }
+                if "models" in sample_col and isinstance(sample_col["models"], list):
+                    step2["sample_collection"]["models_count"] = len(sample_col["models"])
+                if "items" in sample_col and isinstance(sample_col["items"], list):
+                    step2["sample_collection"]["items_count"] = len(sample_col["items"])
         except Exception as e:
             step2["status"] = "failed"
             step2["error"] = str(e)
@@ -742,6 +751,37 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             step3["error"] = str(e)
         
         return result
+
+    @app.post("/admin/refresh-cache")
+    def admin_refresh_cache() -> dict[str, Any]:
+        """Admin endpoint to manually trigger cache refresh for diagnostics."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        try:
+            summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            
+            # Check result
+            models_with_collections = sum(1 for s in summaries if s.collection_names)
+            
+            return {
+                "success": True,
+                "refreshed_count": len(summaries),
+                "models_with_collections": models_with_collections,
+                "sample": [
+                    {
+                        "name": s.name,
+                        "collection_names": s.collection_names,
+                    }
+                    for s in summaries[:3]
+                ],
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            }
 
     @app.get("/api/models")
     def list_models(
