@@ -261,11 +261,12 @@ def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) ->
         assert payload["results"][0]["public_id"] == "transformers-live"
 
 
-def test_refresh_manyfold_cache_hydrates_collections_from_model_detail_when_list_omits_collections(tmp_path: Path) -> None:
+def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_path: Path) -> None:
+    """Test that collections are resolved from isPartOf field in model payloads."""
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
 
-    class _HydrationClient:
+    class _IsPartOfClient:
         base_url = "http://manyfold.test"
 
         def list_model_payloads(self):
@@ -274,6 +275,9 @@ def test_refresh_manyfold_cache_hydrates_collections_from_model_detail_when_list
                     "@id": "/models/alpha-bin",
                     "public_id": "alpha-bin",
                     "name": "Alpha Bin",
+                    "isPartOf": {
+                        "@id": "/collections/42"  # Manyfold exposes parent collection via isPartOf
+                    },
                 }
             ]
 
@@ -288,22 +292,13 @@ def test_refresh_manyfold_cache_hydrates_collections_from_model_detail_when_list
         def list_creators(self):
             return []
 
-        def get_model_detail(self, model_ref: str):
-            assert model_ref == "alpha-bin"
-            return {
-                "@id": "/models/alpha-bin",
-                "public_id": "alpha-bin",
-                "name": "Alpha Bin",
-                "collections": [{"@id": "/collections/42"}],
-            }
-
-    summaries = refresh_manyfold_cache(db_path=settings.db_path, client=_HydrationClient())
+    summaries = refresh_manyfold_cache(db_path=settings.db_path, client=_IsPartOfClient())
     assert len(summaries) == 1
-    assert summaries[0].collection_names == ("Storage",)
+    assert summaries[0].collection_names == ("Storage",), f"Expected ('Storage',), got {summaries[0].collection_names}"
 
     cached = read_cached_manyfold_summaries(db_path=settings.db_path)
     assert len(cached) == 1
-    assert cached[0].collection_names == ("Storage",)
+    assert cached[0].collection_names == ("Storage",), f"Expected ('Storage',), got {cached[0].collection_names}"
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:

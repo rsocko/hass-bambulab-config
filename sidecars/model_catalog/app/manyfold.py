@@ -277,6 +277,7 @@ def normalize_model_summary(
     *,
     creator_lookup: dict[str, str] | None = None,
     collection_lookup: dict[str, str] | None = None,
+    model_to_collections: dict[str, list[str]] | None = None,
 ) -> ManyfoldModelSummary:
     preview = payload.get("preview") or payload.get("preview_file") or {}
     creator = payload.get("creator") or payload.get("creator_id") or {}
@@ -303,10 +304,19 @@ def normalize_model_summary(
     creator_name = _extract_name(creator) or _resolve_lookup_name(creator, creator_lookup)
 
     resolved_collection_names: list[str] = []
-    for item in collections if isinstance(collections, list) else [collections]:
-        name = _extract_name(item) or _resolve_lookup_name(item, collection_lookup)
-        if name:
-            resolved_collection_names.append(name)
+    
+    # Try model_to_collections mapping first (built from isPartOf field)
+    if model_to_collections:
+        model_ref = _model_ref_from_payload(payload)
+        if model_ref and model_ref in model_to_collections:
+            resolved_collection_names = model_to_collections[model_ref]
+    
+    # Fallback: parse collections field if present
+    if not resolved_collection_names:
+        for item in collections if isinstance(collections, list) else [collections]:
+            name = _extract_name(item) or _resolve_lookup_name(item, collection_lookup)
+            if name:
+                resolved_collection_names.append(name)
 
     return ManyfoldModelSummary(
         model_url=model_url,
@@ -324,6 +334,7 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
     model_rows: list[dict[str, Any]] | None = None
     creator_lookup: dict[str, str] = {}
     collection_lookup: dict[str, str] = {}
+    model_to_collections: dict[str, list[str]] = {}
     if hasattr(client, "list_model_payloads"):
         model_rows = client.list_model_payloads()
         try:
@@ -332,17 +343,50 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
             logger.warning(f"Failed to build creator_lookup: {e}")
             creator_lookup = {}
         try:
-            collection_lookup = _build_name_lookup(client.list_collections())
+            all_collections = client.list_collections()
+            collection_lookup = _build_name_lookup(all_collections)
             logger.info(f"Built collection_lookup with {len(collection_lookup)} entries")
+            
+            # Build collection ID → name mapping for isPartOf resolution
+            collection_id_to_names: dict[str, str] = {}
+            for collection in all_collections:
+                coll_id = collection.get("@id")
+                coll_name = collection.get("name")
+                if coll_id and coll_name:
+                    collection_id_to_names[coll_id] = coll_name
+            
+            # Parse isPartOf from model payloads to build model → collections mapping
+            # (Manyfold exposes parent collection in models via isPartOf, not collections field)
+            for row in model_rows:
+                model_ref = _model_ref_from_payload(row)
+                is_part_of = row.get("isPartOf")
+                
+                if model_ref and is_part_of:
+                    # isPartOf can be a string (collection @id) or dict with @id
+                    if isinstance(is_part_of, dict):
+                        collection_id = is_part_of.get("@id")
+                    else:
+                        collection_id = is_part_of
+                    
+                    if collection_id and collection_id in collection_id_to_names:
+                        collection_name = collection_id_to_names[collection_id]
+                        model_to_collections[model_ref] = [collection_name]
+                        logger.debug(f"Model {model_ref} → Collection '{collection_name}' (via isPartOf)")
+            
+            logger.info(
+                f"Parsed isPartOf: {len(model_to_collections)}/{len(model_rows)} models have collection mapping"
+            )
         except Exception as e:
             logger.error(f"CRITICAL: Failed to build collection_lookup: {e}", exc_info=True)
             collection_lookup = {}
+        
         summaries = [
             normalize_model_summary(
                 client.base_url,
                 row,
                 creator_lookup=creator_lookup,
                 collection_lookup=collection_lookup,
+                model_to_collections=model_to_collections,
             )
             for row in model_rows
         ]
@@ -353,31 +397,6 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
         if models_with_collections > 0:
             sample_names = [s.collection_names for s in summaries if s.collection_names][:3]
             logger.info(f"Sample collection names: {sample_names}")
-
-        # Fallback for deployments where list payloads omit collection refs.
-        # If we have a collection lookup but zero resolved collection names, hydrate from detail endpoints.
-        if collection_lookup and summaries and all(not summary.collection_names for summary in summaries):
-            logger.warning("No collection names resolved from list payload; attempting model-detail hydration.")
-            for index, row in enumerate(model_rows):
-                if not hasattr(client, "get_model_detail"):
-                    break
-                ref = _model_ref_from_payload(row)
-                if not ref:
-                    continue
-                try:
-                    detail_payload = client.get_model_detail(ref)
-                except Exception as e:
-                    logger.warning("Failed to hydrate model detail for %s: %s", ref, e)
-                    continue
-
-                merged_payload = {**row, **detail_payload}
-                model_rows[index] = merged_payload
-                summaries[index] = normalize_model_summary(
-                    client.base_url,
-                    merged_payload,
-                    creator_lookup=creator_lookup,
-                    collection_lookup=collection_lookup,
-                )
     else:
         summaries = client.list_models()
     connection = connect(db_path)
