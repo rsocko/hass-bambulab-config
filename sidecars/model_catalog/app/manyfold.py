@@ -355,27 +355,44 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                 if coll_id and coll_name:
                     collection_id_to_names[coll_id] = coll_name
             
-            # Parse isPartOf from model payloads to build model → collections mapping
-            # (Manyfold exposes parent collection in models via isPartOf, not collections field)
-            for row in model_rows:
-                model_ref = _model_ref_from_payload(row)
-                is_part_of = row.get("isPartOf")
+            # Manyfold's list endpoint only returns @id+name per model — isPartOf is only
+            # exposed in the detail endpoint (ModelSerializer). Fetch details to get collection.
+            if collection_id_to_names:
+                logger.info(
+                    f"Fetching model details to resolve isPartOf for {len(model_rows)} models "
+                    f"({len(collection_id_to_names)} collections available)"
+                )
+                for index, row in enumerate(model_rows):
+                    ref = _model_ref_from_payload(row)
+                    if not ref:
+                        continue
+                    try:
+                        detail = client.get_model_detail(ref)
+                        # Merge detail fields into the list row so normalize_model_summary
+                        # sees the full payload (name, isPartOf, creator, keywords, etc.)
+                        model_rows[index] = {**row, **detail}
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch detail for model {ref}: {e}")
                 
-                if model_ref and is_part_of:
-                    # isPartOf can be a string (collection @id) or dict with @id
-                    if isinstance(is_part_of, dict):
-                        collection_id = is_part_of.get("@id")
-                    else:
-                        collection_id = is_part_of
+                # Build model → collections mapping from isPartOf in merged payloads
+                for row in model_rows:
+                    model_ref = _model_ref_from_payload(row)
+                    is_part_of = row.get("isPartOf")
                     
-                    if collection_id and collection_id in collection_id_to_names:
-                        collection_name = collection_id_to_names[collection_id]
-                        model_to_collections[model_ref] = [collection_name]
-                        logger.debug(f"Model {model_ref} → Collection '{collection_name}' (via isPartOf)")
-            
-            logger.info(
-                f"Parsed isPartOf: {len(model_to_collections)}/{len(model_rows)} models have collection mapping"
-            )
+                    if model_ref and is_part_of:
+                        if isinstance(is_part_of, dict):
+                            collection_id = is_part_of.get("@id")
+                        else:
+                            collection_id = is_part_of
+                        
+                        if collection_id and collection_id in collection_id_to_names:
+                            collection_name = collection_id_to_names[collection_id]
+                            model_to_collections[model_ref] = [collection_name]
+                            logger.debug(f"Model {model_ref} → Collection '{collection_name}' (via isPartOf)")
+                
+                logger.info(
+                    f"Resolved collections: {len(model_to_collections)}/{len(model_rows)} models have a collection"
+                )
         except Exception as e:
             logger.error(f"CRITICAL: Failed to build collection_lookup: {e}", exc_info=True)
             collection_lookup = {}

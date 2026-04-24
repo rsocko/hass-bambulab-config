@@ -262,7 +262,11 @@ def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) ->
 
 
 def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_path: Path) -> None:
-    """Test that collections are resolved from isPartOf field in model payloads."""
+    """
+    Manyfold's list endpoint returns only @id+name per model (ModelListSerializer).
+    isPartOf is only available in the detail endpoint (ModelSerializer).
+    The refresh must hydrate per-model details to resolve collection names.
+    """
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
 
@@ -270,14 +274,13 @@ def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_pat
         base_url = "http://manyfold.test"
 
         def list_model_payloads(self):
+            # List endpoint only returns @id + name (matches ModelListSerializer)
             return [
                 {
                     "@id": "/models/alpha-bin",
                     "public_id": "alpha-bin",
                     "name": "Alpha Bin",
-                    "isPartOf": {
-                        "@id": "/collections/42"  # Manyfold exposes parent collection via isPartOf
-                    },
+                    # No isPartOf here — only in detail endpoint
                 }
             ]
 
@@ -291,6 +294,15 @@ def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_pat
 
         def list_creators(self):
             return []
+
+        def get_model_detail(self, model_ref: str):
+            # Detail endpoint returns full ModelSerializer payload including isPartOf
+            return {
+                "@id": "/models/alpha-bin",
+                "public_id": "alpha-bin",
+                "name": "Alpha Bin",
+                "isPartOf": {"@id": "/collections/42"},
+            }
 
     summaries = refresh_manyfold_cache(db_path=settings.db_path, client=_IsPartOfClient())
     assert len(summaries) == 1

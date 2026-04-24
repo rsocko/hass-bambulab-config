@@ -709,7 +709,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "has_collections_key": "collections" in models[0],
                     "has_collection_ids_key": "collection_ids" in models[0],
                     "collections_value": models[0].get("collections"),
+                    "has_isPartOf_key": "isPartOf" in models[0],
+                    "isPartOf_value": models[0].get("isPartOf"),
                 }
+                # Also show all top-level keys in first model for discovery
+                step1["first_model_keys"] = list(models[0].keys())
+                # Store first 3 models for detailed inspection
+                step1["first_models_preview"] = models[:3]
         except Exception as e:
             step1["status"] = "failed"
             step1["error"] = str(e)
