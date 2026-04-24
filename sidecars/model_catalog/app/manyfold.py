@@ -347,13 +347,20 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
             collection_lookup = _build_name_lookup(all_collections)
             logger.info(f"Built collection_lookup with {len(collection_lookup)} entries")
             
-            # Build collection ID → name mapping for isPartOf resolution
+            # Build collection ID → name mapping for isPartOf resolution.
+            # Manyfold may return absolute URLs (http://localhost:3214/collections/...)
+            # or relative paths (/collections/...) depending on context.  Normalise
+            # every @id to its path component so that both forms match at lookup time.
             collection_id_to_names: dict[str, str] = {}
             for collection in all_collections:
                 coll_id = collection.get("@id")
                 coll_name = collection.get("name")
                 if coll_id and coll_name:
-                    collection_id_to_names[coll_id] = coll_name
+                    # Store under the raw value AND its path-normalised form
+                    coll_id_path = urlsplit(str(coll_id)).path or str(coll_id)
+                    collection_id_to_names[str(coll_id)] = coll_name
+                    if coll_id_path != str(coll_id):
+                        collection_id_to_names[coll_id_path] = coll_name
             
             # Manyfold's list endpoint only returns @id+name per model — isPartOf is only
             # exposed in the detail endpoint (ModelSerializer). Fetch details to get collection.
@@ -381,14 +388,29 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                     
                     if model_ref and is_part_of:
                         if isinstance(is_part_of, dict):
-                            collection_id = is_part_of.get("@id")
+                            collection_id_raw = is_part_of.get("@id")
                         else:
-                            collection_id = is_part_of
+                            collection_id_raw = is_part_of
                         
-                        if collection_id and collection_id in collection_id_to_names:
-                            collection_name = collection_id_to_names[collection_id]
-                            model_to_collections[model_ref] = [collection_name]
-                            logger.debug(f"Model {model_ref} → Collection '{collection_name}' (via isPartOf)")
+                        if collection_id_raw:
+                            # Try the raw value first, then path-normalised form
+                            collection_id_path = urlsplit(str(collection_id_raw)).path or str(collection_id_raw)
+                            collection_name = (
+                                collection_id_to_names.get(str(collection_id_raw))
+                                or collection_id_to_names.get(collection_id_path)
+                            )
+                            if collection_name:
+                                model_to_collections[model_ref] = [collection_name]
+                                logger.debug(
+                                    f"Model {model_ref} → Collection '{collection_name}' "
+                                    f"(isPartOf={collection_id_raw!r})"
+                                )
+                            else:
+                                logger.debug(
+                                    f"Model {model_ref}: isPartOf={collection_id_raw!r} "
+                                    f"not found in collection_id_to_names keys: "
+                                    f"{list(collection_id_to_names.keys())[:5]}"
+                                )
                 
                 logger.info(
                     f"Resolved collections: {len(model_to_collections)}/{len(model_rows)} models have a collection"

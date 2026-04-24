@@ -313,6 +313,52 @@ def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_pat
     assert cached[0].collection_names == ("Storage",), f"Expected ('Storage',), got {cached[0].collection_names}"
 
 
+def test_refresh_manyfold_cache_normalizes_absolute_isPartOf_urls(tmp_path: Path) -> None:
+    """
+    Manyfold may return absolute URLs (http://localhost:3214/...) for model @id but
+    relative paths (/collections/...) for collection @id — or vice versa.
+    The refresh must normalise both sides so they match regardless of absolute vs relative form.
+    """
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    class _AbsoluteUrlClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            # Real Manyfold list returns absolute localhost URLs
+            return [
+                {
+                    "@id": "http://localhost:3214/models/0s2hcm5tvk9l",
+                    "@type": "3DModel",
+                    "name": "Spool Lock Shim",
+                }
+            ]
+
+        def list_collections(self):
+            # Collection @id comes back as a relative path
+            return [{"@id": "/collections/8hglbg3dfm3v", "name": "Storage"}]
+
+        def list_creators(self):
+            return []
+
+        def get_model_detail(self, model_ref: str):
+            # Detail isPartOf uses absolute URL (matching Manyfold's internal host)
+            return {
+                "@id": "http://localhost:3214/models/0s2hcm5tvk9l",
+                "@type": "3DModel",
+                "name": "Spool Lock Shim",
+                "isPartOf": {"@id": "http://localhost:3214/collections/8hglbg3dfm3v"},
+            }
+
+    summaries = refresh_manyfold_cache(db_path=settings.db_path, client=_AbsoluteUrlClient())
+    assert len(summaries) == 1
+    assert summaries[0].collection_names == ("Storage",), (
+        f"URL mismatch between isPartOf absolute URL and collection relative path; "
+        f"got {summaries[0].collection_names}"
+    )
+
+
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
     summary = normalize_model_summary(
         "http://manyfold.test",

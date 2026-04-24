@@ -789,6 +789,30 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "error_type": type(e).__name__,
             }
 
+    @app.get("/debug/model-detail")
+    def debug_model_detail() -> dict[str, Any]:
+        """Return the raw detail payload for the first model, plus all collections."""
+        client: ManyfoldClient = app.state.manyfold_client
+        try:
+            models = client.list_model_payloads()
+            if not models:
+                return {"error": "No models found"}
+            
+            ref = models[0].get("@id") or models[0].get("public_id")
+            detail = client.get_model_detail(ref)
+            collections = client.list_collections()
+            
+            return {
+                "model_ref": ref,
+                "list_payload": models[0],
+                "detail_payload": detail,
+                "detail_keys": sorted(detail.keys()),
+                "isPartOf_in_detail": detail.get("isPartOf"),
+                "collections": collections,
+            }
+        except Exception as e:
+            return {"error": str(e), "error_type": type(e).__name__}
+
     @app.get("/api/models")
     def list_models(
         refresh: bool = False,
