@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .db import (
     ArchiveModelLink,
@@ -503,6 +503,49 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             client.close()
 
     app = FastAPI(title="Model Catalog Sidecar", version="0.1.0", lifespan=lifespan)
+
+    @app.get("/", response_class=HTMLResponse)
+    def api_landing() -> str:
+        return """<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <title>Model Catalog API Docs</title>
+    <style>
+        body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f5f7fb; color: #0f172a; }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+        .card { background: #ffffff; border: 1px solid #dbe4f0; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+        h1, h2 { margin: 0 0 10px; }
+        ul { margin: 0; padding-left: 18px; }
+        li { margin: 6px 0; }
+        a { color: #0b5ed7; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #eef3fb; border-radius: 6px; padding: 2px 6px; }
+    </style>
+</head>
+<body>
+    <div class=\"wrap\">
+        <div class=\"card\">
+            <h1>Model Catalog Sidecar API</h1>
+            <p>Use these links to explore the live API contract and endpoint documentation.</p>
+            <ul>
+                <li><a href=\"/docs\">Swagger UI</a></li>
+                <li><a href=\"/redoc\">ReDoc</a></li>
+                <li><a href=\"/openapi.json\">OpenAPI JSON</a></li>
+            </ul>
+        </div>
+        <div class=\"card\">
+            <h2>Repository API References</h2>
+            <ul>
+                <li><code>docs/features/model_catalog/api-reference.md</code> (model catalog sidecar)</li>
+                <li><code>docs/features/print_history/api-reference.md</code> (print history + Bambuddy integration)</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     @app.get("/healthz")
     def healthz() -> dict[str, Any]:

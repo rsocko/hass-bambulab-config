@@ -24,6 +24,10 @@ Nearly every feature in this repository depends on two **foundation packages** a
 
 Each feature folder maps 1:1 to a package under `homeassistant/packages/3d_printing/`.
 
+API docs landing for feature surfaces:
+
+- [features/api/README.md](features/api/README.md)
+
 Cross-system planning features may appear here before a Home Assistant package exists when they define architecture that spans multiple deployed packages.
 
 ### Foundation

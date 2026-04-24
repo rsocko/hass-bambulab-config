@@ -57,6 +57,66 @@ def _extract_model_id(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _lookup_keys(value: Any) -> tuple[str, ...]:
+    keys: list[str] = []
+
+    def _add(raw: Any) -> None:
+        text = str(raw or "").strip()
+        if not text:
+            return
+        lowered = text.lower()
+        keys.append(lowered)
+        parsed = urlsplit(text)
+        if parsed.path:
+            path = parsed.path.strip().lower()
+            if path:
+                keys.append(path)
+                parts = [segment for segment in path.split("/") if segment]
+                if parts:
+                    keys.append(parts[-1])
+
+    if isinstance(value, dict):
+        _add(value.get("id"))
+        _add(value.get("@id"))
+        _add(value.get("url"))
+        _add(value.get("slug"))
+        _add(value.get("name"))
+        _add(value.get("title"))
+        _add(value.get("label"))
+    elif isinstance(value, (str, int, float)):
+        _add(value)
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for key in keys:
+        if key not in seen:
+            seen.add(key)
+            unique.append(key)
+    return tuple(unique)
+
+
+def _build_name_lookup(rows: list[dict[str, Any]]) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or row.get("title") or row.get("label") or "").strip()
+        if not name:
+            continue
+        for key in _lookup_keys(row):
+            lookup[key] = name
+    return lookup
+
+
+def _resolve_lookup_name(value: Any, lookup: dict[str, str] | None) -> str | None:
+    if not lookup:
+        return None
+    for key in _lookup_keys(value):
+        if key in lookup:
+            return lookup[key]
+    return None
+
+
 class ManyfoldClient:
     def __init__(
         self,
@@ -195,11 +255,19 @@ class ManyfoldClient:
         return self._extract_rows(response.json())
 
 
-def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldModelSummary:
+def normalize_model_summary(
+    base_url: str,
+    payload: dict[str, Any],
+    *,
+    creator_lookup: dict[str, str] | None = None,
+    collection_lookup: dict[str, str] | None = None,
+) -> ManyfoldModelSummary:
     preview = payload.get("preview") or payload.get("preview_file") or {}
-    creator = payload.get("creator") or {}
-    collections = payload.get("collections") or []
-    keywords = payload.get("keywords") or payload.get("tags") or []
+    creator = payload.get("creator") or payload.get("creator_id") or {}
+    collections = payload.get("collections") or payload.get("collection_ids") or []
+    keywords = payload.get("keywords") or payload.get("tags") or payload.get("tag_list") or []
+    if isinstance(keywords, str):
+        keywords = [token.strip() for token in keywords.split(",") if token.strip()]
     model_id = _extract_model_id(payload)
     model_url = canonicalize_model_url(
         base_url,
@@ -216,23 +284,49 @@ def normalize_model_summary(base_url: str, payload: dict[str, Any]) -> ManyfoldM
             return _extract_name(nested)
         return None
 
+    creator_name = _extract_name(creator) or _resolve_lookup_name(creator, creator_lookup)
+
+    resolved_collection_names: list[str] = []
+    for item in collections if isinstance(collections, list) else [collections]:
+        name = _extract_name(item) or _resolve_lookup_name(item, collection_lookup)
+        if name:
+            resolved_collection_names.append(name)
+
     return ManyfoldModelSummary(
         model_url=model_url,
         public_id=str(payload.get("public_id") or "").strip() or None,
         model_id=model_id,
         name=str(payload.get("name") or payload.get("title") or "Unnamed Model").strip(),
         preview_url=str(preview.get("url") or preview.get("thumbnail_url") or "").strip() or None,
-        creator_name=_extract_name(creator),
-        collection_names=tuple(filter(None, (_extract_name(item) for item in collections))),
+        creator_name=creator_name,
+        collection_names=tuple(resolved_collection_names),
         keyword_names=tuple(filter(None, (_extract_name(item) for item in keywords))),
     )
 
 
 def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldModelSummary]:
     model_rows: list[dict[str, Any]] | None = None
+    creator_lookup: dict[str, str] = {}
+    collection_lookup: dict[str, str] = {}
     if hasattr(client, "list_model_payloads"):
         model_rows = client.list_model_payloads()
-        summaries = [normalize_model_summary(client.base_url, row) for row in model_rows]
+        try:
+            creator_lookup = _build_name_lookup(client.list_creators())
+        except Exception:
+            creator_lookup = {}
+        try:
+            collection_lookup = _build_name_lookup(client.list_collections())
+        except Exception:
+            collection_lookup = {}
+        summaries = [
+            normalize_model_summary(
+                client.base_url,
+                row,
+                creator_lookup=creator_lookup,
+                collection_lookup=collection_lookup,
+            )
+            for row in model_rows
+        ]
     else:
         summaries = client.list_models()
     connection = connect(db_path)

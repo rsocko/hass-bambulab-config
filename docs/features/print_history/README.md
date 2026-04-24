@@ -40,6 +40,8 @@ For the active print-history control-strip structure and mobile pagination guard
 
 The print-history docs are grouped by sub-area so implementation notes, roadmap work, and recovery runbooks do not all live in one flat directory.
 
+- `api-reference.md` - API contract entry point for print_history integrations and Bambuddy/OpenAPI references
+
 - `browser/` - browser, filtering, pagination, and instrumentation design docs
 - `ui-media/` - popup, viewer, photo capture, photo review, and tag/media UX docs
 - `recovery/` - fallback archive detection, mismatch handling, exception UX, and recovery planning

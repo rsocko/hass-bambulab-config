@@ -309,6 +309,36 @@ def test_normalize_model_summary_rewrites_absolute_model_url_to_base_host() -> N
     assert summary.model_url == "http://manyfold.socko.us/models/x9dcd59s3g60"
 
 
+def test_normalize_model_summary_resolves_creator_and_collection_from_lookup_refs() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "Stacking Bin",
+            "creator": {"@id": "/creators/7"},
+            "collections": [{"@id": "/collections/42"}],
+        },
+        creator_lookup={"/creators/7": "Eternity Labs"},
+        collection_lookup={"/collections/42": "Storage"},
+    )
+
+    assert summary.creator_name == "Eternity Labs"
+    assert summary.collection_names == ("Storage",)
+
+
+def test_normalize_model_summary_parses_tag_list_string() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "Brick Divider",
+            "tag_list": "Storage, Lego, functional",
+        },
+    )
+
+    assert summary.keyword_names == ("Storage", "Lego", "functional")
+
+
 def test_model_fields_can_be_addressed_by_full_model_url(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
@@ -512,6 +542,11 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     app = create_app(settings=settings, manyfold_client=client)
 
     with TestClient(app) as test_client:
+        landing = test_client.get("/")
+        assert landing.status_code == 200
+        assert "Swagger UI" in landing.text
+        assert "/openapi.json" in landing.text
+
         health = test_client.get("/healthz")
         assert health.status_code == 200
         assert health.json()["ok"] is True

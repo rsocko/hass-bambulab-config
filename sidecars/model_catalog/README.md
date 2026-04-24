@@ -206,6 +206,20 @@ docker compose exec app bundle exec rails console
 curl http://127.0.0.1:8314/healthz
 ```
 
+## API Docs Landing
+
+When the sidecar is running, these API docs endpoints are available:
+
+- `GET /` - docs landing page
+- `GET /docs` - Swagger UI
+- `GET /redoc` - ReDoc
+- `GET /openapi.json` - OpenAPI schema
+
+Repository references:
+
+- `docs/features/model_catalog/api-reference.md`
+- `docs/features/print_history/api-reference.md`
+
 ## Archive Link DTO Contract (Phase 1)
 
 Phase 1 now includes an initial archive-facing read contract endpoint that avoids shared DB reads across features.

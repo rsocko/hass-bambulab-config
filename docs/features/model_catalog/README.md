@@ -35,6 +35,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 ### Core Design
 
 - [Architecture Overview](architecture-overview.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
+- [API Reference](api-reference.md) — Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
 - [Implementation Plan](implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
 - Current implementation status: Phase 2 archive popup linkage is live; heuristic candidate broadening, curated search/picker, and queue/backlog fields remain later-phase work
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
