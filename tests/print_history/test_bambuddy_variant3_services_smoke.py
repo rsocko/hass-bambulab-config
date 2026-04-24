@@ -37,6 +37,17 @@ def test_archive_pick_image_view_is_browser_loadable_without_auth() -> None:
     assert 'requires_auth = False' in init_content
 
 
+def test_print_history_api_docs_landing_is_registered() -> None:
+    init_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "__init__.py").read_text("utf-8")
+    const_content = (HOMEASSISTANT_ROOT / "custom_components" / "bambuddy" / "const.py").read_text("utf-8")
+
+    assert 'PRINT_HISTORY_API_DOCS_URL = "/api/bambuddy/print-history/docs"' in const_content
+    assert 'class PrintHistoryApiDocsView(HomeAssistantView):' in init_content
+    assert 'name = "api:bambuddy:print-history:docs"' in init_content
+    assert 'requires_auth = True' in init_content
+    assert 'hass.http.register_view(PrintHistoryApiDocsView())' in init_content
+
+
 def _install_homeassistant_stubs() -> None:
     voluptuous_module = ModuleType("voluptuous")
     aiohttp_module = ModuleType("aiohttp")

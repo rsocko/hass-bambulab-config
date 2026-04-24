@@ -74,6 +74,7 @@ from .const import (
     SERVICE_SET_PRINT_HISTORY_REVIEW_STATE,
     SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE,
     SERVICE_UPDATE_PRINT_HISTORY_ARCHIVE_ENRICHMENT_METADATA,
+    PRINT_HISTORY_API_DOCS_URL,
     RESTORE_UPLOAD_DISCOVER_URL,
     SOURCE_3MF_UPLOAD_URL,
 )
@@ -1654,6 +1655,68 @@ async def _read_uploaded_file_part(
     return chunks, byte_count, chunk_count, first_chunk_size
 
 
+class PrintHistoryApiDocsView(HomeAssistantView):
+        url = PRINT_HISTORY_API_DOCS_URL
+        name = "api:bambuddy:print-history:docs"
+        requires_auth = True
+
+        async def get(self, request: web.Request) -> web.Response:
+                html = f"""<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+    <title>Bambuddy Print History API Docs</title>
+    <style>
+        body {{ font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f5f7fb; color: #0f172a; }}
+        .wrap {{ max-width: 980px; margin: 0 auto; padding: 24px; }}
+        .card {{ background: #ffffff; border: 1px solid #dbe4f0; border-radius: 12px; padding: 18px; margin-bottom: 14px; }}
+        h1, h2 {{ margin: 0 0 10px; }}
+        ul {{ margin: 0; padding-left: 18px; }}
+        li {{ margin: 6px 0; }}
+        code {{ background: #eef3fb; border-radius: 6px; padding: 2px 6px; }}
+    </style>
+</head>
+<body>
+    <div class=\"wrap\">
+        <div class=\"card\">
+            <h1>Bambuddy Print History Integration API</h1>
+            <p>This Home Assistant integration exposes websocket commands, domain services, and authenticated HTTP helper routes.</p>
+            <ul>
+                <li>Domain services: <code>bambuddy.*</code> (see <code>custom_components/bambuddy/services.yaml</code>)</li>
+                <li>Websocket command types: <code>{WS_TYPE_PRINT_HISTORY_QUERY}</code>, <code>{WS_TYPE_PRINT_HISTORY_ARCHIVE_VIEWER}</code>, <code>{WS_TYPE_PRINT_HISTORY_ARCHIVE_ACTION}</code>, <code>{WS_TYPE_PRINT_HISTORY_ARCHIVE_RELATED}</code>, <code>{WS_TYPE_PRINT_HISTORY_ARCHIVE_DUPLICATES}</code>, <code>{WS_TYPE_PRINT_HISTORY_ARCHIVE_COMPARE}</code>, <code>{WS_TYPE_PRINT_HISTORY_UPLOAD_PHOTO}</code>, <code>{WS_TYPE_PRINT_HISTORY_UPLOAD_SOURCE_3MF}</code></li>
+            </ul>
+        </div>
+        <div class=\"card\">
+            <h2>HTTP Helper Routes</h2>
+            <ul>
+                <li><code>{PRINT_HISTORY_API_DOCS_URL}</code></li>
+                <li><code>{RESTORE_UPLOAD_DISCOVER_URL}</code></li>
+                <li><code>{SOURCE_3MF_UPLOAD_URL}</code></li>
+                <li><code>{TIMELAPSE_UPLOAD_URL}</code></li>
+                <li><code>{TIMELAPSE_DELETE_URL}</code></li>
+                <li><code>{TIMELAPSE_INFO_URL}</code></li>
+                <li><code>{TIMELAPSE_THUMBNAILS_URL}</code></li>
+                <li><code>{TIMELAPSE_PROCESS_URL}</code></li>
+                <li><code>{ARCHIVE_VIEWER_GCODE_URL}</code></li>
+                <li><code>{ARCHIVE_PICK_IMAGE_URL}</code></li>
+            </ul>
+        </div>
+        <div class=\"card\">
+            <h2>Repository References</h2>
+            <ul>
+                <li><code>docs/features/print_history/api-reference.md</code></li>
+                <li><code>docs/features/bambuddy_common/bambuddy-archive-api-catalog.md</code></li>
+                <li><code>docs/repo/openapi-correction-notes.md</code></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
+"""
+                return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+
 class ReplacementArchiveDiscoverView(HomeAssistantView):
     url = RESTORE_UPLOAD_DISCOVER_URL
     name = "api:bambuddy:print-history:archive-repair:replacement:discover"
@@ -2743,6 +2806,7 @@ class ArchivePickImageView(HomeAssistantView):
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     if not hass.data.get(DATA_HTTP_VIEW_REGISTERED):
+        hass.http.register_view(PrintHistoryApiDocsView())
         hass.http.register_view(ReplacementArchiveDiscoverView())
         hass.http.register_view(ArchiveSource3mfUploadView())
         hass.http.register_view(ArchiveTimelapseUploadView())

@@ -8,6 +8,10 @@ This feature does not expose its own standalone OpenAPI server. It integrates wi
 
 Print History relies on the Bambuddy REST API (plus integration websocket actions).
 
+Runtime docs landing (Home Assistant auth required):
+
+- `GET /api/bambuddy/print-history/docs`
+
 Recommended references:
 
 - Bambuddy endpoint catalog: `docs/features/bambuddy_common/bambuddy-archive-api-catalog.md`
@@ -31,6 +35,18 @@ Typical print history integration calls map to Bambuddy archive families:
 - archive photos and thumbnail
 - archive timelapse actions
 - archive comparison/similar (where enabled)
+
+## Integration Runtime Discoverability
+
+The Bambuddy integration now provides an authenticated runtime landing endpoint:
+
+- `/api/bambuddy/print-history/docs`
+
+It summarizes:
+
+- websocket command types used by the print history browser flows
+- integration HTTP helper routes (upload/discover/timelapse/viewer helpers)
+- pointers to this repo's canonical API reference and OpenAPI correction docs
 
 For exact request contracts, use the Bambuddy OpenAPI source and correction notes above.
 

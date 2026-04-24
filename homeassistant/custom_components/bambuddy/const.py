@@ -59,6 +59,7 @@ SERVICE_FINISH_PRINT_HISTORY_ARCHIVE_RESTORE = "finish_print_history_archive_res
 SERVICE_REMOVE_PRINT_HISTORY_RESTORED_SOURCE_ARCHIVE = "remove_print_history_restored_source_archive"
 SERVICE_CLEAR_PRINT_HISTORY_ARCHIVE_RESTORE = "clear_print_history_archive_restore"
 STORE_FILENAME = "bambuddy_print_history_browser.db"
+PRINT_HISTORY_API_DOCS_URL = "/api/bambuddy/print-history/docs"
 RESTORE_UPLOAD_DISCOVER_URL = "/api/bambuddy/print-history/archive-repair/replacement/discover"
 ARCHIVE_VIEWER_GCODE_URL = "/api/bambuddy/print-history/archive-viewer/{archive_id}/gcode"
 ARCHIVE_PICK_IMAGE_URL = "/api/bambuddy/print-history/archive/{archive_id}/pick-image"
