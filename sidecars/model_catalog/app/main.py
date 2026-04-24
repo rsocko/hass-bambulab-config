@@ -6,6 +6,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import re
 from typing import Any
+import json
+from sqlite3 import connect
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -480,6 +482,63 @@ def _matches_filters(
     return True
 
 
+def _collection_filter_diagnostics(
+    summaries: list[ManyfoldModelSummary],
+    collection_filter: str | None,
+) -> dict[str, Any]:
+    request_input = str(collection_filter or "")
+    normalized_filter = request_input.lower().strip()
+
+    models_with_collections = 0
+    total_collection_names = 0
+    matched_models = 0
+    matched_collection_names: set[str] = set()
+
+    for summary in summaries:
+        if not summary.collection_names:
+            continue
+        models_with_collections += 1
+        total_collection_names += len(summary.collection_names)
+        if not normalized_filter:
+            continue
+        matching_names = [name for name in summary.collection_names if normalized_filter in name.lower()]
+        if matching_names:
+            matched_models += 1
+            matched_collection_names.update(matching_names)
+
+    if not request_input.strip():
+        reason = "no collection filter provided"
+        matched = None
+    elif not normalized_filter:
+        reason = "collection filter normalized to empty string"
+        matched = False
+    elif models_with_collections == 0:
+        reason = "no cached models contain collection names"
+        matched = False
+    elif matched_models == 0:
+        reason = "no cached collection name contains normalized filter"
+        matched = False
+    else:
+        reason = "at least one cached collection name contains normalized filter"
+        matched = True
+
+    return {
+        "path": "/api/models/search",
+        "request_input": request_input,
+        "normalized_key": normalized_filter,
+        "match_mode": "case-insensitive substring",
+        "matched": matched,
+        "reason": reason,
+        "cache_scan": {
+            "total_models": len(summaries),
+            "models_with_collections": models_with_collections,
+            "total_collection_name_values": total_collection_names,
+            "matched_models": matched_models,
+            "matched_collection_names_sample": sorted(matched_collection_names)[:10],
+        },
+    }
+
+
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
     resolved_settings = settings or load_settings()
 
@@ -578,6 +637,36 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.get("/diagnostics")
     def diagnostics() -> dict[str, Any]:
         state: AppState = app.state.model_catalog
+        
+        # Check what collection names exist in cache
+        connection = connect(state.settings.db_path)
+        try:
+            collection_stats = connection.execute("""
+                SELECT 
+                    COUNT(DISTINCT collection_names_json) as unique_collections_json,
+                    COUNT(*) as total_models
+                FROM manyfold_model_summary_cache
+            """).fetchone()
+            
+            # Get sample collection names
+            sample_collections = connection.execute("""
+                SELECT DISTINCT collection_names_json
+                FROM manyfold_model_summary_cache
+                WHERE collection_names_json != '[]'
+                LIMIT 5
+            """).fetchall()
+            
+            collection_sample = []
+            for (json_str,) in sample_collections:
+                try:
+                    names = json.loads(json_str or "[]")
+                    if names:
+                        collection_sample.extend(names)
+                except:
+                    pass
+        finally:
+            connection.close()
+        
         return {
             "service": "model-catalog-sidecar",
             "db_tables": list(state.db_info.tables),
@@ -587,6 +676,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_collections_path": state.settings.manyfold_collections_path,
             "manyfold_creators_path": state.settings.manyfold_creators_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
+            "cache_stats": {
+                "total_models": collection_stats[1] if collection_stats else 0,
+                "models_with_collections": None,
+                "sample_collection_names": list(set(collection_sample)),
+            },
             **_image_metadata(state.settings),
         }
 
@@ -641,6 +735,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         refresh: bool = False,
         page: int = 1,
         per_page: int = 10,
+        debug_collection_lookup: bool = False,
     ) -> dict[str, Any]:
         """Search curated catalog with pagination and filtering support."""
         state: AppState = app.state.model_catalog
@@ -661,6 +756,10 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Get ranking and link count data
         ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
         link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+
+        collection_diagnostics = None
+        if debug_collection_lookup:
+            collection_diagnostics = _collection_filter_diagnostics(summaries, collection)
         
         # Filter and score models
         scored_models: list[tuple[float, dict[str, Any]]] = []
@@ -697,7 +796,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         end_idx = start_idx + per_page
         paginated = scored_models[start_idx:end_idx]
         
-        return {
+        response_payload = {
             "success": True,
             "contract": "model-search.v1alpha1",
             "query": q or "",
@@ -714,6 +813,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             },
             "results": [model for _, model in paginated],
         }
+
+        if collection_diagnostics is not None:
+            response_payload["collection_lookup_diagnostics"] = collection_diagnostics
+
+        return response_payload
 
     @app.get("/api/models/{model_ref:path}/fields")
     def get_model_fields(model_ref: str) -> dict[str, Any]:

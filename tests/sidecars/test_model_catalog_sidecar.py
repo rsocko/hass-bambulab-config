@@ -2463,6 +2463,24 @@ def test_model_search_filters_by_collection(tmp_path: Path) -> None:
         assert no_match.status_code == 200
         assert no_match.json()["pagination"]["total"] == 0
 
+        debug_match = test_client.get("/api/models/search?collection=Gridfinity&debug_collection_lookup=true")
+        assert debug_match.status_code == 200
+        debug_match_payload = debug_match.json()
+        diagnostics = debug_match_payload["collection_lookup_diagnostics"]
+        assert diagnostics["request_input"] == "Gridfinity"
+        assert diagnostics["normalized_key"] == "gridfinity"
+        assert diagnostics["matched"] is True
+        assert diagnostics["cache_scan"]["matched_models"] == 1
+
+        debug_miss = test_client.get("/api/models/search?collection=NonExistent&debug_collection_lookup=true")
+        assert debug_miss.status_code == 200
+        debug_miss_payload = debug_miss.json()
+        miss_diagnostics = debug_miss_payload["collection_lookup_diagnostics"]
+        assert miss_diagnostics["request_input"] == "NonExistent"
+        assert miss_diagnostics["normalized_key"] == "nonexistent"
+        assert miss_diagnostics["matched"] is False
+        assert miss_diagnostics["cache_scan"]["matched_models"] == 0
+
 
 def test_model_search_filters_by_creator(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)

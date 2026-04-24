@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -10,6 +11,8 @@ import httpx
 
 from .db import connect, derive_manyfold_model_key
 from .models import ManyfoldModelSummary
+
+logger = logging.getLogger(__name__)
 
 
 MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
@@ -312,11 +315,14 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
         model_rows = client.list_model_payloads()
         try:
             creator_lookup = _build_name_lookup(client.list_creators())
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to build creator_lookup: {e}")
             creator_lookup = {}
         try:
             collection_lookup = _build_name_lookup(client.list_collections())
-        except Exception:
+            logger.info(f"Built collection_lookup with {len(collection_lookup)} entries")
+        except Exception as e:
+            logger.error(f"CRITICAL: Failed to build collection_lookup: {e}", exc_info=True)
             collection_lookup = {}
         summaries = [
             normalize_model_summary(
