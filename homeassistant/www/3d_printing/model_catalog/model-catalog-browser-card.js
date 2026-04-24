@@ -312,7 +312,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var previewHtml = model.preview_url
       ? '<img src="' + this._escapeHtml(String(model.preview_url)) + '" alt="' + this._escapeHtml(name) + ' preview">'
-      : '<div class="thumb-empty"><ha-icon icon="mdi:image-off-outline"></ha-icon></div>';
+      : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div style="font-size:10px;margin-top:4px;">No preview</div></div>';
 
     return ''
       + '<article class="model-card">'

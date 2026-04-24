@@ -393,24 +393,11 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                         detail = client.get_model_detail(ref)
                         merged = {**row, **detail}
 
-                        # Attempt to hydrate preview-file metadata for thumbnail URL.
-                        # If preview fetch fails or times out, it's not critical - the normalization
-                        # function has fallbacks and will return null preview_url rather than blocking.
-                        preview_file = merged.get("preview_file")
-                        preview_ref = ""
-                        if isinstance(preview_file, dict):
-                            preview_ref = str(preview_file.get("@id") or preview_file.get("id") or "").strip()
-                        elif isinstance(preview_file, str):
-                            preview_ref = preview_file.strip()
-
-                        if preview_ref:
-                            try:
-                                preview_detail = client.get_model_file_detail(preview_ref, model_ref=ref)
-                                if isinstance(preview_detail, dict):
-                                    merged["preview_file_detail"] = preview_detail
-                            except Exception as preview_error:
-                                logger.debug(f"Failed to fetch preview file detail for model {ref}: {preview_error}")
-                                # Continue without preview - normalization has fallbacks
+                        # Note: Preview file detail hydration is not fetched during cache refresh.
+                        # Manyfold's preview_file references (preview_file.@id) don't correspond to
+                        # valid downloadable image URLs, so they would render as broken images.
+                        # Images can be improved in a future phase with better Manyfold integration.
+                        # For now, models show with name/creator/collection metadata but no preview images.
 
                         # Merge detail fields into the list row so normalize_model_summary
                         # sees the full payload (name, isPartOf, creator, keywords, etc.)
