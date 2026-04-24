@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable
+from urllib.parse import urlsplit
 
 
 def utc_now_iso() -> str:
@@ -133,6 +134,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+    (
+        5,
+        (),
+    ),
 )
 
 
@@ -237,6 +242,8 @@ def _apply_migrations(connection: sqlite3.Connection) -> None:
         _execute_statements(connection, statements)
         if version == 3:
             _ensure_column(connection, "model_catalog_links", "review_note", "TEXT")
+        if version == 5:
+            _migrate_manyfold_model_cache_keys(connection)
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
@@ -249,6 +256,84 @@ def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name:
     if column_name in existing:
         return
     connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type}")
+
+
+def derive_manyfold_model_key(
+    *,
+    manyfold_model_url: str | None,
+    manyfold_model_public_id: str | None,
+    manyfold_model_id: str | None,
+) -> str:
+    public_id = str(manyfold_model_public_id or "").strip()
+    if public_id:
+        return f"public:{public_id}"
+
+    model_id = str(manyfold_model_id or "").strip()
+    if model_id:
+        return f"id:{model_id}"
+
+    model_url = str(manyfold_model_url or "").strip()
+    if model_url:
+        parsed = urlsplit(model_url)
+        path = parsed.path or ""
+        parts = [segment for segment in path.split("/") if segment]
+        if len(parts) >= 2 and parts[-2] == "models":
+            return f"url:{parts[-1]}"
+        if path:
+            return f"url-path:{path}"
+        return f"url:{model_url}"
+
+    return "unknown:missing-model-reference"
+
+
+def _migrate_manyfold_model_cache_keys(connection: sqlite3.Connection) -> None:
+    _ensure_column(connection, "manyfold_model_summary_cache", "manyfold_model_key", "TEXT")
+
+    rows = connection.execute(
+        """
+        SELECT rowid, manyfold_model_url, manyfold_model_public_id, manyfold_model_id, refreshed_at
+        FROM manyfold_model_summary_cache
+        ORDER BY refreshed_at DESC, rowid DESC
+        """
+    ).fetchall()
+
+    survivor_by_key: dict[str, int] = {}
+    rows_to_delete: list[int] = []
+    rows_to_update: list[tuple[str, int]] = []
+
+    for row in rows:
+        row_id = int(row["rowid"])
+        model_key = derive_manyfold_model_key(
+            manyfold_model_url=str(row["manyfold_model_url"] or "").strip() or None,
+            manyfold_model_public_id=str(row["manyfold_model_public_id"] or "").strip() or None,
+            manyfold_model_id=str(row["manyfold_model_id"] or "").strip() or None,
+        )
+
+        if model_key in survivor_by_key:
+            rows_to_delete.append(row_id)
+            continue
+
+        survivor_by_key[model_key] = row_id
+        rows_to_update.append((model_key, row_id))
+
+    if rows_to_update:
+        connection.executemany(
+            "UPDATE manyfold_model_summary_cache SET manyfold_model_key = ? WHERE rowid = ?",
+            rows_to_update,
+        )
+
+    if rows_to_delete:
+        connection.executemany(
+            "DELETE FROM manyfold_model_summary_cache WHERE rowid = ?",
+            [(row_id,) for row_id in rows_to_delete],
+        )
+
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_manyfold_model_summary_cache_model_key
+        ON manyfold_model_summary_cache(manyfold_model_key)
+        """
+    )
 
 
 def _read_archive_link_by_id(connection: sqlite3.Connection, *, archive_id: int, link_id: int) -> ArchiveModelLink | None:

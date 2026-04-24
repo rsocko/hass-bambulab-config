@@ -8,7 +8,7 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 
-from .db import connect
+from .db import connect, derive_manyfold_model_key
 from .models import ManyfoldModelSummary
 
 
@@ -240,9 +240,15 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
         refreshed_at = utc_now_iso()
         for index, summary in enumerate(summaries):
             raw_payload = model_rows[index] if model_rows is not None else asdict(summary)
+            model_key = derive_manyfold_model_key(
+                manyfold_model_url=summary.model_url,
+                manyfold_model_public_id=summary.public_id,
+                manyfold_model_id=summary.model_id,
+            )
             connection.execute(
                 """
                 INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_key,
                     manyfold_model_url,
                     manyfold_model_public_id,
                     manyfold_model_name,
@@ -253,8 +259,9 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                     keyword_names_json,
                     raw_json,
                     refreshed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(manyfold_model_url) DO UPDATE SET
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(manyfold_model_key) DO UPDATE SET
+                    manyfold_model_url = excluded.manyfold_model_url,
                     manyfold_model_public_id = excluded.manyfold_model_public_id,
                     manyfold_model_name = excluded.manyfold_model_name,
                     manyfold_model_id = excluded.manyfold_model_id,
@@ -266,6 +273,7 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                     refreshed_at = excluded.refreshed_at
                 """,
                 (
+                    model_key,
                     summary.model_url,
                     summary.public_id,
                     summary.name,

@@ -7,7 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from sidecars.model_catalog.app.db import bootstrap_database
+from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
@@ -46,7 +46,99 @@ def test_bootstrap_database_creates_phase1a_tables(tmp_path: Path) -> None:
     assert "working_groups" in info.tables
     assert "working_items" in info.tables
     assert "model_catalog_events" in info.tables
-    assert info.schema_version >= 4
+    assert info.schema_version >= 5
+
+
+def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(tmp_path: Path) -> None:
+    db_path = tmp_path / "model_catalog.db"
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at,
+                manyfold_model_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            """,
+            (
+                "http://192.168.1.77:3214/models/starscream",
+                "starscream",
+                "Transformers Devastation Starscream Action Figure",
+                "101",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-22T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at,
+                manyfold_model_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            """,
+            (
+                "http://manyfold.test/models/starscream",
+                "starscream",
+                "Transformers Devastation Starscream Action Figure",
+                "101",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.execute("DELETE FROM model_catalog_schema_migrations WHERE version = 5")
+        connection.execute("DROP INDEX IF EXISTS idx_manyfold_model_summary_cache_model_key")
+        connection.commit()
+    finally:
+        connection.close()
+
+    bootstrap_database(db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        rows = connection.execute(
+            """
+            SELECT manyfold_model_url, manyfold_model_public_id, manyfold_model_id, manyfold_model_key
+            FROM manyfold_model_summary_cache
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert len(rows) == 1
+    assert rows[0][0] == "http://manyfold.test/models/starscream"
+    assert rows[0][3] == derive_manyfold_model_key(
+        manyfold_model_url="http://manyfold.test/models/starscream",
+        manyfold_model_public_id="starscream",
+        manyfold_model_id="101",
+    )
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
