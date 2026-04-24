@@ -334,6 +334,22 @@ def normalize_model_summary(
         if preview_ref and preview_mime.startswith("image/"):
             preview_url = canonicalize_model_url(base_url, preview_ref)
 
+    # Final fallback: extract preview file @id from payload directly and construct URL.
+    # This allows preview URLs to work even without fetching file details during cache refresh.
+    if not preview_url:
+        preview_file_ref = payload.get("preview_file")
+        if isinstance(preview_file_ref, dict):
+            file_id = str(preview_file_ref.get("@id") or preview_file_ref.get("id") or "").strip()
+        elif isinstance(preview_file_ref, str):
+            file_id = preview_file_ref.strip()
+        else:
+            file_id = ""
+        
+        if file_id:
+            # Construct a preview/thumbnail URL from the file reference
+            # Manyfold typically serves previews at /model_files/{id} with cache headers
+            preview_url = canonicalize_model_url(base_url, file_id)
+
     return ManyfoldModelSummary(
         model_url=model_url,
         public_id=str(payload.get("public_id") or "").strip() or None,
