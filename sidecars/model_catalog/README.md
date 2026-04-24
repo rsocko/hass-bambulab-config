@@ -109,7 +109,7 @@ For the Manyfold stack example, the expected pattern is:
 - keep the sidecar state in its own Docker volume
 - keep the image tag in the stack `.env`
 - point `MANYFOLD_BASE_URL` at the service name reachable inside the stack network
-- if authenticated `GET /models` still redirects to `/users/sign_in`, switch `MANYFOLD_BASE_URL` to `http://host.docker.internal:3214` and keep the `host-gateway` mapping in the sidecar service
+- let the preview proxy bootstrap an anonymous Manyfold site session when raw `model_files` URLs require one before returning image bytes
 
 ## Environment Variables
 
@@ -121,8 +121,6 @@ For the Manyfold stack example, the expected pattern is:
 - `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
 - `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access
 - `MANYFOLD_OAUTH_SCOPES` — optional scope string sent during token acquisition when the OAuth server requires explicit requested permissions
-- `MANYFOLD_WEB_EMAIL` — optional Manyfold web-login email used for preview proxy fallback when file/image routes do not accept OAuth bearer auth
-- `MANYFOLD_WEB_PASSWORD` — optional Manyfold web-login password paired with `MANYFOLD_WEB_EMAIL` for preview proxy fallback
 - `MODEL_CATALOG_DB_PATH` — SQLite path for sidecar local state
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
@@ -142,6 +140,8 @@ Current recommendation:
 - set `MANYFOLD_OAUTH_SCOPES=public read` if your Manyfold OAuth server requires explicit requested permissions during client-credentials token acquisition
 - use the official Manyfold REST API documented at `http://manyfold.socko.us/api/index.html`, which exposes `GET /models` with `client_credentials` scopes `public` and `read`
 - send `Accept: application/vnd.manyfold.v0+json` when calling `GET /models`, because Manyfold uses content negotiation on that route and can otherwise redirect to the browser sign-in page
+- expect preview image fetches to use the sidecar proxy endpoint rather than hotlinking raw Manyfold `model_files` URLs from Home Assistant
+- expect the sidecar to bootstrap an anonymous Manyfold site session before retrying a `model_files` image fetch when a cold request returns HTML or an upstream error page
 - in this deployment, `http://host.docker.internal:3214` is the known-good direct path from a container to Manyfold when service-name or public-host routes still redirect authenticated API requests to the sign-in page
 
 Why scopes are configurable instead of hard-coded:

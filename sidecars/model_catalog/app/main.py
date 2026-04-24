@@ -561,8 +561,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             client_id=resolved_settings.manyfold_client_id,
             client_secret=resolved_settings.manyfold_client_secret,
             oauth_scopes=resolved_settings.manyfold_oauth_scopes,
-            web_email=resolved_settings.manyfold_web_email,
-            web_password=resolved_settings.manyfold_web_password,
         )
         try:
             yield
@@ -636,7 +634,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
-            "manyfold_web_auth_enabled": bool(state.settings.manyfold_web_email and state.settings.manyfold_web_password),
             "db_path": str(state.settings.db_path),
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,
@@ -686,7 +683,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_collections_path": state.settings.manyfold_collections_path,
             "manyfold_creators_path": state.settings.manyfold_creators_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
-            "manyfold_web_auth_enabled": bool(state.settings.manyfold_web_email and state.settings.manyfold_web_password),
             "cache_stats": {
                 "total_models": collection_stats[1] if collection_stats else 0,
                 "models_with_collections": None,

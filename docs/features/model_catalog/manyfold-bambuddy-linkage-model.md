@@ -415,6 +415,8 @@ Recommended flattened view fields:
 - `link_confidence`
 - `custom_annotations`
 
+For dashboard/browser consumers, expose `preview_url` as a sidecar-hosted proxy URL rather than a raw Manyfold `model_files` URL so Home Assistant does not hotlink cross-origin preview images directly.
+
 ## Recommended First Slice
 
 For the first implementation, keep it narrow.

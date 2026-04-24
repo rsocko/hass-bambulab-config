@@ -26,6 +26,7 @@ When the sidecar is running:
 
 - `GET /api/models`
 - `GET /api/models/search`
+- `GET /api/models/preview?source=<url-encoded-manyfold-model-file-url>`
 - `GET /api/models/{model_ref}/fields`
 - `GET /api/models/{model_ref}/fields/{field_key}`
 - `PUT /api/models/{model_ref}/fields/{field_key}`
@@ -43,6 +44,12 @@ Common custom-field keys exposed through the `fields` endpoints include:
 - `model_favorite`
 - `model_rating`
 - `colors_used` (Phase 3 baseline: hex-first; later phase may add optional `filament_id` linkage)
+
+Preview delivery contract:
+
+- cached model summaries retain the upstream Manyfold `preview_url` source
+- `GET /api/models` and `GET /api/models/search` rewrite that field to a sidecar-hosted `/api/models/preview` URL for Home Assistant consumption
+- the preview endpoint first tries OAuth-authenticated upstream fetches, then bootstraps an anonymous Manyfold site session and retries when raw `model_files` routes require that session cookie to return image bytes
 
 ### Archive Links
 

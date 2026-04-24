@@ -168,7 +168,7 @@ erDiagram
         text caption "short tagline"
         text description "model.description"
         text url "canonical model URL"
-        text preview_url "derived from preview_file"
+        text preview_url "raw Manyfold preview source derived from preview_file; API responses proxy it for UI use"
         text created_at
         text updated_at
     }
@@ -377,7 +377,7 @@ Periodic refresh of model summaries from Manyfold API.
 | MANYFOLD_MODEL_SUMMARY_CACHE | creator_name | Write | Manyfold REST API | creator.name |
 | MANYFOLD_MODEL_SUMMARY_CACHE | collection_names_json | Write | Manyfold REST API | JSON array of collection names |
 | MANYFOLD_MODEL_SUMMARY_CACHE | keyword_names_json | Write | Manyfold REST API | JSON array of keyword names |
-| MANYFOLD_MODEL_SUMMARY_CACHE | preview_url | Write | Manyfold REST API | Derived from preview_file |
+| MANYFOLD_MODEL_SUMMARY_CACHE | preview_url | Write | Manyfold REST API | Raw preview source derived from preview_file; response serializers proxy it for UI clients |
 | MANYFOLD_MODEL_SUMMARY_CACHE | raw_json | Write | Manyfold REST API | Full model payload |
 | MANYFOLD_MODEL_SUMMARY_CACHE | refreshed_at | Write | Sidecar | Current timestamp |
 
