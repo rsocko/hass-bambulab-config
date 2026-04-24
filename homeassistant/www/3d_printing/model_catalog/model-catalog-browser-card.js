@@ -21,6 +21,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundClick = this._handleClick.bind(this);
     this._boundKeyDown = this._handleKeyDown.bind(this);
     this._didInitialRender = false;
+    this._hasAttemptedLoad = false;
   }
 
   setConfig(config) {
@@ -37,7 +38,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
   set hass(hass) {
     var hadHass = !!this._hass;
     this._hass = hass;
-    if (!this._results.length && !this._loading && !this._error) {
+
+    // Perform an initial load only once when hass first connects.
+    // This prevents infinite loops when search returns empty results (which
+    // would otherwise trigger another load on the next hass state update).
+    if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
+      this._hasAttemptedLoad = true;
       this._loadPage(1, false);
     }
 
