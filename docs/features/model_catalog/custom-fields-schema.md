@@ -69,6 +69,12 @@ Using a key/value row model rather than wide columns makes it straightforward to
 | `internal_notes` | string | Free-text private operator notes | #171 |
 | `to_print_status` | string | `none`, `queued`, `done` | #190 |
 | `to_print_priority` | number | Integer 1–10, higher = higher priority | #190 |
+| `taxonomy_origin_class` | string | `reprint`, `remix_or_tweak`, `custom_unique` | #187 |
+| `taxonomy_change_axes` | array | `[]`, `[
+"color"]`, `["model"]`, `["color", "model"]`, `["other"]` | #187 |
+| `model_favorite` | boolean | `true`, `false` | #187 |
+| `model_rating` | number | Integer 1–5 | #187 |
+| `colors_used` | array<object> | Phase 3 baseline is hex-first; later phases may add optional `filament_id` linkage | #187 |
 | `3mf_parsed_at` | string | ISO 8601 datetime of last 3MF parse | #173 |
 | `preview_last_refreshed_at` | string | ISO 8601 datetime of last preview refresh | #175 |
 
@@ -183,6 +189,67 @@ Status: Phase 3 queue/backlog groundwork is now implemented in the sidecar. Thes
 - when a confirmed archive link becomes `accepted` and active for a model whose current `to_print_status` is `queued`, the sidecar transitions `to_print_status` to `done`
 - this automatic transition does not change `to_print_priority`
 - if `to_print_status` is unset or already a value other than `queued`, linkage confirmation does not overwrite it
+
+### Taxonomy Extension For Issue #187 (Phase 3+)
+
+The following fields extend model-catalog capability for taxonomy-centric browse and filtering in Phase 3 or later.
+
+#### `taxonomy_origin_class`
+
+Represents the top-level taxonomy bucket for a model:
+
+- `reprint` — recurring/common part where the same model is regularly reprinted
+- `remix_or_tweak` — derived from a source model, with explicit change-axis metadata
+- `custom_unique` — from-scratch/custom model
+
+This is model-level catalog taxonomy, not a single-print archive status.
+
+#### `taxonomy_change_axes`
+
+Captures "what changed" for `remix_or_tweak` models:
+
+- `color`
+- `model`
+- `other`
+
+This field should usually be empty for `reprint` and `custom_unique`.
+
+#### `model_favorite` and `model_rating`
+
+- `model_favorite` is a catalog-level preference signal.
+- `model_rating` is optional and intentionally separate from favorite so future scoring can distinguish "liked" from "top rated".
+- `model_rating` uses integer values `1` through `5`.
+
+Manyfold note:
+
+- Manyfold has native UI concepts around likes/lists, but there is no first-class documented REST surface for those workflows in the current API contract.
+- Because this sidecar feature is API-driven, `model_favorite` remains sidecar-owned unless/until a stable Manyfold API surface exists for favorites.
+
+These fields are model-catalog owned and must not be conflated with Bambuddy archive-level `is_favorite`.
+
+#### `colors_used` (Spoolman link contract)
+
+`colors_used` is the model-level taxonomy bridge to filament identity.
+
+Recommended item shape:
+
+```json
+{
+  "hex": "#C12E1F",
+  "display_name": "Bambu PLA Basic Red",
+  "source": "linked_archives_provenance"
+}
+```
+
+Rules:
+
+- Phase 3 baseline is **hex-first** for storage and filtering
+- spool identity is intentionally out of scope for model-level taxonomy
+- later phases may add optional `filament_id` on each entry to support direct Spoolman filament linkage
+- later phases may also support operator-selected `filament_id` assignment via picker UI
+- automatic inference from parsed `.3mf` metadata is a candidate enhancement for that later phase
+
+This keeps "Colors used" compatible with issue #187 now while preserving a clear migration path to Filament-ID linkage later.
 
 ### `3mf_parsed_at` (#173)
 

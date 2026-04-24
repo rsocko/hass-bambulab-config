@@ -115,8 +115,18 @@ Recommended additions:
 - sidecar endpoint for searchable model-library queries with pagination and filter support
 - result ranking that can incorporate recent uploads, recent prints, and accepted-link history
 - picker flow to create a reviewed manual link from a selected result
+- taxonomy facet filters for `taxonomy_origin_class` and `taxonomy_change_axes`
+- `colors_used` facet filters that start hex-first in Phase 3 baseline
 
 This phase is the right place for a true "find a model" operator experience.
+
+Issue `#187` alignment for Phase 3:
+
+- `reprint` and `custom_unique` are first-class model-catalog taxonomy facets
+- `remix_or_tweak` is paired with explicit change-axis filtering (`color`, `model`, `other`)
+- `favorite` and optional `rating` are model-level ranking/filter signals
+- `Colors used` should be queryable through model-catalog metadata as hex in the Phase 3 baseline
+- later phase: optional `filament_id` picker + parsed `.3mf` inference to link colors back to Spoolman filament records
 
 ### Phase 8: Reverse Model-To-Archive Matching
 

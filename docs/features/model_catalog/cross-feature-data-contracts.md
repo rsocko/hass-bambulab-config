@@ -178,6 +178,7 @@ Examples:
 - print-history-local `event_timeline` rows such as `print_paused`, `print_resumed`, `photo_captured`, `enrichment_applied`, or `repair_applied`
 - local enrichment provenance rows that are not present in Bambuddy archive-core fields
 - local review or repair context derived inside the HA integration
+- archive-linked filament provenance needed to build model-catalog `colors_used` taxonomy keyed by Spoolman `filament_id`
 
 When model-catalog needs that kind of data, the preferred rule is:
 
@@ -200,6 +201,13 @@ the preferred shape is:
 - print_history/HA integration exposes an archive-facing DTO such as `event_timeline_summary` or a normalized `event_timeline` read response
 - model-catalog consumes that DTO through a stable service, websocket command, or narrow HTTP view
 - model-catalog stores only the minimum local copy needed for its own domain, such as a summarized flag set, counts, or cached compact timeline, rather than importing the full print-history schema wholesale
+
+The same rule applies for model-catalog color taxonomy:
+
+- print_history remains authoritative for archive-level enrichment provenance
+- model-catalog may consume a normalized archive-facing DTO that includes filament identity (`filament_id`, optional `spool_id`, optional `hex`)
+- model-catalog may persist compact model-level `colors_used` snapshots for search/filter UX
+- model-catalog should not directly read print_history provenance tables to build taxonomy facets
 
 This keeps the truth boundary clean:
 

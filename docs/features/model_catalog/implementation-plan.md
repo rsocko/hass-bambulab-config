@@ -114,7 +114,12 @@ Work items:
 - add sidecar-owned queue/backlog fields:
   - `to_print_status`
   - `to_print_priority`
-  - optional manual favorite/frequent overrides if needed
+- add sidecar-owned model taxonomy/browse fields for the first curated-catalog slice:
+  - `model_favorite` kept sidecar-owned because Manyfold does not currently expose a dependable documented favorite/like REST surface for this workflow
+  - `model_rating` as integer `1` through `5`
+  - `taxonomy_origin_class` for `reprint`, `remix_or_tweak`, and `custom_unique`
+  - `taxonomy_change_axes` for `color`, `model`, and `other`
+  - `colors_used` as a hex-first model-level taxonomy field in the Phase 3 baseline
 - derive archive-backed ranking fields such as recent/common/frequent views
 - add HA browse card for curated catalog with:
   - preview
@@ -123,13 +128,20 @@ Work items:
   - linked archive count
   - recent/common/frequent indicators
   - queue state
+-  - taxonomy/favorite/rating indicators where they help browse and filtering without bloating the first shipped card
 - leave richer provenance and publish-destination metadata out of this phase so the shipped Phase 3 browse/ranking slice stays narrow
 - add filtered backlog/queue view in HA
+- add curated browse filtering support for the first taxonomy slice:
+  - taxonomy-origin filtering
+  - change-axis filtering
+  - `model_favorite` filtering
+  - hex-based `colors_used` filtering
 
 Deliverables:
 
 - curated catalog card optimized for quick rediscovery
 - simple backlog/queue view in HA
+- first taxonomy-aware curated browse slice exists without requiring Spoolman identity linkage yet
 
 ### Phase 4: Working Groups And Working Veneer
 
@@ -206,10 +218,15 @@ Work items:
 - implement sidecar-driven 3MF parsing and extracted asset upload
 - allow preview selection assistance when safe
 - expose photo and enrichment actions in archive popup and curated browse surfaces
+- add later-phase enrichment hooks for model color taxonomy improvement:
+  - optional operator picker to assign Spoolman `filament_id` to a model-catalog `colors_used` entry
+  - optional automatic `filament_id` inference from parsed `.3mf` metadata when the source data is strong enough
+  - keep spool identity out of model-level taxonomy because it is print-specific rather than model-specific
 
 Deliverables:
 
 - curated model records can be enriched from HA and sidecar flows
+- model color taxonomy has a defined upgrade path from Phase 3 hex-only values to later Filament-ID linkage
 
 ### Phase 7: Provenance Capture And Online Ingestion
 

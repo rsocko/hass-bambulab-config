@@ -34,6 +34,16 @@ When the sidecar is running:
 - `PUT /api/models/{model_ref}/ranking`
 - `POST /api/models/ranking/refresh`
 
+Common custom-field keys exposed through the `fields` endpoints include:
+
+- `to_print_status`
+- `to_print_priority`
+- `taxonomy_origin_class` (`reprint`, `remix_or_tweak`, `custom_unique`)
+- `taxonomy_change_axes` (`color`, `model`, `other`)
+- `model_favorite`
+- `model_rating`
+- `colors_used` (Phase 3 baseline: hex-first; later phase may add optional `filament_id` linkage)
+
 ### Archive Links
 
 - `GET /api/archive-links/{archive_id}`
