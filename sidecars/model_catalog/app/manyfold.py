@@ -175,6 +175,7 @@ class ManyfoldClient:
         self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0, trust_env=False)
         self._owns_client = http_client is None
         self._access_token: str | None = None
+        self._site_session_ready = False
         self._web_session_ready = False
 
     def close(self) -> None:
@@ -253,11 +254,26 @@ class ManyfoldClient:
         self._web_session_ready = response.url.path != self.web_session_path or bool(self._client.cookies)
         return self._web_session_ready
 
+    def _ensure_site_session(self) -> bool:
+        if self._site_session_ready:
+            return True
+
+        response = self._client.get(self.models_path, follow_redirects=True)
+        response.raise_for_status()
+        self._site_session_ready = bool(self._client.cookies) or response.is_success
+        return self._site_session_ready
+
     def fetch_binary(self, url: str) -> httpx.Response:
         response = self._client.get(url, headers=self._auth_headers(), follow_redirects=True)
         content_type = str(response.headers.get("content-type") or "").lower()
         if response.is_success and content_type.startswith("image/"):
             return response
+
+        if self._ensure_site_session():
+            response = self._client.get(url, follow_redirects=True)
+            content_type = str(response.headers.get("content-type") or "").lower()
+            if response.is_success and content_type.startswith("image/"):
+                return response
 
         if self._ensure_web_session():
             response = self._client.get(url, follow_redirects=True)

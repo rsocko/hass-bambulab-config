@@ -63,10 +63,41 @@ def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
     assert response.content == b"RIFFtestWEBP"
 
 
+def test_manyfold_client_fetch_binary_bootstraps_anonymous_site_session() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models/sample/model_files/sample.webp":
+            if request.headers.get("Cookie") == "_manyfold_session=session123":
+                return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"RIFFanonWEBP")
+            return httpx.Response(200, headers={"content-type": "text/html; charset=UTF-8"}, content=b"<!doctype html><html>session required</html>")
+        if request.url.path == "/models":
+            return httpx.Response(200, headers={"set-cookie": "_manyfold_session=session123; Path=/; HttpOnly"}, text="public models")
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        response = client.fetch_binary("/models/sample/model_files/sample.webp")
+    finally:
+        client.close()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == b"RIFFanonWEBP"
+
+
 def test_manyfold_client_fetch_binary_falls_back_to_web_session() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models":
+            return httpx.Response(200, text="public models")
         if request.url.path == "/models/sample/model_files/sample.webp":
             if request.headers.get("Cookie") == "_manyfold_session=session123":
                 return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"RIFFsessionWEBP")
