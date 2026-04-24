@@ -8,9 +8,10 @@ import re
 from typing import Any
 import json
 from sqlite3 import connect
+from urllib.parse import quote
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .db import (
     ArchiveModelLink,
@@ -116,6 +117,7 @@ def _serialize_model_summary(
     custom_fields: dict[str, object],
     ranking_by_url: dict[str, Any],
     link_counts_by_url: dict[str, int],
+    preview_proxy_base_url: str | None = None,
 ) -> dict[str, Any]:
     ranking = ranking_by_url.get(summary.model_url)
     ranking_payload = None
@@ -129,8 +131,13 @@ def _serialize_model_summary(
             "common_score": ranking.common_score,
             "refreshed_at": ranking.refreshed_at,
         }
+    preview_url = summary.preview_url
+    if preview_url and preview_proxy_base_url:
+        preview_url = f"{preview_proxy_base_url}?source={quote(preview_url, safe='')}"
+
     return {
         **asdict(summary),
+        "preview_url": preview_url,
         "custom_fields": custom_fields,
         "ranking": ranking_payload,
         "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
@@ -554,6 +561,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             client_id=resolved_settings.manyfold_client_id,
             client_secret=resolved_settings.manyfold_client_secret,
             oauth_scopes=resolved_settings.manyfold_oauth_scopes,
+            web_email=resolved_settings.manyfold_web_email,
+            web_password=resolved_settings.manyfold_web_password,
         )
         try:
             yield
@@ -627,6 +636,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
+            "manyfold_web_auth_enabled": bool(state.settings.manyfold_web_email and state.settings.manyfold_web_password),
             "db_path": str(state.settings.db_path),
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,
@@ -676,6 +686,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_collections_path": state.settings.manyfold_collections_path,
             "manyfold_creators_path": state.settings.manyfold_creators_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
+            "manyfold_web_auth_enabled": bool(state.settings.manyfold_web_email and state.settings.manyfold_web_password),
             "cache_stats": {
                 "total_models": collection_stats[1] if collection_stats else 0,
                 "models_with_collections": None,
@@ -815,12 +826,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
     @app.get("/api/models")
     def list_models(
+        request: Request,
         refresh: bool = False,
         to_print_status: str | None = None,
         sort: str = "name",
     ) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
+        preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
         if refresh:
             summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
             source = "manyfold"
@@ -845,6 +858,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     custom_fields=custom_fields,
                     ranking_by_url=ranking_by_url,
                     link_counts_by_url=link_counts_by_url,
+                    preview_proxy_base_url=preview_proxy_base_url,
                 )
             )
 
@@ -857,6 +871,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
     @app.get("/api/models/search")
     def search_models(
+        request: Request,
         q: str | None = None,
         collection: str | None = None,
         creator: str | None = None,
@@ -887,6 +902,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Get ranking and link count data
         ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
         link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+        preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
 
         collection_diagnostics = None
         if debug_collection_lookup:
@@ -917,6 +933,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 custom_fields=custom_fields,
                 ranking_by_url=ranking_by_url,
                 link_counts_by_url=link_counts_by_url,
+                preview_proxy_base_url=preview_proxy_base_url,
             )
             
             scored_models.append((score, model_payload))
@@ -962,6 +979,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             response_payload["collection_lookup_diagnostics"] = collection_diagnostics
 
         return response_payload
+
+    @app.get("/api/models/preview", name="proxy_model_preview")
+    def proxy_model_preview(source: str) -> Response:
+        client: ManyfoldClient = app.state.manyfold_client
+        preview_response = client.fetch_binary(source)
+        media_type = str(preview_response.headers.get("content-type") or "").split(";", 1)[0].strip()
+        if not preview_response.is_success or not media_type.startswith("image/"):
+            return Response(status_code=502, content=b"Preview fetch failed", media_type="text/plain")
+        return Response(
+            content=preview_response.content,
+            media_type=media_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
     @app.get("/api/models/{model_ref:path}/fields")
     def get_model_fields(model_ref: str) -> dict[str, Any]:

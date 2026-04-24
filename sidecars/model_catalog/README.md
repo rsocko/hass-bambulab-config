@@ -121,6 +121,8 @@ For the Manyfold stack example, the expected pattern is:
 - `MANYFOLD_CLIENT_ID` — OAuth client ID for machine-to-machine access
 - `MANYFOLD_CLIENT_SECRET` — OAuth client secret for machine-to-machine access
 - `MANYFOLD_OAUTH_SCOPES` — optional scope string sent during token acquisition when the OAuth server requires explicit requested permissions
+- `MANYFOLD_WEB_EMAIL` — optional Manyfold web-login email used for preview proxy fallback when file/image routes do not accept OAuth bearer auth
+- `MANYFOLD_WEB_PASSWORD` — optional Manyfold web-login password paired with `MANYFOLD_WEB_EMAIL` for preview proxy fallback
 - `MODEL_CATALOG_DB_PATH` — SQLite path for sidecar local state
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs

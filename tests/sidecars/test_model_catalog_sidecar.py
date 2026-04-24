@@ -24,6 +24,8 @@ def _build_settings(tmp_path: Path) -> Settings:
         manyfold_client_id="client-id",
         manyfold_client_secret="client-secret",
         manyfold_oauth_scopes="public read",
+        manyfold_web_email=None,
+        manyfold_web_password=None,
         db_path=tmp_path / "model_catalog.db",
         refresh_ttl_seconds=900,
         host="127.0.0.1",
@@ -33,6 +35,69 @@ def _build_settings(tmp_path: Path) -> Settings:
         image_revision="abc123",
         image_created="2026-04-22T00:00:00Z",
     )
+
+
+def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models/sample/model_files/sample.webp":
+            assert request.headers.get("Authorization") == "Bearer token-123"
+            return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"RIFFtestWEBP")
+        raise AssertionError(f"Unexpected request path: {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        response = client.fetch_binary("/models/sample/model_files/sample.webp")
+    finally:
+        client.close()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == b"RIFFtestWEBP"
+
+
+def test_manyfold_client_fetch_binary_falls_back_to_web_session() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models/sample/model_files/sample.webp":
+            if request.headers.get("Cookie") == "_manyfold_session=session123":
+                return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"RIFFsessionWEBP")
+            return httpx.Response(200, headers={"content-type": "text/html; charset=UTF-8"}, content=b"<!doctype html><html>sign in</html>")
+        if request.url.path == "/users/sign_in" and request.method == "GET":
+            return httpx.Response(200, text='<form><input type="hidden" name="authenticity_token" value="csrf-token"></form>')
+        if request.url.path == "/users/sign_in" and request.method == "POST":
+            body = request.read().decode("utf-8")
+            assert "user%5Bemail%5D=admin%40example.com" in body
+            assert "user%5Bpassword%5D=secret" in body
+            assert "authenticity_token=csrf-token" in body
+            return httpx.Response(200, headers={"set-cookie": "_manyfold_session=session123; Path=/; HttpOnly"}, text="signed in")
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        web_email="admin@example.com",
+        web_password="secret",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        response = client.fetch_binary("/models/sample/model_files/sample.webp")
+    finally:
+        client.close()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+    assert response.content == b"RIFFsessionWEBP"
 
 
 def test_bootstrap_database_creates_phase1a_tables(tmp_path: Path) -> None:
@@ -47,6 +112,78 @@ def test_bootstrap_database_creates_phase1a_tables(tmp_path: Path) -> None:
     assert "working_items" in info.tables
     assert "model_catalog_events" in info.tables
     assert info.schema_version >= 5
+
+
+def test_search_results_emit_proxy_preview_urls(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/abc123",
+                "abc123",
+                "Preview Benchy",
+                None,
+                "http://manyfold.test/models/abc123/model_files/file123.webp",
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search")
+        assert response.status_code == 200
+        preview_url = response.json()["results"][0]["preview_url"]
+        assert preview_url == (
+            "http://testserver/api/models/preview"
+            "?source=http%3A%2F%2Fmanyfold.test%2Fmodels%2Fabc123%2Fmodel_files%2Ffile123.webp"
+        )
+
+
+def test_preview_proxy_endpoint_returns_image_bytes(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+
+    class _PreviewClient:
+        def fetch_binary(self, url: str) -> httpx.Response:
+            assert url == "http://manyfold.test/models/abc123/model_files/file123.webp"
+            return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"RIFFproxyWEBP")
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_PreviewClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/preview",
+            params={"source": "http://manyfold.test/models/abc123/model_files/file123.webp"},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("image/webp")
+        assert response.content == b"RIFFproxyWEBP"
 
 
 def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(tmp_path: Path) -> None:

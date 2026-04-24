@@ -15,6 +15,8 @@ class Settings:
     manyfold_client_id: str | None
     manyfold_client_secret: str | None
     manyfold_oauth_scopes: str | None
+    manyfold_web_email: str | None
+    manyfold_web_password: str | None
     db_path: Path
     refresh_ttl_seconds: int
     host: str
@@ -34,6 +36,8 @@ def load_settings() -> Settings:
     client_id = str(os.getenv("MANYFOLD_CLIENT_ID", "")).strip() or None
     client_secret = str(os.getenv("MANYFOLD_CLIENT_SECRET", "")).strip() or None
     oauth_scopes = str(os.getenv("MANYFOLD_OAUTH_SCOPES", "")).strip() or None
+    web_email = str(os.getenv("MANYFOLD_WEB_EMAIL", "")).strip() or None
+    web_password = str(os.getenv("MANYFOLD_WEB_PASSWORD", "")).strip() or None
     db_path = Path(os.getenv("MODEL_CATALOG_DB_PATH", ":memory:"))
     refresh_ttl_seconds = int(os.getenv("MODEL_CATALOG_REFRESH_TTL_SECONDS", "900"))
     host = os.getenv("MODEL_CATALOG_HOST", "127.0.0.1")
@@ -51,6 +55,8 @@ def load_settings() -> Settings:
         manyfold_client_id=client_id,
         manyfold_client_secret=client_secret,
         manyfold_oauth_scopes=oauth_scopes,
+        manyfold_web_email=web_email,
+        manyfold_web_password=web_password,
         db_path=db_path,
         refresh_ttl_seconds=refresh_ttl_seconds,
         host=host,

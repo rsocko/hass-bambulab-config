@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import html
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -154,6 +156,9 @@ class ManyfoldClient:
         client_id: str | None = None,
         client_secret: str | None = None,
         oauth_scopes: str | None = None,
+        web_email: str | None = None,
+        web_password: str | None = None,
+        web_session_path: str = "/users/sign_in",
         http_client: httpx.Client | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -164,9 +169,13 @@ class ManyfoldClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.oauth_scopes = oauth_scopes
+        self.web_email = web_email
+        self.web_password = web_password
+        self.web_session_path = web_session_path
         self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0, trust_env=False)
         self._owns_client = http_client is None
         self._access_token: str | None = None
+        self._web_session_ready = False
 
     def close(self) -> None:
         if self._owns_client:
@@ -209,6 +218,51 @@ class ManyfoldClient:
             "Accept": MANYFOLD_API_ACCEPT,
             **self._auth_headers(),
         }
+
+    @staticmethod
+    def _extract_csrf_token(html_text: str) -> str | None:
+        match = re.search(r'name=["\']authenticity_token["\']\s+value=["\']([^"\']+)["\']', html_text)
+        if not match:
+            return None
+        return html.unescape(match.group(1))
+
+    def _ensure_web_session(self) -> bool:
+        if self._web_session_ready:
+            return True
+        if not self.web_email or not self.web_password:
+            return False
+
+        sign_in_page = self._client.get(self.web_session_path)
+        sign_in_page.raise_for_status()
+        csrf_token = self._extract_csrf_token(sign_in_page.text)
+        form_data = {
+            "user[email]": self.web_email,
+            "user[password]": self.web_password,
+            "commit": "Sign in",
+        }
+        if csrf_token:
+            form_data["authenticity_token"] = csrf_token
+
+        response = self._client.post(
+            self.web_session_path,
+            data=form_data,
+            headers={"Referer": f"{self.base_url}{self.web_session_path}"},
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        self._web_session_ready = response.url.path != self.web_session_path or bool(self._client.cookies)
+        return self._web_session_ready
+
+    def fetch_binary(self, url: str) -> httpx.Response:
+        response = self._client.get(url, headers=self._auth_headers(), follow_redirects=True)
+        content_type = str(response.headers.get("content-type") or "").lower()
+        if response.is_success and content_type.startswith("image/"):
+            return response
+
+        if self._ensure_web_session():
+            response = self._client.get(url, follow_redirects=True)
+
+        return response
 
     def _resolve_ref_path(self, ref: str, *, default_prefix: str) -> str:
         normalized = str(ref or "").strip()
