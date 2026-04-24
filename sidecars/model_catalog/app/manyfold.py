@@ -278,7 +278,8 @@ def normalize_model_summary(
     collection_lookup: dict[str, str] | None = None,
     model_to_collections: dict[str, list[str]] | None = None,
 ) -> ManyfoldModelSummary:
-    preview = payload.get("preview") or payload.get("preview_file_detail") or payload.get("preview_file") or {}
+    # Prefer fully hydrated preview_file_detail first because it includes contentUrl.
+    preview = payload.get("preview_file_detail") or payload.get("preview") or payload.get("preview_file") or {}
     creator = payload.get("creator") or payload.get("creator_id") or {}
     collections = payload.get("collections") or payload.get("collection_ids") or []
     keywords = payload.get("keywords") or payload.get("tags") or payload.get("tag_list") or []
