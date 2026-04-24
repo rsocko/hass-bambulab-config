@@ -49,6 +49,10 @@ The system uses a **Home Assistant state machine** that monitors printer status,
 
 **Phase 1 (Core State Machine) is deployed and running.** Phases 2–3 (segment expansion, overlays) are future work.
 
+## Architecture Documentation
+
+- [HA State Machine Package](ha-state-machine-package.md) - Canonical architecture and Mermaid `stateDiagram-v2` for S0-S8 transitions
+
 ### Quick Links
 
 | Document                                                         | Purpose                                                           |

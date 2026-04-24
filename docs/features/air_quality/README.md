@@ -10,6 +10,10 @@ The air quality integration provides:
 2. **Automations** - Intelligent air quality management during and after printing
 3. **Alerts** - Notifications when air quality degrades
 
+## Architecture Documentation
+
+- [Entity Relationship Diagram](entity-relationship-diagram.md) - Sensor-to-control contracts, filter tracking, and alert boundaries
+
 ## Screenshots
 
 <!-- SCREENSHOT: id=air-quality-sensors-good | format=png | version=1.0 | package=air_quality | added=2026-03-15 | captured=2026-03-15 -->

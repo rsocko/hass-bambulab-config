@@ -9,6 +9,7 @@ This folder holds the canonical-runtime repair and sidecar-backed restore docs.
 - `archive-runtime-repair-deployment-options.md` - deployment tradeoffs
 - `archive-runtime-repair-script-and-n8n-flow.md` - script and orchestration workflow
 - `archive-runtime-sidecar-api-and-compose.md` - sidecar API and compose contract
+- `../planning/print-history-er-diagrams.md` - schema baseline and sidecar field touchpoint matrix
 - `archive-runtime-restore-ha-ux-design.md` - restore UX design
 - `archive-runtime-restore-ha-service-and-popup-contract.md` - HA service and popup contract
 - `archive-runtime-restore-implementation-plan.md` - implementation plan

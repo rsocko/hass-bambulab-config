@@ -13,6 +13,10 @@
 ## Description: 
 This is a collection of Home Assistant automations & scripts I have configured to automatically keep Spoolman updated based on actual print jobs and filament usage in my Bambu Lab P1S printer. It uses the Bambu Lab Home Assistant integration to react to various printer events and then reads and writes information on Spoolman as needed.
 
+## Architecture Documentation
+
+- [Entity Relationship Diagram](entity-relationship-diagram.md) - Runtime entities, recovery contracts, and write boundaries
+
 ## Scenarios / Use Cases:
 ### 1. Update filament usage in Spoolman
 Upon completing a print, the filament used will be updated in Spoolman.

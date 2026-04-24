@@ -48,6 +48,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ### Data Model And Working Layer
 
+- [ER Diagrams and Sidecar Datamodel](planning/model-catalog-er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
 - [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for archive-to-model links
 - [Custom Fields Schema](custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA

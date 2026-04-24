@@ -8,6 +8,7 @@ This folder groups roadmap and planning-oriented docs that are useful context bu
 - `archive-skip-history-bridge.md` - HASS-first plan for skipped-object history, overlay regeneration, and local archive metadata
 - `metadata-implementation-roadmap.md` - metadata/store roadmap
 - `variant3-metadata-schema-and-variant4-carry-forward.md` - schema and carry-forward plan
+- `print-history-er-diagrams.md` - Issue #1122 ER diagrams for the Variant 3 local store and Bambuddy/sidecar touchpoints
 - `layering-guidance.md` - layering guardrails for the browser stack
 - `external-services-design-review-2026-04.md` - external service comparison notes
 - `design-doc-review-2026-04-16.md` - doc-review snapshot and recommended updates
