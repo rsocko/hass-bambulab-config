@@ -1987,3 +1987,283 @@ def test_refresh_candidates_can_force_refresh_manyfold_cache(tmp_path: Path) -> 
         assert len(refreshed_payload["candidates"]) == 1
         assert refreshed_payload["candidates"][0]["manyfold_model_url"] == "http://manyfold.test/models/starscream"
         assert manyfold_client.list_models_calls == 1
+
+
+def test_model_search_returns_empty_results_for_no_matches(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/gridfinity-bin",
+                "gridfinity-bin",
+                "Gridfinity Bin",
+                "101",
+                None,
+                "Rysock",
+                '["Gridfinity"]',
+                '["storage"]',
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?q=nonexistent")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["query"] == "nonexistent"
+        assert payload["results"] == []
+        assert payload["pagination"]["total"] == 0
+        assert payload["pagination"]["page"] == 1
+        assert payload["pagination"]["per_page"] == 10
+        assert payload["pagination"]["total_pages"] == 0
+
+
+def test_model_search_returns_results_matching_query(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin", "Rysock", "Gridfinity", "storage"),
+            ("http://manyfold.test/models/gridfinity-drawer", "gridfinity-drawer", "Gridfinity Drawer", "Rysock", "Gridfinity", "storage"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack", "Someone", "Tools", "storage"),
+        ]
+        for model_url, public_id, name, creator, collection, keyword in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    creator,
+                    f'["{collection}"]',
+                    f'["{keyword}"]',
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?q=gridfinity")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["query"] == "gridfinity"
+        assert payload["pagination"]["total"] == 2
+        assert len(payload["results"]) == 2
+        assert payload["results"][0]["name"] == "Gridfinity Bin"
+        assert payload["results"][1]["name"] == "Gridfinity Drawer"
+
+
+def test_model_search_supports_pagination(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for i in range(15):
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"http://manyfold.test/models/model-{i}",
+                    f"model-{i}",
+                    f"Model {i}",
+                    f"model-{i}",
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        page1 = test_client.get("/api/models/search?page=1&per_page=5")
+        assert page1.status_code == 200
+        payload1 = page1.json()
+        assert payload1["pagination"]["total"] == 15
+        assert payload1["pagination"]["page"] == 1
+        assert payload1["pagination"]["per_page"] == 5
+        assert payload1["pagination"]["total_pages"] == 3
+        assert len(payload1["results"]) == 5
+
+        page2 = test_client.get("/api/models/search?page=2&per_page=5")
+        assert page2.status_code == 200
+        payload2 = page2.json()
+        assert payload2["pagination"]["page"] == 2
+        assert len(payload2["results"]) == 5
+
+        page3 = test_client.get("/api/models/search?page=3&per_page=5")
+        assert page3.status_code == 200
+        payload3 = page3.json()
+        assert payload3["pagination"]["page"] == 3
+        assert len(payload3["results"]) == 5
+
+
+def test_model_search_filters_by_collection(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin", '["Gridfinity"]'),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack", '["Tools"]'),
+        ]
+        for model_url, public_id, name, collections_json in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    None,
+                    collections_json,
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?collection=Gridfinity")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["name"] == "Gridfinity Bin"
+
+        no_match = test_client.get("/api/models/search?collection=NonExistent")
+        assert no_match.status_code == 200
+        assert no_match.json()["pagination"]["total"] == 0
+
+
+def test_model_search_filters_by_creator(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/bin", "bin", "Bin", "Rysock"),
+            ("http://manyfold.test/models/rack", "rack", "Rack", "Someone"),
+        ]
+        for model_url, public_id, name, creator in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    creator,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?creator=Rysock")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["name"] == "Bin"

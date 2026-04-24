@@ -430,6 +430,56 @@ def _cleanup_sort_key(link: ArchiveModelLink) -> tuple[int, int, str, int]:
     )
 
 
+def _search_score(query_tokens: set[str], summary: ManyfoldModelSummary) -> float:
+    """Score a model based on query token overlap with name, collections, keywords, and creator."""
+    if not query_tokens:
+        return 0.0
+    
+    # Extract searchable tokens from model
+    searchable_text = f"{summary.name} {' '.join(summary.collection_names)} {' '.join(summary.keyword_names)} {summary.creator_name or ''}"
+    model_tokens = _normalize_tokens(searchable_text)
+    
+    if not model_tokens:
+        return 0.0
+    
+    # Exact name match is highest priority
+    name_tokens = _normalize_tokens(summary.name)
+    if query_tokens == name_tokens or query_tokens.issubset(name_tokens):
+        return 2.0
+    
+    # Overlap score
+    overlap = query_tokens.intersection(model_tokens)
+    if not overlap:
+        return 0.0
+    
+    return len(overlap) / max(len(query_tokens), len(model_tokens))
+
+
+def _matches_filters(
+    summary: ManyfoldModelSummary,
+    collection_filter: str | None = None,
+    creator_filter: str | None = None,
+    tag_filter: str | None = None,
+) -> bool:
+    """Check if model matches all provided filters."""
+    if collection_filter:
+        normalized_filter = collection_filter.lower().strip()
+        if not any(normalized_filter in name.lower() for name in summary.collection_names):
+            return False
+    
+    if creator_filter:
+        normalized_filter = creator_filter.lower().strip()
+        if not (summary.creator_name and normalized_filter in summary.creator_name.lower()):
+            return False
+    
+    if tag_filter:
+        normalized_filter = tag_filter.lower().strip()
+        if not any(normalized_filter in name.lower() for name in summary.keyword_names):
+            return False
+    
+    return True
+
+
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
     resolved_settings = settings or load_settings()
 
@@ -537,6 +587,88 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "source": source,
             "count": len(models),
             "models": models,
+        }
+
+    @app.get("/api/models/search")
+    def search_models(
+        q: str | None = None,
+        collection: str | None = None,
+        creator: str | None = None,
+        tag: str | None = None,
+        page: int = 1,
+        per_page: int = 10,
+    ) -> dict[str, Any]:
+        """Search curated catalog with pagination and filtering support."""
+        state: AppState = app.state.model_catalog
+        
+        # Clamp pagination parameters
+        page = max(1, page)
+        per_page = max(1, min(per_page, 100))
+        
+        # Get cached models (refresh if empty)
+        summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
+        if not summaries:
+            client: ManyfoldClient = app.state.manyfold_client
+            summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+        
+        # Parse search query into tokens
+        query_tokens = _normalize_tokens(q or "")
+        
+        # Get ranking and link count data
+        ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
+        link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
+        
+        # Filter and score models
+        scored_models: list[tuple[float, dict[str, Any]]] = []
+        for summary in summaries:
+            # Apply filters
+            if not _matches_filters(summary, collection, creator, tag):
+                continue
+            
+            # Calculate search score
+            score = _search_score(query_tokens, summary) if query_tokens else 1.0
+            
+            # Skip if query was provided but no match
+            if q and score <= 0:
+                continue
+            
+            # Build model payload
+            model_ref = summary.public_id or summary.model_id or summary.model_url
+            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
+            model_payload = _serialize_model_summary(
+                summary,
+                custom_fields=custom_fields,
+                ranking_by_url=ranking_by_url,
+                link_counts_by_url=link_counts_by_url,
+            )
+            
+            scored_models.append((score, model_payload))
+        
+        # Sort by score (descending), then by name
+        scored_models.sort(key=lambda x: (-x[0], x[1]["name"].lower()))
+        
+        # Paginate results
+        total = len(scored_models)
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated = scored_models[start_idx:end_idx]
+        
+        return {
+            "success": True,
+            "contract": "model-search.v1alpha1",
+            "query": q or "",
+            "filters": {
+                "collection": collection,
+                "creator": creator,
+                "tag": tag,
+            },
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "total_pages": (total + per_page - 1) // per_page,
+            },
+            "results": [model for _, model in paginated],
         }
 
     @app.get("/api/models/{model_ref:path}/fields")

@@ -46,6 +46,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._modelLinksBusy = false;
     this._modelLinksError = "";
     this._modelManualUrl = "";
+    // Model Search Modal state
+    this._modelSearchMode = false;
+    this._modelSearchQuery = "";
+    this._modelSearchCollection = "";
+    this._modelSearchCreator = "";
+    this._modelSearchTag = "";
+    this._modelSearchPage = 1;
+    this._modelSearchResults = [];
+    this._modelSearchTotalPages = 0;
+    this._modelSearchBusy = false;
+    this._modelSearchError = "";
   }
 
   setConfig(config) {
@@ -111,6 +122,17 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._modelLinksBusy = false;
     this._modelLinksError = "";
     this._modelManualUrl = "";
+    // Model Search Modal state reset
+    this._modelSearchMode = false;
+    this._modelSearchQuery = "";
+    this._modelSearchCollection = "";
+    this._modelSearchCreator = "";
+    this._modelSearchTag = "";
+    this._modelSearchPage = 1;
+    this._modelSearchResults = [];
+    this._modelSearchTotalPages = 0;
+    this._modelSearchBusy = false;
+    this._modelSearchError = "";
     this._render();
   }
 
@@ -623,6 +645,43 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._modelManualUrl = manualUrl;
       this._modelCatalogAction("create-manual-link", this._resolveCurrentArchiveId(), null,
         { manyfold_model_url: manualUrl });
+      return;
+    }
+    if (action === "model-search-library") {
+      this._modelSearchMode = true;
+      this._modelSearchQuery = "";
+      this._modelSearchCollection = "";
+      this._modelSearchCreator = "";
+      this._modelSearchTag = "";
+      this._modelSearchPage = 1;
+      this._modelSearchResults = [];
+      this._modelSearchTotalPages = 0;
+      this._modelSearchBusy = false;
+      this._modelSearchError = "";
+      this._render();
+      return;
+    }
+    if (action === "model-search-close") {
+      this._modelSearchMode = false;
+      this._render();
+      return;
+    }
+    if (action === "model-search-execute") {
+      this._executeModelSearch(1);
+      return;
+    }
+    if (action === "model-search-next-page") {
+      this._executeModelSearch(this._modelSearchPage + 1);
+      return;
+    }
+    if (action === "model-search-prev-page") {
+      this._executeModelSearch(Math.max(1, this._modelSearchPage - 1));
+      return;
+    }
+    if (action === "model-search-link-result") {
+      var resultUrl = button.getAttribute("data-result-url") || "";
+      this._modelCatalogAction("create-manual-link", this._resolveCurrentArchiveId(), null,
+        { manyfold_model_url: resultUrl });
       return;
     }
   }
@@ -3256,6 +3315,79 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     return baseUrl.replace(/\/$/, "");
   }
 
+  _renderModelSearchModal(archive) {
+    var archiveId = archive && archive.id ? String(archive.id) : "";
+    var searchHtml = '<div class="model-search-modal-overlay">'
+      + '<div class="model-search-modal">'
+      + '<div class="model-search-modal-header">'
+      + '<h2 class="model-search-modal-title">Search Model Library</h2>'
+      + '<button class="model-search-modal-close" type="button" data-action="model-search-close"><ha-icon icon="mdi:close"></ha-icon></button>'
+      + '</div>'
+      + '<div class="model-search-modal-body">'
+      + '<div class="model-search-form">'
+      + '<div class="model-search-field">'
+      + '<label for="model-search-q">Search</label>'
+      + '<input type="text" id="model-search-q" class="model-search-input" placeholder="Model name..." value="' + this._escapeHtml(this._modelSearchQuery) + '">'
+      + '</div>'
+      + '<div class="model-search-field">'
+      + '<label for="model-search-collection">Collection</label>'
+      + '<input type="text" id="model-search-collection" class="model-search-input" placeholder="e.g., Gridfinity..." value="' + this._escapeHtml(this._modelSearchCollection) + '">'
+      + '</div>'
+      + '<div class="model-search-field">'
+      + '<label for="model-search-creator">Creator</label>'
+      + '<input type="text" id="model-search-creator" class="model-search-input" placeholder="e.g., Rysock..." value="' + this._escapeHtml(this._modelSearchCreator) + '">'
+      + '</div>'
+      + '<div class="model-search-field">'
+      + '<label for="model-search-tag">Tag</label>'
+      + '<input type="text" id="model-search-tag" class="model-search-input" placeholder="e.g., storage..." value="' + this._escapeHtml(this._modelSearchTag) + '">'
+      + '</div>'
+      + '<button class="model-search-button" type="button" data-action="model-search-execute" ' + (this._modelSearchBusy ? "disabled" : "") + '>'
+      + (this._modelSearchBusy ? '<ha-icon icon="mdi:loading" class="spin-icon"></ha-icon> Searching…' : '<ha-icon icon="mdi:magnify"></ha-icon> Search')
+      + '</button>'
+      + '</div>';
+
+    if (this._modelSearchBusy) {
+      searchHtml += '<div class="model-search-results"><div class="model-search-loading"><ha-icon icon="mdi:loading" class="spin-icon"></ha-icon> Loading results…</div></div>';
+    } else if (this._modelSearchError) {
+      searchHtml += '<div class="model-search-results"><div class="model-search-error">' + this._escapeHtml(this._modelSearchError) + '</div></div>';
+    } else if (!this._modelSearchResults.length && this._modelSearchQuery) {
+      searchHtml += '<div class="model-search-results"><div class="model-search-empty"><p>No models found matching your search.</p></div></div>';
+    } else if (this._modelSearchResults.length) {
+      var self = this;
+      var resultsHtml = this._modelSearchResults.map(function (result) {
+        var resultUrl = result.model_url || "";
+        var resultName = result.name || "Unnamed Model";
+        var resultCreator = result.creator_name || "Unknown Creator";
+        var linkedCount = result.linked_archive_count || 0;
+        var collectionsList = (result.collection_names || []).join(", ") || "No Collection";
+        return '<div class="model-search-result-card">'
+          + '<div class="model-search-result-header">'
+          + '<div>'
+          + '<h3 class="model-search-result-name">' + self._escapeHtml(resultName) + '</h3>'
+          + '<p class="model-search-result-meta">' + self._escapeHtml(resultCreator) + ' / ' + self._escapeHtml(collectionsList) + '</p>'
+          + '</div>'
+          + '<button class="model-search-result-link" type="button" data-action="model-search-link-result" data-result-url="' + self._escapeHtml(resultUrl) + '"><ha-icon icon="mdi:link-variant"></ha-icon> Link</button>'
+          + '</div>'
+          + '<p class="model-search-result-linked">Linked to ' + String(linkedCount) + ' archive' + (linkedCount !== 1 ? 's' : '') + '</p>'
+          + '</div>';
+      }).join("");
+      var paginationHtml = this._modelSearchTotalPages > 1
+        ? '<div class="model-search-pagination">'
+          + (this._modelSearchPage > 1 ? '<button class="model-search-page-btn" type="button" data-action="model-search-prev-page"><ha-icon icon="mdi:chevron-left"></ha-icon> Previous</button>' : '')
+          + '<span class="model-search-page-info">Page ' + String(this._modelSearchPage) + ' of ' + String(this._modelSearchTotalPages) + '</span>'
+          + (this._modelSearchPage < this._modelSearchTotalPages ? '<button class="model-search-page-btn" type="button" data-action="model-search-next-page">Next <ha-icon icon="mdi:chevron-right"></ha-icon></button>' : '')
+          + '</div>'
+        : '';
+      searchHtml += '<div class="model-search-results">' + resultsHtml + paginationHtml + '</div>';
+    }
+
+    searchHtml += '</div>'
+      + '</div>'
+      + '</div>';
+
+    return searchHtml;
+  }
+
   async _loadModelLinks(archiveId) {
     if (!archiveId || this._modelLinksBusy) {
       return;
@@ -3276,6 +3408,59 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._modelLinks = [];
     } finally {
       this._modelLinksBusy = false;
+      this._lastRenderSignature = "";
+      this._render();
+    }
+  }
+
+  async _executeModelSearch(pageNumber) {
+    // Capture current form values
+    var qInput = this.shadowRoot ? this.shadowRoot.querySelector("#model-search-q") : null;
+    var collectionInput = this.shadowRoot ? this.shadowRoot.querySelector("#model-search-collection") : null;
+    var creatorInput = this.shadowRoot ? this.shadowRoot.querySelector("#model-search-creator") : null;
+    var tagInput = this.shadowRoot ? this.shadowRoot.querySelector("#model-search-tag") : null;
+    
+    this._modelSearchQuery = qInput ? String(qInput.value || "").trim() : "";
+    this._modelSearchCollection = collectionInput ? String(collectionInput.value || "").trim() : "";
+    this._modelSearchCreator = creatorInput ? String(creatorInput.value || "").trim() : "";
+    this._modelSearchTag = tagInput ? String(tagInput.value || "").trim() : "";
+    
+    var baseUrl = this._modelCatalogBaseUrl();
+    if (!baseUrl) {
+      this._modelSearchError = "Model catalog sidecar not configured";
+      this._render();
+      return;
+    }
+    
+    this._modelSearchPage = Math.max(1, pageNumber || 1);
+    this._modelSearchBusy = true;
+    this._modelSearchError = "";
+    this._lastRenderSignature = "";
+    this._render();
+    
+    try {
+      var queryParams = new URLSearchParams();
+      if (this._modelSearchQuery) queryParams.set("q", this._modelSearchQuery);
+      if (this._modelSearchCollection) queryParams.set("collection", this._modelSearchCollection);
+      if (this._modelSearchCreator) queryParams.set("creator", this._modelSearchCreator);
+      if (this._modelSearchTag) queryParams.set("tag", this._modelSearchTag);
+      queryParams.set("page", String(this._modelSearchPage));
+      queryParams.set("per_page", "10");
+      
+      var url = baseUrl + "/api/models/search?" + queryParams.toString();
+      var response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Search request failed: " + response.statusText);
+      }
+      var data = await response.json();
+      this._modelSearchResults = Array.isArray(data && data.results) ? data.results : [];
+      var paginationInfo = data && data.pagination ? data.pagination : {};
+      this._modelSearchTotalPages = paginationInfo.total_pages || 0;
+    } catch (err) {
+      this._modelSearchError = err && err.message ? String(err.message) : "Search failed";
+      this._modelSearchResults = [];
+    } finally {
+      this._modelSearchBusy = false;
       this._lastRenderSignature = "";
       this._render();
     }
@@ -3344,6 +3529,8 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
           relationship_type: "printed_from",
         });
         this._modelManualUrl = "";
+        // Close search modal if creating from search results
+        this._modelSearchMode = false;
         statusMessage = "Manual model link created.";
         statusTone = "success";
       }
@@ -3444,6 +3631,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       + '</div>';
 
     var header = '<div class="model-tab-toolbar">'
+      + '<button class="model-link-action-btn" type="button" data-action="model-search-library" ' + (this._modelLinksBusy ? "disabled" : "") + '><ha-icon icon="mdi:library-shelves"></ha-icon> Search Library</button>'
       + '<button class="model-link-action-btn" type="button" data-action="model-refresh-candidates" ' + (this._modelLinksBusy ? "disabled" : "") + '><ha-icon icon="mdi:magnify"></ha-icon> Find Candidates</button>'
       + '<button class="model-link-action-btn" type="button" data-action="model-reload-links" ' + (this._modelLinksBusy ? "disabled" : "") + '><ha-icon icon="mdi:refresh"></ha-icon> Reload</button>'
       + '</div>';
@@ -3629,23 +3817,60 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-manual-label{font-size:11px;font-weight:700;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}' +
       '.model-manual-input{background:rgba(9,14,23,0.78);border:1px solid rgba(148,163,184,0.20);border-radius:8px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:12px;width:100%;box-sizing:border-box;}' +
       '.model-manual-input:focus{outline:none;border-color:rgba(96,165,250,0.36);}' +
+      '.model-search-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}' +
+      '.model-search-modal{background:var(--card-background-color,rgba(15,23,42,0.95));border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:24px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,0.4);}' +
+      '.model-search-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;}' +
+      '.model-search-modal-title{font-size:18px;font-weight:700;line-height:1.35;margin:0;}' +
+      '.model-search-modal-close{appearance:none;-webkit-appearance:none;width:32px;height:32px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}' +
+      '.model-search-modal-close:hover{background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);}' +
+      '.model-search-modal-close ha-icon{--mdc-icon-size:20px;}' +
+      '.model-search-modal-body{display:flex;flex-direction:column;gap:16px;overflow:auto;}' +
+      '.model-search-form{display:grid;gap:12px;}' +
+      '.model-search-field{display:grid;gap:6px;}' +
+      '.model-search-field label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}' +
+      '.model-search-input{background:rgba(9,14,23,0.78);border:1px solid rgba(148,163,184,0.20);border-radius:8px;padding:8px 12px;color:var(--primary-text-color);font:inherit;font-size:12px;width:100%;box-sizing:border-box;}' +
+      '.model-search-input:focus{outline:none;border-color:rgba(96,165,250,0.36);}' +
+      '.model-search-button{appearance:none;-webkit-appearance:none;background:rgba(59,130,246,0.16);border:1px solid rgba(96,165,250,0.36);border-radius:999px;padding:10px 16px;color:var(--primary-text-color);font:inherit;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;}' +
+      '.model-search-button:hover:not(:disabled){background:rgba(59,130,246,0.24);}' +
+      '.model-search-button:disabled{opacity:.4;cursor:default;}' +
+      '.model-search-button .spin-icon{--mdc-icon-size:16px;animation:phaSpin 0.8s linear infinite;}' +
+      '.model-search-button ha-icon{--mdc-icon-size:16px;}' +
+      '.model-search-results{display:grid;gap:10px;}' +
+      '.model-search-loading,.model-search-empty,.model-search-error{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;color:var(--secondary-text-color);font-size:13px;text-align:center;}' +
+      '.model-search-error{color:var(--error-color,#cf6679);}' +
+      '.model-search-loading .spin-icon,.model-search-empty ha-icon,.model-search-error ha-icon{--mdc-icon-size:28px;}' +
+      '.model-search-result-card{border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:8px;}' +
+      '.model-search-result-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}' +
+      '.model-search-result-name{font-size:14px;font-weight:700;line-height:1.35;margin:0;word-break:break-word;}' +
+      '.model-search-result-meta{font-size:12px;line-height:1.4;color:var(--secondary-text-color);margin:4px 0 0;}' +
+      '.model-search-result-link{appearance:none;-webkit-appearance:none;border:1px solid rgba(96,165,250,0.36);background:rgba(59,130,246,0.12);border-radius:999px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;white-space:nowrap;}' +
+      '.model-search-result-link:hover{background:rgba(59,130,246,0.20);}' +
+      '.model-search-result-link ha-icon{--mdc-icon-size:14px;}' +
+      '.model-search-result-linked{font-size:11px;color:var(--secondary-text-color);margin:0;}' +
+      '.model-search-pagination{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px;border-top:1px solid rgba(255,255,255,0.08);margin-top:8px;}' +
+      '.model-search-page-info{font-size:12px;color:var(--secondary-text-color);}' +
+      '.model-search-page-btn{appearance:none;-webkit-appearance:none;border:1px solid rgba(96,165,250,0.36);background:rgba(59,130,246,0.12);border-radius:999px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}' +
+      '.model-search-page-btn:hover{background:rgba(59,130,246,0.20);}' +
+      '.model-search-page-btn ha-icon{--mdc-icon-size:14px;}' +
       '@media (max-width: 900px){.analytics-overview{grid-template-columns:repeat(2,minmax(0,1fr));}}' +
-      '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}' +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}}' +
+      '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}'  +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}.model-search-modal{max-width:100%;padding:16px;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +
       this._renderStatus() +
-      (confirmDelete
-        ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
-        : this._mode === "metadata"
-          ? this._renderMetadataView(archive)
-          : this._mode === "repair-chooser"
-            ? this._renderRepairChooserView(archive)
-          : this._mode === "correct-metadata"
-            ? this._renderMetadataCorrectionView(archive)
-          : this._mode === "related"
-            ? this._renderRelatedView(archive)
+      (this._modelSearchMode
+        ? this._renderModelSearchModal(archive)
+        : confirmDelete
+          ? this._renderDeleteConfirm(archive, this._mode === "confirm-delete-2")
+          : this._mode === "metadata"
+            ? this._renderMetadataView(archive)
+            : this._mode === "repair-chooser"
+              ? this._renderRepairChooserView(archive)
+            : this._mode === "correct-metadata"
+              ? this._renderMetadataCorrectionView(archive)
+            : this._mode === "related"
+              ? this._renderRelatedView(archive)
             : this._mode === "duplicates"
               ? this._renderDuplicatesView(archive)
             : this._mode === "compare"
