@@ -437,6 +437,22 @@ def test_normalize_model_summary_parses_tag_list_string() -> None:
     assert summary.keyword_names == ("Storage", "Lego", "functional")
 
 
+def test_normalize_model_summary_uses_preview_file_detail_url() -> None:
+    summary = normalize_model_summary(
+        "http://manyfold.test",
+        {
+            "@id": "/models/abc123",
+            "name": "Preview Model",
+            "preview_file_detail": {
+                "url": "http://manyfold.test/model_files/abc123/preview.png",
+                "encodingFormat": "image/png",
+            },
+        },
+    )
+
+    assert summary.preview_url == "http://manyfold.test/model_files/abc123/preview.png"
+
+
 def test_model_fields_can_be_addressed_by_full_model_url(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

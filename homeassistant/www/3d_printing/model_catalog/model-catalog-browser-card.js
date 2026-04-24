@@ -20,6 +20,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._boundClick = this._handleClick.bind(this);
     this._boundKeyDown = this._handleKeyDown.bind(this);
+    this._didInitialRender = false;
   }
 
   setConfig(config) {
@@ -34,11 +35,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   set hass(hass) {
+    var hadHass = !!this._hass;
     this._hass = hass;
     if (!this._results.length && !this._loading && !this._error) {
       this._loadPage(1, false);
     }
-    this._render();
+
+    // Avoid rerendering on every HA state update so text inputs keep focus/value
+    // while the operator is typing filter criteria.
+    if (!hadHass || !this._didInitialRender) {
+      this._didInitialRender = true;
+      this._render();
+    }
   }
 
   connectedCallback() {

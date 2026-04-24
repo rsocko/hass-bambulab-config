@@ -279,7 +279,7 @@ def normalize_model_summary(
     collection_lookup: dict[str, str] | None = None,
     model_to_collections: dict[str, list[str]] | None = None,
 ) -> ManyfoldModelSummary:
-    preview = payload.get("preview") or payload.get("preview_file") or {}
+    preview = payload.get("preview") or payload.get("preview_file_detail") or payload.get("preview_file") or {}
     creator = payload.get("creator") or payload.get("creator_id") or {}
     collections = payload.get("collections") or payload.get("collection_ids") or []
     keywords = payload.get("keywords") or payload.get("tags") or payload.get("tag_list") or []
@@ -318,12 +318,28 @@ def normalize_model_summary(
             if name:
                 resolved_collection_names.append(name)
 
+    preview_url = str(
+        preview.get("url")
+        or preview.get("thumbnail_url")
+        or preview.get("preview_url")
+        or preview.get("download_url")
+        or ""
+    ).strip() or None
+
+    # Last-resort fallback: if Manyfold gives only an image @id reference, map it
+    # to a canonical URL so the frontend can attempt rendering it.
+    if not preview_url and isinstance(preview, dict):
+        preview_ref = str(preview.get("@id") or "").strip()
+        preview_mime = str(preview.get("encodingFormat") or "").strip().lower()
+        if preview_ref and preview_mime.startswith("image/"):
+            preview_url = canonicalize_model_url(base_url, preview_ref)
+
     return ManyfoldModelSummary(
         model_url=model_url,
         public_id=str(payload.get("public_id") or "").strip() or None,
         model_id=model_id,
         name=str(payload.get("name") or payload.get("title") or "Unnamed Model").strip(),
-        preview_url=str(preview.get("url") or preview.get("thumbnail_url") or "").strip() or None,
+        preview_url=preview_url,
         creator_name=creator_name,
         collection_names=tuple(resolved_collection_names),
         keyword_names=tuple(filter(None, (_extract_name(item) for item in keywords))),
@@ -375,9 +391,27 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                         continue
                     try:
                         detail = client.get_model_detail(ref)
+                        merged = {**row, **detail}
+
+                        # Try to hydrate preview-file metadata for thumbnail URL fallback.
+                        preview_file = merged.get("preview_file")
+                        preview_ref = ""
+                        if isinstance(preview_file, dict):
+                            preview_ref = str(preview_file.get("@id") or preview_file.get("id") or "").strip()
+                        elif isinstance(preview_file, str):
+                            preview_ref = preview_file.strip()
+
+                        if preview_ref:
+                            try:
+                                preview_detail = client.get_model_file_detail(preview_ref, model_ref=ref)
+                                if isinstance(preview_detail, dict):
+                                    merged["preview_file_detail"] = preview_detail
+                            except Exception as preview_error:
+                                logger.debug(f"Failed to fetch preview file detail for model {ref}: {preview_error}")
+
                         # Merge detail fields into the list row so normalize_model_summary
                         # sees the full payload (name, isPartOf, creator, keywords, etc.)
-                        model_rows[index] = {**row, **detail}
+                        model_rows[index] = merged
                     except Exception as e:
                         logger.warning(f"Failed to fetch detail for model {ref}: {e}")
                 
