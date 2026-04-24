@@ -55,6 +55,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._modelSearchPage = 1;
     this._modelSearchResults = [];
     this._modelSearchTotalPages = 0;
+    this._modelSearchHasSearched = false;
     this._modelSearchBusy = false;
     this._modelSearchError = "";
   }
@@ -131,6 +132,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._modelSearchPage = 1;
     this._modelSearchResults = [];
     this._modelSearchTotalPages = 0;
+    this._modelSearchHasSearched = false;
     this._modelSearchBusy = false;
     this._modelSearchError = "";
     this._render();
@@ -656,6 +658,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._modelSearchPage = 1;
       this._modelSearchResults = [];
       this._modelSearchTotalPages = 0;
+      this._modelSearchHasSearched = false;
       this._modelSearchBusy = false;
       this._modelSearchError = "";
       this._render();
@@ -663,6 +666,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     if (action === "model-search-close") {
       this._modelSearchMode = false;
+      this._modelSearchHasSearched = false;
       this._render();
       return;
     }
@@ -3350,7 +3354,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       searchHtml += '<div class="model-search-results"><div class="model-search-loading"><ha-icon icon="mdi:loading" class="spin-icon"></ha-icon> Loading results…</div></div>';
     } else if (this._modelSearchError) {
       searchHtml += '<div class="model-search-results"><div class="model-search-error">' + this._escapeHtml(this._modelSearchError) + '</div></div>';
-    } else if (!this._modelSearchResults.length && this._modelSearchQuery) {
+    } else if (!this._modelSearchResults.length && this._modelSearchHasSearched) {
       searchHtml += '<div class="model-search-results"><div class="model-search-empty"><p>No models found matching your search.</p></div></div>';
     } else if (this._modelSearchResults.length) {
       var self = this;
@@ -3433,6 +3437,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
     
     this._modelSearchPage = Math.max(1, pageNumber || 1);
+    this._modelSearchHasSearched = true;
     this._modelSearchBusy = true;
     this._modelSearchError = "";
     this._lastRenderSignature = "";
