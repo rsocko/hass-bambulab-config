@@ -19,7 +19,7 @@ The approved baseline is:
 - a dedicated catalog sidecar owns cross-system linkage, Working-file veneer, ranking signals, and custom metadata that does not belong in Manyfold
 - Home Assistant is the operator-facing control plane
 
-External sources such as Printables and Makerworld are in scope for discovery, provenance capture, and optional ingestion. Publishing or broader social workflows remain out of scope.
+External sources such as Printables and Makerworld are in scope for discovery, provenance capture, and optional ingestion. Tracking publication destinations and links as operator-managed metadata is also in scope. Actual publish execution or broader social workflows remain out of scope.
 
 ## Key Decisions & Facts
 

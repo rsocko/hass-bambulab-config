@@ -59,12 +59,12 @@ Using a key/value row model rather than wide columns makes it straightforward to
 
 | Field key | JSON type | Allowed values | Issue |
 |---|---|---|---|
-| `origin_type` | string | `original`, `remix`, `derivative` | #171 |
-| `remix_source_url` | string | URL of original model if remix | #171 |
+| `origin_type` | string | `custom_unique`, `remix`, `derivative` | #171 |
+| `remix_source` | object | `{\"label\": \"Original model name\", \"platform\": \"makerworld\", \"url\": \"https://...\"}` when not unique | #171 |
 | `source_download_url` | string | Original download URL | #183 |
-| `source_platform` | string | `printables`, `makerworld`, `thingiverse`, `cults3d`, `other`, `original` | #183 |
-| `published_to` | array | `["Printables", "Makerworld"]` | #171 |
-| `published_urls` | object | `{"Printables": "https://..."}` | #171 |
+| `source_platform` | string | `makerworld`, `printables`, `thingiverse`, `cults3d`, `manyfold`, `other`, `original_local` | #183 |
+| `published_to` | array | `["makerworld", "printables"]` | #171 |
+| `published_urls` | object | `{"makerworld": "https://..."}` | #171 |
 | `catalog_quality_state` | string | `needs_preview`, `needs_tags`, `needs_photos`, `complete` | Internal |
 | `internal_notes` | string | Free-text private operator notes | #171 |
 | `to_print_status` | string | `none`, `queued`, `done` | #190 |
@@ -74,15 +74,29 @@ Using a key/value row model rather than wide columns makes it straightforward to
 
 ## Field Notes
 
-### `origin_type` (#171)
+### `origin_type` and `remix_source` (#171)
 
 Captures how this model came to exist:
 
-- `original` — designed from scratch by the operator
+- `custom_unique` — designed from scratch by the operator
 - `remix` — derived from another model, attribution expected
 - `derivative` — significantly changed from a source model; attribution situation may be ambiguous
 
-When `origin_type` is `remix` or `derivative`, `remix_source_url` should also be set.
+When `origin_type` is `remix` or `derivative`, `remix_source` should also be set so the operator can capture what it came from, not just whether it was remixed.
+
+Recommended `remix_source` shape:
+
+```json
+{
+  "label": "Gridfinity spool holder base",
+  "platform": "makerworld",
+  "url": "https://makerworld.com/..."
+}
+```
+
+This keeps the model flexible enough for a plain-text attribution now while leaving room for richer linked-source handling later.
+
+`remix_source.platform` should use the canonical platform IDs defined below so remix attribution, source provenance, and published-destination filters stay aligned.
 
 **Relationship to Manyfold `keywords`:** it is useful to also add a corresponding Manyfold tag (e.g., `remix`) for visual context in the Manyfold UI. The structured `origin_type` field in the sidecar DB is the machine-readable authority; the Manyfold tag is for human browse context.
 
@@ -96,17 +110,44 @@ Records where a model was originally found before entering the local library. Su
 
 These fields are set at ingestion time and are rarely changed.
 
+### Canonical Platform IDs
+
+Use these lowercase IDs anywhere a platform/destination needs to be stored in sidecar-owned model metadata:
+
+| ID | Intended meaning |
+|---|---|
+| `makerworld` | Published to or sourced from MakerWorld |
+| `printables` | Published to or sourced from Printables |
+| `thingiverse` | Published to or sourced from Thingiverse |
+| `cults3d` | Published to or sourced from Cults3D |
+| `manyfold` | Published to the operator's Manyfold instance or sourced from another Manyfold library |
+| `other` | Known external destination that does not have a dedicated enum value yet |
+| `original_local` | Locally created model with no external source platform |
+
+Usage rules:
+
+- `source_platform` may use any of the IDs above, including `original_local`
+- `published_to` must NOT use `original_local`; it should contain only actual publication destinations
+- `published_urls` keys should match the same canonical IDs used in `published_to`
+- UI can display friendly labels such as `MakerWorld` while storing canonical lowercase IDs
+
 ### `published_to` and `published_urls` (#171)
 
 Tracks platforms where the operator has published an original or remixed model externally. These are operator-maintained fields and are not automatically populated.
+
+Design intent:
+
+- `published_to` is the lightweight multi-value picker / list used by browse cards, filters, and quick status checks
+- `published_urls` is optional detail for later phases when the operator wants direct links per destination
 
 Example:
 
 ```json
 {
-  "published_to": ["Printables"],
+  "published_to": ["makerworld", "printables"],
   "published_urls": {
-    "Printables": "https://www.printables.com/model/12345"
+    "makerworld": "https://makerworld.com/...",
+    "printables": "https://www.printables.com/model/12345"
   }
 }
 ```

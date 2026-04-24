@@ -102,14 +102,14 @@ Must support:
 
 - grid/list toggle or density variation
 - preview-first browsing
-- filters for collection, tags, queue state, and archive-derived ranking
+- filters for collection, tags, queue state, archive-derived ranking, origin/remix state, and published destination
 - quick actions for open, queue, and archive drill-in
 
 Important content hierarchy:
 
 1. preview and title
 2. queue/frequency/recent signals
-3. core metadata such as collection or tags
+3. core metadata such as collection, origin/remix state, or published destination hints
 4. linked archive count or last printed signal
 
 ### Low-Fi Visual
@@ -119,13 +119,17 @@ Important content hierarchy:
 │ Curated Catalog Browser                                                     │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Search: [gridfinity holder________________]  View: [Grid v]  Sort: Recent   │
-│ Filters: [Collection v] [Tags v] [Queue v] [Recent] [Frequent] [Common]     │
+│ Filters: [Collection v] [Tags v] [Queue v] [Origin v] [Published v]         │
+│ Signals: [Recent] [Frequent] [Common]                                        │
 │                                                                              │
 │ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐              │
 │ │ [preview image]  │ │ [preview image]  │ │ [preview image]  │              │
 │ │ Gridfinity Bit   │ │ Hex Driver Rack  │ │ Scraper Handle   │              │
 │ │ Holder           │ │                  │ │                  │              │
 │ │ queued   recent  │ │ frequent         │ │ last print 15d   │              │
+│ │ custom unique    │ │ remix            │ │ published:       │              │
+│ │ published:       │ │ of: tool rack v1 │ │ makerworld       │              │
+│ │ makerworld       │ │                  │ │                  │              │
 │ │ archives: 7      │ │ archives: 12     │ │ archives: 3      │              │
 │ │ tags: holder ... │ │ tags: tool ...   │ │ tags: scraper... │              │
 │ │ [Open] [Queue]   │ │ [Open] [Queue]   │ │ [Open] [Queue]   │              │
@@ -146,12 +150,20 @@ Important content hierarchy:
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [preview] Gridfinity Bit Holder   queued   recent   archives: 7  [Open]     │
-│          collection: Shop / Gridfinity   tags: holder · tool                │
+│          collection: Shop / Gridfinity   custom unique   pub: makerworld    │
+│          tags: holder · tool                                                │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ [preview] Hex Driver Rack         frequent archives: 12      [Open] [Queue] │
-│          collection: Shop / Tools       tags: tool · rack                   │
+│          collection: Shop / Tools       remix of: rack v1                   │
+│          tags: tool · rack                                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Field Behavior Notes
+
+- `Origin` filter is backed by `origin_type` and should offer `custom unique`, `remix`, and `derivative`
+- `Published` filter is backed by `published_to` and should use canonical destination IDs while rendering friendly labels in the UI
+- browse cards should show at most one compact publication hint inline; full destination list belongs in detail view or expanded metadata
 
 ## Surface 3: Working Board
 
@@ -201,7 +213,9 @@ Important distinction:
 │ Working Group: Gridfinity Bit Holder v3                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │ Stage: Ready To Publish       Related curated model: v2            │
+│ Origin: Remix of Gridfinity base tray                              │
 │ Source URLs: Makerworld, local remix                               │
+│ Published: makerworld, printables                                  │
 │ Notes: widened bit sockets, reinforced wall                        │
 │                                                                     │
 │ Files                                                                │
@@ -213,6 +227,8 @@ Important distinction:
 │ [Open Primary] [Open Folder] [Attach File] [Publish To Catalog]    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+Working detail should surface provenance and publication metadata when already known, even if the primary editing affordance lives on the curated model later.
 
 ## Surface 4: Backlog / Queue
 

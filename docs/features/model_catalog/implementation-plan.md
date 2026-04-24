@@ -123,6 +123,7 @@ Work items:
   - linked archive count
   - recent/common/frequent indicators
   - queue state
+- leave richer provenance and publish-destination metadata out of this phase so the shipped Phase 3 browse/ranking slice stays narrow
 - add filtered backlog/queue view in HA
 
 Deliverables:
@@ -150,6 +151,12 @@ Work items:
   - attach/detach files
   - set stage/status
   - mark a primary file
+- add curated-model provenance metadata fields and operator editing surface for:
+  - `origin_type` with explicit `custom_unique` vs `remix`/`derivative`
+  - `remix_source` for "remix of what" capture
+  - `published_to` as a multi-destination picker/list
+  - optional `published_urls` map for later direct-link support per destination
+- expose these fields in HA and sidecar APIs as sidecar-owned metadata, not as Manyfold-native fields
 - add HA Working-group board and detail view
 - support quick-open actions for group folder or primary file
 
@@ -158,6 +165,7 @@ Deliverables:
 - Working files become visible and manageable from HA
 - group-oriented workflow exists without Manyfold ownership of active edits
 - Working reacquisition and duplicate-handling rules exist before publish-to-curated flows become common
+- custom/remix provenance and external publish-destination tracking are available as operator-managed model metadata without pulling this work earlier than Phase 3
 
 ### Phase 5: Publish Workflow And Revision Lineage
 
