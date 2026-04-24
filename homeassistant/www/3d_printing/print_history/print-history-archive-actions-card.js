@@ -3817,14 +3817,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-manual-label{font-size:11px;font-weight:700;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}' +
       '.model-manual-input{background:rgba(9,14,23,0.78);border:1px solid rgba(148,163,184,0.20);border-radius:8px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:12px;width:100%;box-sizing:border-box;}' +
       '.model-manual-input:focus{outline:none;border-color:rgba(96,165,250,0.36);}' +
-      '.model-search-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}' +
-      '.model-search-modal{background:var(--card-background-color,rgba(15,23,42,0.95));border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:24px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,0.4);}' +
+      '.model-search-modal-overlay{display:block;width:100%;padding:0;}' +
+      '.model-search-modal{background:var(--card-background-color,rgba(15,23,42,0.95));border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:16px;max-width:none;width:100%;max-height:min(68vh,720px);display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 36px rgba(0,0,0,0.28);overflow:hidden;}' +
       '.model-search-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;}' +
       '.model-search-modal-title{font-size:18px;font-weight:700;line-height:1.35;margin:0;}' +
       '.model-search-modal-close{appearance:none;-webkit-appearance:none;width:32px;height:32px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}' +
       '.model-search-modal-close:hover{background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);}' +
       '.model-search-modal-close ha-icon{--mdc-icon-size:20px;}' +
-      '.model-search-modal-body{display:flex;flex-direction:column;gap:16px;overflow:auto;}' +
+      '.model-search-modal-body{display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:4px;}' +
       '.model-search-form{display:grid;gap:12px;}' +
       '.model-search-field{display:grid;gap:6px;}' +
       '.model-search-field label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}' +
@@ -3854,7 +3854,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-search-page-btn ha-icon{--mdc-icon-size:14px;}' +
       '@media (max-width: 900px){.analytics-overview{grid-template-columns:repeat(2,minmax(0,1fr));}}' +
       '@media (max-width: 700px){.main-tablist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;}.main-tab-button{width:100%;padding:12px 10px;white-space:normal;}.main-tab-button span{text-align:center;}}'  +
-      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}.model-search-modal{max-width:100%;padding:16px;}}' +
+      '@media (max-width: 520px){.summary-grid{grid-template-columns:1fr;}.summary-preview{width:100%;height:140px;}.actions-grid{grid-template-columns:1fr;}.storage-grid{grid-template-columns:1fr;}.metadata-form-grid{grid-template-columns:1fr;}.json-panel-summary{align-items:flex-start;flex-direction:column;}.json-copy-button{width:100%;}.main-tablist{grid-template-columns:1fr;}.analytics-overview{grid-template-columns:1fr;}.model-search-modal{max-height:min(62vh,640px);padding:14px;}}' +
       '</style>' +
       '<div class="shell">' +
       this._renderSummary(archive) +
