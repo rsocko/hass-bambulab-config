@@ -7,7 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key
+from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key, set_model_field
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
@@ -2744,3 +2744,176 @@ def test_model_search_clamps_invalid_pagination_values(tmp_path: Path) -> None:
         assert payload["pagination"]["per_page"] == 1
         assert payload["pagination"]["total"] == 3
         assert len(payload["results"]) == 1
+
+
+def test_model_search_filters_by_to_print_status(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/queued-model", "queued-model", "Queued Model"),
+            ("http://manyfold.test/models/done-model", "done-model", "Done Model"),
+        ]
+        for model_url, public_id, name in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="queued-model",
+        field_key="to_print_status",
+        field_value="queued",
+    )
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="done-model",
+        field_key="to_print_status",
+        field_value="done",
+    )
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?to_print_status=queued")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["filters"]["to_print_status"] == "queued"
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["name"] == "Queued Model"
+
+
+def test_model_search_supports_recent_sorting(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/older", "older", "Older"),
+            ("http://manyfold.test/models/newer", "newer", "Newer"),
+            ("http://manyfold.test/models/no-history", "no-history", "No History"),
+        ]
+        for model_url, public_id, name in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+
+        connection.execute(
+            """
+            INSERT INTO model_catalog_model_ranking (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                last_printed_at,
+                linked_archive_count,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/older",
+                "older",
+                "2026-04-21T12:00:00Z",
+                1,
+                1,
+                0.4,
+                0.4,
+                0.4,
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO model_catalog_model_ranking (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                last_printed_at,
+                linked_archive_count,
+                print_count,
+                recent_score,
+                frequent_score,
+                common_score,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/newer",
+                "newer",
+                "2026-04-23T12:00:00Z",
+                1,
+                1,
+                0.9,
+                0.5,
+                0.5,
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?sort=recent")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["sort"] == "recent"
+        assert payload["results"][0]["name"] == "Newer"
+        assert payload["results"][1]["name"] == "Older"

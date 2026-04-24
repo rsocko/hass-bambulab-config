@@ -1,0 +1,8 @@
+title: Model Catalog
+path: model-catalog
+icon: mdi:bookshelf
+panel: true
+cards:
+  - type: custom:model-catalog-browser-card
+    title: Curated Catalog Browser
+    per_page: 12

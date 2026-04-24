@@ -861,6 +861,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         collection: str | None = None,
         creator: str | None = None,
         tag: str | None = None,
+        to_print_status: str | None = None,
+        sort: str = "best",
         refresh: bool = False,
         page: int = 1,
         per_page: int = 10,
@@ -896,6 +898,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             # Apply filters
             if not _matches_filters(summary, collection, creator, tag):
                 continue
+
+            model_ref = summary.public_id or summary.model_id or summary.model_url
+            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
+            if to_print_status and str(custom_fields.get("to_print_status") or "") != str(to_print_status):
+                continue
             
             # Calculate search score
             score = _search_score(query_tokens, summary) if query_tokens else 1.0
@@ -905,8 +912,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 continue
             
             # Build model payload
-            model_ref = summary.public_id or summary.model_id or summary.model_url
-            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
             model_payload = _serialize_model_summary(
                 summary,
                 custom_fields=custom_fields,
@@ -915,9 +920,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
             
             scored_models.append((score, model_payload))
-        
-        # Sort by score (descending), then by name
-        scored_models.sort(key=lambda x: (-x[0], x[1]["name"].lower()))
+
+        normalized_sort = str(sort or "best").strip().lower()
+        if normalized_sort == "best":
+            # Keep score-first relevance ordering for explicit text search queries.
+            # Fall back to name ordering when no query is provided.
+            if query_tokens:
+                scored_models.sort(key=lambda item: (-item[0], item[1]["name"].lower()))
+            else:
+                scored_models.sort(key=lambda item: _sort_value(item[1], "name"))
+        else:
+            scored_models.sort(key=lambda item: _sort_value(item[1], normalized_sort))
         
         # Paginate results
         total = len(scored_models)
@@ -933,7 +946,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "collection": collection,
                 "creator": creator,
                 "tag": tag,
+                "to_print_status": to_print_status,
             },
+            "sort": normalized_sort,
             "pagination": {
                 "page": page,
                 "per_page": per_page,
