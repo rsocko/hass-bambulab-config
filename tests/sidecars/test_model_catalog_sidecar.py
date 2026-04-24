@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key
 from sidecars.model_catalog.app.main import create_app
-from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, refresh_manyfold_cache
+from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
 from sidecars.model_catalog.app.settings import Settings
 
@@ -259,6 +259,51 @@ def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) ->
         payload = response.json()
         assert payload["pagination"]["total"] == 1
         assert payload["results"][0]["public_id"] == "transformers-live"
+
+
+def test_refresh_manyfold_cache_hydrates_collections_from_model_detail_when_list_omits_collections(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    class _HydrationClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return [
+                {
+                    "@id": "/models/alpha-bin",
+                    "public_id": "alpha-bin",
+                    "name": "Alpha Bin",
+                }
+            ]
+
+        def list_collections(self):
+            return [
+                {
+                    "@id": "/collections/42",
+                    "name": "Storage",
+                }
+            ]
+
+        def list_creators(self):
+            return []
+
+        def get_model_detail(self, model_ref: str):
+            assert model_ref == "alpha-bin"
+            return {
+                "@id": "/models/alpha-bin",
+                "public_id": "alpha-bin",
+                "name": "Alpha Bin",
+                "collections": [{"@id": "/collections/42"}],
+            }
+
+    summaries = refresh_manyfold_cache(db_path=settings.db_path, client=_HydrationClient())
+    assert len(summaries) == 1
+    assert summaries[0].collection_names == ("Storage",)
+
+    cached = read_cached_manyfold_summaries(db_path=settings.db_path)
+    assert len(cached) == 1
+    assert cached[0].collection_names == ("Storage",)
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:

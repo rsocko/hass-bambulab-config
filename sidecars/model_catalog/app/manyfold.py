@@ -120,6 +120,19 @@ def _resolve_lookup_name(value: Any, lookup: dict[str, str] | None) -> str | Non
     return None
 
 
+def _model_ref_from_payload(payload: dict[str, Any]) -> str | None:
+    public_id = str(payload.get("public_id") or "").strip()
+    if public_id:
+        return public_id
+
+    model_id = _extract_model_id(payload)
+    if model_id:
+        return model_id
+
+    ref = str(payload.get("@id") or payload.get("url") or "").strip()
+    return ref or None
+
+
 class ManyfoldClient:
     def __init__(
         self,
@@ -333,6 +346,31 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
             )
             for row in model_rows
         ]
+
+        # Fallback for deployments where list payloads omit collection refs.
+        # If we have a collection lookup but zero resolved collection names, hydrate from detail endpoints.
+        if collection_lookup and summaries and all(not summary.collection_names for summary in summaries):
+            logger.warning("No collection names resolved from list payload; attempting model-detail hydration.")
+            for index, row in enumerate(model_rows):
+                if not hasattr(client, "get_model_detail"):
+                    break
+                ref = _model_ref_from_payload(row)
+                if not ref:
+                    continue
+                try:
+                    detail_payload = client.get_model_detail(ref)
+                except Exception as e:
+                    logger.warning("Failed to hydrate model detail for %s: %s", ref, e)
+                    continue
+
+                merged_payload = {**row, **detail_payload}
+                model_rows[index] = merged_payload
+                summaries[index] = normalize_model_summary(
+                    client.base_url,
+                    merged_payload,
+                    creator_lookup=creator_lookup,
+                    collection_lookup=collection_lookup,
+                )
     else:
         summaries = client.list_models()
     connection = connect(db_path)
