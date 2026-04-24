@@ -238,6 +238,7 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
     connection = connect(db_path)
     try:
         refreshed_at = utc_now_iso()
+        active_model_keys: list[str] = []
         for index, summary in enumerate(summaries):
             raw_payload = model_rows[index] if model_rows is not None else asdict(summary)
             model_key = derive_manyfold_model_key(
@@ -245,6 +246,7 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                 manyfold_model_public_id=summary.public_id,
                 manyfold_model_id=summary.model_id,
             )
+            active_model_keys.append(model_key)
             connection.execute(
                 """
                 INSERT INTO manyfold_model_summary_cache (
@@ -286,6 +288,15 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                     refreshed_at,
                 ),
             )
+
+        if active_model_keys:
+            placeholders = ",".join("?" for _ in active_model_keys)
+            connection.execute(
+                f"DELETE FROM manyfold_model_summary_cache WHERE COALESCE(manyfold_model_key, '') NOT IN ({placeholders})",
+                tuple(active_model_keys),
+            )
+        else:
+            connection.execute("DELETE FROM manyfold_model_summary_cache")
         connection.commit()
     finally:
         connection.close()

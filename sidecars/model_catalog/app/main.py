@@ -595,6 +595,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         collection: str | None = None,
         creator: str | None = None,
         tag: str | None = None,
+        refresh: bool = False,
         page: int = 1,
         per_page: int = 10,
     ) -> dict[str, Any]:
@@ -605,9 +606,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         page = max(1, page)
         per_page = max(1, min(per_page, 100))
         
-        # Get cached models (refresh if empty)
+        # Get cached models (refresh if requested or empty)
         summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
-        if not summaries:
+        if refresh or not summaries:
             client: ManyfoldClient = app.state.manyfold_client
             summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
         

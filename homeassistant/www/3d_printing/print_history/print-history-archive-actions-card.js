@@ -3444,6 +3444,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         collection: this._modelSearchCollection,
         creator: this._modelSearchCreator,
         tag: this._modelSearchTag,
+        refresh: true,
         page: this._modelSearchPage,
         per_page: 10,
       });

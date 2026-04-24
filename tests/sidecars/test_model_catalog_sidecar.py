@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key
 from sidecars.model_catalog.app.main import create_app
-from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary
+from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
 from sidecars.model_catalog.app.settings import Settings
 
@@ -139,6 +139,126 @@ def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(t
         manyfold_model_public_id="starscream",
         manyfold_model_id="101",
     )
+
+
+def test_refresh_manyfold_cache_prunes_stale_rows(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:stale-model",
+                "http://manyfold.test/models/stale-model",
+                "stale-model",
+                "Stale Model",
+                "999",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _StubClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return [{"@id": "/models/live-model", "public_id": "live-model", "name": "Live Model"}]
+
+    refresh_manyfold_cache(db_path=settings.db_path, client=_StubClient())
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        rows = connection.execute(
+            "SELECT manyfold_model_key, manyfold_model_url, manyfold_model_name FROM manyfold_model_summary_cache ORDER BY manyfold_model_name"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert len(rows) == 1
+    assert rows[0][0] == "public:live-model"
+    assert rows[0][1] == "http://manyfold.test/models/live-model"
+    assert rows[0][2] == "Live Model"
+
+
+def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:transformers-stale",
+                "http://manyfold.test/models/transformers-stale",
+                "transformers-stale",
+                "Transformers Devastation Starscream Action Figure",
+                "stale",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _SearchClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return [{"@id": "/models/transformers-live", "public_id": "transformers-live", "name": "Transformers Devastation Starscream Action Figure"}]
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_SearchClient())
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?q=transformers&refresh=true")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["public_id"] == "transformers-live"
 
 
 def test_normalize_model_summary_handles_nested_manyfold_shapes() -> None:
