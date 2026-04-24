@@ -77,7 +77,6 @@ def _lookup_keys(value: Any) -> tuple[str, ...]:
                 parts = [segment for segment in path.split("/") if segment]
                 if parts:
                     keys.append(parts[-1])
-
     if isinstance(value, dict):
         _add(value.get("id"))
         _add(value.get("@id"))
@@ -318,8 +317,12 @@ def normalize_model_summary(
             if name:
                 resolved_collection_names.append(name)
 
+    # Priority: contentUrl (resolved preview file) > fallback URL fields
+    # contentUrl is a relative path like /models/{id}/model_files/{fid}.{ext}
+    # which Manyfold serves with proper image headers and content negotiation.
     preview_url = str(
-        preview.get("url")
+        preview.get("contentUrl")
+        or preview.get("url")
         or preview.get("thumbnail_url")
         or preview.get("preview_url")
         or preview.get("download_url")
@@ -393,11 +396,20 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
                         detail = client.get_model_detail(ref)
                         merged = {**row, **detail}
 
-                        # Note: Preview file detail hydration is not fetched during cache refresh.
-                        # Manyfold's preview_file references (preview_file.@id) don't correspond to
-                        # valid downloadable image URLs, so they would render as broken images.
-                        # Images can be improved in a future phase with better Manyfold integration.
-                        # For now, models show with name/creator/collection metadata but no preview images.
+                        # Resolve preview_file @id to model file details, which include contentUrl.
+                        preview_file_ref = detail.get("preview_file")
+                        if isinstance(preview_file_ref, dict):
+                            preview_file_id = str(preview_file_ref.get("@id") or "").strip()
+                            if preview_file_id:
+                                try:
+                                    merged["preview_file_detail"] = client.get_model_file_detail(
+                                        preview_file_id,
+                                        model_ref=ref,
+                                    )
+                                except Exception as preview_error:
+                                    logger.debug(
+                                        f"Failed to fetch preview details for model {ref}: {preview_error}"
+                                    )
 
                         # Merge detail fields into the list row so normalize_model_summary
                         # sees the full payload (name, isPartOf, creator, keywords, etc.)
