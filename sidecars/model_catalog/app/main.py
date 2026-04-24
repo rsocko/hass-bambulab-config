@@ -684,6 +684,65 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             **_image_metadata(state.settings),
         }
 
+    @app.get("/debug/manyfold-collections")
+    def debug_manyfold_collections() -> dict[str, Any]:
+        """Debug endpoint to test Manyfold collection API access and population."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        result: dict[str, Any] = {
+            "manyfold_base_url": state.settings.manyfold_base_url,
+            "collections_endpoint": state.settings.manyfold_collections_path,
+            "oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
+            "steps": [],
+        }
+        
+        try:
+            step1 = {"action": "list_models", "status": "pending"}
+            result["steps"].append(step1)
+            models = client.list_model_payloads()
+            step1["status"] = "ok"
+            step1["count"] = len(models)
+            if models:
+                step1["sample_model"] = {
+                    "name": models[0].get("name"),
+                    "has_collections_key": "collections" in models[0],
+                    "has_collection_ids_key": "collection_ids" in models[0],
+                    "collections_value": models[0].get("collections"),
+                }
+        except Exception as e:
+            step1["status"] = "failed"
+            step1["error"] = str(e)
+        
+        try:
+            step2 = {"action": "list_collections", "status": "pending"}
+            result["steps"].append(step2)
+            collections = client.list_collections()
+            step2["status"] = "ok"
+            step2["count"] = len(collections)
+            if collections:
+                step2["sample_collections"] = [
+                    {"name": c.get("name"), "@id": c.get("@id"), "id": c.get("id")}
+                    for c in collections[:3]
+                ]
+        except Exception as e:
+            step2["status"] = "failed"
+            step2["error"] = str(e)
+        
+        try:
+            if models and models[0].get("@id"):
+                step3 = {"action": "get_model_detail", "status": "pending", "model_ref": models[0].get("@id")}
+                result["steps"].append(step3)
+                detail = client.get_model_detail(models[0].get("@id"))
+                step3["status"] = "ok"
+                step3["has_collections_in_detail"] = "collections" in detail
+                step3["collections_in_detail"] = detail.get("collections", [])[:2]
+        except Exception as e:
+            step3["status"] = "failed"
+            step3["error"] = str(e)
+        
+        return result
+
     @app.get("/api/models")
     def list_models(
         refresh: bool = False,
