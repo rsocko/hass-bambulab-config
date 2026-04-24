@@ -3439,25 +3439,23 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._render();
     
     try {
-      var queryParams = new URLSearchParams();
-      if (this._modelSearchQuery) queryParams.set("q", this._modelSearchQuery);
-      if (this._modelSearchCollection) queryParams.set("collection", this._modelSearchCollection);
-      if (this._modelSearchCreator) queryParams.set("creator", this._modelSearchCreator);
-      if (this._modelSearchTag) queryParams.set("tag", this._modelSearchTag);
-      queryParams.set("page", String(this._modelSearchPage));
-      queryParams.set("per_page", "10");
-      
-      var url = baseUrl + "/api/models/search?" + queryParams.toString();
-      var response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Search request failed: " + response.statusText);
-      }
-      var data = await response.json();
+      var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", {
+        q: this._modelSearchQuery,
+        collection: this._modelSearchCollection,
+        creator: this._modelSearchCreator,
+        tag: this._modelSearchTag,
+        page: this._modelSearchPage,
+        per_page: 10,
+      });
       this._modelSearchResults = Array.isArray(data && data.results) ? data.results : [];
       var paginationInfo = data && data.pagination ? data.pagination : {};
       this._modelSearchTotalPages = paginationInfo.total_pages || 0;
     } catch (err) {
-      this._modelSearchError = err && err.message ? String(err.message) : "Search failed";
+      var message = err && err.message ? String(err.message) : "Search failed";
+      if (message === "Failed to fetch") {
+        message = "Search request failed. Verify the model catalog sidecar URL is reachable from Home Assistant.";
+      }
+      this._modelSearchError = message;
       this._modelSearchResults = [];
     } finally {
       this._modelSearchBusy = false;
@@ -3817,14 +3815,14 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-manual-label{font-size:11px;font-weight:700;color:var(--secondary-text-color);text-transform:uppercase;letter-spacing:.06em;}' +
       '.model-manual-input{background:rgba(9,14,23,0.78);border:1px solid rgba(148,163,184,0.20);border-radius:8px;padding:6px 10px;color:var(--primary-text-color);font:inherit;font-size:12px;width:100%;box-sizing:border-box;}' +
       '.model-manual-input:focus{outline:none;border-color:rgba(96,165,250,0.36);}' +
-      '.model-search-modal-overlay{display:block;width:100%;padding:0;}' +
-      '.model-search-modal{background:var(--card-background-color,rgba(15,23,42,0.95));border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:16px;max-width:none;width:100%;max-height:min(68vh,720px);display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 36px rgba(0,0,0,0.28);overflow:hidden;}' +
+      '.model-search-modal-overlay{display:block;width:100%;padding:0;box-sizing:border-box;overflow-x:hidden;}' +
+      '.model-search-modal{background:var(--card-background-color,rgba(15,23,42,0.95));border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:16px;max-width:none;width:100%;max-height:min(68vh,720px);display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 36px rgba(0,0,0,0.28);overflow:hidden;box-sizing:border-box;}' +
       '.model-search-modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;}' +
       '.model-search-modal-title{font-size:18px;font-weight:700;line-height:1.35;margin:0;}' +
       '.model-search-modal-close{appearance:none;-webkit-appearance:none;width:32px;height:32px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.92);color:var(--primary-text-color);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}' +
       '.model-search-modal-close:hover{background:rgba(30,41,59,0.96);border-color:rgba(96,165,250,0.36);}' +
       '.model-search-modal-close ha-icon{--mdc-icon-size:20px;}' +
-      '.model-search-modal-body{display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:4px;}' +
+      '.model-search-modal-body{display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:4px;box-sizing:border-box;min-width:0;}' +
       '.model-search-form{display:grid;gap:12px;}' +
       '.model-search-field{display:grid;gap:6px;}' +
       '.model-search-field label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}' +
@@ -3835,7 +3833,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       '.model-search-button:disabled{opacity:.4;cursor:default;}' +
       '.model-search-button .spin-icon{--mdc-icon-size:16px;animation:phaSpin 0.8s linear infinite;}' +
       '.model-search-button ha-icon{--mdc-icon-size:16px;}' +
-      '.model-search-results{display:grid;gap:10px;}' +
+      '.model-search-results{display:grid;gap:10px;min-width:0;}' +
       '.model-search-loading,.model-search-empty,.model-search-error{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;color:var(--secondary-text-color);font-size:13px;text-align:center;}' +
       '.model-search-error{color:var(--error-color,#cf6679);}' +
       '.model-search-loading .spin-icon,.model-search-empty ha-icon,.model-search-error ha-icon{--mdc-icon-size:28px;}' +

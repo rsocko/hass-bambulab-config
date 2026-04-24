@@ -2267,3 +2267,117 @@ def test_model_search_filters_by_creator(tmp_path: Path) -> None:
         payload = response.json()
         assert payload["pagination"]["total"] == 1
         assert payload["results"][0]["name"] == "Bin"
+
+
+def test_model_search_filters_by_tag(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        models = [
+            ("http://manyfold.test/models/bin", "bin", "Bin", '["storage", "gridfinity"]'),
+            ("http://manyfold.test/models/rack", "rack", "Rack", '["workshop"]'),
+        ]
+        for model_url, public_id, name, tags_json in models:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    public_id,
+                    None,
+                    None,
+                    "[]",
+                    tags_json,
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?tag=grid")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["name"] == "Bin"
+
+        no_match = test_client.get("/api/models/search?tag=nonexistent")
+        assert no_match.status_code == 200
+        assert no_match.json()["pagination"]["total"] == 0
+
+
+def test_model_search_clamps_invalid_pagination_values(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for i in range(3):
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"http://manyfold.test/models/model-{i}",
+                    f"model-{i}",
+                    f"Model {i}",
+                    f"model-{i}",
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?page=0&per_page=999")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["page"] == 1
+        assert payload["pagination"]["per_page"] == 100
+        assert payload["pagination"]["total"] == 3
+        assert len(payload["results"]) == 3
+
+        response = test_client.get("/api/models/search?page=-5&per_page=0")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["page"] == 1
+        assert payload["pagination"]["per_page"] == 1
+        assert payload["pagination"]["total"] == 3
+        assert len(payload["results"]) == 1

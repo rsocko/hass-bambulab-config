@@ -1,0 +1,21 @@
+# Search curated model catalog with optional filters and pagination.
+# Routes browser UI requests through Home Assistant to avoid direct browser-to-sidecar CORS/network issues.
+model_catalog_search_models:
+  url: >-
+    {% set ns = namespace(params=[]) %}
+    {% if q is defined and (q | string | trim) != '' %}
+      {% set ns.params = ns.params + ['q=' ~ ((q | string) | urlencode)] %}
+    {% endif %}
+    {% if collection is defined and (collection | string | trim) != '' %}
+      {% set ns.params = ns.params + ['collection=' ~ ((collection | string) | urlencode)] %}
+    {% endif %}
+    {% if creator is defined and (creator | string | trim) != '' %}
+      {% set ns.params = ns.params + ['creator=' ~ ((creator | string) | urlencode)] %}
+    {% endif %}
+    {% if tag is defined and (tag | string | trim) != '' %}
+      {% set ns.params = ns.params + ['tag=' ~ ((tag | string) | urlencode)] %}
+    {% endif %}
+    {% set ns.params = ns.params + ['page=' ~ ((page | default(1)) | int(1) | string)] %}
+    {% set ns.params = ns.params + ['per_page=' ~ ((per_page | default(10)) | int(10) | string)] %}
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/models/search{% if ns.params | count > 0 %}?{{ ns.params | join('&') }}{% endif %}
+  method: GET
