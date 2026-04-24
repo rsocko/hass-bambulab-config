@@ -6,6 +6,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app.inspection import inspect_archive_spool_linkage
 from app.metadata_correction import correct_archive_metadata
@@ -81,6 +82,59 @@ def _require_token(authorization: str | None) -> None:
     provided = authorization.removeprefix("Bearer ").strip()
     if provided != expected:
         raise HTTPException(status_code=403, detail="Invalid bearer token")
+
+
+@app.get("/", response_class=HTMLResponse)
+def api_landing() -> str:
+    return """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bambuddy Runtime Repair API Docs</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f5f7fb; color: #0f172a; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    .card { background: #ffffff; border: 1px solid #dbe4f0; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+    h1, h2 { margin: 0 0 10px; }
+    ul { margin: 0; padding-left: 18px; }
+    li { margin: 6px 0; }
+    code { background: #eef3fb; border-radius: 6px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Bambuddy Runtime Repair Sidecar API</h1>
+      <p>Authenticated admin endpoints for canonical Bambuddy archive runtime operations.</p>
+      <ul>
+        <li>All endpoints require Bearer token authentication via <code>Authorization: Bearer \u003ctoken\u003e</code> header</li>
+        <li>Token is configured via <code>REPAIR_API_TOKEN</code> environment variable</li>
+        <li>View live API docs: <a href="/docs">Swagger UI</a> or <a href="/redoc">ReDoc</a></li>
+        <li>OpenAPI schema: <a href="/openapi.json">openapi.json</a></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Admin Endpoint Categories</h2>
+      <ul>
+        <li>Archive inspection: spool linkage, storage scan, storage summary</li>
+        <li>Partial usage: estimate, consume</li>
+        <li>Archive repair: runtime repair, metadata correction</li>
+        <li>Archive restore: restore-from, restore-verify</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Repository References</h2>
+      <ul>
+        <li><code>sidecars/bambuddy-runtime-repair/README.md</code></li>
+        <li><code>docs/features/bambuddy_common/bambuddy-archive-api-catalog.md</code></li>
+        <li><code>docs/repo/openapi-correction-notes.md</code></li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
+"""
 
 
 @app.get("/health", response_model=HealthResponse)

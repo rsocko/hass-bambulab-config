@@ -18,6 +18,18 @@ The sidecar exposes an HTTP API that can be called directly by either:
 
 If all you need is canonical runtime repair, Home Assistant can call the sidecar directly.
 
+## API Docs Landing
+
+When the sidecar is running, these API docs endpoints are available:
+
+- `GET /` - docs landing page
+- `GET /docs` - Swagger UI
+- `GET /redoc` - ReDoc
+- `GET /openapi.json` - OpenAPI schema
+- `GET /health` - health check
+
+All `/admin/*` endpoints require Bearer token authentication.
+
 ## Build An Image Locally
 
 Build from the repository root because the image includes shared tooling from `tools/`.

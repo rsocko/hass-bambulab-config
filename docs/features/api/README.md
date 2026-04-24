@@ -19,6 +19,14 @@ This page is the docs landing point for API surfaces related to 3D printing feat
 - Bambuddy API catalog: `docs/features/bambuddy_common/bambuddy-archive-api-catalog.md`
 - OpenAPI correction notes: `docs/repo/openapi-correction-notes.md`
 
+## Bambuddy Runtime Repair Sidecar
+
+- API reference: `sidecars/bambuddy-runtime-repair/README.md`
+- Live sidecar docs landing: `GET /` on the runtime repair sidecar (requires bearer token auth)
+- Live Swagger UI: `GET /docs`
+- Live ReDoc: `GET /redoc`
+- Live OpenAPI JSON: `GET /openapi.json`
+
 ## Notes
 
 - Model catalog has a runtime swagger-capable API surface (FastAPI).
