@@ -2117,7 +2117,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         var legendValues = self._getLegendValuesForMode(currentMode);
         var legendValue = legendValues[index] || "";
         var isActive = filterState === legendValue && filterState !== "All" ? " active" : "";
-        return '<button type="button" class="legend-swatch' + isActive + '" style="background:' + this._escapeHtml(color) + '" data-legend-value="' + self._escapeHtml(legendValue) + '" data-swatch-index="' + index + '" aria-label="Filter by ' + self._escapeHtml(legendValue) + '"></button>';
+        return '<button type="button" class="legend-swatch' + isActive + '" style="background:' + self._escapeHtml(color) + '" data-legend-value="' + self._escapeHtml(legendValue) + '" data-swatch-index="' + index + '" aria-label="Filter by ' + self._escapeHtml(legendValue) + '"></button>';
       }).join("") + '</span>' +
       '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
       '</span>' +
