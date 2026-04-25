@@ -419,3 +419,145 @@ class ArchiveLinkingEngine:
         """
         values = {"high": 3.0, "medium": 2.0, "low": 1.0}
         return values.get(confidence, 0.0)
+
+    def get_related_models(
+        self,
+        model_id: str,
+        limit: int = 5,
+        min_similarity: float = 0.1,
+    ) -> list[dict[str, Any]]:
+        """Get models related by similarity to given model.
+        
+        Similarity scoring (max 100):
+        - Collection match: +30 per shared collection
+        - Creator match: +25
+        - Keyword match: +5 per shared keyword
+        
+        Args:
+            model_id: Reference model ID to find related models for
+            limit: Maximum related models to return
+            min_similarity: Minimum similarity score (0-100) to include
+            
+        Returns:
+            List of related model info sorted by similarity score
+        """
+        try:
+            models = self.manyfold_client.list_model_payloads()
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch models: {str(e)}")
+        
+        # Find base model
+        base_model = None
+        for model in models:
+            if str(model.get("id")) == str(model_id):
+                base_model = model
+                break
+        
+        if not base_model:
+            return []
+        
+        # Score all other models
+        related = []
+        for model in models:
+            if str(model.get("id")) == str(model_id):
+                continue  # Skip self
+            
+            score, reasons = self._calculate_similarity_score(base_model, model)
+            
+            if score >= min_similarity:
+                related.append({
+                    "model_id": str(model.get("id", "")),
+                    "name": str(model.get("name", "Unknown")),
+                    "creator": str(model.get("creator", {}).get("name", "Unknown"))
+                        if isinstance(model.get("creator"), dict)
+                        else str(model.get("creator", "Unknown")),
+                    "collections": [str(c.get("name", "")) for c in model.get("collections", [])],
+                    "keywords": [str(k.get("name", "")) for k in model.get("keywords", [])],
+                    "preview_url": str(model.get("preview_url", "")),
+                    "similarity_score": score,
+                    "match_reasons": reasons,
+                })
+        
+        # Sort by score (descending)
+        related.sort(key=lambda x: x["similarity_score"], reverse=True)
+        
+        # Return top N
+        return related[:limit]
+    
+    @staticmethod
+    def _calculate_similarity_score(
+        base_model: dict[str, Any],
+        target_model: dict[str, Any],
+    ) -> tuple[float, list[str]]:
+        """Calculate similarity score between two models.
+        
+        Scoring rules (max 100):
+        - Shared collections: +30 each (capped at +30 total)
+        - Same creator: +25
+        - Shared keywords: +5 each
+        
+        Args:
+            base_model: Reference model payload
+            target_model: Model to score against base
+            
+        Returns:
+            Tuple of (score 0-100, list of reasons)
+        """
+        score = 0.0
+        reasons = []
+        
+        # Extract collections
+        base_collections = {
+            str(c.get("name", "")).lower()
+            for c in base_model.get("collections", [])
+        }
+        target_collections = {
+            str(c.get("name", "")).lower()
+            for c in target_model.get("collections", [])
+        }
+        
+        # Collection matching: +30 for any shared collection
+        if base_collections and target_collections:
+            shared_colls = base_collections & target_collections
+            if shared_colls:
+                score += 30.0
+                shared_names = ", ".join(sorted(shared_colls))
+                reasons.append(f"Shared collection(s): {shared_names}")
+        
+        # Creator matching: +25 for same creator
+        base_creator = str(base_model.get("creator", {}).get("name", "")).lower().strip() \
+            if isinstance(base_model.get("creator"), dict) \
+            else str(base_model.get("creator", "")).lower().strip()
+        target_creator = str(target_model.get("creator", {}).get("name", "")).lower().strip() \
+            if isinstance(target_model.get("creator"), dict) \
+            else str(target_model.get("creator", "")).lower().strip()
+        
+        if base_creator and target_creator and base_creator == target_creator:
+            score += 25.0
+            reasons.append(f"Same creator: {target_creator}")
+        
+        # Extract keywords
+        base_keywords = {
+            str(k.get("name", "")).lower()
+            for k in base_model.get("keywords", [])
+        }
+        target_keywords = {
+            str(k.get("name", "")).lower()
+            for k in target_model.get("keywords", [])
+        }
+        
+        # Keyword matching: +5 per shared keyword (capped at +20)
+        if base_keywords and target_keywords:
+            shared_keywords = base_keywords & target_keywords
+            if shared_keywords:
+                keyword_score = min(len(shared_keywords) * 5.0, 20.0)
+                score += keyword_score
+                shared_names = ", ".join(sorted(shared_keywords))
+                reasons.append(
+                    f"{len(shared_keywords)} shared keyword(s): {shared_names}"
+                )
+        
+        # Cap at 100
+        score = min(100.0, score)
+        
+        return score, reasons
