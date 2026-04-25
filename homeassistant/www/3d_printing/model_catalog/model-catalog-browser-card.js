@@ -275,6 +275,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (action.indexOf("queue-") === 0) {
       var modelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var queueStatus = String(target.getAttribute("data-queue-status") || "").trim().toLowerCase();
       if (!modelRef || this._loading) {
         return;
       }
@@ -283,14 +284,30 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = "";
 
         if (action === "queue-priority-up") {
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+          var priorityUpPayload = {
             model_ref: modelRef,
             action: "priority_up",
+          };
+          if (!queueStatus || queueStatus === "none") {
+            priorityUpPayload.to_print_status = "queued";
+          }
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: priorityUpPayload.model_ref,
+            action: priorityUpPayload.action,
+            to_print_status: priorityUpPayload.to_print_status,
           });
         } else if (action === "queue-priority-down") {
-          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+          var priorityDownPayload = {
             model_ref: modelRef,
             action: "priority_down",
+          };
+          if (!queueStatus || queueStatus === "none") {
+            priorityDownPayload.to_print_status = "queued";
+          }
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: priorityDownPayload.model_ref,
+            action: priorityDownPayload.action,
+            to_print_status: priorityDownPayload.to_print_status,
           });
         } else if (action === "queue-mark-queued") {
           await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
@@ -358,8 +375,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var queueActions = ''
       + '<div class="queue-actions">'
-      + '  <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '">-P</button>'
-      + '  <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '">+P</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">-P</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">+P</button>'
       + '  <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
       + '  <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
       + '  <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
