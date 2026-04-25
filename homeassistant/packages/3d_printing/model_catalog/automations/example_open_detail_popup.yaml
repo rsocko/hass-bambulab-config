@@ -1,0 +1,25 @@
+# Example: Open Model Detail Popup from Model Catalog Browser
+# This automation demonstrates how to integrate the model detail popup
+# with the model catalog browser card
+
+# Example trigger: Button click to open model details
+trigger:
+  platform: event
+  event_type: call_service
+  event_data:
+    domain: browser_mod
+    service: popup
+
+condition: []
+
+action:
+  # This example shows how you would call the popup from a template button
+  # or other automation that has model reference data
+  - service: browser_mod.popup
+    data:
+      title: "Model Details: {{ states('input_text.selected_model_name') }}"
+      size: wide
+      content:
+        type: custom:model-detail-popup-card
+        model_ref: "{{ states('input_text.selected_model_ref') }}"
+        model_sidecar_url: "{{ states('input_text.model_catalog_sidecar_url') }}"

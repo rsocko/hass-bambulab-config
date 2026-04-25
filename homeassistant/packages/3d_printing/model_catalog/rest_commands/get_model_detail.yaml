@@ -1,0 +1,6 @@
+# REST command to fetch model detail from the model catalog sidecar
+get_model_detail:
+  url: "http://localhost:8314/api/models/{{ model_ref }}/detail"
+  method: GET
+  timeout: 10
+  content_type: "application/json"

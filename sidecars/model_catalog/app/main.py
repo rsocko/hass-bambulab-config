@@ -1635,6 +1635,116 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
+    @app.get("/api/models/{model_ref:path}/detail")
+    def get_model_detail_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+        """Fetch comprehensive model detail for Phase 3 detail view popup."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        # Resolve model reference to summary
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "model_not_found",
+                    "model_ref": model_ref,
+                }
+            )
+        
+        resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        
+        # Fetch full model detail from Manyfold
+        try:
+            manyfold_detail = client.get_model_detail(summary.model_url)
+        except Exception as e:
+            manyfold_detail = {}
+        
+        # Fetch custom fields from local SQLite
+        custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref))
+        
+        # Fetch archive links
+        archive_links = read_archive_links(
+            db_path=state.settings.db_path,
+            model_url=summary.model_url,
+            active_only=True,
+        )
+        
+        # Fetch ranking data
+        ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+        
+        # Get preview proxy URL
+        preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+        preview_url = summary.preview_url
+        if preview_url:
+            preview_url = f"{preview_proxy_base_url}?source={quote(preview_url)}"
+        
+        # Build linked archive details
+        linked_archives = []
+        for link in archive_links:
+            linked_archives.append({
+                "archive_id": link.archive_id,
+                "model_url": link.manyfold_model_url,
+                "link_id": link.id,
+                "review_state": link.review_state,
+                "is_active": link.is_active,
+                "match_method": link.match_method,
+                "match_confidence": link.match_confidence,
+                "created_at": link.created_at,
+                "updated_at": link.updated_at,
+            })
+        
+        # Build model files info (from Manyfold detail)
+        model_files = []
+        if manyfold_detail and "files" in manyfold_detail:
+            for file_obj in manyfold_detail["files"]:
+                model_files.append({
+                    "id": file_obj.get("id"),
+                    "filename": file_obj.get("filename"),
+                    "file_type": file_obj.get("file_type"),
+                    "size_bytes": file_obj.get("size"),
+                    "created_at": file_obj.get("created_at"),
+                    "model_count": file_obj.get("model_count"),
+                })
+        
+        # Build response
+        response = {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "model": {
+                "public_id": summary.public_id,
+                "model_id": summary.model_id,
+                "name": summary.name,
+                "description": manyfold_detail.get("description", ""),
+                "preview_url": preview_url,
+                "creator_name": summary.creator_name,
+                "collection_names": summary.collection_names,
+                "keywords": summary.keyword_names,
+                "files": model_files,
+                "preview_file_id": manyfold_detail.get("preview_file_id"),
+                "created_at": manyfold_detail.get("created_at"),
+                "updated_at": manyfold_detail.get("updated_at"),
+            },
+            "enrichment": {
+                "custom_fields": custom_fields,
+                "color_scheme": custom_fields.get("color_scheme", []),
+                "print_time_estimate": custom_fields.get("print_time_estimate"),
+                "support_type_hint": custom_fields.get("support_type_hint"),
+                "multi_color_scheme": custom_fields.get("multi_color_scheme"),
+                "difficulty_level": custom_fields.get("difficulty_level"),
+                "print_notes": custom_fields.get("print_notes"),
+                "external_reference": custom_fields.get("external_reference"),
+                "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
+            },
+            "ranking": None if ranking is None else _ranking_payload(ranking),
+            "linked_archives": linked_archives,
+            "link_count": len(linked_archives),
+        }
+        
+        return response
+
     return app
 
 
