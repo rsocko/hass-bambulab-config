@@ -87,6 +87,7 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_text.print_history_search": "",
     "input_text.print_history_filter_colors": "",
     "input_text.print_history_activity_selected_date": "",
+    "input_select.print_history_filter_activity_metric": "All",
     "input_select.print_history_sort": "Date (Newest)",
 }
 
@@ -161,6 +162,62 @@ def normalize_hex(value: Any) -> str:
     if len(candidate) == 7 and all(char in "#0123456789abcdefABCDEF" for char in candidate):
         return candidate.lower()
     return ""
+
+
+def hex_to_hue_sort_key(hex_color: str) -> float:
+    """
+    Convert hex color to HSV hue sort key for rainbow order (ROYGBIV + B&W).
+    
+    Returns:
+        - For chromatic colors (saturation >= 8%): 0-360 (hue value in degrees)
+        - For achromatic colors (saturation < 8%, grayscale): 361 + brightness (so they sort last)
+        - For invalid colors: 999.0
+    
+    This matches the filament catalog hue sorting implementation.
+    """
+    normalized = normalize_hex(hex_color)
+    if not normalized:
+        return 999.0
+    
+    hex_str = normalized.lstrip("#").lower()
+    if len(hex_str) != 6:
+        return 999.0
+    
+    try:
+        # Convert hex to RGB (0-1 range)
+        r_f = int(hex_str[0:2], 16) / 255.0
+        g_f = int(hex_str[2:4], 16) / 255.0
+        b_f = int(hex_str[4:6], 16) / 255.0
+        
+        # Calculate HSV
+        cmax = max(r_f, g_f, b_f)
+        cmin = min(r_f, g_f, b_f)
+        delta = cmax - cmin
+        
+        # Calculate hue
+        if delta < 0.001:  # Achromatic (near black/white/gray)
+            hue_val = 0.0
+            sat_val = 0.0
+        elif abs(cmax - r_f) < 0.001:  # Red is dominant
+            hue_val = 60.0 * (((g_f - b_f) / delta) % 6)
+            sat_val = delta / cmax if cmax > 0 else 0.0
+        elif abs(cmax - g_f) < 0.001:  # Green is dominant
+            hue_val = 60.0 * (((b_f - r_f) / delta) + 2)
+            sat_val = delta / cmax if cmax > 0 else 0.0
+        else:  # Blue is dominant
+            hue_val = 60.0 * (((r_f - g_f) / delta) + 4)
+            sat_val = delta / cmax if cmax > 0 else 0.0
+        
+        # Normalize hue to 0-360
+        hue_norm = hue_val if hue_val >= 0 else hue_val + 360.0
+        
+        # Achromatic colors (saturation < 8%) sort after chromatic colors by brightness
+        if sat_val < 0.08:
+            return 361.0 + cmax
+        else:
+            return hue_norm
+    except (ValueError, TypeError):
+        return 999.0
 
 
 def normalize_material_name(value: Any) -> str:
@@ -1438,7 +1495,7 @@ def query_archives(
     selected_printer_ids = resolve_printer_filter_ids(archives, printer_filter)
 
     matches: list[dict[str, Any]] = []
-    available_colors = sorted({color for archive in archives for color in archive_colors(archive)})
+    available_colors = sorted({color for archive in archives for color in archive_colors(archive)}, key=hex_to_hue_sort_key)
     tooltip_names = color_tooltip_names(archives)
     available_color_tooltips = build_color_tooltips(available_colors, tooltip_names)
 
@@ -1536,7 +1593,7 @@ def option_sets(archives: list[dict[str, Any]]) -> dict[str, list[str]]:
     designer_values = sorted({as_text(archive.get("designer")).strip() for archive in archives if as_text(archive.get("designer")).strip()})
     project_values = sorted({as_text(archive.get("project_name")).strip() for archive in archives if as_text(archive.get("project_name")).strip()})
     layer_height_values = sorted({as_text(archive.get("layer_height")).strip() for archive in archives if as_text(archive.get("layer_height")).strip()})
-    color_values = sorted({color for archive in archives for color in archive_colors(archive)})
+    color_values = sorted({color for archive in archives for color in archive_colors(archive)}, key=hex_to_hue_sort_key)
     tag_values = sorted({tag for archive in archives for tag in user_tags(as_text(archive.get("tags")))})
     return {
         "input_select.print_history_filter_material": ["All", *material_values],

@@ -27,6 +27,7 @@ try:
         effective_duration_seconds,
         format_storage_bytes,
         has_active_filters,
+        hex_to_hue_sort_key,
         local_timezone,
         normalize_filter_date_value,
         normalize_enrichment_status_value,
@@ -56,6 +57,7 @@ except ImportError:  # pragma: no cover - direct-path test import fallback
         effective_duration_seconds,
         format_storage_bytes,
         has_active_filters,
+        hex_to_hue_sort_key,
         local_timezone,
         normalize_filter_date_value,
         normalize_enrichment_status_value,
@@ -2815,6 +2817,7 @@ class PrintHistoryStore:
             "colors": selected_colors(states.get("input_text.print_history_filter_colors", "")),
             "sort": states.get("input_select.print_history_sort", "Date (Newest)"),
             "activity_mode": states.get("input_select.print_history_activity_metric", "Print Count"),
+            "activity_metric_filter": states.get("input_select.print_history_filter_activity_metric", "All").strip(),
             "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 10), 10)),
             "requested_page": max(1, as_int(states.get("input_number.history_current_page", 1), 1)),
             "today": current_time.astimezone(local_timezone()).date(),
@@ -2939,6 +2942,50 @@ class PrintHistoryStore:
             where_clauses.append("a.archive_day_local <= ?")
             params.append(end_date)
 
+        # Add activity_metric_filter filtering
+        activity_metric_filter = filters.get("activity_metric_filter", "All").strip()
+        activity_mode = filters.get("activity_mode", "Print Count")
+        if activity_metric_filter and activity_metric_filter.lower() != "all":
+            if activity_mode == "Outcome":
+                # Filter by outcome (Complete, Failed, Stopped, etc.)
+                outcome_map = {
+                    "complete": "completed",
+                    "completed": "completed",
+                    "failed": "failed",
+                    "stopped": "cancelled",
+                    "cancelled": "cancelled",
+                }
+                normalized_filter = outcome_map.get(activity_metric_filter.lower(), activity_metric_filter.lower())
+                where_clauses.append("LOWER(a.status) = ?")
+                params.append(normalized_filter)
+            elif activity_mode == "Single vs Multi-Color Prints":
+                # Filter by single vs multi-color
+                if activity_metric_filter.lower() in ("single", "single color"):
+                    where_clauses.append(
+                        "(SELECT COUNT(DISTINCT LOWER(fr.color)) FROM archive_filament_rows fr WHERE fr.archive_id = a.archive_id) <= 1"
+                    )
+                elif activity_metric_filter.lower() in ("multi", "multi-color", "multi color"):
+                    where_clauses.append(
+                        "(SELECT COUNT(DISTINCT LOWER(fr.color)) FROM archive_filament_rows fr WHERE fr.archive_id = a.archive_id) > 1"
+                    )
+            elif activity_mode == "Enrichment Status":
+                # Filter by enrichment status
+                enrichment_map = {
+                    "complete": "complete",
+                    "completed": "complete",
+                    "incomplete": "incomplete",
+                    "pending": "pending",
+                }
+                normalized_filter = enrichment_map.get(activity_metric_filter.lower(), activity_metric_filter.lower())
+                where_clauses.append("LOWER(a.enrichment_status) = ?")
+                params.append(normalized_filter)
+            elif activity_mode == "In a Project vs Not in a Project":
+                # Filter by project membership
+                if activity_metric_filter.lower() in ("in a project", "in project", "has project"):
+                    where_clauses.append("TRIM(COALESCE(a.project_name, '')) != ''")
+                elif activity_metric_filter.lower() in ("not in a project", "no project"):
+                    where_clauses.append("TRIM(COALESCE(a.project_name, '')) = ''")
+
         sort_sql = self._sort_sql(filters["sort"])
         query = f"""
             SELECT a.archive_id
@@ -3039,7 +3086,8 @@ class PrintHistoryStore:
                 normalized = normalize_hex(raw_color)
                 if normalized:
                     colors.add(normalized)
-        return sorted(colors)
+        # Sort by hue (rainbow order: ROYGBIV, then grayscale/white sorted by brightness)
+        return sorted(colors, key=hex_to_hue_sort_key)
 
     def _load_available_color_tooltips(
         self,
