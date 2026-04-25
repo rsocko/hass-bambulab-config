@@ -52,6 +52,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       source_attribute: config.source_attribute || "",
       direct_query: config.direct_query !== false,
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
+      activity_metric_filter_entity: config.activity_metric_filter_entity || "input_select.print_history_filter_activity_metric",
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
@@ -140,12 +141,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var metricState = hass.states[this._config.mode_entity];
     var apiBaseState = hass.states[this._config.api_base_entity];
     var filteredState = hass.states["sensor.bambuddy_print_history_browser_filtered"];
+    var activityMetricFilterState = hass.states[this._config.activity_metric_filter_entity];
 
     return {
       sourceState: sourceState ? sourceState.state : "",
       sourceFetch: sourceState && sourceState.attributes ? sourceState.attributes.last_fetch || "" : "",
       filteredRevision: filteredState && filteredState.attributes ? String(filteredState.attributes.browser_revision || "") : "",
       metric: metricState ? metricState.state : "",
+      activityMetricFilter: activityMetricFilterState ? activityMetricFilterState.state : "",
       apiBase: apiBaseState ? apiBaseState.state : "",
       status: this._stateValue("input_select.print_history_filter_status"),
       material: this._stateValue("input_select.print_history_filter_material"),
@@ -209,7 +212,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
       ".legend-main{display:inline-flex;align-items:center;gap:8px;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
-      ".legend-swatch{width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));}" +
+      ".legend-swatch{width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));cursor:pointer;transition:box-shadow 0.2s ease, transform 0.2s ease;}" +
+      ".legend-swatch:hover{transform:scale(1.1);box-shadow:0 0 4px rgba(59,130,246,0.4);}" +
+      ".legend-swatch:active{transform:scale(0.95);}" +
+      ".legend-swatch.active{box-shadow:0 0 8px rgba(37,99,235,0.6), inset 0 0 0 2px rgba(37,99,235,1);border-radius:6px;}" +
       ".legend-note{font-size:11px;color:var(--secondary-text-color);opacity:0.9;}" +
       ".legend-separator{opacity:0.7;}" +
       ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
@@ -713,6 +719,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       colors: String(this._stateValue("input_text.print_history_filter_colors") || "").trim(),
       sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
       activity_metric: this._normalizeFilterValue(this._stateValue(this._config.mode_entity)),
+      activity_metric_filter: this._normalizeFilterValue(this._stateValue(this._config.activity_metric_filter_entity)),
       include_activity_rows: true,
     });
     if (token !== this._queryToken) {
@@ -2096,18 +2103,64 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    var self = this;
+    var filterState = this._stateValue(this._config.activity_metric_filter_entity);
+    var currentMode = this._stateValue(this._config.mode_entity);
+
     this._legendContainer.className = "legend";
     this._legendContainer.innerHTML =
       '<div class="legend-scale">' +
       (legend.note ? '<span class="legend-note">' + this._escapeHtml(legend.note) + '</span><span class="legend-separator" aria-hidden="true">|</span>' : "") +
       '<span class="legend-main">' +
       '<span>' + this._escapeHtml(legend.startLabel) + '</span>' +
-      '<span class="legend-swatches">' + legend.colors.map(function (color) {
-        return '<span class="legend-swatch" style="background:' + this._escapeHtml(color) + '"></span>';
-      }.bind(this)).join("") + '</span>' +
+      '<span class="legend-swatches">' + legend.colors.map(function (color, index) {
+        var legendValues = self._getLegendValuesForMode(currentMode);
+        var legendValue = legendValues[index] || "";
+        var isActive = filterState === legendValue && filterState !== "All" ? " active" : "";
+        return '<button type="button" class="legend-swatch' + isActive + '" style="background:' + this._escapeHtml(color) + '" data-legend-value="' + self._escapeHtml(legendValue) + '" data-swatch-index="' + index + '" aria-label="Filter by ' + self._escapeHtml(legendValue) + '"></button>';
+      }).join("") + '</span>' +
       '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
       '</span>' +
       '</div>';
+
+    Array.from(this._legendContainer.querySelectorAll(".legend-swatch")).forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var legendValue = event.target.getAttribute("data-legend-value");
+        self._handleLegendSwatchClick(legendValue);
+      });
+    });
+  }
+
+  _getLegendValuesForMode(mode) {
+    switch (mode) {
+      case "Outcome":
+        return ["Stopped", "Failed", "Failed", "Complete", "Complete"];
+      case "Single vs Multi-Color Prints":
+        return ["Single Color", "Single Color", "Multi-Color", "Multi-Color", "Multi-Color"];
+      case "Enrichment Status":
+        return ["Pending", "Pending", "Pending", "Complete", "Complete"];
+      case "In a Project vs Not in a Project":
+        return ["In a Project", "In a Project", "Not in a Project", "Not in a Project", "Not in a Project"];
+      default:
+        return ["", "", "", "", ""];
+    }
+  }
+
+  _handleLegendSwatchClick(legendValue) {
+    if (!this._hass || !legendValue) {
+      return;
+    }
+
+    var filterState = this._stateValue(this._config.activity_metric_filter_entity);
+    var nextFilterValue = filterState === legendValue ? "All" : legendValue;
+
+    this._hass.callService("input_select", "select_option", {
+      option: nextFilterValue,
+    }, {
+      entity_id: this._config.activity_metric_filter_entity,
+    });
   }
 
   _buildLegendConfig(mode) {

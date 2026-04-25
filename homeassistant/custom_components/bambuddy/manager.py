@@ -199,6 +199,7 @@ QUERY_OVERRIDE_ENTITY_MAP = {
     "colors": "input_text.print_history_filter_colors",
     "selected_day": "input_text.print_history_activity_selected_date",
     "activity_metric": "input_select.print_history_activity_metric",
+    "activity_metric_filter": "input_select.print_history_filter_activity_metric",
     "sort": "input_select.print_history_sort",
     "page": "input_number.history_current_page",
     "page_size": "input_number.print_history_page_size",

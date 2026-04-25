@@ -1,0 +1,14 @@
+print_history_filter_activity_metric:
+  name: Print History Filter Activity Metric
+  icon: mdi:chart-box-outline
+  options:
+    - All
+    - Complete
+    - Failed
+    - Stopped
+    - Single Color
+    - Multi-Color
+    - Pending
+    - In a Project
+    - Not in a Project
+  initial: All
