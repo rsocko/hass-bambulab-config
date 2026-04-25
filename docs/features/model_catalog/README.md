@@ -37,6 +37,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Architecture Overview](architecture-overview.md) — Settled topology, component authority boundaries, storage recommendations, and same-stack sidecar stance
 - [API Reference](api-reference.md) — Sidecar endpoint index plus live Swagger/ReDoc/OpenAPI links
 - [Implementation Plan](implementation-plan.md) — Updated phased implementation plan aligned to the approved architecture and use-case priorities
+- [Phase 1.5 Intake Implementation Breakdown](phase-1.5-intake-implementation-breakdown.md) — Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
 - Current implementation status: Phase 2 archive popup linkage is live; heuristic candidate broadening, curated search/picker, and queue/backlog fields remain later-phase work
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
 - [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
@@ -46,16 +47,19 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Verified API coverage, corrected assumptions from issue review, and implications for this feature
 - [External Storage Behavior](external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
 - [Implementation Strategy Options](implementation-strategy-options.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
+- [Persistence And Backup Strategy](persistence-and-backup-strategy.md) — Phase 1.25 persistence boundary, backup/restore runbook shape, named-volume vs bind-mount tradeoffs, and backup-tool comparison
 
 ### Data Model And Working Layer
 
 - [ER Diagrams and Sidecar Datamodel](planning/model-catalog-er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
+- [3MF Analysis Cache Schema And API Draft](planning/3mf-analysis-cache-schema-and-api-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
 - [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for archive-to-model links
 - [Custom Fields Schema](custom-fields-schema.md) — Structured sidecar-owned metadata outside Manyfold
 - [API Cache And Sync Flow](api-cache-sync-flow.md) — Runtime flow between Manyfold, Bambuddy, sidecar, and HA
 - [Working Groups And Veneer](working-groups-and-veneer.md) — Logical Working-file grouping model, folder vs virtual grouping, and operator flows
 - [Cross-Feature Data Contracts](cross-feature-data-contracts.md) — Allowed boundaries between model-catalog, print_history, Bambuddy, HA, and the catalog sidecar
 - [Historical Print Backfill Via Model Catalog](historical-print-backfill-via-model-catalog.md) — Later-phase workflow for using catalog context to drive older print-history backfill and provenance recovery
+- [3MF Resource Extraction And Online Provenance Design](3mf-resource-extraction-and-online-provenance-design.md) — Resource taxonomy, parser/cache contract, STLShelf capability review, and issue-#173 phase mapping for `.3mf` images, support files, and public-source enrichment
 - [Phase Delivery And Validation Tracker](phase-delivery-and-validation.md) — Concrete deliverables, validation steps, and milestone gating for phased implementation
 
 ### Home Assistant And UX
@@ -101,12 +105,19 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ## Issue Alignment
 
-The revised plan incorporates the architecture work already tracked in the model-catalog docs and folds in the newer planning priorities reviewed from issues `#1037`, `#1040`, `#1042`, and `#1043`:
+The revised plan incorporates the architecture work already tracked in the model-catalog docs and folds in the newer planning priorities reviewed from issues `#1037`, `#1040`, `#1042`, `#1043`, and `#1121`:
 
 - `#1037` drives prioritization around Working-file access, frequent/recent/common prints, curated quick reprint, backlog/queue, archive linkage, and source capture
 - `#1040` corrects the mistaken GraphQL and replace-in-place assumptions and pushes the design toward a source-verified REST-only baseline
 - `#1042` adds explicit duplicate-handling requirements for repeat downloads, especially Makerworld reacquisition cases that may already overlap Working groups or curated Manyfold records
 - `#1043` adds a later operator-driven flow where the model catalog can help backfill older print-history records by reusing existing forensics manifests, source-attachment flows, and archive-creation tooling
+- `#1121` adds an early persistence-and-backup requirement for sidecar-owned state, with the default design now favoring a dedicated Docker volume for `/data`, Linux/WSL bind mounts as an opt-in visibility mode, HA as a status/trigger surface rather than the primary backup executor, and restore drills before bulk-ingest phases create harder-to-reconstruct data
+- `#1124` adds an intake-first Phase 1.5 slice for Inbox submission, validation, dedupe review, and Working-group creation before deliberate curated publish
+
+Tracking note:
+
+- GitHub umbrella issues `Phase 6` through `Phase 10` currently retain an older numbering sequence for continuity.
+- The revised implementation plan adds sub-phases `1.25`, `1.5`, and `3.5`, and maps issue `#173` follow-up work across `Phase 3.5`, `Phase 5`, and `Phase 7` rather than creating a second conflicting late-phase issue track.
 
 ## Related Feature Docs
 

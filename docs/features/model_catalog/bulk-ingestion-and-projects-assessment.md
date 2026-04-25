@@ -21,7 +21,7 @@ Additionally, **the "project" concept currently exists only in Print History (Ba
 
 | Aspect | Current State | Gap | Risk Level |
 |--------|---------------|-----|-----------|
-| **Bulk file discovery** | Working veneer supports logical grouping independent of folders | No batch ingest workflow articulated | Medium |
+| **Bulk file discovery and intake** | Working veneer supports logical grouping independent of folders | No unified intake queue or batch ingest workflow articulated | Medium |
 | **Project relationship** | Defined only in Print History / Bambuddy archives | Not mirrored to Model Catalog or Working files | High |
 | **Metadata enrichment** | Phase 3-4 plan assumes one file at a time | No bulk metadata ingestion or enrichment workflow | Medium-High |
 | **Duplicate handling** | Working-side duplicate detection exists for re-downloads | Does not handle "same model, multiple versions" or "related models in same project" | Medium |
@@ -58,7 +58,8 @@ Additionally, **the "project" concept currently exists only in Print History (Ba
 
 ### What Is Missing (Gaps)
 
-1. **Bulk Ingest Workflow** ❌
+1. **Bulk Ingest And Intake Workflow** ❌
+  - No documented path for "quick send this file into review" from the filesystem
    - No documented path for "I have 500 files and want to organize them into 20-50 Working groups"
    - No batch discovery or grouping recommendation
    - No bulk metadata scraping or enrichment
@@ -188,25 +189,31 @@ These are related but not identical.
 
 ## Recommended Changes to Model Catalog Design
 
-### 1. Articulate Bulk-Ingestion Workflow (Phase 1.5 - New)
+### 1. Articulate Intake And Bulk-Ingestion Workflow (Phase 1.5 - New)
 
-**Outcome**: Operators can efficiently populate Working groups from an existing folder tree.
+**Outcome**: Operators can efficiently submit ad hoc files into a review queue and populate Working groups from an existing folder tree.
 
 **Approach**:
 
 Add to the implementation plan:
 
 ```
-### Phase 1.5: Bulk Discovery & Working-Group Creation
+### Phase 1.5: Intake Inbox, Bulk Discovery & Working-Group Creation
 
 Outcome:
+- Ad hoc files can be submitted into a reviewable Inbox
 - Working groups can be populated from filesystem scan
 - Folder-to-group mapping can be configured or inferred
 - Bulk grouping workflow exists in HA and sidecar
 
 Work items:
 
-1. Add sidecar endpoint: `POST /working-groups/bulk-discover`
+1. Add sidecar endpoint: `POST /intake/submit`
+  - Input: one or more paths plus source hint
+  - Output: Intake Inbox items with validation results and duplicate hints
+  - Keep items in Inbox until operator groups, rejects, or deliberately publishes them
+
+2. Add sidecar endpoint: `POST /working-groups/bulk-discover`
    - Input: folder path, grouping strategy
    - Grouping strategy options:
      a. "by-folder" — each subfolder becomes a working group
@@ -215,34 +222,40 @@ Work items:
    - Output: list of proposed working groups with file lists
    - Review before commit (do not auto-create)
 
-2. Add sidecar endpoint: `POST /working-groups/bulk-import`
-   - Input: list of reviewed groups (name, files, folder_hint, optional stage)
+3. Add sidecar endpoint: `POST /working-groups/bulk-import`
+  - Input: list of reviewed groups or inbox items (name, files, folder_hint, optional stage)
    - Create all Working groups and file entries in batch
    - Deduplicate against existing Working groups by filename hash
    - Output: created group IDs and summary
 
-3. Add HA automation/script:
-   - Expose service to trigger bulk discover
-   - Expose service to trigger bulk import
-   - Card in HA to review and approve proposed groups before import
+4. Add HA automation/script:
+  - Expose service to submit items to Inbox
+  - Expose service to trigger bulk discover
+  - Expose service to trigger bulk import
+  - Card in HA to review Inbox items and approve proposed groups before import
 
-4. Add sidecar Working-group fields to support:
+5. Add sidecar Working-group and Intake fields to support:
    - `folder_hint` — the original filesystem folder(s) for reference
    - `file_hashes` — MD5 or SHA-256 of contained files for duplicate detection
    - `discovery_metadata` — "imported from folder X at time Y" provenance
+    - `inbox_state` — pending/triaged/grouped staging state
 
-5. Document folder-organization patterns:
+6. Document folder-organization patterns:
    - "One folder per model" → one group per subfolder ✅
    - "Subfolders by model family, files are variants" → one group per subfolder ✅
    - "Flat root with hundreds of files" → need file-naming patterns or manual curation
    - "Mixed depth with projects as top-level folders" → can use "by-folder" strategy
+    - "Quick-send from Explorer/Stream Deck" → lands in Inbox first, then operator decides Working vs direct publish
 
 **Deliverables**:
+- intake endpoint and Inbox review flow
 - bulk-discover endpoint and HA flow
 - bulk-import endpoint and error handling
 - Working-group import UX in HA
 - Documentation of folder-scanning best practices
 ```
+
+This phase should treat direct-to-Manyfold upload as an exception path for already curated-quality files, not as the default intake baseline.
 
 ### 2. Introduce "Project" as a Shared Concept (New Layer)
 

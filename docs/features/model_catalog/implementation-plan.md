@@ -1,7 +1,7 @@
 # Model Catalog Implementation Plan
 
 > **Status**: Revised implementation plan.
-> **Last updated**: 2026-04-22
+> **Last updated**: 2026-04-25
 > **Scope**: Single-user personal model catalog using Manyfold for curated cataloging, Bambuddy for archives, a same-stack sidecar for cross-system logic, and HA as the operator-facing control plane.
 
 ## Goal
@@ -14,6 +14,22 @@ Deliver a model-catalog system that:
 - supports quick reprint, recent/common/frequent discovery, and a simple backlog/queue
 - adds provenance capture, enrichment, and controlled write-back where that is safe
 
+## Execution Snapshot
+
+Already complete or materially implemented:
+
+- **Phase 0** baseline docs are closed
+- **Phase 1A** sidecar scaffold and Manyfold read baseline are implemented
+- **Phase 2** archive-linkage slice is implemented and validated end to end
+
+Open next or later work:
+
+- **Phase 1.25** persistence-and-backup execution
+- **Phase 1.5** intake and bulk-discovery flow
+- **Phase 3+** browse, Working, publish, enrichment, provenance, backfill, and upstream/project follow-on work
+
+Use this document as the baseline implementation plan. Use [phase-delivery-and-validation.md](phase-delivery-and-validation.md) for the stricter current execution state and validation gates.
+
 ## Implementation Principles
 
 - favor Manyfold's documented REST API over direct DB integration
@@ -24,9 +40,23 @@ Deliver a model-catalog system that:
 - keep model-catalog persistence in a separate sidecar-owned SQLite database rather than reusing Manyfold Postgres or the print-history Variant 3 local store
 - consume print-history/archive intelligence through stable archive-facing contracts, not direct reads of print-history internal tables
 
+## Issue Tracking Note
+
+The current GitHub issue track for model-catalog already reserves `Phase 6` through `Phase 10` for a different late-phase delivery sequence. To avoid creating a second conflicting `Phase 6` or `Phase 7` issue series while the broader plan is still settling, the `.3mf` extraction and online provenance work from issue `#173` is tracked in this plan as:
+
+- `Phase 3.5` for reusable parser, cache, and async analysis foundations
+- `Phase 5` for publish-time preview and supporting-asset application
+- `Phase 7` for public-source provenance capture and online metadata refresh
+
+See [3mf-resource-extraction-and-online-provenance-design.md](3mf-resource-extraction-and-online-provenance-design.md) for the detailed capability review and extraction contract.
+
 ## Phase Plan
 
 ### Phase 0: Delivery Baseline And Contracts
+
+Status:
+
+- complete in docs
 
 Outcome:
 
@@ -50,12 +80,16 @@ Deliverables:
 
 ### Phase 1: Sidecar Scaffold And Manyfold Read Baseline
 
+Status:
+
+- implemented for the current scaffold/read baseline
+
 Outcome:
 
 - catalog sidecar exists as a runnable service in the same Docker stack
 - sidecar can read Manyfold and expose a normalized summary cache
 
-Work items:
+Core delivered slice:
 
 - scaffold a FastAPI sidecar service
 - add health, configuration, and diagnostics endpoints
@@ -73,13 +107,79 @@ Work items:
   - list collections and creators as needed for browse and summary
 - expose sidecar read endpoints for cached model summaries
 
+Follow-on prep still associated with this phase:
+
+- keep schema room for intake, Working, and project extensions used by later phases
+- keep archive-facing dependency contracts DTO/service-based rather than DB-coupled
+
 Deliverables:
 
 - sidecar runs in Docker
 - HA can reach the sidecar
 - Manyfold summaries can be fetched without direct browser-to-Manyfold dependency
 
+### Phase 1.25: Sidecar Persistence And Backup Automation
+
+Status:
+
+- open
+
+Outcome:
+
+- sidecar durable state is protected before broader operator data accumulation
+- backup/restore expectations are explicit before intake, Working, and enrichment phases create harder-to-reconstruct state
+
+Work items:
+
+- freeze `/data` as the durable sidecar-state boundary
+- keep the default live-storage recommendation as a dedicated Docker named volume
+- define a consistent SQLite export/snapshot step rather than naive raw-copy backup
+- document restore flow and validation expectations
+- keep HA as an optional status/trigger surface rather than the primary backup executor
+
+Deliverables:
+
+- persistence boundary and backup strategy are documented
+- first backup automation path is chosen
+- restore drill is defined and executed
+
+### Phase 1.5: Intake Inbox, Bulk Discovery, And Import
+
+Status:
+
+- open
+
+Outcome:
+
+- files can enter a sidecar-owned Intake Inbox for validation and triage before broader Working or curated workflows
+- bulk discovery and ad hoc intake share one review queue
+
+Work items:
+
+- add Intake Inbox persistence and validation state
+- accept ad hoc file submissions into the Inbox
+- support bulk discovery feeding the same review model
+- dedupe against Inbox and existing Working groups before conversion
+- allow the narrow handoff actions: create a new Working group or attach to an existing one
+- add the first HA Inbox review surface and services for intake actions
+
+Deliverables:
+
+- Intake Inbox endpoints and review state exist
+- bulk discovery can stage proposals into the same Inbox flow
+- operators can convert Inbox items into Working groups without invoking publish workflows
+
+Boundary note:
+
+- this phase owns intake and triage only
+- it does not replace the broader Working CRUD/UX of Phase 4 or the publish workflow of Phase 5
+
 ### Phase 2: Archive Linkage And Popup Integration
+
+Status:
+
+- implemented for the first archive-popup linkage slice
+- follow-on heuristic/search enhancements remain open
 
 Outcome:
 
@@ -105,6 +205,10 @@ Deliverables:
 
 ### Phase 3: Queue, Ranking, And Curated Browse
 
+Status:
+
+- open
+
 Outcome:
 
 - curated catalog becomes useful for day-to-day rediscovery and quick reprint
@@ -128,7 +232,7 @@ Work items:
   - linked archive count
   - recent/common/frequent indicators
   - queue state
--  - taxonomy/favorite/rating indicators where they help browse and filtering without bloating the first shipped card
+  - taxonomy/favorite/rating indicators where they help browse and filtering without bloating the first shipped card
 - leave richer provenance and publish-destination metadata out of this phase so the shipped Phase 3 browse/ranking slice stays narrow
 - add filtered backlog/queue view in HA
 - add curated browse filtering support for the first taxonomy slice:
@@ -143,7 +247,38 @@ Deliverables:
 - simple backlog/queue view in HA
 - first taxonomy-aware curated browse slice exists without requiring Spoolman identity linkage yet
 
+### Phase 3.5: Bulk Metadata Enrichment
+
+Status:
+
+- open
+
+Outcome:
+
+- working groups can be analyzed and enriched in bulk after the Phase 3 browse and taxonomy baseline exists
+
+Work items:
+
+- add reusable parser/analysis support for batch workflows
+- analyze working groups in bulk for color and tag proposals
+- apply operator-reviewed enrichments in batch
+- add a focused HA review surface for bulk-enrichment approval
+
+Deliverables:
+
+- bulk-analyze and bulk-enrich flows exist
+- operator-reviewed color/tag enrichment can be applied to many Working groups efficiently
+
+Boundary note:
+
+- this phase owns bulk analyze/enrich workflows only
+- individual curated asset upload and richer per-model enrichment remain Phase 6 concerns
+
 ### Phase 4: Working Groups And Working Veneer
+
+Status:
+
+- open
 
 Outcome:
 
@@ -172,6 +307,11 @@ Work items:
 - add HA Working-group board and detail view
 - support quick-open actions for group folder or primary file
 
+Boundary note:
+
+- this phase owns the full Working experience
+- earlier intake phases may create or attach a Working group, but they do not replace the broader Working CRUD and UX defined here
+
 Deliverables:
 
 - Working files become visible and manageable from HA
@@ -180,6 +320,10 @@ Deliverables:
 - custom/remix provenance and external publish-destination tracking are available as operator-managed model metadata without pulling this work earlier than Phase 3
 
 ### Phase 5: Publish Workflow And Revision Lineage
+
+Status:
+
+- open
 
 Outcome:
 
@@ -199,14 +343,28 @@ Work items:
   - Manyfold-managed/internal-style curated storage (preferred baseline)
   - external scanned curated storage when deliberately chosen
 - define recovery behavior when a curated external path changes and a recreate/relink flow is needed
+- apply extracted `.3mf` resources during publish when requested:
+  - select one extracted preview as the curated preview candidate
+  - optionally attach a narrow allowlisted set of sidecar-managed support artifacts
+  - preserve the analysis revision and resource inventory link used for the publish decision
 
 Deliverables:
 
 - clear Working-to-curated publish action
 - revision lineage captured outside Manyfold where needed
 - duplicate warning and reconciliation behavior exists for Working-to-curated publish decisions
+- publish-time preview promotion and supporting-asset decisions are explicit rather than implicit side effects
+
+Boundary note:
+
+- publish, lineage, curated duplicate reconciliation, and preview promotion remain Phase 5 concerns
+- earlier phases should hand off into this flow rather than partially reimplement it
 
 ### Phase 6: Photo Upload And 3MF Enrichment
+
+Status:
+
+- open
 
 Outcome:
 
@@ -216,6 +374,8 @@ Work items:
 
 - add photo-upload proxy to Manyfold
 - implement sidecar-driven 3MF parsing and extracted asset upload
+- add a reusable `.3mf` analysis cache keyed by file hash so bulk enrichment, Working-group detail, and publish-time flows share the same parse results
+- inventory preview candidates, embedded companion resources, and embedded provenance hints without surfacing raw model payload members as user-facing support files
 - allow preview selection assistance when safe
 - expose photo and enrichment actions in archive popup and curated browse surfaces
 - add later-phase enrichment hooks for model color taxonomy improvement:
@@ -227,8 +387,13 @@ Deliverables:
 
 - curated model records can be enriched from HA and sidecar flows
 - model color taxonomy has a defined upgrade path from Phase 3 hex-only values to later Filament-ID linkage
+- `.3mf` analysis results are reusable across bulk analyze, Working review, publish, and later backfill flows
 
 ### Phase 7: Provenance Capture And Online Ingestion
+
+Status:
+
+- open
 
 Outcome:
 
@@ -239,14 +404,21 @@ Work items:
 - add source recording for Printables/Makerworld URLs
 - surface pending source records in HA
 - preserve enough source identity to assist repeat-download review where practical
+- store embedded provenance hints discovered during `.3mf` analysis separately from fetched public metadata
+- add an opt-in source-resolution step that can normalize MakerWorld or other public source URLs into durable source records
 - add metadata-scrape draft flow later when justified
 
 Deliverables:
 
 - provenance capture works before or after cataloging
 - source provenance can assist duplicate/re-download review but is not required for the first Working-side duplicate checks
+- `.3mf`-embedded provenance hints and online-source metadata use separate lifecycles and refresh timestamps
 
 ### Phase 8: Historical Print-History Backfill From Model Catalog
+
+Status:
+
+- open
 
 Outcome:
 
@@ -275,6 +447,10 @@ Deliverables:
 
 ### Phase 9: Storage Monitoring, Preview Quality, And External Recovery Support
 
+Status:
+
+- open
+
 Outcome:
 
 - the system can identify stale previews, storage drift, and external-storage recovery cases
@@ -290,6 +466,10 @@ Deliverables:
 - operators can identify when rescan is enough and when recreate/relink is required
 
 ### Phase 10: Upstream Improvement Track
+
+Status:
+
+- open
 
 Outcome:
 

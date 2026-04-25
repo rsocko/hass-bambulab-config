@@ -1,7 +1,7 @@
 # Phase Delivery And Validation Tracker
 
 > **Status**: Active execution tracker.
-> **Last updated**: 2026-04-22
+> **Last updated**: 2026-04-25
 > **Purpose**: Turn the phased implementation plan into concrete, reviewable deliverables with validation gates.
 
 ## How To Use This Tracker
@@ -105,6 +105,68 @@ Phase 1A is complete when all of the following are true:
 3. Manyfold API smoke test with fixture or live configured endpoint
 4. only then move to HA-facing integration wiring
 
+## Phase 1.25: Sidecar Persistence And Backup Automation
+
+### Goal
+
+Freeze and validate the persistence boundary for model-catalog durable state before later phases accumulate working-group, linkage, and enrichment data that would be expensive to recreate.
+
+### Required Deliverables
+
+1. Persistence strategy doc exists and is indexed from the model-catalog README.
+   - `persistence-and-backup-strategy.md`
+2. Durable-state boundary is frozen.
+   - `/data` is the documented durable root
+   - `MODEL_CATALOG_DB_PATH=/data/model_catalog.db` remains the baseline
+3. Default storage mode is frozen.
+   - dedicated Docker named volume is the default
+   - Linux/WSL bind mount is documented as an opt-in mode
+   - Windows-host bind mount is explicitly not the default recommendation for the live DB
+4. Backup artifact shape is documented.
+   - DB snapshot
+   - metadata sidecar bundle
+   - restore provenance fields
+5. At least one concrete backup automation path is chosen for first implementation.
+   - repo-local scheduled export job or equivalent
+   - optional downstream retention via `restic` or `kopia`
+6. Restore drill is documented and executed at least once against a fresh target instance or equivalent isolated restore path.
+7. HA role is frozen.
+   - HA may expose status and optional manual trigger later
+   - HA is not the primary filesystem backup executor
+
+### Validation Gate
+
+Phase 1.25 is complete when all of the following are true:
+
+1. The persistence strategy doc exists and matches the roadmap decision.
+2. The current compose/deployment guidance still aligns with the default named-volume recommendation.
+3. A consistent backup bundle can be produced from live sidecar state.
+4. A restore drill has been executed and validated with `/healthz` plus at least one representative sidecar endpoint.
+5. The team has chosen the first live retention path.
+   - scheduled local export only as bootstrap, or
+   - export plus `restic`, or
+   - export plus `kopia`
+
+### Preferred Validation Order
+
+1. doc review for persistence boundary and deployment-mode tradeoffs
+2. backup bundle creation test against a disposable sidecar instance
+3. restore drill against a fresh target path or isolated test instance
+4. only then allow later phases to rely on sidecar-only durable state
+
+### What Can Be Validated Automatically
+
+- markdown file existence
+- markdown diagnostics/errors
+- targeted checks for the frozen default storage mode and HA-role language
+- backup-bundle file existence, naming, and metadata presence if automation is scripted in repo later
+
+### What Remains Manual
+
+- live restore confidence on the real deployment host
+- final selection between `restic` and `kopia` if both are viable in the homelab
+- operational approval of retention policy and backup destination
+
 ## Phase 2+ Tracking Rule
 
 Before starting each later phase, extend this tracker with the same three sections:
@@ -115,15 +177,81 @@ Before starting each later phase, extend this tracker with the same three sectio
 
 That keeps each phase reviewable without relying on chat memory.
 
+## Phase 1.5: Intake Inbox, Bulk Discovery And Import
+
+### Goal
+
+Deliver the first pre-curation intake surface so files can be staged, validated, deduped, and converted into Working groups before any broader publish workflow is attempted.
+
+### Required Deliverables
+
+1. Sidecar intake persistence exists for Inbox items and validation state.
+2. Sidecar endpoints exist for:
+   - submit intake items
+   - list and fetch intake items
+   - validate one or many intake items
+   - defer or reject intake items
+   - convert intake items into new or existing Working groups
+3. Bulk-discovery path can feed the same Intake Inbox review model.
+4. HA services exist for the first operator actions:
+   - submit to Inbox
+   - fetch items
+   - validate item
+   - create Working group from Inbox item
+   - attach Inbox item to existing Working group
+   - defer or reject item
+5. First Intake review card or popup surface exists in HA with mixed-state rendering.
+6. Duplicate warnings are visible before grouping decisions.
+
+### Validation Gate
+
+Phase 1.5 is complete when all of the following are true:
+
+1. One-file submit to Inbox works end to end.
+2. Validation produces stable operator-facing states for:
+   - ready
+   - duplicate candidate
+   - unsupported type
+   - missing source
+3. An Inbox item can create a new Working group.
+4. An Inbox item can attach to an existing Working group.
+5. Reject and defer actions preserve review history and do not silently delete the item.
+6. Bulk discovery can materialize reviewable proposals into the same Inbox model.
+
+### Preferred Validation Order
+
+1. focused unit tests for schema/bootstrap, validation rules, and dedupe logic
+2. focused API tests for submit/list/detail/validate/group/reject/defer
+3. bounded fixture test for folder discovery and proposal staging
+4. HA service smoke tests against a running sidecar
+5. manual review of the first Intake Inbox card with mixed statuses
+
+### What Can Be Validated Automatically
+
+- markdown/file existence for the implementation breakdown doc
+- sidecar schema bootstrap for intake tables
+- endpoint tests for submit, validate, and group flows
+- duplicate-detection behavior with fixture files
+- Working-group conversion behavior from Inbox items
+
+### What Remains Manual
+
+- final operator UX judgment on the first Inbox review card
+- drag/drop or local path-entry ergonomics in the chosen HA/browser surface
+- host-specific filesystem-path behavior for the deployment environment
+
 ## Current Status
 
 - Phase 0 baseline: **closed in docs**
 - First executable milestone selected: **Phase 1A sidecar scaffold and Manyfold read baseline**
 - Phase 1A scaffold: **implemented and validated locally with focused pytest coverage**
+- Phase 1.25 backup/persistence planning: **documented, not yet executed**
+- Phase 1.25 default direction: **named Docker volume for `/data`, export-based snapshots, HA as status/trigger surface only**
 - Phase 1 target (archive-facing DTO contract): **implemented** (`GET /api/archive-links/{archive_id}`)
 - Phase 2 archive-linkage slice: **implemented and test-validated end to end**
 - Implemented in this slice: archive-link CRUD and candidate review endpoints (`create`, `update`, `deactivate`, `candidates/refresh`, `accept`, `reject`), cache-refresh support for candidate refresh, manual-link URL canonicalization, duplicate prevention, confirmed-link preservation across candidate refresh, and popup card integration through HA rest-command wiring
 - Manual and live validation completed for the popup linkage surface, including candidate acceptance, manual link create, and confirmed-link display with Manyfold model name
 - Open follow-on endpoint in repo: duplicate cleanup for inactive historical link rows (`POST /api/archive-links/{archive_id}/cleanup-duplicates`)
 - Deferred from Phase 2 into later phases: heuristic candidate broadening beyond the current name-overlap baseline, curated catalog picker/search, and queue/backlog field behavior
-- Next implementation target: **Phase 3 candidate broadening, curated search/picker, ranking, and queue/backlog fields**
+- Recommended next implementation target: **Phase 1.25 backup bundle automation and restore drill**
+- After Phase 1.25: **Phase 3 candidate broadening, curated search/picker, ranking, and queue/backlog fields**

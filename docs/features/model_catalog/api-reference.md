@@ -71,6 +71,53 @@ Preview delivery contract:
 - `POST /api/archive-links/{archive_id}/{link_id}/reject`
 - `POST /api/admin/archive-links/repair-canonical-model-urls`
 
+## Planned API Appendix
+
+The routes below are **planned/draft contracts**, not currently shipped endpoints.
+
+They are documented here because the Phase 3.5 `.3mf` parser/cache design now has a concrete API draft and should be discoverable from the main reference.
+
+Source draft:
+
+- [planning/3mf-analysis-cache-schema-and-api-draft.md](planning/3mf-analysis-cache-schema-and-api-draft.md)
+
+### 3MF Analysis
+
+Planned route family:
+
+- `POST /api/3mf-analysis/analyze`
+- `GET /api/3mf-analysis/runs/{analysis_run_id}`
+- `GET /api/3mf-analysis/by-hash/{source_sha256}`
+- `GET /api/3mf-analysis/runs/{analysis_run_id}/previews`
+- `POST /api/3mf-analysis/previews/{preview_id}/promote`
+- `GET /api/3mf-analysis/runs/{analysis_run_id}/resources`
+- `POST /api/3mf-analysis/resources/{resource_id}/selection`
+
+Draft intent:
+
+- provide a file-hash-keyed `.3mf` analysis cache reusable across bulk analyze, Working detail, publish-time preview selection, and later backfill workflows
+- inventory preview candidates and allowlisted companion resources without surfacing raw model payload members as user-facing support files
+- keep embedded `.3mf` provenance hints in the analysis cache while leaving fetched public-source metadata to later provenance flows
+
+Draft cache entities:
+
+- `three_mf_analysis_runs`
+- `three_mf_analysis_previews`
+- `three_mf_analysis_resources`
+
+Draft refresh modes:
+
+- `skip_if_current`
+- `rebuild_cache_only`
+- `replace_derived_artifacts`
+- `full_refresh`
+
+Boundary note:
+
+- Phase 3.5 owns parser/cache and bulk-enrichment reuse
+- Phase 5 owns publish-time preview/supporting-asset application
+- Phase 7 owns public-source provenance resolution and refresh
+
 ## Source of Truth
 
 The live OpenAPI document is the contract source of truth:

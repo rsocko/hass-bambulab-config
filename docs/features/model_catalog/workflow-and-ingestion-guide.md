@@ -40,6 +40,20 @@ Use it for:
 
 The sidecar provides the Working veneer and `working_group` model on top of this area.
 
+### Intake Inbox
+
+The intake path sits in front of Working-group creation.
+
+Use it for:
+
+- quick ad hoc file submission from the filesystem
+- drag/drop or file-picker intake
+- right-click or shortcut-triggered intake
+- lightweight validation and duplicate checks
+- holding items in an "Inbox" queue while metadata is reviewed
+
+The Intake Inbox is sidecar-owned staging state. It is not the curated catalog.
+
 ### Curated Catalog
 
 Curated catalog entries live in Manyfold.
@@ -85,11 +99,19 @@ Filesystem folders can seed group inference, but they are not the only grouping 
 
 ### 2. Acquisition
 
+Preferred baseline:
+
+- send newly acquired files to the Intake Inbox first
+- validate them
+- decide whether to create a new `working_group`, attach to an existing one, or reject as duplicate/noise
+
+Only treat direct upload into Manyfold as a deliberate fast path for already curated-quality items.
+
 For downloaded models:
 
 - download to a temporary location outside the catalog baseline
 - inspect contents
-- create or update a `working_group` if the files are worth iterating on
+- submit to Intake Inbox or create/update a `working_group` if the files are worth iterating on
 
 For repeated downloads of the same external model:
 
@@ -105,6 +127,12 @@ For original designs:
 
 - create the files directly in `Working/`
 - create or infer a `working_group`
+
+For quick local intake:
+
+- allow one-file or small-batch submission from a local path, drag/drop surface, or operator shortcut
+- mark new items as `Inbox` until they are grouped or triaged
+- preserve duplicate warnings before creating new Working groups
 
 ### 3. Working Phase
 
@@ -246,12 +274,23 @@ Use the sidecar to parse `.3mf` files for enrichment when helpful.
 
 The sidecar may:
 
-- extract embedded images and documents
-- upload them to Manyfold as model files
-- mark extracted files in sidecar state
+- read `.3mf` as a ZIP package and cache a reusable analysis result by file hash
+- inventory preview candidates and allowlisted companion resources
+- keep parse-only metadata and embedded provenance hints in sidecar-owned analysis state
 - assist with preview selection when safe
 
 This should be on-demand by default.
+
+Do not assume every extracted resource is automatically uploaded to Manyfold.
+
+Baseline rule:
+
+- preview candidates and companion resources are discovered first
+- sidecar cache state records what was found
+- later publish or curated enrichment flows explicitly decide what to promote
+- raw model payload members are not surfaced as user-facing "supporting files"
+
+See [3MF Resource Extraction And Online Provenance Design](3mf-resource-extraction-and-online-provenance-design.md) for the resource taxonomy and [planning/3mf-analysis-cache-schema-and-api-draft.md](planning/3mf-analysis-cache-schema-and-api-draft.md) for the concrete sidecar draft.
 
 ## Photo Workflow
 
@@ -271,6 +310,7 @@ Phase 1 provenance rule:
 
 - record the source URL and platform in the sidecar as early as useful
 - do not force immediate catalog creation just because a source URL exists
+- keep embedded `.3mf` provenance hints separate from fetched public-source metadata
 
 This provenance should also help later duplicate review for repeat downloads from sources such as Makerworld, but provenance alone should not be treated as perfect duplicate proof.
 

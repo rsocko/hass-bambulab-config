@@ -6,6 +6,30 @@
 
 ---
 
+## Execution Snapshot
+
+Already complete or materially implemented:
+
+- **Phase 0**: Design baseline and contracts are closed in docs
+- **Phase 1**: Sidecar scaffold and Manyfold read baseline are implemented
+- **Phase 2**: Archive-linkage slice is implemented and validated end to end
+
+Open planning or implementation work:
+
+- **Phase 1.25**: Backup automation and restore drill are planned, not yet executed
+- **Phase 1.5**: Intake Inbox and bulk discovery/import are designed, not yet implemented
+- **Phase 3+**: Browse, Working, publish, enrichment, provenance, backfill, and project integration remain open
+
+Use this roadmap for sequencing and scope boundaries. Use [phase-delivery-and-validation.md](phase-delivery-and-validation.md) for the stricter current execution state.
+
+Issue tracking note:
+
+- The roadmap keeps `Phase 6` through `Phase 10` as sequence labels for the design.
+- The current GitHub umbrella issues also retain older late-phase numbering for continuity.
+- Revised `.3mf` extraction follow-up from issue `#173` is tracked across `Phase 3.5`, `Phase 5`, and `Phase 7` rather than opening a second conflicting `Phase 6` issue set.
+
+---
+
 ## Summary of Changes to Original Plan
 
 The original [implementation-plan.md](implementation-plan.md) assumed single-file workflows and did not account for:
@@ -14,7 +38,8 @@ The original [implementation-plan.md](implementation-plan.md) assumed single-fil
 - Bulk metadata enrichment (color extraction, tag assignment)
 
 **Revised plan** adds three new sub-phases:
-- **Phase 1.5**: Bulk discovery & import
+- **Phase 1.25**: Sidecar persistence & backup automation
+- **Phase 1.5**: Intake Inbox, bulk discovery & import
 - **Phase 3.5**: Bulk metadata enrichment
 - **Phase 4-5 (Enhanced)**: Project model and working group/curated model linkage
 
@@ -24,7 +49,7 @@ The original [implementation-plan.md](implementation-plan.md) assumed single-fil
 
 ### Phase 0: Delivery Baseline And Contracts (Unchanged)
 
-**Status**: ✅ Already approved
+**Status**: Complete
 
 Outcomes:
 - Architecture baseline frozen
@@ -38,13 +63,13 @@ Outcomes:
 
 ### Phase 1: Sidecar Scaffold And Manyfold Read Baseline (Unchanged)
 
-**Status**: Ready for implementation
+**Status**: Implemented for the current scaffold/read slice
 
 Outcomes:
 - Catalog sidecar exists as runnable service
 - Sidecar can read Manyfold and expose normalized summaries
 
-Work items:
+Delivered in the current slice:
 - Scaffold FastAPI sidecar service
 - Add health, configuration, diagnostics endpoints
 - Bootstrap SQLite schema for:
@@ -52,6 +77,7 @@ Work items:
   - Custom fields
   - Manyfold model summary cache
   - **Working groups and Working items** (planned in original)
+   - **Intake inbox queue** (schema preparation for later phases)
   - **Bulk ingestion metadata** (NEW: discovery_metadata, file_hashes, enrichment tracking)
   - **Projects** (NEW: project CRUD tables, junction tables)
   - Review/audit events
@@ -59,7 +85,7 @@ Work items:
 - Add Manyfold REST client
 - Expose sidecar read endpoints
 
-**Additions to original Phase 1**:
+Remaining or follow-on prep captured in this phase:
 - Add Working-group discovery-metadata schema (preparation for Phase 1.5)
 - Add Project CRUD schema (preparation for Phase 4-5)
 - Document field-hash deduplication approach
@@ -69,64 +95,155 @@ Deliverables:
 
 ---
 
-### Phase 1.5: Bulk Discovery & Import (NEW)
+### Phase 1.25: Sidecar Persistence And Backup Automation (NEW, Issue #1121)
 
-**Status**: Recommended before Phase 2
+**Status**: Planned next; docs complete, execution still open
 
 Outcomes:
+- Sidecar durable state has a clear backup boundary and restore playbook
+- Backup automation exists before Working-group bulk import and broader operator use
+- HA can surface backup status or a manual trigger later without becoming the storage owner
+
+Work items:
+
+1. **Freeze the persistence contract**
+   - Treat `/data` as the only durable sidecar-state root
+   - Keep the SQLite DB at `MODEL_CATALOG_DB_PATH=/data/model_catalog.db`
+   - Require future durable sidecar artifacts (ingestion manifests, parser cache, export bundles) to live under `/data` unless explicitly documented otherwise
+   - Document schema-version expectations and restore compatibility assumptions
+
+2. **Choose and document the default storage mode**
+   - **Default recommendation: dedicated Docker named volume** for `/data`
+   - Reasoning: best isolation, simplest same-stack deployment, avoids accidental Windows/WSL path-coupling, and matches the current compose examples
+   - Optional mode: Linux-side bind mount when host-visible inspection or host-native backup tooling is materially valuable
+   - Non-recommended default: direct Windows-host bind mount for the live SQLite file
+
+3. **Implement backup/restore workflow at the Docker-host layer**
+   - Add a documented backup job that captures `/data` on a schedule
+   - Prefer a consistent SQLite snapshot/export step rather than copying an actively-written DB blindly
+   - Store backup metadata with timestamp, sidecar image version, and schema version
+   - Define restore flow: stop sidecar, restore snapshot, restart sidecar, validate `/healthz` and schema
+
+4. **Add HA-facing operational hooks without making HA the backup engine**
+   - HA should not be the first-class owner of filesystem-level backup execution because the volume lives with Docker, not with HA's runtime boundary
+   - If useful, add a later HA manual action for "backup now" that calls a sidecar/admin endpoint or host automation
+   - If useful, expose read-only backup status in HA (last backup time, last restore-tested time, last backup result)
+   - Keep backup execution decoupled from the existing `bambuddy`/print_history local SQLite patterns
+
+5. **Define third-party / fallback backup options**
+   - Preferred class: existing homelab backup tooling already trusted for Docker volumes or bind mounts
+   - Strong candidates: `restic` or `kopia` around exported snapshots or the `/data` mount
+   - Operational fallback: a small scheduled Docker job that writes timestamped backup files to a second protected location
+   - Lowest-friction emergency fallback: manual export/copy of `/data/model_catalog.db` before risky schema or deployment changes
+
+6. **Document deployment-mode tradeoffs**
+   - **Docker named volume**
+     - Pros: strongest isolation, simplest compose, least accidental path drift, good fit for same-stack sidecar
+     - Cons: less transparent to browse from Windows Explorer, requires Docker-aware backup tooling or an export step
+   - **Linux/WSL bind mount**
+     - Pros: host-visible files, easy inspection, easier integration with filesystem backup jobs, simpler manual restore drills
+     - Cons: more operator responsibility for path stability, permissions, and accidental edits
+   - **Windows bind mount exposed into Linux containers**
+     - Pros: easiest direct visibility from Windows tools
+     - Cons: weakest recommendation for a live SQLite workload due to performance, permissions, newline/metadata differences, and cross-boundary path fragility
+
+**Design decision for issue #1121**:
+- Keep the shipped default as a dedicated Docker named volume for `/data`
+- Support Linux/WSL bind mount as an explicit opt-in mode when direct filesystem visibility or host-native backup software is important
+- Do not make a Windows-host bind mount the recommended default for the live sidecar DB
+- Keep backup automation close to Docker/host operations first; treat HA as a status and optional trigger surface, not the primary backup executor
+
+Deliverables:
+- Backup boundary documented for all durable sidecar state
+- Default volume strategy and optional bind-mount mode documented
+- Backup and restore runbook published and restore-tested
+- Optional HA-visible backup status contract defined
+
+---
+
+### Phase 1.5: Intake Inbox, Bulk Discovery & Import (NEW)
+
+**Status**: Designed; implementation still open
+
+Outcomes:
+- Ad hoc model intake can land in a reviewable Inbox before curation
 - Working groups can be populated from filesystem scan
+- Small-batch or single-file uploads share the same intake contract as bulk discovery
+- Metadata setup can happen from a queue instead of direct-to-Manyfold upload
 - Folder-to-group mapping can be configured or inferred
 - Bulk grouping workflow exists in HA and sidecar
 - File deduplication and conflict detection prevent orphaned duplicates
 
 Work items:
 
-1. **Sidecar bulk-discover endpoint**
+1. **Sidecar intake endpoint and inbox model**
+   - `POST /intake/submit`
+   - Input: one or more filesystem paths plus source hint (`drag_drop`, `file_picker`, `streamdeck`, `filesystem_action`)
+   - Output: staged inbox items with validation results, duplicate hints, and proposed titles
+   - Store Intake Inbox state until the operator groups, rejects, or publishes deliberately
+
+2. **Sidecar bulk-discover endpoint**
    - `POST /working-groups/bulk-discover`
    - Input: folder path, grouping strategy ("by-folder", "by-root", "flat")
    - Output: list of proposed working groups with file lists, no commits yet
+   - Proposed groups can optionally be materialized into the same Intake Inbox for operator review
    - Deduplication: warn if file hash matches existing working group
    - Validation: check for obvious issues (no files, too many, naming conflicts)
 
-2. **Sidecar bulk-import endpoint**
+3. **Sidecar bulk-import endpoint**
    - `POST /working-groups/bulk-import`
-   - Input: list of reviewed groups (name, files, folder_hint, optional stage)
+   - Input: list of reviewed groups or inbox items (name, files, folder_hint, optional stage)
    - Create all Working groups in batch
    - Deduplicate by file hash before creating
    - Track: import timestamp, source folder, strategy used
    - Output: created group IDs, errors, summary
 
-3. **HA automation/script**
+Boundary note:
+- This phase may only create or attach to Working groups as an intake handoff
+- Full Working-group CRUD, Working board/detail UX, and broader file-management workflows remain Phase 4
+
+4. **HA automation/script**
+   - Expose service `model_catalog.submit_to_inbox`
    - Expose service `model_catalog.bulk_discover_working_groups`
    - Expose service `model_catalog.bulk_import_working_groups`
    - Store review state in HA helpers for persistence across sessions
 
-4. **HA bulk-import card**
-   - Show proposed groups with file lists
+5. **HA intake and bulk-import card**
+   - Show Inbox items and proposed groups with file lists
+   - Show validation status and duplicate warnings
    - Allow rename, merge groups, or skip
+   - Allow create Working group, attach to existing group, or keep in Inbox
    - Show deduplication warnings
    - Review and approve before import
    - Show progress and results
 
-5. **Documentation**
+6. **Quick-entry adapters**
+   - Support drag/drop and file-picker style intake in the operator surface
+   - Support path-based shortcuts such as right-click helper or Stream Deck action that submits into the same Intake Inbox contract
+
+7. **Documentation**
+   - Intake Inbox semantics and triage rules
    - Folder-scanning best practices for your use case
    - Disambiguation: "by-folder" vs "by-root" strategies
+   - Direct-to-Manyfold is an exception path, not the default baseline
    - Bulk-import error recovery and rollback
    - Example: scanning ~/3D Printing/ with 500+ files
 
 **Design references**:
 - See [bulk-ingestion-and-projects-assessment.md](bulk-ingestion-and-projects-assessment.md) "Phase 1.5" section for full specification
+- See [intake-inbox-design.md](intake-inbox-design.md) for the operator intake model
 
 Deliverables:
+- Intake Inbox endpoints and review state
 - Bulk-discover and bulk-import endpoints
-- HA bulk-import workflow card
+- HA intake/bulk-import workflow card
 - Successful test with 500+ file scenario
 
 ---
 
 ### Phase 2: Archive Linkage And Popup Integration (Unchanged)
 
-**Status**: As planned
+**Status**: Implemented for the first archive-linkage slice; follow-on enhancements remain open
 
 Outcomes:
 - Archive popup becomes first operator surface for model linkage
@@ -148,7 +265,7 @@ Deliverables:
 
 ### Phase 3: Queue, Ranking, And Curated Browse (Unchanged Core, Enhanced with 3.5)
 
-**Status**: As planned
+**Status**: Open
 
 Outcomes:
 - Curated catalog becomes useful for day-to-day rediscovery and quick reprint
@@ -171,7 +288,7 @@ Deliverables:
 
 ### Phase 3.5: Bulk Metadata Enrichment (NEW)
 
-**Status**: Recommended after Phase 3 core
+**Status**: Open; depends on Phase 3 core and parser foundation
 
 Outcomes:
 - Bulk color extraction from 3MF files
@@ -186,6 +303,10 @@ Work items:
    - Extract model dimensions, material slots, color information
    - Cache results in SQLite with file hash as key
    - Support background/async processing for large batches
+
+Boundary note:
+- Phase 3.5 owns bulk analyze/enrich workflows only
+- Publish-time asset selection and individual curated enrichment remain later phases
 
 2. **Sidecar bulk-analyze endpoint**
    - `POST /working-groups/bulk-analyze`
@@ -216,6 +337,7 @@ Work items:
 
 **Design references**:
 - See [bulk-ingestion-and-projects-assessment.md](bulk-ingestion-and-projects-assessment.md) "Phase 3.5" section for full specification
+- See [planning/3mf-analysis-cache-schema-and-api-draft.md](planning/3mf-analysis-cache-schema-and-api-draft.md) for the concrete sidecar schema and `/api/3mf-analysis/...` draft
 
 Deliverables:
 - 3MF analysis service
@@ -227,7 +349,7 @@ Deliverables:
 
 ### Phase 4: Working Groups And Working Veneer (Enhanced)
 
-**Status**: As planned, with project linkage
+**Status**: Open; broader Working experience not yet implemented
 
 Outcomes:
 - Working files gain first-class operator surface without forcing them into Manyfold
@@ -241,6 +363,10 @@ Work items (Phase 4 — Original):
 - Add custom/remix provenance fields
 - Add HA Working-group board
 - Support quick-open actions
+
+Boundary note:
+- Phase 4 owns the Working board, general Working-group CRUD, supporting-asset management, and broader reacquisition handling
+- It should not be assumed complete just because Phase 1.5 can create or attach a Working group during intake
 
 **Additions for Phase 4 (Projects)**:
 - Add `project_id` field to working groups (optional, nullable)
@@ -256,7 +382,7 @@ Deliverables:
 
 ### Phase 5: Publish Workflow And Revision Lineage (Enhanced)
 
-**Status**: As planned, with project linkage
+**Status**: Open
 
 Outcomes:
 - Boundary between Working and curated catalog becomes explicit
@@ -268,6 +394,10 @@ Work items (Phase 5 — Original):
 - Add reconciliation checks before publish
 - Support deliberate publish-time choices
 - Define recovery behavior for external paths
+
+Boundary note:
+- Publish, lineage, curated duplicate reconciliation, and project-aware publish decisions all remain Phase 5
+- Phase 1.5 and Phase 4 should hand off to this phase rather than partially reimplement it
 
 **Additions for Phase 5 (Projects)**:
 - Support creating or adding curated model to a project during publish
@@ -283,21 +413,26 @@ Deliverables:
 
 ### Phase 6: Photo Upload And 3MF Enrichment (Unchanged)
 
-**Status**: As planned
+**Status**: Open
 
 Outcomes:
 - Curated records become richer without manual re-entry
 
 Work items:
 - Add photo-upload proxy to Manyfold
-- Implement sidecar-driven 3MF parsing and asset upload
-- Allow preview selection assistance
+- Reuse the Phase 3.5 file-hash-keyed analysis cache for individual curated enrichment
+- Inventory preview candidates, allowlisted companion resources, and embedded provenance hints without treating raw model payload members as user-facing support files
+- Allow preview selection assistance and explicit publish-time promotion
 - Expose enrichment actions in archive popup and curated browse
 - Add filament ID inference for model color taxonomy
 
 **Note**: Phase 6 3MF enrichment is different from Phase 3.5 bulk enrichment.
 - Phase 3.5: Bulk metadata extraction for taxonomy (colors, tags)
-- Phase 6: Individual photo/asset upload and enrichment for detailed curation
+- Phase 6: Individual preview/supporting-asset promotion and enrichment for detailed curation
+
+Boundary note:
+- Phase 6 is still the late-sequence curated enrichment phase in this roadmap.
+- The parser/cache foundation for issue `#173` is tracked earlier under Phase 3.5 and its concrete schema draft lives in [planning/3mf-analysis-cache-schema-and-api-draft.md](planning/3mf-analysis-cache-schema-and-api-draft.md).
 
 Deliverables:
 - Curated records can be enriched from HA
@@ -306,13 +441,15 @@ Deliverables:
 
 ### Phase 7: Provenance Capture And Online Ingestion (Unchanged)
 
-**Status**: As planned
+**Status**: Open
 
 Outcomes:
 - Online-source provenance is captured early
 
 Work items:
 - Add source recording for Printables/Makerworld URLs
+- Keep embedded `.3mf` provenance hints separate from fetched public-source metadata
+- Add opt-in source resolution for MakerWorld and other public URLs using sidecar-owned source records
 - Surface pending source records in HA
 - Preserve source identity for duplicate review
 - Add metadata-scrape draft flow later
@@ -324,7 +461,7 @@ Deliverables:
 
 ### Phase 8: Historical Print-History Backfill From Model Catalog (Unchanged)
 
-**Status**: As planned
+**Status**: Open
 
 Outcomes:
 - Model-catalog UI can assist operator-driven backfill of older print-history records
@@ -342,7 +479,7 @@ Deliverables:
 
 ### Phase 9: Storage Monitoring, Preview Quality, And Recovery (Unchanged)
 
-**Status**: As planned
+**Status**: Open
 
 Deliverables:
 - Storage sensors and maintenance actions
@@ -351,7 +488,7 @@ Deliverables:
 
 ### Phase 10: Upstream Improvement Track + Projects Integration (Enhanced)
 
-**Status**: New phase, now includes project integration
+**Status**: Open
 
 Outcomes:
 - Sidecar boundary remains stable
@@ -400,16 +537,19 @@ Before implementation, validate:
 
 1. ✅ Manyfold REST upload and file operations (Phase 1)
 2. ✅ Manyfold file/model PATCH for safe write-back (Phase 1)
-3. Filesystem scan performance with 500+ files (Phase 1.5)
-4. File-hash deduplication accuracy and speed (Phase 1.5)
-5. 3MF parser performance on 500+ files, async processing (Phase 3.5)
-6. Color extraction accuracy and edge cases (Phase 3.5)
-7. Tag inference quality from folder names (Phase 3.5)
-8. Rescan behavior for curated external library changes (Phase 5)
-9. Recovery after restoring missing external files (Phase 5)
-10. Archive linkage scale with projects (Phase 2 / Phase 10)
-11. Project navigation performance with large archives (Phase 10)
-12. Same-stack sidecar deployment and project DB scale (Phase 10)
+3. SQLite backup/export consistency while the sidecar is running (Phase 1.25)
+4. Restore drill from backup into a fresh sidecar instance (Phase 1.25)
+5. Named-volume versus Linux bind-mount operational fit in your Docker/WSL setup (Phase 1.25)
+6. Filesystem scan performance with 500+ files (Phase 1.5)
+7. File-hash deduplication accuracy and speed (Phase 1.5)
+8. 3MF parser performance on 500+ files, async processing (Phase 3.5)
+9. Color extraction accuracy and edge cases (Phase 3.5)
+10. Tag inference quality from folder names (Phase 3.5)
+11. Rescan behavior for curated external library changes (Phase 5)
+12. Recovery after restoring missing external files (Phase 5)
+13. Archive linkage scale with projects (Phase 2 / Phase 10)
+14. Project navigation performance with large archives (Phase 10)
+15. Same-stack sidecar deployment and project DB scale (Phase 10)
 
 ---
 
@@ -421,23 +561,24 @@ Assuming single developer, ~40h/week committed:
 |-------|--------|-------|-----------|
 | 0 | Design | 2-3 | 2-3 |
 | 1 | Scaffold | 3-4 | 5-7 |
-| **1.5** | **Bulk ingest** | **2-3** | **7-10** |
-| 2 | Archive linkage | 3-4 | 10-14 |
-| 3 | Browse & ranking | 4-5 | 14-19 |
-| **3.5** | **Bulk enrichment** | **2-3** | **16-22** |
-| 4 | Working groups | 3-4 | 19-26 |
-| 5 | Publish workflow | 2-3 | 21-29 |
-| 6 | Photo upload | 2-3 | 23-32 |
-| 7 | Provenance | 1-2 | 24-34 |
-| 8 | Backfill | 2-3 | 26-37 |
-| 9 | Storage monitoring | 1-2 | 27-39 |
-| **10** | **Projects + integration** | **3-4** | **30-43** |
+| **1.25** | **Persistence + backup** | **1-2** | **6-9** |
+| **1.5** | **Bulk ingest** | **2-3** | **8-12** |
+| 2 | Archive linkage | 3-4 | 11-16 |
+| 3 | Browse & ranking | 4-5 | 15-21 |
+| **3.5** | **Bulk enrichment** | **2-3** | **17-24** |
+| 4 | Working groups | 3-4 | 20-28 |
+| 5 | Publish workflow | 2-3 | 22-31 |
+| 6 | Photo upload | 2-3 | 24-34 |
+| 7 | Provenance | 1-2 | 25-36 |
+| 8 | Backfill | 2-3 | 27-39 |
+| 9 | Storage monitoring | 1-2 | 28-41 |
+| **10** | **Projects + integration** | **3-4** | **31-45** |
 
-**Total: 30-43 weeks (7-10 months)** to full delivery of all phases including projects.
+**Total: 31-45 weeks (7-11 months)** to full delivery of all phases including projects and backup automation.
 
-**Expedited baseline** (Phase 0-3, skip 1.5/3.5): **14-19 weeks (3.5-5 months)**
+**Expedited baseline** (Phase 0-3, skip 1.5/3.5): **15-21 weeks (4-5 months)**
 
-**With bulk ingest only** (Phase 0-3 + 1.5): **16-22 weeks (4-5 months)**
+**With bulk ingest only** (Phase 0-3 + 1.25 + 1.5): **18-24 weeks (4.5-6 months)**
 
 ---
 
@@ -447,29 +588,31 @@ Assuming single developer, ~40h/week committed:
 
 1. Phase 0 (design)
 2. Phase 1 (scaffold)
-3. **Phase 1.5 (bulk ingest)** ← Priority for your 500+ files
-4. Phase 2 (archive linkage)
-5. Phase 3 (browse)
-6. **Phase 3.5 (bulk enrichment)** ← Productivity for your use case
-7. Phase 4 (working groups)
-8. Phase 5 (publish)
-9. Phase 6-9 (later)
-10. **Phase 10 (projects)** ← Full integration for your use case
+3. **Phase 1.25 (persistence + backup)** ← Protect sidecar state before it becomes valuable
+4. **Phase 1.5 (bulk ingest)** ← Priority for your 500+ files
+5. Phase 2 (archive linkage)
+6. Phase 3 (browse)
+7. **Phase 3.5 (bulk enrichment)** ← Productivity for your use case
+8. Phase 4 (working groups)
+9. Phase 5 (publish)
+10. Phase 6-9 (later)
+11. **Phase 10 (projects)** ← Full integration for your use case
 
-**Rationale**: Bulk ingest and enrichment directly address your ingestion scenario. Projects complete the design for your project-based organization.
+**Rationale**: Bulk ingest and enrichment directly address your ingestion scenario, but issue #1121 means the sidecar needs a backup story before those phases create harder-to-reconstruct state. Projects complete the design for your project-based organization.
 
 ### Option B: Browse-First (Faster Time To Working System)
 
 1. Phase 0 (design)
 2. Phase 1 (scaffold)
-3. Phase 2 (archive linkage)
-4. Phase 3 (browse)
-5. Phase 4 (working groups)
-6. Phase 1.5 (bulk ingest) ← Add after basic system works
-7. Phase 5 (publish)
-8. Phase 3.5 (bulk enrichment) ← After core curation
-9. Phase 6-9
-10. Phase 10 (projects)
+3. Phase 1.25 (persistence + backup)
+4. Phase 2 (archive linkage)
+5. Phase 3 (browse)
+6. Phase 4 (working groups)
+7. Phase 1.5 (bulk ingest) ← Add after basic system works
+8. Phase 5 (publish)
+9. Phase 3.5 (bulk enrichment) ← After core curation
+10. Phase 6-9
+11. Phase 10 (projects)
 
 **Rationale**: Get a working system faster, then add bulk workflows.
 
@@ -482,7 +625,8 @@ Assuming single developer, ~40h/week committed:
 | Phase | Depends On | Blocker? | Notes |
 |-------|-----------|----------|-------|
 | 1 | Phase 0 | No | |
-| **1.5** | Phase 1 | No | But Phase 1 schema needs working-group prep |
+| **1.25** | Phase 1 | No | Should land before broader operator data accumulation |
+| **1.5** | Phase 1, 1.25 | No | But Phase 1 schema needs working-group prep |
 | 2 | Phase 1 | No | |
 | 3 | Phase 2 | No | Improves with archive linkage |
 | **3.5** | Phase 1, 3 | No | 3MF parser is optional dependency |
@@ -494,7 +638,7 @@ Assuming single developer, ~40h/week committed:
 | 9 | Any | No | Utility, not blocking |
 | **10** | Phase 1, 4, 5 | No | But needed for full bulk-ingest scenario |
 
-**Critical path for bulk ingest**: Phase 0 → 1 → 1.5 → (optionally 3.5) → 4 → 5 → 10
+**Critical path for bulk ingest**: Phase 0 → 1 → 1.25 → 1.5 → (optionally 3.5) → 4 → 5 → 10
 
 **No hard blockers.** Can deliver Phase 1.5 as soon as Phase 1 is complete.
 
@@ -502,7 +646,7 @@ Assuming single developer, ~40h/week committed:
 
 ## Design Artifacts to Create
 
-Before implementation starts:
+Still useful to extract or add before those later phases start:
 
 1. ✅ **Bulk Ingestion & Projects Assessment** — [bulk-ingestion-and-projects-assessment.md](bulk-ingestion-and-projects-assessment.md)
 2. ✅ **Projects Design** — [projects-design.md](projects-design.md)
@@ -550,7 +694,7 @@ Before implementation starts:
 
 ---
 
-## Open Questions For Planning
+## Open Questions For Remaining Planning
 
 1. **Bulk discovery strategy**: Does "by-folder" match your folder organization well? If not, what variations are needed?
 2. **3MF parser**: Should we call an external tool (e.g., OpenSCAD, 3MF SDK) or write our own? Performance requirement?
