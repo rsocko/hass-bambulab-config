@@ -37,6 +37,11 @@ class ModelDetailPopupCard extends HTMLElement {
     this._loading = false;
     this._error = "";
     this._activeTab = "details";
+    this._isEditMode = false;
+    this._lastModifiedTimestamp = null;
+    this._conflictDialog = null;
+    this._showConflictDialog = false;
+    this._photoGallery = [];
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -84,6 +89,31 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.classList.contains("tab-button")) {
       event.preventDefault();
       this._activeTab = target.dataset.tab;
+      this._isEditMode = false;
+      this._render();
+      return;
+    }
+
+    // Edit button (Phase 3.1)
+    if (target.id === "btn-edit" || target.closest("#btn-edit")) {
+      event.preventDefault();
+      if (this._activeTab === "details") {
+        this._toggleEditMode();
+      }
+      return;
+    }
+
+    // Save button (Phase 3.1)
+    if (target.id === "btn-save" || target.closest("#btn-save")) {
+      event.preventDefault();
+      this._handleSaveEdits();
+      return;
+    }
+
+    // Cancel button (Phase 3.1)
+    if (target.id === "btn-cancel" || target.closest("#btn-cancel")) {
+      event.preventDefault();
+      this._isEditMode = false;
       this._render();
       return;
     }
@@ -576,6 +606,86 @@ class ModelDetailPopupCard extends HTMLElement {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Phase 3.1 Methods: Edit Mode & Conflict Detection
+  
+  _toggleEditMode() {
+    this._isEditMode = !this._isEditMode;
+    if (this._isEditMode) {
+      this._lastModifiedTimestamp = this._modelDetail.model.last_modified || Date.now();
+    }
+    this._render();
+  }
+
+  async _handleSaveEdits() {
+    // Check for conflicts
+    try {
+      const currentModel = await this._fetchCurrentModel();
+      if (currentModel.last_modified && currentModel.last_modified > this._lastModifiedTimestamp) {
+        this._showConflictDialog = true;
+        this._conflictDialog = {
+          currentModel,
+          action: 'save',
+        };
+        this._render();
+        return;
+      }
+    } catch (error) {
+      console.warn('Could not check for conflicts:', error);
+      // Continue with save anyway
+    }
+
+    // Get form data from edit form
+    const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
+    if (!editForm) {
+      console.error('Edit form not found');
+      return;
+    }
+
+    // Call save service
+    if (this._hass) {
+      try {
+        this._hass.callService('model_catalog', 'update_model', {
+          model_ref: this._modelRef,
+          model_name: editForm._formData.model_name,
+          description: editForm._formData.description,
+          tags: editForm._formData.tags,
+          collection: editForm._formData.collection,
+          enrichment: editForm._formData.enrichment,
+        });
+        this._isEditMode = false;
+        this._render();
+      } catch (error) {
+        console.error('Error saving model:', error);
+        this._error = `Failed to save: ${error}`;
+        this._render();
+      }
+    }
+  }
+
+  async _fetchCurrentModel() {
+    const url = `${this._modelSidecarUrl}/api/models/${encodeURIComponent(this._modelRef)}/detail`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return data.model || {};
+  }
+
+  _handleConflictResolution(action) {
+    this._showConflictDialog = false;
+    
+    if (action === 'reload') {
+      // Reload model and discard changes
+      this._loadModelDetail();
+      this._isEditMode = false;
+    } else if (action === 'overwrite') {
+      // Force save (overwrite upstream)
+      this._handleSaveEdits();
+    }
+    // 'cancel' just closes the dialog
+    
+    this._render();
   }
 
   getCardSize() {

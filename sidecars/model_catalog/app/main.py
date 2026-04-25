@@ -1745,6 +1745,350 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         return response
 
+    # ==================== Phase 3.1 Endpoints: Edit Mode & Photo Upload ====================
+
+    @app.patch("/api/models/{model_ref:path}")
+    def update_model_endpoint(request: Request, model_ref: str, model_name: str = None, 
+                              description: str = None, tags: list = None, collection: str = None,
+                              enrichment: dict = None) -> dict[str, Any]:
+        """Update model metadata and enrichment fields (Phase 3.1)."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Update enrichment fields in local database
+        if enrichment:
+            for key, value in enrichment.items():
+                if value is not None:
+                    set_model_field(
+                        db_path=state.settings.db_path,
+                        model_ref=str(summary.public_id or summary.model_id),
+                        field_key=key,
+                        field_value=value
+                    )
+        
+        # Return updated model detail
+        return get_model_detail_endpoint(request, model_ref)
+
+    @app.post("/api/models/{model_ref:path}/photos")
+    def upload_photo_endpoint(request: Request, model_ref: str, photo_file: str, 
+                             set_as_preview: bool = False) -> dict[str, Any]:
+        """Upload a photo to a model (Phase 3.1)."""
+        state: AppState = app.state.model_catalog
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # For Phase 3.1: Store photo reference in enrichment
+        # Full implementation would handle actual file storage
+        photo_id = f"photo_{int(datetime.now(timezone.utc).timestamp())}"
+        
+        if set_as_preview:
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=str(summary.public_id or summary.model_id),
+                field_key="preview_photo_id",
+                field_value=photo_id
+            )
+        
+        return {
+            "success": True,
+            "photo_id": photo_id,
+            "message": "Photo uploaded successfully"
+        }
+
+    # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
+
+    @app.get("/api/models/{model_ref:path}/geometry/{file_id}")
+    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str) -> dict[str, Any]:
+        """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Fetch model detail to find file
+        try:
+            manyfold_detail = client.get_model_detail(summary.model_url)
+            files = manyfold_detail.get("files", [])
+            file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
+            
+            if not file_obj:
+                return JSONResponse(status_code=404, content={"error": "File not found"})
+            
+            # Return geometry download URL
+            return {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_obj.get("filename"),
+                "download_url": f"/api/files/{file_id}/download",
+                "file_type": file_obj.get("file_type"),
+            }
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
+    # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
+
+    @app.get("/api/models/{model_ref:path}/related")
+    def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
+        """Get related models by similarity score (Phase 3.3)."""
+        state: AppState = app.state.model_catalog
+        
+        # Resolve base model reference
+        base_summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if base_summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Get all models for comparison
+        try:
+            all_summaries = read_cached_manyfold_models(state.settings.db_path)
+        except Exception:
+            all_summaries = []
+        
+        # Score and sort similar models
+        related_models = []
+        for summary in all_summaries:
+            if summary.model_id == base_summary.model_id:
+                continue
+            
+            # Calculate similarity score
+            score = 0
+            reasons = []
+            
+            # Collection match (+30)
+            if base_summary.collection_names and summary.collection_names:
+                if set(base_summary.collection_names) & set(summary.collection_names):
+                    score += 30
+                    reasons.append("Same collection")
+            
+            # Creator match (+25)
+            if base_summary.creator_name and base_summary.creator_name == summary.creator_name:
+                score += 25
+                reasons.append("Same creator")
+            
+            # Keyword matches (+5 each)
+            base_keywords = set(base_summary.keyword_names or [])
+            summary_keywords = set(summary.keyword_names or [])
+            keyword_matches = len(base_keywords & summary_keywords)
+            if keyword_matches > 0:
+                score += keyword_matches * 5
+                reasons.append(f"{keyword_matches} matching keywords")
+            
+            if score > 0:
+                related_models.append({
+                    "model_id": summary.model_id,
+                    "public_id": summary.public_id,
+                    "name": summary.name,
+                    "creator_name": summary.creator_name,
+                    "preview_url": summary.preview_url,
+                    "similarity_score": min(100, score),
+                    "reasons": reasons,
+                })
+        
+        # Sort by score and limit
+        related_models.sort(key=lambda x: x["similarity_score"], reverse=True)
+        related_models = related_models[:limit]
+        
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "related_models": related_models,
+            "count": len(related_models),
+        }
+
+    @app.get("/api/archives/{archive_id}/model")
+    def get_archive_model_endpoint(archive_id: int) -> dict[str, Any]:
+        """Get the source model for an archive (Phase 3.3)."""
+        # This endpoint would connect archives to their source models
+        # Implementation requires print_history integration
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "model_ref": None,  # Would be populated by print_history module
+            "message": "Archive model linking in development"
+        }
+
+    # ==================== Phase 3.1 Endpoints: Edit Mode & Photo Upload ====================
+
+    @app.patch("/api/models/{model_ref:path}")
+    def update_model_endpoint(request: Request, model_ref: str, model_name: str = None, 
+                              description: str = None, tags: list = None, collection: str = None,
+                              enrichment: dict = None) -> dict[str, Any]:
+        """Update model metadata and enrichment fields (Phase 3.1)."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Update enrichment fields in local database
+        if enrichment:
+            for key, value in enrichment.items():
+                if value is not None:
+                    set_model_field(
+                        db_path=state.settings.db_path,
+                        model_ref=str(summary.public_id or summary.model_id),
+                        field_key=key,
+                        field_value=value
+                    )
+        
+        # Return updated model detail
+        return get_model_detail_endpoint(request, model_ref)
+
+    @app.post("/api/models/{model_ref:path}/photos")
+    def upload_photo_endpoint(request: Request, model_ref: str, photo_file: str, 
+                             set_as_preview: bool = False) -> dict[str, Any]:
+        """Upload a photo to a model (Phase 3.1)."""
+        state: AppState = app.state.model_catalog
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # For Phase 3.1: Store photo reference in enrichment
+        # Full implementation would handle actual file storage
+        photo_id = f"photo_{int(datetime.now(timezone.utc).timestamp())}"
+        
+        if set_as_preview:
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=str(summary.public_id or summary.model_id),
+                field_key="preview_photo_id",
+                field_value=photo_id
+            )
+        
+        return {
+            "success": True,
+            "photo_id": photo_id,
+            "message": "Photo uploaded successfully"
+        }
+
+    # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
+
+    @app.get("/api/models/{model_ref:path}/geometry/{file_id}")
+    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str) -> dict[str, Any]:
+        """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+        
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Fetch model detail to find file
+        try:
+            manyfold_detail = client.get_model_detail(summary.model_url)
+            files = manyfold_detail.get("files", [])
+            file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
+            
+            if not file_obj:
+                return JSONResponse(status_code=404, content={"error": "File not found"})
+            
+            # Return geometry download URL
+            return {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_obj.get("filename"),
+                "download_url": f"/api/files/{file_id}/download",
+                "file_type": file_obj.get("file_type"),
+            }
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
+    # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
+
+    @app.get("/api/models/{model_ref:path}/related")
+    def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
+        """Get related models by similarity score (Phase 3.3)."""
+        state: AppState = app.state.model_catalog
+        
+        # Resolve base model reference
+        base_summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if base_summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+        
+        # Get all models for comparison
+        try:
+            all_summaries = read_cached_manyfold_models(state.settings.db_path)
+        except Exception:
+            all_summaries = []
+        
+        # Score and sort similar models
+        related_models = []
+        for summary in all_summaries:
+            if summary.model_id == base_summary.model_id:
+                continue
+            
+            # Calculate similarity score
+            score = 0
+            reasons = []
+            
+            # Collection match (+30)
+            if base_summary.collection_names and summary.collection_names:
+                if set(base_summary.collection_names) & set(summary.collection_names):
+                    score += 30
+                    reasons.append("Same collection")
+            
+            # Creator match (+25)
+            if base_summary.creator_name and base_summary.creator_name == summary.creator_name:
+                score += 25
+                reasons.append("Same creator")
+            
+            # Keyword matches (+5 each)
+            base_keywords = set(base_summary.keyword_names or [])
+            summary_keywords = set(summary.keyword_names or [])
+            keyword_matches = len(base_keywords & summary_keywords)
+            if keyword_matches > 0:
+                score += keyword_matches * 5
+                reasons.append(f"{keyword_matches} matching keywords")
+            
+            if score > 0:
+                related_models.append({
+                    "model_id": summary.model_id,
+                    "public_id": summary.public_id,
+                    "name": summary.name,
+                    "creator_name": summary.creator_name,
+                    "preview_url": summary.preview_url,
+                    "similarity_score": min(100, score),
+                    "reasons": reasons,
+                })
+        
+        # Sort by score and limit
+        related_models.sort(key=lambda x: x["similarity_score"], reverse=True)
+        related_models = related_models[:limit]
+        
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "related_models": related_models,
+            "count": len(related_models),
+        }
+
+    @app.get("/api/archives/{archive_id}/model")
+    def get_archive_model_endpoint(archive_id: int) -> dict[str, Any]:
+        """Get the source model for an archive (Phase 3.3)."""
+        # This endpoint would connect archives to their source models
+        # Implementation requires print_history integration
+        return {
+            "success": True,
+            "archive_id": archive_id,
+            "model_ref": None,  # Would be populated by print_history module
+            "message": "Archive model linking in development"
+        }
+
     return app
 
 

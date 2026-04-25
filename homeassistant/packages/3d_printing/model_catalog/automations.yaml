@@ -1,0 +1,53 @@
+# Phase 3.1: Automation to handle model updates
+# Triggered when user saves model form changes
+
+automation model_catalog_update_model_automation:
+  - alias: "Model Catalog - Update Model Metadata"
+    description: "Save model edits from detail popup to sidecar"
+    trigger:
+      platform: event
+      event_type: model_catalog_update_model
+    action:
+      - service: rest_command.model_catalog_update_model
+        data:
+          model_ref: "{{ trigger.event.data.model_ref }}"
+          model_name: "{{ trigger.event.data.model_name }}"
+          description: "{{ trigger.event.data.description }}"
+          tags: "{{ trigger.event.data.tags }}"
+          collection: "{{ trigger.event.data.collection }}"
+          enrichment: "{{ trigger.event.data.enrichment }}"
+      - event: model_catalog_update_model_complete
+        event_data:
+          model_ref: "{{ trigger.event.data.model_ref }}"
+          status: "success"
+
+  - alias: "Model Catalog - Upload Photo"
+    description: "Upload photo to model"
+    trigger:
+      platform: event
+      event_type: model_catalog_upload_photo
+    action:
+      - service: rest_command.model_catalog_upload_photo
+        data:
+          model_ref: "{{ trigger.event.data.model_ref }}"
+          photo_file: "{{ trigger.event.data.photo_file }}"
+          set_as_preview: "{{ trigger.event.data.set_as_preview | default(false) }}"
+      - event: model_catalog_upload_photo_complete
+        event_data:
+          model_ref: "{{ trigger.event.data.model_ref }}"
+          status: "success"
+
+  - alias: "Model Catalog - Navigate to Model"
+    description: "Open model detail popup when navigating"
+    trigger:
+      platform: event
+      event_type: model_catalog_navigate_to_model
+    action:
+      - service: browser_mod.popup
+        data:
+          title: "{{ trigger.event.data.model_name | default('Model Detail') }}"
+          size: wide
+          content:
+            type: custom:model-detail-popup-card
+            model_ref: "{{ trigger.event.data.model_ref }}"
+            source: "{{ trigger.event.data.source | default('navigation') }}"

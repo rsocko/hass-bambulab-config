@@ -1,0 +1,89 @@
+homeassistant:
+  services:
+    model_catalog.update_model:
+      name: Update Model
+      description: Update model metadata and enrichment fields
+      fields:
+        model_ref:
+          name: Model Reference
+          description: Model reference (public_id or model_id)
+          required: true
+          example: "gridfinity-bin"
+        model_name:
+          name: Model Name
+          description: Model display name
+          example: "Gridfinity Bin"
+        description:
+          name: Description
+          description: Model description
+          example: "A parametric binning system"
+        tags:
+          name: Tags
+          description: Comma-separated tags
+          example: "organization, storage, 3d-printing"
+        collection:
+          name: Collection
+          description: Collection ID or name
+          example: "my-collection"
+        enrichment:
+          name: Enrichment Fields
+          description: Enrichment data (print time, support type, difficulty, notes)
+          example:
+            print_time_estimate: 3600
+            support_type_hint: "tree"
+            difficulty_level: "beginner"
+            print_notes: "Print with support"
+
+    model_catalog.upload_photo:
+      name: Upload Model Photo
+      description: Upload a photo to a model
+      fields:
+        model_ref:
+          name: Model Reference
+          description: Model reference (public_id or model_id)
+          required: true
+          example: "gridfinity-bin"
+        photo_file:
+          name: Photo File
+          description: Base64-encoded photo data or file path
+          required: true
+          example: "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+        set_as_preview:
+          name: Set as Preview
+          description: Set this photo as the model preview/thumbnail
+          default: false
+          example: true
+
+    model_catalog.navigate_to_model:
+      name: Navigate to Model Detail
+      description: Open model detail popup in Home Assistant
+      fields:
+        model_ref:
+          name: Model Reference
+          description: Model reference (public_id or model_id)
+          required: true
+          example: "gridfinity-bin"
+        source:
+          name: Navigation Source
+          description: Where navigation originated (for logging)
+          example: "archive_detail"
+
+    model_catalog.queue_model_for_print:
+      name: Queue Model for Print
+      description: Add model to print queue
+      fields:
+        model_ref:
+          name: Model Reference
+          description: Model reference (public_id or model_id)
+          required: true
+          example: "gridfinity-bin"
+        file_id:
+          name: File ID
+          description: Specific file to print (optional)
+          example: "gridfinity-bin.stl"
+        settings:
+          name: Print Settings
+          description: Print settings override (optional)
+          example:
+            bed_temp: 60
+            nozzle_temp: 210
