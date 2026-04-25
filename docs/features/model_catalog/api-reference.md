@@ -31,6 +31,7 @@ When the sidecar is running:
 - `GET /api/models/{model_ref}/fields/{field_key}`
 - `PUT /api/models/{model_ref}/fields/{field_key}`
 - `DELETE /api/models/{model_ref}/fields/{field_key}`
+- `POST /api/models/{model_ref}/queue`
 - `GET /api/models/{model_ref}/ranking`
 - `PUT /api/models/{model_ref}/ranking`
 - `POST /api/models/ranking/refresh`
@@ -39,6 +40,13 @@ Common custom-field keys exposed through the `fields` endpoints include:
 
 - `to_print_status`
 - `to_print_priority`
+
+Queue/backlog filtering supported by `GET /api/models` and `GET /api/models/search`:
+
+- `to_print_status`
+- `to_print_priority`
+- `to_print_priority_min`
+- `to_print_priority_max`
 - `taxonomy_origin_class` (`reprint`, `remix_or_tweak`, `custom_unique`)
 - `taxonomy_change_axes` (`color`, `model`, `other`)
 - `model_favorite`

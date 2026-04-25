@@ -957,6 +957,153 @@ def test_model_fields_can_be_managed_and_used_for_model_list_filters(tmp_path: P
         assert missing.status_code == 404
 
 
+def test_model_queue_endpoint_supports_status_and_priority_actions(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/gridfinity-bin",
+                "gridfinity-bin",
+                "Gridfinity Bin",
+                "101",
+                None,
+                "Rysock",
+                '[]',
+                '[]',
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        mark_queued = test_client.post(
+            "/api/models/gridfinity-bin/queue",
+            json={"action": "mark_queued", "to_print_priority": 3},
+        )
+        assert mark_queued.status_code == 200
+        assert mark_queued.json()["queue"]["to_print_status"] == "queued"
+        assert mark_queued.json()["queue"]["to_print_priority"] == 3
+
+        bump_priority = test_client.post(
+            "/api/models/gridfinity-bin/queue",
+            json={"action": "priority_up"},
+        )
+        assert bump_priority.status_code == 200
+        assert bump_priority.json()["queue"]["to_print_priority"] == 4
+
+        mark_done = test_client.post(
+            "/api/models/gridfinity-bin/queue",
+            json={"action": "mark_done"},
+        )
+        assert mark_done.status_code == 200
+        assert mark_done.json()["queue"]["to_print_status"] == "done"
+
+
+def test_model_search_supports_priority_filters(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        for model_url, public_id, name, model_id in [
+            ("http://manyfold.test/models/gridfinity-bin", "gridfinity-bin", "Gridfinity Bin", "101"),
+            ("http://manyfold.test/models/tool-rack", "tool-rack", "Tool Rack", "102"),
+            ("http://manyfold.test/models/phone-stand", "phone-stand", "Phone Stand", "103"),
+        ]:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url,
+                    manyfold_model_public_id,
+                    manyfold_model_name,
+                    manyfold_model_id,
+                    preview_url,
+                    creator_name,
+                    collection_names_json,
+                    keyword_names_json,
+                    raw_json,
+                    refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    model_url,
+                    public_id,
+                    name,
+                    model_id,
+                    None,
+                    "Rysock",
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-23T00:00:00Z",
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="gridfinity-bin",
+        field_key="to_print_status",
+        field_value="queued",
+    )
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="gridfinity-bin",
+        field_key="to_print_priority",
+        field_value=9,
+    )
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="tool-rack",
+        field_key="to_print_status",
+        field_value="queued",
+    )
+    set_model_field(
+        db_path=settings.db_path,
+        model_ref="tool-rack",
+        field_key="to_print_priority",
+        field_value=4,
+    )
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/search?to_print_status=queued&to_print_priority_min=5&sort=priority"
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["public_id"] == "gridfinity-bin"
+
+        exact_priority = test_client.get("/api/models/search?to_print_priority=4")
+        assert exact_priority.status_code == 200
+        assert exact_priority.json()["pagination"]["total"] == 1
+        assert exact_priority.json()["results"][0]["public_id"] == "tool-rack"
+
+
 def test_model_ranking_can_be_stored_and_used_for_model_sorting(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

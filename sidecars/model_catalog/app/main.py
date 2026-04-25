@@ -92,6 +92,32 @@ def _coerce_int(value: object | None) -> int | None:
         return None
 
 
+def _matches_priority_filters(
+    custom_fields: dict[str, object],
+    *,
+    to_print_priority: int | None,
+    to_print_priority_min: int | None,
+    to_print_priority_max: int | None,
+) -> bool:
+    priority = _coerce_int(custom_fields.get("to_print_priority"))
+    if to_print_priority is not None:
+        return priority == to_print_priority
+    if to_print_priority_min is not None and (priority is None or priority < to_print_priority_min):
+        return False
+    if to_print_priority_max is not None and (priority is None or priority > to_print_priority_max):
+        return False
+    return True
+
+
+def _normalize_queue_status(value: object | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"none", "queued", "done"}:
+        return normalized
+    return None
+
+
 def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
     ranking = model_payload.get("ranking") or {}
     if sort_by == "priority":
@@ -825,6 +851,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         request: Request,
         refresh: bool = False,
         to_print_status: str | None = None,
+        to_print_priority: int | None = None,
+        to_print_priority_min: int | None = None,
+        to_print_priority_max: int | None = None,
         sort: str = "name",
     ) -> dict[str, Any]:
         state: AppState = app.state.model_catalog
@@ -847,6 +876,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             model_ref = summary.public_id or summary.model_id or summary.model_url
             custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
             if to_print_status and str(custom_fields.get("to_print_status") or "") != to_print_status:
+                continue
+            if not _matches_priority_filters(
+                custom_fields,
+                to_print_priority=to_print_priority,
+                to_print_priority_min=to_print_priority_min,
+                to_print_priority_max=to_print_priority_max,
+            ):
                 continue
             models.append(
                 _serialize_model_summary(
@@ -873,6 +909,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         creator: str | None = None,
         tag: str | None = None,
         to_print_status: str | None = None,
+        to_print_priority: int | None = None,
+        to_print_priority_min: int | None = None,
+        to_print_priority_max: int | None = None,
         sort: str = "best",
         refresh: bool = False,
         page: int = 1,
@@ -915,7 +954,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
             if to_print_status and str(custom_fields.get("to_print_status") or "") != str(to_print_status):
                 continue
-            
+            if not _matches_priority_filters(
+                custom_fields,
+                to_print_priority=to_print_priority,
+                to_print_priority_min=to_print_priority_min,
+                to_print_priority_max=to_print_priority_max,
+            ):
+                continue
+
             # Calculate search score
             score = _search_score(query_tokens, summary) if query_tokens else 1.0
             
@@ -960,6 +1006,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "creator": creator,
                 "tag": tag,
                 "to_print_status": to_print_status,
+                "to_print_priority": to_print_priority,
+                "to_print_priority_min": to_print_priority_min,
+                "to_print_priority_max": to_print_priority_max,
             },
             "sort": normalized_sort,
             "pagination": {
@@ -1050,6 +1099,71 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if not deleted:
             return JSONResponse(status_code=404, content={"success": False, "error": "field_not_found", "field_key": field_key, "model_ref": model_ref})
         return {"success": True, "model_ref": model_ref, "manyfold_model_url": summary.model_url, "field_key": field_key}
+
+    @app.post("/api/models/{model_ref:path}/queue")
+    def update_model_queue(model_ref: str, payload: dict[str, Any]) -> Any:
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"success": False, "error": "model_not_found", "model_ref": model_ref})
+
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+        current_fields = read_model_fields(db_path=state.settings.db_path, model_ref=resolved_ref)
+        current_status = _normalize_queue_status(current_fields.get("to_print_status"))
+        current_priority = _coerce_int(current_fields.get("to_print_priority"))
+
+        action = str(payload.get("action") or "").strip().lower()
+        next_status = _normalize_queue_status(payload.get("to_print_status"))
+        explicit_priority = _coerce_int(payload.get("to_print_priority"))
+        priority_delta = _coerce_int(payload.get("priority_delta"))
+
+        if action == "mark_queued":
+            next_status = "queued"
+        elif action == "mark_done":
+            next_status = "done"
+        elif action in {"clear", "clear_status"}:
+            next_status = "none"
+        elif action == "priority_up":
+            priority_delta = 1
+        elif action == "priority_down":
+            priority_delta = -1
+
+        next_priority = current_priority
+        if explicit_priority is not None:
+            next_priority = explicit_priority
+        elif priority_delta is not None:
+            next_priority = (current_priority or 0) + priority_delta
+
+        changed: dict[str, object] = {}
+
+        if next_status is not None and next_status != current_status:
+            changed["to_print_status"] = set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=resolved_ref,
+                field_key="to_print_status",
+                field_value=next_status,
+            )
+
+        if next_priority is not None and next_priority != current_priority:
+            changed["to_print_priority"] = set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=resolved_ref,
+                field_key="to_print_priority",
+                field_value=next_priority,
+            )
+
+        updated_fields = read_model_fields(db_path=state.settings.db_path, model_ref=resolved_ref)
+        return {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "action": action or None,
+            "changed": changed,
+            "queue": {
+                "to_print_status": updated_fields.get("to_print_status"),
+                "to_print_priority": updated_fields.get("to_print_priority"),
+            },
+        }
 
     @app.get("/api/models/{model_ref:path}/ranking")
     def get_model_ranking_endpoint(model_ref: str) -> dict[str, Any]:

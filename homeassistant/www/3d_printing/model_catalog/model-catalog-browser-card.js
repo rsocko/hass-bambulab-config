@@ -15,6 +15,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       creator: "",
       tag: "",
       to_print_status: "",
+      to_print_priority_min: "",
+      to_print_priority_max: "",
       sort: "recent",
     };
 
@@ -171,6 +173,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._filters.creator = read("#mc-creator");
     this._filters.tag = read("#mc-tag");
     this._filters.to_print_status = read("#mc-queue");
+    this._filters.to_print_priority_min = read("#mc-priority-min");
+    this._filters.to_print_priority_max = read("#mc-priority-max");
     this._filters.sort = read("#mc-sort") || "recent";
   }
 
@@ -190,6 +194,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
         creator: this._filters.creator,
         tag: this._filters.tag,
         to_print_status: this._filters.to_print_status,
+        to_print_priority_min: this._filters.to_print_priority_min,
+        to_print_priority_max: this._filters.to_print_priority_max,
         sort: this._filters.sort,
         refresh: !!refresh,
         page: Math.max(1, Number(page || 1)),
@@ -228,7 +234,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._loadPage(1, false);
   }
 
-  _handleClick(event) {
+  async _handleClick(event) {
     var target = event && event.target && event.target.closest ? event.target.closest("[data-action]") : null;
     if (!target) {
       return;
@@ -263,6 +269,50 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var url = String(target.getAttribute("data-url") || "").trim();
       if (url) {
         window.open(url, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+
+    if (action.indexOf("queue-") === 0) {
+      var modelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      if (!modelRef || this._loading) {
+        return;
+      }
+
+      try {
+        this._error = "";
+
+        if (action === "queue-priority-up") {
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: modelRef,
+            action: "priority_up",
+          });
+        } else if (action === "queue-priority-down") {
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: modelRef,
+            action: "priority_down",
+          });
+        } else if (action === "queue-mark-queued") {
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: modelRef,
+            action: "mark_queued",
+          });
+        } else if (action === "queue-mark-done") {
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: modelRef,
+            action: "mark_done",
+          });
+        } else if (action === "queue-clear") {
+          await this._callServiceWithResponse("rest_command", "model_catalog_update_model_queue", {
+            model_ref: modelRef,
+            action: "clear",
+          });
+        }
+
+        await this._loadPage(this._pagination.page || 1, false);
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not update queue state.";
+        this._render();
       }
     }
   }
@@ -302,7 +352,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     var queueChip = queueStatus
       ? '<span class="chip queue">Queue: ' + this._escapeHtml(queueStatus + (queuePriority ? " (P" + queuePriority + ")" : "")) + '</span>'
-      : '<span class="chip neutral">Queue: unqueued</span>';
+      : '<span class="chip neutral">Queue: none</span>';
+
+    var modelRef = String(model.public_id || model.model_id || model.model_url || "");
+
+    var queueActions = ''
+      + '<div class="queue-actions">'
+      + '  <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '">-P</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '">+P</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
+      + '  <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
+      + '</div>';
 
     var rankingChips = [
       '<span class="chip">Recent ' + this._escapeHtml(recent.toFixed(2)) + '</span>',
@@ -326,6 +387,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    <div class="meta">Tags: ' + this._escapeHtml(this._formatTagList(tags)) + '</div>'
       + '    <div class="meta">Linked archives: ' + String(linkedCount) + '</div>'
       + '    <div class="chips">' + queueChip + rankingChips + '</div>'
+      + queueActions
       + '  </div>'
       + '</article>';
   }
@@ -352,7 +414,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.wrap{display:grid;gap:14px;padding:14px;}'
       + '.header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
       + '.title{font-size:18px;font-weight:700;}'
-      + '.controls{display:grid;gap:10px;grid-template-columns:repeat(6,minmax(0,1fr));}'
+      + '.controls{display:grid;gap:10px;grid-template-columns:repeat(8,minmax(0,1fr));}'
       + '.control{display:grid;gap:4px;min-width:0;}'
       + '.control label{font-size:11px;color:var(--secondary-text-color);font-weight:700;letter-spacing:.02em;}'
       + '.control-input{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--divider-color,rgba(148,163,184,0.3));background:var(--card-background-color);color:var(--primary-text-color);}'
@@ -371,6 +433,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.title-row .title{font-size:14px;font-weight:800;line-height:1.3;margin:0;overflow-wrap:anywhere;}'
       + '.open-btn{border:1px solid rgba(96,165,250,0.42);background:rgba(30,64,175,0.18);color:var(--primary-text-color);padding:4px 8px;border-radius:999px;cursor:pointer;font-size:11px;font-weight:700;}'
       + '.meta{font-size:12px;line-height:1.4;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
+      + '.queue-actions{display:flex;flex-wrap:wrap;gap:6px;}'
+      + '.mini-btn{border:1px solid rgba(148,163,184,0.30);background:rgba(148,163,184,0.14);color:var(--primary-text-color);padding:3px 8px;border-radius:999px;cursor:pointer;font-size:11px;font-weight:700;}'
       + '.chips{display:flex;flex-wrap:wrap;gap:6px;}'
       + '.chip{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.24);}'
       + '.chip.neutral{background:rgba(148,163,184,0.14);border-color:rgba(148,163,184,0.26);}'
@@ -378,6 +442,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.footer{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}'
       + '.state-row{padding:16px;border-radius:12px;background:rgba(148,163,184,0.10);font-size:13px;}'
       + '.state-row.error{background:rgba(185,28,28,0.16);}'
+      + '@media (max-width: 1100px){.controls{grid-template-columns:repeat(4,minmax(0,1fr));}}'
       + '@media (max-width: 980px){.controls{grid-template-columns:repeat(3,minmax(0,1fr));}}'
       + '@media (max-width: 640px){.controls{grid-template-columns:repeat(2,minmax(0,1fr));}.model-card{grid-template-columns:1fr;}.thumb{width:100%;height:140px;}}'
       + '</style>'
@@ -399,7 +464,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '        <option value=""' + (this._filters.to_print_status === '' ? ' selected' : '') + '>All</option>'
       + '        <option value="queued"' + (this._filters.to_print_status === 'queued' ? ' selected' : '') + '>Queued</option>'
       + '        <option value="done"' + (this._filters.to_print_status === 'done' ? ' selected' : '') + '>Done</option>'
+      + '        <option value="none"' + (this._filters.to_print_status === 'none' ? ' selected' : '') + '>None</option>'
       + '      </select></div>'
+      + '      <div class="control"><label for="mc-priority-min">Min Priority</label><input id="mc-priority-min" class="control-input" type="number" value="' + this._escapeHtml(this._filters.to_print_priority_min) + '"></div>'
+      + '      <div class="control"><label for="mc-priority-max">Max Priority</label><input id="mc-priority-max" class="control-input" type="number" value="' + this._escapeHtml(this._filters.to_print_priority_max) + '"></div>'
       + '      <div class="control"><label for="mc-sort">Sort</label><select id="mc-sort" class="control-input">'
       + '        <option value="best"' + (this._filters.sort === 'best' ? ' selected' : '') + '>Best Match</option>'
       + '        <option value="recent"' + (this._filters.sort === 'recent' ? ' selected' : '') + '>Recent</option>'
