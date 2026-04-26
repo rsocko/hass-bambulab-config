@@ -1250,7 +1250,8 @@ class ModelDetailPopupCard extends HTMLElement {
         this._render();
       } catch (error) {
         console.error('Error saving model:', error);
-        this._error = `Failed to save: ${error}`;
+        const errorMsg = error?.message || String(error) || 'Unknown error';
+        this._error = `Failed to save: ${errorMsg}`;
         this._render();
       }
     }
