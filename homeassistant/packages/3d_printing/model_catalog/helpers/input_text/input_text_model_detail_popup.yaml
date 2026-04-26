@@ -6,4 +6,3 @@ model_catalog_detail_ref:
 model_catalog_sidecar_url:
   name: Model Catalog Sidecar URL
   icon: mdi:server
-  initial: "http://localhost:8314"
