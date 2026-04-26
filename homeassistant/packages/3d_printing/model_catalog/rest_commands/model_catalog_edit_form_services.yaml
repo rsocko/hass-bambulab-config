@@ -1,0 +1,41 @@
+# Services used by model detail popup edit form.
+# Must live in rest_commands/ because model_catalog_loader.yaml uses:
+# rest_command: !include_dir_merge_named rest_commands
+
+model_catalog_update_model:
+  url: "http://localhost:8090/api/models/{{ model_ref }}"
+  method: PATCH
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {
+      "model_name": {{ model_name | default('') | tojson }},
+      "description": {{ description | default('') | tojson }},
+      "tags": {{ tags | default([]) | tojson }},
+      "collection": {{ collection | default('') | tojson }},
+      "enrichment": {
+        "print_time_estimate": {{ enrichment.print_time_estimate | default(none) | tojson }},
+        "support_type_hint": {{ enrichment.support_type_hint | default('') | tojson }},
+        "difficulty_level": {{ enrichment.difficulty_level | default('') | tojson }},
+        "print_notes": {{ enrichment.print_notes | default('') | tojson }}
+      }
+    }
+
+model_catalog_upload_photo:
+  url: "http://localhost:8090/api/models/{{ model_ref }}/photos"
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {
+      "photo_file": {{ photo_file | tojson }},
+      "set_as_preview": {{ set_as_preview | default(false) | bool | tojson }}
+    }
+
+model_catalog_delete_photo:
+  url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}"
+  method: DELETE
+
+model_catalog_set_photo_preview:
+  url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
+  method: POST
