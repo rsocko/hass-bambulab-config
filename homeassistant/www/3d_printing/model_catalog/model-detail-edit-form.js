@@ -183,8 +183,8 @@ class ModelDetailEditForm extends HTMLElement {
 
         <!-- Actions -->
         <div class="actions">
-          <button class="btn-save" id="btn-save">Save Changes</button>
-          <button class="btn-cancel" id="btn-cancel">Cancel</button>
+          <button class="btn-save" id="form-btn-save">Save Changes</button>
+          <button class="btn-cancel" id="form-btn-cancel">Cancel</button>
         </div>
       </div>
     `;
@@ -194,38 +194,63 @@ class ModelDetailEditForm extends HTMLElement {
   }
 
   _attachEventListeners() {
-    document.getElementById('advanced-toggle').addEventListener('click', () => {
-      const content = document.getElementById('advanced-content');
-      content.classList.toggle('open');
-    });
+    const advancedToggle = this.querySelector('#advanced-toggle');
+    const saveButton = this.querySelector('#form-btn-save');
+    const cancelButton = this.querySelector('#form-btn-cancel');
 
-    document.getElementById('btn-save').addEventListener('click', () => this._handleSave());
-    document.getElementById('btn-cancel').addEventListener('click', () => this._onCancel());
+    if (advancedToggle) {
+      advancedToggle.addEventListener('click', () => {
+        const content = this.querySelector('#advanced-content');
+        if (content) {
+          content.classList.toggle('open');
+        }
+      });
+    }
+
+    if (saveButton) {
+      saveButton.addEventListener('click', () => this._handleSave());
+    }
+
+    if (cancelButton) {
+      cancelButton.addEventListener('click', () => this._onCancel());
+    }
   }
 
   _populateForm() {
+    const nameInput = this.querySelector('#model-name');
+    const descriptionInput = this.querySelector('#model-description');
+    const tagsInput = this.querySelector('#model-tags');
+    const collectionInput = this.querySelector('#model-collection');
+    const printTimeInput = this.querySelector('#enrichment-print-time');
+    const supportTypeInput = this.querySelector('#enrichment-support-type');
+    const difficultyInput = this.querySelector('#enrichment-difficulty');
+    const notesInput = this.querySelector('#enrichment-print-notes');
+
     if (this._model.name) {
-      document.getElementById('model-name').value = this._model.name;
+      if (nameInput) nameInput.value = this._model.name;
     }
     if (this._model.description) {
-      document.getElementById('model-description').value = this._model.description;
+      if (descriptionInput) descriptionInput.value = this._model.description;
     }
     if (this._model.keywords) {
-      document.getElementById('model-tags').value = this._model.keywords.join(', ');
+      if (tagsInput) tagsInput.value = this._model.keywords.join(', ');
+    }
+    if (this._model.collection && collectionInput) {
+      collectionInput.value = this._model.collection;
     }
     if (this._model.enrichment) {
       const enrichment = this._model.enrichment;
       if (enrichment.print_time_estimate) {
-        document.getElementById('enrichment-print-time').value = enrichment.print_time_estimate;
+        if (printTimeInput) printTimeInput.value = enrichment.print_time_estimate;
       }
       if (enrichment.support_type_hint) {
-        document.getElementById('enrichment-support-type').value = enrichment.support_type_hint;
+        if (supportTypeInput) supportTypeInput.value = enrichment.support_type_hint;
       }
       if (enrichment.difficulty_level) {
-        document.getElementById('enrichment-difficulty').value = enrichment.difficulty_level;
+        if (difficultyInput) difficultyInput.value = enrichment.difficulty_level;
       }
       if (enrichment.print_notes) {
-        document.getElementById('enrichment-print-notes').value = enrichment.print_notes;
+        if (notesInput) notesInput.value = enrichment.print_notes;
       }
     }
   }
@@ -235,9 +260,18 @@ class ModelDetailEditForm extends HTMLElement {
     this._validationErrors = {};
 
     // Validate
-    const name = document.getElementById('model-name').value.trim();
-    const description = document.getElementById('model-description').value.trim();
-    const printTime = document.getElementById('enrichment-print-time').value;
+    const nameInput = this.querySelector('#model-name');
+    const descriptionInput = this.querySelector('#model-description');
+    const tagsInput = this.querySelector('#model-tags');
+    const collectionInput = this.querySelector('#model-collection');
+    const printTimeInput = this.querySelector('#enrichment-print-time');
+    const supportTypeInput = this.querySelector('#enrichment-support-type');
+    const difficultyInput = this.querySelector('#enrichment-difficulty');
+    const notesInput = this.querySelector('#enrichment-print-notes');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const description = descriptionInput ? descriptionInput.value.trim() : '';
+    const printTime = printTimeInput ? printTimeInput.value : '';
     
     // Required field validation
     if (!name) {
@@ -268,22 +302,26 @@ class ModelDetailEditForm extends HTMLElement {
       model_ref: this._model.public_id || this._model.model_id,
       model_name: name,
       description: description,
-      tags: document.getElementById('model-tags').value.split(',').map(t => t.trim()).filter(t => t),
-      collection: document.getElementById('model-collection').value.trim() || null,
+      tags: tagsInput ? tagsInput.value.split(',').map(t => t.trim()).filter(t => t) : [],
+      collection: collectionInput ? collectionInput.value.trim() || null : null,
       enrichment: {
         print_time_estimate: printTime ? parseInt(printTime) : null,
-        support_type_hint: document.getElementById('enrichment-support-type').value || null,
-        difficulty_level: document.getElementById('enrichment-difficulty').value || null,
-        print_notes: document.getElementById('enrichment-print-notes').value.trim() || null,
+        support_type_hint: supportTypeInput ? supportTypeInput.value || null : null,
+        difficulty_level: difficultyInput ? difficultyInput.value || null : null,
+        print_notes: notesInput ? notesInput.value.trim() || null : null,
       },
     };
 
     this._onSave(formData);
   }
 
+  submitEdits() {
+    this._handleSave();
+  }
+
   _displayValidationErrors() {
     Object.entries(this._validationErrors).forEach(([field, error]) => {
-      const errorEl = document.getElementById(`error-${field}`);
+      const errorEl = this.querySelector(`#error-${field}`);
       if (errorEl) {
         errorEl.textContent = error;
       }
@@ -291,7 +329,7 @@ class ModelDetailEditForm extends HTMLElement {
   }
 
   _clearValidationErrors() {
-    document.querySelectorAll('.error-message').forEach(el => {
+    this.querySelectorAll('.error-message').forEach(el => {
       el.textContent = '';
     });
   }

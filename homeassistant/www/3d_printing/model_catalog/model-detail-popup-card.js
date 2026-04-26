@@ -228,7 +228,6 @@ class ModelDetailPopupCard extends HTMLElement {
       : this._renderEmpty();
     
     this.shadowRoot.innerHTML = html;
-    this.shadowRoot.addEventListener("click", this._boundClickHandler);
     
     // If in edit mode and model is loaded, initialize the edit form
     if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
@@ -935,8 +934,13 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _handleSaveEdits() {
-    // This is now replaced by _handleFormSave
-    console.warn('Use _handleFormSave instead');
+    const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
+    if (editForm && typeof editForm.submitEdits === 'function') {
+      editForm.submitEdits();
+      return;
+    }
+
+    console.warn('Edit form is not ready; cannot save yet.');
   }
 
   async _fetchCurrentModel() {
@@ -966,6 +970,8 @@ class ModelDetailPopupCard extends HTMLElement {
   _initializeEditForm() {
     const container = this.shadowRoot.getElementById('edit-form-container');
     if (!container) return;
+
+    container.innerHTML = '';
 
     // Create and configure the edit form element
     const editForm = document.createElement('model-detail-edit-form');
