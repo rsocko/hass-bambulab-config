@@ -2392,7 +2392,29 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
         
-        # Update enrichment fields in local database
+        # Build update payload for Manyfold (only include fields that are provided)
+        manyfold_updates = {}
+        if model_name is not None:
+            manyfold_updates["name"] = model_name
+        if description is not None:
+            manyfold_updates["description"] = description
+        if tags is not None:
+            manyfold_updates["tags"] = tags
+        if collection is not None:
+            manyfold_updates["collection"] = collection
+        
+        # Update model in Manyfold first
+        try:
+            if manyfold_updates:
+                # Use model URL from summary, as it's the canonical reference
+                resolved_ref = str(summary.model_url or summary.public_id or summary.model_id)
+                client.update_model(resolved_ref, manyfold_updates)
+        except Exception as e:
+            # Log the error but continue with local enrichment updates
+            # (enrichment fields are local-only and don't require Manyfold)
+            print(f"Warning: Failed to update model in Manyfold: {e}")
+        
+        # Update enrichment fields in local database (these are HA-only)
         if enrichment:
             for key, value in enrichment.items():
                 if value is not None:
@@ -2405,6 +2427,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         # Return updated model detail
         return get_model_detail_endpoint(request, model_ref)
+
 
     @app.post("/api/models/{model_ref:path}/photos")
     def upload_photo_endpoint(request: Request, model_ref: str, photo_file: str, 

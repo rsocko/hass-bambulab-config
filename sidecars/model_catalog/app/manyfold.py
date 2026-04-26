@@ -305,6 +305,24 @@ class ManyfoldClient:
         response.raise_for_status()
         return self._extract_rows(response.json())
 
+    def update_model(self, model_ref: str, updates: dict[str, Any]) -> dict[str, Any]:
+        """Update model metadata in Manyfold (Phase 3.1).
+        
+        Args:
+            model_ref: Model URL, public_id, or model_id
+            updates: Dict with fields to update (e.g., name, description, tags, collection)
+        
+        Returns:
+            Updated model detail from Manyfold
+        """
+        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        response = self._client.patch(path, headers=self._request_headers(), json=updates)
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("Manyfold model update response was not a JSON object.")
+        return payload
+
 
 def normalize_model_summary(
     base_url: str,

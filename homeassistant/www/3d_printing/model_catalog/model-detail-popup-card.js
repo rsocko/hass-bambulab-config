@@ -35,6 +35,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._modelSidecarUrl = "";
     this._modelDetail = null;
     this._loading = false;
+    this._isSaving = false;
     this._error = "";
     this._activeTab = "details";
     this._isEditMode = false;
@@ -413,6 +414,12 @@ class ModelDetailPopupCard extends HTMLElement {
           background: var(--dark-primary-color);
         }
         
+        .action-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          background: var(--disabled-text-color);
+        }
+        
         .tab-navigation {
           display: flex;
           border-bottom: 2px solid var(--divider-color);
@@ -658,8 +665,10 @@ class ModelDetailPopupCard extends HTMLElement {
               <button class="action-button" id="btn-edit">✏️ Edit</button>
             ` : ''}
             ${this._isEditMode ? `
-              <button class="action-button" id="btn-save" style="background: #4CAF50;">💾 Save</button>
-              <button class="action-button" id="btn-cancel" style="background: #f44336;">✕ Cancel</button>
+              <button class="action-button" id="btn-save" style="background: #4CAF50;" ${this._isSaving ? 'disabled' : ''}>
+                ${this._isSaving ? '⏳ Saving...' : '💾 Save'}
+              </button>
+              <button class="action-button" id="btn-cancel" style="background: #f44336;" ${this._isSaving ? 'disabled' : ''}>✕ Cancel</button>
             ` : `
               <button class="action-button" id="btn-viewer">🧊 3D View</button>
               <button class="action-button" id="btn-download">📥 Download</button>
@@ -1225,10 +1234,17 @@ class ModelDetailPopupCard extends HTMLElement {
       // Continue with save anyway
     }
 
+    // Mark as saving and show UI feedback
+    this._isSaving = true;
+    this._error = null;
+    this._render();
+
     // Save to sidecar via HA service
     if (this._hass) {
       try {
-        await this._hass.callService('rest_command', 'model_catalog_update_model', {
+        console.log('Calling REST command with formData:', formData);
+        
+        const serviceResponse = await this._hass.callService('rest_command', 'model_catalog_update_model', {
           model_ref: formData.model_ref,
           model_name: formData.model_name,
           description: formData.description,
@@ -1237,15 +1253,26 @@ class ModelDetailPopupCard extends HTMLElement {
           enrichment: formData.enrichment,
         });
         
-        // Show success message and reload
-        console.log('Model saved successfully');
+        console.log('REST command response:', serviceResponse);
+        
+        // Wait a moment for sidecar to process
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Reload model detail
+        console.log('Reloading model detail after save...');
+        await this._loadModelDetail();
+        
+        // Exit edit mode and close popup
         this._isEditMode = false;
         this._editAdvancedSectionOpen = false;
-        await this._loadModelDetail();
+        this._isSaving = false;
+        this._error = null;
+        console.log('Model saved successfully');
         this._render();
       } catch (error) {
         console.error('Error saving model:', error);
         const errorMsg = error?.message || String(error) || 'Unknown error';
+        this._isSaving = false;
         this._error = `Failed to save: ${errorMsg}`;
         this._render();
       }

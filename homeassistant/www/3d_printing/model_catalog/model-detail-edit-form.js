@@ -271,11 +271,46 @@ class ModelDetailEditForm extends HTMLElement {
     if (this._model.description) {
       if (descriptionInput) descriptionInput.value = this._model.description;
     }
-    if (this._model.keywords) {
-      if (tagsInput) tagsInput.value = this._model.keywords.join(', ');
+    if (tagsInput) {
+      // Support both summary/detail payload shapes for tags.
+      const tagValues = Array.isArray(this._model.keywords)
+        ? this._model.keywords
+        : Array.isArray(this._model.tags)
+          ? this._model.tags
+          : [];
+      if (tagValues.length > 0) {
+        tagsInput.value = tagValues
+          .map((tag) => {
+            if (typeof tag === 'string') return tag;
+            if (tag && typeof tag === 'object') return String(tag.name || tag.label || '');
+            return '';
+          })
+          .filter(Boolean)
+          .join(', ');
+      }
     }
-    if (this._model.collection && collectionInput) {
-      collectionInput.value = this._model.collection;
+    if (collectionInput) {
+      // The model detail payload typically provides collection_names (array)
+      // rather than a scalar collection field.
+      const rawCollection = this._model.collection;
+      const collectionNames = Array.isArray(this._model.collection_names)
+        ? this._model.collection_names
+        : Array.isArray(this._model.collections)
+          ? this._model.collections
+          : [];
+
+      if (typeof rawCollection === 'string' && rawCollection.trim()) {
+        collectionInput.value = rawCollection;
+      } else if (collectionNames.length > 0) {
+        collectionInput.value = collectionNames
+          .map((collection) => {
+            if (typeof collection === 'string') return collection;
+            if (collection && typeof collection === 'object') return String(collection.name || collection.title || '');
+            return '';
+          })
+          .filter(Boolean)
+          .join(', ');
+      }
     }
     if (this._model.enrichment) {
       const enrichment = this._model.enrichment;
