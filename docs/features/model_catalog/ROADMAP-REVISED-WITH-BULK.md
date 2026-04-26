@@ -477,12 +477,25 @@ Deliverables:
 
 ---
 
-### Phase 9: Storage Monitoring, Preview Quality, And Recovery (Unchanged)
+### Phase 9: Storage Monitoring, Preview Quality, And Recovery (Enhanced)
 
 **Status**: Open
 
+Tracking:
+- Issue [#222](https://github.com/rsocko/hass-bambulab-config/issues/222)
+
+Outcomes:
+- Operators can monitor storage growth and preview quality drift without manual filesystem forensics
+- Preview cleanup can be run safely with dry-run visibility before destructive actions
+
+Work items:
+- Add storage sensors and maintenance actions with trend-aware thresholds
+- Add stale-preview detection and quality guardrails for canonical preview coverage
+- Add preview trim workflow with dry-run/apply modes and clear audit output
+- Add recovery/runbook guidance for rescan vs recreate/relink paths
+
 Deliverables:
-- Storage sensors and maintenance actions
+- Storage monitoring and preview-maintenance controls are available in Phase 9 workflows
 
 ---
 

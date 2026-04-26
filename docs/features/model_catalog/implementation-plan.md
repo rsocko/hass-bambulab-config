@@ -445,7 +445,7 @@ Deliverables:
 - existing forensics/backfill tooling is integrated as an execution engine rather than stranded as a separate operator-only path
 - created or attached archives can be linked back into the catalog flow immediately
 
-### Phase 9: Storage Monitoring, Preview Quality, And External Recovery Support
+### Phase 9: Storage Monitoring, Preview Quality, And Recovery
 
 Status:
 
@@ -453,17 +453,24 @@ Status:
 
 Outcome:
 
-- the system can identify stale previews, storage drift, and external-storage recovery cases
+- the system can identify stale previews, storage drift, and recovery cases while giving operators safe cleanup actions
+
+Tracking:
+
+- issue [#222](https://github.com/rsocko/hass-bambulab-config/issues/222) (storage size monitoring and preview cleanup)
 
 Work items:
 
 - surface stale-preview detection
-- add storage sensors and maintenance actions
-- add explicit external-storage recovery guidance and optional helper actions where safe
+- add storage sensors and maintenance actions, including trend-aware storage growth checks
+- add preview-retention and trim actions with explicit dry-run and apply modes
+- define preview-quality guardrails so cleanup does not remove canonical primary preview coverage
+- add explicit recovery guidance and optional helper actions where safe
 
 Deliverables:
 
 - operators can identify when rescan is enough and when recreate/relink is required
+- operators can identify when preview cleanup is safe, and can run bounded trim actions with audit-friendly output
 
 ### Phase 10: Upstream Improvement Track
 
