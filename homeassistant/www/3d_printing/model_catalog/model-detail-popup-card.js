@@ -66,6 +66,16 @@ class ModelDetailPopupCard extends HTMLElement {
       this._loadModelDetail();
     }
 
+    // During edit mode, avoid re-rendering the popup on every HA state tick,
+    // which can recreate the form and steal input focus.
+    if (this._isEditMode) {
+      const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
+      if (editForm) {
+        editForm.hass = hass;
+      }
+      return;
+    }
+
     this._render();
   }
 
@@ -1176,7 +1186,12 @@ class ModelDetailPopupCard extends HTMLElement {
     const container = this.shadowRoot.getElementById('edit-form-container');
     if (!container) return;
 
-    container.innerHTML = '';
+    // Reuse existing form instance to preserve focus and in-progress edits.
+    const existingForm = container.querySelector('model-detail-edit-form');
+    if (existingForm) {
+      existingForm.hass = this._hass;
+      return;
+    }
 
     const editForm = document.createElement('model-detail-edit-form');
     editForm.setConfig({
