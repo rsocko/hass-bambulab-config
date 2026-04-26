@@ -423,22 +423,40 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _openModelDetailPopup(modelRef, modelName) {
-    if (!this._hass || !modelRef) {
+    if (!modelRef) {
       return;
     }
-    try {
-      this._hass.callService('browser_mod', 'popup', {
-        title: modelName,
-        size: 'wide',
-        content: {
-          type: 'custom:model-detail-popup-card',
-          model_ref: modelRef,
-          model_sidecar_url: 'http://localhost:8314',
+
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: modelName || "Model Details",
+      size: "wide",
+      content: {
+        type: "custom:model-detail-popup-card",
+        model_ref: modelRef,
+        model_entity: "input_text.model_catalog_sidecar_url",
+      },
+    });
+  }
+
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent("ll-custom", {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
         },
-      });
-    } catch (error) {
-      console.error('Failed to open model detail popup:', error);
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
     }
+
+    this.dispatchEvent(event);
   }
 
   _render() {
