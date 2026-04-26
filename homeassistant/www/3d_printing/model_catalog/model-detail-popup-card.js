@@ -100,19 +100,29 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handleClick(event) {
-    const target = event.target;
+    let target = null;
+    if (event.target instanceof Element) {
+      target = event.target;
+    } else if (event.composedPath) {
+      target = event.composedPath().find(node => node instanceof Element) || null;
+    }
+
+    if (!target) {
+      return;
+    }
     
     // Tab navigation
-    if (target.classList.contains("tab-button")) {
+    const tabButton = target.closest('.tab-button');
+    if (tabButton) {
       event.preventDefault();
-      this._activeTab = target.dataset.tab;
+      this._activeTab = tabButton.dataset.tab;
       this._isEditMode = false;
       this._render();
       return;
     }
 
     // Edit button (Phase 3.1)
-    if (target.id === "btn-edit" || target.closest("#btn-edit")) {
+    if (target.closest("#btn-edit")) {
       event.preventDefault();
       if (this._activeTab === "details") {
         this._toggleEditMode();
@@ -121,14 +131,14 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Save button (Phase 3.1)
-    if (target.id === "btn-save" || target.closest("#btn-save")) {
+    if (target.closest("#btn-save")) {
       event.preventDefault();
       this._handleSaveEdits();
       return;
     }
 
     // Cancel button (Phase 3.1)
-    if (target.id === "btn-cancel" || target.closest("#btn-cancel")) {
+    if (target.closest("#btn-cancel")) {
       event.preventDefault();
       this._isEditMode = false;
       this._render();
@@ -136,19 +146,19 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Conflict dialog buttons
-    if (target.id === "btn-conflict-cancel") {
+    if (target.closest("#btn-conflict-cancel")) {
       event.preventDefault();
       this._handleConflictResolution('cancel');
       return;
     }
 
-    if (target.id === "btn-conflict-reload") {
+    if (target.closest("#btn-conflict-reload")) {
       event.preventDefault();
       this._handleConflictResolution('reload');
       return;
     }
 
-    if (target.id === "btn-conflict-overwrite") {
+    if (target.closest("#btn-conflict-overwrite")) {
       event.preventDefault();
       this._handleConflictResolution('overwrite');
       return;
@@ -173,7 +183,7 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Photo upload area
-    if (target.id === 'photo-upload-area' || target.closest('#photo-upload-area')) {
+    if (target.closest('#photo-upload-area')) {
       event.preventDefault();
       const fileInput = this.shadowRoot.getElementById('photo-file-input');
       if (fileInput) {
