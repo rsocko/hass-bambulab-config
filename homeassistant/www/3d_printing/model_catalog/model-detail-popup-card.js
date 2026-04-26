@@ -42,6 +42,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._conflictDialog = null;
     this._showConflictDialog = false;
     this._photoGallery = [];
+    this._currentEditForm = null; // Cache the edit form to preserve state
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
@@ -117,6 +118,7 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._activeTab = tabButton.dataset.tab;
       this._isEditMode = false;
+      this._currentEditForm = null; // Clear cached form when switching tabs
       this._render();
       return;
     }
@@ -141,6 +143,7 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-cancel")) {
       event.preventDefault();
       this._isEditMode = false;
+      this._currentEditForm = null; // Clear cached form when canceling
       this._render();
       return;
     }
@@ -925,14 +928,207 @@ class ModelDetailPopupCard extends HTMLElement {
       `;
     }
     
+    // Archive grid view with filters and sorting
     return `
       <div class="tab-content">
-        <div class="archive-list">
+        <style>
+          .archive-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+          }
+          
+          .archive-filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+          }
+          
+          .filter-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--secondary-text-color);
+          }
+          
+          .filter-btn {
+            padding: 4px 12px;
+            border: 1px solid var(--divider-color);
+            background: var(--card-background-color);
+            color: var(--primary-text-color);
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+          }
+          
+          .filter-btn:hover {
+            border-color: var(--primary-color);
+          }
+          
+          .filter-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+          }
+          
+          .sort-select {
+            padding: 4px 8px;
+            border: 1px solid var(--divider-color);
+            background: var(--card-background-color);
+            color: var(--primary-text-color);
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+          }
+          
+          .archive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+          }
+          
+          .archive-card {
+            border: 1px solid var(--divider-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--card-background-color);
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          
+          .archive-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+          }
+          
+          .archive-thumbnail {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            background: var(--secondary-background-color);
+            border-bottom: 1px solid var(--divider-color);
+          }
+          
+          .archive-card-content {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          
+          .archive-title {
+            font-weight: 500;
+            font-size: 13px;
+            line-height: 1.3;
+            color: var(--primary-text-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+          
+          .archive-meta {
+            font-size: 11px;
+            color: var(--secondary-text-color);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+          
+          .archive-status {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+            width: fit-content;
+          }
+          
+          .status-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #2e7d32;
+          }
+          
+          .status-failed {
+            background: rgba(244, 67, 54, 0.2);
+            color: #c62828;
+          }
+          
+          .status-stopped {
+            background: rgba(255, 152, 0, 0.2);
+            color: #e65100;
+          }
+          
+          .archive-actions {
+            display: flex;
+            gap: 4px;
+            border-top: 1px solid var(--divider-color);
+            padding-top: 6px;
+          }
+          
+          .action-btn {
+            flex: 1;
+            padding: 4px 6px;
+            border: none;
+            background: var(--secondary-background-color);
+            color: var(--primary-text-color);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s;
+          }
+          
+          .action-btn:hover {
+            background: var(--primary-color);
+            color: white;
+          }
+        </style>
+        
+        <div class="archive-controls">
+          <div class="archive-filter-group">
+            <span class="filter-label">Filter:</span>
+            <button class="filter-btn active" data-filter="all">All (${links.length})</button>
+            <button class="filter-btn" data-filter="success">Success (${links.filter(l => l.status === 'success').length})</button>
+            <button class="filter-btn" data-filter="failed">Failed (${links.filter(l => l.status === 'failed').length})</button>
+          </div>
+          
+          <div class="archive-filter-group">
+            <span class="filter-label">Sort:</span>
+            <select class="sort-select" data-sort-by="date_newest">
+              <option value="date_newest">Date (Newest)</option>
+              <option value="date_oldest">Date (Oldest)</option>
+              <option value="filament">Filament</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="archive-grid">
           ${links.map(link => `
-            <div class="archive-item">
-              <div class="archive-name">Archive #${link.archive_id}</div>
-              <div class="archive-detail">
-                Match: ${link.match_method} (${link.match_confidence})
+            <div class="archive-card" data-archive-id="${link.archive_id}">
+              ${link.thumbnail_url ? `
+                <img class="archive-thumbnail" src="${link.thumbnail_url}" alt="Archive #${link.archive_id}" loading="lazy">
+              ` : `
+                <div class="archive-thumbnail" style="display: flex; align-items: center; justify-content: center;">
+                  <span style="font-size: 32px;">🖨️</span>
+                </div>
+              `}
+              <div class="archive-card-content">
+                <div class="archive-title">${this._escapeHtml(link.name || \`Archive #\${link.archive_id}\`)}</div>
+                <div class="archive-meta">
+                  ${link.completed_at ? `<div>📅 ${new Date(link.completed_at).toLocaleDateString()}</div>` : ''}
+                  ${link.filament_name ? `<div>🎨 ${this._escapeHtml(link.filament_name)}</div>` : ''}
+                  ${link.status ? `<div class="archive-status status-${link.status}">${link.status.toUpperCase()}</div>` : ''}
+                </div>
+                <div class="archive-actions">
+                  <button class="action-btn" data-action="view-archive">View</button>
+                  <button class="action-btn" data-action="print-again">Print Again</button>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -950,6 +1146,10 @@ class ModelDetailPopupCard extends HTMLElement {
   // Phase 3.1 Methods: Edit Mode & Conflict Detection
   
   _toggleEditMode() {
+    if (this._isEditMode) {
+      // Exiting edit mode - clear form reference
+      this._currentEditForm = null;
+    }
     this._isEditMode = !this._isEditMode;
     if (this._isEditMode) {
       this._lastModifiedTimestamp = this._modelDetail.model.last_modified || Date.now();
@@ -982,9 +1182,13 @@ class ModelDetailPopupCard extends HTMLElement {
       // Reload model and discard changes
       this._loadModelDetail();
       this._isEditMode = false;
+      this._currentEditForm = null; // Clear cached form when reloading
     } else if (action === 'overwrite') {
       // Force save (overwrite upstream)
       this._handleSaveEdits();
+    } else if (action === 'cancel') {
+      // Cancel closes dialog and clears form cache
+      this._currentEditForm = null;
     }
     // 'cancel' just closes the dialog
     
@@ -995,11 +1199,13 @@ class ModelDetailPopupCard extends HTMLElement {
     const container = this.shadowRoot.getElementById('edit-form-container');
     if (!container) return;
 
-    // Only create form if one doesn't already exist
-    const existingForm = container.querySelector('model-detail-edit-form');
-    if (existingForm) {
-      return; // Form already initialized, don't recreate
+    // Reuse existing form if available (preserves state like expanded sections)
+    if (this._currentEditForm && container.contains(this._currentEditForm)) {
+      return;
     }
+
+    // Clear container only if creating a new form
+    container.innerHTML = '';
 
     // Create and configure the edit form element
     const editForm = document.createElement('model-detail-edit-form');
@@ -1008,12 +1214,14 @@ class ModelDetailPopupCard extends HTMLElement {
       on_save: (formData) => this._handleFormSave(formData),
       on_cancel: () => {
         this._isEditMode = false;
+        this._currentEditForm = null;
         this._render();
       }
     });
     editForm.hass = this._hass;
     
     container.appendChild(editForm);
+    this._currentEditForm = editForm; // Cache the form element
   }
 
   async _handleFormSave(formData) {
@@ -1050,6 +1258,7 @@ class ModelDetailPopupCard extends HTMLElement {
         // Show success message and reload
         console.log('Model saved successfully');
         this._isEditMode = false;
+        this._currentEditForm = null; // Clear cached form after save
         await this._loadModelDetail();
         this._render();
       } catch (error) {

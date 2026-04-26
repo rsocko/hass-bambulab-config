@@ -17,7 +17,8 @@ class ModelDetailEditForm extends HTMLElement {
     this._model = null;
     this._formData = {};
     this._validationErrors = {};
-    this._boundHandleClick = this._handleAdvancedToggle.bind(this);
+    this._advancedSectionOpen = false; // Persistent state for advanced section
+    this._boundHandleClick = this._handleFormClick.bind(this);
   }
 
   setConfig(config) {
@@ -151,9 +152,9 @@ class ModelDetailEditForm extends HTMLElement {
         <div class="advanced-section">
           <div class="advanced-header" id="advanced-toggle">
             <span>⚙️ Advanced Enrichment Fields</span>
-            <span id="advanced-arrow">▼</span>
+            <span id="advanced-arrow">${this._advancedSectionOpen ? '▲' : '▼'}</span>
           </div>
-          <div class="advanced-content" id="advanced-content">
+          <div class="advanced-content ${this._advancedSectionOpen ? 'open' : ''}" id="advanced-content">
             <div class="form-group">
               <label>Print Time Estimate (seconds)</label>
               <input type="number" id="enrichment-print-time" placeholder="3600" min="0">
@@ -197,24 +198,42 @@ class ModelDetailEditForm extends HTMLElement {
     `;
 
     this._populateForm();
+    
+    // Restore expanded state after render
+    if (this._advancedSectionOpen) {
+      const content = this.querySelector('#advanced-content');
+      if (content) {
+        content.classList.add('open');
+      }
+    }
   }
 
-  _handleAdvancedToggle(event) {
+  _handleFormClick(event) {
     const target = event.target;
     if (!target) return;
 
+    // Advanced toggle
     const advancedToggle = target.closest('#advanced-toggle');
     if (advancedToggle) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+      
+      // Toggle state and update display immediately
+      this._advancedSectionOpen = !this._advancedSectionOpen;
       const content = this.querySelector('#advanced-content');
+      const arrow = this.querySelector('#advanced-arrow');
+      
       if (content) {
         content.classList.toggle('open');
+      }
+      if (arrow) {
+        arrow.textContent = this._advancedSectionOpen ? '▲' : '▼';
       }
       return;
     }
 
+    // Save button
     const saveButton = target.closest('#form-btn-save');
     if (saveButton) {
       event.preventDefault();
@@ -223,6 +242,7 @@ class ModelDetailEditForm extends HTMLElement {
       return;
     }
 
+    // Cancel button
     const cancelButton = target.closest('#form-btn-cancel');
     if (cancelButton) {
       event.preventDefault();
