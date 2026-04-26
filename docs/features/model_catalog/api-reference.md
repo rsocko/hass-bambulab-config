@@ -71,6 +71,43 @@ Preview delivery contract:
 - `POST /api/archive-links/{archive_id}/{link_id}/reject`
 - `POST /api/admin/archive-links/repair-canonical-model-urls`
 
+### Working Groups (Bulk Intake)
+
+- `POST /working-groups/bulk-discover`
+- `POST /working-groups/bulk-import`
+
+Compatibility aliases:
+
+- `POST /api/working-groups/bulk-discover`
+- `POST /api/working-groups/bulk-import`
+
+`bulk-discover` request shape:
+
+- `folder_path` (required)
+- `grouping_strategy` (`by-folder`, `by-root`, `flat`)
+- `max_depth` (optional)
+
+`bulk-discover` behavior:
+
+- scans nested folders for `.3mf`, `.stl`, `.obj`
+- returns proposed groups and file lists without writing DB rows
+- computes SHA256 hashes and returns duplicate warnings when a file hash already exists in `working_items`
+
+`bulk-import` request shape:
+
+- `proposals` (required list from reviewed discover output)
+- `source_folder` (optional but recommended for metadata)
+- `grouping_strategy` (optional; persisted into group discovery metadata)
+- `discovery_timestamp` (optional; defaults to import-time if omitted)
+- `stage` (optional default stage for created groups)
+
+`bulk-import` behavior:
+
+- supports proposal actions: `import`, `merge`, `skip`
+- deduplicates by hash against existing `working_items.file_hash` and within the same import batch
+- persists discovery metadata on each created `working_group`
+- returns created groups/items plus skipped duplicate and failed-file details
+
 ## Planned API Appendix
 
 The routes below are **planned/draft contracts**, not currently shipped endpoints.

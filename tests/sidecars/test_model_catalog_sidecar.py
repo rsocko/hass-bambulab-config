@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import sqlite3
 
@@ -3378,3 +3379,180 @@ def test_model_search_supports_recent_sorting(tmp_path: Path) -> None:
         assert payload["sort"] == "recent"
         assert payload["results"][0]["name"] == "Newer"
         assert payload["results"][1]["name"] == "Older"
+
+def test_bulk_discover_groups_nested_files_and_surfaces_duplicate_warnings(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    root = tmp_path / "library"
+    (root / "Tools").mkdir(parents=True)
+    (root / "Decor").mkdir(parents=True)
+
+    duplicate_file = root / "Tools" / "alpha.3mf"
+    duplicate_bytes = b"duplicate-sha-content"
+    duplicate_file.write_bytes(duplicate_bytes)
+
+    unique_file = root / "Decor" / "vase.stl"
+    unique_file.write_text("solid vase", encoding="utf-8")
+
+    existing_hash = hashlib.sha256(duplicate_bytes).hexdigest()
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-26T00:00:00Z"
+        connection.execute(
+            """
+            INSERT INTO working_groups (
+                slug, title, stage, notes, primary_file_path, folder_hint,
+                related_manyfold_model_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "existing",
+                "Existing",
+                "draft",
+                None,
+                str(duplicate_file),
+                str(root),
+                None,
+                now,
+                now,
+            ),
+        )
+        group_id = int(connection.execute("SELECT last_insert_rowid()").fetchone()[0])
+        connection.execute(
+            """
+            INSERT INTO working_items (
+                working_group_id, file_path, item_role, created_at, updated_at,
+                file_hash, file_size, source_metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                group_id,
+                str(duplicate_file),
+                "primary",
+                now,
+                now,
+                existing_hash,
+                len(duplicate_bytes),
+                "{}",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/working-groups/bulk-discover",
+            json={
+                "folder_path": str(root),
+                "grouping_strategy": "by-folder",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["summary"]["proposal_count"] == 2
+    assert payload["summary"]["duplicate_warning_count"] >= 1
+
+    tools_group = next(item for item in payload["proposals"] if item["title"] == "Tools")
+    assert tools_group["duplicate_count"] == 1
+    assert tools_group["files"][0]["duplicate_hash"] is True
+
+
+def test_bulk_import_creates_groups_persists_discovery_metadata_and_dedupes(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    root = tmp_path / "bulk"
+    (root / "FolderA").mkdir(parents=True)
+    (root / "FolderB").mkdir(parents=True)
+
+    alpha = root / "FolderA" / "alpha.3mf"
+    alpha.write_bytes(b"alpha-model")
+    beta = root / "FolderA" / "beta.stl"
+    beta.write_bytes(b"beta-model")
+    duplicate_alpha = root / "FolderB" / "alpha-copy.3mf"
+    duplicate_alpha.write_bytes(b"alpha-model")
+
+    alpha_hash = hashlib.sha256(b"alpha-model").hexdigest()
+
+    app = create_app(settings=settings)
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/working-groups/bulk-import",
+            json={
+                "source_folder": str(root),
+                "grouping_strategy": "by-folder",
+                "discovery_timestamp": "2026-04-26T12:00:00Z",
+                "proposals": [
+                    {
+                        "proposal_id": "folder-a",
+                        "title": "Folder A",
+                        "action": "import",
+                        "files": [
+                            {
+                                "path": str(alpha),
+                                "sha256": alpha_hash,
+                            },
+                            {
+                                "path": str(beta),
+                            },
+                        ],
+                    },
+                    {
+                        "proposal_id": "folder-b",
+                        "title": "Folder B",
+                        "action": "merge",
+                        "merge_target": "folder-a",
+                        "files": [
+                            {
+                                "path": str(duplicate_alpha),
+                                "sha256": alpha_hash,
+                            }
+                        ],
+                    },
+                    {
+                        "proposal_id": "skip-me",
+                        "title": "Skip Me",
+                        "action": "skip",
+                        "files": [
+                            {
+                                "path": str(alpha),
+                            }
+                        ],
+                    },
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["created_group_count"] == 1
+    assert payload["created_item_count"] == 2
+    assert payload["duplicate_skipped_count"] == 1
+    assert any(item["reason"] == "skipped_by_operator" for item in payload["skipped_groups"])
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        group_row = connection.execute(
+            "SELECT title, discovery_source_folder, discovery_strategy, discovery_timestamp FROM working_groups"
+        ).fetchone()
+        assert group_row is not None
+        assert group_row["title"] == "Folder A"
+        assert group_row["discovery_source_folder"] == str(root)
+        assert group_row["discovery_strategy"] == "by-folder"
+        assert group_row["discovery_timestamp"] == "2026-04-26T12:00:00Z"
+
+        item_rows = connection.execute(
+            "SELECT file_hash FROM working_items ORDER BY id"
+        ).fetchall()
+        assert len(item_rows) == 2
+        hashes = {str(row["file_hash"]) for row in item_rows}
+        assert alpha_hash in hashes
+    finally:
+        connection.close()

@@ -1,0 +1,38 @@
+describe_service: Navigate to Model Detail
+description: Opens a model detail popup for a specified model reference.
+
+fields:
+  model_ref:
+    description: Model reference (public ID, model ID, or full URL)
+    required: true
+    example: "gridfinity-bin"
+  
+  model_entity:
+    description: Optional entity ID to resolve the model catalog sidecar base URL from (defaults to input_text.model_catalog_sidecar_base_url)
+    required: false
+    example: "input_text.model_catalog_sidecar_url"
+  
+  navigation_source:
+    description: Source of navigation for logging purposes (optional)
+    required: false
+    example: "archive_detail"
+    selector:
+      select:
+        options:
+          - archive_detail
+          - archive_list
+          - search
+          - related_models
+          - recommendations
+          - manual
+
+examples:
+  - description: Navigate to a model by public ID
+    data:
+      model_ref: "gridfinity-bin"
+  
+  - description: Navigate with explicit sidecar URL entity
+    data:
+      model_ref: "prusaprinters-123"
+      model_entity: "input_text.custom_sidecar_url"
+      navigation_source: "archive_detail"

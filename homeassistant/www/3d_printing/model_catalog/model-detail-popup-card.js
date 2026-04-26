@@ -7,7 +7,7 @@
  * Phase 3.0 MVP - Detail View (Read-Only)
  * - Details tab with model metadata and enrichment
  * - Media Gallery tab for photos
- * - 3D Viewer tab for source model inspection
+ * - 3D Viewer action button that opens dedicated popup
  * - Linked Prints tab showing archives linked to this model
  * 
  * Usage in browser_mod popup:
@@ -42,35 +42,22 @@ class ModelDetailPopupCard extends HTMLElement {
     this._conflictDialog = null;
     this._showConflictDialog = false;
     this._photoGallery = [];
-    this._currentEditForm = null; // Cache the edit form to preserve state
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
   }
 
-  setConfig(config) {
-    this._config = config || {};
-    this._modelRef = String(this._config.model_ref || "").trim();
-    this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
-    this._activeTab = "details";
-    this._render();
-  }
-
-  set hass(hass) {
-    this._hass = hass;
-
-    this._modelSidecarUrl = this._resolveModelSidecarUrl();
-    
-    // Perform initial load if we haven't yet
-    if (!this._modelDetail && !this._loading && !this._error && this._modelRef && this._modelSidecarUrl) {
-      this._loadModelDetail();
-    }
-    
-    this._render();
-  }
-
   connectedCallback() {
+    // Attach event listener to shadow DOM
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
+    
+    // Create light DOM container for form (persists across shadow DOM re-renders)
+    if (!this.querySelector('#edit-form-light-dom')) {
+      const formContainer = document.createElement('div');
+      formContainer.id = 'edit-form-light-dom';
+      formContainer.style.cssText = 'display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; overflow: auto;';
+      this.appendChild(formContainer);
+    }
   }
 
   disconnectedCallback() {
@@ -118,7 +105,6 @@ class ModelDetailPopupCard extends HTMLElement {
       event.preventDefault();
       this._activeTab = tabButton.dataset.tab;
       this._isEditMode = false;
-      this._currentEditForm = null; // Clear cached form when switching tabs
       this._render();
       return;
     }
@@ -143,7 +129,6 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-cancel")) {
       event.preventDefault();
       this._isEditMode = false;
-      this._currentEditForm = null; // Clear cached form when canceling
       this._render();
       return;
     }
@@ -159,6 +144,13 @@ class ModelDetailPopupCard extends HTMLElement {
     if (target.closest("#btn-print")) {
       event.preventDefault();
       this._handlePrint();
+      return;
+    }
+
+    // 3D viewer button
+    if (target.closest("#btn-viewer")) {
+      event.preventDefault();
+      this._openViewerPopup();
       return;
     }
 
@@ -256,9 +248,26 @@ class ModelDetailPopupCard extends HTMLElement {
     
     this.shadowRoot.innerHTML = html;
     
-    // If in edit mode and model is loaded, initialize the edit form
+    // Manage form visibility in light DOM (separate from shadow DOM)
     if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
       this._initializeEditForm();
+      this._showForm();
+    } else {
+      this._hideForm();
+    }
+  }
+
+  _showForm() {
+    const container = this.querySelector('#edit-form-light-dom');
+    if (container) {
+      container.style.display = 'block';
+    }
+  }
+
+  _hideForm() {
+    const container = this.querySelector('#edit-form-light-dom');
+    if (container) {
+      container.style.display = 'none';
     }
   }
 
@@ -651,6 +660,7 @@ class ModelDetailPopupCard extends HTMLElement {
               <button class="action-button" id="btn-save" style="background: #4CAF50;">💾 Save</button>
               <button class="action-button" id="btn-cancel" style="background: #f44336;">✕ Cancel</button>
             ` : `
+              <button class="action-button" id="btn-viewer">🧊 3D View</button>
               <button class="action-button" id="btn-download">📥 Download</button>
               <button class="action-button" id="btn-print">🖨️ Print</button>
             `}
@@ -669,9 +679,6 @@ class ModelDetailPopupCard extends HTMLElement {
         <button class="tab-button ${this._activeTab === 'gallery' ? 'active' : ''}" data-tab="gallery">
           Gallery
         </button>
-        <button class="tab-button ${this._activeTab === 'viewer' ? 'active' : ''}" data-tab="viewer">
-          3D Viewer
-        </button>
         <button class="tab-button ${this._activeTab === 'prints' ? 'active' : ''}" data-tab="prints">
           Linked Prints
         </button>
@@ -683,8 +690,6 @@ class ModelDetailPopupCard extends HTMLElement {
     switch (this._activeTab) {
       case "gallery":
         return this._renderGalleryTab();
-      case "viewer":
-        return this._renderViewerTab();
       case "prints":
         return this._renderPrintsTab();
       default:
@@ -897,23 +902,6 @@ class ModelDetailPopupCard extends HTMLElement {
     `;
   }
 
-  _renderViewerTab() {
-    const files = (this._modelDetail.model && this._modelDetail.model.files) || [];
-    
-    return `
-      <div class="tab-content">
-        ${files.length > 0 ? `
-          <p>File selector would go here (${files.length} files available)</p>
-        ` : `
-          <div class="empty-state">
-            <p>📁 No Files</p>
-            <p>This model has no files available for viewing.</p>
-          </div>
-        `}
-      </div>
-    `;
-  }
-
   _renderPrintsTab() {
     const links = this._modelDetail.linked_archives || [];
     
@@ -1119,7 +1107,7 @@ class ModelDetailPopupCard extends HTMLElement {
                 </div>
               `}
               <div class="archive-card-content">
-                <div class="archive-title">${this._escapeHtml(link.name || \`Archive #\${link.archive_id}\`)}</div>
+                <div class="archive-title">${this._escapeHtml(link.name || ('Archive #' + link.archive_id))}</div>
                 <div class="archive-meta">
                   ${link.completed_at ? `<div>📅 ${new Date(link.completed_at).toLocaleDateString()}</div>` : ''}
                   ${link.filament_name ? `<div>🎨 ${this._escapeHtml(link.filament_name)}</div>` : ''}
@@ -1182,13 +1170,9 @@ class ModelDetailPopupCard extends HTMLElement {
       // Reload model and discard changes
       this._loadModelDetail();
       this._isEditMode = false;
-      this._currentEditForm = null; // Clear cached form when reloading
     } else if (action === 'overwrite') {
       // Force save (overwrite upstream)
       this._handleSaveEdits();
-    } else if (action === 'cancel') {
-      // Cancel closes dialog and clears form cache
-      this._currentEditForm = null;
     }
     // 'cancel' just closes the dialog
     
@@ -1196,32 +1180,50 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _initializeEditForm() {
-    const container = this.shadowRoot.getElementById('edit-form-container');
+    // Light DOM container persists across shadow DOM re-renders
+    const container = this.querySelector('#edit-form-light-dom');
     if (!container) return;
 
-    // Reuse existing form if available (preserves state like expanded sections)
-    if (this._currentEditForm && container.contains(this._currentEditForm)) {
-      return;
-    }
-
-    // Clear container only if creating a new form
-    container.innerHTML = '';
-
-    // Create and configure the edit form element
-    const editForm = document.createElement('model-detail-edit-form');
-    editForm.setConfig({
-      model_data: this._modelDetail.model,
-      on_save: (formData) => this._handleFormSave(formData),
-      on_cancel: () => {
-        this._isEditMode = false;
-        this._currentEditForm = null;
-        this._render();
-      }
-    });
-    editForm.hass = this._hass;
+    // Check if form already exists in light DOM
+    let editForm = container.querySelector('model-detail-edit-form');
     
-    container.appendChild(editForm);
-    this._currentEditForm = editForm; // Cache the form element
+    if (!editForm) {
+      // Create form only once - it will persist in light DOM
+      editForm = document.createElement('model-detail-edit-form');
+      editForm.style.cssText = `
+        display: block;
+        width: 90%;
+        max-width: 600px;
+        margin: 40px auto;
+        background: var(--card-background-color, #1a1a1a);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      `;
+      editForm.setConfig({
+        model_data: this._modelDetail.model,
+        on_save: (formData) => this._handleFormSave(formData),
+        on_cancel: () => {
+          this._isEditMode = false;
+          this._render();
+        }
+      });
+      editForm.hass = this._hass;
+      
+      container.innerHTML = ''; // Clear any old content
+      container.appendChild(editForm);
+    } else {
+      // Form already exists - just update model data in case it changed
+      editForm.setConfig({
+        model_data: this._modelDetail.model,
+        on_save: (formData) => this._handleFormSave(formData),
+        on_cancel: () => {
+          this._isEditMode = false;
+          this._render();
+        }
+      });
+      editForm.hass = this._hass;
+    }
   }
 
   async _handleFormSave(formData) {
@@ -1258,7 +1260,6 @@ class ModelDetailPopupCard extends HTMLElement {
         // Show success message and reload
         console.log('Model saved successfully');
         this._isEditMode = false;
-        this._currentEditForm = null; // Clear cached form after save
         await this._loadModelDetail();
         this._render();
       } catch (error) {
@@ -1435,6 +1436,75 @@ class ModelDetailPopupCard extends HTMLElement {
         message: `${files.length} file(s) ready. Print workflow coming soon.`,
       }).catch(err => console.error('Notification failed:', err));
     }
+  }
+
+  _buildModelViewerCardConfig() {
+    const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : {};
+    return {
+      type: 'custom:model-detail-3d-viewer-tab',
+      model_ref: this._modelRef,
+      model_name: String(model.name || '').trim(),
+      model_sidecar_url: this._modelSidecarUrl,
+      model_json: JSON.stringify(model),
+    };
+  }
+
+  _buildModelViewerPopupContent() {
+    return {
+      type: 'vertical-stack',
+      cards: [this._buildModelViewerCardConfig()],
+    };
+  }
+
+  _fireBrowserModEvent(service, data) {
+    const event = new CustomEvent('ll-custom', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service,
+          data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
+  }
+
+  _replaceCurrentPopup(popupConfig) {
+    if (!popupConfig || typeof popupConfig !== 'object') {
+      return;
+    }
+
+    this._fireBrowserModEvent('browser_mod.sequence', {
+      sequence: [
+        { service: 'browser_mod.close_popup' },
+        { service: 'browser_mod.popup', data: popupConfig },
+      ],
+    });
+  }
+
+  _openViewerPopup() {
+    const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : null;
+    const files = model && Array.isArray(model.files) ? model.files : [];
+
+    if (!model || files.length === 0) {
+      this._error = 'No files available for 3D viewing';
+      this._render();
+      return;
+    }
+
+    this._replaceCurrentPopup({
+      title: `${String(model.name || 'Model')} - 3D Viewer`,
+      size: 'wide',
+      content: this._buildModelViewerPopupContent(),
+    });
   }
 
   getCardSize() {

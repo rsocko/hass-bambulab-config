@@ -1,0 +1,24 @@
+# Bulk import reviewed working-group proposals.
+# Creates working_groups and working_items in sidecar DB with hash dedupe.
+model_catalog_bulk_import_working_groups:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/working-groups/bulk-import
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% set ns.body = dict(ns.body, proposals=(proposals | default([], true))) %}
+    {% if source_folder is defined and (source_folder | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, source_folder=(source_folder | string)) %}
+    {% endif %}
+    {% if grouping_strategy is defined and (grouping_strategy | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, grouping_strategy=(grouping_strategy | string)) %}
+    {% endif %}
+    {% if discovery_timestamp is defined and (discovery_timestamp | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, discovery_timestamp=(discovery_timestamp | string)) %}
+    {% endif %}
+    {% if stage is defined and (stage | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, stage=(stage | string)) %}
+    {% endif %}
+    {{ ns.body | to_json }}

@@ -138,6 +138,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         5,
         (),
     ),
+    (
+        6,
+        (),
+    ),
 )
 
 
@@ -244,6 +248,21 @@ def _apply_migrations(connection: sqlite3.Connection) -> None:
             _ensure_column(connection, "model_catalog_links", "review_note", "TEXT")
         if version == 5:
             _migrate_manyfold_model_cache_keys(connection)
+        if version == 6:
+            _ensure_column(connection, "working_items", "file_hash", "TEXT")
+            _ensure_column(connection, "working_items", "file_size", "INTEGER")
+            _ensure_column(connection, "working_items", "source_metadata_json", "TEXT NOT NULL DEFAULT '{}' ")
+            _ensure_column(connection, "working_groups", "discovery_source_folder", "TEXT")
+            _ensure_column(connection, "working_groups", "discovery_strategy", "TEXT")
+            _ensure_column(connection, "working_groups", "discovery_timestamp", "TEXT")
+            _ensure_column(connection, "working_groups", "discovery_metadata_json", "TEXT NOT NULL DEFAULT '{}' ")
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_working_items_file_hash
+                ON working_items(file_hash)
+                WHERE file_hash IS NOT NULL
+                """
+            )
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

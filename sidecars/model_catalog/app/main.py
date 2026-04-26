@@ -4,10 +4,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from dataclasses import asdict
 from datetime import datetime, timezone
+import hashlib
 import re
 from typing import Any
 import json
 from sqlite3 import connect
+from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
@@ -608,6 +610,83 @@ def _collection_filter_diagnostics(
     }
 
 
+SUPPORTED_BULK_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj"}
+
+
+def _bulk_utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _normalize_grouping_strategy(value: object | None) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"by-folder", "by-root", "flat"}:
+        return normalized
+    return "by-folder"
+
+
+def _slugify_title(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower())
+    collapsed = re.sub(r"-+", "-", normalized).strip("-")
+    return collapsed or "working-group"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _bulk_group_key(root_path: Path, file_path: Path, strategy: str) -> str:
+    if strategy == "by-root":
+        return "__root__"
+    if strategy == "flat":
+        return str(file_path)
+    relative_parent = file_path.parent.relative_to(root_path)
+    return str(relative_parent) if str(relative_parent) != "." else "__root_folder__"
+
+
+def _bulk_group_title(root_path: Path, group_key: str, file_path: Path, strategy: str) -> str:
+    if strategy == "by-root":
+        return root_path.name or str(root_path)
+    if strategy == "flat":
+        return file_path.stem or file_path.name
+    if group_key == "__root_folder__":
+        return f"{root_path.name} Root"
+    parent = Path(group_key)
+    return parent.name or group_key
+
+
+def _read_existing_working_hashes(db_path: Path) -> set[str]:
+    connection = connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT file_hash FROM working_items WHERE file_hash IS NOT NULL AND TRIM(file_hash) != ''"
+        ).fetchall()
+        return {str(row[0]).strip().lower() for row in rows if str(row[0] or "").strip()}
+    finally:
+        connection.close()
+
+
+def _existing_working_slugs(connection: Any) -> set[str]:
+    rows = connection.execute("SELECT slug FROM working_groups").fetchall()
+    return {str(row[0] or "").strip() for row in rows if str(row[0] or "").strip()}
+
+
+def _unique_slug(connection: Any, title: str) -> str:
+    base = _slugify_title(title)
+    existing = _existing_working_slugs(connection)
+    if base not in existing:
+        return base
+    counter = 2
+    while True:
+        candidate = f"{base}-{counter}"
+        if candidate not in existing:
+            return candidate
+        counter += 1
+
+
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
     resolved_settings = settings or load_settings()
 
@@ -760,6 +839,401 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "sample_collection_names": list(set(collection_sample)),
             },
             **_image_metadata(state.settings),
+        }
+
+    @app.post("/working-groups/bulk-discover")
+    @app.post("/api/working-groups/bulk-discover")
+    def bulk_discover_working_groups(payload: dict[str, Any]) -> Any:
+        state: AppState = app.state.model_catalog
+        root_input = str(payload.get("folder_path") or payload.get("root_path") or "").strip()
+        if not root_input:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "folder_path is required",
+                },
+            )
+
+        grouping_strategy = _normalize_grouping_strategy(payload.get("grouping_strategy"))
+        max_depth = _coerce_int(payload.get("max_depth"))
+        if max_depth is not None and max_depth < 0:
+            max_depth = 0
+
+        root_path = Path(root_input).expanduser().resolve()
+        if not root_path.exists() or not root_path.is_dir():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_folder_path",
+                    "message": "folder_path must be an existing directory",
+                    "folder_path": root_input,
+                },
+            )
+
+        existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+        now_iso = _bulk_utc_now_iso()
+
+        proposals_by_key: dict[str, dict[str, Any]] = {}
+        warnings: list[dict[str, Any]] = []
+        scanned_file_count = 0
+        supported_file_count = 0
+        duplicate_warning_count = 0
+
+        for file_path in sorted(root_path.rglob("*")):
+            if not file_path.is_file():
+                continue
+            scanned_file_count += 1
+
+            if max_depth is not None:
+                relative_parts = file_path.relative_to(root_path).parts
+                if len(relative_parts) - 1 > max_depth:
+                    continue
+
+            suffix = file_path.suffix.lower()
+            if suffix not in SUPPORTED_BULK_MODEL_EXTENSIONS:
+                continue
+
+            supported_file_count += 1
+            group_key = _bulk_group_key(root_path, file_path, grouping_strategy)
+            title = _bulk_group_title(root_path, group_key, file_path, grouping_strategy)
+            proposal = proposals_by_key.get(group_key)
+            if proposal is None:
+                proposal = {
+                    "proposal_id": _slugify_title(group_key if grouping_strategy == "flat" else title),
+                    "group_key": group_key,
+                    "title": title,
+                    "action": "import",
+                    "files": [],
+                    "warnings": [],
+                }
+                proposals_by_key[group_key] = proposal
+
+            try:
+                file_hash = _sha256_file(file_path)
+                file_size = int(file_path.stat().st_size)
+            except (OSError, PermissionError) as error:
+                warning = {
+                    "type": "read_error",
+                    "path": str(file_path),
+                    "message": str(error),
+                }
+                proposal["warnings"].append(warning)
+                warnings.append(warning)
+                continue
+
+            hash_exists = file_hash.lower() in existing_hashes
+            if hash_exists:
+                duplicate_warning_count += 1
+                warning = {
+                    "type": "duplicate_hash",
+                    "path": str(file_path),
+                    "sha256": file_hash,
+                    "message": "Hash already exists in working items",
+                }
+                proposal["warnings"].append(warning)
+                warnings.append(warning)
+
+            proposal["files"].append(
+                {
+                    "path": str(file_path),
+                    "relative_path": str(file_path.relative_to(root_path)),
+                    "filename": file_path.name,
+                    "size_bytes": file_size,
+                    "sha256": file_hash,
+                    "duplicate_hash": hash_exists,
+                }
+            )
+
+        proposals = sorted(
+            proposals_by_key.values(),
+            key=lambda item: str(item.get("title") or "").lower(),
+        )
+        for proposal in proposals:
+            proposal["file_count"] = len(proposal["files"])
+            proposal["duplicate_count"] = sum(1 for file in proposal["files"] if file.get("duplicate_hash"))
+            proposal["discovery"] = {
+                "source_folder": str(root_path),
+                "strategy": grouping_strategy,
+                "timestamp": now_iso,
+            }
+
+        return {
+            "success": True,
+            "contract": "working-group-bulk-discover.v1alpha1",
+            "source_folder": str(root_path),
+            "grouping_strategy": grouping_strategy,
+            "discovered_at": now_iso,
+            "summary": {
+                "scanned_file_count": scanned_file_count,
+                "supported_file_count": supported_file_count,
+                "proposal_count": len(proposals),
+                "duplicate_warning_count": duplicate_warning_count,
+                "warning_count": len(warnings),
+            },
+            "proposals": proposals,
+            "warnings": warnings,
+        }
+
+    @app.post("/working-groups/bulk-import")
+    @app.post("/api/working-groups/bulk-import")
+    def bulk_import_working_groups(payload: dict[str, Any]) -> Any:
+        state: AppState = app.state.model_catalog
+        proposals_payload = payload.get("proposals")
+        if not isinstance(proposals_payload, list) or not proposals_payload:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "proposals must be a non-empty list",
+                },
+            )
+
+        source_folder = str(payload.get("source_folder") or payload.get("folder_path") or payload.get("root_path") or "").strip()
+        grouping_strategy = _normalize_grouping_strategy(payload.get("grouping_strategy"))
+        discovery_timestamp = str(payload.get("discovered_at") or payload.get("discovery_timestamp") or "").strip() or _bulk_utc_now_iso()
+        import_timestamp = _bulk_utc_now_iso()
+        default_stage = str(payload.get("stage") or "draft").strip() or "draft"
+
+        grouped_imports: dict[str, dict[str, Any]] = {}
+        skipped_groups: list[dict[str, Any]] = []
+        for proposal in proposals_payload:
+            if not isinstance(proposal, dict):
+                continue
+            action = str(proposal.get("action") or "import").strip().lower()
+            title = str(proposal.get("title") or "").strip()
+            proposal_id = str(proposal.get("proposal_id") or "").strip() or _slugify_title(title or "proposal")
+            files = proposal.get("files") if isinstance(proposal.get("files"), list) else []
+            if action == "skip":
+                skipped_groups.append(
+                    {
+                        "proposal_id": proposal_id,
+                        "title": title,
+                        "reason": "skipped_by_operator",
+                    }
+                )
+                continue
+
+            target_group_key = str(proposal.get("merge_target") or proposal_id).strip() if action == "merge" else proposal_id
+            if not target_group_key:
+                target_group_key = proposal_id
+            aggregate = grouped_imports.get(target_group_key)
+            if aggregate is None:
+                aggregate = {
+                    "title": title or target_group_key,
+                    "stage": str(proposal.get("stage") or default_stage).strip() or default_stage,
+                    "notes": str(proposal.get("notes") or "").strip() or None,
+                    "proposal_ids": [],
+                    "files": [],
+                }
+                grouped_imports[target_group_key] = aggregate
+            aggregate["proposal_ids"].append(proposal_id)
+            if title and not aggregate.get("title"):
+                aggregate["title"] = title
+            aggregate["files"].extend(files)
+
+        if not grouped_imports:
+            return {
+                "success": True,
+                "contract": "working-group-bulk-import.v1alpha1",
+                "created_group_count": 0,
+                "created_item_count": 0,
+                "duplicate_skipped_count": 0,
+                "skipped_groups": skipped_groups,
+                "created_groups": [],
+            }
+
+        connection = connect(state.settings.db_path)
+        connection.row_factory = None
+        existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+        batch_hashes: set[str] = set()
+        created_groups: list[dict[str, Any]] = []
+        duplicate_skipped: list[dict[str, Any]] = []
+        failed_files: list[dict[str, Any]] = []
+        created_item_count = 0
+
+        try:
+            for group_key, grouped in grouped_imports.items():
+                unique_files: list[dict[str, Any]] = []
+                for file_payload in grouped["files"]:
+                    file_path_raw = str((file_payload or {}).get("path") or "").strip()
+                    if not file_path_raw:
+                        continue
+                    file_path = Path(file_path_raw).expanduser().resolve()
+                    if not file_path.exists() or not file_path.is_file():
+                        failed_files.append(
+                            {
+                                "group": grouped.get("title") or group_key,
+                                "path": str(file_path),
+                                "reason": "missing_source",
+                            }
+                        )
+                        continue
+
+                    file_hash = str((file_payload or {}).get("sha256") or "").strip().lower()
+                    if not file_hash:
+                        try:
+                            file_hash = _sha256_file(file_path).lower()
+                        except (OSError, PermissionError) as error:
+                            failed_files.append(
+                                {
+                                    "group": grouped.get("title") or group_key,
+                                    "path": str(file_path),
+                                    "reason": "read_error",
+                                    "message": str(error),
+                                }
+                            )
+                            continue
+
+                    if file_hash in existing_hashes or file_hash in batch_hashes:
+                        duplicate_skipped.append(
+                            {
+                                "group": grouped.get("title") or group_key,
+                                "path": str(file_path),
+                                "sha256": file_hash,
+                                "reason": "duplicate_hash",
+                            }
+                        )
+                        continue
+
+                    unique_files.append(
+                        {
+                            "path": str(file_path),
+                            "sha256": file_hash,
+                            "size_bytes": int(file_payload.get("size_bytes") or file_path.stat().st_size),
+                            "relative_path": str(file_payload.get("relative_path") or file_path.name),
+                        }
+                    )
+                    batch_hashes.add(file_hash)
+
+                if not unique_files:
+                    skipped_groups.append(
+                        {
+                            "proposal_id": group_key,
+                            "title": grouped.get("title") or group_key,
+                            "reason": "all_files_skipped_or_duplicate",
+                        }
+                    )
+                    continue
+
+                group_title = str(grouped.get("title") or group_key).strip() or group_key
+                slug = _unique_slug(connection, group_title)
+                now_iso = _bulk_utc_now_iso()
+                metadata_json = json.dumps(
+                    {
+                        "proposal_ids": grouped.get("proposal_ids") or [],
+                        "imported_at": import_timestamp,
+                    }
+                )
+
+                connection.execute(
+                    """
+                    INSERT INTO working_groups (
+                        slug,
+                        title,
+                        stage,
+                        notes,
+                        primary_file_path,
+                        folder_hint,
+                        related_manyfold_model_id,
+                        created_at,
+                        updated_at,
+                        discovery_source_folder,
+                        discovery_strategy,
+                        discovery_timestamp,
+                        discovery_metadata_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        slug,
+                        group_title,
+                        grouped.get("stage") or default_stage,
+                        grouped.get("notes"),
+                        unique_files[0]["path"],
+                        source_folder or None,
+                        None,
+                        now_iso,
+                        now_iso,
+                        source_folder or None,
+                        grouping_strategy,
+                        discovery_timestamp,
+                        metadata_json,
+                    ),
+                )
+                group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+
+                created_files: list[dict[str, Any]] = []
+                for index, file_item in enumerate(unique_files):
+                    role = "primary" if index == 0 else "supporting"
+                    connection.execute(
+                        """
+                        INSERT INTO working_items (
+                            working_group_id,
+                            file_path,
+                            item_role,
+                            created_at,
+                            updated_at,
+                            file_hash,
+                            file_size,
+                            source_metadata_json
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            group_id,
+                            file_item["path"],
+                            role,
+                            now_iso,
+                            now_iso,
+                            file_item["sha256"],
+                            file_item["size_bytes"],
+                            json.dumps({"relative_path": file_item["relative_path"]}),
+                        ),
+                    )
+                    existing_hashes.add(file_item["sha256"])
+                    batch_hashes.add(file_item["sha256"])
+                    created_item_count += 1
+                    created_files.append(file_item)
+
+                created_groups.append(
+                    {
+                        "working_group_id": group_id,
+                        "slug": slug,
+                        "title": group_title,
+                        "stage": grouped.get("stage") or default_stage,
+                        "file_count": len(created_files),
+                        "files": created_files,
+                        "discovery": {
+                            "source_folder": source_folder or None,
+                            "strategy": grouping_strategy,
+                            "timestamp": discovery_timestamp,
+                        },
+                    }
+                )
+
+            connection.commit()
+        finally:
+            connection.close()
+
+        return {
+            "success": True,
+            "contract": "working-group-bulk-import.v1alpha1",
+            "created_group_count": len(created_groups),
+            "created_item_count": created_item_count,
+            "duplicate_skipped_count": len(duplicate_skipped),
+            "failed_file_count": len(failed_files),
+            "created_groups": created_groups,
+            "duplicate_skipped": duplicate_skipped,
+            "failed_files": failed_files,
+            "skipped_groups": skipped_groups,
+            "meta": {
+                "source_folder": source_folder or None,
+                "grouping_strategy": grouping_strategy,
+                "discovery_timestamp": discovery_timestamp,
+                "import_timestamp": import_timestamp,
+            },
         }
 
     @app.get("/debug/manyfold-collections")
@@ -2018,179 +2492,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "message": "Archive model linking in development"
         }
 
-    # ==================== Phase 3.1 Endpoints: Edit Mode & Photo Upload ====================
-
-    @app.patch("/api/models/{model_ref:path}")
-    def update_model_endpoint(request: Request, model_ref: str, model_name: str = None, 
-                              description: str = None, tags: list = None, collection: str = None,
-                              enrichment: dict = None) -> dict[str, Any]:
-        """Update model metadata and enrichment fields (Phase 3.1)."""
-        state: AppState = app.state.model_catalog
-        client: ManyfoldClient = app.state.manyfold_client
-        
-        # Resolve model reference
-        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-        if summary is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        
-        # Update enrichment fields in local database
-        if enrichment:
-            for key, value in enrichment.items():
-                if value is not None:
-                    set_model_field(
-                        db_path=state.settings.db_path,
-                        model_ref=str(summary.public_id or summary.model_id),
-                        field_key=key,
-                        field_value=value
-                    )
-        
-        # Return updated model detail
-        return get_model_detail_endpoint(request, model_ref)
-
-    @app.post("/api/models/{model_ref:path}/photos")
-    def upload_photo_endpoint(request: Request, model_ref: str, photo_file: str, 
-                             set_as_preview: bool = False) -> dict[str, Any]:
-        """Upload a photo to a model (Phase 3.1)."""
-        state: AppState = app.state.model_catalog
-        
-        # Resolve model reference
-        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-        if summary is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        
-        # For Phase 3.1: Store photo reference in enrichment
-        # Full implementation would handle actual file storage
-        photo_id = f"photo_{int(datetime.now(timezone.utc).timestamp())}"
-        
-        if set_as_preview:
-            set_model_field(
-                db_path=state.settings.db_path,
-                model_ref=str(summary.public_id or summary.model_id),
-                field_key="preview_photo_id",
-                field_value=photo_id
-            )
-        
-        return {
-            "success": True,
-            "photo_id": photo_id,
-            "message": "Photo uploaded successfully"
-        }
-
-    # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
-
-    @app.get("/api/models/{model_ref:path}/geometry/{file_id}")
-    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str) -> dict[str, Any]:
-        """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
-        state: AppState = app.state.model_catalog
-        client: ManyfoldClient = app.state.manyfold_client
-        
-        # Resolve model reference
-        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-        if summary is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        
-        # Fetch model detail to find file
-        try:
-            manyfold_detail = client.get_model_detail(summary.model_url)
-            files = manyfold_detail.get("files", [])
-            file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
-            
-            if not file_obj:
-                return JSONResponse(status_code=404, content={"error": "File not found"})
-            
-            # Return geometry download URL
-            return {
-                "success": True,
-                "file_id": file_id,
-                "filename": file_obj.get("filename"),
-                "download_url": f"/api/files/{file_id}/download",
-                "file_type": file_obj.get("file_type"),
-            }
-        except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
-
-    # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
-
-    @app.get("/api/models/{model_ref:path}/related")
-    def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
-        """Get related models by similarity score (Phase 3.3)."""
-        state: AppState = app.state.model_catalog
-        
-        # Resolve base model reference
-        base_summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-        if base_summary is None:
-            return JSONResponse(status_code=404, content={"error": "Model not found"})
-        
-        # Get all models for comparison
-        try:
-            all_summaries = read_cached_manyfold_models(state.settings.db_path)
-        except Exception:
-            all_summaries = []
-        
-        # Score and sort similar models
-        related_models = []
-        for summary in all_summaries:
-            if summary.model_id == base_summary.model_id:
-                continue
-            
-            # Calculate similarity score
-            score = 0
-            reasons = []
-            
-            # Collection match (+30)
-            if base_summary.collection_names and summary.collection_names:
-                if set(base_summary.collection_names) & set(summary.collection_names):
-                    score += 30
-                    reasons.append("Same collection")
-            
-            # Creator match (+25)
-            if base_summary.creator_name and base_summary.creator_name == summary.creator_name:
-                score += 25
-                reasons.append("Same creator")
-            
-            # Keyword matches (+5 each)
-            base_keywords = set(base_summary.keyword_names or [])
-            summary_keywords = set(summary.keyword_names or [])
-            keyword_matches = len(base_keywords & summary_keywords)
-            if keyword_matches > 0:
-                score += keyword_matches * 5
-                reasons.append(f"{keyword_matches} matching keywords")
-            
-            if score > 0:
-                related_models.append({
-                    "model_id": summary.model_id,
-                    "public_id": summary.public_id,
-                    "name": summary.name,
-                    "creator_name": summary.creator_name,
-                    "preview_url": summary.preview_url,
-                    "similarity_score": min(100, score),
-                    "reasons": reasons,
-                })
-        
-        # Sort by score and limit
-        related_models.sort(key=lambda x: x["similarity_score"], reverse=True)
-        related_models = related_models[:limit]
-        
-        return {
-            "success": True,
-            "model_ref": model_ref,
-            "related_models": related_models,
-            "count": len(related_models),
-        }
-
-    @app.get("/api/archives/{archive_id}/model")
-    def get_archive_model_endpoint(archive_id: int) -> dict[str, Any]:
-        """Get the source model for an archive (Phase 3.3)."""
-        # This endpoint would connect archives to their source models
-        # Implementation requires print_history integration
-        return {
-            "success": True,
-            "archive_id": archive_id,
-            "model_ref": None,  # Would be populated by print_history module
-            "message": "Archive model linking in development"
-        }
-
     return app
 
 
 app = create_app()
+

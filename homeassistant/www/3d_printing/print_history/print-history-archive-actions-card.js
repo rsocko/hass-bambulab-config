@@ -688,6 +688,19 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         { manyfold_model_url: resultUrl });
       return;
     }
+    // Phase 3.3 Model Catalog Navigation Actions
+    if (action === "view-source-model") {
+      this._handleViewSourceModel();
+      return;
+    }
+    if (action === "edit-model-metadata") {
+      this._handleEditModelMetadata();
+      return;
+    }
+    if (action === "view-similar-models") {
+      this._handleViewSimilarModels();
+      return;
+    }
   }
 
   _handleSourceUploadChange(event) {
@@ -3214,6 +3227,20 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     var hasTimelapse = !!this._timelapsePath(archive);
     var makerworldUrl = this._makerWorldUrl(archive);
     var makerworldLabel = "View on MakerWorld";
+    
+    // Model catalog section - shows when a model is linked
+    var linkedModel = archive && archive.linked_model;
+    var modelCatalogActions = linkedModel
+      ? this._renderActionSection(
+          "Model Catalog",
+          '<div class="actions-grid">' +
+            this._renderActionButton("view-source-model", "View Source Model", "mdi:cube-outline", { disabled: this._busy }) +
+            this._renderActionButton("edit-model-metadata", "Edit Model Metadata", "mdi:pencil", { disabled: this._busy }) +
+            this._renderActionButton("view-similar-models", "Similar Models", "mdi:relation-many-to-many", { disabled: this._busy }) +
+          '</div>'
+        )
+      : '';
+    
     var relationActions = this._renderActionSection(
       "Related, Duplicates & Compare",
       '<div class="actions-grid">' +
@@ -3279,6 +3306,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
           : this._mainTab === "model"
             ? '<div class="main-tab-panel" role="tabpanel">' + this._renderModelTab(archive) + '</div>'
             : '<div class="main-tab-panel" role="tabpanel">'
+              + modelCatalogActions
               + this._renderActionSection("Files", fileActions)
               + linkActions
               + timelapseActions
@@ -3881,6 +3909,79 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
               ? this._renderCompareView(archive)
           : this._renderMain(archive)) +
       '</div>';
+  }
+
+  // Phase 3.3: Model Catalog Navigation Handlers
+  _handleViewSourceModel() {
+    var archive = this._resolveArchive();
+    if (!archive || !archive.linked_model) {
+      this._status = "No linked model found";
+      this._statusTone = "warning";
+      this._render();
+      return;
+    }
+    var modelRef = archive.linked_model.model_ref || archive.linked_model.model_id || "";
+    if (!modelRef) {
+      this._status = "Cannot determine model reference";
+      this._statusTone = "error";
+      this._render();
+      return;
+    }
+    // Dispatch event for browser_mod to open model-detail-popup-card
+    window.dispatchEvent(new CustomEvent("ha-model-catalog-navigate", {
+      detail: { action: "view-model", model_ref: modelRef }
+    }));
+    this._status = "Navigating to model detail...";
+    this._statusTone = "info";
+    this._render();
+  }
+
+  _handleEditModelMetadata() {
+    var archive = this._resolveArchive();
+    if (!archive || !archive.linked_model) {
+      this._status = "No linked model found";
+      this._statusTone = "warning";
+      this._render();
+      return;
+    }
+    var modelRef = archive.linked_model.model_ref || archive.linked_model.model_id || "";
+    if (!modelRef) {
+      this._status = "Cannot determine model reference";
+      this._statusTone = "error";
+      this._render();
+      return;
+    }
+    // Dispatch event for model editing
+    window.dispatchEvent(new CustomEvent("ha-model-catalog-navigate", {
+      detail: { action: "edit-metadata", model_ref: modelRef }
+    }));
+    this._status = "Opening model editor...";
+    this._statusTone = "info";
+    this._render();
+  }
+
+  _handleViewSimilarModels() {
+    var archive = this._resolveArchive();
+    if (!archive || !archive.linked_model) {
+      this._status = "No linked model found";
+      this._statusTone = "warning";
+      this._render();
+      return;
+    }
+    var modelRef = archive.linked_model.model_ref || archive.linked_model.model_id || "";
+    if (!modelRef) {
+      this._status = "Cannot determine model reference";
+      this._statusTone = "error";
+      this._render();
+      return;
+    }
+    // Dispatch event for similar models view
+    window.dispatchEvent(new CustomEvent("ha-model-catalog-navigate", {
+      detail: { action: "view-similar-models", model_ref: modelRef }
+    }));
+    this._status = "Loading similar models...";
+    this._statusTone = "info";
+    this._render();
   }
 }
 

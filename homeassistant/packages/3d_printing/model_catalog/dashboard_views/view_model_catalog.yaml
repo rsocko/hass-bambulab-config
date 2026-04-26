@@ -1,8 +1,13 @@
 title: Model Catalog
 path: model-catalog
 icon: mdi:bookshelf
-panel: true
+panel: false
 cards:
-  - type: custom:model-catalog-browser-card
-    title: Curated Catalog Browser
-    per_page: 12
+  - type: vertical-stack
+    cards:
+      - type: custom:model-catalog-browser-card
+        title: Curated Catalog Browser
+        per_page: 12
+      - type: custom:model-catalog-bulk-import-card
+        title: Bulk Discovery and Import
+        default_grouping_strategy: by-folder

@@ -87,3 +87,52 @@ homeassistant:
           example:
             bed_temp: 60
             nozzle_temp: 210
+
+    model_catalog.bulk_discover_working_groups:
+      name: Bulk Discover Working Groups
+      description: Scan a folder and propose working groups without committing writes
+      fields:
+        folder_path:
+          name: Folder Path
+          description: Root folder path to scan
+          required: true
+          example: "D:/3D Printing"
+        grouping_strategy:
+          name: Grouping Strategy
+          description: Grouping mode (by-folder, by-root, flat)
+          example: "by-folder"
+        max_depth:
+          name: Max Depth
+          description: Optional maximum folder depth to scan
+          example: 3
+
+    model_catalog.bulk_import_working_groups:
+      name: Bulk Import Working Groups
+      description: Import reviewed bulk-discovery proposals into working groups/items
+      fields:
+        proposals:
+          name: Proposals
+          description: Reviewed proposal objects with files/actions
+          required: true
+          example:
+            - proposal_id: "tools"
+              title: "Tools"
+              action: "import"
+              files:
+                - path: "D:/3D Printing/Tools/pliers.3mf"
+        source_folder:
+          name: Source Folder
+          description: Original folder used for discovery
+          example: "D:/3D Printing"
+        grouping_strategy:
+          name: Grouping Strategy
+          description: Grouping mode used during discovery
+          example: "by-folder"
+        discovery_timestamp:
+          name: Discovery Timestamp
+          description: Timestamp captured during discovery
+          example: "2026-04-26T12:00:00Z"
+        stage:
+          name: Stage
+          description: Default stage for newly created working groups
+          example: "draft"

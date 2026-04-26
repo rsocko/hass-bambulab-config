@@ -1,0 +1,57 @@
+describe_service: Queue Model for Print
+description: Adds a model to the print queue with optional settings specification.
+
+fields:
+  model_ref:
+    description: Model reference (public ID, model ID, or full URL)
+    required: true
+    example: "gridfinity-bin"
+  
+  queue_status:
+    description: Queue status to set
+    required: false
+    default: "queued"
+    example: "queued"
+    selector:
+      select:
+        options:
+          - queued
+          - done
+          - none
+  
+  queue_priority:
+    description: Priority level for the print queue (1-100, higher is earlier)
+    required: false
+    example: 50
+    selector:
+      number:
+        min: 1
+        max: 100
+  
+  print_file:
+    description: Optional specific file ID to use for printing
+    required: false
+    example: "file_123"
+  
+  print_settings:
+    description: Optional JSON object with print settings (filament, nozzle_temp, bed_temp, etc.)
+    required: false
+    example: '{"filament": "PLA", "nozzle_temp": 200}'
+
+examples:
+  - description: Queue a model with default priority
+    data:
+      model_ref: "gridfinity-bin"
+      queue_status: "queued"
+  
+  - description: Queue a model with high priority
+    data:
+      model_ref: "pruaprinters-123"
+      queue_status: "queued"
+      queue_priority: 90
+  
+  - description: Queue a model with specific settings
+    data:
+      model_ref: "gridfinity-bin"
+      queue_status: "queued"
+      print_settings: '{"filament": "PETG", "nozzle_temp": 235, "bed_temp": 80}'

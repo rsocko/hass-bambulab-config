@@ -1,0 +1,18 @@
+# Bulk discover working-group proposals from a local folder tree.
+# Calls sidecar endpoint without committing writes.
+model_catalog_bulk_discover_working_groups:
+  url: >-
+    {{ states('input_text.model_catalog_sidecar_base_url') }}/working-groups/bulk-discover
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% set ns.body = dict(ns.body, folder_path=(folder_path | string)) %}
+    {% if grouping_strategy is defined and (grouping_strategy | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, grouping_strategy=(grouping_strategy | string)) %}
+    {% endif %}
+    {% if max_depth is defined and (max_depth | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, max_depth=(max_depth | int(0))) %}
+    {% endif %}
+    {{ ns.body | to_json }}

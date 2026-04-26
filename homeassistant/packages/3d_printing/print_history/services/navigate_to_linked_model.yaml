@@ -1,0 +1,23 @@
+describe_service: Navigate to Linked Model from Archive
+description: Opens the model detail popup for the model linked to a specific print archive.
+
+fields:
+  archive_id:
+    description: Print history archive ID
+    required: true
+    example: 12345
+  
+  model_entity:
+    description: Optional entity ID to resolve the model catalog sidecar base URL from (defaults to input_text.model_catalog_sidecar_base_url)
+    required: false
+    example: "input_text.model_catalog_sidecar_url"
+
+examples:
+  - description: Navigate to the model linked to archive 12345
+    data:
+      archive_id: 12345
+  
+  - description: Navigate with explicit sidecar URL entity
+    data:
+      archive_id: 12345
+      model_entity: "input_text.custom_sidecar_url"
