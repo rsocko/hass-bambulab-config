@@ -212,9 +212,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".legend-scale{display:inline-flex;align-items:center;gap:8px;color:var(--secondary-text-color);font-size:12px;font-weight:500;}" +
       ".legend-main{display:inline-flex;align-items:center;gap:8px;}" +
       ".legend-swatches{display:inline-flex;align-items:center;gap:6px;}" +
-      ".legend-swatch{width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));cursor:pointer;transition:box-shadow 0.2s ease, transform 0.2s ease;}" +
-      ".legend-swatch:hover{transform:scale(1.1);box-shadow:0 0 4px rgba(59,130,246,0.4);}" +
-      ".legend-swatch:active{transform:scale(0.95);}" +
+      ".legend-swatch{appearance:none;-webkit-appearance:none;border:none;outline:none;padding:0;margin:0;display:inline-block;width:14px;height:14px;border-radius:4px;background:var(--cell-empty,rgba(148,163,184,0.14));box-shadow:none;line-height:0;cursor:default;transition:box-shadow 0.2s ease, transform 0.2s ease;}" +
+      ".legend-swatch.interactive{cursor:pointer;}" +
+      ".legend-swatch.interactive:hover{transform:scale(1.1);box-shadow:0 0 4px rgba(59,130,246,0.4);}" +
+      ".legend-swatch.interactive:active{transform:scale(0.95);}" +
+      ".legend-swatch.interactive:focus-visible{box-shadow:0 0 0 2px rgba(37,99,235,0.75);}" +
       ".legend-swatch.active{box-shadow:0 0 8px rgba(37,99,235,0.6), inset 0 0 0 2px rgba(37,99,235,1);border-radius:6px;}" +
       ".legend-note{font-size:11px;color:var(--secondary-text-color);opacity:0.9;}" +
       ".legend-separator{opacity:0.7;}" +
@@ -2116,8 +2118,12 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<span class="legend-swatches">' + legend.colors.map(function (color, index) {
         var legendValues = self._getLegendValuesForMode(currentMode);
         var legendValue = legendValues[index] || "";
+        var isInteractive = !!legendValue;
         var isActive = filterState === legendValue && filterState !== "All" ? " active" : "";
-        return '<button type="button" class="legend-swatch' + isActive + '" style="background:' + self._escapeHtml(color) + '" data-legend-value="' + self._escapeHtml(legendValue) + '" data-swatch-index="' + index + '" aria-label="Filter by ' + self._escapeHtml(legendValue) + '"></button>';
+        var interactiveClass = isInteractive ? " interactive" : "";
+        var disabledAttr = isInteractive ? "" : " disabled";
+        var ariaLabel = isInteractive ? ('Filter by ' + self._escapeHtml(legendValue)) : 'Legend swatch';
+        return '<button type="button" class="legend-swatch' + interactiveClass + isActive + '" style="background:' + self._escapeHtml(color) + '" data-legend-value="' + self._escapeHtml(legendValue) + '" data-swatch-index="' + index + '" aria-label="' + ariaLabel + '"' + disabledAttr + '></button>';
       }).join("") + '</span>' +
       '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
       '</span>' +
