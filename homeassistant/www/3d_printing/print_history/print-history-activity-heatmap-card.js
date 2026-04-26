@@ -34,6 +34,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._boundTooltipLeaveHandler = null;
     this._legendSelectedMode = "";
     this._legendSelectedIndex = -1;
+    this._legendResetRequestedFor = "";
     this._debugStats = {
       scheduledRenders: 0,
       executedRenders: 0,
@@ -220,6 +221,10 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       ".legend-swatch.interactive:active{transform:scale(0.95);}" +
       ".legend-swatch.interactive:focus-visible{box-shadow:0 0 0 2px rgba(37,99,235,0.75);}" +
       ".legend-swatch.active{box-shadow:0 0 8px rgba(37,99,235,0.6), inset 0 0 0 2px rgba(37,99,235,1);border-radius:6px;}" +
+      ".legend-clear{appearance:none;-webkit-appearance:none;border:none;outline:none;display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:999px;background:rgba(37,99,235,0.16);color:#1D4ED8;font-size:11px;font-weight:700;line-height:1;cursor:pointer;transition:transform .12s ease, background .12s ease, box-shadow .12s ease;}" +
+      ".legend-clear:hover{transform:translateY(-1px);background:rgba(37,99,235,0.22);box-shadow:0 0 0 1px rgba(37,99,235,0.24);}" +
+      ".legend-clear:active{transform:translateY(0);}" +
+      ".legend-clear:focus-visible{box-shadow:0 0 0 2px rgba(37,99,235,0.55);}" +
       ".legend-note{font-size:11px;color:var(--secondary-text-color);opacity:0.9;}" +
       ".legend-separator{opacity:0.7;}" +
       ".summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}" +
@@ -701,6 +706,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
+    var modeState = String(this._stateValue(this._config.mode_entity) || "").trim() || "Print Count";
     var token = ++this._queryToken;
     var started = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     this._queryResponse = await this._hass.callWS({
@@ -722,8 +728,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       search: String(this._stateValue("input_text.print_history_search") || "").trim(),
       colors: String(this._stateValue("input_text.print_history_filter_colors") || "").trim(),
       sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
-      activity_metric: this._normalizeFilterValue(this._stateValue(this._config.mode_entity)),
-      activity_metric_filter: this._normalizeFilterValue(this._stateValue(this._config.activity_metric_filter_entity)),
+      activity_metric: this._normalizeFilterValue(modeState),
+      activity_metric_filter: this._effectiveLegendFilter(modeState),
       include_activity_rows: true,
     });
     if (token !== this._queryToken) {
@@ -2111,6 +2117,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var filterState = this._stateValue(this._config.activity_metric_filter_entity);
     var legendValues = this._getLegendValuesForMode(mode);
     var selectedIndex = this._resolveSelectedLegendIndex(mode, legendValues, filterState);
+    var hasActiveLegendSelection = selectedIndex >= 0;
 
     this._legendContainer.className = "legend";
     this._legendContainer.innerHTML =
@@ -2129,6 +2136,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       }).join("") + '</span>' +
       '<span>' + this._escapeHtml(legend.endLabel) + '</span>' +
       '</span>' +
+      (hasActiveLegendSelection ? '<button type="button" class="legend-clear" data-action="clear-legend-filter" aria-label="Clear legend filter">Clear legend filter</button>' : '') +
       '</div>';
 
     Array.from(this._legendContainer.querySelectorAll(".legend-swatch")).forEach(function (button) {
@@ -2140,6 +2148,80 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         var swatchIndex = Number(target.getAttribute("data-swatch-index") || -1);
         self._handleLegendSwatchClick(mode, swatchIndex, legendValue);
       });
+    });
+
+    var clearButton = this._legendContainer.querySelector(".legend-clear");
+    if (clearButton) {
+      clearButton.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        self._clearLegendFilter();
+      });
+    }
+  }
+
+  _clearLegendFilter() {
+    if (!this._hass) {
+      return;
+    }
+    this._legendSelectedMode = "";
+    this._legendSelectedIndex = -1;
+    this._legendResetRequestedFor = "";
+    this._hass.callService("input_select", "select_option", {
+      option: "All",
+    }, {
+      entity_id: this._config.activity_metric_filter_entity,
+    });
+  }
+
+  _effectiveLegendFilter(mode) {
+    var currentFilter = this._normalizeFilterValue(this._stateValue(this._config.activity_metric_filter_entity));
+    if (!currentFilter) {
+      this._legendResetRequestedFor = "";
+      return "";
+    }
+
+    var supportedValues = this._supportedLegendFilterValues(mode);
+    if (supportedValues.indexOf(currentFilter) >= 0) {
+      this._legendResetRequestedFor = "";
+      return currentFilter;
+    }
+
+    this._requestLegendFilterReset(mode, currentFilter);
+    return "";
+  }
+
+  _supportedLegendFilterValues(mode) {
+    var legend = this._buildLegendConfig(mode);
+    if (!legend) {
+      return [];
+    }
+    var rawValues = this._getLegendValuesForMode(mode);
+    var unique = [];
+    rawValues.forEach(function (value) {
+      if (!value || unique.indexOf(value) >= 0) {
+        return;
+      }
+      unique.push(value);
+    });
+    return unique;
+  }
+
+  _requestLegendFilterReset(mode, currentFilter) {
+    if (!this._hass) {
+      return;
+    }
+    var requestKey = String(mode || "") + "|" + String(currentFilter || "");
+    if (this._legendResetRequestedFor === requestKey) {
+      return;
+    }
+    this._legendResetRequestedFor = requestKey;
+    this._legendSelectedMode = "";
+    this._legendSelectedIndex = -1;
+    this._hass.callService("input_select", "select_option", {
+      option: "All",
+    }, {
+      entity_id: this._config.activity_metric_filter_entity,
     });
   }
 
