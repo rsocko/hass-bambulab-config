@@ -49,34 +49,4 @@
         entity_id: input_text.model_catalog_sidecar_base_url
 
   mode: parallel
-  max: 10lete"
-      condition: template
-      value_template: "{{ archive_status in ['completed', 'success'] }}"
-      then:
-        - service: rest_command.model_catalog_update_model_queue
-          data:
-            model_ref: "{{ model_url.split('/')[-1] | default('unknown', true) }}"
-            to_print_status: "done"
-          response_variable: queue_update_response
-
-        # Notify on successful queue update
-        - service: persistent_notification.create
-          data:
-            title: "Model Queue Updated"
-            message: >-
-              Archive #{{ archive_id }} linked. Model queue status set to "done".
-              (Link ID: {{ link_id }})
-            notification_id: "model_queue_{{ archive_id }}"
-
-    # Also log all link accepts for audit trail
-    - action: logbook.log
-      data:
-        name: "Model Catalog"
-        message: >-
-          Archive {{ archive_id }} linked to model ({{ model_url }}).
-          Link ID: {{ link_id }}. Archive status: {{ archive_status }}.
-          Queue update sent.
-        entity_id: input_text.model_catalog_sidecar_base_url
-
-  mode: parallel
   max: 10
