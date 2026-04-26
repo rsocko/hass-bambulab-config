@@ -246,6 +246,75 @@ def test_preview_proxy_endpoint_falls_back_to_base_model_file_url(tmp_path: Path
     ]
 
 
+def test_model_detail_endpoint_handles_unexpected_manyfold_files_shape(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at,
+                manyfold_model_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/abc123",
+                "abc123",
+                "Detail Model",
+                None,
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+                derive_manyfold_model_key(
+                    manyfold_model_url="http://manyfold.test/models/abc123",
+                    manyfold_model_public_id="abc123",
+                    manyfold_model_id=None,
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _DetailClient:
+        def get_model_detail(self, model_ref: str) -> dict[str, object]:
+            assert model_ref == "http://manyfold.test/models/abc123"
+            return {
+                "description": "ok",
+                "files": "unexpected-string-instead-of-list",
+                "created_at": "2026-04-23T00:00:00Z",
+                "updated_at": "2026-04-23T00:00:00Z",
+            }
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_DetailClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/detail")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["model"]["name"] == "Detail Model"
+    assert payload["model"]["files"] == []
+
+
 def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(tmp_path: Path) -> None:
     db_path = tmp_path / "model_catalog.db"
     bootstrap_database(db_path)

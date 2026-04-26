@@ -1694,7 +1694,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Fetch full model detail from Manyfold
         try:
             manyfold_detail = client.get_model_detail(summary.model_url)
-        except Exception as e:
+        except Exception:
+            manyfold_detail = {}
+        if not isinstance(manyfold_detail, dict):
             manyfold_detail = {}
         
         # Fetch custom fields from local SQLite
@@ -1733,8 +1735,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         # Build model files info (from Manyfold detail)
         model_files = []
-        if manyfold_detail and "files" in manyfold_detail:
-            for file_obj in manyfold_detail["files"]:
+        files_payload = manyfold_detail.get("files")
+        if isinstance(files_payload, list):
+            for file_obj in files_payload:
+                if not isinstance(file_obj, dict):
+                    continue
                 model_files.append({
                     "id": file_obj.get("id"),
                     "filename": file_obj.get("filename"),
