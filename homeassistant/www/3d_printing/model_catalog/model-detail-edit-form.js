@@ -206,6 +206,8 @@ class ModelDetailEditForm extends HTMLElement {
     const advancedToggle = target.closest('#advanced-toggle');
     if (advancedToggle) {
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       const content = this.querySelector('#advanced-content');
       if (content) {
         content.classList.toggle('open');
@@ -216,6 +218,7 @@ class ModelDetailEditForm extends HTMLElement {
     const saveButton = target.closest('#form-btn-save');
     if (saveButton) {
       event.preventDefault();
+      event.stopPropagation();
       this._handleSave();
       return;
     }
@@ -223,6 +226,7 @@ class ModelDetailEditForm extends HTMLElement {
     const cancelButton = target.closest('#form-btn-cancel');
     if (cancelButton) {
       event.preventDefault();
+      event.stopPropagation();
       this._onCancel();
       return;
     }

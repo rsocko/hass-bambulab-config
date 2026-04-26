@@ -995,7 +995,11 @@ class ModelDetailPopupCard extends HTMLElement {
     const container = this.shadowRoot.getElementById('edit-form-container');
     if (!container) return;
 
-    container.innerHTML = '';
+    // Only create form if one doesn't already exist
+    const existingForm = container.querySelector('model-detail-edit-form');
+    if (existingForm) {
+      return; // Form already initialized, don't recreate
+    }
 
     // Create and configure the edit form element
     const editForm = document.createElement('model-detail-edit-form');
