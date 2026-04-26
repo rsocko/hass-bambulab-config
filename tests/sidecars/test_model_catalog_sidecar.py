@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 import sqlite3
 
@@ -3460,6 +3461,9 @@ def test_bulk_discover_groups_nested_files_and_surfaces_duplicate_warnings(tmp_p
     tools_group = next(item for item in payload["proposals"] if item["title"] == "Tools")
     assert tools_group["duplicate_count"] == 1
     assert tools_group["files"][0]["duplicate_hash"] is True
+    assert "source_mtime" in tools_group["files"][0]
+    assert "source_ctime" in tools_group["files"][0]
+    assert str(tools_group["files"][0]["source_mtime"]).endswith("Z")
 
 
 def test_bulk_import_creates_groups_persists_discovery_metadata_and_dedupes(tmp_path: Path) -> None:
@@ -3549,11 +3553,17 @@ def test_bulk_import_creates_groups_persists_discovery_metadata_and_dedupes(tmp_
         assert group_row["discovery_timestamp"] == "2026-04-26T12:00:00Z"
 
         item_rows = connection.execute(
-            "SELECT file_hash FROM working_items ORDER BY id"
+            "SELECT file_hash, source_metadata_json FROM working_items ORDER BY id"
         ).fetchall()
         assert len(item_rows) == 2
         hashes = {str(row["file_hash"]) for row in item_rows}
         assert alpha_hash in hashes
+        for row in item_rows:
+            metadata = json.loads(str(row["source_metadata_json"]))
+            assert "source_mtime" in metadata
+            assert "source_ctime" in metadata
+            assert "source_size_bytes" in metadata
+            assert "source_path" in metadata
     finally:
         connection.close()
 
@@ -3766,6 +3776,47 @@ def test_intake_queue_delete_upload_only_allows_queued_and_failed(tmp_path: Path
         delete_missing = test_client.delete("/api/intake/uploads/missing-id")
         assert delete_missing.status_code == 404
         assert delete_missing.json()["error"] == "upload_not_found"
+
+
+def test_intake_queue_post_upload_persists_source_timestamp_metadata(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "meta-test.3mf"
+    test_file.write_bytes(b"test content")
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(test_file),
+                    }
+                ]
+            },
+        )
+
+    assert response.status_code == 200
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT source_entries_json FROM intake_queue_uploads ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        assert row is not None
+        entries = json.loads(str(row["source_entries_json"]))
+        assert len(entries) == 1
+        entry = entries[0]
+        assert "source_mtime" in entry
+        assert "source_ctime" in entry
+        assert entry["source_size_bytes"] == len(b"test content")
+        assert str(entry["source_mtime"]).endswith("Z")
+    finally:
+        connection.close()
 
 
 def test_intake_queue_post_upload_validates_source_entries(tmp_path: Path) -> None:

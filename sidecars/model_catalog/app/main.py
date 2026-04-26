@@ -618,6 +618,23 @@ def _bulk_utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _bulk_timestamp_iso(timestamp: float | int) -> str:
+    return datetime.fromtimestamp(float(timestamp), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _bulk_path_source_metadata(path: Path, stat_result: Any | None = None) -> dict[str, Any]:
+    stat_value = stat_result or path.stat()
+    metadata: dict[str, Any] = {
+        "source_path": str(path),
+        "source_mtime": _bulk_timestamp_iso(stat_value.st_mtime),
+        "source_ctime": _bulk_timestamp_iso(stat_value.st_ctime),
+    }
+    birthtime = getattr(stat_value, "st_birthtime", None)
+    if birthtime is not None:
+        metadata["source_birthtime"] = _bulk_timestamp_iso(birthtime)
+    return metadata
+
+
 def _normalize_grouping_strategy(value: object | None) -> str:
     normalized = str(value or "").strip().lower()
     if normalized in {"by-folder", "by-root", "flat"}:
@@ -913,8 +930,10 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 proposals_by_key[group_key] = proposal
 
             try:
+                stat_result = file_path.stat()
+                source_metadata = _bulk_path_source_metadata(file_path, stat_result)
                 file_hash = _sha256_file(file_path)
-                file_size = int(file_path.stat().st_size)
+                file_size = int(stat_result.st_size)
             except (OSError, PermissionError) as error:
                 warning = {
                     "type": "read_error",
@@ -945,6 +964,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "size_bytes": file_size,
                     "sha256": file_hash,
                     "duplicate_hash": hash_exists,
+                    "source_mtime": source_metadata["source_mtime"],
+                    "source_ctime": source_metadata["source_ctime"],
+                    "source_birthtime": source_metadata.get("source_birthtime"),
                 }
             )
 
@@ -1074,6 +1096,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         )
                         continue
 
+                    try:
+                        stat_result = file_path.stat()
+                        source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+                    except (OSError, PermissionError) as error:
+                        failed_files.append(
+                            {
+                                "group": grouped.get("title") or group_key,
+                                "path": str(file_path),
+                                "reason": "stat_error",
+                                "message": str(error),
+                            }
+                        )
+                        continue
+
                     file_hash = str((file_payload or {}).get("sha256") or "").strip().lower()
                     if not file_hash:
                         try:
@@ -1104,8 +1140,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         {
                             "path": str(file_path),
                             "sha256": file_hash,
-                            "size_bytes": int(file_payload.get("size_bytes") or file_path.stat().st_size),
+                            "size_bytes": int(file_payload.get("size_bytes") or stat_result.st_size),
                             "relative_path": str(file_payload.get("relative_path") or file_path.name),
+                            "source_mtime": str(file_payload.get("source_mtime") or source_metadata["source_mtime"]),
+                            "source_ctime": str(file_payload.get("source_ctime") or source_metadata["source_ctime"]),
+                            "source_birthtime": str(file_payload.get("source_birthtime") or source_metadata.get("source_birthtime") or "") or None,
                         }
                     )
                     batch_hashes.add(file_hash)
@@ -1190,7 +1229,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                             now_iso,
                             file_item["sha256"],
                             file_item["size_bytes"],
-                            json.dumps({"relative_path": file_item["relative_path"]}),
+                            json.dumps(
+                                {
+                                    "relative_path": file_item["relative_path"],
+                                    "source_path": file_item["path"],
+                                    "source_size_bytes": file_item["size_bytes"],
+                                    "source_mtime": file_item["source_mtime"],
+                                    "source_ctime": file_item["source_ctime"],
+                                    "source_birthtime": file_item.get("source_birthtime"),
+                                }
+                            ),
                         ),
                     )
                     existing_hashes.add(file_item["sha256"])
@@ -2604,12 +2652,30 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         "message": f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
                     },
                 )
+
+            try:
+                stat_result = resolved_path.stat()
+                entry_source_metadata = _bulk_path_source_metadata(resolved_path, stat_result)
+            except (OSError, PermissionError) as error:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "source_stat_error",
+                        "message": f"source_entry.path metadata could not be read: {entry_path}",
+                        "detail": str(error),
+                    },
+                )
             
             validated_entry = {
                 "type": entry_type,
                 "path": str(resolved_path),
                 "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
                 "max_depth": _coerce_int(entry.get("max_depth")) if entry_type == "folder" else None,
+                "source_mtime": entry_source_metadata["source_mtime"],
+                "source_ctime": entry_source_metadata["source_ctime"],
+                "source_birthtime": entry_source_metadata.get("source_birthtime"),
+                "source_size_bytes": int(stat_result.st_size) if entry_type == "file" else None,
             }
             validated_entries.append(validated_entry)
         
