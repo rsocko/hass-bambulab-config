@@ -145,6 +145,20 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // Download button
+    if (target.closest("#btn-download")) {
+      event.preventDefault();
+      this._handleDownload();
+      return;
+    }
+
+    // Print button
+    if (target.closest("#btn-print")) {
+      event.preventDefault();
+      this._handlePrint();
+      return;
+    }
+
     // Conflict dialog buttons
     if (target.closest("#btn-conflict-cancel")) {
       event.preventDefault();
@@ -634,8 +648,8 @@ class ModelDetailPopupCard extends HTMLElement {
               <button class="action-button" id="btn-save" style="background: #4CAF50;">💾 Save</button>
               <button class="action-button" id="btn-cancel" style="background: #f44336;">✕ Cancel</button>
             ` : `
-              <button class="action-button">📥 Download</button>
-              <button class="action-button">🖨️ Print</button>
+              <button class="action-button" id="btn-download">📥 Download</button>
+              <button class="action-button" id="btn-print">🖨️ Print</button>
             `}
           </div>
         </div>
@@ -1152,6 +1166,61 @@ class ModelDetailPopupCard extends HTMLElement {
       console.error('Error reading file:', error);
       this._error = `Failed to read file: ${error}`;
       this._render();
+    }
+  }
+
+  _handleDownload() {
+    if (!this._modelDetail || !this._modelDetail.model) {
+      console.warn('No model detail available for download');
+      return;
+    }
+
+    const model = this._modelDetail.model;
+    const files = model.files || [];
+    
+    if (files.length === 0) {
+      this._error = 'No files available for download';
+      this._render();
+      return;
+    }
+
+    // For now, log available files
+    console.log('Download triggered. Available files:', files);
+    
+    // In future: could open a modal to select which file to download
+    // For now, just show a notification
+    if (this._hass) {
+      this._hass.callService('persistent_notification', 'create', {
+        title: 'Model Download',
+        message: `${files.length} file(s) available. Download feature coming soon.`,
+      }).catch(err => console.error('Notification failed:', err));
+    }
+  }
+
+  _handlePrint() {
+    if (!this._modelDetail || !this._modelDetail.model) {
+      console.warn('No model detail available for print');
+      return;
+    }
+
+    const model = this._modelDetail.model;
+    const files = model.files || [];
+    
+    if (files.length === 0) {
+      this._error = 'No files available to print';
+      this._render();
+      return;
+    }
+
+    // For now, log and show notification
+    console.log('Print triggered. Available files:', files);
+    
+    // In future: could trigger print workflow via HA service
+    if (this._hass) {
+      this._hass.callService('persistent_notification', 'create', {
+        title: 'Model Print',
+        message: `${files.length} file(s) ready. Print workflow coming soon.`,
+      }).catch(err => console.error('Notification failed:', err));
     }
   }
 
