@@ -11,6 +11,7 @@ from sqlite3 import connect
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .db import (
@@ -630,6 +631,15 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             client.close()
 
     app = FastAPI(title="Model Catalog Sidecar", version="0.1.0", lifespan=lifespan)
+
+    # Enable CORS to allow requests from Home Assistant UI (different origin)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins; restrict in production if needed
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/", response_class=HTMLResponse)
     def api_landing() -> str:
