@@ -370,7 +370,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
 
     var titleNode = this.shadowRoot.querySelector(".title");
     if (titleNode && this._config) {
-      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v114</span>';
+      titleNode.innerHTML = this._escapeHtml(this._config.title) + '<span class="title-version">v115</span>';
     }
 
     this._syncRefreshIndicator(true);
@@ -396,6 +396,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       search: this._stateValue("input_text.print_history_search"),
       colors: this._stateValue("input_text.print_history_filter_colors"),
       activityMetricFilter: this._stateValue("input_select.print_history_filter_activity_metric"),
+      activityMetricFilterBucket: this._stateValue("input_number.print_history_filter_activity_metric_bucket"),
       sort: this._stateValue("input_select.print_history_sort"),
       page: this._stateValue(this._config.page_entity),
       pageSize: this._stateValue(this._config.page_size_entity),
@@ -583,6 +584,7 @@ class PrintHistoryBrowserCard extends HTMLElement {
       search: String(this._stateValue("input_text.print_history_search") || "").trim(),
       colors: String(this._stateValue("input_text.print_history_filter_colors") || "").trim(),
       activity_metric_filter: this._normalizeFilterValue(this._stateValue("input_select.print_history_filter_activity_metric")),
+      activity_metric_filter_bucket: Math.max(0, Math.min(5, Number(this._stateValue("input_number.print_history_filter_activity_metric_bucket") || 0))),
       sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
       page: Math.max(1, Number(this._stateValue(this._config.page_entity) || 1)),
       page_size: Math.max(1, Number(this._stateValue(this._config.page_size_entity) || 1)),

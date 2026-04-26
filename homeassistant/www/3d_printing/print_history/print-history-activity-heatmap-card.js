@@ -56,6 +56,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       direct_query: config.direct_query !== false,
       mode_entity: config.mode_entity || "input_select.print_history_activity_metric",
       activity_metric_filter_entity: config.activity_metric_filter_entity || "input_select.print_history_filter_activity_metric",
+      activity_metric_filter_bucket_entity: config.activity_metric_filter_bucket_entity || "input_number.print_history_filter_activity_metric_bucket",
       selected_date_entity: config.selected_date_entity || "input_text.print_history_activity_selected_date",
       show_details: config.show_details === true,
       api_base_entity: config.api_base_entity || "input_text.bambuddy_api_base_url",
@@ -145,6 +146,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     var apiBaseState = hass.states[this._config.api_base_entity];
     var filteredState = hass.states["sensor.bambuddy_print_history_browser_filtered"];
     var activityMetricFilterState = hass.states[this._config.activity_metric_filter_entity];
+    var activityMetricFilterBucketState = hass.states[this._config.activity_metric_filter_bucket_entity];
 
     return {
       sourceState: sourceState ? sourceState.state : "",
@@ -152,6 +154,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       filteredRevision: filteredState && filteredState.attributes ? String(filteredState.attributes.browser_revision || "") : "",
       metric: metricState ? metricState.state : "",
       activityMetricFilter: activityMetricFilterState ? activityMetricFilterState.state : "",
+      activityMetricFilterBucket: activityMetricFilterBucketState ? activityMetricFilterBucketState.state : "0",
       apiBase: apiBaseState ? apiBaseState.state : "",
       status: this._stateValue("input_select.print_history_filter_status"),
       material: this._stateValue("input_select.print_history_filter_material"),
@@ -730,6 +733,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       sort: this._normalizeFilterValue(this._stateValue("input_select.print_history_sort")),
       activity_metric: this._normalizeFilterValue(modeState),
       activity_metric_filter: this._effectiveLegendFilter(modeState),
+      activity_metric_filter_bucket: this._effectiveLegendFilterBucket(modeState),
       include_activity_rows: true,
     });
     if (token !== this._queryToken) {
@@ -2167,6 +2171,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._legendSelectedMode = "";
     this._legendSelectedIndex = -1;
     this._legendResetRequestedFor = "";
+    this._hass.callService("input_number", "set_value", {
+      value: 0,
+    }, {
+      entity_id: this._config.activity_metric_filter_bucket_entity,
+    });
     this._hass.callService("input_select", "select_option", {
       option: "All",
     }, {
@@ -2176,7 +2185,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
   _effectiveLegendFilter(mode) {
     var currentFilter = this._normalizeFilterValue(this._stateValue(this._config.activity_metric_filter_entity));
+    var currentBucket = this._legendBucketValue();
     if (!currentFilter) {
+      if (currentBucket > 0) {
+        this._requestLegendFilterReset(mode, currentFilter, currentBucket);
+      }
       this._legendResetRequestedFor = "";
       return "";
     }
@@ -2187,8 +2200,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return currentFilter;
     }
 
-    this._requestLegendFilterReset(mode, currentFilter);
+    this._requestLegendFilterReset(mode, currentFilter, currentBucket);
     return "";
+  }
+
+  _effectiveLegendFilterBucket(mode) {
+    var bucket = this._legendBucketValue();
+    if (bucket <= 0) {
+      return 0;
+    }
+
+    var supportedValues = this._supportedLegendFilterValues(mode);
+    var currentFilter = this._normalizeFilterValue(this._stateValue(this._config.activity_metric_filter_entity));
+    if (supportedValues.indexOf(currentFilter) < 0) {
+      this._requestLegendFilterReset(mode, currentFilter, bucket);
+      return 0;
+    }
+
+    return bucket;
   }
 
   _supportedLegendFilterValues(mode) {
@@ -2207,11 +2236,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     return unique;
   }
 
-  _requestLegendFilterReset(mode, currentFilter) {
+  _requestLegendFilterReset(mode, currentFilter, currentBucket) {
     if (!this._hass) {
       return;
     }
-    var requestKey = String(mode || "") + "|" + String(currentFilter || "");
+    var requestKey = String(mode || "") + "|" + String(currentFilter || "") + "|" + String(currentBucket || 0);
     if (this._legendResetRequestedFor === requestKey) {
       return;
     }
@@ -2223,9 +2252,24 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }, {
       entity_id: this._config.activity_metric_filter_entity,
     });
+    this._hass.callService("input_number", "set_value", {
+      value: 0,
+    }, {
+      entity_id: this._config.activity_metric_filter_bucket_entity,
+    });
   }
 
   _resolveSelectedLegendIndex(mode, legendValues, filterState) {
+    var bucket = this._legendBucketValue();
+    if (bucket > 0) {
+      var bucketIndex = bucket - 1;
+      if (bucketIndex >= 0 && bucketIndex < legendValues.length) {
+        this._legendSelectedMode = mode;
+        this._legendSelectedIndex = bucketIndex;
+        return bucketIndex;
+      }
+    }
+
     if (!filterState || filterState === "All") {
       this._legendSelectedMode = "";
       this._legendSelectedIndex = -1;
@@ -2272,15 +2316,28 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       return;
     }
 
-    var filterState = this._stateValue(this._config.activity_metric_filter_entity);
-    var nextFilterValue = filterState === legendValue ? "All" : legendValue;
+    var filterState = String(this._stateValue(this._config.activity_metric_filter_entity) || "").trim();
+    var currentBucket = this._legendBucketValue();
+    var nextBucket = Math.max(1, Number(swatchIndex || 0) + 1);
+    var isSameSelection = (filterState === legendValue && currentBucket === nextBucket);
+    var nextFilterValue = isSameSelection ? "All" : legendValue;
 
     if (nextFilterValue === "All") {
       this._legendSelectedMode = "";
       this._legendSelectedIndex = -1;
+      this._hass.callService("input_number", "set_value", {
+        value: 0,
+      }, {
+        entity_id: this._config.activity_metric_filter_bucket_entity,
+      });
     } else {
       this._legendSelectedMode = mode;
       this._legendSelectedIndex = Math.max(0, Number(swatchIndex || 0));
+      this._hass.callService("input_number", "set_value", {
+        value: nextBucket,
+      }, {
+        entity_id: this._config.activity_metric_filter_bucket_entity,
+      });
     }
 
     this._hass.callService("input_select", "select_option", {
@@ -2288,6 +2345,14 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }, {
       entity_id: this._config.activity_metric_filter_entity,
     });
+  }
+
+  _legendBucketValue() {
+    var raw = Number(this._stateValue(this._config.activity_metric_filter_bucket_entity) || 0);
+    if (!isFinite(raw)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(5, Math.round(raw)));
   }
 
   _buildLegendConfig(mode) {

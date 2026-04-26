@@ -95,6 +95,8 @@ BROWSER_HELPER_ENTITY_IDS = [
     "input_text.print_history_filter_colors",
     "input_text.print_history_activity_selected_date",
     "input_select.print_history_activity_metric",
+    "input_select.print_history_filter_activity_metric",
+    "input_number.print_history_filter_activity_metric_bucket",
     "input_select.print_history_sort",
     "input_number.print_history_page_size",
     "input_number.history_current_page",

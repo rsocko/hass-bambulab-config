@@ -88,6 +88,7 @@ ACTIVE_FILTER_DEFAULTS = {
     "input_text.print_history_filter_colors": "",
     "input_text.print_history_activity_selected_date": "",
     "input_select.print_history_filter_activity_metric": "All",
+    "input_number.print_history_filter_activity_metric_bucket": "0",
     "input_select.print_history_sort": "Date (Newest)",
 }
 

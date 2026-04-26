@@ -1,0 +1,8 @@
+print_history_filter_activity_metric_bucket:
+  name: Print History Filter Activity Metric Bucket
+  icon: mdi:format-list-numbered
+  min: 0
+  max: 5
+  step: 1
+  mode: box
+  initial: 0

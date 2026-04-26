@@ -200,6 +200,7 @@ QUERY_OVERRIDE_ENTITY_MAP = {
     "selected_day": "input_text.print_history_activity_selected_date",
     "activity_metric": "input_select.print_history_activity_metric",
     "activity_metric_filter": "input_select.print_history_filter_activity_metric",
+    "activity_metric_filter_bucket": "input_number.print_history_filter_activity_metric_bucket",
     "sort": "input_select.print_history_sort",
     "page": "input_number.history_current_page",
     "page_size": "input_number.print_history_page_size",
@@ -1091,7 +1092,7 @@ class PrintHistoryBrowserManager:
             if field_name in QUERY_BOOLEAN_OVERRIDE_FIELDS:
                 snapshot[entity_id] = "on" if bool(value) else "off"
                 continue
-            if field_name in {"page", "page_size"}:
+            if field_name in {"page", "page_size", "activity_metric_filter_bucket"}:
                 snapshot[entity_id] = str(int(value))
                 continue
             if field_name == "colors" and isinstance(value, list):

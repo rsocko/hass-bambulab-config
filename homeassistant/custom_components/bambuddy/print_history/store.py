@@ -2818,6 +2818,10 @@ class PrintHistoryStore:
             "sort": states.get("input_select.print_history_sort", "Date (Newest)"),
             "activity_mode": states.get("input_select.print_history_activity_metric", "Print Count"),
             "activity_metric_filter": states.get("input_select.print_history_filter_activity_metric", "All").strip(),
+            "activity_metric_filter_bucket": max(
+                0,
+                as_int(states.get("input_number.print_history_filter_activity_metric_bucket", 0), 0),
+            ),
             "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 10), 10)),
             "requested_page": max(1, as_int(states.get("input_number.history_current_page", 1), 1)),
             "today": current_time.astimezone(local_timezone()).date(),
@@ -2944,8 +2948,16 @@ class PrintHistoryStore:
 
         # Add activity_metric_filter filtering
         activity_metric_filter = filters.get("activity_metric_filter", "All").strip()
+        activity_metric_bucket = max(0, as_int(filters.get("activity_metric_filter_bucket", 0), 0))
         activity_mode = filters.get("activity_mode", "Print Count")
-        if activity_metric_filter and activity_metric_filter.lower() != "all":
+        bucket_supported_modes = {
+            "Outcome",
+            "Single vs Multi-Color Prints",
+            "In a Project vs Not in a Project",
+        }
+        apply_exact_bucket_filter = activity_metric_bucket > 0 and activity_mode in bucket_supported_modes
+
+        if activity_metric_filter and activity_metric_filter.lower() != "all" and not apply_exact_bucket_filter:
             if activity_mode == "Outcome":
                 # Filter by outcome (Complete, Failed, Stopped, etc.)
                 outcome_map = {
@@ -2995,7 +3007,162 @@ class PrintHistoryStore:
         """
         with self._borrow_connection(connection) as active_connection:
             rows = active_connection.execute(query, params).fetchall()
-        return [as_int(row[0]) for row in rows if as_int(row[0]) > 0]
+        archive_ids = [as_int(row[0]) for row in rows if as_int(row[0]) > 0]
+        if not archive_ids or not apply_exact_bucket_filter:
+            return archive_ids
+        return self._filter_archive_ids_by_activity_bucket(
+            archive_ids,
+            activity_mode,
+            activity_metric_bucket,
+            connection=connection,
+        )
+
+    def _filter_archive_ids_by_activity_bucket(
+        self,
+        archive_ids: list[int],
+        activity_mode: str,
+        selected_bucket: int,
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> list[int]:
+        archives = self._load_archives_by_ids(archive_ids, connection=connection)
+        if not archives:
+            return []
+
+        day_stats: dict[str, dict[str, float]] = {}
+        archive_day_map: dict[int, str] = {}
+        for archive in archives:
+            archive_id = as_int(archive.get("id") or archive.get("archive_id"), 0)
+            if archive_id <= 0:
+                continue
+            day_key = archive_date_key(archive)
+            if not day_key:
+                continue
+
+            archive_day_map[archive_id] = day_key
+            day = day_stats.setdefault(
+                day_key,
+                {
+                    "count": 0,
+                    "archived": 0,
+                    "failed": 0,
+                    "cancelled": 0,
+                    "other": 0,
+                    "printing": 0,
+                    "single": 0,
+                    "multi": 0,
+                    "in_project": 0,
+                    "not_in_project": 0,
+                },
+            )
+            day["count"] += 1
+
+            status = str(archive.get("status") or "").strip().lower()
+            if status == "archived":
+                day["archived"] += 1
+            elif status == "failed":
+                day["failed"] += 1
+            elif status in {"cancelled", "canceled", "stopped"}:
+                day["cancelled"] += 1
+            elif status in {"printing", "running"}:
+                day["printing"] += 1
+            elif status not in {"completed", "success", "done"}:
+                day["other"] += 1
+
+            if self._is_multi_color_archive(archive):
+                day["multi"] += 1
+            elif self._has_color_data(archive):
+                day["single"] += 1
+
+            if self._archive_has_project(archive):
+                day["in_project"] += 1
+            else:
+                day["not_in_project"] += 1
+
+        matched_days = {
+            day_key
+            for day_key, stats in day_stats.items()
+            if self._activity_mode_bucket_for_day(activity_mode, stats) == selected_bucket
+        }
+        if not matched_days:
+            return []
+
+        return [
+            archive_id
+            for archive_id in archive_ids
+            if archive_day_map.get(archive_id, "") in matched_days
+        ]
+
+    def _activity_mode_bucket_for_day(self, activity_mode: str, day_stats: dict[str, float]) -> int:
+        if activity_mode == "Single vs Multi-Color Prints":
+            classified = day_stats["single"] + day_stats["multi"]
+            if classified <= 0:
+                return 0
+            return self._ratio_to_bucket(day_stats["multi"] / classified)
+
+        if activity_mode == "In a Project vs Not in a Project":
+            classified = day_stats["in_project"] + day_stats["not_in_project"]
+            if classified <= 0:
+                return 0
+            return self._ratio_to_bucket(day_stats["not_in_project"] / classified)
+
+        if activity_mode == "Outcome":
+            total = day_stats["count"]
+            archived = day_stats["archived"]
+            scored_total = max(0.0, total - archived)
+            if total <= 0:
+                return 0
+            if scored_total <= 0:
+                return 5
+
+            negatives = day_stats["failed"] + day_stats["cancelled"] + day_stats["other"]
+            neutrals = day_stats["printing"]
+            penalty = (negatives + neutrals * 0.5) / scored_total
+
+            if penalty >= 0.8:
+                return 1
+            if penalty >= 0.55:
+                return 2
+            if penalty >= 0.3:
+                return 3
+            if penalty > 0:
+                return 4
+            return 5
+
+        return 0
+
+    def _ratio_to_bucket(self, ratio: float) -> int:
+        normalized = max(0.0, min(1.0, as_float(ratio, 0.0)))
+        if normalized >= 1.0:
+            return 5
+        return min(5, max(1, int(normalized * 5) + 1))
+
+    def _archive_has_project(self, archive: dict[str, Any]) -> bool:
+        project_name = str(archive.get("project_name") or "").strip()
+        if project_name:
+            return True
+        project_id = archive.get("project_id")
+        if project_id is None:
+            return False
+        return str(project_id).strip() not in {"", "0", "None", "null"}
+
+    def _is_multi_color_archive(self, archive: dict[str, Any]) -> bool:
+        colors = self._archive_color_tokens(archive)
+        return len(colors) > 1
+
+    def _has_color_data(self, archive: dict[str, Any]) -> bool:
+        return len(self._archive_color_tokens(archive)) > 0
+
+    def _archive_color_tokens(self, archive: dict[str, Any]) -> set[str]:
+        tokens: set[str] = set()
+        raw_colors = archive.get("filament_colors")
+        if not isinstance(raw_colors, list):
+            raw_colors = str(archive.get("filament_color") or "").split(",")
+        for raw in raw_colors:
+            normalized = normalize_hex(raw)
+            if normalized:
+                tokens.add(normalized.lower())
+        return tokens
 
     def _sort_sql(self, sort_option: str) -> str:
         duration_sql = self._effective_duration_sql("a")
