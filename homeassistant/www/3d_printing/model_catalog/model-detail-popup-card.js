@@ -38,6 +38,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._error = "";
     this._activeTab = "details";
     this._isEditMode = false;
+    this._editAdvancedSectionOpen = false;
     this._lastModifiedTimestamp = null;
     this._conflictDialog = null;
     this._showConflictDialog = false;
@@ -69,16 +70,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   connectedCallback() {
-    // Attach event listener to shadow DOM
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
-    
-    // Create light DOM container for form (persists across shadow DOM re-renders)
-    if (!this.querySelector('#edit-form-light-dom')) {
-      const formContainer = document.createElement('div');
-      formContainer.id = 'edit-form-light-dom';
-      formContainer.style.cssText = 'display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; overflow: auto;';
-      this.appendChild(formContainer);
-    }
   }
 
   disconnectedCallback() {
@@ -268,27 +260,10 @@ class ModelDetailPopupCard extends HTMLElement {
       : this._renderEmpty();
     
     this.shadowRoot.innerHTML = html;
-    
-    // Manage form visibility in light DOM (separate from shadow DOM)
+
+    // Initialize in-tab edit form after rendering.
     if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
       this._initializeEditForm();
-      this._showForm();
-    } else {
-      this._hideForm();
-    }
-  }
-
-  _showForm() {
-    const container = this.querySelector('#edit-form-light-dom');
-    if (container) {
-      container.style.display = 'block';
-    }
-  }
-
-  _hideForm() {
-    const container = this.querySelector('#edit-form-light-dom');
-    if (container) {
-      container.style.display = 'none';
     }
   }
 
@@ -1155,13 +1130,10 @@ class ModelDetailPopupCard extends HTMLElement {
   // Phase 3.1 Methods: Edit Mode & Conflict Detection
   
   _toggleEditMode() {
-    if (this._isEditMode) {
-      // Exiting edit mode - clear form reference
-      this._currentEditForm = null;
-    }
     this._isEditMode = !this._isEditMode;
     if (this._isEditMode) {
       this._lastModifiedTimestamp = this._modelDetail.model.last_modified || Date.now();
+      this._editAdvancedSectionOpen = false;
     }
     this._render();
   }
@@ -1201,50 +1173,27 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _initializeEditForm() {
-    // Light DOM container persists across shadow DOM re-renders
-    const container = this.querySelector('#edit-form-light-dom');
+    const container = this.shadowRoot.getElementById('edit-form-container');
     if (!container) return;
 
-    // Check if form already exists in light DOM
-    let editForm = container.querySelector('model-detail-edit-form');
-    
-    if (!editForm) {
-      // Create form only once - it will persist in light DOM
-      editForm = document.createElement('model-detail-edit-form');
-      editForm.style.cssText = `
-        display: block;
-        width: 90%;
-        max-width: 600px;
-        margin: 40px auto;
-        background: var(--card-background-color, #1a1a1a);
-        border-radius: 12px;
-        padding: 24px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-      `;
-      editForm.setConfig({
-        model_data: this._modelDetail.model,
-        on_save: (formData) => this._handleFormSave(formData),
-        on_cancel: () => {
-          this._isEditMode = false;
-          this._render();
-        }
-      });
-      editForm.hass = this._hass;
-      
-      container.innerHTML = ''; // Clear any old content
-      container.appendChild(editForm);
-    } else {
-      // Form already exists - just update model data in case it changed
-      editForm.setConfig({
-        model_data: this._modelDetail.model,
-        on_save: (formData) => this._handleFormSave(formData),
-        on_cancel: () => {
-          this._isEditMode = false;
-          this._render();
-        }
-      });
-      editForm.hass = this._hass;
-    }
+    container.innerHTML = '';
+
+    const editForm = document.createElement('model-detail-edit-form');
+    editForm.setConfig({
+      model_data: this._modelDetail.model,
+      advanced_section_open: this._editAdvancedSectionOpen,
+      on_advanced_toggle: (isOpen) => {
+        this._editAdvancedSectionOpen = Boolean(isOpen);
+      },
+      on_save: (formData) => this._handleFormSave(formData),
+      on_cancel: () => {
+        this._isEditMode = false;
+        this._editAdvancedSectionOpen = false;
+        this._render();
+      }
+    });
+    editForm.hass = this._hass;
+    container.appendChild(editForm);
   }
 
   async _handleFormSave(formData) {
@@ -1281,6 +1230,7 @@ class ModelDetailPopupCard extends HTMLElement {
         // Show success message and reload
         console.log('Model saved successfully');
         this._isEditMode = false;
+        this._editAdvancedSectionOpen = false;
         await this._loadModelDetail();
         this._render();
       } catch (error) {

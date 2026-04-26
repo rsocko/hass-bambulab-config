@@ -24,6 +24,8 @@ class ModelDetailEditForm extends HTMLElement {
   setConfig(config) {
     this._config = config;
     this._model = config.model_data || {};
+    this._advancedSectionOpen = Boolean(config.advanced_section_open);
+    this._onAdvancedToggle = config.on_advanced_toggle || (() => {});
     this._onSave = config.on_save || (() => {});
     this._onCancel = config.on_cancel || (() => {});
   }
@@ -221,6 +223,7 @@ class ModelDetailEditForm extends HTMLElement {
       
       // Toggle state and update display immediately
       this._advancedSectionOpen = !this._advancedSectionOpen;
+      this._onAdvancedToggle(this._advancedSectionOpen);
       const content = this.querySelector('#advanced-content');
       const arrow = this.querySelector('#advanced-arrow');
       
