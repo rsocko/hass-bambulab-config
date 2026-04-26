@@ -15,14 +15,30 @@
 class ModelDetail3DViewerTab extends HTMLElement {
   constructor() {
     super();
+    this._config = {};
+    this._model = null;
     this._scene = null;
     this._camera = null;
     this._renderer = null;
-    this._model = null;
     this._geometry = null;
     this._files = [];
     this._selectedFileIndex = 0;
     this._threejsLoaded = false;
+  }
+
+  setConfig(config) {
+    this._config = config || {};
+    this._model = this._parseModelConfig(this._config.model_json || null);
+
+    const modelFiles = this._model && Array.isArray(this._model.files) ? this._model.files : [];
+    this._files = modelFiles.filter((file) => {
+      const filename = String(file && file.filename || '').toLowerCase();
+      return filename.endsWith('.stl') || filename.endsWith('.3mf') || filename.endsWith('.obj');
+    });
+
+    if (this.isConnected) {
+      this._render();
+    }
   }
 
   async connectedCallback() {
@@ -48,6 +64,36 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _render() {
+    if (this._files.length === 0) {
+      this.innerHTML = `
+        <style>
+          .viewer-empty {
+            padding: 24px;
+            border: 1px solid var(--divider-color);
+            border-radius: 8px;
+            background: var(--card-background-color);
+          }
+
+          .viewer-empty h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: var(--primary-text-color);
+          }
+
+          .viewer-empty p {
+            margin: 0;
+            color: var(--secondary-text-color);
+            line-height: 1.45;
+          }
+        </style>
+        <div class="viewer-empty">
+          <h3>No 3D Files Available</h3>
+          <p>This model does not currently include STL, 3MF, or OBJ files that can be rendered in the viewer.</p>
+        </div>
+      `;
+      return;
+    }
+
     this.innerHTML = `
       <style>
         .viewer-container {
@@ -205,6 +251,27 @@ class ModelDetail3DViewerTab extends HTMLElement {
     // TODO: Implement event handlers
 
     console.log('3D Viewer initialized (Phase 3.2 implementation)');
+  }
+
+  _parseModelConfig(modelValue) {
+    if (!modelValue) {
+      return null;
+    }
+
+    if (typeof modelValue === 'object') {
+      return modelValue;
+    }
+
+    if (typeof modelValue !== 'string') {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(modelValue);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_error) {
+      return null;
+    }
   }
 }
 

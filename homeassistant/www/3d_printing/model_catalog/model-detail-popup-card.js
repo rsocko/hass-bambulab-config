@@ -1513,11 +1513,14 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _openViewerPopup() {
     const model = this._modelDetail && this._modelDetail.model ? this._modelDetail.model : null;
-    const files = model && Array.isArray(model.files) ? model.files : [];
 
-    if (!model || files.length === 0) {
-      this._error = 'No files available for 3D viewing';
-      this._render();
+    if (!model) {
+      if (this._hass) {
+        this._hass.callService('persistent_notification', 'create', {
+          title: '3D Viewer',
+          message: 'Model details are not loaded yet. Try again in a moment.',
+        }).catch(err => console.error('Notification failed:', err));
+      }
       return;
     }
 
