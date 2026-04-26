@@ -19,7 +19,7 @@
  *   content:
  *     type: custom:model-detail-popup-card
  *     model_ref: "gridfinity-bin"
- *     model_entity: "input_text.model_catalog_sidecar_url"
+ *     model_entity: "input_text.model_catalog_sidecar_base_url"
  * ```
  */
 
@@ -50,24 +50,18 @@ class ModelDetailPopupCard extends HTMLElement {
   setConfig(config) {
     this._config = config || {};
     this._modelRef = String(this._config.model_ref || "").trim();
-    this._modelSidecarUrl = String(this._config.model_sidecar_url || "http://localhost:8314").trim();
+    this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
     this._activeTab = "details";
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
-    
-    // Get sidecar URL from entity if provided
-    if (this._config && this._config.model_entity) {
-      const entity = this._hass.states[this._config.model_entity];
-      if (entity && entity.state) {
-        this._modelSidecarUrl = String(entity.state).trim();
-      }
-    }
+
+    this._modelSidecarUrl = this._resolveModelSidecarUrl();
     
     // Perform initial load if we haven't yet
-    if (!this._modelDetail && !this._loading && this._modelRef && this._modelSidecarUrl) {
+    if (!this._modelDetail && !this._loading && !this._error && this._modelRef && this._modelSidecarUrl) {
       this._loadModelDetail();
     }
     
@@ -80,6 +74,29 @@ class ModelDetailPopupCard extends HTMLElement {
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
+  }
+
+  _resolveModelSidecarUrl() {
+    if (this._config && this._config.model_entity && this._hass && this._hass.states) {
+      const configuredEntity = this._hass.states[this._config.model_entity];
+      if (configuredEntity && configuredEntity.state) {
+        return String(configuredEntity.state).trim();
+      }
+    }
+
+    if (this._hass && this._hass.states) {
+      const baseUrlEntity = this._hass.states["input_text.model_catalog_sidecar_base_url"];
+      if (baseUrlEntity && baseUrlEntity.state) {
+        return String(baseUrlEntity.state).trim();
+      }
+
+      const legacyUrlEntity = this._hass.states["input_text.model_catalog_sidecar_url"];
+      if (legacyUrlEntity && legacyUrlEntity.state) {
+        return String(legacyUrlEntity.state).trim();
+      }
+    }
+
+    return String(this._config && this._config.model_sidecar_url || "").trim();
   }
 
   _handleClick(event) {

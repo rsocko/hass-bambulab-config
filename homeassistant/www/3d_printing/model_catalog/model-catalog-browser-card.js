@@ -433,7 +433,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       content: {
         type: "custom:model-detail-popup-card",
         model_ref: modelRef,
-        model_entity: "input_text.model_catalog_sidecar_url",
+        model_entity: "input_text.model_catalog_sidecar_base_url",
       },
     });
   }
