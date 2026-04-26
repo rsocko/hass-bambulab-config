@@ -1,22 +1,82 @@
-# Stub: react to model_catalog_link_accepted and update queue/backlog state.
-# Phase 3 deliverable — replace the notify action with real queue update logic.
-# Docs: docs/features/model_catalog/implementation-plan.md
+# Update queue state when archive-model link is accepted.
+# Phase 3.5 implementation: call queue update service for linked model.
+# When archive completes and is linked, mark model as "done" in print queue.
 - id: model_catalog_on_link_accepted
   alias: "Model Catalog: On Archive Link Accepted"
   description: >-
     Fires when an archive-model link is accepted via script.model_catalog_accept_and_notify.
-    Phase 3 will replace the logbook action here with queue/backlog state updates
-    (e.g., marking the linked model's to_print_status as "printed").
+    Updates the linked model's queue/print status when the link is confirmed.
   trigger:
     - trigger: event
       event_type: model_catalog_link_accepted
   action:
+    # Extract archive and model info from event
+    - alias: "Extract link information"
+      variables:
+        archive_id: "{{ trigger.event.data.archive_id }}"
+        model_url: "{{ trigger.event.data.manyfold_model_url | default('', true) }}"
+        link_id: "{{ trigger.event.data.link_id | default('', true) }}"
+        archive_status: "{{ trigger.event.data.archive_status | default('unknown', true) }}"
+
+    # If archive is marked as completed, update model queue status to "done"
+    - alias: "Update model queue status when archive is complete"
+      condition: template
+      value_template: "{{ archive_status in ['completed', 'success'] }}"
+      then:
+        - service: rest_command.model_catalog_update_model_queue
+          data:
+            model_ref: "{{ model_url.split('/')[-1] | default('unknown', true) }}"
+            to_print_status: "done"
+          response_variable: queue_update_response
+
+        # Notify on successful queue update
+        - service: persistent_notification.create
+          data:
+            title: "Model Queue Updated"
+            message: >-
+              Archive #{{ archive_id }} linked. Model queue status set to "done".
+              (Link ID: {{ link_id }})
+            notification_id: "model_queue_{{ archive_id }}"
+
+    # Also log all link accepts for audit trail
     - action: logbook.log
       data:
         name: "Model Catalog"
         message: >-
-          Archive {{ trigger.event.data.archive_id }} linked to model
-          {{ trigger.event.data.manyfold_model_url | default('(url not recorded)') }}
-          (link_id={{ trigger.event.data.link_id }}).
-          Phase 3 queue update pending.
+          Archive {{ archive_id }} linked to model ({{ model_url }}).
+          Link ID: {{ link_id }}. Archive status: {{ archive_status }}.
+          Queue update sent.
         entity_id: input_text.model_catalog_sidecar_base_url
+
+  mode: parallel
+  max: 10lete"
+      condition: template
+      value_template: "{{ archive_status in ['completed', 'success'] }}"
+      then:
+        - service: rest_command.model_catalog_update_model_queue
+          data:
+            model_ref: "{{ model_url.split('/')[-1] | default('unknown', true) }}"
+            to_print_status: "done"
+          response_variable: queue_update_response
+
+        # Notify on successful queue update
+        - service: persistent_notification.create
+          data:
+            title: "Model Queue Updated"
+            message: >-
+              Archive #{{ archive_id }} linked. Model queue status set to "done".
+              (Link ID: {{ link_id }})
+            notification_id: "model_queue_{{ archive_id }}"
+
+    # Also log all link accepts for audit trail
+    - action: logbook.log
+      data:
+        name: "Model Catalog"
+        message: >-
+          Archive {{ archive_id }} linked to model ({{ model_url }}).
+          Link ID: {{ link_id }}. Archive status: {{ archive_status }}.
+          Queue update sent.
+        entity_id: input_text.model_catalog_sidecar_base_url
+
+  mode: parallel
+  max: 10

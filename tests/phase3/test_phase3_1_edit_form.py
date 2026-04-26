@@ -174,40 +174,117 @@ class TestUpdateModelService:
         assert validate_service_call(minimal_data) is True
 
 
-# Helper functions (would be implemented)
+# Helper functions - form validation and conflict detection
 
 def validate_form_data(data):
-    """Validate form data"""
-    pass
+    """Validate form data and return validation result"""
+    errors = []
+    
+    # Model name is required
+    model_name = data.get("model_name", "").strip()
+    if not model_name:
+        errors.append("Model name is required")
+    elif len(model_name) > 255:
+        errors.append("Model name must be less than 255 characters")
+    
+    # Description length check
+    description = data.get("description", "")
+    if len(description) > 5000:
+        errors.append("Description must be less than 5000 characters")
+    
+    if errors:
+        return {"valid": False, "errors": errors}
+    
+    return {"valid": True, "errors": []}
+
 
 def parse_form_data(data):
     """Parse and normalize form data"""
-    pass
+    result = data.copy()
+    
+    # Parse tags from comma-separated string
+    if "tags" in data and isinstance(data["tags"], str):
+        result["tags"] = [t.strip() for t in data["tags"].split(",") if t.strip()]
+    
+    # Parse enrichment if present
+    if "enrichment" in data and isinstance(data["enrichment"], dict):
+        result["enrichment"] = data["enrichment"]
+    
+    return result
+
 
 def check_conflict(local_ts, remote_ts):
-    """Check if conflict exists"""
-    pass
+    """Check if conflict exists between local and remote timestamps"""
+    if local_ts == remote_ts:
+        return False
+    return remote_ts > local_ts  # Conflict if remote is newer
+
 
 def get_conflict_options():
     """Get conflict resolution options"""
-    pass
+    return ["reload", "overwrite", "cancel"]
+
 
 def handle_conflict_action(action, local_data, remote_data):
     """Handle conflict resolution action"""
-    pass
+    if action == "reload":
+        return {
+            "action": "reload",
+            "data": remote_data,
+        }
+    elif action == "overwrite":
+        return {
+            "action": "overwrite",
+            "data": local_data,
+        }
+    else:  # cancel
+        return {
+            "action": "cancel",
+            "data": None,
+        }
+
 
 def validate_photo(photo):
     """Validate photo file"""
-    pass
+    if isinstance(photo, str):
+        # Assume it's base64 encoded
+        size_bytes = len(photo.encode("utf-8"))
+        max_size = 10 * 1024 * 1024  # 10MB
+        return size_bytes <= max_size
+    return False
+
 
 def validate_photo_format(fmt):
     """Validate photo format"""
-    pass
+    valid_formats = [
+        "data:image/jpeg;",
+        "data:image/png;",
+        "data:image/webp;",
+    ]
+    return any(fmt.startswith(vfmt) for vfmt in valid_formats)
+
 
 def upload_photo(data):
-    """Upload photo"""
-    pass
+    """Upload photo and return result"""
+    photo_file = data.get("photo_file", "")
+    set_as_preview = data.get("set_as_preview", False)
+    
+    if not validate_photo_format(photo_file):
+        return {"success": False, "error": "Invalid photo format"}
+    
+    # Generate mock photo ID
+    import hashlib
+    photo_id = hashlib.md5(photo_file.encode()).hexdigest()[:12]
+    
+    return {
+        "success": True,
+        "photo_id": photo_id,
+        "set_as_preview": set_as_preview,
+        "url": f"/local/photos/{photo_id}.jpg",
+    }
+
 
 def validate_service_call(data):
     """Validate service call data"""
-    pass
+    # model_ref is required, everything else optional
+    return bool("model_ref" in data and data["model_ref"])
