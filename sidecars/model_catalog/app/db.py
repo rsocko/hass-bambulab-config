@@ -142,6 +142,37 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         6,
         (),
     ),
+    (
+        7,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS intake_queue_uploads (
+        id INTEGER PRIMARY KEY,
+        upload_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL DEFAULT 'queued',
+        source_entries_json TEXT NOT NULL,
+        file_hashes_json TEXT NOT NULL DEFAULT '[]',
+        manyfold_file_ids_json TEXT NOT NULL DEFAULT '[]',
+        verification_status TEXT NOT NULL DEFAULT 'unverified',
+        cleanup_policy TEXT NOT NULL DEFAULT 'keep',
+        error_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        uploaded_at TEXT,
+        verified_at TEXT,
+        cleanup_done_at TEXT
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_intake_queue_status
+    ON intake_queue_uploads(status)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_intake_queue_created_at
+    ON intake_queue_uploads(created_at DESC)
+    """,
+        ),
+    ),
 )
 
 

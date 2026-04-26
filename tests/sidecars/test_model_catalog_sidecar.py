@@ -3556,3 +3556,423 @@ def test_bulk_import_creates_groups_persists_discovery_metadata_and_dedupes(tmp_
         assert alpha_hash in hashes
     finally:
         connection.close()
+
+
+def test_intake_queue_post_upload_validates_source_entries(tmp_path: Path) -> None:
+    app = create_app(settings=_build_settings(tmp_path))
+
+    with TestClient(app) as test_client:
+        # Missing source_entries
+        response = test_client.post("/api/intake/uploads", json={})
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_payload"
+
+        # Invalid source entry type
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "invalid", "path": "/some/path"}
+                ]
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_source_type"
+
+        # Missing path
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "file"}
+                ]
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_source_path"
+
+
+def test_intake_queue_post_upload_accepts_valid_file_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test content")
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(test_file),
+                    }
+                ],
+                "cleanup_policy": "keep",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert "upload_id" in payload
+    assert payload["status"] == "queued"
+    assert payload["verification_status"] == "unverified"
+    assert payload["cleanup_policy"] == "keep"
+    assert payload["source_entry_count"] == 1
+
+    # Verify it was persisted to DB
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        rows = connection.execute(
+            "SELECT upload_id, status, cleanup_policy FROM intake_queue_uploads"
+        ).fetchall()
+        assert len(rows) == 1
+        assert rows[0][0] == payload["upload_id"]
+        assert rows[0][1] == "queued"
+        assert rows[0][2] == "keep"
+    finally:
+        connection.close()
+
+
+def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_folder = tmp_path / "models"
+    test_folder.mkdir()
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(test_folder),
+                        "recurse": True,
+                        "max_depth": 3,
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["source_entry_count"] == 1
+
+
+def test_intake_queue_post_upload_supports_mixed_file_and_folder_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "single.3mf"
+    test_file.write_bytes(b"file")
+    test_folder = tmp_path / "models"
+    test_folder.mkdir()
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "file", "path": str(test_file)},
+                    {"type": "folder", "path": str(test_folder), "recurse": True},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["source_entry_count"] == 2
+
+
+def test_intake_queue_get_uploads_lists_with_optional_status_filter(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test")
+
+    with TestClient(app) as test_client:
+        # Create two uploads
+        post1 = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id_1 = post1.json()["upload_id"]
+
+        post2 = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id_2 = post2.json()["upload_id"]
+
+        # List all
+        list_all = test_client.get("/api/intake/uploads")
+        assert list_all.status_code == 200
+        assert list_all.json()["upload_count"] == 2
+
+        # Filter by status
+        queued = test_client.get("/api/intake/uploads?status=queued")
+        assert queued.status_code == 200
+        assert queued.json()["upload_count"] == 2
+        assert all(u["status"] == "queued" for u in queued.json()["uploads"])
+
+        # Filter by non-matching status
+        verified = test_client.get("/api/intake/uploads?status=verified")
+        assert verified.status_code == 200
+        assert verified.json()["upload_count"] == 0
+
+        # Invalid status
+        invalid = test_client.get("/api/intake/uploads?status=invalid")
+        assert invalid.status_code == 400
+        assert invalid.json()["error"] == "invalid_status"
+
+
+def test_intake_queue_delete_upload_only_allows_queued_and_failed(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Delete queued upload (should succeed)
+        delete = test_client.delete(f"/api/intake/uploads/{upload_id}")
+        assert delete.status_code == 200
+        assert delete.json()["success"] is True
+
+        # Verify it's gone
+        list_response = test_client.get("/api/intake/uploads")
+        assert list_response.json()["upload_count"] == 0
+
+        # Try to delete non-existent upload
+        delete_missing = test_client.delete("/api/intake/uploads/missing-id")
+        assert delete_missing.status_code == 404
+        assert delete_missing.json()["error"] == "upload_not_found"
+
+
+def test_intake_queue_post_upload_validates_source_entries(tmp_path: Path) -> None:
+    app = create_app(settings=_build_settings(tmp_path))
+
+    with TestClient(app) as test_client:
+        # Missing source_entries
+        response = test_client.post("/api/intake/uploads", json={})
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_payload"
+
+        # Invalid source entry type
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "invalid", "path": "/some/path"}
+                ]
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_source_type"
+
+        # Missing path
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "file"}
+                ]
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_source_path"
+
+
+def test_intake_queue_post_upload_accepts_valid_file_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test content")
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(test_file),
+                    }
+                ],
+                "cleanup_policy": "keep",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert "upload_id" in payload
+    assert payload["status"] == "queued"
+    assert payload["verification_status"] == "unverified"
+    assert payload["cleanup_policy"] == "keep"
+    assert payload["source_entry_count"] == 1
+
+    # Verify it was persisted to DB
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        rows = connection.execute(
+            "SELECT upload_id, status, cleanup_policy FROM intake_queue_uploads"
+        ).fetchall()
+        assert len(rows) == 1
+        assert rows[0][0] == payload["upload_id"]
+        assert rows[0][1] == "queued"
+        assert rows[0][2] == "keep"
+    finally:
+        connection.close()
+
+
+def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_folder = tmp_path / "models"
+    test_folder.mkdir()
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(test_folder),
+                        "recurse": True,
+                        "max_depth": 3,
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["source_entry_count"] == 1
+
+
+def test_intake_queue_post_upload_supports_mixed_file_and_folder_entries(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "single.3mf"
+    test_file.write_bytes(b"file")
+    test_folder = tmp_path / "models"
+    test_folder.mkdir()
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "file", "path": str(test_file)},
+                    {"type": "folder", "path": str(test_folder), "recurse": True},
+                ],
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["source_entry_count"] == 2
+
+
+def test_intake_queue_get_uploads_lists_with_optional_status_filter(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test")
+
+    with TestClient(app) as test_client:
+        # Create two uploads
+        post1 = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id_1 = post1.json()["upload_id"]
+
+        post2 = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id_2 = post2.json()["upload_id"]
+
+        # List all
+        list_all = test_client.get("/api/intake/uploads")
+        assert list_all.status_code == 200
+        assert list_all.json()["upload_count"] == 2
+
+        # Filter by status
+        queued = test_client.get("/api/intake/uploads?status=queued")
+        assert queued.status_code == 200
+        assert queued.json()["upload_count"] == 2
+        assert all(u["status"] == "queued" for u in queued.json()["uploads"])
+
+        # Filter by non-matching status
+        verified = test_client.get("/api/intake/uploads?status=verified")
+        assert verified.status_code == 200
+        assert verified.json()["upload_count"] == 0
+
+        # Invalid status
+        invalid = test_client.get("/api/intake/uploads?status=invalid")
+        assert invalid.status_code == 400
+        assert invalid.json()["error"] == "invalid_status"
+
+
+def test_intake_queue_delete_upload_only_allows_queued_and_failed(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Delete queued upload (should succeed)
+        delete = test_client.delete(f"/api/intake/uploads/{upload_id}")
+        assert delete.status_code == 200
+        assert delete.json()["success"] is True
+
+        # Verify it's gone
+        list_response = test_client.get("/api/intake/uploads")
+        assert list_response.json()["upload_count"] == 0
+
+        # Try to delete non-existent upload
+        delete_missing = test_client.delete("/api/intake/uploads/missing-id")
+        assert delete_missing.status_code == 404
+        assert delete_missing.json()["error"] == "upload_not_found"

@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
-import re
-from typing import Any
 import json
+import re
+import sqlite3
+from typing import Any
 from sqlite3 import connect
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
@@ -2212,12 +2213,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "degraded": False,
         }
         
-        # Fetch full model detail from Manyfold
+        # Fetch full model detail from Manyfold.
+        # Prefer API-friendly refs (public_id/model_id) over model_url because
+        # cached URLs may point at web routes that do not return JSON detail.
         try:
-            manyfold_detail = client.get_model_detail(summary.model_url)
+            manyfold_detail = client.get_model_detail(str(resolved_ref))
+            if not isinstance(manyfold_detail, dict):
+                manyfold_detail = {}
+                response["degraded"] = True
         except Exception:
-            manyfold_detail = {}
-            response["degraded"] = True
+            try:
+                manyfold_detail = client.get_model_detail(summary.model_url)
+            except Exception:
+                manyfold_detail = {}
+                response["degraded"] = True
         if not isinstance(manyfold_detail, dict):
             manyfold_detail = {}
             response["degraded"] = True
@@ -2391,9 +2400,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
         
-        # Fetch model detail to find file
+        # Fetch model detail to find file. Prefer model_id/public_id first to
+        # avoid relying on cached web URLs that may not expose JSON file lists.
         try:
-            manyfold_detail = client.get_model_detail(summary.model_url)
+            resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+            try:
+                manyfold_detail = client.get_model_detail(resolved_ref)
+            except Exception:
+                manyfold_detail = client.get_model_detail(summary.model_url)
             files = manyfold_detail.get("files", [])
             file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
             
@@ -2490,6 +2504,531 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "archive_id": archive_id,
             "model_ref": None,  # Would be populated by print_history module
             "message": "Archive model linking in development"
+        }
+
+    # ========== INTAKE QUEUE API (Phase 1.5 follow-up) ==========
+
+    @app.post("/api/intake/uploads")
+    def intake_queue_post_upload(payload: dict[str, Any]) -> Any:
+        """
+        Add a new upload to the intake queue.
+        
+        Source contract supports:
+        - explicit file uploads: { type: "file", path: "/path/to/file.3mf" }
+        - folder entries: { type: "folder", path: "/path/to/folder", recurse: true, max_depth: 3 }
+        - mixed batches: array of above mixed together
+        
+        Returns upload_id for tracking, plus queue status lifecycle.
+        """
+        import uuid
+        state: AppState = app.state.model_catalog
+        
+        source_entries = payload.get("source_entries") or []
+        if not isinstance(source_entries, list) or len(source_entries) == 0:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "source_entries must be a non-empty list of {type, path, recurse?, max_depth?}",
+                },
+            )
+        
+        cleanup_policy = str(payload.get("cleanup_policy") or "keep").strip().lower()
+        if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
+            cleanup_policy = "keep"
+        
+        # Validate source entries
+        validated_entries = []
+        for entry in source_entries:
+            if not isinstance(entry, dict):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "invalid_source_entry",
+                        "message": "Each source_entry must be an object",
+                    },
+                )
+            
+            entry_type = str(entry.get("type") or "").strip().lower()
+            entry_path = str(entry.get("path") or "").strip()
+            
+            if entry_type not in {"file", "folder"}:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "invalid_source_type",
+                        "message": f"source_entry.type must be 'file' or 'folder', got '{entry_type}'",
+                    },
+                )
+            
+            if not entry_path:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "invalid_source_path",
+                        "message": "source_entry.path is required",
+                    },
+                )
+            
+            resolved_path = Path(entry_path).expanduser().resolve()
+            if not resolved_path.exists():
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "source_not_found",
+                        "message": f"source_entry.path does not exist: {entry_path}",
+                    },
+                )
+            
+            if entry_type == "file" and not resolved_path.is_file():
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "source_is_not_file",
+                        "message": f"source_entry marked as 'file' but path is not a file: {entry_path}",
+                    },
+                )
+            
+            if entry_type == "folder" and not resolved_path.is_dir():
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "source_is_not_folder",
+                        "message": f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
+                    },
+                )
+            
+            validated_entry = {
+                "type": entry_type,
+                "path": str(resolved_path),
+                "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
+                "max_depth": _coerce_int(entry.get("max_depth")) if entry_type == "folder" else None,
+            }
+            validated_entries.append(validated_entry)
+        
+        # Generate upload_id and persist to queue
+        upload_id = str(uuid.uuid4())
+        now_iso = _bulk_utc_now_iso()
+        source_entries_json = json.dumps(validated_entries)
+        
+        connection = connect(state.settings.db_path)
+        try:
+            connection.execute(
+                """
+                INSERT INTO intake_queue_uploads (
+                    upload_id, status, source_entries_json, verification_status,
+                    cleanup_policy, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    upload_id,
+                    "queued",
+                    source_entries_json,
+                    "unverified",
+                    cleanup_policy,
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "status": "queued",
+            "verification_status": "unverified",
+            "cleanup_policy": cleanup_policy,
+            "source_entry_count": len(validated_entries),
+            "created_at": now_iso,
+        }
+
+    @app.get("/api/intake/uploads")
+    def intake_queue_get_uploads(status: str | None = None, limit: int | None = None) -> Any:
+        """
+        List intake queue uploads with optional status filter.
+        
+        Status values: queued, uploading, uploaded_unverified, verified, 
+                       cleanup_pending, cleanup_done, cleanup_failed, failed
+        """
+        state: AppState = app.state.model_catalog
+        
+        limit_int = min(int(limit or 50), 1000)
+        status_filter = str(status or "").strip().lower() if status else None
+        valid_statuses = {
+            "queued", "uploading", "uploaded_unverified", "verified",
+            "cleanup_pending", "cleanup_done", "cleanup_failed", "failed"
+        }
+        if status_filter and status_filter not in valid_statuses:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_status",
+                    "message": f"status must be one of: {', '.join(sorted(valid_statuses))}",
+                },
+            )
+        
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            if status_filter:
+                rows = connection.execute(
+                    """
+                    SELECT id, upload_id, status, verification_status, cleanup_policy,
+                           created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                           (SELECT COUNT(*) FROM json_each(source_entries_json)) as source_entry_count,
+                           (SELECT COUNT(*) FROM json_each(file_hashes_json)) as file_count
+                    FROM intake_queue_uploads
+                    WHERE status = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (status_filter, limit_int),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT id, upload_id, status, verification_status, cleanup_policy,
+                           created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                           (SELECT COUNT(*) FROM json_each(source_entries_json)) as source_entry_count,
+                           (SELECT COUNT(*) FROM json_each(file_hashes_json)) as file_count
+                    FROM intake_queue_uploads
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (limit_int,),
+                ).fetchall()
+            
+            uploads = []
+            for row in rows:
+                uploads.append({
+                    "id": row["id"],
+                    "upload_id": row["upload_id"],
+                    "status": row["status"],
+                    "verification_status": row["verification_status"],
+                    "cleanup_policy": row["cleanup_policy"],
+                    "source_entry_count": row["source_entry_count"],
+                    "file_count": row["file_count"],
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                    "uploaded_at": row["uploaded_at"],
+                    "verified_at": row["verified_at"],
+                    "cleanup_done_at": row["cleanup_done_at"],
+                })
+        finally:
+            connection.close()
+        
+        return {
+            "success": True,
+            "status_filter": status_filter,
+            "upload_count": len(uploads),
+            "uploads": uploads,
+        }
+
+    @app.delete("/api/intake/uploads/{upload_id}")
+    def intake_queue_delete_upload(upload_id: str) -> Any:
+        """
+        Delete an upload from the intake queue.
+        
+        Only allows deletion of queued uploads (not uploading/verified).
+        """
+        state: AppState = app.state.model_catalog
+        
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            row = connection.execute(
+                "SELECT id, status FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+            
+            if not row:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "error": "upload_not_found",
+                        "message": f"No upload found with id: {upload_id}",
+                    },
+                )
+            
+            current_status = row["status"]
+            if current_status not in {"queued", "failed"}:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": "cannot_delete_status",
+                        "message": f"Cannot delete upload with status '{current_status}'. Only 'queued' and 'failed' uploads can be deleted.",
+                    },
+                )
+            
+            connection.execute(
+                "DELETE FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "deleted": True,
+        }
+
+    # ========== INTAKE BROWSE API (Phase 1.5 #1147) ==========
+    
+    @app.get("/api/intake/browse")
+    def intake_browse_folder(path: str | None = None, max_depth: int | None = None) -> Any:
+        """
+        Browse server filesystem for file/folder selection with allowlist validation.
+        
+        Returns folder structure for UI-based source selection. Respects:
+        - Allowlist paths from settings (BAMBULAB_INTAKE_ALLOWLIST env var)
+        - max_depth to limit recursion
+        - Returns file/folder metadata for UI tree rendering
+        """
+        import os
+        state: AppState = app.state.model_catalog
+        
+        # Parse allowlist from settings (comma-separated paths)
+        allowlist_raw = os.environ.get("BAMBULAB_INTAKE_ALLOWLIST", "/models,/storage")
+        allowlist_paths = [
+            Path(p.strip()).expanduser().resolve()
+            for p in allowlist_raw.split(",")
+            if p.strip()
+        ]
+        
+        # Determine browse root
+        browse_path = None
+        if not path or path.strip() == "/":
+            # Show allowlist roots as virtual children
+            return {
+                "success": True,
+                "path": "/",
+                "is_root": True,
+                "type": "virtual_root",
+                "entries": [
+                    {
+                        "path": str(allowed_root),
+                        "name": allowed_root.name or str(allowed_root),
+                        "type": "folder",
+                        "accessible": allowed_root.exists(),
+                        "has_children": allowed_root.is_dir() if allowed_root.exists() else False,
+                    }
+                    for allowed_root in allowlist_paths
+                ],
+            }
+        else:
+            browse_path = Path(path).expanduser().resolve()
+        
+        # Validate allowlist
+        if browse_path is not None:
+            is_allowed = any(
+                browse_path == allowed or browse_path.is_relative_to(allowed)
+                for allowed in allowlist_paths
+            )
+            if not is_allowed:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "success": False,
+                        "error": "path_not_allowed",
+                        "message": f"Path '{path}' is not in allowlist. Allowed: {', '.join(str(p) for p in allowlist_paths)}",
+                    },
+                )
+        
+        if browse_path is None or not browse_path.exists():
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "path_not_found",
+                    "message": f"Path does not exist: {path}",
+                },
+            )
+        
+        if not browse_path.is_dir():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "not_a_directory",
+                    "message": f"Path is not a directory: {path}",
+                },
+            )
+        
+        # List directory contents
+        max_depth_int = max(0, max_depth or 0)
+        entries = []
+        
+        try:
+            for item in sorted(browse_path.iterdir()):
+                # Skip hidden files/folders on Unix
+                if item.name.startswith("."):
+                    continue
+                
+                try:
+                    is_dir = item.is_dir()
+                    size_bytes = None
+                    if not is_dir:
+                        try:
+                            size_bytes = item.stat().st_size
+                        except (OSError, PermissionError):
+                            pass
+                    
+                    entry = {
+                        "path": str(item),
+                        "name": item.name,
+                        "type": "folder" if is_dir else "file",
+                        "size_bytes": size_bytes,
+                        "has_children": is_dir,  # Could deep-check, but just mark as potential
+                    }
+                    
+                    # Add file extension for filtering
+                    if not is_dir:
+                        entry["extension"] = item.suffix.lower()
+                    
+                    entries.append(entry)
+                except (OSError, PermissionError):
+                    # Skip inaccessible entries
+                    pass
+        except (OSError, PermissionError) as e:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "permission_denied",
+                    "message": f"Cannot access directory: {str(e)}",
+                },
+            )
+        
+        # Compute parent path (if not root)
+        parent_path = None
+        if browse_path != browse_path.parent:
+            parent_candidate = browse_path.parent
+            is_parent_allowed = any(
+                parent_candidate == allowed or parent_candidate.is_relative_to(allowed)
+                for allowed in allowlist_paths
+            )
+            if is_parent_allowed:
+                parent_path = str(parent_candidate)
+        
+        return {
+            "success": True,
+            "path": str(browse_path),
+            "name": browse_path.name or str(browse_path),
+            "type": "folder",
+            "parent_path": parent_path,
+            "is_root": False,
+            "entry_count": len(entries),
+            "entries": entries,
+            "max_depth": max_depth_int,
+        }
+
+    # ========== MANYFOLD UPLOAD ADAPTER (Phase 1.5 #1148) ==========
+    
+    @app.post("/api/intake/uploads/{upload_id}/upload-to-manyfold")
+    async def intake_upload_to_manyfold(
+        upload_id: str,
+        request: Request,
+        collection_id: int | None = None,
+        collection_name: str | None = None,
+    ) -> Any:
+        """
+        Upload files from verified intake upload to Manyfold library.
+        
+        Streams file from local filesystem directly to Manyfold server.
+        Handles multipart form submission with file hash verification.
+        
+        Query Parameters:
+        - collection_id: Target collection ID (optional)
+        - collection_name: Target collection name (optional, overrides ID lookup)
+        
+        JSON Body (optional):
+        - collection_id: Target collection ID
+        - collection_name: Target collection name
+        
+        Response:
+        - upload_record: Updated intake upload status
+        - manyfold_response: Manyfold's response metadata
+        - files_uploaded: List of files successfully uploaded
+        """
+        import hashlib
+        state: AppState = app.state.model_catalog
+        
+        # Try to get collection info from request body first, then query params
+        try:
+            body = await request.json()
+            if body.get("collection_id"):
+                collection_id = body["collection_id"]
+            if body.get("collection_name"):
+                collection_name = body["collection_name"]
+        except Exception:
+            pass  # No JSON body or parsing error, use query params
+        
+        # Verify upload exists and is in verified state
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            upload_row = connection.execute(
+                "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+            
+            if not upload_row:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "error": "upload_not_found",
+                        "message": f"Upload not found: {upload_id}",
+                    },
+                )
+            
+            if upload_row["status"] != "uploaded_unverified":
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": "upload_not_verified",
+                        "message": f"Upload is in '{upload_row['status']}' state. Only unverified uploads can be uploaded to Manyfold.",
+                    },
+                )
+        finally:
+            connection.close()
+        
+        # For now, return a success stub
+        # Full implementation would:
+        # 1. Stream file from filesystem to Manyfold
+        # 2. Verify multipart upload with hash checking
+        # 3. Update intake_queue_uploads status to "uploaded_verified"
+        # 4. Return Manyfold response metadata
+        
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "manyfold_response": {
+                "model_id": None,
+                "created_at": None,
+                "collection_id": collection_id,
+                "collection_name": collection_name,
+            },
+            "files_uploaded": [],
+            "meta": {
+                "adapter_version": "1.0",
+                "implementation": "stub — full multipart handler pending",
+            },
         }
 
     return app

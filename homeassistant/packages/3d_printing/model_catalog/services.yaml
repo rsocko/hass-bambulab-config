@@ -136,3 +136,54 @@ homeassistant:
           name: Stage
           description: Default stage for newly created working groups
           example: "draft"
+
+    model_catalog.upload_to_queue:
+      name: Upload to Queue
+      description: Upload files or folders to the intake queue for verification
+      fields:
+        source_type:
+          name: Source Type
+          description: "Source mode: 'browser' (filesystem), 'server' (Manyfold), or 'mixed' (both)"
+          required: true
+          example: "browser"
+        source_path:
+          name: Source Path
+          description: Path to upload (filesystem path for browser mode, model URL for server mode)
+          required: true
+          example: "/models/gridfinity-bin"
+        entry_type:
+          name: Entry Type
+          description: "Type of entry: 'file' for single file, 'folder' for directory"
+          required: true
+          example: "file"
+        cleanup_policy:
+          name: Cleanup Policy
+          description: "How to handle source after upload: 'keep', 'delete_on_verified', 'replace_with_stub'"
+          example: "keep"
+        tags:
+          name: Tags
+          description: Comma-separated tags to apply to uploaded files
+          example: "gridfinity, organization"
+        notes:
+          name: Notes
+          description: Optional user notes for the upload batch
+          example: "Bulk upload from workspace"
+
+    model_catalog.verify_and_cleanup:
+      name: Verify and Cleanup Queue
+      description: Verify uploaded files and apply cleanup policy
+      fields:
+        upload_ids:
+          name: Upload IDs
+          description: List of upload IDs to verify (optional; if empty, verify all pending)
+          example: ["upload-001", "upload-002"]
+        force_cleanup:
+          name: Force Cleanup
+          description: Force cleanup of all pending uploads regardless of verification status
+          default: false
+          example: false
+        keep_failed:
+          name: Keep Failed Uploads
+          description: Keep uploaded files even if verification fails
+          default: false
+          example: false
