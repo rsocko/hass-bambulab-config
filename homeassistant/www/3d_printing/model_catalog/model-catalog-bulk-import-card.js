@@ -36,8 +36,9 @@ class ModelCatalogBulkImportCard extends HTMLElement {
   }
 
   set hass(hass) {
+    // Only store hass, don't re-render on every update
+    // This prevents losing focus when hass updates frequently
     this._hass = hass;
-    this._render();
   }
 
   connectedCallback() {
