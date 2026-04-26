@@ -3,22 +3,30 @@
 # and direct values (to_print_status, to_print_priority, priority_delta).
 model_catalog_update_model_queue:
   url: >-
-    {{ states('input_text.model_catalog_sidecar_base_url') }}/api/models/{{ (model_ref | string) | urlencode }}/queue
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else (
+          states('input_text.model_catalog_sidecar_url')
+          if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', '']
+          else 'http://model-catalog-sidecar:8314'
+        )
+      ) -}}/api/models/{{ (model_ref | string) | urlencode }}/queue
   method: POST
   headers:
     Content-Type: application/json
   payload: >-
-    {% set ns = namespace(body={}) %}
-    {% if action is defined and (action | string | trim) != '' %}
-      {% set ns.body = dict(ns.body, action=(action | string | trim)) %}
-    {% endif %}
-    {% if to_print_status is defined and (to_print_status | string | trim) != '' %}
-      {% set ns.body = dict(ns.body, to_print_status=(to_print_status | string | trim)) %}
-    {% endif %}
-    {% if to_print_priority is defined and (to_print_priority | string | trim) != '' %}
-      {% set ns.body = dict(ns.body, to_print_priority=(to_print_priority | int(0))) %}
-    {% endif %}
-    {% if priority_delta is defined and (priority_delta | string | trim) != '' %}
-      {% set ns.body = dict(ns.body, priority_delta=(priority_delta | int(0))) %}
-    {% endif %}
-    {{ ns.body | to_json }}
+    {%- set ns = namespace(body={}) -%}
+    {%- if action is defined and (action | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, action=(action | string | trim)) -%}
+    {%- endif -%}
+    {%- if to_print_status is defined and (to_print_status | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, to_print_status=(to_print_status | string | trim)) -%}
+    {%- endif -%}
+    {%- if to_print_priority is defined and (to_print_priority | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, to_print_priority=(to_print_priority | int(0))) -%}
+    {%- endif -%}
+    {%- if priority_delta is defined and (priority_delta | string | trim) != '' -%}
+      {%- set ns.body = dict(ns.body, priority_delta=(priority_delta | int(0))) -%}
+    {%- endif -%}
+    {{- ns.body | to_json -}}

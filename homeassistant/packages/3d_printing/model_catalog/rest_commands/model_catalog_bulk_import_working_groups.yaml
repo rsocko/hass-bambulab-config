@@ -2,7 +2,17 @@
 # Creates working_groups and working_items in sidecar DB with hash dedupe.
 model_catalog_bulk_import_working_groups:
   url: >-
-    {{ states('input_text.model_catalog_sidecar_base_url') }}/working-groups/bulk-import
+    {{
+      (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else (
+          states('input_text.model_catalog_sidecar_url')
+          if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', '']
+          else 'http://model-catalog-sidecar:8314'
+        )
+      )
+    }}/working-groups/bulk-import
   method: POST
   headers:
     Content-Type: application/json

@@ -1,0 +1,9 @@
+model_catalog_detail_ref:
+  name: Model Catalog Detail Reference
+  icon: mdi:package-variant
+  unit_of_measurement: ""
+
+model_catalog_sidecar_url:
+  name: Model Catalog Sidecar URL
+  icon: mdi:server
+  initial: "http://localhost:8314"

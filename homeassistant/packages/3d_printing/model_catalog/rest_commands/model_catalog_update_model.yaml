@@ -1,0 +1,17 @@
+# PATCH model metadata and enrichment fields via sidecar.
+# Called by model-detail-popup-card Save button.
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_update_model:
+  url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}"
+  method: PATCH
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {{- {
+      'model_name': model_name | default('') | string,
+      'description': description | default('') | string,
+      'tags': tags | default([]),
+      'collection': collection | default('') | string,
+      'enrichment': enrichment | default({})
+    } | to_json -}}
+  timeout: 15

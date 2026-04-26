@@ -1,0 +1,14 @@
+# Upload a photo (base64-encoded) to a model.
+# photo_file: data URI or base64 string; set_as_preview: boolean.
+# Docs: docs/features/model_catalog/implementation-plan.md
+model_catalog_upload_photo:
+  url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos"
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {{- {
+      'photo_file': photo_file | string,
+      'set_as_preview': set_as_preview | default(false) | bool
+    } | to_json -}}
+  timeout: 30
