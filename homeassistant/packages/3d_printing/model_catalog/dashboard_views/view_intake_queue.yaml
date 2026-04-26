@@ -12,7 +12,7 @@ cards:
     cards:
       - type: markdown
         content: |
-          # 📤 Intake Queue
+          # Intake Queue
           Upload files and folders to the model catalog, verify imports, and manage cleanup.
 
   # Source mode and settings
@@ -20,7 +20,7 @@ cards:
     cards:
       - type: markdown
         content: |
-          ## 🎯 Source Configuration
+          ## Source Configuration
           Configure upload source and cleanup behavior.
 
       - type: horizontal-stack
@@ -42,7 +42,7 @@ cards:
     cards:
       - type: markdown
         content: |
-          ## 📁 File Browser
+          ## File Browser
           Browse your filesystem to select files for upload.
 
       - type: custom:intake-browser-card
@@ -52,7 +52,7 @@ cards:
       - type: horizontal-stack
         cards:
           - type: custom:button-card
-            name: 📂 Browse
+            name: Browse
             icon: mdi:folder-open
             tap_action:
               action: call-service
@@ -63,7 +63,7 @@ cards:
                 - background-color: '#1976D2'
 
           - type: custom:button-card
-            name: ⬆️ Upload
+            name: Upload
             icon: mdi:upload
             tap_action:
               action: call-service
@@ -82,7 +82,7 @@ cards:
     cards:
       - type: markdown
         content: |
-          ## 🌐 Manyfold Server
+          ## Manyfold Server
           Browse your Manyfold server to upload models directly.
 
       - type: markdown
@@ -93,7 +93,7 @@ cards:
           - Automatic enrichment with source metadata
 
       - type: custom:button-card
-        name: 🔗 Browse Manyfold
+        name: Browse Manyfold
         icon: mdi:cloud-search
         styles:
           card:
@@ -104,7 +104,7 @@ cards:
     cards:
       - type: markdown
         content: |
-          ## 📊 Queue Status
+          ## Queue Status
           Monitor active uploads and verification progress.
 
       - type: markdown
@@ -116,7 +116,7 @@ cards:
           - Failed uploads
 
       - type: custom:button-card
-        name: ✅ Verify & Cleanup
+        name: Verify and Cleanup
         icon: mdi:check-circle
         tap_action:
           action: call-service
