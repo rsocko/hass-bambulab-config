@@ -176,6 +176,76 @@ def test_preview_proxy_endpoint_returns_image_bytes(tmp_path: Path) -> None:
         assert response.content == b"RIFFproxyWEBP"
 
 
+def test_preview_proxy_endpoint_falls_back_to_alternate_derivative(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    calls: list[str] = []
+
+    class _PreviewClient:
+        def fetch_binary(self, url: str) -> httpx.Response:
+            calls.append(url)
+            if "derivative=preview" in url:
+                return httpx.Response(500, headers={"content-type": "text/html"}, content=b"preview failed")
+            if "derivative=carousel" in url:
+                return httpx.Response(200, headers={"content-type": "image/jpeg"}, content=b"carousel-bytes")
+            return httpx.Response(500, headers={"content-type": "text/html"}, content=b"unexpected")
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_PreviewClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/preview",
+            params={"source": "http://manyfold.test/models/abc123/model_files/file123.webp?derivative=preview"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/jpeg")
+    assert response.content == b"carousel-bytes"
+    assert calls == [
+        "http://manyfold.test/models/abc123/model_files/file123.webp?derivative=preview",
+        "http://manyfold.test/models/abc123/model_files/file123.webp?derivative=carousel",
+    ]
+
+
+def test_preview_proxy_endpoint_falls_back_to_base_model_file_url(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    calls: list[str] = []
+
+    class _PreviewClient:
+        def fetch_binary(self, url: str) -> httpx.Response:
+            calls.append(url)
+            if "derivative=" in url:
+                return httpx.Response(500, headers={"content-type": "text/html"}, content=b"derivative failed")
+            return httpx.Response(200, headers={"content-type": "image/webp"}, content=b"base-bytes")
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_PreviewClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/preview",
+            params={
+                "source": (
+                    "http://manyfold.test/models/abc123/model_files/file123.webp"
+                    "?foo=1&derivative=preview"
+                )
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/webp")
+    assert response.content == b"base-bytes"
+    assert calls == [
+        "http://manyfold.test/models/abc123/model_files/file123.webp?foo=1&derivative=preview",
+        "http://manyfold.test/models/abc123/model_files/file123.webp?foo=1&derivative=carousel",
+        "http://manyfold.test/models/abc123/model_files/file123.webp?foo=1",
+    ]
+
+
 def test_cache_migration_assigns_model_key_and_deduplicates_by_stable_identity(tmp_path: Path) -> None:
     db_path = tmp_path / "model_catalog.db"
     bootstrap_database(db_path)

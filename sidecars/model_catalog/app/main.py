@@ -8,7 +8,7 @@ import re
 from typing import Any
 import json
 from sqlite3 import connect
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -116,6 +116,41 @@ def _normalize_queue_status(value: object | None) -> str | None:
     if normalized in {"none", "queued", "done"}:
         return normalized
     return None
+
+
+def _preview_source_candidates(source: str) -> list[str]:
+    """Return unique URL candidates for Manyfold preview fetch fallback."""
+    normalized = str(source or "").strip()
+    if not normalized:
+        return []
+
+    parsed = urlsplit(normalized)
+    if "/model_files/" not in (parsed.path or ""):
+        return [normalized]
+
+    query_pairs = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True)]
+    derivative_values = [value for key, value in query_pairs if key == "derivative"]
+
+    candidates: list[str] = []
+
+    def _add(query: list[tuple[str, str]]) -> None:
+        rebuilt = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query, doseq=True), parsed.fragment))
+        if rebuilt not in candidates:
+            candidates.append(rebuilt)
+
+    _add(query_pairs)
+
+    non_derivative = [(key, value) for key, value in query_pairs if key != "derivative"]
+    preferred_derivatives = ("preview", "carousel")
+    for derivative in preferred_derivatives:
+        if derivative_values == [derivative]:
+            continue
+        _add([*non_derivative, ("derivative", derivative)])
+
+    if derivative_values:
+        _add(non_derivative)
+
+    return candidates
 
 
 def _sort_value(model_payload: dict[str, Any], sort_by: str) -> tuple[int, Any]:
@@ -1028,15 +1063,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.get("/api/models/preview", name="proxy_model_preview")
     def proxy_model_preview(source: str) -> Response:
         client: ManyfoldClient = app.state.manyfold_client
-        preview_response = client.fetch_binary(source)
-        media_type = str(preview_response.headers.get("content-type") or "").split(";", 1)[0].strip()
-        if not preview_response.is_success or not media_type.startswith("image/"):
-            return Response(status_code=502, content=b"Preview fetch failed", media_type="text/plain")
-        return Response(
-            content=preview_response.content,
-            media_type=media_type,
-            headers={"Cache-Control": "public, max-age=300"},
-        )
+        for candidate in _preview_source_candidates(source):
+            preview_response = client.fetch_binary(candidate)
+            media_type = str(preview_response.headers.get("content-type") or "").split(";", 1)[0].strip()
+            if preview_response.is_success and media_type.startswith("image/"):
+                return Response(
+                    content=preview_response.content,
+                    media_type=media_type,
+                    headers={"Cache-Control": "public, max-age=300"},
+                )
+        return Response(status_code=502, content=b"Preview fetch failed", media_type="text/plain")
 
     @app.get("/api/models/{model_ref:path}/fields")
     def get_model_fields(model_ref: str) -> dict[str, Any]:
