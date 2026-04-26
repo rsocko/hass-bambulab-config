@@ -187,7 +187,7 @@ class TestPrintStatisticsAnalyzer:
         stats_list = [
             PrintStatistics(model_ref="good", total_prints=5, success_rate=0.95),
             PrintStatistics(model_ref="bad", total_prints=5, success_rate=0.50),
-            PrintStatistics(model_ref="medium", total_prints=5, success_rate=0.75),
+            PrintStatistics(model_ref="medium", total_prints=5, success_rate=0.65),
         ]
         
         problematic = analyzer.identify_problematic_models(
