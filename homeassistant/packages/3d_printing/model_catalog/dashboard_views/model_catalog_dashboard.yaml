@@ -1,0 +1,202 @@
+# Model Catalog Dashboard View
+# Displays model statistics, recommendations, and export options
+#
+# This dashboard integrates the Phase 3.4 statistics and export functionality
+# with Home Assistant Lovelace for model tracking and analysis.
+
+title: Model Catalog
+path: model-catalog
+icon: mdi:puzzle
+panel: false
+
+cards:
+  # Section: Overview and Quick Stats
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          # 🎨 Model Catalog
+          Browse, track, and export your 3D model collection with integrated statistics and recommendations.
+
+      # Key metrics row
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            entity: sensor.model_catalog_total_models
+            name: Models
+            icon: mdi:puzzle-multiple
+            show_state: true
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 12px
+              state:
+                - font-size: 22px
+                - font-weight: 700
+
+          - type: custom:button-card
+            entity: sensor.model_catalog_total_prints
+            name: Total Prints
+            icon: mdi:printer
+            show_state: true
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 12px
+              state:
+                - font-size: 22px
+                - font-weight: 700
+
+          - type: custom:button-card
+            entity: sensor.model_catalog_avg_success_rate
+            name: Avg Success
+            icon: mdi:check-circle
+            show_state: true
+            color_type: card
+            color: |
+              [[[
+                const rate = parseFloat(entity.state || '0');
+                if (rate >= 0.9) return '#2E7D32';
+                if (rate >= 0.8) return '#F57C00';
+                return '#C62828';
+              ]]]
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 12px
+              state:
+                - font-size: 22px
+                - font-weight: 700
+
+          - type: custom:button-card
+            entity: sensor.model_catalog_avg_filament_per_print
+            name: Avg Filament
+            icon: mdi:weight-kilogram
+            show_state: true
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 12px
+              state:
+                - font-size: 22px
+                - font-weight: 700
+
+  # Section: Popular Models
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          ## 🏆 Popular Models
+          Most frequently printed models in your collection.
+
+      - type: custom:model-statistics-card
+        model_ref: gridfinity
+        title: "Gridfinity Bins"
+        theme: default
+
+      - type: custom:model-statistics-card
+        model_ref: cable-holder
+        title: "Cable Organizer"
+        theme: default
+
+  # Section: Export and Backup
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          ## 📤 Export & Backup
+          Export your model catalog for backup or sharing.
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:button-card
+            name: Export JSON
+            icon: mdi:file-json
+            tap_action:
+              action: call-service
+              service: rest_command.model_catalog_export_json
+              service_data:
+                filter: ""
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 16px
+                - background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)
+                - color: white
+              name:
+                - color: white
+
+          - type: custom:button-card
+            name: Export CSV
+            icon: mdi:file-delimited
+            tap_action:
+              action: call-service
+              service: rest_command.model_catalog_export_csv
+              service_data:
+                filter: ""
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 16px
+                - background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)
+                - color: white
+              name:
+                - color: white
+
+          - type: custom:button-card
+            name: Export JSONL
+            icon: mdi:file-code
+            tap_action:
+              action: call-service
+              service: rest_command.model_catalog_export_jsonl
+              service_data:
+                filter: ""
+            styles:
+              card:
+                - border-radius: 12px
+                - padding: 16px
+                - background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)
+                - color: white
+              name:
+                - color: white
+
+  # Section: Recent Activity
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          ## 📊 Recent Activity
+          Latest model prints and updates.
+
+      - type: history-stats
+        title: "Models Printed This Month"
+        entities:
+          - sensor.model_catalog_prints_this_month
+        stat_period: month
+        period: week
+
+      - type: history-stats
+        title: "Success Rate Trend"
+        entities:
+          - sensor.model_catalog_avg_success_rate
+        stat_period: month
+        period: week
+
+  # Section: Problematic Models
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          ## ⚠️ Problematic Models
+          Models with low success rates that may need attention.
+
+      - type: custom:list-card
+        entities:
+          - entity: sensor.model_catalog_problematic_model_1
+            name: "Model 1"
+            icon: mdi:alert-circle
+          - entity: sensor.model_catalog_problematic_model_2
+            name: "Model 2"
+            icon: mdi:alert-circle
+        title: "Low Success Rate"
+        show_empty: true

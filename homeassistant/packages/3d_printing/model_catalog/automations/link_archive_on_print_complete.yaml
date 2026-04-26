@@ -1,0 +1,70 @@
+# Link Archive to Model Automation
+# Automatically links print archives to their source models when a print completes
+#
+# Trigger: Print completion event
+# Action: Call archive_link_model script to establish model reference
+
+alias: "Link Archive to Model on Print Complete"
+description: "Automatically link completed archives to their source models"
+
+trigger:
+  # Trigger when a new archive is created (print completes)
+  - platform: state
+    entity_id: sensor.print_history_last_archive
+    condition: "not_null"
+
+  # Alternative trigger from webhook data if available
+  - platform: event
+    event_type: bambuddy_print_complete
+    condition:
+      condition: template
+      value_template: "{{ trigger.event.data.archive_id is defined }}"
+
+condition:
+  # Only run if model catalog is available
+  - condition: state
+    entity_id: sensor.model_catalog_status
+    state: "available"
+
+action:
+  # Extract archive ID from trigger
+  - alias: "Extract archive ID"
+    variables:
+      archive_id: |
+        {% if trigger.platform == 'state' %}
+          {{ trigger.to_state.attributes.archive_id | default(none, true) }}
+        {% elif trigger.platform == 'event' %}
+          {{ trigger.event.data.archive_id }}
+        {% else %}
+          none
+        {% endif %}
+      printer_id: |
+        {% if trigger.platform == 'state' %}
+          {{ trigger.to_state.attributes.printer_id | default('unknown', true) }}
+        {% elif trigger.platform == 'event' %}
+          {{ trigger.event.data.printer_id | default('unknown', true) }}
+        {% else %}
+          unknown
+        {% endif %}
+
+  # Verify archive ID is valid
+  - alias: "Verify archive ID"
+    condition: template
+    value_template: "{{ archive_id is not none and archive_id | int(base=10, default=0) > 0 }}"
+
+  # Call the archive linking script
+  - alias: "Link archive to model"
+    service: script.archive_link_model
+    data:
+      archive_id: "{{ archive_id }}"
+      printer_id: "{{ printer_id }}"
+
+  # Log the linking attempt
+  - alias: "Log archive linking"
+    service: logger.log
+    data:
+      level: INFO
+      message: "Model Catalog: Linking archive #{{ archive_id }} from {{ printer_id }}"
+
+mode: parallel
+max: 10  # Allow up to 10 concurrent archive linking operations

@@ -48,3 +48,94 @@ rest_command:
   model_catalog_get_archive_model:
     url: "http://localhost:8090/api/archives/{{ archive_id }}/model"
     method: GET
+
+  # Phase 3.4: Get model statistics and recommendations
+  model_catalog_get_statistics:
+    url: "http://localhost:8090/api/models/{{ model_ref }}/statistics"
+    method: GET
+
+  # Phase 3.4: Get model recommendations
+  model_catalog_get_recommendations:
+    url: "http://localhost:8090/api/models/{{ model_ref }}/recommendations"
+    method: GET
+    params:
+      strategy: "{{ strategy | default('next_steps') }}"
+      limit: "{{ limit | default('5') }}"
+
+  # Phase 3.4: Export model catalog as JSON
+  model_catalog_export_json:
+    url: "http://localhost:8090/api/catalog/export"
+    method: GET
+    params:
+      format: json
+      filter: "{{ filter | default('') }}"
+
+  # Phase 3.4: Export model catalog as CSV
+  model_catalog_export_csv:
+    url: "http://localhost:8090/api/catalog/export"
+    method: GET
+    params:
+      format: csv
+      filter: "{{ filter | default('') }}"
+
+  # Phase 3.4: Export model catalog as JSONL
+  model_catalog_export_jsonl:
+    url: "http://localhost:8090/api/catalog/export"
+    method: GET
+    params:
+      format: jsonl
+      filter: "{{ filter | default('') }}"
+
+  # Phase 3.4: Import model catalog from JSON/CSV
+  model_catalog_import:
+    url: "http://localhost:8090/api/catalog/import"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >-
+      {
+        "format": "{{ format | default('json') }}",
+        "data": {{ data | tojson }},
+        "validation_mode": "{{ validation_mode | default('strict') }}"
+      }
+
+  # Phase 3.4: Migrate model schema versions
+  model_catalog_migrate_schema:
+    url: "http://localhost:8090/api/catalog/migrate"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >-
+      {
+        "from_version": "{{ from_version | default('v1') }}",
+        "to_version": "{{ to_version | default('v2') }}",
+        "models": {{ models | tojson | default('[]') }}
+      }
+
+  # Phase 3.4: Get archive details (for linking)
+  get_archive_details:
+    url: "http://localhost:9000/api/archives/{{ archive_id }}"
+    method: GET
+
+  # Phase 3.4: Link archive to model
+  link_archive_to_model:
+    url: "http://localhost:8090/api/archives/{{ archive_id }}/link"
+    method: POST
+    headers:
+      Content-Type: application/json
+    payload: >-
+      {
+        "model_filename": "{{ model_filename }}"
+      }
+
+  # Phase 3.4: Update archive with model reference
+  update_archive_model_reference:
+    url: "http://localhost:9000/api/archives/{{ archive_id }}"
+    method: PATCH
+    headers:
+      Content-Type: application/json
+    payload: >-
+      {
+        "model_ref": "{{ model_ref }}",
+        "model_link_confidence": "{{ confidence | default('auto') }}"
+      }

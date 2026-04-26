@@ -32,6 +32,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     this._lastTooltipAnchor = null;
     this._boundTooltipMoveHandler = null;
     this._boundTooltipLeaveHandler = null;
+    this._legendSelectedMode = "";
+    this._legendSelectedIndex = -1;
     this._debugStats = {
       scheduledRenders: 0,
       executedRenders: 0,
@@ -2107,7 +2109,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     var self = this;
     var filterState = this._stateValue(this._config.activity_metric_filter_entity);
-    var currentMode = this._stateValue(this._config.mode_entity);
+    var legendValues = this._getLegendValuesForMode(mode);
+    var selectedIndex = this._resolveSelectedLegendIndex(mode, legendValues, filterState);
 
     this._legendContainer.className = "legend";
     this._legendContainer.innerHTML =
@@ -2116,10 +2119,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       '<span class="legend-main">' +
       '<span>' + this._escapeHtml(legend.startLabel) + '</span>' +
       '<span class="legend-swatches">' + legend.colors.map(function (color, index) {
-        var legendValues = self._getLegendValuesForMode(currentMode);
         var legendValue = legendValues[index] || "";
         var isInteractive = !!legendValue;
-        var isActive = filterState === legendValue && filterState !== "All" ? " active" : "";
+        var isActive = isInteractive && selectedIndex === index ? " active" : "";
         var interactiveClass = isInteractive ? " interactive" : "";
         var disabledAttr = isInteractive ? "" : " disabled";
         var ariaLabel = isInteractive ? ('Filter by ' + self._escapeHtml(legendValue)) : 'Legend swatch';
@@ -2133,10 +2135,39 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       button.addEventListener("click", function (event) {
         event.preventDefault();
         event.stopPropagation();
-        var legendValue = event.target.getAttribute("data-legend-value");
-        self._handleLegendSwatchClick(legendValue);
+        var target = event.currentTarget;
+        var legendValue = target.getAttribute("data-legend-value");
+        var swatchIndex = Number(target.getAttribute("data-swatch-index") || -1);
+        self._handleLegendSwatchClick(mode, swatchIndex, legendValue);
       });
     });
+  }
+
+  _resolveSelectedLegendIndex(mode, legendValues, filterState) {
+    if (!filterState || filterState === "All") {
+      this._legendSelectedMode = "";
+      this._legendSelectedIndex = -1;
+      return -1;
+    }
+
+    if (
+      this._legendSelectedMode === mode &&
+      this._legendSelectedIndex >= 0 &&
+      legendValues[this._legendSelectedIndex] === filterState
+    ) {
+      return this._legendSelectedIndex;
+    }
+
+    var firstMatchIndex = legendValues.indexOf(filterState);
+    if (firstMatchIndex >= 0) {
+      this._legendSelectedMode = mode;
+      this._legendSelectedIndex = firstMatchIndex;
+      return firstMatchIndex;
+    }
+
+    this._legendSelectedMode = "";
+    this._legendSelectedIndex = -1;
+    return -1;
   }
 
   _getLegendValuesForMode(mode) {
@@ -2154,13 +2185,21 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
     }
   }
 
-  _handleLegendSwatchClick(legendValue) {
+  _handleLegendSwatchClick(mode, swatchIndex, legendValue) {
     if (!this._hass || !legendValue) {
       return;
     }
 
     var filterState = this._stateValue(this._config.activity_metric_filter_entity);
     var nextFilterValue = filterState === legendValue ? "All" : legendValue;
+
+    if (nextFilterValue === "All") {
+      this._legendSelectedMode = "";
+      this._legendSelectedIndex = -1;
+    } else {
+      this._legendSelectedMode = mode;
+      this._legendSelectedIndex = Math.max(0, Number(swatchIndex || 0));
+    }
 
     this._hass.callService("input_select", "select_option", {
       option: nextFilterValue,
