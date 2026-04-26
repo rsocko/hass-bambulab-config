@@ -4,7 +4,7 @@
 rest_command:
   # Phase 3.1: Update model metadata and enrichment
   model_catalog_update_model:
-    url: "http://localhost:8090/api/models/{{ model_ref }}"
+    url: "http://localhost:8314/api/models/{{ model_ref }}"
     method: PATCH
     headers:
       Content-Type: application/json
@@ -24,7 +24,7 @@ rest_command:
 
   # Phase 3.1: Upload photo to model
   model_catalog_upload_photo:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/photos"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/photos"
     method: POST
     headers:
       Content-Type: application/json
@@ -36,37 +36,37 @@ rest_command:
 
   # Phase 3.1: Delete photo from model
   model_catalog_delete_photo:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/photos/{{ photo_id }}"
     method: DELETE
 
   # Phase 3.1: Set photo as preview
   model_catalog_set_photo_preview:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
     method: POST
 
   # Phase 3.2: Get 3D geometry file
   model_catalog_get_geometry:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/geometry/{{ file_id }}"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/geometry/{{ file_id }}"
     method: GET
 
   # Phase 3.3: Get related models
   model_catalog_get_related_models:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/related"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/related"
     method: GET
 
   # Phase 3.3: Get archive's linked model
   model_catalog_get_archive_model:
-    url: "http://localhost:8090/api/archives/{{ archive_id }}/model"
+    url: "http://localhost:8314/api/archives/{{ archive_id }}/model"
     method: GET
 
   # Phase 3.4: Get model statistics and recommendations
   model_catalog_get_statistics:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/statistics"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/statistics"
     method: GET
 
   # Phase 3.4: Get model recommendations
   model_catalog_get_recommendations:
-    url: "http://localhost:8090/api/models/{{ model_ref }}/recommendations"
+    url: "http://localhost:8314/api/models/{{ model_ref }}/recommendations"
     method: GET
     params:
       strategy: "{{ strategy | default('next_steps') }}"
@@ -74,7 +74,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as JSON
   model_catalog_export_json:
-    url: "http://localhost:8090/api/catalog/export"
+    url: "http://localhost:8314/api/catalog/export"
     method: GET
     params:
       format: json
@@ -82,7 +82,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as CSV
   model_catalog_export_csv:
-    url: "http://localhost:8090/api/catalog/export"
+    url: "http://localhost:8314/api/catalog/export"
     method: GET
     params:
       format: csv
@@ -90,7 +90,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as JSONL
   model_catalog_export_jsonl:
-    url: "http://localhost:8090/api/catalog/export"
+    url: "http://localhost:8314/api/catalog/export"
     method: GET
     params:
       format: jsonl
@@ -98,7 +98,7 @@ rest_command:
 
   # Phase 3.4: Import model catalog from JSON/CSV
   model_catalog_import:
-    url: "http://localhost:8090/api/catalog/import"
+    url: "http://localhost:8314/api/catalog/import"
     method: POST
     headers:
       Content-Type: application/json
@@ -111,7 +111,7 @@ rest_command:
 
   # Phase 3.4: Migrate model schema versions
   model_catalog_migrate_schema:
-    url: "http://localhost:8090/api/catalog/migrate"
+    url: "http://localhost:8314/api/catalog/migrate"
     method: POST
     headers:
       Content-Type: application/json
@@ -129,7 +129,7 @@ rest_command:
 
   # Phase 3.4: Link archive to model
   link_archive_to_model:
-    url: "http://localhost:8090/api/archives/{{ archive_id }}/link"
+    url: "http://localhost:8314/api/archives/{{ archive_id }}/link"
     method: POST
     headers:
       Content-Type: application/json
