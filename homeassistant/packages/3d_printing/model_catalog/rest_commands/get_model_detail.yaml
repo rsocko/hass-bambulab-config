@@ -1,6 +1,6 @@
 # REST command to fetch model detail from the model catalog sidecar
 get_model_detail:
-  url: "{{ states('input_text.model_catalog_sidecar_base_url') }}/api/models/{{ model_ref }}/detail"
+  url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/detail"
   method: GET
   timeout: 10
   content_type: "application/json"
