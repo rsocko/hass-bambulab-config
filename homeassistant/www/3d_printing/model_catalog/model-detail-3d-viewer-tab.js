@@ -33,7 +33,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const modelFiles = this._model && Array.isArray(this._model.files) ? this._model.files : [];
     this._files = modelFiles.filter((file) => {
       const filename = String(file && file.filename || '').toLowerCase();
-      return filename.endsWith('.stl') || filename.endsWith('.3mf') || filename.endsWith('.obj');
+      const fileType = String(file && file.file_type || '').toLowerCase();
+      return (
+        filename.endsWith('.stl')
+        || filename.endsWith('.3mf')
+        || filename.endsWith('.obj')
+        || fileType.includes('stl')
+        || fileType.includes('3mf')
+        || fileType.includes('obj')
+      );
     });
 
     if (this.isConnected) {
