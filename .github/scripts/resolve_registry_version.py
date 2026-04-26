@@ -180,21 +180,21 @@ def main() -> int:
     tag_count = 0
     last_error: Exception | None = None
 
-    for base_url in candidate_bases(registry_host):
-        try:
-            tags = fetch_tags(base_url, repository, auth_headers)
-            latest = latest_semver(tags)
-            latest_tag = latest[0] if latest else ""
-            latest_tuple = latest[1] if latest else None
-            registry_base_used = base_url
-            tag_count = len(tags)
-            break
-        except Exception as error:  # noqa: BLE001
-            last_error = error
-
     if mode == "explicit":
         resolved_tag = explicit_tag
     else:
+        for base_url in candidate_bases(registry_host):
+            try:
+                tags = fetch_tags(base_url, repository, auth_headers)
+                latest = latest_semver(tags)
+                latest_tag = latest[0] if latest else ""
+                latest_tuple = latest[1] if latest else None
+                registry_base_used = base_url
+                tag_count = len(tags)
+                break
+            except Exception as error:  # noqa: BLE001
+                last_error = error
+
         if not registry_base_used and last_error is not None:
             raise SystemExit(f"Could not inspect registry tags for {repository_value}: {last_error}") from last_error
         resolved_tag = compute_next_version(mode, latest_tuple)

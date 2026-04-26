@@ -1,5 +1,12 @@
 FROM python:3.13-slim
 
+WORKDIR /app
+
+COPY sidecars/model_catalog/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY sidecars/model_catalog/app /app/app
+
 ARG MODEL_CATALOG_IMAGE_TAG=unknown
 ARG MODEL_CATALOG_IMAGE_VERSION=unknown
 ARG MODEL_CATALOG_IMAGE_REVISION=unknown
@@ -8,13 +15,6 @@ ARG MODEL_CATALOG_IMAGE_CREATED=unknown
 LABEL org.opencontainers.image.version=$MODEL_CATALOG_IMAGE_VERSION
 LABEL org.opencontainers.image.revision=$MODEL_CATALOG_IMAGE_REVISION
 LABEL org.opencontainers.image.created=$MODEL_CATALOG_IMAGE_CREATED
-
-WORKDIR /app
-
-COPY sidecars/model_catalog/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
-
-COPY sidecars/model_catalog/app /app/app
 
 ENV MODEL_CATALOG_HOST=0.0.0.0
 ENV MODEL_CATALOG_PORT=8314
