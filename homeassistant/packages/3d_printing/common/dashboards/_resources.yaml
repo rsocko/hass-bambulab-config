@@ -34,7 +34,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=8
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=1
+- url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=2
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=3
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=4
   type: module

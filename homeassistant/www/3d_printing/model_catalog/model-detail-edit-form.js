@@ -17,6 +17,7 @@ class ModelDetailEditForm extends HTMLElement {
     this._model = null;
     this._formData = {};
     this._validationErrors = {};
+    this._boundHandleClick = this._handleAdvancedToggle.bind(this);
   }
 
   setConfig(config) {
@@ -31,7 +32,13 @@ class ModelDetailEditForm extends HTMLElement {
   }
 
   connectedCallback() {
+    // Attach event listeners once when element is connected to DOM (not in _render)
+    this.addEventListener('click', this._boundHandleClick);
     this._render();
+  }
+
+  disconnectedCallback() {
+    this.removeEventListener('click', this._boundHandleClick);
   }
 
   _render() {
@@ -189,30 +196,35 @@ class ModelDetailEditForm extends HTMLElement {
       </div>
     `;
 
-    this._attachEventListeners();
     this._populateForm();
   }
 
-  _attachEventListeners() {
-    const advancedToggle = this.querySelector('#advanced-toggle');
-    const saveButton = this.querySelector('#form-btn-save');
-    const cancelButton = this.querySelector('#form-btn-cancel');
+  _handleAdvancedToggle(event) {
+    const target = event.target;
+    if (!target) return;
 
+    const advancedToggle = target.closest('#advanced-toggle');
     if (advancedToggle) {
-      advancedToggle.addEventListener('click', () => {
-        const content = this.querySelector('#advanced-content');
-        if (content) {
-          content.classList.toggle('open');
-        }
-      });
+      event.preventDefault();
+      const content = this.querySelector('#advanced-content');
+      if (content) {
+        content.classList.toggle('open');
+      }
+      return;
     }
 
+    const saveButton = target.closest('#form-btn-save');
     if (saveButton) {
-      saveButton.addEventListener('click', () => this._handleSave());
+      event.preventDefault();
+      this._handleSave();
+      return;
     }
 
+    const cancelButton = target.closest('#form-btn-cancel');
     if (cancelButton) {
-      cancelButton.addEventListener('click', () => this._onCancel());
+      event.preventDefault();
+      this._onCancel();
+      return;
     }
   }
 
