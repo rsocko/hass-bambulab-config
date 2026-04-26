@@ -34,6 +34,16 @@ rest_command:
         "set_as_preview": {{ set_as_preview | default('false') | lower }}
       }
 
+  # Phase 3.1: Delete photo from model
+  model_catalog_delete_photo:
+    url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}"
+    method: DELETE
+
+  # Phase 3.1: Set photo as preview
+  model_catalog_set_photo_preview:
+    url: "http://localhost:8090/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
+    method: POST
+
   # Phase 3.2: Get 3D geometry file
   model_catalog_get_geometry:
     url: "http://localhost:8090/api/models/{{ model_ref }}/geometry/{{ file_id }}"

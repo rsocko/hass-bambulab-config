@@ -231,15 +231,31 @@ class ModelDetailEditForm extends HTMLElement {
   }
 
   _handleSave() {
+    this._clearValidationErrors();
     this._validationErrors = {};
 
     // Validate
     const name = document.getElementById('model-name').value.trim();
+    const description = document.getElementById('model-description').value.trim();
+    const printTime = document.getElementById('enrichment-print-time').value;
+    
+    // Required field validation
     if (!name) {
       this._validationErrors['model-name'] = 'Model name is required';
     }
+    
+    // Length validation
     if (name.length > 255) {
-      this._validationErrors['model-name'] = 'Model name must be less than 255 characters';
+      this._validationErrors['model-name'] = 'Model name must be 255 characters or less';
+    }
+    
+    if (description.length > 5000) {
+      this._validationErrors['model-description'] = 'Description must be 5000 characters or less';
+    }
+    
+    // Print time validation
+    if (printTime && (isNaN(parseInt(printTime)) || parseInt(printTime) < 0)) {
+      this._validationErrors['enrichment-print-time'] = 'Print time must be a positive number (in seconds)';
     }
 
     if (Object.keys(this._validationErrors).length > 0) {
@@ -251,14 +267,14 @@ class ModelDetailEditForm extends HTMLElement {
     const formData = {
       model_ref: this._model.public_id || this._model.model_id,
       model_name: name,
-      description: document.getElementById('model-description').value.trim(),
+      description: description,
       tags: document.getElementById('model-tags').value.split(',').map(t => t.trim()).filter(t => t),
-      collection: document.getElementById('model-collection').value.trim(),
+      collection: document.getElementById('model-collection').value.trim() || null,
       enrichment: {
-        print_time_estimate: parseInt(document.getElementById('enrichment-print-time').value) || null,
+        print_time_estimate: printTime ? parseInt(printTime) : null,
         support_type_hint: document.getElementById('enrichment-support-type').value || null,
         difficulty_level: document.getElementById('enrichment-difficulty').value || null,
-        print_notes: document.getElementById('enrichment-print-notes').value.trim(),
+        print_notes: document.getElementById('enrichment-print-notes').value.trim() || null,
       },
     };
 
@@ -271,6 +287,12 @@ class ModelDetailEditForm extends HTMLElement {
       if (errorEl) {
         errorEl.textContent = error;
       }
+    });
+  }
+
+  _clearValidationErrors() {
+    document.querySelectorAll('.error-message').forEach(el => {
+      el.textContent = '';
     });
   }
 }

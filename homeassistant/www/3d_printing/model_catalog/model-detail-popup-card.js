@@ -134,6 +134,59 @@ class ModelDetailPopupCard extends HTMLElement {
       this._render();
       return;
     }
+
+    // Conflict dialog buttons
+    if (target.id === "btn-conflict-cancel") {
+      event.preventDefault();
+      this._handleConflictResolution('cancel');
+      return;
+    }
+
+    if (target.id === "btn-conflict-reload") {
+      event.preventDefault();
+      this._handleConflictResolution('reload');
+      return;
+    }
+
+    if (target.id === "btn-conflict-overwrite") {
+      event.preventDefault();
+      this._handleConflictResolution('overwrite');
+      return;
+    }
+
+    // Gallery photo actions
+    const photoBtn = target.closest('[data-action]');
+    if (photoBtn && this._activeTab === 'gallery') {
+      event.preventDefault();
+      const action = photoBtn.dataset.action;
+      const photoId = photoBtn.closest('.gallery-thumbnail').dataset.photoId;
+      const photoIdx = parseInt(photoBtn.closest('.gallery-thumbnail').dataset.photoIndex);
+      
+      if (action === 'preview') {
+        this._handlePhotoPreview(photoIdx);
+      } else if (action === 'set-preview') {
+        this._handleSetPhotoPreview(photoId);
+      } else if (action === 'delete') {
+        this._handleDeletePhoto(photoId);
+      }
+      return;
+    }
+
+    // Photo upload area
+    if (target.id === 'photo-upload-area' || target.closest('#photo-upload-area')) {
+      event.preventDefault();
+      const fileInput = this.shadowRoot.getElementById('photo-file-input');
+      if (fileInput) {
+        fileInput.click();
+      }
+      return;
+    }
+
+    // File input change
+    if (target.id === 'photo-file-input') {
+      this._handlePhotoFileSelect(target.files);
+      return;
+    }
   }
 
   async _loadModelDetail() {
@@ -176,6 +229,11 @@ class ModelDetailPopupCard extends HTMLElement {
     
     this.shadowRoot.innerHTML = html;
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
+    
+    // If in edit mode and model is loaded, initialize the edit form
+    if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
+      this._initializeEditForm();
+    }
   }
 
   _renderLoading() {
@@ -235,7 +293,7 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderPopup() {
     const model = this._modelDetail.model || {};
     
-    return `
+    const popupHtml = `
       <style>
         * { box-sizing: border-box; }
         
@@ -442,6 +500,71 @@ class ModelDetailPopupCard extends HTMLElement {
           padding: 40px 20px;
           color: var(--secondary-text-color);
         }
+
+        .conflict-dialog {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .conflict-dialog-content {
+          background: var(--card-background-color);
+          border-radius: 8px;
+          padding: 24px;
+          max-width: 500px;
+          box-shadow: 0 5px 33px rgba(0,0,0,0.12);
+        }
+
+        .conflict-dialog-title {
+          font-size: 20px;
+          font-weight: 600;
+          margin-bottom: 12px;
+          color: var(--primary-text-color);
+        }
+
+        .conflict-dialog-message {
+          font-size: 14px;
+          color: var(--secondary-text-color);
+          margin-bottom: 20px;
+          line-height: 1.5;
+        }
+
+        .conflict-dialog-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+
+        .conflict-dialog-actions button {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+
+        .btn-cancel-dialog {
+          background: var(--divider-color);
+          color: var(--primary-text-color);
+        }
+
+        .btn-reload {
+          background: #ff9800;
+          color: white;
+        }
+
+        .btn-overwrite {
+          background: #f44336;
+          color: white;
+        }
       </style>
       
       <div class="popup-container">
@@ -449,7 +572,26 @@ class ModelDetailPopupCard extends HTMLElement {
         ${this._renderTabNavigation()}
         ${this._renderTabContent(model)}
       </div>
+
+      ${this._showConflictDialog ? `
+        <div class="conflict-dialog">
+          <div class="conflict-dialog-content">
+            <div class="conflict-dialog-title">⚠️ Conflict Detected</div>
+            <div class="conflict-dialog-message">
+              This model was modified by another user or session. 
+              Choose how you'd like to proceed:
+            </div>
+            <div class="conflict-dialog-actions">
+              <button class="btn-cancel-dialog" id="btn-conflict-cancel">Cancel</button>
+              <button class="btn-reload" id="btn-conflict-reload">Reload</button>
+              <button class="btn-overwrite" id="btn-conflict-overwrite">Overwrite</button>
+            </div>
+          </div>
+        </div>
+      ` : ''}
     `;
+
+    return popupHtml;
   }
 
   _renderHeader(model) {
@@ -476,9 +618,16 @@ class ModelDetailPopupCard extends HTMLElement {
           ` : ''}
           
           <div class="header-actions">
-            <button class="action-button">Edit</button>
-            <button class="action-button">Download</button>
-            <button class="action-button">Print</button>
+            ${this._activeTab === 'details' && !this._isEditMode ? `
+              <button class="action-button" id="btn-edit">✏️ Edit</button>
+            ` : ''}
+            ${this._isEditMode ? `
+              <button class="action-button" id="btn-save" style="background: #4CAF50;">💾 Save</button>
+              <button class="action-button" id="btn-cancel" style="background: #f44336;">✕ Cancel</button>
+            ` : `
+              <button class="action-button">📥 Download</button>
+              <button class="action-button">🖨️ Print</button>
+            `}
           </div>
         </div>
       </div>
@@ -518,6 +667,15 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderDetailsTab(model) {
+    // In edit mode, show the edit form
+    if (this._isEditMode) {
+      return `
+        <div class="tab-content" id="edit-form-container">
+          <!-- Edit form will be inserted here by JavaScript -->
+        </div>
+      `;
+    }
+
     const enrichment = this._modelDetail.enrichment || {};
     const files = model.files || [];
     const linkedCount = this._modelDetail.link_count || 0;
@@ -562,12 +720,153 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderGalleryTab() {
+    const photos = this._modelDetail.photos || [];
+    const previewPhotoId = this._modelDetail.preview_photo_id;
+    
+    if (!photos || photos.length === 0) {
+      return `
+        <div class="tab-content">
+          <div class="empty-state">
+            <p>📸 No Photos</p>
+            <p>No photos uploaded yet.</p>
+            ${this._isEditMode ? `<p><strong>Use the upload section below to add photos.</strong></p>` : ''}
+          </div>
+          ${this._isEditMode ? `
+            <div style="padding: 20px; text-align: center;">
+              <div id="photo-upload-area" style="
+                border: 2px dashed var(--divider-color);
+                border-radius: 8px;
+                padding: 40px 20px;
+                cursor: pointer;
+                transition: background 0.2s;
+              ">
+                <p style="margin: 0; font-size: 24px;">📤</p>
+                <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload photos</p>
+                <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
+              </div>
+              <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
     return `
       <div class="tab-content">
-        <div class="empty-state">
-          <p>📸 Photo Gallery</p>
-          <p>Media gallery features coming in Phase 3.1</p>
+        <style>
+          .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+          }
+          
+          .gallery-thumbnail {
+            position: relative;
+            aspect-ratio: 1;
+            background: var(--secondary-background-color);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+          }
+          
+          .gallery-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          
+          .thumbnail-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            opacity: 0;
+            transition: all 0.2s;
+          }
+          
+          .gallery-thumbnail:hover .thumbnail-overlay {
+            background: rgba(0,0,0,0.5);
+            opacity: 1;
+          }
+          
+          .thumbnail-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: transform 0.2s;
+          }
+          
+          .thumbnail-btn:hover {
+            transform: scale(1.1);
+          }
+          
+          .preview-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+          }
+        </style>
+        
+        <div class="gallery-grid">
+          ${photos.map((photo, idx) => `
+            <div class="gallery-thumbnail" data-photo-id="${photo.id}" data-photo-index="${idx}">
+              ${photo.thumbnail_url ? `
+                <img src="${photo.thumbnail_url}" alt="Photo ${idx + 1}">
+              ` : `
+                <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color);">
+                  📷
+                </div>
+              `}
+              ${previewPhotoId === photo.id ? `
+                <div class="preview-badge">PREVIEW</div>
+              ` : ''}
+              <div class="thumbnail-overlay">
+                <button class="thumbnail-btn" title="View" data-action="preview">👁</button>
+                ${this._isEditMode ? `
+                  <button class="thumbnail-btn" title="Set as preview" data-action="set-preview" style="background: #FF9800;">⭐</button>
+                  <button class="thumbnail-btn" title="Delete" data-action="delete" style="background: #f44336;">🗑</button>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
         </div>
+        
+        ${this._isEditMode ? `
+          <div style="padding: 20px; border-top: 1px solid var(--divider-color); text-align: center;">
+            <div id="photo-upload-area" style="
+              border: 2px dashed var(--divider-color);
+              border-radius: 8px;
+              padding: 40px 20px;
+              cursor: pointer;
+              transition: background 0.2s;
+            ">
+              <p style="margin: 0; font-size: 24px;">📤</p>
+              <p style="margin: 8px 0; color: var(--primary-text-color); font-weight: 500;">Click to upload more photos</p>
+              <p style="margin: 0; color: var(--secondary-text-color); font-size: 12px;">or drag and drop (JPG, PNG, WebP)</p>
+            </div>
+            <input type="file" id="photo-file-input" multiple accept=".jpg,.jpeg,.png,.webp" style="display: none;">
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -636,49 +935,8 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _handleSaveEdits() {
-    // Check for conflicts
-    try {
-      const currentModel = await this._fetchCurrentModel();
-      if (currentModel.last_modified && currentModel.last_modified > this._lastModifiedTimestamp) {
-        this._showConflictDialog = true;
-        this._conflictDialog = {
-          currentModel,
-          action: 'save',
-        };
-        this._render();
-        return;
-      }
-    } catch (error) {
-      console.warn('Could not check for conflicts:', error);
-      // Continue with save anyway
-    }
-
-    // Get form data from edit form
-    const editForm = this.shadowRoot.querySelector('model-detail-edit-form');
-    if (!editForm) {
-      console.error('Edit form not found');
-      return;
-    }
-
-    // Call save service
-    if (this._hass) {
-      try {
-        this._hass.callService('model_catalog', 'update_model', {
-          model_ref: this._modelRef,
-          model_name: editForm._formData.model_name,
-          description: editForm._formData.description,
-          tags: editForm._formData.tags,
-          collection: editForm._formData.collection,
-          enrichment: editForm._formData.enrichment,
-        });
-        this._isEditMode = false;
-        this._render();
-      } catch (error) {
-        console.error('Error saving model:', error);
-        this._error = `Failed to save: ${error}`;
-        this._render();
-      }
-    }
+    // This is now replaced by _handleFormSave
+    console.warn('Use _handleFormSave instead');
   }
 
   async _fetchCurrentModel() {
@@ -703,6 +961,182 @@ class ModelDetailPopupCard extends HTMLElement {
     // 'cancel' just closes the dialog
     
     this._render();
+  }
+
+  _initializeEditForm() {
+    const container = this.shadowRoot.getElementById('edit-form-container');
+    if (!container) return;
+
+    // Create and configure the edit form element
+    const editForm = document.createElement('model-detail-edit-form');
+    editForm.setConfig({
+      model_data: this._modelDetail.model,
+      on_save: (formData) => this._handleFormSave(formData),
+      on_cancel: () => {
+        this._isEditMode = false;
+        this._render();
+      }
+    });
+    editForm.hass = this._hass;
+    
+    container.appendChild(editForm);
+  }
+
+  async _handleFormSave(formData) {
+    // Check for conflicts first
+    try {
+      const currentModel = await this._fetchCurrentModel();
+      if (currentModel.last_modified && currentModel.last_modified > this._lastModifiedTimestamp) {
+        this._showConflictDialog = true;
+        this._conflictDialog = {
+          currentModel,
+          formData,
+          action: 'save',
+        };
+        this._render();
+        return;
+      }
+    } catch (error) {
+      console.warn('Could not check for conflicts:', error);
+      // Continue with save anyway
+    }
+
+    // Save to sidecar via HA service
+    if (this._hass) {
+      try {
+        await this._hass.callService('rest_command', 'model_catalog_update_model', {
+          model_ref: formData.model_ref,
+          model_name: formData.model_name,
+          description: formData.description,
+          tags: formData.tags,
+          collection: formData.collection,
+          enrichment: formData.enrichment,
+        });
+        
+        // Show success message and reload
+        console.log('Model saved successfully');
+        this._isEditMode = false;
+        await this._loadModelDetail();
+        this._render();
+      } catch (error) {
+        console.error('Error saving model:', error);
+        this._error = `Failed to save: ${error}`;
+        this._render();
+      }
+    }
+  }
+
+  _handlePhotoPreview(photoIdx) {
+    const photos = this._modelDetail.photos || [];
+    if (photoIdx < 0 || photoIdx >= photos.length) return;
+    
+    const photo = photos[photoIdx];
+    console.log('Preview photo:', photo);
+    // Could open a modal or lightbox here
+  }
+
+  async _handleSetPhotoPreview(photoId) {
+    if (!this._hass) return;
+    
+    try {
+      // Call service to set photo as preview
+      await this._hass.callService('rest_command', 'model_catalog_set_photo_preview', {
+        model_ref: this._modelRef,
+        photo_id: photoId,
+      });
+      
+      // Reload model detail
+      await this._loadModelDetail();
+      this._render();
+    } catch (error) {
+      console.error('Error setting preview photo:', error);
+      this._error = `Failed to set preview: ${error}`;
+      this._render();
+    }
+  }
+
+  _handleDeletePhoto(photoId) {
+    if (confirm('Are you sure you want to delete this photo?')) {
+      this._performDeletePhoto(photoId);
+    }
+  }
+
+  async _performDeletePhoto(photoId) {
+    if (!this._hass) return;
+    
+    try {
+      // Call service to delete photo
+      await this._hass.callService('rest_command', 'model_catalog_delete_photo', {
+        model_ref: this._modelRef,
+        photo_id: photoId,
+      });
+      
+      // Reload model detail
+      await this._loadModelDetail();
+      this._render();
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      this._error = `Failed to delete photo: ${error}`;
+      this._render();
+    }
+  }
+
+  async _handlePhotoFileSelect(files) {
+    if (!files || files.length === 0) return;
+    
+    // Process each file
+    for (const file of files) {
+      await this._uploadPhoto(file);
+    }
+  }
+
+  async _uploadPhoto(file) {
+    if (!this._hass) return;
+    
+    // Validate file type and size
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this._error = `File too large: ${file.name} (max 10MB)`;
+      this._render();
+      return;
+    }
+    
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      this._error = `Invalid file type: ${file.name} (must be JPG, PNG, or WebP)`;
+      this._render();
+      return;
+    }
+
+    try {
+      // Read file as base64
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Data = event.target.result;
+        
+        try {
+          // Call service to upload photo
+          await this._hass.callService('rest_command', 'model_catalog_upload_photo', {
+            model_ref: this._modelRef,
+            photo_file: base64Data,
+            set_as_preview: !this._modelDetail.photos || this._modelDetail.photos.length === 0,
+          });
+          
+          // Reload model detail
+          await this._loadModelDetail();
+          this._render();
+        } catch (error) {
+          console.error('Error uploading photo:', error);
+          this._error = `Failed to upload ${file.name}: ${error}`;
+          this._render();
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error reading file:', error);
+      this._error = `Failed to read file: ${error}`;
+      this._render();
+    }
   }
 
   getCardSize() {
