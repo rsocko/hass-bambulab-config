@@ -273,6 +273,16 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "view-model-detail") {
+      var modelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var modelName = String(target.getAttribute("data-model-name") || "Model").trim();
+      if (!modelRef || !this._hass) {
+        return;
+      }
+      this._openModelDetailPopup(modelRef, modelName);
+      return;
+    }
+
     if (action.indexOf("queue-") === 0) {
       var modelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var queueStatus = String(target.getAttribute("data-queue-status") || "").trim().toLowerCase();
@@ -398,7 +408,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '  <div class="body">'
       + '    <div class="title-row">'
       + '      <h3 class="title">' + this._escapeHtml(name) + '</h3>'
-      + '      <button class="open-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '">Open</button>'
+      + '      <div class="title-actions">'
+      + '        <button class="open-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Details</button>'
+      + '        <button class="open-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '">Open</button>'
+      + '      </div>'
       + '    </div>'
       + '    <div class="meta">' + this._escapeHtml(creator) + ' / ' + this._escapeHtml(collections.join(", ") || "No collection") + '</div>'
       + '    <div class="meta">Tags: ' + this._escapeHtml(this._formatTagList(tags)) + '</div>'
@@ -407,6 +420,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + queueActions
       + '  </div>'
       + '</article>';
+  }
+
+  _openModelDetailPopup(modelRef, modelName) {
+    if (!this._hass || !modelRef) {
+      return;
+    }
+    try {
+      this._hass.callService('browser_mod', 'popup', {
+        title: modelName,
+        size: 'wide',
+        content: {
+          type: 'custom:model-detail-popup-card',
+          model_ref: modelRef,
+          model_sidecar_url: 'http://localhost:8314',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to open model detail popup:', error);
+    }
   }
 
   _render() {
@@ -448,6 +480,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.body{display:grid;gap:6px;min-width:0;}'
       + '.title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}'
       + '.title-row .title{font-size:14px;font-weight:800;line-height:1.3;margin:0;overflow-wrap:anywhere;}'
+      + '.title-actions{display:flex;gap:6px;flex-wrap:wrap;}'
       + '.open-btn{border:1px solid rgba(96,165,250,0.42);background:rgba(30,64,175,0.18);color:var(--primary-text-color);padding:4px 8px;border-radius:999px;cursor:pointer;font-size:11px;font-weight:700;}'
       + '.meta{font-size:12px;line-height:1.4;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
       + '.queue-actions{display:flex;flex-wrap:wrap;gap:6px;}'
