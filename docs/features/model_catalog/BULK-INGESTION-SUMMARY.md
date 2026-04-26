@@ -1,5 +1,16 @@
 # Model Catalog Review — Quick Summary
 
+## 2026-04-26 Design Revision Note
+
+The Phase 1.5 design has been revised to support remote-client workflows:
+
+- Browser-selected local files can be uploaded to a sidecar intake queue.
+- Sidecar-mounted server files can be browsed/selected from allowlisted roots.
+- Both source modes feed a single review/import queue.
+- Import processing uploads files to Manyfold through API-managed storage.
+- Optional post-upload source policy supports `keep` (default), `delete_on_verified`, and `replace_with_stub`.
+- Destructive source actions are gated on verified upload and allowlisted-root safety checks.
+
 ## Your Question
 
 You asked whether the Model Catalog design accounts for:

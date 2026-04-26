@@ -108,6 +108,47 @@ Compatibility aliases:
 - persists discovery metadata on each created `working_group`
 - returns created groups/items plus skipped duplicate and failed-file details
 
+### Intake Queue + Manyfold Upload (Planned)
+
+The routes below are planned contracts for remote-client-safe intake where files are uploaded or selected first, then imported and uploaded to Manyfold-managed storage.
+
+Planned route family:
+
+- `POST /api/intake/uploads`
+- `GET /api/intake/uploads`
+- `DELETE /api/intake/uploads/{upload_id}`
+- `GET /api/source-filesystems`
+- `GET /api/source-filesystems/browse`
+- `POST /api/source-filesystems/select`
+
+Planned behavior:
+
+- browser local files are accepted via multipart upload into a temporary sidecar queue
+- sidecar-mounted server roots are browsed and selected through explicit allowlisted roots
+- source selection supports explicit files, folders, or mixed file+folder batches
+- folder source entries support traversal controls: `recurse` (bool) and optional `max_depth`
+- queue items are uploaded to Manyfold via API during import processing
+- working-item metadata persists Manyfold references (model/file) as canonical destination
+- optional source cleanup policies are applied only after verified upload
+
+Planned source entry shape:
+
+- `sources[]` where each item is either:
+	- `{ "type": "file", ... }`
+	- `{ "type": "folder", "path": "...", "recurse": true|false, "max_depth": <int optional> }`
+
+Planned source cleanup policies:
+
+- `keep` (default)
+- `delete_on_verified`
+- `replace_with_stub`
+
+Planned safeguards:
+
+- verification required before destructive source actions (hash preferred)
+- destructive actions limited to configured allowed roots
+- cleanup outcomes returned in import summaries and audit events
+
 ## Planned API Appendix
 
 The routes below are **planned/draft contracts**, not currently shipped endpoints.

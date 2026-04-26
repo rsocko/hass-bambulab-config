@@ -161,7 +161,7 @@ Deliverables:
 
 ---
 
-### Phase 1.5: Intake Inbox, Bulk Discovery & Import (NEW)
+### Phase 1.5: Intake Inbox, Bulk Discovery, API Upload & Import (NEW)
 
 **Status**: Designed; implementation still open
 
@@ -169,20 +169,32 @@ Outcomes:
 - Ad hoc model intake can land in a reviewable Inbox before curation
 - Working groups can be populated from filesystem scan
 - Small-batch or single-file uploads share the same intake contract as bulk discovery
-- Metadata setup can happen from a queue instead of direct-to-Manyfold upload
+- Browser local-file uploads and server-side filesystem selections feed a common sidecar queue
+- Intake supports explicit file selection, folder selection, or mixed source batches
+- Folder sources support recursion control (`recurse` true/false) and optional `max_depth`
+- Queue processing uploads selected files into Manyfold using API-managed storage (not sidecar-managed final file storage)
 - Folder-to-group mapping can be configured or inferred
 - Bulk grouping workflow exists in HA and sidecar
 - File deduplication and conflict detection prevent orphaned duplicates
+- Optional post-upload source cleanup can delete or replace source files only after verified Manyfold ingestion
 
 Work items:
 
 1. **Sidecar intake endpoint and inbox model**
    - `POST /intake/submit`
-   - Input: one or more filesystem paths plus source hint (`drag_drop`, `file_picker`, `streamdeck`, `filesystem_action`)
+   - Input: one or more filesystem paths plus source hint (`drag_drop`, `file_picker`, `streamdeck`, `filesystem_action`, `server_browse`)
    - Output: staged inbox items with validation results, duplicate hints, and proposed titles
    - Store Intake Inbox state until the operator groups, rejects, or publishes deliberately
 
-2. **Sidecar bulk-discover endpoint**
+2. **Browser upload queue and server browse queue adapters**
+   - Add queue entry endpoint for browser-selected local files (multipart upload)
+   - Add server-root browse endpoints so operators can choose files from sidecar-mounted roots
+   - Support both explicit file picks and folder picks in a single normalized source contract
+   - Add folder traversal controls (`recurse`, optional `max_depth`) per folder source
+   - Normalize both paths into one queue contract used by review/import
+   - Track queue states (`queued`, `uploading`, `uploaded_unverified`, `verified`, `cleanup_pending`, `cleanup_done`, `cleanup_failed`, `failed`)
+
+3. **Sidecar bulk-discover endpoint**
    - `POST /working-groups/bulk-discover`
    - Input: folder path, grouping strategy ("by-folder", "by-root", "flat")
    - Output: list of proposed working groups with file lists, no commits yet
@@ -190,25 +202,32 @@ Work items:
    - Deduplication: warn if file hash matches existing working group
    - Validation: check for obvious issues (no files, too many, naming conflicts)
 
-3. **Sidecar bulk-import endpoint**
+4. **Sidecar bulk-import endpoint**
    - `POST /working-groups/bulk-import`
    - Input: list of reviewed groups or inbox items (name, files, folder_hint, optional stage)
    - Create all Working groups in batch
    - Deduplicate by file hash before creating
-   - Track: import timestamp, source folder, strategy used
+   - Upload selected files to Manyfold via API before marking item import complete
+   - Track: import timestamp, source folder, strategy used, queue provenance, and Manyfold references
    - Output: created group IDs, errors, summary
+
+5. **Verified post-upload source action policy (optional)**
+   - Policy values: `keep` (default), `delete_on_verified`, `replace_with_stub`
+   - Execute only after Manyfold upload success and verification checks (hash preferred; size fallback)
+   - Restrict destructive actions to approved sidecar-mounted roots
+   - Write audit events for each cleanup action and result
 
 Boundary note:
 - This phase may only create or attach to Working groups as an intake handoff
 - Full Working-group CRUD, Working board/detail UX, and broader file-management workflows remain Phase 4
 
-4. **HA automation/script**
+6. **HA automation/script**
    - Expose service `model_catalog.submit_to_inbox`
    - Expose service `model_catalog.bulk_discover_working_groups`
    - Expose service `model_catalog.bulk_import_working_groups`
    - Store review state in HA helpers for persistence across sessions
 
-5. **HA intake and bulk-import card**
+7. **HA intake and bulk-import card**
    - Show Inbox items and proposed groups with file lists
    - Show validation status and duplicate warnings
    - Allow rename, merge groups, or skip
@@ -217,15 +236,16 @@ Boundary note:
    - Review and approve before import
    - Show progress and results
 
-6. **Quick-entry adapters**
+8. **Quick-entry adapters**
    - Support drag/drop and file-picker style intake in the operator surface
    - Support path-based shortcuts such as right-click helper or Stream Deck action that submits into the same Intake Inbox contract
 
-7. **Documentation**
+9. **Documentation**
    - Intake Inbox semantics and triage rules
    - Folder-scanning best practices for your use case
    - Disambiguation: "by-folder" vs "by-root" strategies
-   - Direct-to-Manyfold is an exception path, not the default baseline
+   - Manyfold API upload contract and queue verification semantics
+   - Optional post-upload source cleanup safeguards and allowed-root policy
    - Bulk-import error recovery and rollback
    - Example: scanning ~/3D Printing/ with 500+ files
 
@@ -235,8 +255,11 @@ Boundary note:
 
 Deliverables:
 - Intake Inbox endpoints and review state
+- Upload queue and server-browse adapters feeding one intake pipeline
 - Bulk-discover and bulk-import endpoints
 - HA intake/bulk-import workflow card
+- Manyfold API upload integration with verified completion state
+- Optional post-upload cleanup policy with audit trail
 - Successful test with 500+ file scenario
 
 ---

@@ -203,6 +203,8 @@ Add to the implementation plan:
 Outcome:
 - Ad hoc files can be submitted into a reviewable Inbox
 - Working groups can be populated from filesystem scan
+- Browser-local uploads and server-side file selections converge into one queue pipeline
+- Imported files are committed into Manyfold-managed storage via API, not path-only sidecar references
 - Folder-to-group mapping can be configured or inferred
 - Bulk grouping workflow exists in HA and sidecar
 
@@ -212,6 +214,13 @@ Work items:
   - Input: one or more paths plus source hint
   - Output: Intake Inbox items with validation results and duplicate hints
   - Keep items in Inbox until operator groups, rejects, or deliberately publishes them
+
+1a. Add queue upload and source-browse contracts:
+  - Browser local files: multipart upload endpoint for queue staging
+  - Server sidecar mounts: browse/select endpoints constrained to allowlisted roots
+  - Source list supports explicit files, folders, or mixed file+folder batches
+  - Folder sources support `recurse` true/false and optional `max_depth`
+  - One normalized queue status model for both sources
 
 2. Add sidecar endpoint: `POST /working-groups/bulk-discover`
    - Input: folder path, grouping strategy
@@ -226,7 +235,15 @@ Work items:
   - Input: list of reviewed groups or inbox items (name, files, folder_hint, optional stage)
    - Create all Working groups and file entries in batch
    - Deduplicate against existing Working groups by filename hash
+   - Upload selected files to Manyfold via API and persist resulting Manyfold references
    - Output: created group IDs and summary
+
+3a. Add optional post-upload source policy:
+  - `keep` (default)
+  - `delete_on_verified`
+  - `replace_with_stub`
+  - Run only after successful upload and verification checks (hash preferred)
+  - Restrict destructive actions to configured allowed roots
 
 4. Add HA automation/script:
   - Expose service to submit items to Inbox

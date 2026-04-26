@@ -17,20 +17,44 @@ This should be incorporated into the existing Model Catalog design without colla
 
 ## Design Position
 
-The intake flow should **not** default to direct Manyfold upload.
+The intake flow should **not** default to immediate direct Manyfold publication.
 
 Instead:
 
 1. files enter a **sidecar-owned Intake Inbox**
 2. operator reviews and classifies them
-3. accepted items become Working groups or are attached to an existing Working group
-4. publish to Manyfold still happens later in the normal curated flow
+3. accepted items are queued for controlled upload into Manyfold-managed storage
+4. accepted items become Working groups or are attached to an existing Working group with Manyfold references persisted
+5. optional source cleanup runs only after verified upload
 
 Reason:
 
-- Manyfold is the curated catalog authority, not the staging queue
+- Manyfold is the curated catalog authority, while the sidecar queue is transient staging
 - the operator asked for validation, queueing, and metadata setup before curation
 - the existing Working-group design already provides the right pre-curated lifecycle boundary
+
+### Upload And Source Modes
+
+Support both intake source modes under one queue contract:
+
+- Browser local upload mode: files selected in client browser are uploaded to sidecar queue via multipart form-data.
+- Server browse mode: files are selected from allowlisted sidecar-mounted roots.
+- Source selection supports explicit files, folders, or mixed file+folder batches.
+- Folder source entries support traversal controls (`recurse` true/false and optional `max_depth`).
+
+Both modes should converge on the same queue state machine and review/import UX.
+
+### Source Entry Contract
+
+A normalized source list should support:
+
+- `type=file` with explicit path or uploaded blob reference
+- `type=folder` with folder path and traversal controls
+
+Suggested folder fields:
+
+- `recurse` boolean (default false for targeted selection)
+- `max_depth` integer (optional, valid when recurse is true)
 
 ## Core Concept: Intake Inbox Item
 
@@ -47,6 +71,11 @@ Suggested fields:
 - `proposed_title`
 - `detected_file_type`
 - `file_hash`
+- `upload_queue_id`
+- `queue_status` (`queued`, `uploading`, `uploaded_unverified`, `verified`, `cleanup_pending`, `cleanup_done`, `cleanup_failed`, `failed`)
+- `manyfold_model_ref`
+- `manyfold_model_file_ref`
+- `source_cleanup_policy` (`keep`, `delete_on_verified`, `replace_with_stub`)
 - `validation_summary`
 - `proposed_tags`
 - `proposed_project_hint`
@@ -64,6 +93,12 @@ The same intake contract should support multiple operator entry points:
 
 These are transport variants for the same intake workflow, not separate features.
 
+Selection semantics should be consistent across entry points:
+
+- users may pick one or more files directly
+- users may pick folders with explicit recursion behavior
+- mixed selection in one intake submission is allowed
+
 ## Validation Expectations
 
 Intake validation should stay lightweight and fast:
@@ -73,6 +108,7 @@ Intake validation should stay lightweight and fast:
 - hash can be computed
 - likely duplicate can be detected against Intake Inbox and Working groups
 - basic 3MF/STL metadata can be sampled when cheap
+- upload verification can compare source hash/size against Manyfold file metadata before cleanup actions
 
 Validation should produce operator-facing outcomes such as:
 
@@ -100,7 +136,20 @@ After triage, the operator can:
 - attach to an existing Working group
 - keep in Inbox for later review
 - reject as duplicate/noise
-- publish directly only when the item is already curated-quality
+- upload and attach with `keep` source policy (default)
+- upload and attach with optional `delete_on_verified` or `replace_with_stub` source policy
+
+## Post-Upload Source Cleanup (Optional)
+
+Cleanup is never implicit.
+
+Rules:
+
+- default policy is `keep`
+- destructive actions require successful upload plus verification
+- cleanup is restricted to configured allowed roots for server-browse mode
+- failures in cleanup do not roll back successful Manyfold upload; they produce retryable cleanup status
+- every cleanup action is logged to the sidecar audit/event stream
 
 ## Relationship To Existing Phase 1.5
 
@@ -131,7 +180,7 @@ This design does not change these baseline decisions:
 
 - Manyfold is still the curated catalog authority
 - Working groups remain the normal path for unstable or in-progress files
-- direct-to-Manyfold upload is not the default acquisition path
+- immediate bypass of queue/review into Manyfold is not the default acquisition path
 
 ## Recommended Phase Assignment
 

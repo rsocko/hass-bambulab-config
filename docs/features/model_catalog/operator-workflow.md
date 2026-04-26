@@ -112,6 +112,27 @@ Use Bambuddy when:
 
 Use the bulk flow when onboarding large local libraries (for example `~/3D Printing`).
 
+### Remote-Sidecar Source Modes
+
+When Home Assistant clients run on different machines than the sidecar host, use one of two source modes:
+
+- Browser upload mode: select local files in the browser; files are uploaded to a sidecar queue first.
+- Server browse mode: select files from approved roots mounted into the sidecar container.
+
+Both modes feed the same proposal/review/import flow.
+
+Selection options in both modes:
+
+- file selection: choose specific files directly
+- folder selection: choose directory sources
+- mixed batches: combine explicit files and folders in one submission
+
+Folder sources should expose traversal controls:
+
+- `recurse=false`: folder only
+- `recurse=true`: include subfolders
+- optional `max_depth` when recurse is enabled
+
 ### Scanning Strategy
 
 - `by-folder`: one proposal per folder; best for project-oriented trees
@@ -120,16 +141,39 @@ Use the bulk flow when onboarding large local libraries (for example `~/3D Print
 
 ### Recommended Operator Loop
 
-1. Run `model_catalog_bulk_discover_working_groups` from Home Assistant using your target folder.
-2. Review duplicate hash warnings before import commit.
-3. In the bulk review card, rename groups, mark noise as `skip`, and merge related folders where needed.
-4. Run `model_catalog_bulk_import_working_groups` with reviewed proposals.
-5. Verify summary output: created groups/items, duplicate skips, and failed files.
+1. Choose source mode: browser local upload queue or sidecar server-browse roots.
+2. Choose source entries: explicit files, folders, or mixed.
+3. For folder entries, set recursion behavior (`recurse` and optional `max_depth`).
+4. For folder scans, run `model_catalog_bulk_discover_working_groups` using your target folder.
+5. Review duplicate hash warnings before import commit.
+6. In the bulk review card, rename groups, mark noise as `skip`, and merge related folders where needed.
+7. Choose post-upload source action policy:
+	- `keep` (default)
+	- `delete_on_verified`
+	- `replace_with_stub`
+8. Run `model_catalog_bulk_import_working_groups` with reviewed proposals.
+9. Verify summary output: created groups/items, duplicate skips, failed files, and cleanup results.
+
+### Manyfold-Managed Storage Behavior
+
+- Imported files are uploaded to Manyfold through API-managed storage.
+- Sidecar queue storage is temporary and is not the final durable model store.
+- Working-item metadata should persist Manyfold model/file references as canonical storage location.
+
+### Optional Post-Upload Cleanup
+
+- Cleanup is optional and defaults to `keep`.
+- `delete_on_verified` and `replace_with_stub` run only after successful Manyfold upload and verification.
+- Verification should use hash comparison when available, with size/name fallback when necessary.
+- Destructive actions are limited to explicitly allowed mounted roots.
+- Cleanup results are recorded as auditable queue/import events.
 
 ### Rollback And Error Handling
 
 - If discovery results look wrong, rerun discover with a different strategy before importing.
 - If import returns failed files (`missing_source`, `read_error`), fix path/permissions and rerun import with only failed proposals.
+- If upload succeeds but verification fails, do not cleanup source files; mark items for operator review.
+- If cleanup fails, keep Manyfold upload result and return `cleanup_failed` status for retry.
 - If import produced unwanted groups, remove those `working_groups` records before downstream curation/publish.
 - Hash dedupe prevents orphan duplicates by skipping files already present in `working_items`.
 
