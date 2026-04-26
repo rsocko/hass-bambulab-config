@@ -47,6 +47,27 @@ class ModelDetailPopupCard extends HTMLElement {
     this._boundClickHandler = this._handleClick.bind(this);
   }
 
+  setConfig(config) {
+    this._config = config || {};
+    this._modelRef = String(this._config.model_ref || "").trim();
+    this._modelSidecarUrl = String(this._config.model_sidecar_url || "").trim();
+    this._activeTab = "details";
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+
+    this._modelSidecarUrl = this._resolveModelSidecarUrl();
+
+    // Perform initial load if we haven't yet
+    if (!this._modelDetail && !this._loading && !this._error && this._modelRef && this._modelSidecarUrl) {
+      this._loadModelDetail();
+    }
+
+    this._render();
+  }
+
   connectedCallback() {
     // Attach event listener to shadow DOM
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
