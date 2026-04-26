@@ -1690,48 +1690,110 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
         
         resolved_ref = summary.public_id or summary.model_id or summary.model_url
+
+        # Always return a valid detail payload for the popup, even if one
+        # enrichment source fails at runtime.
+        response: dict[str, Any] = {
+            "success": True,
+            "model_ref": model_ref,
+            "manyfold_model_url": summary.model_url,
+            "model": {
+                "public_id": summary.public_id,
+                "model_id": summary.model_id,
+                "name": summary.name,
+                "description": "",
+                "preview_url": None,
+                "creator_name": summary.creator_name,
+                "collection_names": list(summary.collection_names),
+                "keywords": list(summary.keyword_names),
+                "files": [],
+                "preview_file_id": None,
+                "created_at": None,
+                "updated_at": None,
+            },
+            "enrichment": {
+                "custom_fields": {},
+                "color_scheme": [],
+                "print_time_estimate": None,
+                "support_type_hint": None,
+                "multi_color_scheme": None,
+                "difficulty_level": None,
+                "print_notes": None,
+                "external_reference": None,
+                "bambuddy_project_id": None,
+            },
+            "ranking": None,
+            "linked_archives": [],
+            "link_count": 0,
+            "degraded": False,
+        }
         
         # Fetch full model detail from Manyfold
         try:
             manyfold_detail = client.get_model_detail(summary.model_url)
         except Exception:
             manyfold_detail = {}
+            response["degraded"] = True
         if not isinstance(manyfold_detail, dict):
             manyfold_detail = {}
+            response["degraded"] = True
         
         # Fetch custom fields from local SQLite
-        custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref))
+        try:
+            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref))
+            if not isinstance(custom_fields, dict):
+                custom_fields = {}
+                response["degraded"] = True
+        except Exception:
+            custom_fields = {}
+            response["degraded"] = True
         
         # Fetch archive links
-        archive_links = read_archive_links(
-            db_path=state.settings.db_path,
-            model_url=summary.model_url,
-            active_only=True,
-        )
+        try:
+            archive_links = read_archive_links(
+                db_path=state.settings.db_path,
+                model_url=summary.model_url,
+                active_only=True,
+            )
+        except Exception:
+            archive_links = []
+            response["degraded"] = True
         
         # Fetch ranking data
-        ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+        try:
+            ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+        except Exception:
+            ranking = None
+            response["degraded"] = True
         
         # Get preview proxy URL
-        preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+        try:
+            preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+        except Exception:
+            preview_proxy_base_url = ""
+            response["degraded"] = True
         preview_url = summary.preview_url
-        if preview_url:
+        if preview_url and preview_proxy_base_url:
             preview_url = f"{preview_proxy_base_url}?source={quote(preview_url)}"
+        response["model"]["preview_url"] = preview_url
         
         # Build linked archive details
         linked_archives = []
         for link in archive_links:
-            linked_archives.append({
-                "archive_id": link.archive_id,
-                "model_url": link.manyfold_model_url,
-                "link_id": link.id,
-                "review_state": link.review_state,
-                "is_active": link.is_active,
-                "match_method": link.match_method,
-                "match_confidence": link.match_confidence,
-                "created_at": link.created_at,
-                "updated_at": link.updated_at,
-            })
+            try:
+                linked_archives.append({
+                    "archive_id": link.archive_id,
+                    "model_url": link.manyfold_model_url,
+                    "link_id": link.id,
+                    "review_state": link.review_state,
+                    "is_active": link.is_active,
+                    "match_method": link.match_method,
+                    "match_confidence": link.match_confidence,
+                    "created_at": link.created_at,
+                    "updated_at": link.updated_at,
+                })
+            except Exception:
+                response["degraded"] = True
         
         # Build model files info (from Manyfold detail)
         model_files = []
@@ -1748,41 +1810,29 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "created_at": file_obj.get("created_at"),
                     "model_count": file_obj.get("model_count"),
                 })
+        elif files_payload is not None:
+            response["degraded"] = True
         
-        # Build response
-        response = {
-            "success": True,
-            "model_ref": model_ref,
-            "manyfold_model_url": summary.model_url,
-            "model": {
-                "public_id": summary.public_id,
-                "model_id": summary.model_id,
-                "name": summary.name,
-                "description": manyfold_detail.get("description", ""),
-                "preview_url": preview_url,
-                "creator_name": summary.creator_name,
-                "collection_names": summary.collection_names,
-                "keywords": summary.keyword_names,
-                "files": model_files,
-                "preview_file_id": manyfold_detail.get("preview_file_id"),
-                "created_at": manyfold_detail.get("created_at"),
-                "updated_at": manyfold_detail.get("updated_at"),
-            },
-            "enrichment": {
-                "custom_fields": custom_fields,
-                "color_scheme": custom_fields.get("color_scheme", []),
-                "print_time_estimate": custom_fields.get("print_time_estimate"),
-                "support_type_hint": custom_fields.get("support_type_hint"),
-                "multi_color_scheme": custom_fields.get("multi_color_scheme"),
-                "difficulty_level": custom_fields.get("difficulty_level"),
-                "print_notes": custom_fields.get("print_notes"),
-                "external_reference": custom_fields.get("external_reference"),
-                "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
-            },
-            "ranking": None if ranking is None else _ranking_payload(ranking),
-            "linked_archives": linked_archives,
-            "link_count": len(linked_archives),
+        response["model"]["description"] = str(manyfold_detail.get("description") or "")
+        response["model"]["files"] = model_files
+        response["model"]["preview_file_id"] = manyfold_detail.get("preview_file_id")
+        response["model"]["created_at"] = manyfold_detail.get("created_at")
+        response["model"]["updated_at"] = manyfold_detail.get("updated_at")
+
+        response["enrichment"] = {
+            "custom_fields": custom_fields,
+            "color_scheme": custom_fields.get("color_scheme", []),
+            "print_time_estimate": custom_fields.get("print_time_estimate"),
+            "support_type_hint": custom_fields.get("support_type_hint"),
+            "multi_color_scheme": custom_fields.get("multi_color_scheme"),
+            "difficulty_level": custom_fields.get("difficulty_level"),
+            "print_notes": custom_fields.get("print_notes"),
+            "external_reference": custom_fields.get("external_reference"),
+            "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
         }
+        response["ranking"] = None if ranking is None else _ranking_payload(ranking)
+        response["linked_archives"] = linked_archives
+        response["link_count"] = len(linked_archives)
         
         return response
 
