@@ -88,7 +88,7 @@ SUMMARY: 8/8 passed, 0/8 failed
 - **Test**: Integration tests validate configuration
 
 ### Helper Entities
-- **File**: `homeassistant/packages/3d_printing/model_catalog/helpers/model_detail_popup.yaml`
+- **File**: `homeassistant/packages/3d_printing/model_catalog/helpers/input_text/input_text_model_catalog_sidecar_base_url.yaml`
 - **Test**: Integration tests validate entity definitions
 
 ---
@@ -101,15 +101,15 @@ curl http://localhost:8314/api/models/gridfinity-bin/detail
 ```
 
 ### Test in HA
-1. Set helper entity: `input_text.model_catalog_detail_ref` = "gridfinity-bin"
-2. Call service: `rest_command.get_model_detail`
+1. Set helper entity: `input_text.model_catalog_sidecar_base_url` = "http://localhost:8314"
+2. Call service: `rest_command.get_model_detail` with `model_ref: "gridfinity-bin"`
 3. Check card renders with data
 
 ### Test Card in Dashboard
 ```yaml
 type: custom:model-detail-popup-card
 model_ref: gridfinity-bin
-model_entity: input_text.model_catalog_sidecar_url
+model_entity: input_text.model_catalog_sidecar_base_url
 ```
 
 ---

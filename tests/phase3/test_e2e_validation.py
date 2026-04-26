@@ -375,7 +375,7 @@ class Phase3ValidatorE2E:
             
             helpers_path = Path(
                 "homeassistant/packages/3d_printing/model_catalog/"
-                "helpers/model_detail_popup.yaml"
+                "helpers/input_text/input_text_model_catalog_sidecar_base_url.yaml"
             )
             
             duration = (time.time() - start) * 1000
@@ -392,9 +392,8 @@ class Phase3ValidatorE2E:
                 content = f.read()
                 
                 required_items = [
-                    "model_catalog_detail_ref",
-                    "model_catalog_sidecar_url",
-                    "input_text:"
+                    "model_catalog_sidecar_base_url",
+                    "name: Model Catalog Sidecar Base URL"
                 ]
                 
                 missing = [item for item in required_items if item not in content]
@@ -404,7 +403,7 @@ class Phase3ValidatorE2E:
                         name="Helper Entities Configured",
                         passed=True,
                         duration_ms=duration,
-                        details={"helpers_count": 2}
+                        details={"helpers_count": 1}
                     )
                 else:
                     return TestResult(

@@ -40,12 +40,12 @@ class TestModelDetailPopupCard:
         # If model_entity is provided, card reads sidecar URL from entity state
         card_config = {
             "model_ref": "gridfinity-bin",
-            "model_entity": "input_text.model_catalog_sidecar_url"
+            "model_entity": "input_text.model_catalog_sidecar_base_url"
         }
         
         # Mock hass state
         hass_state = {
-            "input_text.model_catalog_sidecar_url": {
+            "input_text.model_catalog_sidecar_base_url": {
                 "state": "http://192.168.1.100:8314"
             }
         }
@@ -311,36 +311,25 @@ class TestRestCommandIntegration:
 class TestHelperEntitiesIntegration:
     """Test the helper entities for model detail popup."""
     
-    def test_model_ref_helper_exists(self):
-        """Test that model reference helper entity exists."""
+    def test_sidecar_base_url_helper_exists(self):
+        """Test that sidecar base URL helper entity exists."""
         helper = {
-            "entity_id": "input_text.model_catalog_detail_ref",
-            "name": "Model Catalog Detail Reference",
-            "icon": "mdi:package-variant"
+            "entity_id": "input_text.model_catalog_sidecar_base_url",
+            "name": "Model Catalog Sidecar Base URL",
+            "icon": "mdi:server-network"
         }
         
-        assert helper["entity_id"] == "input_text.model_catalog_detail_ref"
+        assert helper["entity_id"] == "input_text.model_catalog_sidecar_base_url"
         assert helper["icon"].startswith("mdi:")
     
-    def test_sidecar_url_helper_exists(self):
-        """Test that sidecar URL helper entity exists."""
-        helper = {
-            "entity_id": "input_text.model_catalog_sidecar_url",
-            "name": "Model Catalog Sidecar URL",
-            "initial": "http://localhost:8314"
-        }
-        
-        assert helper["entity_id"] == "input_text.model_catalog_sidecar_url"
-        assert helper["initial"] == "http://localhost:8314"
-    
     def test_helpers_can_be_updated(self):
-        """Test that helpers can store and retrieve values."""
-        # Expected behavior: entities can be updated with set_value service
+        """Test that helper can store and retrieve values."""
+        # Expected behavior: entity can be updated with set_value service
         service_call = {
             "service": "input_text.set_value",
             "data": {
-                "entity_id": "input_text.model_catalog_detail_ref",
-                "value": "gridfinity-bin"
+                "entity_id": "input_text.model_catalog_sidecar_base_url",
+                "value": "http://localhost:8314"
             }
         }
         

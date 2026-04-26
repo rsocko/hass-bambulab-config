@@ -41,7 +41,7 @@
       content:
         type: custom:model-detail-popup-card
         model_ref: "{{ states('input_select.model_selector') }}"
-        model_entity: input_text.model_catalog_sidecar_url
+        model_entity: input_text.model_catalog_sidecar_base_url
 
 # Example 4: Full Width Dashboard View with Model Browser + Detail Popup
 # This integrates the Phase 2 browser with Phase 3 detail popup

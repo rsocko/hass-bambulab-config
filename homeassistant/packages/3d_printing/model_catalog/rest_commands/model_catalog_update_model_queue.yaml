@@ -6,11 +6,7 @@ model_catalog_update_model_queue:
     {{- (
         states('input_text.model_catalog_sidecar_base_url')
         if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
-        else (
-          states('input_text.model_catalog_sidecar_url')
-          if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', '']
-          else 'http://model-catalog-sidecar:8314'
-        )
+        else 'http://model-catalog-sidecar:8314'
       ) -}}/api/models/{{ (model_ref | string) | urlencode }}/queue
   method: POST
   headers:

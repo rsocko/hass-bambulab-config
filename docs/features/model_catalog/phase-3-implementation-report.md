@@ -89,7 +89,7 @@ type: custom:model-detail-popup-card
 model_ref: "gridfinity-bin"
 model_sidecar_url: "http://localhost:8314"
 // OR
-model_entity: "input_text.model_catalog_sidecar_url"
+model_entity: "input_text.model_catalog_sidecar_base_url"
 ```
 
 **Tab Implementations**:
@@ -104,10 +104,9 @@ model_entity: "input_text.model_catalog_sidecar_url"
 Provides REST command interface for the sidecar endpoint, callable from any HA automation or service.
 
 #### 4. Helper Entities
-**File**: `homeassistant/packages/3d_printing/model_catalog/helpers/model_detail_popup.yaml`
+**File**: `homeassistant/packages/3d_printing/model_catalog/helpers/input_text/input_text_model_catalog_sidecar_base_url.yaml`
 
-- `input_text.model_catalog_detail_ref` - Stores current model reference
-- `input_text.model_catalog_sidecar_url` - Stores sidecar URL (default: http://localhost:8314)
+- `input_text.model_catalog_sidecar_base_url` - Stores sidecar base URL
 
 #### 5. Documentation & Examples
 - **Implementation Guide**: Phase 3 setup instructions and testing procedures
@@ -140,7 +139,7 @@ data:
   content:
     type: custom:model-detail-popup-card
     model_ref: "gridfinity-bin"
-    model_entity: "input_text.model_catalog_sidecar_url"
+    model_entity: "input_text.model_catalog_sidecar_base_url"
 ```
 
 ### Integration with Model Catalog Browser

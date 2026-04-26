@@ -22,4 +22,4 @@ action:
       content:
         type: custom:model-detail-popup-card
         model_ref: "{{ states('input_text.selected_model_ref') }}"
-        model_sidecar_url: "{{ states('input_text.model_catalog_sidecar_url') }}"
+        model_sidecar_url: "{{ states('input_text.model_catalog_sidecar_base_url') }}"

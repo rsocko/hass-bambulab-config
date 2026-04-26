@@ -1,6 +1,6 @@
 # Set a photo as the preview/thumbnail for a model.
 # Docs: docs/features/model_catalog/implementation-plan.md
 model_catalog_set_photo_preview:
-  url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
+  url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', ''] else 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
   method: POST
   timeout: 10

@@ -38,10 +38,6 @@ model_catalog_search_models:
     {{- (
         states('input_text.model_catalog_sidecar_base_url')
         if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
-        else (
-          states('input_text.model_catalog_sidecar_url')
-          if states('input_text.model_catalog_sidecar_url') not in ['unknown', 'unavailable', 'none', '']
-          else 'http://model-catalog-sidecar:8314'
-        )
+        else 'http://model-catalog-sidecar:8314'
       ) -}}/api/models/search{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
   method: GET

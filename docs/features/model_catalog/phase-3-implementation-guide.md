@@ -29,9 +29,8 @@
   - Used by custom card to fetch model data
 
 ### Helpers
-- **input_text.model_catalog_detail_ref** — Stores model reference for popup
-- **input_text.model_catalog_sidecar_url** — Stores sidecar URL (default: http://localhost:8314)
-- Location: `homeassistant/packages/3d_printing/model_catalog/helpers/model_detail_popup.yaml`
+- **input_text.model_catalog_sidecar_base_url** — Stores sidecar base URL (default: configurable)
+- Location: `homeassistant/packages/3d_printing/model_catalog/helpers/input_text/input_text_model_catalog_sidecar_base_url.yaml`
 
 ## How to Use
 
@@ -60,7 +59,7 @@ data:
   content:
     type: custom:model-detail-popup-card
     model_ref: "{{ selected_model_ref }}"
-    model_entity: "input_text.model_catalog_sidecar_url"
+    model_entity: "input_text.model_catalog_sidecar_base_url"
 ```
 
 ## Testing

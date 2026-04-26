@@ -77,11 +77,6 @@ class ModelDetailRelatedModels extends HTMLElement {
       if (baseUrlEntity && baseUrlEntity.state) {
         return String(baseUrlEntity.state).trim();
       }
-
-      const legacyUrlEntity = this._hass.states["input_text.model_catalog_sidecar_url"];
-      if (legacyUrlEntity && legacyUrlEntity.state) {
-        return String(legacyUrlEntity.state).trim();
-      }
     }
 
     return "";
