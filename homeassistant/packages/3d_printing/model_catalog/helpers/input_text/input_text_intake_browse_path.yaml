@@ -1,6 +1,4 @@
-input_text:
-  intake_browse_path:
-    name: "Intake Browse Path"
-    description: "Current path being browsed in the intake file browser"
-    initial: "/"
-    icon: mdi:folder-open
+intake_browse_path:
+  name: "Intake Browse Path"
+  initial: "/"
+  icon: mdi:folder-open
