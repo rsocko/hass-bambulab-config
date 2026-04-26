@@ -27,7 +27,7 @@ Phase 3.2 (3D Viewer with Three.js)
 ├─ Effort: 40-45 hours
 ├─ Timeline: Week 3 (can be parallel with 3.1)
 ├─ Priority: MEDIUM
-└─ Status: Ready to start
+└─ Status: Tasks 1-4 Complete ✅
 
 Phase 3.3 (Cross-System Integration)
 ├─ Effort: 25-30 hours
@@ -75,26 +75,27 @@ Phase 3.3 (Cross-System Integration)
 ### Component Scaffolding
 
 - ✅ `model-detail-3d-viewer-tab.js` (160 lines, boilerplate created)
-- ⏳ `stl-loader.js` (new file)
+- ✅ `stl-loader.js` (loaders/stl-loader.js)
 - ⏳ `three-mf-loader.js` (new file, optional)
 
 ### Viewer Features
 
-- ⏳ Three.js scene setup and render loop
-- ⏳ File loader (STL + optional 3MF)
-- ⏳ Geometry rendering and auto-fit
-- ⏳ Build volume visualization
-- ⏳ Camera controls (OrbitControls)
-- ⏳ Toolbar and info display
+- ✅ Three.js scene setup and render loop (`viewer.js` — 900+ LOC, ModelViewer class)
+- ✅ File loader (STL + geometry endpoint integration)
+- ✅ Geometry rendering and auto-fit (FOV-aware distance calculation)
+- ✅ Build volume visualization (Bambu P1S 256×256×256mm, transparent wireframe)
+- ✅ Camera controls (OrbitControls — rotate, zoom, pan, reset, touch)
+- ✅ Build Volume Helper (`build_volume_helper.py` — fit analysis, placement hints, difficulty)
 - ⏳ Layer coloring (optional Phase 3.2+)
 
 ### Sidecar Endpoints
 
-- ⏳ `GET /api/models/{model_ref}/geometry/{file_id}` (fetch/convert 3D files)
+- ✅ `GET /api/models/{model_ref}/geometry/{file_id}` (geometry.py — fetch/convert 3D files)
 
 ### Testing
 
-- ⏳ Unit tests: `test_stl_loader.py`, `test_geometry_rendering.py`, etc. (5 files)
+- ✅ `test_phase3_2_3d_viewer.py` — 18 tests passing (STL loader, geometry rendering, camera controls, endpoint)
+- ✅ `test_phase3_2_build_volume.py` — 34 tests passing (fit analysis, placement, difficulty, warnings)
 - ⏳ Integration tests: `test_3d_viewer_rendering.spec.ts`, etc. (4 files)
 - ⏳ Performance tests (load time, frame rate, memory)
 - ⏳ Browser compatibility verification
@@ -152,7 +153,7 @@ homeassistant/
 │   ├── model-detail-3d-viewer-tab.js ................... ✅ Created (Phase 3.2)
 │   ├── model-detail-related-models.js .................. ⏳ Phase 3.3
 │   ├── loaders/
-│   │   ├── stl-loader.js ............................... ⏳ Phase 3.2
+│   │   ├── stl-loader.js ............................... ✅ Created (Phase 3.2)
 │   │   └── three-mf-loader.js .......................... ⏳ Phase 3.2 (optional)
 │   └── utils/
 │       └── similarity-scorer.js ........................ ⏳ Phase 3.3
@@ -173,7 +174,7 @@ sidecars/model_catalog/app/
 ├── main.py ............................................. 👈 Add endpoints
 │   ├── PATCH /api/models/{model_ref} .................. ⏳ Phase 3.1
 │   ├── POST /api/models/{model_ref}/photos ............ ⏳ Phase 3.1
-│   ├── GET /api/models/{model_ref}/geometry/{file_id} . ⏳ Phase 3.2
+│   ├── GET /api/models/{model_ref}/geometry/{file_id} . ✅ Phase 3.2 (geometry.py)
 │   ├── GET /api/models/{model_ref}/related ............ ⏳ Phase 3.3
 │   └── GET /api/archives/{archive_id}/model .......... ⏳ Phase 3.3
 
@@ -182,10 +183,10 @@ tests/phase3/
 ├── test_conflict_detection.py .......................... ⏳ Phase 3.1
 ├── test_photo_upload_endpoint.py ....................... ⏳ Phase 3.1
 ├── test_update_model_endpoint.py ....................... ⏳ Phase 3.1
-├── test_stl_loader.py .................................. ⏳ Phase 3.2
+├── test_stl_loader.py .................................. ✅ Phase 3.2 (test_phase3_2_3d_viewer.py)
 ├── test_3mf_loader.py .................................. ⏳ Phase 3.2
-├── test_geometry_rendering.py .......................... ⏳ Phase 3.2
-├── test_build_volume_visualization.py ................. ⏳ Phase 3.2
+├── test_geometry_rendering.py .......................... ✅ Phase 3.2 (test_phase3_2_3d_viewer.py)
+├── test_build_volume_visualization.py ................. ✅ Phase 3.2 (test_phase3_2_build_volume.py)
 ├── test_related_models_endpoint.py ..................... ⏳ Phase 3.3
 ├── test_navigation_services.py ......................... ⏳ Phase 3.3
 └── ... (20+ total test files)
