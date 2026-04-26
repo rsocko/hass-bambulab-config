@@ -4,7 +4,7 @@
 rest_command:
   # Phase 3.1: Update model metadata and enrichment
   model_catalog_update_model:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}"
+    url: "{{ [states('input_text.model_catalog_sidecar_base_url'), states('input_text.model_catalog_sidecar_url'), 'http://model-catalog-sidecar:8314'] | select('defined') | select('ne', 'unknown') | select('ne', '') | first }}/api/models/{{ model_ref }}"
     method: PATCH
     headers:
       Content-Type: application/json
@@ -24,7 +24,7 @@ rest_command:
 
   # Phase 3.1: Upload photo to model
   model_catalog_upload_photo:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/photos"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos"
     method: POST
     headers:
       Content-Type: application/json
@@ -36,37 +36,37 @@ rest_command:
 
   # Phase 3.1: Delete photo from model
   model_catalog_delete_photo:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/photos/{{ photo_id }}"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos/{{ photo_id }}"
     method: DELETE
 
   # Phase 3.1: Set photo as preview
   model_catalog_set_photo_preview:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/photos/{{ photo_id }}/preview"
     method: POST
 
   # Phase 3.2: Get 3D geometry file
   model_catalog_get_geometry:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/geometry/{{ file_id }}"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/geometry/{{ file_id }}"
     method: GET
 
   # Phase 3.3: Get related models
   model_catalog_get_related_models:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/related"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/related"
     method: GET
 
   # Phase 3.3: Get archive's linked model
   model_catalog_get_archive_model:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/archives/{{ archive_id }}/model"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/archives/{{ archive_id }}/model"
     method: GET
 
   # Phase 3.4: Get model statistics and recommendations
   model_catalog_get_statistics:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/statistics"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/statistics"
     method: GET
 
   # Phase 3.4: Get model recommendations
   model_catalog_get_recommendations:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/models/{{ model_ref }}/recommendations"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/models/{{ model_ref }}/recommendations"
     method: GET
     params:
       strategy: "{{ strategy | default('next_steps') }}"
@@ -74,7 +74,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as JSON
   model_catalog_export_json:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/catalog/export"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/catalog/export"
     method: GET
     params:
       format: json
@@ -82,7 +82,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as CSV
   model_catalog_export_csv:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/catalog/export"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/catalog/export"
     method: GET
     params:
       format: csv
@@ -90,7 +90,7 @@ rest_command:
 
   # Phase 3.4: Export model catalog as JSONL
   model_catalog_export_jsonl:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/catalog/export"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/catalog/export"
     method: GET
     params:
       format: jsonl
@@ -98,7 +98,7 @@ rest_command:
 
   # Phase 3.4: Import model catalog from JSON/CSV
   model_catalog_import:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/catalog/import"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/catalog/import"
     method: POST
     headers:
       Content-Type: application/json
@@ -111,7 +111,7 @@ rest_command:
 
   # Phase 3.4: Migrate model schema versions
   model_catalog_migrate_schema:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/catalog/migrate"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/catalog/migrate"
     method: POST
     headers:
       Content-Type: application/json
@@ -129,7 +129,7 @@ rest_command:
 
   # Phase 3.4: Link archive to model
   link_archive_to_model:
-    url: "{{ states('input_text.model_catalog_sidecar_base_url') or states('input_text.model_catalog_sidecar_url') or 'http://model-catalog-sidecar:8314' }}/api/archives/{{ archive_id }}/link"
+    url: "{{ states('input_text.model_catalog_sidecar_base_url') if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', ''] else (states('input_text.model_catalog_sidecar_url') if states('input_text.model_catalog_sidecar_url') not in ['unknown', ''] else 'http://model-catalog-sidecar:8314') }}/api/archives/{{ archive_id }}/link"
     method: POST
     headers:
       Content-Type: application/json
