@@ -2226,7 +2226,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     @app.get("/api/models/{model_ref:path}/detail")
-    def get_model_detail_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch comprehensive model detail for Phase 3 detail view popup."""
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
@@ -2244,6 +2244,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
         
         resolved_ref = summary.public_id or summary.model_id or summary.model_url
+        debug_info: dict[str, Any] = {
+            "resolved_ref": str(resolved_ref or ""),
+            "summary": {
+                "public_id": summary.public_id,
+                "model_id": summary.model_id,
+                "model_url": summary.model_url,
+            },
+            "manyfold_detail_attempts": [],
+            "degraded_reasons": [],
+        }
 
         # Always return a valid detail payload for the popup, even if one
         # enrichment source fails at runtime.
@@ -2285,20 +2295,46 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Fetch full model detail from Manyfold.
         # Prefer API-friendly refs (public_id/model_id) over model_url because
         # cached URLs may point at web routes that do not return JSON detail.
-        try:
-            manyfold_detail = client.get_model_detail(str(resolved_ref))
-            if not isinstance(manyfold_detail, dict):
-                manyfold_detail = {}
-                response["degraded"] = True
-        except Exception:
+        manyfold_detail: dict[str, Any] = {}
+        detail_refs = [str(resolved_ref or "")]
+        model_url_ref = str(summary.model_url or "")
+        if model_url_ref and model_url_ref not in detail_refs:
+            detail_refs.append(model_url_ref)
+
+        for detail_ref in detail_refs:
+            if not detail_ref:
+                continue
             try:
-                manyfold_detail = client.get_model_detail(summary.model_url)
-            except Exception:
-                manyfold_detail = {}
+                detail_candidate = client.get_model_detail(detail_ref)
+                debug_info["manyfold_detail_attempts"].append(
+                    {
+                        "ref": detail_ref,
+                        "ok": True,
+                        "payload_type": type(detail_candidate).__name__,
+                    }
+                )
+                if isinstance(detail_candidate, dict):
+                    manyfold_detail = detail_candidate
+                    break
                 response["degraded"] = True
+                debug_info["degraded_reasons"].append(
+                    f"manyfold_detail_non_object:{detail_ref}:{type(detail_candidate).__name__}"
+                )
+            except Exception as exc:
+                response["degraded"] = True
+                debug_info["manyfold_detail_attempts"].append(
+                    {
+                        "ref": detail_ref,
+                        "ok": False,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    }
+                )
+
         if not isinstance(manyfold_detail, dict):
             manyfold_detail = {}
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("manyfold_detail_missing")
         
         # Fetch custom fields from local SQLite
         try:
@@ -2309,6 +2345,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         except Exception:
             custom_fields = {}
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("custom_fields_unavailable")
         
         # Fetch archive links
         try:
@@ -2320,6 +2357,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         except Exception:
             archive_links = []
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("archive_links_unavailable")
         
         # Fetch ranking data
         try:
@@ -2327,6 +2365,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         except Exception:
             ranking = None
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("ranking_unavailable")
         
         # Get preview proxy URL
         try:
@@ -2334,6 +2373,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         except Exception:
             preview_proxy_base_url = ""
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("preview_proxy_unavailable")
         preview_url = summary.preview_url
         if preview_url and preview_proxy_base_url:
             preview_url = f"{preview_proxy_base_url}?source={quote(preview_url)}"
@@ -2360,7 +2400,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Build model files info (from Manyfold detail)
         model_files = []
         files_payload = manyfold_detail.get("files")
+        debug_info["files_payload_type"] = type(files_payload).__name__
         if isinstance(files_payload, list):
+            debug_info["files_payload_count"] = len(files_payload)
             for file_obj in files_payload:
                 if not isinstance(file_obj, dict):
                     continue
@@ -2374,6 +2416,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 })
         elif files_payload is not None:
             response["degraded"] = True
+            debug_info["degraded_reasons"].append("files_payload_non_list")
         
         response["model"]["description"] = str(manyfold_detail.get("description") or "")
         response["model"]["name"] = str(manyfold_detail.get("name") or response["model"].get("name") or "")
@@ -2399,6 +2442,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         response["ranking"] = None if ranking is None else _ranking_payload(ranking)
         response["linked_archives"] = linked_archives
         response["link_count"] = len(linked_archives)
+        if include_debug:
+            response["_debug"] = debug_info
         
         return response
 
@@ -2503,10 +2548,15 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
     @app.get("/api/models/{model_ref:path}/geometry/{file_id}")
-    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str) -> dict[str, Any]:
+    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
+        debug_info: dict[str, Any] = {
+            "model_ref": model_ref,
+            "file_id": file_id,
+            "detail_attempts": [],
+        }
         
         # Resolve model reference
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2517,26 +2567,64 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # avoid relying on cached web URLs that may not expose JSON file lists.
         try:
             resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-            try:
-                manyfold_detail = client.get_model_detail(resolved_ref)
-            except Exception:
-                manyfold_detail = client.get_model_detail(summary.model_url)
+            detail_refs = [resolved_ref]
+            summary_url_ref = str(summary.model_url or "")
+            if summary_url_ref and summary_url_ref not in detail_refs:
+                detail_refs.append(summary_url_ref)
+
+            manyfold_detail: dict[str, Any] = {}
+            for detail_ref in detail_refs:
+                if not detail_ref:
+                    continue
+                try:
+                    detail_candidate = client.get_model_detail(detail_ref)
+                    debug_info["detail_attempts"].append(
+                        {
+                            "ref": detail_ref,
+                            "ok": True,
+                            "payload_type": type(detail_candidate).__name__,
+                        }
+                    )
+                    if isinstance(detail_candidate, dict):
+                        manyfold_detail = detail_candidate
+                        break
+                except Exception as exc:
+                    debug_info["detail_attempts"].append(
+                        {
+                            "ref": detail_ref,
+                            "ok": False,
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        }
+                    )
+
             files = manyfold_detail.get("files", [])
+            debug_info["files_count"] = len(files) if isinstance(files, list) else 0
             file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
             
             if not file_obj:
-                return JSONResponse(status_code=404, content={"error": "File not found"})
+                payload: dict[str, Any] = {"error": "File not found"}
+                if include_debug:
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
             
             # Return geometry download URL
-            return {
+            response_payload: dict[str, Any] = {
                 "success": True,
                 "file_id": file_id,
                 "filename": file_obj.get("filename"),
                 "download_url": f"/api/files/{file_id}/download",
                 "file_type": file_obj.get("file_type"),
             }
+            if include_debug:
+                response_payload["_debug"] = debug_info
+            return response_payload
         except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
+            payload = {"error": str(e)}
+            if include_debug:
+                debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
+                payload["_debug"] = debug_info
+            return JSONResponse(status_code=500, content=payload)
 
     # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
