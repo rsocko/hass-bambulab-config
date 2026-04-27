@@ -2269,6 +2269,46 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
         return normalized
 
+    def _derive_photos_from_model_files(
+        file_rows: list[dict[str, Any]],
+        photo_proxy_url: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Build gallery-compatible photo entries from image model files."""
+        derived: list[dict[str, Any]] = []
+        for file_obj in file_rows:
+            if not isinstance(file_obj, dict):
+                continue
+            file_type = str(
+                file_obj.get("encodingFormat")
+                or file_obj.get("file_type")
+                or ""
+            ).lower()
+            if not file_type.startswith("image/"):
+                continue
+
+            image_url = (
+                file_obj.get("contentUrl")
+                or file_obj.get("thumbnailUrl")
+                or file_obj.get("url")
+                or file_obj.get("@id")
+                or file_obj.get("id")
+            )
+            if not image_url:
+                continue
+
+            derived.append(
+                {
+                    "id": file_obj.get("id") if file_obj.get("id") is not None else file_obj.get("@id"),
+                    "image_url": image_url,
+                    "thumbnail_url": file_obj.get("thumbnailUrl") or image_url,
+                    "filename": file_obj.get("name") or file_obj.get("filename"),
+                    "created_at": file_obj.get("dateCreated") or file_obj.get("created_at"),
+                    "is_preview": False,
+                }
+            )
+
+        return _normalize_photo_urls(derived, photo_proxy_url)
+
     @app.get("/api/models/{model_ref:path}/detail")
     def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch comprehensive model detail for Phase 3 detail view popup."""
@@ -2487,6 +2527,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             response["degraded"] = True
             debug_info["degraded_reasons"].append("photos_unavailable")
             debug_info["photos_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
+
+        if not response["photos"]:
+            fallback_photos = _derive_photos_from_model_files(manyfold_files, photo_proxy_url)
+            if fallback_photos:
+                response["photos"] = fallback_photos
+                debug_info["photos_fallback"] = "model_files"
+                debug_info["photos_count"] = len(response["photos"])
         
         response["ranking"] = None if ranking is None else _ranking_payload(ranking)
         response["linked_archives"] = linked_archives

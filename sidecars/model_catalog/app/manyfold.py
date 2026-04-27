@@ -292,9 +292,14 @@ class ManyfoldClient:
             response = self._client.get(path, headers=self._request_headers())
             response.raise_for_status()
             payload = response.json()
-            return self._extract_rows(payload)
-                # If _extract_rows didn't find data, try direct "photos" key in payload
-            # Photos endpoint may not exist; return empty list
+            rows = self._extract_rows(payload)
+            if not rows and isinstance(payload, dict):
+                photos_data = payload.get("photos")
+                if isinstance(photos_data, list):
+                    rows = [row for row in photos_data if isinstance(row, dict)]
+            return rows
+        except Exception:
+            # Photos endpoint may not exist or may be unavailable; return empty list
             return []
 
     def get_model_file_detail(self, file_ref: str, *, model_ref: str | None = None) -> dict[str, Any]:
