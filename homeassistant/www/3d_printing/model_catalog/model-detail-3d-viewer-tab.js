@@ -20,15 +20,20 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._scene = null;
     this._camera = null;
     this._renderer = null;
+    this._controls = null;
     this._geometry = null;
     this._mesh = null;
     this._gridHelper = null;
+    this._buildVolumeHelper = null;
     this._files = [];
     this._selectedFileIndex = 0;
     this._threejsLoaded = false;
+    this._orbitControlsLoaded = false;
     this._threejsLoadError = '';
     this._renderLoopId = null;
     this._isGridVisible = true;
+    this._isBuildVolumeVisible = false;
+    this._initialCameraPos = null;
   }
 
   setConfig(config) {
@@ -60,10 +65,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
     } catch (error) {
       this._threejsLoadError = String(error && error.message ? error.message : error || 'Failed to load Three.js');
     }
+    this._restoreViewerState();
     this._render();
   }
 
   disconnectedCallback() {
+    this._saveViewerState();
     if (this._renderLoopId) {
       cancelAnimationFrame(this._renderLoopId);
       this._renderLoopId = null;
@@ -77,29 +84,80 @@ class ModelDetail3DViewerTab extends HTMLElement {
   async _loadThreeJs() {
     if (window.THREE) {
       this._threejsLoaded = true;
-      return;
-    }
+    } else {
+      const sources = [
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+        'https://unpkg.com/three@0.128.0/build/three.min.js',
+      ];
 
-    const sources = [
-      'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
-      'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
-      'https://unpkg.com/three@0.128.0/build/three.min.js',
-    ];
-
-    let lastError = null;
-    for (const src of sources) {
-      try {
-        await this._loadScript(src);
-        if (window.THREE) {
-          this._threejsLoaded = true;
-          return;
+      let lastError = null;
+      for (const src of sources) {
+        try {
+          await this._loadScript(src);
+          if (window.THREE) {
+            this._threejsLoaded = true;
+            break;
+          }
+        } catch (error) {
+          lastError = error;
         }
-      } catch (error) {
-        lastError = error;
+      }
+
+      if (!this._threejsLoaded) {
+        throw lastError || new Error('Three.js failed to load from configured sources');
       }
     }
 
-    throw lastError || new Error('Three.js failed to load from configured sources');
+    if (!window.OrbitControls) {
+      const orbitSources = [
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.min.js',
+        'https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js',
+      ];
+
+      let lastError = null;
+      for (const src of orbitSources) {
+        try {
+          await this._loadScript(src);
+          if (window.OrbitControls) {
+            this._orbitControlsLoaded = true;
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!window.OrbitControls) {
+        console.warn('OrbitControls failed to load, camera rotation disabled');
+      }
+    } else {
+      this._orbitControlsLoaded = true;
+    }
+
+    if (!window.ThreeMFLoader) {
+      const loaderSources = [
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/3MFLoader.js',
+        'https://unpkg.com/three@0.128.0/examples/js/loaders/3MFLoader.js',
+      ];
+
+      let loaderError = null;
+      for (const src of loaderSources) {
+        try {
+          await this._loadScript(src);
+          if (window.ThreeMFLoader) {
+            break;
+          }
+        } catch (error) {
+          loaderError = error;
+        }
+      }
+
+      if (!window.ThreeMFLoader) {
+        console.warn('3MF loader not available, 3MF support disabled');
+      }
+    }
   }
 
   _loadScript(src) {
@@ -277,6 +335,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
           <div class="viewer-controls">
             <button id="btn-reset-view" title="Reset View">↻ Reset</button>
             <button id="btn-show-grid" title="Toggle Grid">⊞ Grid</button>
+            <button id="btn-build-volume" title="Show Build Volume">📦 Volume</button>
             <button id="btn-layer-colors" title="Layer Colors">🌈 Layers</button>
             <button id="btn-download" title="Download STL">⬇ Download</button>
           </div>
@@ -325,6 +384,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const gridButton = this.querySelector('#btn-show-grid');
     if (gridButton) {
       gridButton.addEventListener('click', () => this._toggleGrid());
+    }
+
+    const volumeButton = this.querySelector('#btn-build-volume');
+    if (volumeButton) {
+      volumeButton.addEventListener('click', () => this._toggleBuildVolume());
     }
 
     const layerButton = this.querySelector('#btn-layer-colors');
@@ -390,12 +454,42 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._gridHelper.visible = this._isGridVisible;
     this._scene.add(this._gridHelper);
 
+    const buildVolumeGeom = new window.THREE.BoxGeometry(256, 256, 256);
+    const buildVolumeMat = new window.THREE.LineBasicMaterial({
+      color: 0xffa500,
+      linewidth: 2,
+    });
+    const buildVolumeEdges = new window.THREE.EdgesGeometry(buildVolumeGeom);
+    this._buildVolumeHelper = new window.THREE.LineSegments(buildVolumeEdges, buildVolumeMat);
+    this._buildVolumeHelper.position.set(128, 128, 128);
+    this._buildVolumeHelper.visible = this._isBuildVolumeVisible;
+    this._scene.add(this._buildVolumeHelper);
+
     const axis = new window.THREE.AxesHelper(60);
     this._scene.add(axis);
+
+    if (window.OrbitControls && this._orbitControlsLoaded) {
+      this._controls = new window.OrbitControls(this._camera, this._renderer.domElement);
+      this._controls.enableDamping = true;
+      this._controls.dampingFactor = 0.05;
+      this._controls.autoRotate = false;
+      this._controls.enableZoom = true;
+      this._controls.enablePan = true;
+      this._controls.zoomSpeed = 1.0;
+      this._controls.rotateSpeed = 0.5;
+      this._controls.panSpeed = 0.5;
+      this._controls.minDistance = 10;
+      this._controls.maxDistance = 10000;
+    }
+
+    this._initialCameraPos = { x: this._camera.position.x, y: this._camera.position.y, z: this._camera.position.z };
 
     const animate = () => {
       this._renderLoopId = requestAnimationFrame(animate);
       if (this._renderer && this._scene && this._camera) {
+        if (this._controls) {
+          this._controls.update();
+        }
         this._renderer.render(this._scene, this._camera);
       }
     };
@@ -417,8 +511,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const fileType = String(file.file_type || '').toLowerCase();
     const filename = String(file.filename || '').toLowerCase();
     const isStl = filename.endsWith('.stl') || fileType.includes('stl');
-    if (!isStl) {
-      this._setError(`Unsupported file type for renderer: ${file.file_type || file.filename || 'unknown'}. STL is currently supported.`);
+    const is3mf = filename.endsWith('.3mf') || fileType.includes('3mf');
+    
+    if (!isStl && !is3mf) {
+      this._setError(`Unsupported file type: ${file.file_type || file.filename || 'unknown'}. Supported: STL, 3MF.`);
+      return;
+    }
+
+    if (is3mf && !window.ThreeMFLoader) {
+      this._setError('3MF format requires additional library. Try STL files.');
       return;
     }
 
@@ -430,9 +531,69 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const parsed = this._parseStl(arrayBuffer);
-    this._loadGeometry(parsed);
-    this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
+    
+    if (isStl) {
+      const parsed = this._parseStl(arrayBuffer);
+      this._loadGeometry(parsed);
+      this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
+    } else if (is3mf) {
+      await this._load3mf(arrayBuffer, file.filename);
+    }
+  }
+
+  async _load3mf(arrayBuffer, filename) {
+    try {
+      this._setRenderingStatus(`Parsing 3MF file...`);
+      const loader = new window.ThreeMFLoader();
+      const url = URL.createObjectURL(new Blob([arrayBuffer], { type: 'model/3mf' }));
+      
+      loader.load(url, (object) => {
+        URL.revokeObjectURL(url);
+        if (object.scene) {
+          this._load3mfScene(object.scene, filename);
+        } else if (object.geometry) {
+          this._loadGeometry({ geometry: object.geometry, triangleCount: 'multiple' });
+        }
+      }, (progress) => {
+        const pct = Math.round((progress.loaded / progress.total) * 100);
+        this._setRenderingStatus(`Loading 3MF ${pct}%...`);
+      }, (error) => {
+        this._setError(`3MF parsing failed: ${error.message}`);
+      });
+    } catch (error) {
+      this._setError(`3MF loading failed: ${error.message}`);
+    }
+  }
+
+  _load3mfScene(scene, filename) {
+    if (this._mesh) {
+      this._scene.remove(this._mesh);
+    }
+
+    let vertexCount = 0;
+    scene.traverse((child) => {
+      if (child.isMesh) {
+        if (child.geometry && child.geometry.attributes.position) {
+          vertexCount += child.geometry.attributes.position.count;
+        }
+        this._scene.add(child);
+      }
+    });
+
+    const triangleCount = Math.floor(vertexCount / 3);
+    
+    const bbox = new window.THREE.Box3().setFromObject(scene);
+    this._updateModelInfo(triangleCount, bbox);
+    this._fitCameraToGeometry(bbox);
+    
+    if (this._controls) {
+      const center = new window.THREE.Vector3();
+      bbox.getCenter(center);
+      this._controls.target.copy(center);
+      this._controls.update();
+    }
+    
+    this._setRenderingStatus(`Rendering 3MF (${triangleCount} triangles)`);
   }
 
   _buildFileDownloadUrl(file) {
@@ -543,6 +704,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
       return;
     }
     this._fitCameraToGeometry(this._geometry.boundingBox || null);
+    
+    if (this._controls) {
+      const center = new window.THREE.Vector3();
+      if (this._geometry.boundingBox) {
+        this._geometry.boundingBox.getCenter(center);
+      }
+      this._controls.target.copy(center);
+      this._controls.update();
+    }
   }
 
   _toggleGrid() {
@@ -551,6 +721,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     this._isGridVisible = !this._isGridVisible;
     this._gridHelper.visible = this._isGridVisible;
+  }
+
+  _toggleBuildVolume() {
+    if (!this._buildVolumeHelper) {
+      return;
+    }
+    this._isBuildVolumeVisible = !this._isBuildVolumeVisible;
+    this._buildVolumeHelper.visible = this._isBuildVolumeVisible;
   }
 
   _downloadCurrentFile() {
@@ -685,6 +863,44 @@ class ModelDetail3DViewerTab extends HTMLElement {
       return parsed && typeof parsed === 'object' ? parsed : null;
     } catch (_error) {
       return null;
+    }
+  }
+
+  _saveViewerState() {
+    try {
+      const stateKey = `model_viewer_state_${String(this._config.model_ref || 'default')}`;
+      const state = {
+        selectedFileIndex: this._selectedFileIndex,
+        gridVisible: this._isGridVisible,
+        buildVolumeVisible: this._isBuildVolumeVisible,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem(stateKey, JSON.stringify(state));
+    } catch (_error) {
+      // Silently fail if sessionStorage is unavailable
+    }
+  }
+
+  _restoreViewerState() {
+    try {
+      const stateKey = `model_viewer_state_${String(this._config.model_ref || 'default')}`;
+      const saved = sessionStorage.getItem(stateKey);
+      if (saved) {
+        const state = JSON.parse(saved);
+        if (typeof state === 'object' && state !== null) {
+          if (typeof state.selectedFileIndex === 'number' && state.selectedFileIndex < this._files.length) {
+            this._selectedFileIndex = state.selectedFileIndex;
+          }
+          if (typeof state.gridVisible === 'boolean') {
+            this._isGridVisible = state.gridVisible;
+          }
+          if (typeof state.buildVolumeVisible === 'boolean') {
+            this._isBuildVolumeVisible = state.buildVolumeVisible;
+          }
+        }
+      }
+    } catch (_error) {
+      // Silently fail if sessionStorage is unavailable or corrupted
     }
   }
 }
