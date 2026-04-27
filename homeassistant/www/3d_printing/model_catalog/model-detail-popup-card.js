@@ -53,6 +53,10 @@ class ModelDetailPopupCard extends HTMLElement {
     
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
+    this._boundChangeHandler = this._handleChange.bind(this);
+    this._boundDragOverHandler = this._handleDragOver.bind(this);
+    this._boundDragLeaveHandler = this._handleDragLeave.bind(this);
+    this._boundDropHandler = this._handleDrop.bind(this);
   }
 
   setConfig(config) {
@@ -102,10 +106,18 @@ class ModelDetailPopupCard extends HTMLElement {
 
   connectedCallback() {
     this.shadowRoot.addEventListener("click", this._boundClickHandler);
+    this.shadowRoot.addEventListener("change", this._boundChangeHandler);
+    this.shadowRoot.addEventListener("dragover", this._boundDragOverHandler);
+    this.shadowRoot.addEventListener("dragleave", this._boundDragLeaveHandler);
+    this.shadowRoot.addEventListener("drop", this._boundDropHandler);
   }
 
   disconnectedCallback() {
     this.shadowRoot.removeEventListener("click", this._boundClickHandler);
+    this.shadowRoot.removeEventListener("change", this._boundChangeHandler);
+    this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
+    this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
+    this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
   }
 
   _resolveModelSidecarUrl() {
@@ -289,11 +301,78 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // File input change
-    if (target.id === 'photo-file-input') {
-      this._handlePhotoFileSelect(target.files);
+  }
+
+  _handleChange(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
       return;
     }
+    if (target.id !== 'photo-file-input') {
+      return;
+    }
+
+    this._handlePhotoFileSelect(target.files);
+    target.value = '';
+  }
+
+  _getPhotoUploadArea(target) {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+    return target.closest('#photo-upload-area');
+  }
+
+  _setPhotoUploadDragState(isActive) {
+    const uploadArea = this.shadowRoot.getElementById('photo-upload-area');
+    if (!uploadArea) {
+      return;
+    }
+    uploadArea.style.background = isActive ? 'rgba(33, 150, 243, 0.12)' : 'transparent';
+    uploadArea.style.borderColor = isActive ? 'var(--primary-color)' : 'var(--divider-color)';
+  }
+
+  _handleDragOver(event) {
+    const uploadArea = this._getPhotoUploadArea(event.target);
+    if (!uploadArea || !this._isEditMode || this._activeTab !== 'gallery') {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'copy';
+    }
+    this._setPhotoUploadDragState(true);
+  }
+
+  _handleDragLeave(event) {
+    const uploadArea = this._getPhotoUploadArea(event.target);
+    if (!uploadArea) {
+      return;
+    }
+
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && uploadArea.contains(relatedTarget)) {
+      return;
+    }
+    this._setPhotoUploadDragState(false);
+  }
+
+  _handleDrop(event) {
+    const uploadArea = this._getPhotoUploadArea(event.target);
+    if (!uploadArea || !this._isEditMode || this._activeTab !== 'gallery') {
+      return;
+    }
+
+    event.preventDefault();
+    this._setPhotoUploadDragState(false);
+
+    const files = event.dataTransfer?.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    this._handlePhotoFileSelect(files);
   }
 
   async _loadModelDetail() {
