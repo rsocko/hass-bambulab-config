@@ -2583,7 +2583,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "success": True,
                 "file_id": file_id,
                 "filename": file_obj.get("filename"),
-                "download_url": f"/api/files/{file_id}/download",
+                "download_url": f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download",
                 "file_type": file_obj.get("file_type"),
             }
             if include_debug:
@@ -2595,6 +2595,82 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
                 payload["_debug"] = debug_info
             return JSONResponse(status_code=500, content=payload)
+
+    @app.get("/api/models/{model_ref:path}/files/{file_id}/download")
+    def download_model_file_endpoint(model_ref: str, file_id: str) -> Response:
+        """Proxy model file bytes from Manyfold so HA frontend can fetch geometry directly."""
+        state: AppState = app.state.model_catalog
+        client: ManyfoldClient = app.state.manyfold_client
+
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+
+        def _normalize_candidate_url(value: Any) -> str | None:
+            text = str(value or "").strip()
+            if not text:
+                return None
+            return canonicalize_model_url(client.base_url, text)
+
+        source_url: str | None = None
+        try:
+            detail_payload = client.get_model_file_detail(file_id, model_ref=resolved_ref)
+            source_url = (
+                _normalize_candidate_url(detail_payload.get("contentUrl"))
+                or _normalize_candidate_url(detail_payload.get("download_url"))
+                or _normalize_candidate_url(detail_payload.get("url"))
+                or _normalize_candidate_url(detail_payload.get("@id"))
+            )
+        except Exception:
+            source_url = None
+
+        if not source_url:
+            try:
+                files_payload = client.list_model_files(resolved_ref)
+            except Exception:
+                files_payload = []
+
+            if not files_payload:
+                try:
+                    detail_payload = client.get_model_detail(resolved_ref)
+                except Exception:
+                    detail_payload = {}
+                has_part = detail_payload.get("hasPart")
+                if isinstance(has_part, list):
+                    files_payload = [row for row in has_part if isinstance(row, dict)]
+
+            for row in files_payload:
+                row_id = row.get("id") if row.get("id") is not None else row.get("@id")
+                if str(row_id) != str(file_id):
+                    continue
+                source_url = (
+                    _normalize_candidate_url(row.get("contentUrl"))
+                    or _normalize_candidate_url(row.get("download_url"))
+                    or _normalize_candidate_url(row.get("url"))
+                    or _normalize_candidate_url(row.get("@id"))
+                )
+                if source_url:
+                    break
+
+        if not source_url:
+            return JSONResponse(status_code=404, content={"error": "Model file source not found"})
+
+        try:
+            binary_response = client.fetch_binary(source_url)
+        except Exception as exc:
+            return JSONResponse(status_code=502, content={"error": f"Failed to fetch model file: {exc}"})
+
+        media_type = binary_response.headers.get("content-type") or "application/octet-stream"
+        content_disposition = binary_response.headers.get("content-disposition")
+        headers: dict[str, str] = {}
+        if content_disposition:
+            headers["Content-Disposition"] = content_disposition
+        else:
+            headers["Content-Disposition"] = f'inline; filename="{file_id}.bin"'
+
+        return Response(content=binary_response.content, media_type=media_type, headers=headers)
 
     # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
