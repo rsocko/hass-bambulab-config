@@ -788,6 +788,20 @@ class ModelDetailPopupCard extends HTMLElement {
               <div class="detail-value">${this._escapeHtml(enrichment.difficulty_level)}</div>
             </div>
           ` : ''}
+
+          ${enrichment.print_time_estimate !== null && enrichment.print_time_estimate !== undefined && enrichment.print_time_estimate !== '' ? `
+            <div class="detail-section">
+              <div class="detail-section-title">Print Time Estimate</div>
+              <div class="detail-value">${this._escapeHtml(String(enrichment.print_time_estimate))}s</div>
+            </div>
+          ` : ''}
+
+          ${enrichment.support_type_hint ? `
+            <div class="detail-section">
+              <div class="detail-section-title">Support Type</div>
+              <div class="detail-value">${this._escapeHtml(enrichment.support_type_hint)}</div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -1231,8 +1245,12 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     const editForm = document.createElement('model-detail-edit-form');
+    const modelDataForEdit = {
+      ...(this._modelDetail.model || {}),
+      enrichment: this._modelDetail.enrichment || {},
+    };
     editForm.setConfig({
-      model_data: this._modelDetail.model,
+      model_data: modelDataForEdit,
       advanced_section_open: this._editAdvancedSectionOpen,
       on_advanced_toggle: (isOpen) => {
         this._editAdvancedSectionOpen = Boolean(isOpen);

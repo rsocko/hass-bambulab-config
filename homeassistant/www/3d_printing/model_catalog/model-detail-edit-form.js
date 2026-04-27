@@ -314,8 +314,8 @@ class ModelDetailEditForm extends HTMLElement {
     }
     if (this._model.enrichment) {
       const enrichment = this._model.enrichment;
-      if (enrichment.print_time_estimate) {
-        if (printTimeInput) printTimeInput.value = enrichment.print_time_estimate;
+      if (enrichment.print_time_estimate !== null && enrichment.print_time_estimate !== undefined && enrichment.print_time_estimate !== '') {
+        if (printTimeInput) printTimeInput.value = String(enrichment.print_time_estimate);
       }
       if (enrichment.support_type_hint) {
         if (supportTypeInput) supportTypeInput.value = enrichment.support_type_hint;
@@ -323,8 +323,8 @@ class ModelDetailEditForm extends HTMLElement {
       if (enrichment.difficulty_level) {
         if (difficultyInput) difficultyInput.value = enrichment.difficulty_level;
       }
-      if (enrichment.print_notes) {
-        if (notesInput) notesInput.value = enrichment.print_notes;
+      if (enrichment.print_notes !== null && enrichment.print_notes !== undefined) {
+        if (notesInput) notesInput.value = String(enrichment.print_notes);
       }
     }
   }
