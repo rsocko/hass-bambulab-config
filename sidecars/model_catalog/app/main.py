@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from dataclasses import asdict
@@ -42,6 +44,16 @@ from .db import (
 from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
+
+
+MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
+MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
+MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
+ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 
 
 class AppState:
@@ -95,6 +107,143 @@ def _coerce_int(value: object | None) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _detect_upload_photo_mime(photo_bytes: bytes) -> str | None:
+    if photo_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if photo_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if photo_bytes.startswith(b"RIFF") and len(photo_bytes) >= 12 and photo_bytes[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _decode_uploaded_photo(photo_file: str) -> tuple[str, bytes]:
+    normalized = str(photo_file or "").strip()
+    if not normalized:
+        raise ValueError("Photo file is required")
+
+    mime_type: str | None = None
+    encoded_payload = normalized
+    data_uri_match = re.match(r"^data:(?P<mime>[^;]+);base64,(?P<data>.+)$", normalized, flags=re.DOTALL)
+    if data_uri_match:
+        mime_type = str(data_uri_match.group("mime") or "").strip().lower()
+        encoded_payload = str(data_uri_match.group("data") or "")
+
+    encoded_payload = re.sub(r"\s+", "", encoded_payload)
+    if not encoded_payload:
+        raise ValueError("Photo file is required")
+
+    try:
+        photo_bytes = base64.b64decode(encoded_payload, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("Invalid base64 photo payload") from exc
+
+    if not photo_bytes:
+        raise ValueError("Photo file is required")
+    if len(photo_bytes) > MAX_UPLOAD_PHOTO_BYTES:
+        raise ValueError("File too large (max 10MB)")
+
+    detected_type = _detect_upload_photo_mime(photo_bytes)
+    normalized_type = str(mime_type or detected_type or "").strip().lower()
+    if normalized_type not in ALLOWED_UPLOAD_PHOTO_TYPES:
+        raise ValueError("Invalid file type (must be JPG, PNG, or WebP)")
+    if detected_type and detected_type != normalized_type:
+        raise ValueError("Invalid file type (must be JPG, PNG, or WebP)")
+
+    return normalized_type, photo_bytes
+
+
+def _model_photo_storage_root(settings: Settings) -> Path:
+    if str(settings.db_path) == ":memory:":
+        return Path.cwd() / ".model_catalog_photos"
+    return settings.db_path.parent / "model_catalog_photos"
+
+
+def _normalize_uploaded_photo_rows(value: object) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            continue
+        photo_id = str(row.get("id") or "").strip()
+        relative_path = str(row.get("relative_path") or "").strip()
+        if not photo_id or not relative_path:
+            continue
+        normalized.append(
+            {
+                "id": photo_id,
+                "relative_path": relative_path.replace("\\", "/"),
+                "filename": str(row.get("filename") or "").strip() or None,
+                "mime_type": str(row.get("mime_type") or "").strip() or None,
+                "created_at": str(row.get("created_at") or "").strip() or None,
+            }
+        )
+    return normalized
+
+
+def _read_uploaded_photo_rows(*, db_path: Path, model_ref: str) -> list[dict[str, Any]]:
+    return _normalize_uploaded_photo_rows(
+        read_model_field(db_path=db_path, model_ref=model_ref, field_key=MODEL_UPLOAD_PHOTOS_FIELD) or []
+    )
+
+
+def _write_uploaded_photo_rows(*, db_path: Path, model_ref: str, photo_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized_rows = _normalize_uploaded_photo_rows(photo_rows)
+    set_model_field(
+        db_path=db_path,
+        model_ref=model_ref,
+        field_key=MODEL_UPLOAD_PHOTOS_FIELD,
+        field_value=normalized_rows,
+    )
+    return normalized_rows
+
+
+def _serialize_uploaded_photo_rows(
+    *,
+    request: Request,
+    settings: Settings,
+    model_ref: str,
+    preview_photo_id: str | None,
+    uploaded_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    storage_root = _model_photo_storage_root(settings)
+    normalized: list[dict[str, Any]] = []
+    for row in uploaded_rows:
+        photo_id = str(row.get("id") or "").strip()
+        relative_path = str(row.get("relative_path") or "").strip()
+        if not photo_id or not relative_path:
+            continue
+
+        storage_path = (storage_root / Path(relative_path)).resolve()
+        try:
+            storage_path.relative_to(storage_root.resolve())
+        except ValueError:
+            continue
+        if not storage_path.exists() or not storage_path.is_file():
+            continue
+
+        image_url = str(
+            request.url_for(
+                "get_uploaded_model_photo_endpoint",
+                model_ref=model_ref,
+                photo_id=photo_id,
+            )
+        )
+        normalized.append(
+            {
+                "id": photo_id,
+                "image_url": image_url,
+                "thumbnail_url": image_url,
+                "filename": row.get("filename") or storage_path.name,
+                "created_at": row.get("created_at"),
+                "is_preview": bool(preview_photo_id and preview_photo_id == photo_id),
+                "source": "local_upload",
+            }
+        )
+    return normalized
 
 
 def _matches_priority_filters(
@@ -2530,7 +2679,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         response["model"]["updated_at"] = manyfold_detail.get("updated_at")
 
         response["enrichment"] = {
-            "custom_fields": custom_fields,
+            "custom_fields": {
+                key: value
+                for key, value in custom_fields.items()
+                if key not in {MODEL_UPLOAD_PHOTOS_FIELD, MODEL_PREVIEW_PHOTO_FIELD}
+            },
             "color_scheme": custom_fields.get("color_scheme", []),
             "print_time_estimate": custom_fields.get("print_time_estimate"),
             "support_type_hint": custom_fields.get("support_type_hint"),
@@ -2559,6 +2712,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             debug_info["degraded_reasons"].append("photos_unavailable")
             debug_info["photos_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
 
+        preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
+        local_uploaded_photos = _serialize_uploaded_photo_rows(
+            request=request,
+            settings=state.settings,
+            model_ref=canonical_ref,
+            preview_photo_id=preview_photo_id,
+            uploaded_rows=_read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=canonical_ref),
+        )
+        if local_uploaded_photos:
+            existing_photo_ids = {str(photo.get("id") or "") for photo in response["photos"]}
+            response["photos"].extend(
+                photo for photo in local_uploaded_photos if str(photo.get("id") or "") not in existing_photo_ids
+            )
+
         if not response["photos"]:
             fallback_photos = _derive_photos_from_model_files(manyfold_files, photo_proxy_url, client.base_url)
             if fallback_photos:
@@ -2574,6 +2741,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 response["photos"] = fallback_photos
                 debug_info["photos_fallback"] = "preview_url"
                 debug_info["photos_count"] = len(response["photos"])
+
+        response["preview_photo_id"] = preview_photo_id
+        if preview_photo_id:
+            for photo in response["photos"]:
+                if str(photo.get("id") or "") == preview_photo_id:
+                    photo["is_preview"] = True
         
         response["ranking"] = None if ranking is None else _ranking_payload(ranking)
         response["linked_archives"] = linked_archives
@@ -2653,33 +2826,115 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
 
     @app.post("/api/models/{model_ref:path}/photos")
-    def upload_photo_endpoint(request: Request, model_ref: str, photo_file: str, 
-                             set_as_preview: bool = False) -> dict[str, Any]:
+    async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
         """Upload a photo to a model (Phase 3.1)."""
         state: AppState = app.state.model_catalog
-        
+
+        payload: dict[str, Any] = {}
+        try:
+            parsed_payload = await request.json()
+            if isinstance(parsed_payload, dict):
+                payload = parsed_payload
+        except Exception:
+            payload = {}
+
+        photo_file = str(payload.get("photo_file") or "")
+        set_as_preview = bool(payload.get("set_as_preview") or False)
+
         # Resolve model reference
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
-        
-        # For Phase 3.1: Store photo reference in enrichment
-        # Full implementation would handle actual file storage
-        photo_id = f"photo_{int(datetime.now(timezone.utc).timestamp())}"
-        
+
+        try:
+            mime_type, photo_bytes = _decode_uploaded_photo(photo_file)
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"success": False, "error": str(exc)})
+
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+        file_extension = ALLOWED_UPLOAD_PHOTO_TYPES[mime_type]
+        photo_digest = hashlib.sha256(photo_bytes).hexdigest()
+        photo_id = f"photo-{photo_digest[:16]}"
+        now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+        storage_root = _model_photo_storage_root(state.settings)
+        model_folder = storage_root / hashlib.sha256(resolved_ref.encode("utf-8")).hexdigest()[:16]
+        model_folder.mkdir(parents=True, exist_ok=True)
+        storage_path = model_folder / f"{photo_id}{file_extension}"
+        storage_path.write_bytes(photo_bytes)
+
+        try:
+            relative_path = str(storage_path.relative_to(storage_root)).replace("\\", "/")
+        except ValueError:
+            relative_path = storage_path.name
+
+        uploaded_rows = _read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=resolved_ref)
+        uploaded_rows = [row for row in uploaded_rows if str(row.get("id") or "") != photo_id]
+        uploaded_rows.append(
+            {
+                "id": photo_id,
+                "relative_path": relative_path,
+                "filename": storage_path.name,
+                "mime_type": mime_type,
+                "created_at": now_iso,
+            }
+        )
+        _write_uploaded_photo_rows(
+            db_path=state.settings.db_path,
+            model_ref=resolved_ref,
+            photo_rows=uploaded_rows,
+        )
+
         if set_as_preview:
             set_model_field(
                 db_path=state.settings.db_path,
-                model_ref=str(summary.public_id or summary.model_id),
-                field_key="preview_photo_id",
+                model_ref=resolved_ref,
+                field_key=MODEL_PREVIEW_PHOTO_FIELD,
                 field_value=photo_id
             )
-        
+
+        photo_url = str(
+            request.url_for(
+                "get_uploaded_model_photo_endpoint",
+                model_ref=resolved_ref,
+                photo_id=photo_id,
+            )
+        )
+
         return {
             "success": True,
             "photo_id": photo_id,
-            "message": "Photo uploaded successfully"
+            "photo_url": photo_url,
+            "message": "Photo uploaded successfully",
+            "photo": {
+                "id": photo_id,
+                "url": photo_url,
+                "thumbnail_url": photo_url,
+                "uploaded_at": now_iso,
+            },
         }
+
+    @app.get("/api/models/{model_ref:path}/photos/{photo_id}/content", name="get_uploaded_model_photo_endpoint")
+    def get_uploaded_model_photo_endpoint(model_ref: str, photo_id: str) -> Response:
+        """Serve locally stored uploaded model photos."""
+        state: AppState = app.state.model_catalog
+        uploaded_rows = _read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=model_ref)
+        photo_row = next((row for row in uploaded_rows if str(row.get("id") or "") == str(photo_id)), None)
+        if photo_row is None:
+            return JSONResponse(status_code=404, content={"error": "Photo not found"})
+
+        storage_root = _model_photo_storage_root(state.settings)
+        storage_path = (storage_root / Path(str(photo_row.get("relative_path") or ""))).resolve()
+        try:
+            storage_path.relative_to(storage_root.resolve())
+        except ValueError:
+            return JSONResponse(status_code=404, content={"error": "Photo not found"})
+        if not storage_path.exists() or not storage_path.is_file():
+            return JSONResponse(status_code=404, content={"error": "Photo not found"})
+
+        media_type = str(photo_row.get("mime_type") or "application/octet-stream")
+        headers = {"Content-Disposition": f'inline; filename="{storage_path.name}"'}
+        return Response(content=storage_path.read_bytes(), media_type=media_type, headers=headers)
 
     # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 

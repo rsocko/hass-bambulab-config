@@ -153,10 +153,20 @@ class TestPhotoGalleryIntegration:
         
         # Find first thumbnail
         thumbnail = await page.locator('.gallery-thumbnail').first
+        await thumbnail.hover()
         
         # Find preview button in thumbnail overlay
         preview_btn = await thumbnail.locator('[data-action="preview"]')
         assert await preview_btn.count() > 0, "Preview button should be present"
+        await preview_btn.click(force=True)
+
+        lightbox = page.locator('.photo-lightbox[role="dialog"]')
+        await lightbox.wait_for(state="visible", timeout=5000)
+        assert await lightbox.is_visible(), "Photo preview lightbox should open"
+
+        close_btn = page.locator('#btn-photo-lightbox-close')
+        await close_btn.click()
+        await lightbox.wait_for(state="hidden", timeout=5000)
 
     async def test_photo_upload_button_edit_mode(self, page):
         """Test upload button appears in edit mode"""

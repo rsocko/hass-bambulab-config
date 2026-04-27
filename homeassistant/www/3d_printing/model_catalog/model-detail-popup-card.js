@@ -44,6 +44,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._conflictDialog = null;
     this._showConflictDialog = false;
     this._photoGallery = [];
+    this._activePhotoIndex = null;
     
     // Render stability: prevent re-rendering during interactions
     this._isInteracting = false;
@@ -225,13 +226,41 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    if (target.closest('#btn-photo-lightbox-close')) {
+      event.preventDefault();
+      this._closePhotoPreview();
+      return;
+    }
+
+    if (target.closest('#btn-photo-lightbox-prev')) {
+      event.preventDefault();
+      this._stepPhotoPreview(-1);
+      return;
+    }
+
+    if (target.closest('#btn-photo-lightbox-next')) {
+      event.preventDefault();
+      this._stepPhotoPreview(1);
+      return;
+    }
+
+    if (target.classList && target.classList.contains('photo-lightbox')) {
+      event.preventDefault();
+      this._closePhotoPreview();
+      return;
+    }
+
     // Gallery photo actions
-    const photoBtn = target.closest('[data-action]');
+    const photoBtn = target.closest('.gallery-thumbnail [data-action]');
     if (photoBtn && this._activeTab === 'gallery') {
       event.preventDefault();
       const action = photoBtn.dataset.action;
-      const photoId = photoBtn.closest('.gallery-thumbnail').dataset.photoId;
-      const photoIdx = parseInt(photoBtn.closest('.gallery-thumbnail').dataset.photoIndex);
+      const photoTile = photoBtn.closest('.gallery-thumbnail');
+      if (!photoTile) {
+        return;
+      }
+      const photoId = photoTile.dataset.photoId;
+      const photoIdx = parseInt(photoTile.dataset.photoIndex, 10);
       
       if (action === 'preview') {
         this._handlePhotoPreview(photoIdx);
@@ -641,6 +670,136 @@ class ModelDetailPopupCard extends HTMLElement {
           background: #f44336;
           color: white;
         }
+
+        .photo-lightbox {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.82);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1100;
+          padding: 24px;
+          box-sizing: border-box;
+        }
+
+        .photo-lightbox-content {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          max-width: min(96vw, 1200px);
+          max-height: min(92vh, 900px);
+          width: 100%;
+        }
+
+        .photo-lightbox-stage {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 320px;
+          border-radius: 12px;
+          overflow: hidden;
+          background: rgba(9, 14, 23, 0.92);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        }
+
+        .photo-lightbox-image {
+          display: block;
+          max-width: 100%;
+          max-height: calc(92vh - 120px);
+          object-fit: contain;
+          background: transparent;
+        }
+
+        .photo-lightbox-close,
+        .photo-lightbox-nav {
+          position: absolute;
+          border: none;
+          border-radius: 999px;
+          width: 44px;
+          height: 44px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: #fff;
+          background: rgba(15,23,42,0.72);
+          backdrop-filter: blur(10px);
+        }
+
+        .photo-lightbox-close {
+          top: 16px;
+          right: 16px;
+          font-size: 22px;
+          z-index: 1;
+        }
+
+        .photo-lightbox-nav {
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 26px;
+        }
+
+        .photo-lightbox-nav.prev {
+          left: 16px;
+        }
+
+        .photo-lightbox-nav.next {
+          right: 16px;
+        }
+
+        .photo-lightbox-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          color: #fff;
+        }
+
+        .photo-lightbox-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .photo-lightbox-counter {
+          flex: 0 0 auto;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(15,23,42,0.72);
+        }
+
+        @media (max-width: 640px) {
+          .photo-lightbox {
+            padding: 12px;
+          }
+
+          .photo-lightbox-close,
+          .photo-lightbox-nav {
+            width: 38px;
+            height: 38px;
+          }
+
+          .photo-lightbox-nav.prev {
+            left: 8px;
+          }
+
+          .photo-lightbox-nav.next {
+            right: 8px;
+          }
+
+          .photo-lightbox-meta {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
       </style>
       
       <div class="popup-container">
@@ -665,6 +824,8 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
         </div>
       ` : ''}
+
+      ${this._renderPhotoLightbox()}
     `;
 
     return popupHtml;
@@ -1335,10 +1496,65 @@ class ModelDetailPopupCard extends HTMLElement {
   _handlePhotoPreview(photoIdx) {
     const photos = this._modelDetail.photos || [];
     if (photoIdx < 0 || photoIdx >= photos.length) return;
-    
-    const photo = photos[photoIdx];
-    console.log('Preview photo:', photo);
-    // Could open a modal or lightbox here
+
+    this._activePhotoIndex = photoIdx;
+    this._render();
+  }
+
+  _closePhotoPreview() {
+    if (this._activePhotoIndex == null) {
+      return;
+    }
+    this._activePhotoIndex = null;
+    this._render();
+  }
+
+  _stepPhotoPreview(direction) {
+    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
+    if (!photos.length || this._activePhotoIndex == null) {
+      return;
+    }
+
+    const nextIndex = (this._activePhotoIndex + direction + photos.length) % photos.length;
+    this._activePhotoIndex = nextIndex;
+    this._render();
+  }
+
+  _renderPhotoLightbox() {
+    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
+    if (!photos.length || this._activePhotoIndex == null) {
+      return '';
+    }
+
+    const index = Math.max(0, Math.min(this._activePhotoIndex, photos.length - 1));
+    const photo = photos[index] || {};
+    const imageUrl = String(photo.image_url || photo.thumbnail_url || '').trim();
+    if (!imageUrl) {
+      return '';
+    }
+
+    const photoName = String(photo.filename || `Photo ${index + 1}`).trim() || `Photo ${index + 1}`;
+    const escapedName = this._escapeHtml(photoName);
+    const escapedImageUrl = this._escapeHtml(imageUrl);
+
+    return `
+      <div class="photo-lightbox" role="dialog" aria-modal="true" aria-label="Photo preview">
+        <div class="photo-lightbox-content">
+          <div class="photo-lightbox-stage">
+            <button class="photo-lightbox-close" id="btn-photo-lightbox-close" type="button" aria-label="Close photo preview">✕</button>
+            ${photos.length > 1 ? `
+              <button class="photo-lightbox-nav prev" id="btn-photo-lightbox-prev" type="button" aria-label="Previous photo">‹</button>
+              <button class="photo-lightbox-nav next" id="btn-photo-lightbox-next" type="button" aria-label="Next photo">›</button>
+            ` : ''}
+            <img class="photo-lightbox-image" src="${escapedImageUrl}" alt="${escapedName}">
+          </div>
+          <div class="photo-lightbox-meta">
+            <div class="photo-lightbox-title">${escapedName}</div>
+            <div class="photo-lightbox-counter">${index + 1} / ${photos.length}</div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   async _handleSetPhotoPreview(photoId) {
