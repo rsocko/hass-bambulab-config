@@ -32,6 +32,7 @@
 
 ### 🎨 Design & Reference
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
+- **[Phase 6: Publish Uploaded Photos To Manyfold](phase-6-manyfold-photo-publication-design.md)** ← Later-phase design for promoting staged model photos into Manyfold media
 - **[Phase 3.0 Implementation Guide](phase-3-implementation-guide.md)** ← Completed phase reference
 - **[Print History Features](../print_history/)** ← Related features
 - **[Bambuddy API Reference](../../../bambuddy/README.md)** ← Backend API
