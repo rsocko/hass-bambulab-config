@@ -537,32 +537,63 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._setError(`Unsupported file type: ${file.file_type || file.filename || 'unknown'}. Supported: STL, 3MF.`);
       return;
     }
-
-    if (is3mf && !this._has3mfLoader()) {
-      this._setError('3MF format requires additional library. Try STL files.');
-      return;
-    }
-
-    const sourceUrl = this._buildFileDownloadUrl(file);
-    this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
-    const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
-    if (!response.ok) {
-      throw new Error(`Download failed (${response.status})`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
     
     if (isStl) {
+      const sourceUrl = this._buildFileDownloadUrl(file);
+      this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
+      const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
       const parsed = this._parseStl(arrayBuffer);
       this._loadGeometry(parsed);
       this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
     } else if (is3mf) {
-      await this._load3mf(arrayBuffer, file.filename);
+      await this._load3mf(file);
     }
   }
 
-  async _load3mf(arrayBuffer, filename) {
+  async _load3mf(file) {
+    const filename = String(file && file.filename || 'model');
+    const geometryUrl = this._buildGeometryUrl(file);
+    let geometryError = null;
+
     try {
+      this._setRenderingStatus(`Fetching ${filename} geometry...`);
+      const response = await fetch(geometryUrl, this._buildFetchOptions(geometryUrl));
+      if (!response.ok) {
+        throw new Error(`Geometry request failed (${response.status})`);
+      }
+
+      const payload = await response.json();
+      const parsed = this._normalizeParsedGeometryPayload(payload);
+      if (parsed) {
+        this._loadGeometry(parsed);
+        this._setRenderingStatus(`Rendering ${filename} (${parsed.triangleCount} triangles)`);
+        return;
+      }
+
+      geometryError = new Error(String(payload && payload.error ? payload.error : '3MF geometry payload did not include mesh data.'));
+    } catch (error) {
+      geometryError = error;
+    }
+
+    if (!this._has3mfLoader()) {
+      throw geometryError || new Error('3MF geometry unavailable.');
+    }
+
+    const sourceUrl = this._buildFileDownloadUrl(file);
+
+    try {
+      this._setRenderingStatus(`Downloading ${filename}...`);
+      const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
       this._setRenderingStatus(`Parsing 3MF file...`);
       const loader = new window.THREE.ThreeMFLoader();
 
@@ -591,8 +622,24 @@ class ModelDetail3DViewerTab extends HTMLElement {
         },
       );
     } catch (error) {
-      this._setError(`3MF loading failed: ${error.message}`);
+      const detail = geometryError && geometryError.message ? ` Parsed geometry failed: ${geometryError.message}.` : '';
+      this._setError(`3MF loading failed:${detail} ${error.message}`.trim());
     }
+  }
+
+  _normalizeParsedGeometryPayload(payload) {
+    const geometry = payload && payload.geometry;
+    const vertices = geometry && Array.isArray(geometry.vertices) ? geometry.vertices : null;
+    if (!geometry || geometry.format !== 'triangles' || !vertices || vertices.length < 9) {
+      return null;
+    }
+
+    const triangleCount = Number(geometry.triangle_count);
+    return {
+      vertices: Float32Array.from(vertices),
+      normals: null,
+      triangleCount: Number.isFinite(triangleCount) && triangleCount > 0 ? triangleCount : Math.floor(vertices.length / 9),
+    };
   }
 
   _load3mfObject(object, filename) {
@@ -709,6 +756,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
     return `${base}/api/models/${modelRef}/files/${fileId}/download`;
+  }
+
+  _buildGeometryUrl(file) {
+    const base = String(this._config.model_sidecar_url || '').trim().replace(/\/+$/, '');
+    const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
+    const normalizedFileId = this._normalizeFileId(file && file.id || '');
+    const fileId = encodeURIComponent(normalizedFileId);
+    return `${base}/api/models/${modelRef}/geometry/${fileId}`;
   }
 
   _setRenderingStatus(message) {

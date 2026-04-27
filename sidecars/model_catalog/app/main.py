@@ -41,6 +41,7 @@ from .db import (
     upsert_model_ranking,
     update_archive_link,
 )
+from .geometry_3mf import extract_3mf_geometry
 from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
@@ -2953,6 +2954,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        def _normalize_candidate_url(value: Any) -> str | None:
+            text = str(value or "").strip()
+            if not text:
+                return None
+            return canonicalize_model_url(client.base_url, text)
         
         # Fetch model files using documented Manyfold route.
         try:
@@ -2966,15 +2973,44 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 if include_debug:
                     payload["_debug"] = debug_info
                 return JSONResponse(status_code=404, content=payload)
+
+            file_name = str(file_obj.get("filename") or "")
+            file_type = str(file_obj.get("file_type") or "")
+            source_url: str | None = None
+            try:
+                detail_payload = client.get_model_file_detail(file_id, model_ref=resolved_ref)
+                source_url = (
+                    _normalize_candidate_url(detail_payload.get("contentUrl"))
+                    or _normalize_candidate_url(detail_payload.get("download_url"))
+                    or _normalize_candidate_url(detail_payload.get("url"))
+                    or _normalize_candidate_url(detail_payload.get("@id"))
+                )
+            except Exception as exc:
+                debug_info["file_detail_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
+
+            if not source_url:
+                source_url = (
+                    _normalize_candidate_url(file_obj.get("contentUrl"))
+                    or _normalize_candidate_url(file_obj.get("download_url"))
+                    or _normalize_candidate_url(file_obj.get("url"))
+                )
+
+            download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
             
             # Return geometry download URL
             response_payload: dict[str, Any] = {
                 "success": True,
                 "file_id": file_id,
-                "filename": file_obj.get("filename"),
-                "download_url": f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download",
-                "file_type": file_obj.get("file_type"),
+                "filename": file_name,
+                "download_url": download_url,
+                "file_type": file_type,
             }
+
+            is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
+            if is_3mf and source_url:
+                binary_response = client.fetch_binary(source_url)
+                response_payload["geometry"] = extract_3mf_geometry(binary_response.content)
+
             if include_debug:
                 response_payload["_debug"] = debug_info
             return response_payload

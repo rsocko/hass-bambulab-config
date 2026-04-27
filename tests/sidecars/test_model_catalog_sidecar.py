@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
 import sqlite3
+import zipfile
 
 import httpx
 import pytest
@@ -35,6 +37,79 @@ def _build_settings(tmp_path: Path) -> Settings:
         image_revision="abc123",
         image_created="2026-04-22T00:00:00Z",
     )
+
+
+def _insert_cached_summary(settings: Settings, *, public_id: str, model_url: str, name: str = "Sample Model") -> None:
+        connection = sqlite3.connect(settings.db_path)
+        try:
+                connection.execute(
+                        """
+                        INSERT INTO manyfold_model_summary_cache (
+                                manyfold_model_url,
+                                manyfold_model_public_id,
+                                manyfold_model_name,
+                                manyfold_model_id,
+                                preview_url,
+                                creator_name,
+                                collection_names_json,
+                                keyword_names_json,
+                                raw_json,
+                                refreshed_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                                model_url,
+                                public_id,
+                                name,
+                                None,
+                                None,
+                                None,
+                                "[]",
+                                "[]",
+                                "{}",
+                                "2026-04-23T00:00:00Z",
+                        ),
+                )
+                connection.commit()
+        finally:
+                connection.close()
+
+
+def _build_simple_3mf(*, transform: str | None = None) -> bytes:
+        transform_attr = f' transform="{transform}"' if transform else ""
+        model_xml = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"1\"{transform_attr} />
+    </build>
+</model>
+""".encode("utf-8")
+
+        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("_rels/.rels", rels_xml)
+                archive.writestr("3D/3dmodel.model", model_xml)
+        return buffer.getvalue()
 
 
 def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
@@ -176,6 +251,77 @@ def test_preview_proxy_endpoint_returns_image_bytes(tmp_path: Path) -> None:
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("image/webp")
         assert response.content == b"RIFFproxyWEBP"
+
+
+def test_geometry_endpoint_returns_parsed_3mf_mesh(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(settings, public_id="abc123", model_url="http://manyfold.test/models/abc123")
+    package_bytes = _build_simple_3mf()
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, model_ref: str) -> list[dict[str, object]]:
+            assert model_ref == "abc123"
+            return [{"id": "file123", "filename": "sample.3mf", "file_type": "model/3mf"}]
+
+        def get_model_file_detail(self, file_id: str, model_ref: str | None = None) -> dict[str, object]:
+            assert file_id == "file123"
+            assert model_ref == "abc123"
+            return {"contentUrl": "http://manyfold.test/models/abc123/model_files/file123.3mf"}
+
+        def fetch_binary(self, url: str) -> httpx.Response:
+            assert url == "http://manyfold.test/models/abc123/model_files/file123.3mf"
+            return httpx.Response(200, headers={"content-type": "model/3mf"}, content=package_bytes)
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/geometry/file123")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["file_type"] == "model/3mf"
+    assert payload["geometry"]["format"] == "triangles"
+    assert payload["geometry"]["triangle_count"] == 1
+    assert payload["geometry"]["unit"] == "millimeter"
+    assert payload["geometry"]["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+
+
+def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(settings, public_id="abc123", model_url="http://manyfold.test/models/abc123")
+    package_bytes = _build_simple_3mf(transform="1 0 0 5 0 1 0 7 0 0 1 0")
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, model_ref: str) -> list[dict[str, object]]:
+            return [{"id": "file123", "filename": "sample.3mf", "file_type": "model/3mf"}]
+
+        def get_model_file_detail(self, file_id: str, model_ref: str | None = None) -> dict[str, object]:
+            return {"contentUrl": "http://manyfold.test/models/abc123/model_files/file123.3mf"}
+
+        def fetch_binary(self, url: str) -> httpx.Response:
+            return httpx.Response(200, headers={"content-type": "model/3mf"}, content=package_bytes)
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/geometry/file123")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
 
 
 def test_preview_proxy_endpoint_falls_back_to_alternate_derivative(tmp_path: Path) -> None:
