@@ -6,6 +6,7 @@ import logging
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -81,6 +82,139 @@ def _extract_model_id(payload: dict[str, Any]) -> str | None:
     if len(parts) >= 2 and parts[-2] == "models":
         return parts[-1]
     return None
+
+
+def _guess_manyfold_file_type(filename: str) -> str | None:
+    suffix = str(filename or "").strip().lower().rsplit(".", 1)
+    if len(suffix) != 2:
+        return None
+    extension = suffix[1]
+    return {
+        "3mf": "model/3mf",
+        "stl": "model/stl",
+        "obj": "model/obj",
+        "step": "model/step",
+        "stp": "model/step",
+        "gcode": "text/x.gcode",
+        "jpeg": "image/jpeg",
+        "jpg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+    }.get(extension)
+
+
+class _ManyfoldModelPageParser(HTMLParser):
+    def __init__(self, *, model_path: str, base_url: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self._model_path = model_path.rstrip("/")
+        self._base_url = base_url.rstrip("/")
+        self._captured_title: list[str] = []
+        self._captured_code: list[str] = []
+        self._in_title = False
+        self._in_code = False
+        self.files_by_id: dict[str, dict[str, Any]] = {}
+
+    @property
+    def title(self) -> str:
+        return " ".join(part.strip() for part in self._captured_title if part.strip()).strip()
+
+    @property
+    def current_filename(self) -> str | None:
+        text = " ".join(part.strip() for part in self._captured_code if part.strip()).strip()
+        return text or None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr_map = {key: value or "" for key, value in attrs}
+        if tag == "title":
+            self._in_title = True
+            self._captured_title = []
+            return
+        if tag == "code":
+            self._in_code = True
+            self._captured_code = []
+            return
+        if tag != "a":
+            return
+
+        href = str(attr_map.get("href") or "").strip()
+        if not href.startswith(f"{self._model_path}/model_files/"):
+            return
+        if href.endswith("/edit") or href.endswith("/bulk_edit"):
+            return
+
+        download_match = re.match(
+            rf"^{re.escape(self._model_path)}/model_files/(?P<file_id>[^./?]+)\.(?P<extension>[^/?]+)\?download=true$",
+            href,
+        )
+        if download_match:
+            file_id = download_match.group("file_id")
+            extension = download_match.group("extension")
+            filename = self.current_filename or f"{file_id}.{extension}"
+            row = self.files_by_id.setdefault(
+                file_id,
+                {
+                    "id": file_id,
+                    "@id": f"{self._model_path}/model_files/{file_id}",
+                    "filename": filename,
+                    "name": filename,
+                    "contentUrl": f"{self._model_path}/model_files/{file_id}.{extension}?download=true",
+                },
+            )
+            row.setdefault("filename", filename)
+            row.setdefault("name", filename)
+            row.setdefault("@id", f"{self._model_path}/model_files/{file_id}")
+            row["contentUrl"] = f"{self._model_path}/model_files/{file_id}.{extension}?download=true"
+            guessed_type = _guess_manyfold_file_type(filename)
+            if guessed_type and not row.get("encodingFormat"):
+                row["encodingFormat"] = guessed_type
+            return
+
+        open_match = re.match(rf"^{re.escape(self._model_path)}/model_files/(?P<file_id>[^/?]+)$", href)
+        if open_match:
+            file_id = open_match.group("file_id")
+            filename = self.current_filename
+            if not filename:
+                return
+            row = self.files_by_id.setdefault(
+                file_id,
+                {
+                    "id": file_id,
+                    "@id": href,
+                    "filename": filename,
+                    "name": filename,
+                },
+            )
+            row.setdefault("@id", href)
+            row.setdefault("filename", filename)
+            row.setdefault("name", filename)
+            guessed_type = _guess_manyfold_file_type(filename)
+            if guessed_type and not row.get("encodingFormat"):
+                row["encodingFormat"] = guessed_type
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
+            return
+        if tag == "code":
+            self._in_code = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self._captured_title.append(data)
+        if self._in_code:
+            self._captured_code.append(data)
+
+
+def _parse_manyfold_model_page_html(base_url: str, model_path: str, html_text: str) -> dict[str, Any]:
+    parser = _ManyfoldModelPageParser(model_path=model_path, base_url=base_url)
+    parser.feed(html_text)
+    files = list(parser.files_by_id.values())
+    payload: dict[str, Any] = {}
+    if parser.title:
+        payload["name"] = parser.title.split(" Search the Internet for models with this name", 1)[0].strip()
+    if files:
+        payload["hasPart"] = files
+    return payload
 
 
 def _lookup_keys(value: Any) -> tuple[str, ...]:
@@ -232,6 +366,17 @@ class ManyfoldClient:
         self._site_session_ready = bool(self._client.cookies) or response.is_success
         return self._site_session_ready
 
+    def _fallback_model_detail_from_html(self, model_ref: str) -> dict[str, Any]:
+        model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        if self._ensure_site_session():
+            response = self._client.get(model_path, follow_redirects=True)
+            response.raise_for_status()
+            content_type = str(response.headers.get("content-type") or "").lower()
+            if "html" not in content_type:
+                raise RuntimeError("Manyfold HTML detail fallback did not return HTML.")
+            return _parse_manyfold_model_page_html(self.base_url, model_path, response.text)
+        raise RuntimeError("Manyfold HTML detail fallback could not establish a site session.")
+
     def fetch_binary(self, url: str) -> httpx.Response:
         response = self._client.get(url, headers=self._auth_headers(), follow_redirects=True)
         content_type = str(response.headers.get("content-type") or "").lower()
@@ -280,20 +425,33 @@ class ManyfoldClient:
 
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
         path = _json_route(self._resolve_ref_path(model_ref, default_prefix=self.models_path))
-        response = self._client.get(path, headers=self._request_headers())
-        response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise RuntimeError("Manyfold model detail response was not a JSON object.")
-        return payload
+        try:
+            response = self._client.get(path, headers=self._request_headers())
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise RuntimeError("Manyfold model detail response was not a JSON object.")
+            return payload
+        except Exception:
+            payload = self._fallback_model_detail_from_html(model_ref)
+            if payload:
+                return payload
+            raise
 
     def list_model_files(self, model_ref: str) -> list[dict[str, Any]]:
         model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
         path = f"{model_path.rstrip('/')}/model_files"
-        response = self._client.get(path, headers=self._request_headers())
-        response.raise_for_status()
-        payload = response.json()
-        return self._extract_rows(payload)
+        try:
+            response = self._client.get(path, headers=self._request_headers())
+            response.raise_for_status()
+            payload = response.json()
+            return self._extract_rows(payload)
+        except Exception:
+            detail_payload = self._fallback_model_detail_from_html(model_ref)
+            has_part = detail_payload.get("hasPart")
+            if isinstance(has_part, list):
+                return [row for row in has_part if isinstance(row, dict)]
+            raise
 
     def list_model_photos(self, model_ref: str) -> list[dict[str, Any]]:
         """Fetch photos for a model from Manyfold API."""

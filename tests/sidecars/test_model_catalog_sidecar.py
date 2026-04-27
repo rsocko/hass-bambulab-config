@@ -918,6 +918,62 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     assert "/creators.json" in seen_paths
 
 
+def test_manyfold_client_falls_back_to_model_html_for_detail_and_file_list() -> None:
+    seen_paths: list[str] = []
+
+    html_payload = """
+    <html>
+      <head>
+        <title>Stackable Basket - 140x200mm Search the Internet for models with this name</title>
+      </head>
+      <body>
+        <h2>Files</h2>
+        <div>
+          <code>140x200mm Basket New.3mf</code>
+          <a href="/models/abc123/model_files/file-88">Open</a>
+          <a href="/models/abc123/model_files/file-88.3mf?download=true">Download</a>
+        </div>
+      </body>
+    </html>
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        if request.url.path == "/models/abc123.json":
+            return httpx.Response(401, json={"error": "Unauthorized"})
+        if request.url.path == "/models/abc123/model_files":
+            return httpx.Response(404, text="missing")
+        if request.url.path == "/models":
+            return httpx.Response(200, text="<html>session</html>", headers={"content-type": "text/html; charset=utf-8"})
+        if request.url.path == "/models/abc123":
+            return httpx.Response(200, text=html_payload, headers={"content-type": "text/html; charset=utf-8"})
+        raise AssertionError(f"Unexpected request path: {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        detail = client.get_model_detail("abc123")
+        assert detail["name"] == "Stackable Basket - 140x200mm"
+        assert isinstance(detail.get("hasPart"), list)
+        assert detail["hasPart"][0]["filename"] == "140x200mm Basket New.3mf"
+        assert detail["hasPart"][0]["contentUrl"] == "/models/abc123/model_files/file-88.3mf?download=true"
+
+        file_rows = client.list_model_files("abc123")
+        assert len(file_rows) == 1
+        assert file_rows[0]["id"] == "file-88"
+        assert file_rows[0]["encodingFormat"] == "model/3mf"
+    finally:
+        client.close()
+
+    assert "/models/abc123.json" in seen_paths
+    assert "/models" in seen_paths
+    assert "/models/abc123" in seen_paths
+    assert "/models/abc123/model_files" in seen_paths
+
+
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
