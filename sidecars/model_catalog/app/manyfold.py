@@ -7,7 +7,7 @@ import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 
@@ -54,6 +54,17 @@ def _append_query_param(url: str, key: str, value: str) -> str:
         return normalized
     separator = "&" if "?" in normalized else "?"
     return f"{normalized}{separator}{key}={quote(value, safe='')}"
+
+
+def _json_route(path: str) -> str:
+    normalized = str(path or "").strip()
+    if not normalized:
+        return normalized
+    parsed = urlsplit(normalized)
+    route_path = parsed.path or normalized
+    if route_path.endswith(".json"):
+        return normalized
+    return urlunsplit((parsed.scheme, parsed.netloc, f"{route_path}.json", parsed.query, parsed.fragment))
 
 
 def _extract_model_id(payload: dict[str, Any]) -> str | None:
@@ -262,13 +273,13 @@ class ManyfoldClient:
         return [normalize_model_summary(self.base_url, row) for row in rows]
 
     def list_model_payloads(self) -> list[dict[str, Any]]:
-        response = self._client.get(self.models_path, headers=self._request_headers())
+        response = self._client.get(_json_route(self.models_path), headers=self._request_headers())
         response.raise_for_status()
         payload = response.json()
         return self._extract_rows(payload)
 
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
-        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        path = _json_route(self._resolve_ref_path(model_ref, default_prefix=self.models_path))
         response = self._client.get(path, headers=self._request_headers())
         response.raise_for_status()
         payload = response.json()
@@ -287,7 +298,7 @@ class ManyfoldClient:
     def list_model_photos(self, model_ref: str) -> list[dict[str, Any]]:
         """Fetch photos for a model from Manyfold API."""
         model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
-        path = f"{model_path.rstrip('/')}/photos"
+        path = _json_route(f"{model_path.rstrip('/')}/photos")
         try:
             response = self._client.get(path, headers=self._request_headers())
             response.raise_for_status()
@@ -321,12 +332,12 @@ class ManyfoldClient:
         return payload
 
     def list_collections(self) -> list[dict[str, Any]]:
-        response = self._client.get(self.collections_path, headers=self._request_headers())
+        response = self._client.get(_json_route(self.collections_path), headers=self._request_headers())
         response.raise_for_status()
         return self._extract_rows(response.json())
 
     def list_creators(self) -> list[dict[str, Any]]:
-        response = self._client.get(self.creators_path, headers=self._request_headers())
+        response = self._client.get(_json_route(self.creators_path), headers=self._request_headers())
         response.raise_for_status()
         return self._extract_rows(response.json())
 

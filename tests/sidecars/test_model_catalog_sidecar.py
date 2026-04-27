@@ -293,6 +293,8 @@ def test_model_detail_endpoint_handles_unexpected_manyfold_files_shape(tmp_path:
         connection.close()
 
     class _DetailClient:
+        base_url = "http://manyfold.test"
+
         def get_model_detail(self, model_ref: str) -> dict[str, object]:
             assert model_ref == "http://manyfold.test/models/abc123"
             return {
@@ -841,7 +843,7 @@ def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -
                 assert "client_secret=" not in body
                 return httpx.Response(200, json={"access_token": "token-basic", "token_type": "Bearer"})
             return httpx.Response(401, json={"error": "invalid_client"})
-        if request.url.path == "/models":
+        if request.url.path == "/models.json":
             assert auth_header == "Bearer token-basic"
             return httpx.Response(200, json={"member": [{"@id": "/models/fallback", "name": "Fallback Model"}]})
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
@@ -865,7 +867,7 @@ def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -
     assert seen_requests[1][0] == "POST"
     assert seen_requests[1][1] == "/oauth/token"
     assert seen_requests[1][2] is not None
-    assert seen_requests[2] == ("GET", "/models", "Bearer token-basic")
+    assert seen_requests[2] == ("GET", "/models.json", "Bearer token-basic")
 
 
 def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> None:
@@ -874,15 +876,15 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     def handler(request: httpx.Request) -> httpx.Response:
         seen_paths.append(request.url.path)
         assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
-        if request.url.path == "/models/abc123":
+        if request.url.path == "/models/abc123.json":
             return httpx.Response(200, json={"id": "abc123", "name": "Detail Model"})
         if request.url.path == "/model_files/file-99":
             return httpx.Response(200, json={"id": "file-99", "filename": "part.3mf"})
-        if request.url.path == "/models/abc123/files/file-88":
+        if request.url.path == "/models/abc123/model_files/file-88":
             return httpx.Response(200, json={"id": "file-88", "filename": "derived.3mf"})
-        if request.url.path == "/collections":
+        if request.url.path == "/collections.json":
             return httpx.Response(200, json={"member": [{"id": "c1", "name": "Functional"}]})
-        if request.url.path == "/creators":
+        if request.url.path == "/creators.json":
             return httpx.Response(200, json={"member": [{"id": "u1", "name": "Rysock"}]})
         raise AssertionError(f"Unexpected request path: {request.url.path}")
 
@@ -909,11 +911,11 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     finally:
         client.close()
 
-    assert "/models/abc123" in seen_paths
+    assert "/models/abc123.json" in seen_paths
     assert "/model_files/file-99" in seen_paths
-    assert "/models/abc123/files/file-88" in seen_paths
-    assert "/collections" in seen_paths
-    assert "/creators" in seen_paths
+    assert "/models/abc123/model_files/file-88" in seen_paths
+    assert "/collections.json" in seen_paths
+    assert "/creators.json" in seen_paths
 
 
 def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
@@ -926,7 +928,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             assert "client_secret=client-secret" in body
             assert "scope=public+read" in body
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
-        if request.url.path == "/models":
+        if request.url.path == "/models.json":
             assert request.headers.get("Authorization") == "Bearer token-123"
             assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             return httpx.Response(
