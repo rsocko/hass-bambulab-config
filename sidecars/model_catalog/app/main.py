@@ -2242,6 +2242,33 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
         return normalized
 
+    def _normalize_photo_urls(photo_rows: list[dict[str, Any]], photo_proxy_url: str | None = None) -> list[dict[str, Any]]:
+        """Normalize Manyfold photo data and optionally rewrite URLs through proxy."""
+        normalized: list[dict[str, Any]] = []
+        for photo_obj in photo_rows:
+            if not isinstance(photo_obj, dict):
+                continue
+            # Extract image URL from multiple possible field names
+            image_url = photo_obj.get("image_url") or photo_obj.get("url") or photo_obj.get("contentUrl") or photo_obj.get("@id")
+            # Rewrite through proxy if available
+            if image_url and photo_proxy_url:
+                image_url = f"{photo_proxy_url}?source={quote(image_url, safe='')}"
+            # Extract thumbnail URL (some Manyfold versions provide this)
+            thumbnail_url = photo_obj.get("thumbnail_url") or photo_obj.get("thumbnailUrl") or image_url
+            if thumbnail_url and photo_proxy_url and not thumbnail_url.startswith(photo_proxy_url):
+                thumbnail_url = f"{photo_proxy_url}?source={quote(thumbnail_url, safe='')}"
+            normalized.append(
+                {
+                    "id": photo_obj.get("id") if photo_obj.get("id") is not None else photo_obj.get("@id"),
+                    "image_url": image_url,
+                    "thumbnail_url": thumbnail_url,
+                    "filename": photo_obj.get("filename") or photo_obj.get("name"),
+                    "created_at": photo_obj.get("created_at") or photo_obj.get("dateCreated"),
+                    "is_preview": photo_obj.get("is_preview") or False,
+                }
+            )
+        return normalized
+
     @app.get("/api/models/{model_ref:path}/detail")
     def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch comprehensive model detail for Phase 3 detail view popup."""
@@ -2303,6 +2330,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "external_reference": None,
                 "bambuddy_project_id": None,
             },
+            "photos": [],
             "ranking": None,
             "linked_archives": [],
             "link_count": 0,
@@ -2441,6 +2469,25 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "external_reference": custom_fields.get("external_reference"),
             "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
         }
+        
+        # Fetch photos from Manyfold with proxy URL rewriting
+        try:
+            photo_proxy_url = str(request.url_for("proxy_model_preview"))  # Reuse same proxy endpoint
+        except Exception:
+            photo_proxy_url = None
+            response["degraded"] = True
+            debug_info["degraded_reasons"].append("photo_proxy_unavailable")
+        
+        try:
+            manyfold_photos = client.list_model_photos(canonical_ref)
+            response["photos"] = _normalize_photo_urls(manyfold_photos, photo_proxy_url)
+            debug_info["photos_count"] = len(response["photos"])
+        except Exception as exc:
+            response["photos"] = []
+            response["degraded"] = True
+            debug_info["degraded_reasons"].append("photos_unavailable")
+            debug_info["photos_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
+        
         response["ranking"] = None if ranking is None else _ranking_payload(ranking)
         response["linked_archives"] = linked_archives
         response["link_count"] = len(linked_archives)

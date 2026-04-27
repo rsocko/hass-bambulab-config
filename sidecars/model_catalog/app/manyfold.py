@@ -284,6 +284,19 @@ class ManyfoldClient:
         payload = response.json()
         return self._extract_rows(payload)
 
+    def list_model_photos(self, model_ref: str) -> list[dict[str, Any]]:
+        """Fetch photos for a model from Manyfold API."""
+        model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        path = f"{model_path.rstrip('/')}/photos"
+        try:
+            response = self._client.get(path, headers=self._request_headers())
+            response.raise_for_status()
+            payload = response.json()
+            return self._extract_rows(payload)
+        except Exception:
+            # Photos endpoint may not exist; return empty list
+            return []
+
     def get_model_file_detail(self, file_ref: str, *, model_ref: str | None = None) -> dict[str, Any]:
         normalized_file_ref = str(file_ref or "").strip()
         if not normalized_file_ref:
