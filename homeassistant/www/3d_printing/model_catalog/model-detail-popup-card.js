@@ -312,8 +312,9 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    this._handlePhotoFileSelect(target.files);
+    const selectedFiles = Array.from(target.files || []);
     target.value = '';
+    this._handlePhotoFileSelect(selectedFiles);
   }
 
   _getPhotoUploadArea(target) {
@@ -372,7 +373,7 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    this._handlePhotoFileSelect(files);
+    this._handlePhotoFileSelect(Array.from(files));
   }
 
   async _loadModelDetail() {
