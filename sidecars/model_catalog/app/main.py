@@ -2242,7 +2242,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
         return normalized
 
-    def _normalize_photo_urls(photo_rows: list[dict[str, Any]], photo_proxy_url: str | None = None) -> list[dict[str, Any]]:
+    def _normalize_photo_urls(
+        photo_rows: list[dict[str, Any]],
+        photo_proxy_url: str | None = None,
+        manyfold_base_url: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Normalize Manyfold photo data and optionally rewrite URLs through proxy."""
         normalized: list[dict[str, Any]] = []
         for photo_obj in photo_rows:
@@ -2250,11 +2254,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 continue
             # Extract image URL from multiple possible field names
             image_url = photo_obj.get("image_url") or photo_obj.get("url") or photo_obj.get("contentUrl") or photo_obj.get("@id")
+            if image_url and manyfold_base_url:
+                image_url = canonicalize_model_url(manyfold_base_url, str(image_url))
             # Rewrite through proxy if available
             if image_url and photo_proxy_url:
                 image_url = f"{photo_proxy_url}?source={quote(image_url, safe='')}"
             # Extract thumbnail URL (some Manyfold versions provide this)
-            thumbnail_url = photo_obj.get("thumbnail_url") or photo_obj.get("thumbnailUrl") or image_url
+            thumbnail_url = photo_obj.get("thumbnail_url") or photo_obj.get("thumbnailUrl")
+            if thumbnail_url and manyfold_base_url:
+                thumbnail_url = canonicalize_model_url(manyfold_base_url, str(thumbnail_url))
+            if not thumbnail_url:
+                thumbnail_url = image_url
             if thumbnail_url and photo_proxy_url and not thumbnail_url.startswith(photo_proxy_url):
                 thumbnail_url = f"{photo_proxy_url}?source={quote(thumbnail_url, safe='')}"
             normalized.append(
@@ -2272,6 +2282,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     def _derive_photos_from_model_files(
         file_rows: list[dict[str, Any]],
         photo_proxy_url: str | None = None,
+        manyfold_base_url: str | None = None,
     ) -> list[dict[str, Any]]:
         """Build gallery-compatible photo entries from image model files."""
         derived: list[dict[str, Any]] = []
@@ -2307,7 +2318,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 }
             )
 
-        return _normalize_photo_urls(derived, photo_proxy_url)
+        return _normalize_photo_urls(derived, photo_proxy_url, manyfold_base_url)
 
     @app.get("/api/models/{model_ref:path}/detail")
     def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
@@ -2520,7 +2531,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         try:
             manyfold_photos = client.list_model_photos(canonical_ref)
-            response["photos"] = _normalize_photo_urls(manyfold_photos, photo_proxy_url)
+            response["photos"] = _normalize_photo_urls(manyfold_photos, photo_proxy_url, client.base_url)
             debug_info["photos_count"] = len(response["photos"])
         except Exception as exc:
             response["photos"] = []
@@ -2529,7 +2540,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             debug_info["photos_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
 
         if not response["photos"]:
-            fallback_photos = _derive_photos_from_model_files(manyfold_files, photo_proxy_url)
+            fallback_photos = _derive_photos_from_model_files(manyfold_files, photo_proxy_url, client.base_url)
             if fallback_photos:
                 response["photos"] = fallback_photos
                 debug_info["photos_fallback"] = "model_files"

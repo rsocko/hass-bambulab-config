@@ -545,7 +545,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     const sourceUrl = this._buildFileDownloadUrl(file);
     this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
-    const response = await fetch(sourceUrl, { credentials: 'include' });
+    const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
     if (!response.ok) {
       throw new Error(`Download failed (${response.status})`);
     }
@@ -673,10 +673,41 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._setRenderingStatus(`Rendering 3MF (${triangleCount} triangles)`);
   }
 
+  _buildFetchOptions(url) {
+    try {
+      const target = new URL(String(url || ''), window.location.href);
+      const sameOrigin = target.origin === window.location.origin;
+      return { credentials: sameOrigin ? 'include' : 'omit' };
+    } catch (_error) {
+      return { credentials: 'omit' };
+    }
+  }
+
+  _normalizeFileId(fileId) {
+    const raw = String(fileId || '').trim();
+    if (!raw) {
+      return '';
+    }
+
+    if (!/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      return segments.length > 0 ? segments[segments.length - 1] : raw;
+    } catch (_error) {
+      const parts = raw.split('/').filter(Boolean);
+      return parts.length > 0 ? parts[parts.length - 1] : raw;
+    }
+  }
+
   _buildFileDownloadUrl(file) {
     const base = String(this._config.model_sidecar_url || '').trim().replace(/\/+$/, '');
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
-    const fileId = encodeURIComponent(String(file && file.id || '').trim());
+    const normalizedFileId = this._normalizeFileId(file && file.id || '');
+    const fileId = encodeURIComponent(normalizedFileId);
     return `${base}/api/models/${modelRef}/files/${fileId}/download`;
   }
 
