@@ -669,6 +669,7 @@
                 tags: "{{ merged_tags }}"
                 notes: "{{ merged_notes }}"
         - action: bambuddy.append_print_history_event
+          response_variable: append_event_result
           data:
             archive_id: "{{ archive_id | int(0) }}"
             event_type: enrichment_applied

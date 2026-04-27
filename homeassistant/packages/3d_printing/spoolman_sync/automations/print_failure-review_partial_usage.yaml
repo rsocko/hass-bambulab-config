@@ -162,6 +162,7 @@
                 Review-only estimate captured for archive {{ archive_id_raw }} ({{ print_status }}).
                 Method={{ estimate_calc.get('method', 'unknown') }}, total={{ estimate_totals.get('estimated_used_g_total', 0) }}g.
           - action: bambuddy.append_print_history_event
+            response_variable: partial_usage_review_event_result
             data:
               archive_id: "{{ archive_id_raw | int }}"
               event_type: spool_usage_review_estimated
@@ -200,6 +201,7 @@
           level: warning
           logger: homeassistant.components.bambulab.spoolman_sync
       - action: bambuddy.append_print_history_event
+        response_variable: partial_usage_review_failed_event_result
         data:
           archive_id: "{{ archive_id_raw | int }}"
           event_type: spool_usage_review_failed

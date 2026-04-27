@@ -347,6 +347,7 @@
             value_template: "{{ archive_id_valid }}"
         then:
           - action: bambuddy.append_print_history_event
+            response_variable: spool_usage_not_recorded_event_result
             data:
               archive_id: "{{ archive_id_raw | int(0) }}"
               event_type: spool_usage_not_recorded
@@ -489,6 +490,7 @@
                   value_template: "{{ archive_id_valid }}"
               then:
                 - action: bambuddy.append_print_history_event
+                  response_variable: spool_usage_missing_uuid_event_result
                   data:
                     archive_id: "{{ archive_id_raw | int(0) }}"
                     event_type: spool_usage_recording_failed
@@ -589,6 +591,7 @@
                       value_template: "{{ archive_id_valid }}"
                   then:
                     - action: bambuddy.append_print_history_event
+                      response_variable: spool_usage_recorded_event_result
                       data:
                         archive_id: "{{ archive_id_raw | int(0) }}"
                         event_type: spool_usage_recorded
@@ -701,6 +704,7 @@
                   value_template: "{{ archive_id_valid }}"
               then:
                 - action: bambuddy.append_print_history_event
+                  response_variable: spool_usage_lookup_failed_event_result
                   data:
                     archive_id: "{{ archive_id_raw | int(0) }}"
                     event_type: spool_usage_recording_failed

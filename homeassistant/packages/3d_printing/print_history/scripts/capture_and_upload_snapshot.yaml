@@ -398,6 +398,7 @@ capture_and_upload_snapshot:
           value_template: "{{ has_archive_id and verified_upload_count | int(0) > 0 }}"
       then:
         - action: bambuddy.refresh_print_history_archive_storage_metrics
+          response_variable: refresh_storage_metrics_result
           data:
             archive_id: "{{ archive_id | int(0) }}"
           continue_on_error: true
