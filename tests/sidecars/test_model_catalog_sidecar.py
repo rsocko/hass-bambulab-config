@@ -295,6 +295,111 @@ def test_manyfold_client_list_model_photos_falls_back_to_html_gallery() -> None:
     ]
 
 
+def test_model_detail_uses_preview_url_as_last_gallery_fallback(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at,
+                manyfold_model_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "http://manyfold.test/models/abc123",
+                "abc123",
+                "Preview Only Model",
+                "abc123",
+                "http://manyfold.test/models/abc123/model_files/file123.webp?derivative=preview",
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+                derive_manyfold_model_key(
+                    manyfold_model_url="http://manyfold.test/models/abc123",
+                    manyfold_model_public_id="abc123",
+                    manyfold_model_id="abc123",
+                ),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _DetailClient:
+        base_url = "http://manyfold.test"
+
+        def get_model_detail(self, model_ref: str) -> dict[str, object]:
+            assert model_ref == "abc123"
+            return {
+                "name": "Preview Only Model",
+                "description": "",
+                "created_at": "2026-04-23T00:00:00Z",
+                "updated_at": "2026-04-23T00:00:00Z",
+                "preview_file_id": "file123",
+            }
+
+        def list_model_files(self, model_ref: str) -> list[dict[str, object]]:
+            assert model_ref == "abc123"
+            return [
+                {
+                    "id": "file-3mf",
+                    "filename": "preview-only.3mf",
+                    "encodingFormat": "model/3mf",
+                }
+            ]
+
+        def list_model_photos(self, model_ref: str) -> list[dict[str, object]]:
+            assert model_ref == "abc123"
+            return []
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_DetailClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/detail?include_debug=true")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["model"]["preview_url"] == (
+        "http://testserver/api/models/preview"
+        "?source=http%3A//manyfold.test/models/abc123/model_files/file123.webp%3Fderivative%3Dpreview"
+    )
+    assert payload["photos"] == [
+        {
+            "id": "preview:file123",
+            "image_url": (
+                "http://testserver/api/models/preview"
+                "?source=http%3A//manyfold.test/models/abc123/model_files/file123.webp%3Fderivative%3Dpreview"
+            ),
+            "thumbnail_url": (
+                "http://testserver/api/models/preview"
+                "?source=http%3A//manyfold.test/models/abc123/model_files/file123.webp%3Fderivative%3Dpreview"
+            ),
+            "filename": "Preview",
+            "created_at": None,
+            "is_preview": True,
+        }
+    ]
+    assert payload["_debug"]["photos_fallback"] == "preview_url"
+
+
 def test_model_detail_endpoint_handles_unexpected_manyfold_files_shape(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

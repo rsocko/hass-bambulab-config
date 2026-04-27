@@ -2320,6 +2320,26 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
         return _normalize_photo_urls(derived, photo_proxy_url, manyfold_base_url)
 
+    def _derive_photo_from_preview_url(
+        preview_url: str | None,
+        *,
+        preview_file_id: Any = None,
+    ) -> list[dict[str, Any]]:
+        normalized_preview_url = str(preview_url or "").strip()
+        if not normalized_preview_url:
+            return []
+        preview_id = str(preview_file_id or "preview").strip() or "preview"
+        return [
+            {
+                "id": f"preview:{preview_id}",
+                "image_url": normalized_preview_url,
+                "thumbnail_url": normalized_preview_url,
+                "filename": "Preview",
+                "created_at": None,
+                "is_preview": True,
+            }
+        ]
+
     @app.get("/api/models/{model_ref:path}/detail")
     def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch comprehensive model detail for Phase 3 detail view popup."""
@@ -2544,6 +2564,15 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             if fallback_photos:
                 response["photos"] = fallback_photos
                 debug_info["photos_fallback"] = "model_files"
+                debug_info["photos_count"] = len(response["photos"])
+        if not response["photos"]:
+            fallback_photos = _derive_photo_from_preview_url(
+                response["model"].get("preview_url"),
+                preview_file_id=response["model"].get("preview_file_id"),
+            )
+            if fallback_photos:
+                response["photos"] = fallback_photos
+                debug_info["photos_fallback"] = "preview_url"
                 debug_info["photos_count"] = len(response["photos"])
         
         response["ranking"] = None if ranking is None else _ranking_payload(ranking)
