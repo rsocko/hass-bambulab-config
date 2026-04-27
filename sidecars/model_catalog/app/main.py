@@ -2334,16 +2334,23 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
             debug_info["degraded_reasons"].append("manyfold_detail_unavailable")
 
+        # Try /models/{id}/model_files endpoint first
         try:
             manyfold_files = client.list_model_files(canonical_ref)
             debug_info["manyfold_model_files_count"] = len(manyfold_files)
         except Exception as exc:
-            response["degraded"] = True
             debug_info["manyfold_model_files_error"] = {
                 "error_type": type(exc).__name__,
                 "error": str(exc),
             }
-            debug_info["degraded_reasons"].append("manyfold_model_files_unavailable")
+            # Fallback: extract hasPart from model detail (JSON-LD structure)
+            if manyfold_detail and isinstance(manyfold_detail.get("hasPart"), list):
+                manyfold_files = manyfold_detail["hasPart"]
+                debug_info["manyfold_model_files_count"] = len(manyfold_files)
+                debug_info["manyfold_model_files_source"] = "hasPart_from_detail"
+            else:
+                response["degraded"] = True
+                debug_info["degraded_reasons"].append("manyfold_model_files_unavailable")
         
         # Fetch custom fields from local SQLite
         try:
