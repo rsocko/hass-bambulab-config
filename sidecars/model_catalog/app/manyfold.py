@@ -194,7 +194,7 @@ class _ManyfoldModelPageParser(HTMLParser):
             file_id = open_match.group("file_id")
             filename = self.current_filename
             pending_photo = self._pending_photo
-            if pending_photo and "delete" in str(attr_map.get("title") or "").strip().lower():
+            if pending_photo and self._carousel_depth > 0:
                 photo_row = self.photos_by_id.setdefault(
                     file_id,
                     {

@@ -266,11 +266,11 @@ def test_manyfold_client_list_model_photos_falls_back_to_html_gallery() -> None:
                   <body>
                                         <div class="carousel-item">
                                             <img alt="Img 5391" src="/models/sample/model_files/photo5391.webp?derivative=carousel">
-                                            <a href="/models/sample/model_files/photo5391" title="Delete">Delete</a>
+                                            <a href="/models/sample/model_files/photo5391"><i title="Delete"></i></a>
                                         </div>
                                         <div class="carousel-item active">
                                             <img alt="Whatsapp Image 2024 08 07 At 22.23.04" src="/models/sample/model_files/photo5392.jpeg?derivative=carousel">
-                                            <a href="/models/sample/model_files/photo5392" title="Delete">Delete</a>
+                                            <a href="/models/sample/model_files/photo5392"><i title="Delete"></i></a>
                                         </div>
                   </body>
                 </html>
