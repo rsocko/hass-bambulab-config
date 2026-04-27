@@ -2489,8 +2489,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 normalized_tags = [token.strip() for token in normalized_tags.split(",") if token.strip()]
             if isinstance(normalized_tags, list):
                 manyfold_updates["keywords"] = [str(tag).strip() for tag in normalized_tags if str(tag).strip()]
-        if collection is not None:
-            manyfold_updates["collection"] = collection
+        # Manyfold expects collection relationship as isPartOf object (by @id),
+        # not a free-form string field. Ignore string collection updates here.
         
         # Update model in Manyfold first
         if manyfold_updates:

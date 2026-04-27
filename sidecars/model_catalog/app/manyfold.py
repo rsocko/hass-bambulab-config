@@ -82,13 +82,12 @@ def _lookup_keys(value: Any) -> tuple[str, ...]:
         lowered = text.lower()
         keys.append(lowered)
         parsed = urlsplit(text)
-        if parsed.path:
-            path = parsed.path.strip().lower()
-            if path:
-                keys.append(path)
-                parts = [segment for segment in path.split("/") if segment]
-                if parts:
-                    keys.append(parts[-1])
+        path = parsed.path.strip().lower()
+        if path:
+            keys.append(path)
+            parts = [segment for segment in path.split("/") if segment]
+            if parts:
+                keys.append(parts[-1])
     if isinstance(value, dict):
         _add(value.get("id"))
         _add(value.get("@id"))
@@ -327,8 +326,12 @@ class ManyfoldClient:
         
         # Ensure site session is established before attempting PATCH
         self._ensure_site_session()
-        
-        response = self._client.patch(path, headers=self._request_headers(), json=updates)
+
+        headers = {
+            **self._request_headers(),
+            "Content-Type": MANYFOLD_API_ACCEPT,
+        }
+        response = self._client.patch(path, headers=headers, json=updates)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):
