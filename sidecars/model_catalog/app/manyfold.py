@@ -277,6 +277,14 @@ class ManyfoldClient:
             raise RuntimeError("Manyfold model detail response was not a JSON object.")
         return payload
 
+    def list_model_files(self, model_ref: str) -> list[dict[str, Any]]:
+        model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        path = f"{model_path.rstrip('/')}/model_files"
+        response = self._client.get(path, headers=self._request_headers())
+        response.raise_for_status()
+        payload = response.json()
+        return self._extract_rows(payload)
+
     def get_model_file_detail(self, file_ref: str, *, model_ref: str | None = None) -> dict[str, Any]:
         normalized_file_ref = str(file_ref or "").strip()
         if not normalized_file_ref:
@@ -285,7 +293,7 @@ class ManyfoldClient:
             path = self._resolve_ref_path(normalized_file_ref, default_prefix="/model_files")
         elif model_ref:
             model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
-            path = f"{model_path.rstrip('/')}/files/{quote(normalized_file_ref, safe='')}"
+            path = f"{model_path.rstrip('/')}/model_files/{quote(normalized_file_ref, safe='')}"
         else:
             path = f"/model_files/{quote(normalized_file_ref, safe='')}"
         response = self._client.get(path, headers=self._request_headers())

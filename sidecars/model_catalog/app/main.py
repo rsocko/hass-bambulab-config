@@ -2225,6 +2225,23 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "link": _archive_link_to_response(updated, summary_by_url=summary_by_url),
         }
 
+    def _map_manyfold_model_files(file_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for file_obj in file_rows:
+            if not isinstance(file_obj, dict):
+                continue
+            normalized.append(
+                {
+                    "id": file_obj.get("id") if file_obj.get("id") is not None else file_obj.get("@id"),
+                    "filename": file_obj.get("filename") or file_obj.get("name"),
+                    "file_type": file_obj.get("file_type") or file_obj.get("encodingFormat"),
+                    "size_bytes": file_obj.get("size") if file_obj.get("size") is not None else file_obj.get("contentSize"),
+                    "created_at": file_obj.get("created_at") or file_obj.get("dateCreated"),
+                    "model_count": file_obj.get("model_count"),
+                }
+            )
+        return normalized
+
     @app.get("/api/models/{model_ref:path}/detail")
     def get_model_detail_endpoint(request: Request, model_ref: str, include_debug: bool = False) -> dict[str, Any]:
         """Fetch comprehensive model detail for Phase 3 detail view popup."""
@@ -2292,49 +2309,41 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "degraded": False,
         }
         
-        # Fetch full model detail from Manyfold.
-        # Prefer API-friendly refs (public_id/model_id) over model_url because
-        # cached URLs may point at web routes that do not return JSON detail.
+        # Fetch full model detail and file list using documented API shapes.
         manyfold_detail: dict[str, Any] = {}
-        detail_refs = [str(resolved_ref or "")]
-        model_url_ref = str(summary.model_url or "")
-        if model_url_ref and model_url_ref not in detail_refs:
-            detail_refs.append(model_url_ref)
-
-        for detail_ref in detail_refs:
-            if not detail_ref:
-                continue
-            try:
-                detail_candidate = client.get_model_detail(detail_ref)
-                debug_info["manyfold_detail_attempts"].append(
-                    {
-                        "ref": detail_ref,
-                        "ok": True,
-                        "payload_type": type(detail_candidate).__name__,
-                    }
-                )
-                if isinstance(detail_candidate, dict):
-                    manyfold_detail = detail_candidate
-                    break
-                response["degraded"] = True
-                debug_info["degraded_reasons"].append(
-                    f"manyfold_detail_non_object:{detail_ref}:{type(detail_candidate).__name__}"
-                )
-            except Exception as exc:
-                response["degraded"] = True
-                debug_info["manyfold_detail_attempts"].append(
-                    {
-                        "ref": detail_ref,
-                        "ok": False,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
-                    }
-                )
-
-        if not isinstance(manyfold_detail, dict):
-            manyfold_detail = {}
+        manyfold_files: list[dict[str, Any]] = []
+        canonical_ref = str(resolved_ref or "")
+        try:
+            manyfold_detail = client.get_model_detail(canonical_ref)
+            debug_info["manyfold_detail_attempts"].append(
+                {
+                    "ref": canonical_ref,
+                    "ok": True,
+                    "payload_type": type(manyfold_detail).__name__,
+                }
+            )
+        except Exception as exc:
             response["degraded"] = True
-            debug_info["degraded_reasons"].append("manyfold_detail_missing")
+            debug_info["manyfold_detail_attempts"].append(
+                {
+                    "ref": canonical_ref,
+                    "ok": False,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+            )
+            debug_info["degraded_reasons"].append("manyfold_detail_unavailable")
+
+        try:
+            manyfold_files = client.list_model_files(canonical_ref)
+            debug_info["manyfold_model_files_count"] = len(manyfold_files)
+        except Exception as exc:
+            response["degraded"] = True
+            debug_info["manyfold_model_files_error"] = {
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            }
+            debug_info["degraded_reasons"].append("manyfold_model_files_unavailable")
         
         # Fetch custom fields from local SQLite
         try:
@@ -2397,26 +2406,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             except Exception:
                 response["degraded"] = True
         
-        # Build model files info (from Manyfold detail)
-        model_files = []
-        files_payload = manyfold_detail.get("files")
-        debug_info["files_payload_type"] = type(files_payload).__name__
-        if isinstance(files_payload, list):
-            debug_info["files_payload_count"] = len(files_payload)
-            for file_obj in files_payload:
-                if not isinstance(file_obj, dict):
-                    continue
-                model_files.append({
-                    "id": file_obj.get("id"),
-                    "filename": file_obj.get("filename"),
-                    "file_type": file_obj.get("file_type"),
-                    "size_bytes": file_obj.get("size"),
-                    "created_at": file_obj.get("created_at"),
-                    "model_count": file_obj.get("model_count"),
-                })
-        elif files_payload is not None:
-            response["degraded"] = True
-            debug_info["degraded_reasons"].append("files_payload_non_list")
+        # Build model files info from canonical Manyfold model_files response.
+        debug_info["manyfold_detail_keys"] = sorted([str(key) for key in manyfold_detail.keys()])
+        model_files = _map_manyfold_model_files(manyfold_files)
+
+        if not model_files:
+            debug_info["degraded_reasons"].append("manyfold_files_missing")
         
         response["model"]["description"] = str(manyfold_detail.get("description") or "")
         response["model"]["name"] = str(manyfold_detail.get("name") or response["model"].get("name") or "")
@@ -2563,43 +2558,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
         
-        # Fetch model detail to find file. Prefer model_id/public_id first to
-        # avoid relying on cached web URLs that may not expose JSON file lists.
+        # Fetch model files using documented Manyfold route.
         try:
             resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-            detail_refs = [resolved_ref]
-            summary_url_ref = str(summary.model_url or "")
-            if summary_url_ref and summary_url_ref not in detail_refs:
-                detail_refs.append(summary_url_ref)
-
-            manyfold_detail: dict[str, Any] = {}
-            for detail_ref in detail_refs:
-                if not detail_ref:
-                    continue
-                try:
-                    detail_candidate = client.get_model_detail(detail_ref)
-                    debug_info["detail_attempts"].append(
-                        {
-                            "ref": detail_ref,
-                            "ok": True,
-                            "payload_type": type(detail_candidate).__name__,
-                        }
-                    )
-                    if isinstance(detail_candidate, dict):
-                        manyfold_detail = detail_candidate
-                        break
-                except Exception as exc:
-                    debug_info["detail_attempts"].append(
-                        {
-                            "ref": detail_ref,
-                            "ok": False,
-                            "error_type": type(exc).__name__,
-                            "error": str(exc),
-                        }
-                    )
-
-            files = manyfold_detail.get("files", [])
-            debug_info["files_count"] = len(files) if isinstance(files, list) else 0
+            files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
+            debug_info["files_count"] = len(files)
             file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
             
             if not file_obj:
