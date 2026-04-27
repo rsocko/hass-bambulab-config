@@ -1718,7 +1718,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _uploadPhoto(file) {
-    if (!this._hass) return;
+    if (!this._modelSidecarUrl || !this._modelRef) return;
     
     // Validate file type and size
     const maxSize = 10 * 1024 * 1024; // 10MB
@@ -1736,32 +1736,47 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     try {
-      // Read file as base64
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64Data = event.target.result;
-        
-        try {
-          // Call service to upload photo
-          await this._hass.callService('rest_command', 'model_catalog_upload_photo', {
-            model_ref: this._modelRef,
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target?.result);
+        reader.onerror = () => reject(reader.error || new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+
+      const response = await fetch(
+        `${this._modelSidecarUrl.replace(/\/$/, '')}/api/models/${encodeURIComponent(this._modelRef)}/photos`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
             photo_file: base64Data,
             set_as_preview: !this._modelDetail.photos || this._modelDetail.photos.length === 0,
-          });
-          
-          // Reload model detail
-          await this._loadModelDetail();
-          this._render();
-        } catch (error) {
-          console.error('Error uploading photo:', error);
-          this._error = `Failed to upload ${file.name}: ${error}`;
-          this._render();
+          }),
         }
-      };
-      reader.readAsDataURL(file);
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      this._error = '';
+      await this._loadModelDetail();
+      this._render();
     } catch (error) {
       console.error('Error reading file:', error);
-      this._error = `Failed to read file: ${error}`;
+      this._error = `Failed to upload ${file.name}: ${error}`;
       this._render();
     }
   }
