@@ -184,3 +184,63 @@ def test_upload_photo_returns_photo_id_url_and_surfaces_in_detail(tmp_path: Path
     detail_payload = detail_response.json()
     assert detail_payload["preview_photo_id"] == payload["photo_id"]
     assert any(photo["id"] == payload["photo_id"] for photo in detail_payload["photos"])
+
+
+def test_set_preview_and_delete_uploaded_photo(tmp_path: Path) -> None:
+    client = _create_client(tmp_path)
+    try:
+        first_upload = client.post(
+            "/api/models/test-model/photos",
+            json={
+                "photo_file": f"data:image/png;base64,{ONE_PIXEL_PNG_BASE64}",
+                "set_as_preview": False,
+            },
+        )
+        assert first_upload.status_code == 200
+        first_payload = first_upload.json()
+
+        second_png = b"\x89PNG\r\n\x1a\nSECOND_IMAGE_BYTES"
+        second_upload = client.post(
+            "/api/models/test-model/photos",
+            json={
+                "photo_file": f"data:image/png;base64,{base64.b64encode(second_png).decode('ascii')}",
+                "set_as_preview": False,
+            },
+        )
+        assert second_upload.status_code == 200
+        second_payload = second_upload.json()
+
+        preview_response = client.post(
+            f"/api/models/test-model/photos/{second_payload['photo_id']}/preview"
+        )
+        assert preview_response.status_code == 200
+        assert preview_response.json()["preview_photo_id"] == second_payload["photo_id"]
+
+        detail_after_preview = client.get("/api/models/test-model/detail")
+        assert detail_after_preview.status_code == 200
+        detail_after_preview_payload = detail_after_preview.json()
+        assert detail_after_preview_payload["preview_photo_id"] == second_payload["photo_id"]
+
+        delete_response = client.delete(
+            f"/api/models/test-model/photos/{second_payload['photo_id']}"
+        )
+        assert delete_response.status_code == 200
+        assert delete_response.json() == {
+            "success": True,
+            "photo_id": second_payload["photo_id"],
+            "deleted": True,
+        }
+
+        deleted_photo_response = client.get(second_payload["photo_url"])
+        assert deleted_photo_response.status_code == 404
+
+        detail_after_delete = client.get("/api/models/test-model/detail")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert detail_after_delete.status_code == 200
+    detail_after_delete_payload = detail_after_delete.json()
+    assert detail_after_delete_payload["preview_photo_id"] in (None, "")
+    remaining_photo_ids = {photo["id"] for photo in detail_after_delete_payload["photos"]}
+    assert first_payload["photo_id"] in remaining_photo_ids
+    assert second_payload["photo_id"] not in remaining_photo_ids

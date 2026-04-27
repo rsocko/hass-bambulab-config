@@ -202,6 +202,19 @@ def _write_uploaded_photo_rows(*, db_path: Path, model_ref: str, photo_rows: lis
     return normalized_rows
 
 
+def _resolve_uploaded_photo_storage_path(*, settings: Settings, photo_row: dict[str, Any]) -> Path | None:
+    relative_path = str(photo_row.get("relative_path") or "").strip()
+    if not relative_path:
+        return None
+    storage_root = _model_photo_storage_root(settings)
+    storage_path = (storage_root / Path(relative_path)).resolve()
+    try:
+        storage_path.relative_to(storage_root.resolve())
+    except ValueError:
+        return None
+    return storage_path
+
+
 def _serialize_uploaded_photo_rows(
     *,
     request: Request,
@@ -2924,11 +2937,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if photo_row is None:
             return JSONResponse(status_code=404, content={"error": "Photo not found"})
 
-        storage_root = _model_photo_storage_root(state.settings)
-        storage_path = (storage_root / Path(str(photo_row.get("relative_path") or ""))).resolve()
-        try:
-            storage_path.relative_to(storage_root.resolve())
-        except ValueError:
+        storage_path = _resolve_uploaded_photo_storage_path(settings=state.settings, photo_row=photo_row)
+        if storage_path is None:
             return JSONResponse(status_code=404, content={"error": "Photo not found"})
         if not storage_path.exists() or not storage_path.is_file():
             return JSONResponse(status_code=404, content={"error": "Photo not found"})
@@ -2936,6 +2946,69 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         media_type = str(photo_row.get("mime_type") or "application/octet-stream")
         headers = {"Content-Disposition": f'inline; filename="{storage_path.name}"'}
         return Response(content=storage_path.read_bytes(), media_type=media_type, headers=headers)
+
+    @app.delete("/api/models/{model_ref:path}/photos/{photo_id}")
+    def delete_uploaded_model_photo_endpoint(model_ref: str, photo_id: str) -> dict[str, Any]:
+        """Delete a locally uploaded model photo."""
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+        uploaded_rows = _read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=resolved_ref)
+        photo_row = next((row for row in uploaded_rows if str(row.get("id") or "") == str(photo_id)), None)
+        if photo_row is None:
+            return JSONResponse(status_code=404, content={"error": "Photo not found"})
+
+        storage_path = _resolve_uploaded_photo_storage_path(settings=state.settings, photo_row=photo_row)
+        if storage_path is not None and storage_path.exists() and storage_path.is_file():
+            storage_path.unlink()
+
+        remaining_rows = [row for row in uploaded_rows if str(row.get("id") or "") != str(photo_id)]
+        _write_uploaded_photo_rows(
+            db_path=state.settings.db_path,
+            model_ref=resolved_ref,
+            photo_rows=remaining_rows,
+        )
+
+        current_preview_photo_id = str(
+            read_model_field(
+                db_path=state.settings.db_path,
+                model_ref=resolved_ref,
+                field_key=MODEL_PREVIEW_PHOTO_FIELD,
+            ) or ""
+        ).strip()
+        if current_preview_photo_id == str(photo_id):
+            delete_model_field(
+                db_path=state.settings.db_path,
+                model_ref=resolved_ref,
+                field_key=MODEL_PREVIEW_PHOTO_FIELD,
+            )
+
+        return {"success": True, "photo_id": photo_id, "deleted": True}
+
+    @app.post("/api/models/{model_ref:path}/photos/{photo_id}/preview")
+    def set_uploaded_model_photo_preview_endpoint(model_ref: str, photo_id: str) -> dict[str, Any]:
+        """Mark a locally uploaded model photo as the preferred preview."""
+        state: AppState = app.state.model_catalog
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+        uploaded_rows = _read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=resolved_ref)
+        if not any(str(row.get("id") or "") == str(photo_id) for row in uploaded_rows):
+            return JSONResponse(status_code=404, content={"error": "Photo not found"})
+
+        set_model_field(
+            db_path=state.settings.db_path,
+            model_ref=resolved_ref,
+            field_key=MODEL_PREVIEW_PHOTO_FIELD,
+            field_value=photo_id,
+        )
+
+        return {"success": True, "photo_id": photo_id, "preview_photo_id": photo_id}
 
     # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 

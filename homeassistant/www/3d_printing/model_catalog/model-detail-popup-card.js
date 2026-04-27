@@ -1663,16 +1663,32 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _handleSetPhotoPreview(photoId) {
-    if (!this._hass) return;
+    if (!this._modelSidecarUrl || !this._modelRef) return;
     
     try {
-      // Call service to set photo as preview
-      await this._hass.callService('rest_command', 'model_catalog_set_photo_preview', {
-        model_ref: this._modelRef,
-        photo_id: photoId,
-      });
+      const response = await fetch(
+        `${this._modelSidecarUrl.replace(/\/$/, '')}/api/models/${encodeURIComponent(this._modelRef)}/photos/${encodeURIComponent(photoId)}/preview`,
+        {
+          method: 'POST',
+        }
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
       
       // Reload model detail
+      this._error = '';
       await this._loadModelDetail();
       this._render();
     } catch (error) {
@@ -1689,16 +1705,32 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _performDeletePhoto(photoId) {
-    if (!this._hass) return;
+    if (!this._modelSidecarUrl || !this._modelRef) return;
     
     try {
-      // Call service to delete photo
-      await this._hass.callService('rest_command', 'model_catalog_delete_photo', {
-        model_ref: this._modelRef,
-        photo_id: photoId,
-      });
+      const response = await fetch(
+        `${this._modelSidecarUrl.replace(/\/$/, '')}/api/models/${encodeURIComponent(this._modelRef)}/photos/${encodeURIComponent(photoId)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (parseError) {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage = payload && payload.error
+          ? String(payload.error)
+          : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
       
       // Reload model detail
+      this._error = '';
       await this._loadModelDetail();
       this._render();
     } catch (error) {
