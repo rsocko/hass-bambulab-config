@@ -163,9 +163,9 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Edit button (Phase 3.1)
-    if (target.closest("#btn-edit")) {
+    if (target.closest("#btn-edit") || target.closest("#btn-manage-photos")) {
       event.preventDefault();
-      if (this._activeTab === "details") {
+      if (this._activeTab === "details" || this._activeTab === "gallery") {
         this._toggleEditMode();
       }
       return;
@@ -180,6 +180,13 @@ class ModelDetailPopupCard extends HTMLElement {
 
     // Cancel button (Phase 3.1)
     if (target.closest("#btn-cancel")) {
+      event.preventDefault();
+      this._isEditMode = false;
+      this._render();
+      return;
+    }
+
+    if (target.closest("#btn-done")) {
       event.preventDefault();
       this._isEditMode = false;
       this._render();
@@ -858,11 +865,16 @@ class ModelDetailPopupCard extends HTMLElement {
             ${this._activeTab === 'details' && !this._isEditMode ? `
               <button class="action-button" id="btn-edit">✏️ Edit</button>
             ` : ''}
-            ${this._isEditMode ? `
+            ${this._activeTab === 'gallery' && !this._isEditMode ? `
+              <button class="action-button" id="btn-manage-photos">📸 Manage Photos</button>
+            ` : ''}
+            ${this._activeTab === 'details' && this._isEditMode ? `
               <button class="action-button" id="btn-save" style="background: #4CAF50;" ${this._isSaving ? 'disabled' : ''}>
                 ${this._isSaving ? '⏳ Saving...' : '💾 Save'}
               </button>
               <button class="action-button" id="btn-cancel" style="background: #f44336;" ${this._isSaving ? 'disabled' : ''}>✕ Cancel</button>
+            ` : this._activeTab === 'gallery' && this._isEditMode ? `
+              <button class="action-button" id="btn-done" style="background: #607D8B;">✓ Done</button>
             ` : `
               <button class="action-button" id="btn-viewer">🧊 3D View</button>
               <button class="action-button" id="btn-download">📥 Download</button>
@@ -971,10 +983,23 @@ class ModelDetailPopupCard extends HTMLElement {
   _renderGalleryTab() {
     const photos = this._modelDetail.photos || [];
     const previewPhotoId = this._modelDetail.preview_photo_id;
+    const galleryModeHint = !this._isEditMode ? `
+      <div style="
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: var(--secondary-background-color);
+        color: var(--secondary-text-color);
+        font-size: 13px;
+      ">
+        Use <strong>Manage Photos</strong> in the header to upload or delete photos.
+      </div>
+    ` : '';
     
     if (!photos || photos.length === 0) {
       return `
         <div class="tab-content">
+          ${galleryModeHint}
           <div class="empty-state">
             <p>📸 No Photos</p>
             <p>No photos uploaded yet.</p>
@@ -1002,6 +1027,7 @@ class ModelDetailPopupCard extends HTMLElement {
     
     return `
       <div class="tab-content">
+        ${galleryModeHint}
         <style>
           .gallery-grid {
             display: grid;
