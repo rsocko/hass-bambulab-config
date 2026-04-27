@@ -248,6 +248,53 @@ def test_preview_proxy_endpoint_falls_back_to_base_model_file_url(tmp_path: Path
     ]
 
 
+def test_manyfold_client_list_model_photos_falls_back_to_html_gallery() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.url.path == "/models/sample/photos.json":
+            return httpx.Response(404, text="not found")
+        if request.url.path == "/models":
+            return httpx.Response(200, headers={"set-cookie": "_manyfold_session=session123; Path=/; HttpOnly"}, text="public models")
+        if request.url.path == "/models/sample":
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/html; charset=UTF-8"},
+                text="""
+                <html>
+                  <head><title>Sample Model Search the Internet for models with this name</title></head>
+                  <body>
+                    <img alt="Img 5391" src="/rails/active_storage/blobs/redirect/photo-5391.jpeg">
+                    <a href="/models/sample/model_files/photo5391" title="Delete">Delete</a>
+                  </body>
+                </html>
+                """,
+            )
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        photos = client.list_model_photos("sample")
+    finally:
+        client.close()
+
+    assert photos == [
+        {
+            "id": "photo5391",
+            "@id": "/models/sample/model_files/photo5391",
+            "filename": "Img 5391",
+            "thumbnail_url": "/rails/active_storage/blobs/redirect/photo-5391.jpeg",
+            "image_url": "/rails/active_storage/blobs/redirect/photo-5391.jpeg",
+        }
+    ]
+
+
 def test_model_detail_endpoint_handles_unexpected_manyfold_files_shape(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

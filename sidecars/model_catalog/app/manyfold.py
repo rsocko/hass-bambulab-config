@@ -113,6 +113,8 @@ class _ManyfoldModelPageParser(HTMLParser):
         self._in_title = False
         self._in_code = False
         self.files_by_id: dict[str, dict[str, Any]] = {}
+        self.photos_by_id: dict[str, dict[str, Any]] = {}
+        self._pending_photo: dict[str, Any] | None = None
 
     @property
     def title(self) -> str:
@@ -132,6 +134,16 @@ class _ManyfoldModelPageParser(HTMLParser):
         if tag == "code":
             self._in_code = True
             self._captured_code = []
+            return
+        if tag == "img":
+            alt = str(attr_map.get("alt") or "").strip()
+            src = str(attr_map.get("src") or "").strip()
+            if alt.lower().startswith("img "):
+                self._pending_photo = {
+                    "filename": alt,
+                    "thumbnail_url": src,
+                    "image_url": src,
+                }
             return
         if tag != "a":
             return
@@ -173,6 +185,26 @@ class _ManyfoldModelPageParser(HTMLParser):
         if open_match:
             file_id = open_match.group("file_id")
             filename = self.current_filename
+            pending_photo = self._pending_photo
+            if pending_photo and "delete" in str(attr_map.get("title") or "").strip().lower():
+                photo_row = self.photos_by_id.setdefault(
+                    file_id,
+                    {
+                        "id": file_id,
+                        "@id": href,
+                        "filename": pending_photo.get("filename") or file_id,
+                    },
+                )
+                photo_row.setdefault("@id", href)
+                photo_row.setdefault("filename", pending_photo.get("filename") or file_id)
+                thumbnail_url = str(pending_photo.get("thumbnail_url") or "").strip()
+                image_url = str(pending_photo.get("image_url") or "").strip()
+                if thumbnail_url:
+                    photo_row["thumbnail_url"] = thumbnail_url
+                if image_url:
+                    photo_row["image_url"] = image_url
+                self._pending_photo = None
+                return
             if not filename:
                 return
             row = self.files_by_id.setdefault(
@@ -209,11 +241,14 @@ def _parse_manyfold_model_page_html(base_url: str, model_path: str, html_text: s
     parser = _ManyfoldModelPageParser(model_path=model_path, base_url=base_url)
     parser.feed(html_text)
     files = list(parser.files_by_id.values())
+    photos = list(parser.photos_by_id.values())
     payload: dict[str, Any] = {}
     if parser.title:
         payload["name"] = parser.title.split(" Search the Internet for models with this name", 1)[0].strip()
     if files:
         payload["hasPart"] = files
+    if photos:
+        payload["photos"] = photos
     return payload
 
 
@@ -468,7 +503,10 @@ class ManyfoldClient:
                     rows = [row for row in photos_data if isinstance(row, dict)]
             return rows
         except Exception:
-            # Photos endpoint may not exist or may be unavailable; return empty list
+            detail_payload = self._fallback_model_detail_from_html(model_ref)
+            photos = detail_payload.get("photos")
+            if isinstance(photos, list):
+                return [row for row in photos if isinstance(row, dict)]
             return []
 
     def get_model_file_detail(self, file_ref: str, *, model_ref: str | None = None) -> dict[str, Any]:
