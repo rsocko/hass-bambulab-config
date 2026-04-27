@@ -6,6 +6,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from typing import Any
@@ -900,75 +901,95 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         supported_file_count = 0
         duplicate_warning_count = 0
 
-        for file_path in sorted(root_path.rglob("*")):
-            if not file_path.is_file():
-                continue
-            scanned_file_count += 1
+        def _on_walk_error(error: OSError) -> None:
+            warning = {
+                "type": "walk_error",
+                "path": str(getattr(error, "filename", root_path)),
+                "message": str(error),
+            }
+            warnings.append(warning)
+
+        for current_root, dirnames, filenames in os.walk(root_path, topdown=True, onerror=_on_walk_error):
+            dirnames.sort()
+            filenames.sort()
+            current_dir = Path(current_root)
 
             if max_depth is not None:
-                relative_parts = file_path.relative_to(root_path).parts
-                if len(relative_parts) - 1 > max_depth:
+                try:
+                    current_depth = len(current_dir.relative_to(root_path).parts)
+                except ValueError:
+                    current_depth = 0
+                if current_depth >= max_depth:
+                    dirnames[:] = []
+
+            for filename in filenames:
+                file_path = current_dir / filename
+                scanned_file_count += 1
+
+                if max_depth is not None:
+                    relative_parts = file_path.relative_to(root_path).parts
+                    if len(relative_parts) - 1 > max_depth:
+                        continue
+
+                suffix = file_path.suffix.lower()
+                if suffix not in SUPPORTED_BULK_MODEL_EXTENSIONS:
                     continue
 
-            suffix = file_path.suffix.lower()
-            if suffix not in SUPPORTED_BULK_MODEL_EXTENSIONS:
-                continue
+                supported_file_count += 1
+                group_key = _bulk_group_key(root_path, file_path, grouping_strategy)
+                title = _bulk_group_title(root_path, group_key, file_path, grouping_strategy)
+                proposal = proposals_by_key.get(group_key)
+                if proposal is None:
+                    proposal = {
+                        "proposal_id": _slugify_title(group_key if grouping_strategy == "flat" else title),
+                        "group_key": group_key,
+                        "title": title,
+                        "action": "import",
+                        "files": [],
+                        "warnings": [],
+                    }
+                    proposals_by_key[group_key] = proposal
 
-            supported_file_count += 1
-            group_key = _bulk_group_key(root_path, file_path, grouping_strategy)
-            title = _bulk_group_title(root_path, group_key, file_path, grouping_strategy)
-            proposal = proposals_by_key.get(group_key)
-            if proposal is None:
-                proposal = {
-                    "proposal_id": _slugify_title(group_key if grouping_strategy == "flat" else title),
-                    "group_key": group_key,
-                    "title": title,
-                    "action": "import",
-                    "files": [],
-                    "warnings": [],
-                }
-                proposals_by_key[group_key] = proposal
+                try:
+                    stat_result = file_path.stat()
+                    source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+                    file_hash = _sha256_file(file_path)
+                    file_size = int(stat_result.st_size)
+                except (OSError, PermissionError) as error:
+                    warning = {
+                        "type": "read_error",
+                        "path": str(file_path),
+                        "message": str(error),
+                    }
+                    proposal["warnings"].append(warning)
+                    warnings.append(warning)
+                    continue
 
-            try:
-                stat_result = file_path.stat()
-                source_metadata = _bulk_path_source_metadata(file_path, stat_result)
-                file_hash = _sha256_file(file_path)
-                file_size = int(stat_result.st_size)
-            except (OSError, PermissionError) as error:
-                warning = {
-                    "type": "read_error",
-                    "path": str(file_path),
-                    "message": str(error),
-                }
-                proposal["warnings"].append(warning)
-                warnings.append(warning)
-                continue
+                hash_exists = file_hash.lower() in existing_hashes
+                if hash_exists:
+                    duplicate_warning_count += 1
+                    warning = {
+                        "type": "duplicate_hash",
+                        "path": str(file_path),
+                        "sha256": file_hash,
+                        "message": "Hash already exists in working items",
+                    }
+                    proposal["warnings"].append(warning)
+                    warnings.append(warning)
 
-            hash_exists = file_hash.lower() in existing_hashes
-            if hash_exists:
-                duplicate_warning_count += 1
-                warning = {
-                    "type": "duplicate_hash",
-                    "path": str(file_path),
-                    "sha256": file_hash,
-                    "message": "Hash already exists in working items",
-                }
-                proposal["warnings"].append(warning)
-                warnings.append(warning)
-
-            proposal["files"].append(
-                {
-                    "path": str(file_path),
-                    "relative_path": str(file_path.relative_to(root_path)),
-                    "filename": file_path.name,
-                    "size_bytes": file_size,
-                    "sha256": file_hash,
-                    "duplicate_hash": hash_exists,
-                    "source_mtime": source_metadata["source_mtime"],
-                    "source_ctime": source_metadata["source_ctime"],
-                    "source_birthtime": source_metadata.get("source_birthtime"),
-                }
-            )
+                proposal["files"].append(
+                    {
+                        "path": str(file_path),
+                        "relative_path": str(file_path.relative_to(root_path)),
+                        "filename": file_path.name,
+                        "size_bytes": file_size,
+                        "sha256": file_hash,
+                        "duplicate_hash": hash_exists,
+                        "source_mtime": source_metadata["source_mtime"],
+                        "source_ctime": source_metadata["source_ctime"],
+                        "source_birthtime": source_metadata.get("source_birthtime"),
+                    }
+                )
 
         proposals = sorted(
             proposals_by_key.values(),
@@ -2355,6 +2376,10 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             response["degraded"] = True
         
         response["model"]["description"] = str(manyfold_detail.get("description") or "")
+        response["model"]["name"] = str(manyfold_detail.get("name") or response["model"].get("name") or "")
+        detail_keywords = manyfold_detail.get("keywords")
+        if isinstance(detail_keywords, list):
+            response["model"]["keywords"] = [str(tag).strip() for tag in detail_keywords if str(tag).strip()]
         response["model"]["files"] = model_files
         response["model"]["preview_file_id"] = manyfold_detail.get("preview_file_id")
         response["model"]["created_at"] = manyfold_detail.get("created_at")
@@ -2380,12 +2405,25 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     # ==================== Phase 3.1 Endpoints: Edit Mode & Photo Upload ====================
 
     @app.patch("/api/models/{model_ref:path}")
-    def update_model_endpoint(request: Request, model_ref: str, model_name: str = None, 
-                              description: str = None, tags: list = None, collection: str = None,
-                              enrichment: dict = None) -> dict[str, Any]:
+    async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
         """Update model metadata and enrichment fields (Phase 3.1)."""
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
+
+        # REST command sends JSON body; parse it explicitly so updates are not silently dropped.
+        payload: dict[str, Any] = {}
+        try:
+            parsed_payload = await request.json()
+            if isinstance(parsed_payload, dict):
+                payload = parsed_payload
+        except Exception:
+            payload = {}
+
+        model_name = payload.get("model_name")
+        description = payload.get("description")
+        tags = payload.get("tags")
+        collection = payload.get("collection")
+        enrichment = payload.get("enrichment")
         
         # Resolve model reference
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2395,27 +2433,31 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         # Build update payload for Manyfold (only include fields that are provided)
         manyfold_updates = {}
         if model_name is not None:
-            manyfold_updates["name"] = model_name
+            manyfold_updates["name"] = str(model_name)
         if description is not None:
-            manyfold_updates["description"] = description
+            manyfold_updates["description"] = str(description)
         if tags is not None:
-            manyfold_updates["tags"] = tags
+            normalized_tags = tags
+            if isinstance(normalized_tags, str):
+                normalized_tags = [token.strip() for token in normalized_tags.split(",") if token.strip()]
+            if isinstance(normalized_tags, list):
+                manyfold_updates["keywords"] = [str(tag).strip() for tag in normalized_tags if str(tag).strip()]
         if collection is not None:
             manyfold_updates["collection"] = collection
         
         # Update model in Manyfold first
-        try:
-            if manyfold_updates:
-                # Use model URL from summary, as it's the canonical reference
-                resolved_ref = str(summary.model_url or summary.public_id or summary.model_id)
+        if manyfold_updates:
+            try:
+                # Prefer API-native refs over URLs to avoid web-route ambiguity.
+                resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
                 client.update_model(resolved_ref, manyfold_updates)
-        except Exception as e:
-            # Log the error but continue with local enrichment updates
-            # (enrichment fields are local-only and don't require Manyfold)
-            print(f"Warning: Failed to update model in Manyfold: {e}")
+                # Keep summary cache in sync so the popup reflects latest title/tags immediately.
+                refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            except Exception as e:
+                return JSONResponse(status_code=502, content={"error": f"Failed to update model in Manyfold: {e}"})
         
         # Update enrichment fields in local database (these are HA-only)
-        if enrichment:
+        if isinstance(enrichment, dict):
             for key, value in enrichment.items():
                 if value is not None:
                     set_model_field(

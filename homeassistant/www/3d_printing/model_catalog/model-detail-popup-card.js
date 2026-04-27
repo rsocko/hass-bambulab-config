@@ -1216,10 +1216,16 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   async _handleFormSave(formData) {
+    // Show immediate feedback before network checks so save click feels responsive.
+    this._isSaving = true;
+    this._error = null;
+    this._render();
+
     // Check for conflicts first
     try {
       const currentModel = await this._fetchCurrentModel();
       if (currentModel.last_modified && currentModel.last_modified > this._lastModifiedTimestamp) {
+        this._isSaving = false;
         this._showConflictDialog = true;
         this._conflictDialog = {
           currentModel,
@@ -1233,11 +1239,6 @@ class ModelDetailPopupCard extends HTMLElement {
       console.warn('Could not check for conflicts:', error);
       // Continue with save anyway
     }
-
-    // Mark as saving and show UI feedback
-    this._isSaving = true;
-    this._error = null;
-    this._render();
 
     // Save to sidecar via HA service
     if (this._hass) {
@@ -1254,9 +1255,6 @@ class ModelDetailPopupCard extends HTMLElement {
         });
         
         console.log('REST command response:', serviceResponse);
-        
-        // Wait a moment for sidecar to process
-        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Reload model detail
         console.log('Reloading model detail after save...');
@@ -1276,6 +1274,10 @@ class ModelDetailPopupCard extends HTMLElement {
         this._error = `Failed to save: ${errorMsg}`;
         this._render();
       }
+    } else {
+      this._isSaving = false;
+      this._error = 'Home Assistant service context unavailable.';
+      this._render();
     }
   }
 

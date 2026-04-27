@@ -198,6 +198,17 @@ class ModelCatalogBulkImportCard extends HTMLElement {
         request,
       );
 
+      if (response && response.success === false) {
+        var discoverError = response.message || "Bulk discover failed.";
+        if (response.error) {
+          discoverError = discoverError + " (" + String(response.error) + ")";
+        }
+        throw new Error(discoverError);
+      }
+      if (response && typeof response.status === "number" && response.status >= 400) {
+        throw new Error(response.message || ("Bulk discover failed (HTTP " + String(response.status) + ")."));
+      }
+
       this._discoverSummary = response && response.summary ? response.summary : null;
       this._discoverMeta.discovered_at = response && response.discovered_at ? String(response.discovered_at) : "";
       this._proposals = Array.isArray(response && response.proposals)
