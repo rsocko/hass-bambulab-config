@@ -45,6 +45,11 @@ class ModelDetailPopupCard extends HTMLElement {
     this._showConflictDialog = false;
     this._photoGallery = [];
     
+    // Render stability: prevent re-rendering during interactions
+    this._isInteracting = false;
+    this._renderScheduled = false;
+    this._lastRenderedModelUrl = null;
+    
     // Bound handlers
     this._boundClickHandler = this._handleClick.bind(this);
   }
@@ -77,6 +82,20 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
+    // If we're currently interacting (clicking buttons, etc), defer render
+    if (this._isInteracting) {
+      this._renderScheduled = true;
+      return;
+    }
+
+    // Only re-render if model data has changed
+    const currentModelUrl = this._modelDetail?.manyfold_model_url || '';
+    if (this._lastRenderedModelUrl === currentModelUrl) {
+      // Model data hasn't changed, skip re-render
+      return;
+    }
+
+    this._lastRenderedModelUrl = currentModelUrl;
     this._render();
   }
 
@@ -107,6 +126,20 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handleClick(event) {
+    // Mark as interacting to prevent DOM re-renders during click handling
+    this._isInteracting = true;
+    
+    // Use requestAnimationFrame to safely exit interaction mode after click completes
+    requestAnimationFrame(() => {
+      this._isInteracting = false;
+      
+      // If a render was scheduled during interaction, do it now
+      if (this._renderScheduled) {
+        this._renderScheduled = false;
+        this._render();
+      }
+    });
+
     let target = null;
     if (event.target instanceof Element) {
       target = event.target;

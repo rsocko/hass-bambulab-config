@@ -1,98 +1,70 @@
-# Archive Link Model Script
-# Retrieves and links a print archive to its source model
-# Called on print completion to establish the archive-model relationship
-
-description: "Link an archive to its source model"
-
-mode: single
-timeout: "00:05:00"
-
-fields:
-  archive_id:
-    name: Archive ID
-    description: "The ID of the archive to link"
-    required: true
-    example: "12345"
-  
-  printer_id:
-    name: Printer ID
-    description: "The printer ID (optional, for context)"
-    required: false
-    example: "printer-1"
-
-variables:
-  model_catalog_api_url: "{{ states('input_text.model_catalog_api_url') | default('http://localhost:8314', true) }}"
-  archive_id: "{{ archive_id }}"
-  printer_id: "{{ printer_id | default('', true) }}"
-
-sequence:
-  # Step 1: Get archive details from print history
-  - alias: "Get archive details"
-    service: rest_command.get_archive_details
-    data:
-      archive_id: "{{ archive_id }}"
-    response_variable: archive_response
-
-  # Step 2: If archive retrieval failed, log and exit
-  - alias: "Check if archive was found"
-    condition: template
-    value_template: "{{ archive_response is not none and archive_response.status_code == 200 }}"
-
-  # Step 3: Extract model filename from archive
-  - alias: "Extract model filename"
-    variables:
-      archive_data: "{{ archive_response.json() }}"
-      model_filename: "{{ archive_data.model_filename | default('unknown.3mf', true) }}"
-
-  # Step 4: Call model catalog API to link archive to model
-  - alias: "Link archive to model"
-    service: rest_command.link_archive_to_model
-    data:
-      archive_id: "{{ archive_id }}"
-      model_filename: "{{ model_filename }}"
-    response_variable: link_response
-
-  # Step 5: Handle link response
-  - alias: "Check link result"
-    condition: template
-    value_template: "{{ link_response is not none and link_response.status_code == 200 }}"
-
-  # Step 6: Extract model reference from response
-  - alias: "Extract model reference"
-    variables:
-      link_data: "{{ link_response.json() }}"
-      model_ref: "{{ link_data.model_ref | default(none, true) }}"
-      match_confidence: "{{ link_data.confidence | default('unknown', true) }}"
-
-  # Step 7: If model was found, update archive with model metadata
-  - alias: "Update archive with model reference"
-    condition: template
-    value_template: "{{ model_ref is not none and model_ref != 'None' }}"
-    then:
-      - service: rest_command.update_archive_model_reference
-        data:
-          archive_id: "{{ archive_id }}"
-          model_ref: "{{ model_ref }}"
-          confidence: "{{ match_confidence }}"
-
-      # Notify user of successful linking
-      - service: persistent_notification.create
-        data:
-          title: "Model Linked"
-          message: "Archive #{{ archive_id }} linked to {{ model_ref }} ({{ match_confidence | title }} confidence)"
-          notification_id: "model_link_{{ archive_id }}"
-
-  # Step 8: If model was not found, notify and store for manual linking
-  - alias: "Handle unlinked archive"
-    condition: template
-    value_template: "{{ model_ref is none or model_ref == 'None' }}"
-    then:
-      - service: persistent_notification.create
-        data:
-          title: "Model Not Found"
-          message: "Archive #{{ archive_id }} ({{ model_filename }}) could not be automatically linked. Manual linking may be required."
-          notification_id: "model_unlinked_{{ archive_id }}"
-
-      - service: automation.trigger
-        data:
-          entity_id: automation.model_archive_manual_link_required
+archive_link_model:
+  alias: Archive Link Model
+  description: Link an archive to its source model.
+  mode: single
+  timeout: "00:05:00"
+  fields:
+    archive_id:
+      name: Archive ID
+      description: The ID of the archive to link.
+      required: true
+      example: "12345"
+    printer_id:
+      name: Printer ID
+      description: The printer ID (optional, for context).
+      required: false
+      example: "printer-1"
+  variables:
+    archive_id: "{{ archive_id }}"
+    printer_id: "{{ printer_id | default('', true) }}"
+  sequence:
+    - alias: Get archive details
+      action: rest_command.get_archive_details
+      data:
+        archive_id: "{{ archive_id }}"
+      response_variable: archive_response
+    - alias: Check if archive was found
+      condition: template
+      value_template: "{{ archive_response is defined and archive_response.status == 200 }}"
+    - alias: Extract model filename
+      variables:
+        archive_data: "{{ archive_response.content | default({}, true) }}"
+        model_filename: "{{ archive_data.model_filename | default('unknown.3mf', true) }}"
+    - alias: Link archive to model
+      action: rest_command.link_archive_to_model
+      data:
+        archive_id: "{{ archive_id }}"
+        model_filename: "{{ model_filename }}"
+      response_variable: link_response
+    - alias: Check link result
+      condition: template
+      value_template: "{{ link_response is defined and link_response.status == 200 }}"
+    - alias: Extract model reference
+      variables:
+        link_data: "{{ link_response.content | default({}, true) }}"
+        model_ref: "{{ link_data.model_ref | default(none, true) }}"
+        match_confidence: "{{ link_data.confidence | default('unknown', true) }}"
+    - alias: Notify link result
+      if:
+        - condition: template
+          value_template: "{{ model_ref not in [none, '', 'None'] }}"
+      then:
+        - action: rest_command.update_archive_model_reference
+          data:
+            archive_id: "{{ archive_id }}"
+            model_ref: "{{ model_ref }}"
+            confidence: "{{ match_confidence }}"
+        - action: persistent_notification.create
+          data:
+            title: Model Linked
+            message: "Archive #{{ archive_id }} linked to {{ model_ref }} ({{ match_confidence | title }} confidence)"
+            notification_id: "model_link_{{ archive_id }}"
+      else:
+        - action: persistent_notification.create
+          data:
+            title: Model Not Found
+            message: "Archive #{{ archive_id }} ({{ model_filename }}) could not be automatically linked. Manual linking may be required."
+            notification_id: "model_unlinked_{{ archive_id }}"
+        - action: automation.trigger
+          target:
+            entity_id: automation.model_archive_manual_link_required
