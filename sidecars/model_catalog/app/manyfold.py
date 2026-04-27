@@ -115,6 +115,7 @@ class _ManyfoldModelPageParser(HTMLParser):
         self.files_by_id: dict[str, dict[str, Any]] = {}
         self.photos_by_id: dict[str, dict[str, Any]] = {}
         self._pending_photo: dict[str, Any] | None = None
+        self._carousel_depth = 0
 
     @property
     def title(self) -> str:
@@ -135,12 +136,19 @@ class _ManyfoldModelPageParser(HTMLParser):
             self._in_code = True
             self._captured_code = []
             return
+        if tag == "div":
+            class_name = str(attr_map.get("class") or "")
+            classes = {part.strip() for part in class_name.split() if part.strip()}
+            if "carousel-item" in classes:
+                self._carousel_depth += 1
+                self._pending_photo = None
+            return
         if tag == "img":
             alt = str(attr_map.get("alt") or "").strip()
             src = str(attr_map.get("src") or "").strip()
-            if alt.lower().startswith("img "):
+            if self._carousel_depth > 0 and src:
                 self._pending_photo = {
-                    "filename": alt,
+                    "filename": alt or src.rsplit("/", 1)[-1],
                     "thumbnail_url": src,
                     "image_url": src,
                 }
@@ -229,6 +237,11 @@ class _ManyfoldModelPageParser(HTMLParser):
             return
         if tag == "code":
             self._in_code = False
+            return
+        if tag == "div" and self._carousel_depth > 0:
+            self._carousel_depth -= 1
+            if self._carousel_depth == 0:
+                self._pending_photo = None
 
     def handle_data(self, data: str) -> None:
         if self._in_title:

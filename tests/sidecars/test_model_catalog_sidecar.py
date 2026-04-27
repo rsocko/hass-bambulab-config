@@ -264,8 +264,14 @@ def test_manyfold_client_list_model_photos_falls_back_to_html_gallery() -> None:
                 <html>
                   <head><title>Sample Model Search the Internet for models with this name</title></head>
                   <body>
-                    <img alt="Img 5391" src="/rails/active_storage/blobs/redirect/photo-5391.jpeg">
-                    <a href="/models/sample/model_files/photo5391" title="Delete">Delete</a>
+                                        <div class="carousel-item">
+                                            <img alt="Img 5391" src="/models/sample/model_files/photo5391.webp?derivative=carousel">
+                                            <a href="/models/sample/model_files/photo5391" title="Delete">Delete</a>
+                                        </div>
+                                        <div class="carousel-item active">
+                                            <img alt="Whatsapp Image 2024 08 07 At 22.23.04" src="/models/sample/model_files/photo5392.jpeg?derivative=carousel">
+                                            <a href="/models/sample/model_files/photo5392" title="Delete">Delete</a>
+                                        </div>
                   </body>
                 </html>
                 """,
@@ -289,9 +295,16 @@ def test_manyfold_client_list_model_photos_falls_back_to_html_gallery() -> None:
             "id": "photo5391",
             "@id": "/models/sample/model_files/photo5391",
             "filename": "Img 5391",
-            "thumbnail_url": "/rails/active_storage/blobs/redirect/photo-5391.jpeg",
-            "image_url": "/rails/active_storage/blobs/redirect/photo-5391.jpeg",
-        }
+            "thumbnail_url": "/models/sample/model_files/photo5391.webp?derivative=carousel",
+            "image_url": "/models/sample/model_files/photo5391.webp?derivative=carousel",
+        },
+        {
+            "id": "photo5392",
+            "@id": "/models/sample/model_files/photo5392",
+            "filename": "Whatsapp Image 2024 08 07 At 22.23.04",
+            "thumbnail_url": "/models/sample/model_files/photo5392.jpeg?derivative=carousel",
+            "image_url": "/models/sample/model_files/photo5392.jpeg?derivative=carousel",
+        },
     ]
 
 
