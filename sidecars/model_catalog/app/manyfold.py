@@ -324,6 +324,10 @@ class ManyfoldClient:
             Updated model detail from Manyfold
         """
         path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        
+        # Ensure site session is established before attempting PATCH
+        self._ensure_site_session()
+        
         response = self._client.patch(path, headers=self._request_headers(), json=updates)
         response.raise_for_status()
         payload = response.json()
