@@ -112,6 +112,62 @@ def _build_simple_3mf(*, transform: str | None = None) -> bytes:
         return buffer.getvalue()
 
 
+def _build_external_component_3mf() -> bytes:
+        root_model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"2\" type=\"model\">
+            <components>
+                <component xmlns:p=\"http://schemas.microsoft.com/3dmanufacturing/production/2015/06\" p:path=\"/3D/Objects/object_23.model\" objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+            </components>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"2\" transform=\"1 0 0 0 1 0 0 0 1 5 7 0\" />
+    </build>
+</model>
+"""
+
+        child_model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+</model>
+"""
+
+        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        root_part_rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/Objects/object_23.model\" Id=\"rel-1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("_rels/.rels", rels_xml)
+                archive.writestr("3D/3dmodel.model", root_model_xml)
+                archive.writestr("3D/_rels/3dmodel.model.rels", root_part_rels_xml)
+                archive.writestr("3D/Objects/object_23.model", child_model_xml)
+        return buffer.getvalue()
+
+
 def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -297,7 +353,7 @@ def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
     _insert_cached_summary(settings, public_id="abc123", model_url="http://manyfold.test/models/abc123")
-    package_bytes = _build_simple_3mf(transform="1 0 0 5 0 1 0 7 0 0 1 0")
+    package_bytes = _build_simple_3mf(transform="1 0 0 0 1 0 0 0 1 5 7 0")
 
     class _GeometryClient:
         base_url = "http://manyfold.test"
@@ -321,6 +377,38 @@ def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
+
+
+def test_geometry_endpoint_resolves_external_3mf_component_models(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(settings, public_id="abc123", model_url="http://manyfold.test/models/abc123")
+    package_bytes = _build_external_component_3mf()
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, model_ref: str) -> list[dict[str, object]]:
+            return [{"id": "file123", "filename": "sample.3mf", "file_type": "model/3mf"}]
+
+        def get_model_file_detail(self, file_id: str, model_ref: str | None = None) -> dict[str, object]:
+            return {"contentUrl": "http://manyfold.test/models/abc123/model_files/file123.3mf"}
+
+        def fetch_binary(self, url: str) -> httpx.Response:
+            return httpx.Response(200, headers={"content-type": "model/3mf"}, content=package_bytes)
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/geometry/file123")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["geometry"]["triangle_count"] == 1
     assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
 
 
