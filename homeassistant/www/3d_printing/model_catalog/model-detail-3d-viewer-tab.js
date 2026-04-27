@@ -23,6 +23,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._controls = null;
     this._geometry = null;
     this._mesh = null;
+    this._activeObject3D = null;
     this._gridHelper = null;
     this._buildVolumeHelper = null;
     this._files = [];
@@ -109,7 +110,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       }
     }
 
-    if (!window.OrbitControls) {
+    if (!this._hasOrbitControls()) {
       const orbitSources = [
         'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
         'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.min.js',
@@ -120,7 +121,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       for (const src of orbitSources) {
         try {
           await this._loadScript(src);
-          if (window.OrbitControls) {
+          if (this._hasOrbitControls()) {
             this._orbitControlsLoaded = true;
             break;
           }
@@ -129,14 +130,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
         }
       }
 
-      if (!window.OrbitControls) {
+      if (!this._hasOrbitControls()) {
         console.warn('OrbitControls failed to load, camera rotation disabled');
       }
     } else {
       this._orbitControlsLoaded = true;
     }
 
-    if (!window.ThreeMFLoader) {
+    if (!this._has3mfLoader()) {
       const loaderSources = [
         'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/3MFLoader.js',
         'https://unpkg.com/three@0.128.0/examples/js/loaders/3MFLoader.js',
@@ -146,7 +147,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       for (const src of loaderSources) {
         try {
           await this._loadScript(src);
-          if (window.ThreeMFLoader) {
+          if (this._has3mfLoader()) {
             break;
           }
         } catch (error) {
@@ -154,31 +155,50 @@ class ModelDetail3DViewerTab extends HTMLElement {
         }
       }
 
-      if (!window.ThreeMFLoader) {
+      if (!this._has3mfLoader()) {
         console.warn('3MF loader not available, 3MF support disabled');
       }
     }
   }
 
+  _hasOrbitControls() {
+    return !!(window.THREE && typeof window.THREE.OrbitControls === 'function');
+  }
+
+  _has3mfLoader() {
+    return !!(window.THREE && typeof window.THREE.ThreeMFLoader === 'function');
+  }
+
   _loadScript(src) {
     return new Promise((resolve, reject) => {
+      let settled = false;
       const existing = Array.from(document.querySelectorAll('script')).find((node) => node && node.src === src);
       if (existing) {
-        if (window.THREE) {
+        if (existing.dataset.loaded === 'true') {
           resolve();
           return;
         }
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Script failed to load: ${src}`)), { once: true });
+        return;
       }
 
       const script = document.createElement('script');
       script.src = src;
       script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error(`Script failed to load: ${src}`));
+      script.onload = () => {
+        settled = true;
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = () => {
+        settled = true;
+        reject(new Error(`Script failed to load: ${src}`));
+      };
       document.head.appendChild(script);
 
       setTimeout(() => {
-        if (!window.THREE) {
+        if (!settled) {
           reject(new Error(`Script load timed out: ${src}`));
         }
       }, 12000);
@@ -468,8 +488,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const axis = new window.THREE.AxesHelper(60);
     this._scene.add(axis);
 
-    if (window.OrbitControls && this._orbitControlsLoaded) {
-      this._controls = new window.OrbitControls(this._camera, this._renderer.domElement);
+    if (this._hasOrbitControls() && this._orbitControlsLoaded) {
+      this._controls = new window.THREE.OrbitControls(this._camera, this._renderer.domElement);
       this._controls.enableDamping = true;
       this._controls.dampingFactor = 0.05;
       this._controls.autoRotate = false;
@@ -518,7 +538,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       return;
     }
 
-    if (is3mf && !window.ThreeMFLoader) {
+    if (is3mf && !this._has3mfLoader()) {
       this._setError('3MF format requires additional library. Try STL files.');
       return;
     }
@@ -544,45 +564,102 @@ class ModelDetail3DViewerTab extends HTMLElement {
   async _load3mf(arrayBuffer, filename) {
     try {
       this._setRenderingStatus(`Parsing 3MF file...`);
-      const loader = new window.ThreeMFLoader();
+      const loader = new window.THREE.ThreeMFLoader();
+
+      if (typeof loader.parse === 'function') {
+        const object = loader.parse(arrayBuffer);
+        this._load3mfObject(object, filename);
+        return;
+      }
+
       const url = URL.createObjectURL(new Blob([arrayBuffer], { type: 'model/3mf' }));
-      
-      loader.load(url, (object) => {
-        URL.revokeObjectURL(url);
-        if (object.scene) {
-          this._load3mfScene(object.scene, filename);
-        } else if (object.geometry) {
-          this._loadGeometry({ geometry: object.geometry, triangleCount: 'multiple' });
-        }
-      }, (progress) => {
-        const pct = Math.round((progress.loaded / progress.total) * 100);
-        this._setRenderingStatus(`Loading 3MF ${pct}%...`);
-      }, (error) => {
-        this._setError(`3MF parsing failed: ${error.message}`);
-      });
+      loader.load(
+        url,
+        (object) => {
+          URL.revokeObjectURL(url);
+          this._load3mfObject(object, filename);
+        },
+        (progress) => {
+          const total = progress && progress.total ? progress.total : 0;
+          const loaded = progress && progress.loaded ? progress.loaded : 0;
+          const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+          this._setRenderingStatus(`Loading 3MF ${pct}%...`);
+        },
+        (error) => {
+          URL.revokeObjectURL(url);
+          this._setError(`3MF parsing failed: ${error.message}`);
+        },
+      );
     } catch (error) {
       this._setError(`3MF loading failed: ${error.message}`);
     }
   }
 
-  _load3mfScene(scene, filename) {
+  _load3mfObject(object, filename) {
+    if (!object || !this._scene || !window.THREE) {
+      this._setError('3MF loader returned empty geometry.');
+      return;
+    }
+
+    if (object.scene && object.scene.isObject3D) {
+      this._load3mfObject(object.scene, filename);
+      return;
+    }
+
+    if (object.geometry && object.geometry.isBufferGeometry) {
+      this._loadGeometry({
+        vertices: object.geometry.attributes.position.array,
+        normals: object.geometry.attributes.normal ? object.geometry.attributes.normal.array : null,
+        triangleCount: Math.floor(object.geometry.attributes.position.count / 3),
+      });
+      this._setRenderingStatus(`Rendering 3MF ${filename || 'model'}`);
+      return;
+    }
+
+    if (!object.isObject3D) {
+      this._setError('Unsupported 3MF object structure.');
+      return;
+    }
+
     if (this._mesh) {
       this._scene.remove(this._mesh);
+      if (this._mesh.geometry) {
+        this._mesh.geometry.dispose();
+      }
+      if (this._mesh.material) {
+        this._mesh.material.dispose();
+      }
+      this._mesh = null;
+    }
+
+    if (this._activeObject3D) {
+      this._scene.remove(this._activeObject3D);
+      this._activeObject3D = null;
     }
 
     let vertexCount = 0;
-    scene.traverse((child) => {
+    object.traverse((child) => {
       if (child.isMesh) {
-        if (child.geometry && child.geometry.attributes.position) {
+        if (child.geometry && child.geometry.attributes && child.geometry.attributes.position) {
           vertexCount += child.geometry.attributes.position.count;
         }
-        this._scene.add(child);
+        if (!child.material) {
+          child.material = new window.THREE.MeshStandardMaterial({
+            color: 0x5fa8d3,
+            metalness: 0.1,
+            roughness: 0.65,
+            side: window.THREE.DoubleSide,
+          });
+        }
       }
     });
 
+    this._activeObject3D = object;
+    this._scene.add(object);
+
     const triangleCount = Math.floor(vertexCount / 3);
-    
-    const bbox = new window.THREE.Box3().setFromObject(scene);
+
+    const bbox = new window.THREE.Box3().setFromObject(object);
     this._updateModelInfo(triangleCount, bbox);
     this._fitCameraToGeometry(bbox);
     
@@ -617,6 +694,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
   _loadGeometry(parsed) {
     if (!window.THREE || !this._scene) {
       return;
+    }
+
+    if (this._activeObject3D) {
+      this._scene.remove(this._activeObject3D);
+      this._activeObject3D = null;
     }
 
     if (this._mesh) {
@@ -700,16 +782,26 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _resetView() {
-    if (!this._geometry || !this._camera) {
+    if (!this._camera) {
       return;
     }
-    this._fitCameraToGeometry(this._geometry.boundingBox || null);
+
+    let targetBox = null;
+    if (this._geometry && this._geometry.boundingBox) {
+      targetBox = this._geometry.boundingBox;
+    } else if (this._activeObject3D) {
+      targetBox = new window.THREE.Box3().setFromObject(this._activeObject3D);
+    }
+
+    if (!targetBox) {
+      return;
+    }
+
+    this._fitCameraToGeometry(targetBox);
     
     if (this._controls) {
       const center = new window.THREE.Vector3();
-      if (this._geometry.boundingBox) {
-        this._geometry.boundingBox.getCenter(center);
-      }
+      targetBox.getCenter(center);
       this._controls.target.copy(center);
       this._controls.update();
     }

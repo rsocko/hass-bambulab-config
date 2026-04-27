@@ -40,7 +40,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=15
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=7
+- url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=8
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-related-models.js?v=1
   type: module

@@ -293,7 +293,7 @@ class ManyfoldClient:
             response.raise_for_status()
             payload = response.json()
             return self._extract_rows(payload)
-        except Exception:
+                # If _extract_rows didn't find data, try direct "photos" key in payload
             # Photos endpoint may not exist; return empty list
             return []
 
