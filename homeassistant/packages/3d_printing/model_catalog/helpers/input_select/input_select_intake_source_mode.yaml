@@ -1,11 +1,8 @@
-input_select:
-  intake_source_mode:
-    name: "Intake Source Mode"
-    description: "Select source for intake queue uploads: filesystem browser, Manyfold server, or both"
-    options:
-      - browser
-      - server
-      - mixed
-    initial: browser
-    icon: mdi:folder-open
-    unit_of_measurement: null
+intake_source_mode:
+  name: "Intake Source Mode"
+  options:
+    - browser
+    - server
+    - mixed
+  initial: browser
+  icon: mdi:folder-open

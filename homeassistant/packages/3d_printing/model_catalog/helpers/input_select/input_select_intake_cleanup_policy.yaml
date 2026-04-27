@@ -1,11 +1,8 @@
-input_select:
-  intake_cleanup_policy:
-    name: "Intake Cleanup Policy"
-    description: "Cleanup behavior after upload verification: keep source, delete on success, or replace with stub"
-    options:
-      - keep
-      - delete_on_verified
-      - replace_with_stub
-    initial: keep
-    icon: mdi:trash-can
-    unit_of_measurement: null
+intake_cleanup_policy:
+  name: "Intake Cleanup Policy"
+  options:
+    - keep
+    - delete_on_verified
+    - replace_with_stub
+  initial: keep
+  icon: mdi:trash-can
