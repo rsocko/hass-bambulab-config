@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key, set_model_field
+from sidecars.model_catalog.app.geometry_3mf import extract_3mf_geometry
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
@@ -166,6 +167,79 @@ def _build_external_component_3mf() -> bytes:
                 archive.writestr("3D/_rels/3dmodel.model.rels", root_part_rels_xml)
                 archive.writestr("3D/Objects/object_23.model", child_model_xml)
         return buffer.getvalue()
+
+
+def _build_two_plate_3mf() -> bytes:
+                model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+        <object id=\"2\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"100\" y=\"100\" z=\"0\" />
+                    <vertex x=\"110\" y=\"100\" z=\"0\" />
+                    <vertex x=\"100\" y=\"120\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+        <item objectid=\"2\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+    </build>
+</model>
+"""
+
+                model_settings_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<config>
+    <object id=\"1\"><metadata key=\"extruder\" value=\"1\" /></object>
+    <object id=\"2\"><metadata key=\"extruder\" value=\"2\" /></object>
+    <plate>
+        <metadata key=\"plater_id\" value=\"1\" />
+        <metadata key=\"plater_name\" value=\"Plate One\" />
+        <model_instance><metadata key=\"object_id\" value=\"1\" /></model_instance>
+    </plate>
+    <plate>
+        <metadata key=\"plater_id\" value=\"2\" />
+        <metadata key=\"plater_name\" value=\"Plate Two\" />
+        <model_instance><metadata key=\"object_id\" value=\"2\" /></model_instance>
+    </plate>
+</config>
+"""
+
+                project_settings_json = b'{"filament_colour": ["#FF0000", "#00FF00"]}'
+                plate_1_json = b'{"bbox_all": [0, 0, 10, 20], "filament_colors": ["#FF0000"]}'
+                plate_2_json = b'{"bbox_all": [100, 100, 110, 120], "filament_colors": ["#00FF00"]}'
+                rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+                buffer = BytesIO()
+                with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                                archive.writestr("_rels/.rels", rels_xml)
+                                archive.writestr("3D/3dmodel.model", model_xml)
+                                archive.writestr("Metadata/model_settings.config", model_settings_xml)
+                                archive.writestr("Metadata/project_settings.config", project_settings_json)
+                                archive.writestr("Metadata/plate_1.json", plate_1_json)
+                                archive.writestr("Metadata/plate_2.json", plate_2_json)
+                return buffer.getvalue()
 
 
 def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
@@ -344,8 +418,10 @@ def test_geometry_endpoint_returns_parsed_3mf_mesh(tmp_path: Path) -> None:
     assert payload["success"] is True
     assert payload["file_type"] == "model/3mf"
     assert payload["geometry"]["format"] == "triangles"
+    assert payload["geometry"]["coordinate_system"] == "printer_xyz"
     assert payload["geometry"]["triangle_count"] == 1
     assert payload["geometry"]["unit"] == "millimeter"
+    assert payload["geometry"]["dimensions_mm"] == {"x": 10.0, "y": 20.0, "z": 0.0}
     assert payload["geometry"]["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
 
 
@@ -410,6 +486,26 @@ def test_geometry_endpoint_resolves_external_3mf_component_models(tmp_path: Path
     payload = response.json()
     assert payload["geometry"]["triangle_count"] == 1
     assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
+
+
+def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -> None:
+    payload = extract_3mf_geometry(_build_two_plate_3mf())
+
+    assert payload["selected_plate_id"] == "1"
+    assert payload["plates"][0]["name"] == "Plate One"
+    assert payload["triangle_count"] == 1
+    assert payload["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+    assert payload["color_info"]["available"] is True
+    assert payload["color_info"]["primary_color"] == "#FF0000"
+
+
+def test_extract_3mf_geometry_can_select_specific_plate() -> None:
+    payload = extract_3mf_geometry(_build_two_plate_3mf(), plate_id="2")
+
+    assert payload["selected_plate_id"] == "2"
+    assert payload["triangle_count"] == 1
+    assert payload["vertices"] == [100.0, 100.0, 0.0, 110.0, 100.0, 0.0, 100.0, 120.0, 0.0]
+    assert payload["color_info"]["primary_color"] == "#00FF00"
 
 
 def test_preview_proxy_endpoint_falls_back_to_alternate_derivative(tmp_path: Path) -> None:

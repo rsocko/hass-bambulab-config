@@ -3013,7 +3013,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
     @app.get("/api/models/{model_ref:path}/geometry/{file_id}")
-    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False) -> dict[str, Any]:
+    def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> dict[str, Any]:
         """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
@@ -3082,7 +3082,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
             if is_3mf and source_url:
                 binary_response = client.fetch_binary(source_url)
-                response_payload["geometry"] = extract_3mf_geometry(binary_response.content)
+                response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
 
             if include_debug:
                 response_payload["_debug"] = debug_info

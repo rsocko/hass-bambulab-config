@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
+import json
 import posixpath
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -75,6 +76,165 @@ def _normalize_part_path(value: Any) -> str:
     return "" if normalized == "." else normalized
 
 
+def _read_package_text(package: zipfile.ZipFile, part_name_map: dict[str, str], package_path: str) -> str | None:
+    normalized = _normalize_part_path(package_path)
+    original = part_name_map.get(normalized)
+    if not original:
+        return None
+    return package.read(original).decode("utf-8", "ignore")
+
+
+def _read_package_json(package: zipfile.ZipFile, part_name_map: dict[str, str], package_path: str) -> Any:
+    text = _read_package_text(package, part_name_map, package_path)
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _normalize_color(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.startswith("#"):
+        hex_value = text[1:]
+    elif text.lower().startswith("0x"):
+        hex_value = text[2:]
+    else:
+        hex_value = text
+    if len(hex_value) == 8:
+        hex_value = hex_value[:6]
+    if len(hex_value) != 6:
+        return None
+    try:
+        int(hex_value, 16)
+    except ValueError:
+        return None
+    return f"#{hex_value.upper()}"
+
+
+def _compute_dimensions_mm(vertices: list[float]) -> dict[str, float]:
+    if not vertices:
+        return {"x": 0.0, "y": 0.0, "z": 0.0}
+    x_values = vertices[0::3]
+    y_values = vertices[1::3]
+    z_values = vertices[2::3]
+    return {
+        "x": max(x_values) - min(x_values),
+        "y": max(y_values) - min(y_values),
+        "z": max(z_values) - min(z_values),
+    }
+
+
+def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    if not text:
+        return [], {}
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return [], {}
+
+    plates: list[dict[str, Any]] = []
+    object_extruders: dict[str, int] = {}
+
+    for child in list(root):
+        child_name = _local_name(child.tag)
+        if child_name == "object":
+            object_id = str(child.attrib.get("id") or "").strip()
+            if not object_id:
+                continue
+            for metadata_node in list(child):
+                if _local_name(metadata_node.tag) != "metadata":
+                    continue
+                if str(metadata_node.attrib.get("key") or "").strip() != "extruder":
+                    continue
+                try:
+                    object_extruders[object_id] = int(str(metadata_node.attrib.get("value") or "0"))
+                except ValueError:
+                    pass
+            continue
+
+        if child_name != "plate":
+            continue
+
+        plate_data: dict[str, Any] = {
+            "id": str(len(plates) + 1),
+            "name": f"Plate {len(plates) + 1}",
+            "object_ids": [],
+        }
+        for node in list(child):
+            node_name = _local_name(node.tag)
+            if node_name == "metadata":
+                key = str(node.attrib.get("key") or "").strip()
+                value = str(node.attrib.get("value") or "").strip()
+                if key == "plater_id" and value:
+                    plate_data["id"] = value
+                elif key == "plater_name" and value:
+                    plate_data["name"] = value
+            elif node_name == "model_instance":
+                for meta in list(node):
+                    if _local_name(meta.tag) != "metadata":
+                        continue
+                    if str(meta.attrib.get("key") or "").strip() != "object_id":
+                        continue
+                    object_id = str(meta.attrib.get("value") or "").strip()
+                    if object_id:
+                        plate_data["object_ids"].append(object_id)
+
+        seen_ids: set[str] = set()
+        plate_data["object_ids"] = [
+            object_id for object_id in plate_data["object_ids"]
+            if not (object_id in seen_ids or seen_ids.add(object_id))
+        ]
+        plates.append(plate_data)
+
+    return plates, object_extruders
+
+
+def _merge_plate_metadata(
+    *,
+    package: zipfile.ZipFile,
+    part_name_map: dict[str, str],
+    plates: list[dict[str, Any]],
+    palette: list[str],
+    object_extruders: dict[str, int],
+) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for index, plate in enumerate(plates, start=1):
+        merged = dict(plate)
+        plate_json = _read_package_json(package, part_name_map, f"Metadata/plate_{index}.json")
+        if isinstance(plate_json, dict):
+            bbox = plate_json.get("bbox_all")
+            if isinstance(bbox, list) and len(bbox) == 4:
+                merged["bbox_xy"] = [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+            colors = [
+                normalized
+                for normalized in (_normalize_color(value) for value in plate_json.get("filament_colors") or [])
+                if normalized
+            ]
+            if colors:
+                merged["filament_colors"] = colors
+
+        derived_colors: list[str] = list(merged.get("filament_colors") or [])
+        if not derived_colors:
+            for object_id in merged.get("object_ids") or []:
+                extruder = object_extruders.get(str(object_id))
+                if extruder is None:
+                    continue
+                palette_index = extruder - 1 if extruder > 0 else extruder
+                if 0 <= palette_index < len(palette):
+                    color_value = palette[palette_index]
+                    if color_value and color_value not in derived_colors:
+                        derived_colors.append(color_value)
+        if derived_colors:
+            merged["filament_colors"] = derived_colors
+        enriched.append(merged)
+
+    return enriched
+
+
 def _resolve_model_part_path(package: zipfile.ZipFile) -> str:
     namelist = {_normalize_part_path(name): name for name in package.namelist()}
     rels_name = "_rels/.rels"
@@ -139,7 +299,7 @@ def _resolve_component_part_path(current_part_path: str, target_path: Any) -> st
     return _normalize_part_path(posixpath.join(current_dir, normalized_target))
 
 
-def extract_3mf_geometry(package_bytes: bytes) -> dict[str, Any]:
+def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -> dict[str, Any]:
     if not package_bytes:
         raise ValueError("3MF package is empty")
 
@@ -151,6 +311,28 @@ def extract_3mf_geometry(package_bytes: bytes) -> dict[str, Any]:
             for normalized, original in part_name_map.items()
             if normalized.lower().endswith(".model")
         }
+        model_settings_text = _read_package_text(package, part_name_map, "Metadata/model_settings.config")
+        project_settings = _read_package_json(package, part_name_map, "Metadata/project_settings.config")
+
+        palette: list[str] = []
+        if isinstance(project_settings, dict):
+            color_candidates = (
+                project_settings.get("filament_colour")
+                or project_settings.get("filament_color")
+                or project_settings.get("default_filament_colour")
+                or []
+            )
+            if isinstance(color_candidates, list):
+                palette = [normalized for normalized in (_normalize_color(value) for value in color_candidates) if normalized]
+
+        plates, object_extruders = _parse_model_settings_metadata(model_settings_text)
+        plates = _merge_plate_metadata(
+            package=package,
+            part_name_map=part_name_map,
+            plates=plates,
+            palette=palette,
+            object_extruders=object_extruders,
+        )
 
     root = model_parts.get(_normalize_part_path(model_part_path))
     if root is None:
@@ -248,6 +430,19 @@ def extract_3mf_geometry(package_bytes: bytes) -> dict[str, Any]:
             if entry.mesh is not None
         ]
 
+    requested_plate_id = str(plate_id or "").strip()
+    selected_plate = None
+    if plates:
+        if requested_plate_id:
+            selected_plate = next((plate for plate in plates if str(plate.get("id")) == requested_plate_id), None)
+        if selected_plate is None:
+            selected_plate = plates[0]
+        allowed_object_ids = {str(object_id) for object_id in selected_plate.get("object_ids") or []}
+        if allowed_object_ids:
+            filtered_build_items = [item for item in build_items if str(item[1]) in allowed_object_ids]
+            if filtered_build_items:
+                build_items = filtered_build_items
+
     flattened_vertices: list[float] = []
     triangle_count = 0
 
@@ -284,9 +479,43 @@ def extract_3mf_geometry(package_bytes: bytes) -> dict[str, Any]:
     if not flattened_vertices or triangle_count <= 0:
         raise ValueError("3MF package contained no renderable mesh geometry")
 
+    dimensions_mm = _compute_dimensions_mm(flattened_vertices)
+
+    active_colors: list[str] = []
+    if selected_plate is not None:
+        active_colors = list(selected_plate.get("filament_colors") or [])
+    elif palette:
+        active_colors = list(palette)
+
+    unique_colors: list[str] = []
+    for color in active_colors:
+        if color not in unique_colors:
+            unique_colors.append(color)
+
+    color_mode = "unavailable"
+    primary_color = None
+    if len(unique_colors) == 1:
+        color_mode = "single"
+        primary_color = unique_colors[0]
+    elif len(unique_colors) > 1:
+        color_mode = "multi"
+
+    color_info: dict[str, Any] = {
+        "available": bool(unique_colors),
+        "mode": color_mode,
+        "palette": unique_colors,
+    }
+    if primary_color:
+        color_info["primary_color"] = primary_color
+
     return {
         "format": "triangles",
         "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
         "triangle_count": triangle_count,
         "vertices": flattened_vertices,
+        "dimensions_mm": dimensions_mm,
+        "plates": plates,
+        "selected_plate_id": selected_plate.get("id") if selected_plate is not None else None,
+        "color_info": color_info,
     }

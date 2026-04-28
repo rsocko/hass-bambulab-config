@@ -15,6 +15,7 @@
 class ModelDetail3DViewerTab extends HTMLElement {
   constructor() {
     super();
+    this._defaultModelColor = '#5fa8d3';
     this._config = {};
     this._model = null;
     this._scene = null;
@@ -35,6 +36,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._isGridVisible = true;
     this._isBuildVolumeVisible = false;
     this._initialCameraPos = null;
+    this._availablePlates = [];
+    this._selectedPlateId = '';
+    this._currentDimensionsMm = null;
+    this._currentColorInfo = null;
+    this._usePackageColors = true;
   }
 
   setConfig(config) {
@@ -343,6 +349,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
       <div class="viewer-container">
         <div class="viewer-toolbar">
+          <div id="plate-selector-host"></div>
+
           ${this._files.length > 1 ? `
             <div class="file-selector">
               <label>File:</label>
@@ -396,6 +404,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
       });
     }
 
+    this._syncPlateSelector();
+
     const resetButton = this.querySelector('#btn-reset-view');
     if (resetButton) {
       resetButton.addEventListener('click', () => this._resetView());
@@ -414,7 +424,17 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const layerButton = this.querySelector('#btn-layer-colors');
     if (layerButton) {
       layerButton.addEventListener('click', () => {
-        this._setRenderingStatus('Layer coloring is not implemented for STL/OBJ in this viewer yet.');
+        if (!this._currentColorInfo || !this._currentColorInfo.available) {
+          this._setRenderingStatus('This 3MF did not expose usable color metadata.');
+          return;
+        }
+        if (this._currentColorInfo.mode !== 'single') {
+          this._setRenderingStatus('Multi-color metadata detected, but per-part color rendering is not implemented yet.');
+          return;
+        }
+        this._usePackageColors = !this._usePackageColors;
+        this._applyCurrentMaterialColor();
+        this._setRenderingStatus(this._usePackageColors ? 'Using package color metadata.' : 'Using default viewer color.');
       });
     }
 
@@ -571,7 +591,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
       const parsed = this._normalizeParsedGeometryPayload(payload);
       if (parsed) {
         this._loadGeometry(parsed);
-        this._setRenderingStatus(`Rendering ${filename} (${parsed.triangleCount} triangles)`);
+        const plateLabel = this._selectedPlateLabel();
+        this._setRenderingStatus(`Rendering ${filename}${plateLabel ? ` (${plateLabel})` : ''} (${parsed.triangleCount} triangles)`);
         return;
       }
 
@@ -634,12 +655,43 @@ class ModelDetail3DViewerTab extends HTMLElement {
       return null;
     }
 
+    this._availablePlates = Array.isArray(geometry.plates) ? geometry.plates : [];
+    if (typeof geometry.selected_plate_id === 'string' && geometry.selected_plate_id) {
+      this._selectedPlateId = geometry.selected_plate_id;
+    } else if (this._availablePlates.length > 0 && !this._selectedPlateId) {
+      this._selectedPlateId = String(this._availablePlates[0].id || '');
+    }
+    this._currentDimensionsMm = geometry.dimensions_mm && typeof geometry.dimensions_mm === 'object'
+      ? geometry.dimensions_mm
+      : null;
+    this._currentColorInfo = geometry.color_info && typeof geometry.color_info === 'object'
+      ? geometry.color_info
+      : null;
+    this._syncPlateSelector();
+
     const triangleCount = Number(geometry.triangle_count);
+    const coordinateSystem = String(geometry.coordinate_system || '').trim().toLowerCase();
+    const normalizedVertices = coordinateSystem === 'printer_xyz'
+      ? this._mapPrinterVerticesToViewer(vertices)
+      : Float32Array.from(vertices);
+
     return {
-      vertices: Float32Array.from(vertices),
+      vertices: normalizedVertices,
       normals: null,
       triangleCount: Number.isFinite(triangleCount) && triangleCount > 0 ? triangleCount : Math.floor(vertices.length / 9),
+      dimensionsMm: this._currentDimensionsMm,
+      color: this._resolvePackageColor(),
     };
+  }
+
+  _mapPrinterVerticesToViewer(vertices) {
+    const mapped = new Float32Array(vertices.length);
+    for (let index = 0; index < vertices.length; index += 3) {
+      mapped[index] = Number(vertices[index]) || 0;
+      mapped[index + 1] = Number(vertices[index + 2]) || 0;
+      mapped[index + 2] = Number(vertices[index + 1]) || 0;
+    }
+    return mapped;
   }
 
   _load3mfObject(object, filename) {
@@ -763,7 +815,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
-    return `${base}/api/models/${modelRef}/geometry/${fileId}`;
+    const plateQuery = this._selectedPlateId ? `?plate_id=${encodeURIComponent(this._selectedPlateId)}` : '';
+    return `${base}/api/models/${modelRef}/geometry/${fileId}${plateQuery}`;
   }
 
   _setRenderingStatus(message) {
@@ -810,7 +863,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._geometry = geometry;
 
     const material = new window.THREE.MeshStandardMaterial({
-      color: 0x5fa8d3,
+      color: parsed.color || this._defaultModelColor,
       metalness: 0.1,
       roughness: 0.65,
       side: window.THREE.DoubleSide,
@@ -819,7 +872,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._mesh = new window.THREE.Mesh(geometry, material);
     this._scene.add(this._mesh);
 
-    this._updateModelInfo(parsed.triangleCount, geometry.boundingBox);
+    this._updateModelInfo(parsed.triangleCount, geometry.boundingBox, parsed.dimensionsMm || null);
     this._fitCameraToGeometry(geometry.boundingBox);
   }
 
@@ -842,17 +895,32 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._camera.lookAt(center);
   }
 
-  _updateModelInfo(triangleCount, boundingBox) {
-    if (!boundingBox) {
+  _updateModelInfo(triangleCount, boundingBox, dimensionsMm = null) {
+    if (!boundingBox && !dimensionsMm) {
       return;
     }
 
-    const size = new window.THREE.Vector3();
-    boundingBox.getSize(size);
+    let size = null;
+    if (boundingBox) {
+      size = new window.THREE.Vector3();
+      boundingBox.getSize(size);
+    }
+
+    const dims = dimensionsMm && typeof dimensionsMm === 'object'
+      ? {
+          x: Number(dimensionsMm.x) || 0,
+          y: Number(dimensionsMm.y) || 0,
+          z: Number(dimensionsMm.z) || 0,
+        }
+      : {
+          x: size ? size.x : 0,
+          y: size ? size.y : 0,
+          z: size ? size.z : 0,
+        };
 
     const dimensionsNode = this.querySelector('#info-dimensions');
     if (dimensionsNode) {
-      dimensionsNode.textContent = `${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)} mm`;
+      dimensionsNode.textContent = `${dims.x.toFixed(1)} x ${dims.y.toFixed(1)} x ${dims.z.toFixed(1)} mm`;
     }
 
     const trianglesNode = this.querySelector('#info-triangles');
@@ -862,8 +930,73 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     const fitNode = this.querySelector('#info-fit');
     if (fitNode) {
-      const fits = size.x <= 256 && size.y <= 256 && size.z <= 256;
+      const fits = dims.x <= 256 && dims.y <= 256 && dims.z <= 256;
       fitNode.textContent = fits ? 'Fits (<= 256mm)' : 'Exceeds 256mm volume';
+    }
+  }
+
+  _syncPlateSelector() {
+    const host = this.querySelector('#plate-selector-host');
+    if (!host) {
+      return;
+    }
+
+    if (!Array.isArray(this._availablePlates) || this._availablePlates.length <= 1) {
+      host.innerHTML = '';
+      return;
+    }
+
+    const options = this._availablePlates.map((plate) => {
+      const plateId = String(plate && plate.id || '');
+      const plateName = String(plate && plate.name || `Plate ${plateId || '?'}`);
+      return `<option value="${this._escapeHtml(plateId)}">${this._escapeHtml(plateName)}</option>`;
+    }).join('');
+
+    host.innerHTML = `
+      <div class="file-selector">
+        <label>Plate:</label>
+        <select id="plate-selector">${options}</select>
+      </div>
+    `;
+
+    const selector = this.querySelector('#plate-selector');
+    if (!selector) {
+      return;
+    }
+    selector.value = this._selectedPlateId || String(this._availablePlates[0] && this._availablePlates[0].id || '');
+    selector.onchange = (event) => {
+      const nextPlateId = String(event.target && event.target.value || '').trim();
+      this._selectedPlateId = nextPlateId;
+      this._loadSelectedGeometry().catch((error) => {
+        this._setError(`Failed to load model geometry: ${String(error && error.message ? error.message : error)}`);
+      });
+    };
+  }
+
+  _selectedPlateLabel() {
+    if (!Array.isArray(this._availablePlates) || !this._selectedPlateId) {
+      return '';
+    }
+    const match = this._availablePlates.find((plate) => String(plate && plate.id || '') === this._selectedPlateId);
+    return match ? String(match.name || '') : '';
+  }
+
+  _resolvePackageColor() {
+    if (!this._usePackageColors || !this._currentColorInfo || !this._currentColorInfo.available) {
+      return null;
+    }
+    if (this._currentColorInfo.mode !== 'single') {
+      return null;
+    }
+    const primaryColor = String(this._currentColorInfo.primary_color || '').trim();
+    return primaryColor || null;
+  }
+
+  _applyCurrentMaterialColor() {
+    const colorValue = this._resolvePackageColor() || this._defaultModelColor;
+    if (this._mesh && this._mesh.material && this._mesh.material.color) {
+      this._mesh.material.color.set(colorValue);
+      this._mesh.material.needsUpdate = true;
     }
   }
 
@@ -1044,11 +1177,21 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
   }
 
+  _escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   _saveViewerState() {
     try {
       const stateKey = `model_viewer_state_${String(this._config.model_ref || 'default')}`;
       const state = {
         selectedFileIndex: this._selectedFileIndex,
+        selectedPlateId: this._selectedPlateId,
         gridVisible: this._isGridVisible,
         buildVolumeVisible: this._isBuildVolumeVisible,
         timestamp: Date.now(),
@@ -1068,6 +1211,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
         if (typeof state === 'object' && state !== null) {
           if (typeof state.selectedFileIndex === 'number' && state.selectedFileIndex < this._files.length) {
             this._selectedFileIndex = state.selectedFileIndex;
+          }
+          if (typeof state.selectedPlateId === 'string') {
+            this._selectedPlateId = state.selectedPlateId;
           }
           if (typeof state.gridVisible === 'boolean') {
             this._isGridVisible = state.gridVisible;
