@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sqlite3
+import time
 from typing import Any
 from sqlite3 import connect
 from pathlib import Path
@@ -34,6 +35,7 @@ from .db import (
     read_model_link_counts,
     read_model_ranking_inputs,
     read_model_ranking,
+    derive_manyfold_model_key,
     repair_canonical_model_urls,
     refresh_archive_link_candidates,
     set_archive_link_review_state,
@@ -4757,6 +4759,86 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 return f"{model_url.rstrip('/')}/model_files/{quote(normalized_ref, safe='')}"
             return None
 
+        def _model_key_from_payload(payload: dict[str, Any]) -> str:
+            return derive_manyfold_model_key(
+                manyfold_model_url=str(payload.get("url") or payload.get("@id") or "").strip() or None,
+                manyfold_model_public_id=str(payload.get("public_id") or payload.get("slug") or "").strip() or None,
+                manyfold_model_id=str(payload.get("id") or "").strip() or None,
+            )
+
+        def _pick_matching_candidate_row(
+            *,
+            candidate_rows: list[dict[str, Any]],
+            expected_name: str,
+            expected_size: int,
+        ) -> dict[str, Any] | None:
+            normalized_name = _normalized_filename(expected_name)
+            for row in candidate_rows:
+                if normalized_name not in _candidate_names(row):
+                    continue
+                candidate_size = _candidate_size(row)
+                if candidate_size is None or candidate_size == expected_size:
+                    return row
+            return candidate_rows[0] if candidate_rows else None
+
+        def _find_verified_uploaded_model(
+            *,
+            baseline_model_keys: set[str],
+            expected_hash: str,
+            expected_size: int,
+            expected_name: str,
+            fallback_name: str,
+        ) -> tuple[dict[str, Any], str, list[dict[str, Any]], dict[str, Any] | None]:
+            normalized_fallback_name = _normalized_filename(fallback_name)
+            last_payloads: list[dict[str, Any]] = []
+            saw_materialized_candidate = False
+            for attempt in range(12):
+                payloads = client.list_model_payloads()
+                last_payloads = payloads
+                candidate_payloads = [
+                    payload
+                    for payload in payloads
+                    if _model_key_from_payload(payload) not in baseline_model_keys
+                ]
+                if not candidate_payloads:
+                    candidate_payloads = [
+                        payload
+                        for payload in payloads
+                        if _normalized_filename(str(payload.get("name") or "")) == normalized_fallback_name
+                    ]
+
+                for candidate_payload in candidate_payloads:
+                    model_ref = _model_ref_from_payload(candidate_payload)
+                    if not model_ref:
+                        continue
+                    verified, verification_method, candidate_rows = _verify_uploaded_file(
+                        model_ref=model_ref,
+                        attached_file={},
+                        expected_hash=expected_hash,
+                        expected_size=expected_size,
+                        expected_name=expected_name,
+                    )
+                    if candidate_rows:
+                        saw_materialized_candidate = True
+                    if not verified:
+                        continue
+                    matched_row = _pick_matching_candidate_row(
+                        candidate_rows=candidate_rows,
+                        expected_name=expected_name,
+                        expected_size=expected_size,
+                    )
+                    return candidate_payload, verification_method, candidate_rows, matched_row
+
+                if saw_materialized_candidate:
+                    break
+
+                if attempt < 11:
+                    time.sleep(1)
+
+            raise RuntimeError(
+                f"Manyfold verification failed for {expected_name}; no created model matched uploaded content after polling {len(last_payloads)} candidates."
+            )
+
         def _write_working_item_refs(
             *,
             file_path: Path,
@@ -4848,9 +4930,26 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 file_bytes = file_path.read_bytes()
                 file_hash = hashlib.sha256(file_bytes).hexdigest()
                 file_size = len(file_bytes)
-                model_payload = client.create_model(
+                baseline_model_keys = {
+                    _model_key_from_payload(payload)
+                    for payload in client.list_model_payloads()
+                }
+                uploaded_file_ref = client.upload_file(
+                    filename=file_path.name,
+                    content=file_bytes,
+                    content_type=_guess_content_type(file_path),
+                )
+                client.create_model_from_uploads(
                     name=file_path.stem,
                     collection_ref=collection_ref,
+                    uploaded_files=[uploaded_file_ref],
+                )
+                model_payload, verification_method, _candidate_rows, attached_file = _find_verified_uploaded_model(
+                    baseline_model_keys=baseline_model_keys,
+                    expected_hash=file_hash,
+                    expected_size=file_size,
+                    expected_name=file_path.name,
+                    fallback_name=file_path.stem,
                 )
                 model_id = str(model_payload.get("id") or "").strip() or None
                 model_ref = _model_ref_from_payload(model_payload)
@@ -4861,24 +4960,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     str(model_payload.get("url") or model_payload.get("@id") or "").strip(),
                     fallback_model_id=model_id,
                 )
-                attached_file = client.attach_file_to_model(
-                    model_ref,
-                    filename=file_path.name,
-                    content=file_bytes,
-                    content_type=_guess_content_type(file_path),
-                )
                 file_ref = str(attached_file.get("id") or attached_file.get("@id") or attached_file.get("url") or "").strip() or None
-                verified, verification_method, _candidate_rows = _verify_uploaded_file(
-                    model_ref=model_ref,
-                    attached_file=attached_file,
-                    expected_hash=file_hash,
-                    expected_size=file_size,
-                    expected_name=file_path.name,
-                )
-                if not verified:
-                    raise RuntimeError(f"Manyfold verification failed for {file_path.name}.")
                 verified_at = _bulk_utc_now_iso()
-                canonical_file_url = _canonical_file_url(canonical_model_url, attached_file, file_ref)
+                canonical_file_url = _canonical_file_url(canonical_model_url, attached_file or {}, file_ref)
                 _write_working_item_refs(
                     file_path=file_path,
                     file_hash=file_hash,

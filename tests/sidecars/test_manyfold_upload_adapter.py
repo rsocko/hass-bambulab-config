@@ -51,11 +51,19 @@ def _build_manyfold_client(
     file_id = "file-900"
     file_url = f"{model_url}/model_files/{file_id}"
     download_url = f"{file_url}.3mf?download=true"
+    upload_url = "/upload/upload-123"
     expected_size = len(file_bytes)
     response_file_name = returned_file_name or file_name
     response_size = returned_size if returned_size is not None else expected_size
+    upload_created = False
+    model_created = False
+    expected_content_type = {
+        ".3mf": "model/3mf",
+        ".stl": "model/stl",
+    }.get(Path(file_name).suffix.lower(), "application/octet-stream")
 
     def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal upload_created, model_created
         if request.url.path == "/oauth/token":
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
 
@@ -73,33 +81,55 @@ def _build_manyfold_client(
                 },
             )
 
-        if request.method == "POST" and request.url.path == "/models.json":
+        if request.method == "POST" and request.url.path == "/upload":
+            assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Tus-Resumable") == "1.0.0"
+            assert request.headers.get("Upload-Length") == str(expected_size)
+            upload_created = True
+            return httpx.Response(201, headers={"Location": upload_url})
+
+        if request.method == "PATCH" and request.url.path == upload_url:
+            assert upload_created is True
+            assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Tus-Resumable") == "1.0.0"
+            assert request.headers.get("Upload-Offset") == "0"
+            assert request.headers.get("Content-Type") == "application/offset+octet-stream"
+            assert request.content == file_bytes
+            return httpx.Response(204, headers={"Upload-Offset": str(expected_size)})
+
+        if request.method == "POST" and request.url.path == "/models":
             assert request.headers.get("Authorization") == "Bearer token-123"
             assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
-            assert request.headers.get("Content-Type") == "application/json"
+            assert request.headers.get("Content-Type") == MANYFOLD_API_ACCEPT
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["name"]
-            return httpx.Response(
-                200,
-                json={
-                    "id": 900,
-                    "public_id": model_public_id,
-                    "url": model_url,
-                    "name": payload["name"],
-                },
-            )
+            if payload.get("isPartOf"):
+                assert payload.get("isPartOf", {}).get("@id") == f"http://manyfold.test/collections/{collection_name.lower()}"
+            assert payload["files"] == [
+                {
+                    "id": "http://manyfold.test/upload/upload-123",
+                    "name": file_name,
+                    "type": expected_content_type,
+                    "size": expected_size,
+                }
+            ]
+            model_created = True
+            return httpx.Response(202)
 
-        if request.method == "POST" and request.url.path == f"/models/{model_public_id}/files":
-            assert request.headers.get("Authorization") == "Bearer token-123"
-            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+        if request.method == "GET" and request.url.path == "/models.json":
+            if not model_created:
+                return httpx.Response(200, json={"items": []})
             return httpx.Response(
                 200,
                 json={
-                    "id": file_id,
-                    "@id": file_url,
-                    "filename": response_file_name,
-                    "contentUrl": download_url,
-                    "size": response_size,
+                    "items": [
+                        {
+                            "id": 900,
+                            "public_id": model_public_id,
+                            "url": model_url,
+                            "name": Path(file_name).stem,
+                        }
+                    ]
                 },
             )
 

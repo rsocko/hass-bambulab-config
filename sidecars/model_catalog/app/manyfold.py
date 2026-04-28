@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import html
 import json
 import logging
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
 JSON_CONTENT_TYPE = "application/json"
+TUS_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,28 @@ def _json_route(path: str) -> str:
     if route_path.endswith(".json"):
         return normalized
     return urlunsplit((parsed.scheme, parsed.netloc, f"{route_path}.json", parsed.query, parsed.fragment))
+
+
+def _absolute_resource_url(base_url: str, ref: str) -> str:
+    normalized = str(ref or "").strip()
+    if not normalized:
+        return normalized
+    if normalized.startswith("http://") or normalized.startswith("https://"):
+        return normalized
+    if normalized.startswith("/"):
+        return f"{base_url.rstrip('/')}{normalized}"
+    return f"{base_url.rstrip('/')}/{normalized.lstrip('/')}"
+
+
+def _encode_tus_metadata(metadata: dict[str, str]) -> str:
+    parts: list[str] = []
+    for key, value in metadata.items():
+        normalized_value = str(value or "")
+        if not normalized_value:
+            continue
+        encoded = base64.b64encode(normalized_value.encode("utf-8")).decode("ascii")
+        parts.append(f"{key} {encoded}")
+    return ",".join(parts)
 
 
 def _extract_model_id(payload: dict[str, Any]) -> str | None:
@@ -618,16 +642,133 @@ class ManyfoldClient:
         if collection_ref:
             payload["collection"] = collection_ref
 
-        path = _json_route(self.models_path)
         headers = {
             **self._request_headers(),
             "Content-Type": JSON_CONTENT_TYPE,
         }
-        response = self._client.post(path, headers=headers, json=payload)
+        response = self._client.post(self.models_path, headers=headers, json=payload)
         response.raise_for_status()
         body = response.json()
         if not isinstance(body, dict):
             raise RuntimeError("Manyfold model create response was not a JSON object.")
+        return body
+
+    def upload_file(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_filename = str(filename or "").strip()
+        if not normalized_filename:
+            raise ValueError("Manyfold filename is required.")
+
+        file_content_type = str(content_type or _guess_manyfold_file_type(normalized_filename) or "application/octet-stream").strip()
+        create_headers = {
+            **self._auth_headers(),
+            "Tus-Resumable": TUS_VERSION,
+            "Upload-Length": str(len(content)),
+        }
+        metadata_header = _encode_tus_metadata({
+            "filename": normalized_filename,
+            "content_type": file_content_type,
+        })
+        if metadata_header:
+            create_headers["Upload-Metadata"] = metadata_header
+
+        create_response = self._client.post("/upload", headers=create_headers)
+        create_response.raise_for_status()
+        upload_location = str(create_response.headers.get("Location") or "").strip()
+        if not upload_location:
+            raise RuntimeError("Manyfold upload create response did not include a Location header.")
+
+        upload_path = self._resolve_ref_path(upload_location, default_prefix="/upload")
+        patch_response = self._client.patch(
+            upload_path,
+            headers={
+                **self._auth_headers(),
+                "Tus-Resumable": TUS_VERSION,
+                "Upload-Offset": "0",
+                "Content-Length": str(len(content)),
+                "Content-Type": "application/offset+octet-stream",
+            },
+            content=content,
+        )
+        patch_response.raise_for_status()
+        final_offset = str(patch_response.headers.get("Upload-Offset") or "").strip()
+        if final_offset and final_offset != str(len(content)):
+            raise RuntimeError(
+                f"Manyfold upload finished at offset {final_offset}, expected {len(content)}."
+            )
+
+        return {
+            "id": _absolute_resource_url(self.base_url, upload_location),
+            "name": normalized_filename,
+            "type": file_content_type,
+            "size": len(content),
+        }
+
+    def create_model_from_uploads(
+        self,
+        *,
+        uploaded_files: list[dict[str, Any]],
+        name: str | None = None,
+        collection_ref: str | None = None,
+    ) -> dict[str, Any]:
+        if not uploaded_files:
+            raise ValueError("Manyfold uploaded_files is required.")
+
+        payload: dict[str, Any] = {"files": uploaded_files}
+        normalized_name = str(name or "").strip()
+        if normalized_name:
+            payload["name"] = normalized_name
+        if collection_ref:
+            payload["isPartOf"] = {
+                "@id": _absolute_resource_url(self.base_url, collection_ref),
+                "@type": "Collection",
+            }
+
+        response = self._client.post(
+            self.models_path,
+            headers={
+                **self._request_headers(),
+                "Content-Type": MANYFOLD_API_ACCEPT,
+            },
+            json=payload,
+        )
+        response.raise_for_status()
+        if not response.content:
+            return {}
+        body = response.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("Manyfold uploaded model create response was not a JSON object.")
+        return body
+
+    def add_uploaded_files_to_model(
+        self,
+        model_ref: str,
+        *,
+        uploaded_files: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not uploaded_files:
+            raise ValueError("Manyfold uploaded_files is required.")
+
+        model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        response = self._client.post(
+            f"{model_path.rstrip('/')}/model_files",
+            headers={
+                **self._request_headers(),
+                "Content-Type": MANYFOLD_API_ACCEPT,
+            },
+            json={"files": uploaded_files},
+        )
+        response.raise_for_status()
+        if not response.content:
+            return {}
+        body = response.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("Manyfold uploaded file add response was not a JSON object.")
         return body
 
     def attach_file_to_model(
@@ -669,7 +810,7 @@ class ManyfoldClient:
         Returns:
             Updated model detail from Manyfold
         """
-        path = _json_route(self._resolve_ref_path(model_ref, default_prefix=self.models_path))
+        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
         
         # Ensure site session is established before attempting PATCH
         self._ensure_site_session()

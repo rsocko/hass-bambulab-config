@@ -1772,7 +1772,7 @@ def test_manyfold_client_write_routes_use_json_contract() -> None:
         )
         if request.url.path == "/oauth/token":
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
-        if request.method == "POST" and request.url.path == "/models.json":
+        if request.method == "POST" and request.url.path == "/models":
             assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             assert request.headers.get("Content-Type") == "application/json"
             return httpx.Response(200, json={"id": 900, "public_id": "model-900", "url": "/models/900"})
@@ -1781,7 +1781,7 @@ def test_manyfold_client_write_routes_use_json_contract() -> None:
             return httpx.Response(200, json={"id": "file-900", "@id": "/models/900/model_files/file-900"})
         if request.method == "GET" and request.url.path == "/models":
             return httpx.Response(200, text="<html><body>Manyfold</body></html>", headers={"Content-Type": "text/html"})
-        if request.method == "PATCH" and request.url.path == "/models/model-900.json":
+        if request.method == "PATCH" and request.url.path == "/models/model-900":
             assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             assert request.headers.get("Content-Type") == "application/json"
             return httpx.Response(200, json={"id": 900, "public_id": "model-900", "name": "Updated Name"})
@@ -1807,8 +1807,82 @@ def test_manyfold_client_write_routes_use_json_contract() -> None:
     finally:
         client.close()
 
-    assert ("POST", "/models.json", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
-    assert ("PATCH", "/models/model-900.json", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
+    assert ("POST", "/models", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
+    assert ("PATCH", "/models/model-900", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
+
+
+def test_manyfold_client_uploaded_file_create_flow_uses_tus_and_uploaded_refs() -> None:
+    seen_requests: list[tuple[str, str, str | None, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("Accept"),
+                request.headers.get("Content-Type"),
+            )
+        )
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.method == "POST" and request.url.path == "/upload":
+            assert request.headers.get("Tus-Resumable") == "1.0.0"
+            assert request.headers.get("Upload-Length") == "4"
+            return httpx.Response(201, headers={"Location": "/upload/test-upload"})
+        if request.method == "PATCH" and request.url.path == "/upload/test-upload":
+            assert request.headers.get("Tus-Resumable") == "1.0.0"
+            assert request.headers.get("Upload-Offset") == "0"
+            assert request.headers.get("Content-Type") == "application/offset+octet-stream"
+            assert request.content == b"1234"
+            return httpx.Response(204, headers={"Upload-Offset": "4"})
+        if request.method == "POST" and request.url.path == "/models":
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+            assert request.headers.get("Content-Type") == MANYFOLD_API_ACCEPT
+            payload = json.loads(request.content.decode("utf-8"))
+            assert payload == {
+                "name": "Uploaded Flow",
+                "isPartOf": {"@id": "http://manyfold.test/collections/tools", "@type": "Collection"},
+                "files": [
+                    {
+                        "id": "http://manyfold.test/upload/test-upload",
+                        "name": "part.3mf",
+                        "type": "model/3mf",
+                        "size": 4,
+                    }
+                ],
+            }
+            return httpx.Response(202)
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        oauth_scopes="public read",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        uploaded = client.upload_file(filename="part.3mf", content=b"1234", content_type="model/3mf")
+        assert uploaded == {
+            "id": "http://manyfold.test/upload/test-upload",
+            "name": "part.3mf",
+            "type": "model/3mf",
+            "size": 4,
+        }
+
+        created = client.create_model_from_uploads(
+            name="Uploaded Flow",
+            collection_ref="/collections/tools",
+            uploaded_files=[uploaded],
+        )
+        assert created == {}
+    finally:
+        client.close()
+
+    assert ("POST", "/upload", "*/*", None) in seen_requests
+    assert ("PATCH", "/upload/test-upload", "*/*", "application/offset+octet-stream") in seen_requests
+    assert ("POST", "/models", MANYFOLD_API_ACCEPT, MANYFOLD_API_ACCEPT) in seen_requests
 
 
 def test_manyfold_client_retries_models_json_with_generic_accept_after_406() -> None:
