@@ -170,6 +170,62 @@ def _build_external_component_3mf() -> bytes:
         return buffer.getvalue()
 
 
+def _build_component_rotation_3mf() -> bytes:
+        root_model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"2\" type=\"model\">
+            <components>
+                <component xmlns:p=\"http://schemas.microsoft.com/3dmanufacturing/production/2015/06\" p:path=\"/3D/Objects/object_23.model\" objectid=\"1\" transform=\"0 1 0 -1 0 0 0 0 1 0 0 0\" />
+            </components>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"2\" transform=\"1 0 0 0 1 0 0 0 1 50 60 0\" />
+    </build>
+</model>
+"""
+
+        child_model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+</model>
+"""
+
+        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        root_part_rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/Objects/object_23.model\" Id=\"rel-1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("_rels/.rels", rels_xml)
+                archive.writestr("3D/3dmodel.model", root_model_xml)
+                archive.writestr("3D/_rels/3dmodel.model.rels", root_part_rels_xml)
+                archive.writestr("3D/Objects/object_23.model", child_model_xml)
+        return buffer.getvalue()
+
+
 def _build_two_plate_3mf() -> bytes:
                 model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
@@ -546,6 +602,13 @@ def test_geometry_endpoint_resolves_external_3mf_component_models(tmp_path: Path
     payload = response.json()
     assert payload["geometry"]["triangle_count"] == 1
     assert payload["geometry"]["vertices"] == [5.0, 7.0, 0.0, 15.0, 7.0, 0.0, 5.0, 27.0, 0.0]
+
+
+def test_extract_3mf_geometry_applies_component_rotation_before_build_transform() -> None:
+    payload = extract_3mf_geometry(_build_component_rotation_3mf())
+
+    assert payload["triangle_count"] == 1
+    assert payload["vertices"] == [50.0, 60.0, 0.0, 50.0, 70.0, 0.0, 30.0, 60.0, 0.0]
 
 
 def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -> None:
@@ -1720,9 +1783,72 @@ def test_manyfold_client_retries_models_json_with_generic_accept_after_406() -> 
 
     assert model_calls["count"] == 2
     assert seen_accept_headers[0] == MANYFOLD_API_ACCEPT
-    assert seen_accept_headers[1] == "application/json, */*"
+    assert seen_accept_headers[1] == "application/json"
     assert len(models) == 1
     assert models[0].name == "Retry OK"
+
+
+def test_model_search_refresh_failure_returns_cached_results_instead_of_500(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:existing-model",
+                "http://manyfold.test/models/existing-model",
+                "existing-model",
+                "Existing Model",
+                "1001",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _FailingRefreshClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            request = httpx.Request("GET", "http://manyfold.test/models.json")
+            response = httpx.Response(406, request=request)
+            raise httpx.HTTPStatusError("Not Acceptable", request=request, response=response)
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_FailingRefreshClient())
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?refresh=true")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["public_id"] == "existing-model"
+        assert payload["refresh_status"]["outcome"] == "refresh_failed_cache_retained"
+        assert payload["refresh_status"]["preserved_cache"] is True
+        assert payload["refresh_status"]["error_type"] == "HTTPStatusError"
 
 
 def test_manyfold_client_falls_back_to_model_html_for_detail_and_file_list() -> None:

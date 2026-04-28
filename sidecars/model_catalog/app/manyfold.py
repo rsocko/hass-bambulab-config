@@ -406,21 +406,31 @@ class ManyfoldClient:
         }
 
     def _get_json_with_accept_fallback(self, path: str) -> Any:
-        response = self._client.get(path, headers=self._request_headers())
-        if response.status_code == 406:
-            logger.warning(
-                "Manyfold endpoint %s rejected vendor Accept header; retrying with generic Accept.",
-                path,
-            )
-            response = self._client.get(
-                path,
-                headers={
-                    "Accept": "application/json, */*",
-                    **self._auth_headers(),
-                },
-            )
-        response.raise_for_status()
-        return response.json()
+        attempts = [
+            ("vendor", self._request_headers()),
+            ("application_json", {"Accept": "application/json", **self._auth_headers()}),
+            ("no_accept", self._auth_headers()),
+        ]
+        last_response: httpx.Response | None = None
+
+        for index, (label, headers) in enumerate(attempts):
+            response = self._client.get(path, headers=headers)
+            last_response = response
+            if response.status_code != 406:
+                response.raise_for_status()
+                return response.json()
+
+            if index < len(attempts) - 1:
+                logger.warning(
+                    "Manyfold endpoint %s rejected %s Accept headers with 406; retrying with %s.",
+                    path,
+                    label,
+                    attempts[index + 1][0],
+                )
+
+        assert last_response is not None
+        last_response.raise_for_status()
+        return last_response.json()
 
     def _ensure_site_session(self) -> bool:
         if self._site_session_ready:

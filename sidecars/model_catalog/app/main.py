@@ -1618,9 +1618,25 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "preserved_cache": False,
         }
         if refresh:
-            summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-            refresh_status.update(refresh_meta)
-            source = "manyfold"
+            try:
+                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
+                refresh_status.update(refresh_meta)
+                source = "manyfold"
+            except Exception as error:
+                fallback_summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
+                if fallback_summaries:
+                    summaries = fallback_summaries
+                    refresh_status.update(
+                        {
+                            "outcome": "refresh_failed_cache_retained",
+                            "preserved_cache": True,
+                            "error": str(error),
+                            "error_type": type(error).__name__,
+                        }
+                    )
+                    source = "cache"
+                else:
+                    raise
         else:
             summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
             source = "cache"
@@ -1698,11 +1714,23 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
         if refresh or not summaries:
             client: ManyfoldClient = app.state.manyfold_client
-            summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-            refresh_status = {
-                "refresh_requested": bool(refresh),
-                **refresh_meta,
-            }
+            try:
+                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
+                refresh_status = {
+                    "refresh_requested": bool(refresh),
+                    **refresh_meta,
+                }
+            except Exception as error:
+                if summaries:
+                    refresh_status = {
+                        "refresh_requested": bool(refresh),
+                        "outcome": "refresh_failed_cache_retained",
+                        "preserved_cache": True,
+                        "error": str(error),
+                        "error_type": type(error).__name__,
+                    }
+                else:
+                    raise
         
         # Parse search query into tokens
         query_tokens = _normalize_tokens(q or "")
