@@ -666,7 +666,7 @@ class ManyfoldClient:
         json_body: Any | None = None,
     ) -> httpx.Response:
         request_headers = dict(headers)
-        if self._site_session_ready:
+        if self._site_session_ready and path.startswith("/upload"):
             request_headers = {key: value for key, value in request_headers.items() if key.lower() != "authorization"}
         response = self._client.post(path, headers=request_headers, data=data, json=json_body)
         if response.is_success:
@@ -683,7 +683,7 @@ class ManyfoldClient:
 
     def _patch_with_session_retry(self, path: str, *, headers: dict[str, str], content: bytes) -> httpx.Response:
         request_headers = dict(headers)
-        if self._site_session_ready:
+        if self._site_session_ready and path.startswith("/upload"):
             request_headers = {key: value for key, value in request_headers.items() if key.lower() != "authorization"}
         response = self._client.patch(path, headers=request_headers, content=content)
         if response.is_success:
