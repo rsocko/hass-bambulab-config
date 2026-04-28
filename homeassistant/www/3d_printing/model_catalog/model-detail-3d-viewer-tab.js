@@ -676,7 +676,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
       ? this._mapPrinterVerticesToViewer(vertices)
       : Float32Array.from(vertices);
 
-    normalizedVertices = this._centerSelectedPlateOnBuildSurface(normalizedVertices, this._getSelectedPlateMetadata());
+    normalizedVertices = this._centerSelectedPlateOnBuildSurface(normalizedVertices);
 
     return {
       vertices: normalizedVertices,
@@ -697,33 +697,36 @@ class ModelDetail3DViewerTab extends HTMLElement {
     return mapped;
   }
 
-  _getSelectedPlateMetadata() {
-    if (!Array.isArray(this._availablePlates) || this._availablePlates.length === 0) {
-      return null;
-    }
-    const selectedId = String(this._selectedPlateId || '').trim();
-    if (!selectedId) {
-      return this._availablePlates[0] || null;
-    }
-    return this._availablePlates.find((plate) => String(plate && plate.id || '') === selectedId) || null;
-  }
-
-  _centerSelectedPlateOnBuildSurface(vertices, plate) {
-    if (!(vertices instanceof Float32Array) || vertices.length < 3 || !plate || !Array.isArray(plate.bbox_xy) || plate.bbox_xy.length !== 4) {
+  _centerSelectedPlateOnBuildSurface(vertices) {
+    if (!(vertices instanceof Float32Array) || vertices.length < 3) {
       return vertices;
     }
 
-    const minX = Number(plate.bbox_xy[0]);
-    const minY = Number(plate.bbox_xy[1]);
-    const maxX = Number(plate.bbox_xy[2]);
-    const maxY = Number(plate.bbox_xy[3]);
-    if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minZ = Number.POSITIVE_INFINITY;
+    let maxZ = Number.NEGATIVE_INFINITY;
+
+    for (let index = 0; index < vertices.length; index += 3) {
+      const x = Number(vertices[index]);
+      const z = Number(vertices[index + 2]);
+      if (Number.isFinite(x)) {
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+      }
+      if (Number.isFinite(z)) {
+        minZ = Math.min(minZ, z);
+        maxZ = Math.max(maxZ, z);
+      }
+    }
+
+    if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) {
       return vertices;
     }
 
     const centered = new Float32Array(vertices);
     const sourceCenterX = (minX + maxX) / 2;
-    const sourceCenterZ = (minY + maxY) / 2;
+    const sourceCenterZ = (minZ + maxZ) / 2;
     const targetCenter = this._buildPlateSizeMm / 2;
     const shiftX = targetCenter - sourceCenterX;
     const shiftZ = targetCenter - sourceCenterZ;
