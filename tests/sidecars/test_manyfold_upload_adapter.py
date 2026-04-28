@@ -46,6 +46,7 @@ def _build_manyfold_client(
     returned_file_name: str | None = None,
     returned_size: int | None = None,
     use_html_list_fallback: bool = False,
+    detail_uses_stem_name_only: bool = False,
 ) -> ManyfoldClient:
     model_public_id = "model-900"
     model_url = "/models/900"
@@ -146,10 +147,13 @@ def _build_manyfold_client(
             file_row = {
                 "id": file_id,
                 "@id": file_url,
-                "filename": response_file_name,
                 "contentUrl": download_url,
                 "size": response_size,
             }
+            if detail_uses_stem_name_only:
+                file_row["name"] = Path(response_file_name).stem
+            else:
+                file_row["filename"] = response_file_name
             if verification_hash:
                 file_row["source_sha256"] = verification_hash
             return httpx.Response(
@@ -479,6 +483,59 @@ def test_manyfold_upload_adapter_verifies_via_html_model_list_when_json_list_is_
         payload = response.json()
         assert payload["success"] is True
         assert payload["status"] == "verified"
+        mock_client.close()
+
+
+def test_manyfold_upload_adapter_verifies_when_manyfold_returns_stem_only_file_name(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = tmp_path / "stem-only-name.3mf"
+    source_bytes = b"stem-only-name-case"
+    source_hash = hashlib.sha256(source_bytes).hexdigest()
+    source_file.write_bytes(source_bytes)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-26T10:00:00Z"
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-stem-001",
+                "uploaded_unverified",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "keep",
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        original_client = app.state.manyfold_client
+        original_client.close()
+        mock_client = _build_manyfold_client(
+            file_name=source_file.name,
+            file_bytes=source_bytes,
+            verification_hash=None,
+            detail_uses_stem_name_only=True,
+        )
+        app.state.manyfold_client = mock_client
+        response = test_client.post("/api/intake/uploads/upload-stem-001/upload-to-manyfold?collection_name=Tools")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["status"] == "verified"
+        assert payload["files_uploaded"][0]["verification_method"] == "size_name"
         mock_client.close()
 
 

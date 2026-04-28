@@ -4710,6 +4710,23 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         names.add(normalized)
             return names
 
+        def _candidate_name_stems(row: Any) -> set[str]:
+            stems: set[str] = set()
+            if isinstance(row, dict):
+                for key in ("filename", "original_filename", "name", "title"):
+                    normalized = _normalized_filename_stem(str(row.get(key) or ""))
+                    if normalized:
+                        stems.add(normalized)
+                for key in ("contentUrl", "url", "@id"):
+                    raw_value = str(row.get(key) or "").strip()
+                    if not raw_value:
+                        continue
+                    parsed_path = urlsplit(raw_value).path or raw_value
+                    normalized = _normalized_filename_stem(parsed_path)
+                    if normalized:
+                        stems.add(normalized)
+            return stems
+
         def _verify_uploaded_file(
             *,
             model_ref: str,
@@ -4742,12 +4759,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 return True, "hash", candidate_rows
 
             normalized_name = _normalized_filename(expected_name)
+            normalized_stem = _normalized_filename_stem(expected_name)
             for row in candidate_rows:
-                if normalized_name not in _candidate_names(row):
+                candidate_names = _candidate_names(row)
+                candidate_stems = _candidate_name_stems(row)
+                if normalized_name not in candidate_names and normalized_stem not in candidate_stems:
                     continue
                 candidate_size = _candidate_size(row)
                 if candidate_size is not None and candidate_size == expected_size:
                     return True, "size_name", candidate_rows
+
+            if len(candidate_rows) == 1:
+                candidate_size = _candidate_size(candidate_rows[0])
+                if candidate_size is not None and candidate_size == expected_size:
+                    return True, "size_single_candidate", candidate_rows
 
             return False, "missing", candidate_rows
 
