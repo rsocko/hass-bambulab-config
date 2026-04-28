@@ -23,6 +23,7 @@ class Settings:
     image_version: str
     image_revision: str
     image_created: str
+    source_filesystem_roots: tuple[Path, ...] = ()
 
 
 def load_settings() -> Settings:
@@ -42,6 +43,12 @@ def load_settings() -> Settings:
     image_version = os.getenv("MODEL_CATALOG_IMAGE_VERSION", "unknown")
     image_revision = os.getenv("MODEL_CATALOG_IMAGE_REVISION", "unknown")
     image_created = os.getenv("MODEL_CATALOG_IMAGE_CREATED", "unknown")
+    source_filesystem_roots_raw = os.getenv("SOURCE_FILESYSTEM_ROOTS", "")
+    source_filesystem_roots: tuple[Path, ...] = tuple(
+        Path(p.strip()).expanduser().resolve()
+        for p in source_filesystem_roots_raw.split(",")
+        if p.strip()
+    )
     return Settings(
         manyfold_base_url=base_url.rstrip("/"),
         manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
@@ -59,4 +66,5 @@ def load_settings() -> Settings:
         image_version=image_version,
         image_revision=image_revision,
         image_created=image_created,
+        source_filesystem_roots=source_filesystem_roots,
     )
