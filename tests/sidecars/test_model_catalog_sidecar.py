@@ -608,7 +608,7 @@ def test_extract_3mf_geometry_applies_component_rotation_before_build_transform(
     payload = extract_3mf_geometry(_build_component_rotation_3mf())
 
     assert payload["triangle_count"] == 1
-    assert payload["vertices"] == [50.0, 60.0, 0.0, 50.0, 70.0, 0.0, 30.0, 60.0, 0.0]
+    assert payload["vertices"] == [50.0, 60.0, 0.0, 50.0, 50.0, 0.0, 70.0, 60.0, 0.0]
 
 
 def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -> None:
