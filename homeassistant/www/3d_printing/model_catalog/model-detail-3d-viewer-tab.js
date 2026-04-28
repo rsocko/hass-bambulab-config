@@ -41,6 +41,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._selectedPlateId = '';
     this._currentDimensionsMm = null;
     this._currentColorInfo = null;
+    this._currentGeometryGroups = [];
     this._usePackageColors = true;
   }
 
@@ -429,8 +430,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
           this._setRenderingStatus('This 3MF did not expose usable color metadata.');
           return;
         }
-        if (this._currentColorInfo.mode !== 'single') {
-          this._setRenderingStatus('Multi-color metadata detected, but per-part color rendering is not implemented yet.');
+        if (this._currentColorInfo.mode === 'multi' && (!Array.isArray(this._currentGeometryGroups) || this._currentGeometryGroups.length === 0)) {
+          this._setRenderingStatus('Multi-color metadata is available, but grouped geometry was not returned.');
           return;
         }
         this._usePackageColors = !this._usePackageColors;
@@ -652,7 +653,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
   _normalizeParsedGeometryPayload(payload) {
     const geometry = payload && payload.geometry;
     const vertices = geometry && Array.isArray(geometry.vertices) ? geometry.vertices : null;
-    if (!geometry || geometry.format !== 'triangles' || !vertices || vertices.length < 9) {
+    const rawGroups = geometry && Array.isArray(geometry.groups) ? geometry.groups : [];
+    if (!geometry || geometry.format !== 'triangles' || ((!vertices || vertices.length < 9) && rawGroups.length === 0)) {
       return null;
     }
 
@@ -672,19 +674,71 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     const triangleCount = Number(geometry.triangle_count);
     const coordinateSystem = String(geometry.coordinate_system || '').trim().toLowerCase();
-    let normalizedVertices = coordinateSystem === 'printer_xyz'
-      ? this._mapPrinterVerticesToViewer(vertices)
-      : Float32Array.from(vertices);
+    const mappedGroups = rawGroups
+      .map((group) => {
+        const groupVertices = Array.isArray(group && group.vertices) ? group.vertices : null;
+        if (!groupVertices || groupVertices.length < 9) {
+          return null;
+        }
+        return {
+          key: String(group && group.key || ''),
+          color: typeof group?.color === 'string' ? group.color : null,
+          extruder: Number.isFinite(Number(group?.extruder)) ? Number(group.extruder) : null,
+          triangleCount: Number.isFinite(Number(group?.triangle_count)) && Number(group.triangle_count) > 0
+            ? Number(group.triangle_count)
+            : Math.floor(groupVertices.length / 9),
+          vertices: this._mapVerticesForCoordinateSystem(groupVertices, coordinateSystem),
+        };
+      })
+      .filter(Boolean);
 
-    normalizedVertices = this._centerSelectedPlateOnBuildSurface(normalizedVertices);
+    let normalizedVertices = vertices && vertices.length >= 9
+      ? this._mapVerticesForCoordinateSystem(vertices, coordinateSystem)
+      : this._flattenGroupVertices(mappedGroups);
+
+    const centeredVertexSets = mappedGroups.length > 0
+      ? this._centerVertexSetsOnBuildSurface(mappedGroups.map((group) => group.vertices))
+      : this._centerVertexSetsOnBuildSurface([normalizedVertices]);
+
+    if (mappedGroups.length > 0) {
+      normalizedVertices = this._flattenGroupVertices(centeredVertexSets.map((groupVertices) => ({ vertices: groupVertices })));
+      mappedGroups.forEach((group, index) => {
+        group.vertices = centeredVertexSets[index];
+      });
+    } else {
+      normalizedVertices = centeredVertexSets[0] || normalizedVertices;
+    }
+
+    this._currentGeometryGroups = mappedGroups;
 
     return {
       vertices: normalizedVertices,
+      groups: mappedGroups,
       normals: null,
       triangleCount: Number.isFinite(triangleCount) && triangleCount > 0 ? triangleCount : Math.floor(vertices.length / 9),
       dimensionsMm: this._currentDimensionsMm,
       color: this._resolvePackageColor(),
     };
+  }
+
+  _mapVerticesForCoordinateSystem(vertices, coordinateSystem) {
+    return coordinateSystem === 'printer_xyz'
+      ? this._mapPrinterVerticesToViewer(vertices)
+      : Float32Array.from(vertices);
+  }
+
+  _flattenGroupVertices(groups) {
+    const flattened = [];
+    for (const group of groups) {
+      const groupVertices = group && group.vertices;
+      if (!groupVertices) {
+        continue;
+      }
+      for (let index = 0; index < groupVertices.length; index += 1) {
+        flattened.push(groupVertices[index]);
+      }
+    }
+    return Float32Array.from(flattened);
   }
 
   _mapPrinterVerticesToViewer(vertices) {
@@ -697,9 +751,9 @@ class ModelDetail3DViewerTab extends HTMLElement {
     return mapped;
   }
 
-  _centerSelectedPlateOnBuildSurface(vertices) {
-    if (!(vertices instanceof Float32Array) || vertices.length < 3) {
-      return vertices;
+  _centerVertexSetsOnBuildSurface(vertexSets) {
+    if (!Array.isArray(vertexSets) || vertexSets.length === 0) {
+      return vertexSets;
     }
 
     let minX = Number.POSITIVE_INFINITY;
@@ -707,35 +761,45 @@ class ModelDetail3DViewerTab extends HTMLElement {
     let minZ = Number.POSITIVE_INFINITY;
     let maxZ = Number.NEGATIVE_INFINITY;
 
-    for (let index = 0; index < vertices.length; index += 3) {
-      const x = Number(vertices[index]);
-      const z = Number(vertices[index + 2]);
-      if (Number.isFinite(x)) {
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
+    for (const vertices of vertexSets) {
+      if (!(vertices instanceof Float32Array) || vertices.length < 3) {
+        continue;
       }
-      if (Number.isFinite(z)) {
-        minZ = Math.min(minZ, z);
-        maxZ = Math.max(maxZ, z);
+      for (let index = 0; index < vertices.length; index += 3) {
+        const x = Number(vertices[index]);
+        const z = Number(vertices[index + 2]);
+        if (Number.isFinite(x)) {
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+        }
+        if (Number.isFinite(z)) {
+          minZ = Math.min(minZ, z);
+          maxZ = Math.max(maxZ, z);
+        }
       }
     }
 
     if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) {
-      return vertices;
+      return vertexSets;
     }
 
-    const centered = new Float32Array(vertices);
     const sourceCenterX = (minX + maxX) / 2;
     const sourceCenterZ = (minZ + maxZ) / 2;
     const targetCenter = this._buildPlateSizeMm / 2;
     const shiftX = targetCenter - sourceCenterX;
     const shiftZ = targetCenter - sourceCenterZ;
 
-    for (let index = 0; index < centered.length; index += 3) {
-      centered[index] += shiftX;
-      centered[index + 2] += shiftZ;
-    }
-    return centered;
+    return vertexSets.map((vertices) => {
+      if (!(vertices instanceof Float32Array) || vertices.length < 3) {
+        return vertices;
+      }
+      const centered = new Float32Array(vertices);
+      for (let index = 0; index < centered.length; index += 3) {
+        centered[index] += shiftX;
+        centered[index + 2] += shiftZ;
+      }
+      return centered;
+    });
   }
 
   _load3mfObject(object, filename) {
@@ -776,6 +840,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
 
     if (this._activeObject3D) {
+      this._disposeObject3D(this._activeObject3D);
       this._scene.remove(this._activeObject3D);
       this._activeObject3D = null;
     }
@@ -880,6 +945,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
 
     if (this._activeObject3D) {
+      this._disposeObject3D(this._activeObject3D);
       this._scene.remove(this._activeObject3D);
       this._activeObject3D = null;
     }
@@ -894,6 +960,34 @@ class ModelDetail3DViewerTab extends HTMLElement {
     if (this._geometry) {
       this._geometry.dispose();
       this._geometry = null;
+    }
+
+    this._currentGeometryGroups = Array.isArray(parsed.groups) ? parsed.groups : [];
+
+    if (this._currentGeometryGroups.length > 0) {
+      const meshGroup = new window.THREE.Group();
+      for (const group of this._currentGeometryGroups) {
+        const groupGeometry = new window.THREE.BufferGeometry();
+        groupGeometry.setAttribute('position', new window.THREE.BufferAttribute(group.vertices, 3));
+        groupGeometry.computeVertexNormals();
+        const material = new window.THREE.MeshStandardMaterial({
+          color: this._resolveRenderedGroupColor(group),
+          metalness: 0.1,
+          roughness: 0.65,
+          side: window.THREE.DoubleSide,
+        });
+        const mesh = new window.THREE.Mesh(groupGeometry, material);
+        mesh.userData.packageColor = group.color || null;
+        meshGroup.add(mesh);
+      }
+
+      this._activeObject3D = meshGroup;
+      this._scene.add(meshGroup);
+
+      const bbox = new window.THREE.Box3().setFromObject(meshGroup);
+      this._updateModelInfo(parsed.triangleCount, bbox, parsed.dimensionsMm || null);
+      this._fitCameraToGeometry(bbox);
+      return;
     }
 
     const geometry = new window.THREE.BufferGeometry();
@@ -1036,7 +1130,25 @@ class ModelDetail3DViewerTab extends HTMLElement {
     return primaryColor || null;
   }
 
+  _resolveRenderedGroupColor(group) {
+    if (!this._usePackageColors) {
+      return this._defaultModelColor;
+    }
+    const packageColor = String(group && group.color || '').trim();
+    return packageColor || this._defaultModelColor;
+  }
+
   _applyCurrentMaterialColor() {
+    if (this._activeObject3D) {
+      this._activeObject3D.traverse((child) => {
+        if (!child || !child.isMesh || !child.material || !child.material.color) {
+          return;
+        }
+        const packageColor = String(child.userData && child.userData.packageColor || '').trim();
+        child.material.color.set(this._usePackageColors && packageColor ? packageColor : this._defaultModelColor);
+        child.material.needsUpdate = true;
+      });
+    }
     const colorValue = this._resolvePackageColor() || this._defaultModelColor;
     if (this._mesh && this._mesh.material && this._mesh.material.color) {
       this._mesh.material.color.set(colorValue);
@@ -1093,6 +1205,28 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     const url = this._buildFileDownloadUrl(file);
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  _disposeObject3D(object) {
+    if (!object || typeof object.traverse !== 'function') {
+      return;
+    }
+    object.traverse((child) => {
+      if (child && child.geometry && typeof child.geometry.dispose === 'function') {
+        child.geometry.dispose();
+      }
+      if (child && child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((material) => {
+            if (material && typeof material.dispose === 'function') {
+              material.dispose();
+            }
+          });
+        } else if (typeof child.material.dispose === 'function') {
+          child.material.dispose();
+        }
+      }
+    });
   }
 
   _parseStl(arrayBuffer) {

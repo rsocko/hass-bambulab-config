@@ -242,6 +242,65 @@ def _build_two_plate_3mf() -> bytes:
                 return buffer.getvalue()
 
 
+def _build_multi_color_3mf_without_plates() -> bytes:
+        model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+        <object id=\"2\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"100\" y=\"100\" z=\"0\" />
+                    <vertex x=\"110\" y=\"100\" z=\"0\" />
+                    <vertex x=\"100\" y=\"120\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+        <item objectid=\"2\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+    </build>
+</model>
+"""
+
+        model_settings_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<config>
+    <object id=\"1\"><metadata key=\"extruder\" value=\"1\" /></object>
+    <object id=\"2\"><metadata key=\"extruder\" value=\"2\" /></object>
+</config>
+"""
+
+        project_settings_json = b'{"filament_colour": ["#FF0000", "#00FF00"]}'
+        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("_rels/.rels", rels_xml)
+                archive.writestr("3D/3dmodel.model", model_xml)
+                archive.writestr("Metadata/model_settings.config", model_settings_xml)
+                archive.writestr("Metadata/project_settings.config", project_settings_json)
+        return buffer.getvalue()
+
+
 def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -497,6 +556,10 @@ def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -
     assert payload["plates"][1]["bbox_xy"] == [100.0, 100.0, 110.0, 120.0]
     assert payload["triangle_count"] == 1
     assert payload["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
+    assert len(payload["groups"]) == 1
+    assert payload["groups"][0]["color"] == "#FF0000"
+    assert payload["groups"][0]["extruder"] == 1
+    assert payload["groups"][0]["object_ids"] == ["1"]
     assert payload["color_info"]["available"] is True
     assert payload["color_info"]["primary_color"] == "#FF0000"
 
@@ -507,7 +570,20 @@ def test_extract_3mf_geometry_can_select_specific_plate() -> None:
     assert payload["selected_plate_id"] == "2"
     assert payload["triangle_count"] == 1
     assert payload["vertices"] == [100.0, 100.0, 0.0, 110.0, 100.0, 0.0, 100.0, 120.0, 0.0]
+    assert len(payload["groups"]) == 1
+    assert payload["groups"][0]["color"] == "#00FF00"
+    assert payload["groups"][0]["extruder"] == 2
+    assert payload["groups"][0]["object_ids"] == ["2"]
     assert payload["color_info"]["primary_color"] == "#00FF00"
+
+
+def test_extract_3mf_geometry_returns_multiple_color_groups_for_multi_part_model() -> None:
+    payload = extract_3mf_geometry(_build_multi_color_3mf_without_plates())
+
+    assert payload["triangle_count"] == 2
+    assert len(payload["groups"]) == 2
+    assert {group["color"] for group in payload["groups"]} == {"#FF0000", "#00FF00"}
+    assert {group["extruder"] for group in payload["groups"]} == {1, 2}
 
 
 def test_preview_proxy_endpoint_falls_back_to_alternate_derivative(tmp_path: Path) -> None:

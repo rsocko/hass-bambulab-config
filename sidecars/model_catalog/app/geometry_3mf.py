@@ -128,6 +128,15 @@ def _compute_dimensions_mm(vertices: list[float]) -> dict[str, float]:
     }
 
 
+def _color_for_extruder(extruder: int | None, palette: list[str]) -> str | None:
+    if extruder is None:
+        return None
+    palette_index = extruder - 1 if extruder > 0 else extruder
+    if 0 <= palette_index < len(palette):
+        return palette[palette_index]
+    return None
+
+
 def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
     if not text:
         return [], {}
@@ -444,9 +453,16 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
                 build_items = filtered_build_items
 
     flattened_vertices: list[float] = []
+    grouped_vertices: dict[str, dict[str, Any]] = {}
     triangle_count = 0
 
-    def append_object(part_path: str, object_id: str, transform: list[list[float]], lineage: tuple[tuple[str, str], ...]) -> None:
+    def append_object(
+        part_path: str,
+        object_id: str,
+        transform: list[list[float]],
+        lineage: tuple[tuple[str, str], ...],
+        inherited_extruder: int | None = None,
+    ) -> None:
         nonlocal triangle_count
         object_key = (part_path, object_id)
         if object_key in lineage:
@@ -454,6 +470,21 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
         object_def = object_map.get(object_key)
         if object_def is None:
             raise ValueError(f"3MF object '{object_id}' was not found in '{part_path}'")
+
+        current_extruder = object_extruders.get(str(object_id), inherited_extruder)
+        current_color = _color_for_extruder(current_extruder, palette)
+        group_key = current_color or (f"extruder:{current_extruder}" if current_extruder is not None else "default")
+        if group_key not in grouped_vertices:
+            grouped_vertices[group_key] = {
+                "key": group_key,
+                "color": current_color,
+                "extruder": current_extruder,
+                "triangle_count": 0,
+                "vertices": [],
+                "object_ids": set(),
+            }
+        group_entry = grouped_vertices[group_key]
+        group_entry["object_ids"].add(str(object_id))
 
         if object_def.mesh is not None:
             mesh_vertices = object_def.mesh.vertices
@@ -463,7 +494,9 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
                         raise ValueError("3MF triangle referenced an out-of-range vertex")
                     transformed = _apply_transform(transform, mesh_vertices[vertex_index])
                     flattened_vertices.extend(transformed)
+                    group_entry["vertices"].extend(transformed)
                 triangle_count += 1
+                group_entry["triangle_count"] += 1
 
         for component in object_def.components:
             append_object(
@@ -471,10 +504,11 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
                 component.object_id,
                 _multiply_matrices(transform, component.transform),
                 lineage + (object_key,),
+                current_extruder,
             )
 
     for part_path, object_id, transform in build_items:
-        append_object(part_path, object_id, transform, ())
+        append_object(part_path, object_id, transform, (), object_extruders.get(str(object_id)))
 
     if not flattened_vertices or triangle_count <= 0:
         raise ValueError("3MF package contained no renderable mesh geometry")
@@ -508,12 +542,29 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
     if primary_color:
         color_info["primary_color"] = primary_color
 
+    geometry_groups: list[dict[str, Any]] = []
+    for group_entry in grouped_vertices.values():
+        if not group_entry["vertices"] or int(group_entry["triangle_count"]) <= 0:
+            continue
+        group_payload: dict[str, Any] = {
+            "key": str(group_entry["key"]),
+            "triangle_count": int(group_entry["triangle_count"]),
+            "vertices": list(group_entry["vertices"]),
+            "object_ids": sorted(str(object_id) for object_id in group_entry["object_ids"]),
+        }
+        if group_entry["color"]:
+            group_payload["color"] = str(group_entry["color"])
+        if group_entry["extruder"] is not None:
+            group_payload["extruder"] = int(group_entry["extruder"])
+        geometry_groups.append(group_payload)
+
     return {
         "format": "triangles",
         "unit": "millimeter",
         "coordinate_system": "printer_xyz",
         "triangle_count": triangle_count,
         "vertices": flattened_vertices,
+        "groups": geometry_groups,
         "dimensions_mm": dimensions_mm,
         "plates": plates,
         "selected_plate_id": selected_plate.get("id") if selected_plate is not None else None,
