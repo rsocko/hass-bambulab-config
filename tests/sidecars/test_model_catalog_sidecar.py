@@ -5018,3 +5018,300 @@ def test_intake_queue_delete_upload_only_allows_queued_and_failed(tmp_path: Path
         delete_missing = test_client.delete("/api/intake/uploads/missing-id")
         assert delete_missing.status_code == 404
         assert delete_missing.json()["error"] == "upload_not_found"
+# ========== QUEUE STATE TRANSITION TESTS ==========
+
+def test_intake_queue_state_transitions_queued_to_uploading(tmp_path: Path) -> None:
+    """Test transition from queued to uploading status."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"test content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        # Transition to uploading
+        transition = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "uploading"},
+        )
+        assert transition.status_code == 200
+        assert transition.json()["success"] is True
+        assert transition.json()["new_status"] == "uploading"
+
+        # Verify status changed
+        list_response = test_client.get("/api/intake/uploads")
+        assert list_response.status_code == 200
+        uploads = list_response.json()["uploads"]
+        assert len(uploads) == 1
+        assert uploads[0]["status"] == "uploading"
+        assert uploads[0]["uploaded_at"] is not None
+
+
+def test_intake_queue_state_transitions_full_lifecycle(tmp_path: Path) -> None:
+    """Test full state transition lifecycle: queued → uploading → uploaded_unverified → verified."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "lifecycle.3mf"
+    test_file.write_bytes(b"lifecycle test")
+
+    with TestClient(app) as test_client:
+        # Create upload (starts in queued)
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+        assert post.json()["status"] == "queued"
+
+        # queued → uploading
+        t1 = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "uploading"},
+        )
+        assert t1.status_code == 200
+        assert t1.json()["new_status"] == "uploading"
+
+        # uploading → uploaded_unverified
+        t2 = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "uploaded_unverified"},
+        )
+        assert t2.status_code == 200
+        assert t2.json()["new_status"] == "uploaded_unverified"
+
+        # uploaded_unverified → verified
+        t3 = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "verified"},
+        )
+        assert t3.status_code == 200
+        assert t3.json()["new_status"] == "verified"
+
+        # Verify final state
+        list_response = test_client.get("/api/intake/uploads?status=verified")
+        assert list_response.status_code == 200
+        uploads = list_response.json()["uploads"]
+        assert len(uploads) == 1
+        assert uploads[0]["status"] == "verified"
+        assert uploads[0]["verified_at"] is not None
+
+
+def test_intake_queue_state_transitions_invalid_transition(tmp_path: Path) -> None:
+    """Test that invalid state transitions are rejected."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "invalid.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Try invalid transition queued → verified (should skip uploading)
+        invalid = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "verified"},
+        )
+        assert invalid.status_code == 409
+        assert invalid.json()["error"] == "status_transition_failed"
+        assert "Invalid transition" in invalid.json()["message"]
+
+
+def test_intake_queue_state_transitions_cleanup_pipeline(tmp_path: Path) -> None:
+    """Test cleanup state transitions: verified → cleanup_pending → cleanup_done."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "cleanup.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create and advance to verified
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        test_client.put(f"/api/intake/uploads/{upload_id}/status", json={"status": "uploading"})
+        test_client.put(f"/api/intake/uploads/{upload_id}/status", json={"status": "uploaded_unverified"})
+        test_client.put(f"/api/intake/uploads/{upload_id}/status", json={"status": "verified"})
+
+        # verified → cleanup_pending
+        t1 = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "cleanup_pending"},
+        )
+        assert t1.status_code == 200
+
+        # cleanup_pending → cleanup_done
+        t2 = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "cleanup_done"},
+        )
+        assert t2.status_code == 200
+        assert t2.json()["new_status"] == "cleanup_done"
+
+
+def test_intake_queue_state_transitions_to_failed_with_error_message(tmp_path: Path) -> None:
+    """Test transitioning to failed status with error message."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "error.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Transition to failed with error
+        fail = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={
+                "status": "failed",
+                "error": "File corrupted: invalid 3MF structure",
+            },
+        )
+        assert fail.status_code == 200
+        assert fail.json()["new_status"] == "failed"
+
+        # Verify error was persisted
+        connection = sqlite3.connect(settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            row = connection.execute(
+                "SELECT error_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+            assert row is not None
+            error_data = json.loads(str(row["error_json"]))
+            assert "File corrupted" in error_data["error"]
+        finally:
+            connection.close()
+
+
+def test_intake_queue_audit_events_logged_on_transition(tmp_path: Path) -> None:
+    """Test that audit events are logged for each state transition."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "audit.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Perform transitions
+        test_client.put(f"/api/intake/uploads/{upload_id}/status", json={"status": "uploading"})
+        test_client.put(f"/api/intake/uploads/{upload_id}/status", json={"status": "uploaded_unverified"})
+
+        # Verify events were logged
+        connection = sqlite3.connect(settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT event_type, entity_type, entity_id, payload_json, created_at
+                FROM model_catalog_events
+                WHERE entity_id = ?
+                ORDER BY created_at ASC
+                """,
+                (upload_id,),
+            ).fetchall()
+
+            assert len(rows) == 2
+            for row in rows:
+                assert row["event_type"] == "manual_status_transition"
+                assert row["entity_type"] == "intake_queue_upload"
+                payload = json.loads(str(row["payload_json"]))
+                assert "from_status" in payload
+                assert "to_status" in payload
+                assert "transition_at" in payload
+
+            # Verify transition sequence
+            assert json.loads(rows[0]["payload_json"])["to_status"] == "uploading"
+            assert json.loads(rows[1]["payload_json"])["to_status"] == "uploaded_unverified"
+        finally:
+            connection.close()
+
+
+def test_intake_queue_missing_status_field_rejected(tmp_path: Path) -> None:
+    """Test that missing status field in transition request is rejected."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Missing status field
+        response = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={},
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "missing_status"
+
+
+def test_intake_queue_invalid_status_value_rejected(tmp_path: Path) -> None:
+    """Test that invalid status values are rejected."""
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "test.3mf"
+    test_file.write_bytes(b"content")
+
+    with TestClient(app) as test_client:
+        # Create upload
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={"source_entries": [{"type": "file", "path": str(test_file)}]},
+        )
+        upload_id = post.json()["upload_id"]
+
+        # Invalid status
+        response = test_client.put(
+            f"/api/intake/uploads/{upload_id}/status",
+            json={"status": "invalid_status"},
+        )
+        assert response.status_code == 400
+        assert response.json()["error"] == "invalid_status"

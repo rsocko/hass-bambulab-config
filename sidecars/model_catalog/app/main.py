@@ -869,6 +869,116 @@ def _unique_slug(connection: Any, title: str) -> str:
         counter += 1
 
 
+# ========== INTAKE QUEUE STATE TRANSITIONS & AUDIT LOGGING ==========
+
+# Valid state transitions for intake queue uploads
+VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "queued": {"uploading", "failed"},
+    "uploading": {"uploaded_unverified", "failed"},
+    "uploaded_unverified": {"verified", "failed"},
+    "verified": {"cleanup_pending", "failed"},
+    "cleanup_pending": {"cleanup_done", "cleanup_failed"},
+    "cleanup_done": set(),  # terminal state
+    "cleanup_failed": {"cleanup_pending"},  # can retry
+    "failed": set(),  # terminal state
+}
+
+
+def _transition_queue_status(
+    db_path: Path,
+    upload_id: str,
+    new_status: str,
+    event_type: str = "status_change",
+    error_message: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> tuple[bool, str | None]:
+    """
+    Transition an intake queue upload to a new status with audit logging.
+    
+    Returns (success: bool, error_message: str | None)
+    """
+    connection = connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        # Fetch current upload
+        row = connection.execute(
+            "SELECT id, status, upload_id FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        
+        if not row:
+            return False, f"Upload not found: {upload_id}"
+        
+        current_status = row["status"]
+        
+        # Validate transition
+        if new_status not in VALID_STATUS_TRANSITIONS.get(current_status, set()):
+            return False, f"Invalid transition from {current_status} to {new_status}"
+        
+        # Update status with appropriate timestamp
+        now_iso = _bulk_utc_now_iso()
+        timestamp_field = None
+        if new_status == "uploading":
+            timestamp_field = "uploaded_at"
+        elif new_status == "verified":
+            timestamp_field = "verified_at"
+        elif new_status in ("cleanup_done", "cleanup_failed"):
+            timestamp_field = "cleanup_done_at"
+        
+        update_clause = "status = ?, updated_at = ?"
+        params: list[Any] = [new_status, now_iso]
+        
+        if timestamp_field:
+            update_clause += f", {timestamp_field} = ?"
+            params.append(now_iso)
+        
+        if error_message and new_status == "failed":
+            error_payload = {"error": error_message}
+            update_clause += ", error_json = ?"
+            params.append(json.dumps(error_payload))
+        
+        params.append(upload_id)
+        
+        connection.execute(
+            f"UPDATE intake_queue_uploads SET {update_clause} WHERE upload_id = ?",
+            params,
+        )
+        
+        # Log event for audit trail
+        event_payload = {
+            "upload_id": upload_id,
+            "from_status": current_status,
+            "to_status": new_status,
+            "transition_at": now_iso,
+        }
+        if error_message:
+            event_payload["error"] = error_message
+        if metadata:
+            event_payload["metadata"] = metadata
+        
+        connection.execute(
+            """
+            INSERT INTO model_catalog_events (event_type, entity_type, entity_id, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                event_type,
+                "intake_queue_upload",
+                upload_id,
+                json.dumps(event_payload),
+                now_iso,
+            ),
+        )
+        
+        connection.commit()
+        return True, None
+        
+    except Exception as e:
+        return False, f"State transition error: {str(e)}"
+    finally:
+        connection.close()
+
+
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
     resolved_settings = settings or load_settings()
 
@@ -3597,6 +3707,77 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "upload_id": upload_id,
             "deleted": True,
+        }
+
+    @app.put("/api/intake/uploads/{upload_id}/status")
+    def intake_queue_update_status(upload_id: str, payload: dict[str, Any]) -> Any:
+        """
+        Update the status of an intake queue upload.
+        
+        Transitions through the state machine with audit logging:
+        - queued → uploading
+        - uploading → uploaded_unverified
+        - uploaded_unverified → verified
+        - verified → cleanup_pending
+        - cleanup_pending → cleanup_done or cleanup_failed
+        - (any) → failed (on error)
+        
+        Payload: { "status": "new_status", "error": "optional error message" }
+        """
+        state: AppState = app.state.model_catalog
+        
+        new_status = str(payload.get("status") or "").strip().lower()
+        error_message = str(payload.get("error") or "").strip() or None
+        metadata = payload.get("metadata")
+        
+        if not new_status:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "missing_status",
+                    "message": "Payload must include 'status' field",
+                },
+            )
+        
+        valid_statuses = {
+            "queued", "uploading", "uploaded_unverified", "verified",
+            "cleanup_pending", "cleanup_done", "cleanup_failed", "failed"
+        }
+        if new_status not in valid_statuses:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_status",
+                    "message": f"status must be one of: {', '.join(sorted(valid_statuses))}",
+                },
+            )
+        
+        success, error = _transition_queue_status(
+            db_path=state.settings.db_path,
+            upload_id=upload_id,
+            new_status=new_status,
+            event_type="manual_status_transition",
+            error_message=error_message,
+            metadata=metadata,
+        )
+        
+        if not success:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "status_transition_failed",
+                    "message": error,
+                },
+            )
+        
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "new_status": new_status,
+            "updated_at": _bulk_utc_now_iso(),
         }
 
     # ========== INTAKE BROWSE API (Phase 1.5 #1147) ==========
