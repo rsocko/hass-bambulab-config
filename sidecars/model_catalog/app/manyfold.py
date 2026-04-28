@@ -345,6 +345,61 @@ def _parse_manyfold_sign_in_form(html_text: str) -> tuple[str, str | None] | Non
     return parser.extract()
 
 
+class _ManyfoldModelListParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._current_href: str | None = None
+        self._current_text: list[str] = []
+        self.rows: list[dict[str, Any]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+        attr_map = {key: value or "" for key, value in attrs}
+        href = str(attr_map.get("href") or "").strip()
+        if not re.match(r"^/models/[^/?#.]+$", href):
+            return
+        self._current_href = href
+        self._current_text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._current_href is not None:
+            self._current_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "a" or self._current_href is None:
+            return
+        text = " ".join(part.strip() for part in self._current_text if part.strip()).strip()
+        href = self._current_href
+        self._current_href = None
+        self._current_text = []
+        if not text:
+            return
+        if text.lower() in {"open", "edit", "delete", "models", "upload models", "homepage", "sign in"}:
+            return
+        self.rows.append({"url": href, "name": text})
+
+
+def _parse_manyfold_model_list_html(base_url: str, html_text: str) -> list[dict[str, Any]]:
+    parser = _ManyfoldModelListParser()
+    parser.feed(html_text)
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for row in parser.rows:
+        canonical_url = canonicalize_model_url(base_url, str(row.get("url") or ""))
+        if not canonical_url or canonical_url in seen:
+            continue
+        seen.add(canonical_url)
+        rows.append(
+            {
+                "url": canonical_url,
+                "@id": str(row.get("url") or ""),
+                "name": str(row.get("name") or "").strip(),
+            }
+        )
+    return rows
+
+
 def _redirects_to_sign_in(response: httpx.Response) -> bool:
     location = str(response.headers.get("location") or "").strip()
     if response.status_code not in {301, 302, 303, 307, 308} or not location:
@@ -698,6 +753,17 @@ class ManyfoldClient:
         payload = self._get_json_with_accept_fallback(self.models_path)
         return self._extract_rows(payload)
 
+    def list_model_payloads_from_html(self, *, order: str = "recent") -> list[dict[str, Any]]:
+        if not self._ensure_site_session():
+            return []
+        separator = "&" if "?" in self.models_path else "?"
+        response = self._client.get(f"{self.models_path}{separator}order={quote(order, safe='')}", follow_redirects=True)
+        response.raise_for_status()
+        content_type = str(response.headers.get("content-type") or "").lower()
+        if "html" not in content_type:
+            return []
+        return _parse_manyfold_model_list_html(self.base_url, response.text)
+
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
         path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
         try:
@@ -886,13 +952,13 @@ class ManyfoldClient:
                 "@type": "Collection",
             }
 
-        response = self._client.post(
+        response = self._post_with_session_retry(
             self.models_path,
             headers={
                 **self._request_headers(),
                 "Content-Type": MANYFOLD_API_ACCEPT,
             },
-            json=payload,
+            json_body=payload,
         )
         response.raise_for_status()
         if not response.content:
@@ -912,13 +978,13 @@ class ManyfoldClient:
             raise ValueError("Manyfold uploaded_files is required.")
 
         model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
-        response = self._client.post(
+        response = self._post_with_session_retry(
             f"{model_path.rstrip('/')}/model_files",
             headers={
                 **self._request_headers(),
                 "Content-Type": MANYFOLD_API_ACCEPT,
             },
-            json={"files": uploaded_files},
+            json_body={"files": uploaded_files},
         )
         response.raise_for_status()
         if not response.content:

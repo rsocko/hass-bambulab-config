@@ -45,6 +45,7 @@ def _build_manyfold_client(
     collection_name: str = "Tools",
     returned_file_name: str | None = None,
     returned_size: int | None = None,
+    use_html_list_fallback: bool = False,
 ) -> ManyfoldClient:
     model_public_id = "model-900"
     model_url = "/models/900"
@@ -117,7 +118,15 @@ def _build_manyfold_client(
             return httpx.Response(202)
 
         if request.method == "GET" and request.url.path == "/models":
+            if use_html_list_fallback and request.headers.get("Accept") in (None, "*/*"):
+                return httpx.Response(
+                    200,
+                    text=f'<html><body><a href="/models/{model_public_id}">{Path(file_name).stem}</a><a href="/models/{model_public_id}">Open</a></body></html>',
+                    headers={"Content-Type": "text/html; charset=utf-8"},
+                )
             if not model_created:
+                return httpx.Response(200, json={"items": []})
+            if use_html_list_fallback:
                 return httpx.Response(200, json={"items": []})
             return httpx.Response(
                 200,
@@ -418,6 +427,58 @@ def test_manyfold_upload_adapter_with_collection_name_parameter(tmp_path: Path) 
         assert payload["success"] is True
         assert payload["manyfold_response"]["collection_name"] == "Gridfinity"
         assert payload["manyfold_response"]["collection_ref"] == "/collections/gridfinity"
+        mock_client.close()
+
+
+def test_manyfold_upload_adapter_verifies_via_html_model_list_when_json_list_is_empty(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = tmp_path / "html-only.3mf"
+    source_bytes = b"html-list-fallback"
+    source_file.write_bytes(source_bytes)
+    source_hash = hashlib.sha256(source_bytes).hexdigest()
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        now = "2026-04-26T10:00:00Z"
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-html-001",
+                "uploaded_unverified",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "keep",
+                now,
+                now,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        original_client = app.state.manyfold_client
+        original_client.close()
+        mock_client = _build_manyfold_client(
+            file_name=source_file.name,
+            file_bytes=source_bytes,
+            verification_hash=source_hash,
+            use_html_list_fallback=True,
+        )
+        app.state.manyfold_client = mock_client
+        response = test_client.post("/api/intake/uploads/upload-html-001/upload-to-manyfold?collection_name=Tools")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["status"] == "verified"
         mock_client.close()
 
 

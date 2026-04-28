@@ -4810,6 +4810,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         if _normalized_filename(str(payload.get("name") or "")) == normalized_fallback_name
                     ]
 
+                if not candidate_payloads:
+                    html_payloads = client.list_model_payloads_from_html(order="recent")
+                    candidate_payloads = [
+                        payload
+                        for payload in html_payloads
+                        if _normalized_filename(str(payload.get("name") or "")) == normalized_fallback_name
+                    ]
+
                 for candidate_payload in candidate_payloads:
                     model_ref = _model_ref_from_payload(candidate_payload)
                     if not model_ref:
