@@ -52,19 +52,19 @@ def _parse_transform(value: Any) -> list[list[float]]:
         raise ValueError("3MF transform must contain 12 numbers")
     numbers = [float(part) for part in parts]
     return [
-        [numbers[0], numbers[1], numbers[2], numbers[9]],
-        [numbers[3], numbers[4], numbers[5], numbers[10]],
-        [numbers[6], numbers[7], numbers[8], numbers[11]],
-        [0.0, 0.0, 0.0, 1.0],
+        [numbers[0], numbers[1], numbers[2], 0.0],
+        [numbers[3], numbers[4], numbers[5], 0.0],
+        [numbers[6], numbers[7], numbers[8], 0.0],
+        [numbers[9], numbers[10], numbers[11], 1.0],
     ]
 
 
 def _apply_transform(matrix: list[list[float]], vertex: tuple[float, float, float]) -> tuple[float, float, float]:
     x_value, y_value, z_value = vertex
     return (
-        (x_value * matrix[0][0]) + (y_value * matrix[0][1]) + (z_value * matrix[0][2]) + matrix[0][3],
-        (x_value * matrix[1][0]) + (y_value * matrix[1][1]) + (z_value * matrix[1][2]) + matrix[1][3],
-        (x_value * matrix[2][0]) + (y_value * matrix[2][1]) + (z_value * matrix[2][2]) + matrix[2][3],
+        (x_value * matrix[0][0]) + (y_value * matrix[1][0]) + (z_value * matrix[2][0]) + matrix[3][0],
+        (x_value * matrix[0][1]) + (y_value * matrix[1][1]) + (z_value * matrix[2][1]) + matrix[3][1],
+        (x_value * matrix[0][2]) + (y_value * matrix[1][2]) + (z_value * matrix[2][2]) + matrix[3][2],
     )
 
 
@@ -502,7 +502,7 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
             append_object(
                 component.part_path,
                 component.object_id,
-                _multiply_matrices(transform, component.transform),
+                _multiply_matrices(component.transform, transform),
                 lineage + (object_key,),
                 current_extruder,
             )
