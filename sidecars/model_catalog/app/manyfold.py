@@ -71,6 +71,18 @@ def _json_route(path: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, f"{route_path}.json", parsed.query, parsed.fragment))
 
 
+def _json_route_candidates(path: str) -> list[str]:
+    normalized = str(path or "").strip()
+    if not normalized:
+        return []
+
+    candidates = [normalized]
+    json_route = _json_route(normalized)
+    if json_route and json_route not in candidates:
+        candidates.append(json_route)
+    return candidates
+
+
 def _absolute_resource_url(base_url: str, ref: str) -> str:
     normalized = str(ref or "").strip()
     if not normalized:
@@ -452,23 +464,44 @@ class ManyfoldClient:
             ("application_json", {"Accept": "application/json", **self._auth_headers()}),
             ("no_accept", self._auth_headers()),
         ]
+        last_error: Exception | None = None
         last_response: httpx.Response | None = None
 
-        for index, (label, headers) in enumerate(attempts):
-            response = self._client.get(path, headers=headers)
-            last_response = response
-            if response.status_code != 406:
-                response.raise_for_status()
-                return response.json()
+        for candidate_path in _json_route_candidates(path):
+            for index, (label, headers) in enumerate(attempts):
+                response = self._client.get(candidate_path, headers=headers)
+                last_response = response
+                if response.status_code == 406:
+                    if index < len(attempts) - 1:
+                        logger.warning(
+                            "Manyfold endpoint %s rejected %s Accept headers with 406; retrying with %s.",
+                            candidate_path,
+                            label,
+                            attempts[index + 1][0],
+                        )
+                    continue
 
-            if index < len(attempts) - 1:
-                logger.warning(
-                    "Manyfold endpoint %s rejected %s Accept headers with 406; retrying with %s.",
-                    path,
-                    label,
-                    attempts[index + 1][0],
-                )
+                try:
+                    response.raise_for_status()
+                    return response.json()
+                except json.JSONDecodeError as exc:
+                    last_error = RuntimeError(
+                        f"Manyfold endpoint {candidate_path} returned non-JSON content."
+                    )
+                    logger.warning(
+                        "Manyfold endpoint %s returned non-JSON content for %s Accept headers.",
+                        candidate_path,
+                        label,
+                    )
+                    if index < len(attempts) - 1:
+                        continue
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    break
 
+        if last_error is not None:
+            raise last_error
         assert last_response is not None
         last_response.raise_for_status()
         return last_response.json()
@@ -534,15 +567,13 @@ class ManyfoldClient:
         return [normalize_model_summary(self.base_url, row) for row in rows]
 
     def list_model_payloads(self) -> list[dict[str, Any]]:
-        payload = self._get_json_with_accept_fallback(_json_route(self.models_path))
+        payload = self._get_json_with_accept_fallback(self.models_path)
         return self._extract_rows(payload)
 
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
-        path = _json_route(self._resolve_ref_path(model_ref, default_prefix=self.models_path))
+        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
         try:
-            response = self._client.get(path, headers=self._request_headers())
-            response.raise_for_status()
-            payload = response.json()
+            payload = self._get_json_with_accept_fallback(path)
             if not isinstance(payload, dict):
                 raise RuntimeError("Manyfold model detail response was not a JSON object.")
             return payload
@@ -570,11 +601,9 @@ class ManyfoldClient:
     def list_model_photos(self, model_ref: str) -> list[dict[str, Any]]:
         """Fetch photos for a model from Manyfold API."""
         model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
-        path = _json_route(f"{model_path.rstrip('/')}/photos")
+        path = f"{model_path.rstrip('/')}/photos"
         try:
-            response = self._client.get(path, headers=self._request_headers())
-            response.raise_for_status()
-            payload = response.json()
+            payload = self._get_json_with_accept_fallback(path)
             rows = self._extract_rows(payload)
             if not rows and isinstance(payload, dict):
                 photos_data = payload.get("photos")
@@ -607,11 +636,11 @@ class ManyfoldClient:
         return payload
 
     def list_collections(self) -> list[dict[str, Any]]:
-        payload = self._get_json_with_accept_fallback(_json_route(self.collections_path))
+        payload = self._get_json_with_accept_fallback(self.collections_path)
         return self._extract_rows(payload)
 
     def list_creators(self) -> list[dict[str, Any]]:
-        payload = self._get_json_with_accept_fallback(_json_route(self.creators_path))
+        payload = self._get_json_with_accept_fallback(self.creators_path)
         return self._extract_rows(payload)
 
     def resolve_collection_ref(self, *, collection_id: int | None = None, collection_name: str | None = None) -> str | None:

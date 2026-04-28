@@ -67,7 +67,7 @@ def _build_manyfold_client(
         if request.url.path == "/oauth/token":
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
 
-        if request.method == "GET" and request.url.path == "/collections.json":
+        if request.method == "GET" and request.url.path == "/collections":
             return httpx.Response(
                 200,
                 json={
@@ -116,7 +116,7 @@ def _build_manyfold_client(
             model_created = True
             return httpx.Response(202)
 
-        if request.method == "GET" and request.url.path == "/models.json":
+        if request.method == "GET" and request.url.path == "/models":
             if not model_created:
                 return httpx.Response(200, json={"items": []})
             return httpx.Response(
@@ -133,7 +133,7 @@ def _build_manyfold_client(
                 },
             )
 
-        if request.method == "GET" and request.url.path == f"/models/{model_public_id}.json":
+        if request.method == "GET" and request.url.path == f"/models/{model_public_id}":
             file_row = {
                 "id": file_id,
                 "@id": file_url,

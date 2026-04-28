@@ -1683,7 +1683,7 @@ def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -
                 assert "client_secret=" not in body
                 return httpx.Response(200, json={"access_token": "token-basic", "token_type": "Bearer"})
             return httpx.Response(401, json={"error": "invalid_client"})
-        if request.url.path == "/models.json":
+        if request.url.path == "/models":
             assert auth_header == "Bearer token-basic"
             return httpx.Response(200, json={"member": [{"@id": "/models/fallback", "name": "Fallback Model"}]})
         raise AssertionError(f"Unexpected request: {request.method} {request.url}")
@@ -1707,7 +1707,7 @@ def test_manyfold_client_retries_token_request_with_basic_auth(tmp_path: Path) -
     assert seen_requests[1][0] == "POST"
     assert seen_requests[1][1] == "/oauth/token"
     assert seen_requests[1][2] is not None
-    assert seen_requests[2] == ("GET", "/models.json", "Bearer token-basic")
+    assert seen_requests[2] == ("GET", "/models", "Bearer token-basic")
 
 
 def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> None:
@@ -1716,15 +1716,15 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     def handler(request: httpx.Request) -> httpx.Response:
         seen_paths.append(request.url.path)
         assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
-        if request.url.path == "/models/abc123.json":
+        if request.url.path == "/models/abc123":
             return httpx.Response(200, json={"id": "abc123", "name": "Detail Model"})
         if request.url.path == "/model_files/file-99":
             return httpx.Response(200, json={"id": "file-99", "filename": "part.3mf"})
         if request.url.path == "/models/abc123/model_files/file-88":
             return httpx.Response(200, json={"id": "file-88", "filename": "derived.3mf"})
-        if request.url.path == "/collections.json":
+        if request.url.path == "/collections":
             return httpx.Response(200, json={"member": [{"id": "c1", "name": "Functional"}]})
-        if request.url.path == "/creators.json":
+        if request.url.path == "/creators":
             return httpx.Response(200, json={"member": [{"id": "u1", "name": "Rysock"}]})
         raise AssertionError(f"Unexpected request path: {request.url.path}")
 
@@ -1751,11 +1751,11 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     finally:
         client.close()
 
-    assert "/models/abc123.json" in seen_paths
+    assert "/models/abc123" in seen_paths
     assert "/model_files/file-99" in seen_paths
     assert "/models/abc123/model_files/file-88" in seen_paths
-    assert "/collections.json" in seen_paths
-    assert "/creators.json" in seen_paths
+    assert "/collections" in seen_paths
+    assert "/creators" in seen_paths
 
 
 def test_manyfold_client_write_routes_use_json_contract() -> None:
@@ -1885,12 +1885,12 @@ def test_manyfold_client_uploaded_file_create_flow_uses_tus_and_uploaded_refs() 
     assert ("POST", "/models", MANYFOLD_API_ACCEPT, MANYFOLD_API_ACCEPT) in seen_requests
 
 
-def test_manyfold_client_retries_models_json_with_generic_accept_after_406() -> None:
+def test_manyfold_client_retries_models_with_generic_accept_after_406() -> None:
     seen_accept_headers: list[str | None] = []
     model_calls = {"count": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/models.json":
+        if request.url.path == "/models":
             model_calls["count"] += 1
             seen_accept_headers.append(request.headers.get("Accept"))
             if model_calls["count"] == 1:
@@ -1959,7 +1959,7 @@ def test_model_search_refresh_failure_returns_cached_results_instead_of_500(tmp_
         base_url = "http://manyfold.test"
 
         def list_model_payloads(self):
-            request = httpx.Request("GET", "http://manyfold.test/models.json")
+            request = httpx.Request("GET", "http://manyfold.test/models")
             response = httpx.Response(406, request=request)
             raise httpx.HTTPStatusError("Not Acceptable", request=request, response=response)
 
@@ -2028,6 +2028,7 @@ def test_manyfold_client_falls_back_to_model_html_for_detail_and_file_list() -> 
     finally:
         client.close()
 
+    assert "/models/abc123" in seen_paths
     assert "/models/abc123.json" in seen_paths
     assert "/models" in seen_paths
     assert "/models/abc123" in seen_paths
@@ -2044,7 +2045,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
             assert "client_secret=client-secret" in body
             assert "scope=public+read" in body
             return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
-        if request.url.path == "/models.json":
+        if request.url.path == "/models":
             assert request.headers.get("Authorization") == "Bearer token-123"
             assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             return httpx.Response(
