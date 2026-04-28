@@ -493,6 +493,8 @@ def test_extract_3mf_geometry_defaults_to_first_plate_and_reports_color_hint() -
 
     assert payload["selected_plate_id"] == "1"
     assert payload["plates"][0]["name"] == "Plate One"
+    assert payload["plates"][0]["bbox_xy"] == [0.0, 0.0, 10.0, 20.0]
+    assert payload["plates"][1]["bbox_xy"] == [100.0, 100.0, 110.0, 120.0]
     assert payload["triangle_count"] == 1
     assert payload["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
     assert payload["color_info"]["available"] is True

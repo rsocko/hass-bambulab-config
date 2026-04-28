@@ -16,6 +16,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
   constructor() {
     super();
     this._defaultModelColor = '#5fa8d3';
+    this._buildPlateSizeMm = 256;
     this._config = {};
     this._model = null;
     this._scene = null;
@@ -490,7 +491,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._scene.add(fillLight);
 
     this._gridHelper = new window.THREE.GridHelper(256, 16, 0x444444, 0x333333);
-    this._gridHelper.position.y = -0.01;
+    this._gridHelper.position.set(this._buildPlateSizeMm / 2, -0.01, this._buildPlateSizeMm / 2);
     this._gridHelper.visible = this._isGridVisible;
     this._scene.add(this._gridHelper);
 
@@ -501,7 +502,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     });
     const buildVolumeEdges = new window.THREE.EdgesGeometry(buildVolumeGeom);
     this._buildVolumeHelper = new window.THREE.LineSegments(buildVolumeEdges, buildVolumeMat);
-    this._buildVolumeHelper.position.set(128, 128, 128);
+    this._buildVolumeHelper.position.set(this._buildPlateSizeMm / 2, this._buildPlateSizeMm / 2, this._buildPlateSizeMm / 2);
     this._buildVolumeHelper.visible = this._isBuildVolumeVisible;
     this._scene.add(this._buildVolumeHelper);
 
@@ -671,9 +672,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     const triangleCount = Number(geometry.triangle_count);
     const coordinateSystem = String(geometry.coordinate_system || '').trim().toLowerCase();
-    const normalizedVertices = coordinateSystem === 'printer_xyz'
+    let normalizedVertices = coordinateSystem === 'printer_xyz'
       ? this._mapPrinterVerticesToViewer(vertices)
       : Float32Array.from(vertices);
+
+    normalizedVertices = this._centerSelectedPlateOnBuildSurface(normalizedVertices, this._getSelectedPlateMetadata());
 
     return {
       vertices: normalizedVertices,
@@ -692,6 +695,44 @@ class ModelDetail3DViewerTab extends HTMLElement {
       mapped[index + 2] = Number(vertices[index + 1]) || 0;
     }
     return mapped;
+  }
+
+  _getSelectedPlateMetadata() {
+    if (!Array.isArray(this._availablePlates) || this._availablePlates.length === 0) {
+      return null;
+    }
+    const selectedId = String(this._selectedPlateId || '').trim();
+    if (!selectedId) {
+      return this._availablePlates[0] || null;
+    }
+    return this._availablePlates.find((plate) => String(plate && plate.id || '') === selectedId) || null;
+  }
+
+  _centerSelectedPlateOnBuildSurface(vertices, plate) {
+    if (!(vertices instanceof Float32Array) || vertices.length < 3 || !plate || !Array.isArray(plate.bbox_xy) || plate.bbox_xy.length !== 4) {
+      return vertices;
+    }
+
+    const minX = Number(plate.bbox_xy[0]);
+    const minY = Number(plate.bbox_xy[1]);
+    const maxX = Number(plate.bbox_xy[2]);
+    const maxY = Number(plate.bbox_xy[3]);
+    if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+      return vertices;
+    }
+
+    const centered = new Float32Array(vertices);
+    const sourceCenterX = (minX + maxX) / 2;
+    const sourceCenterZ = (minY + maxY) / 2;
+    const targetCenter = this._buildPlateSizeMm / 2;
+    const shiftX = targetCenter - sourceCenterX;
+    const shiftZ = targetCenter - sourceCenterZ;
+
+    for (let index = 0; index < centered.length; index += 3) {
+      centered[index] += shiftX;
+      centered[index + 2] += shiftZ;
+    }
+    return centered;
   }
 
   _load3mfObject(object, filename) {
