@@ -746,7 +746,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     for (let index = 0; index < vertices.length; index += 3) {
       mapped[index] = Number(vertices[index]) || 0;
       mapped[index + 1] = Number(vertices[index + 2]) || 0;
-      mapped[index + 2] = Number(vertices[index + 1]) || 0;
+      mapped[index + 2] = -(Number(vertices[index + 1]) || 0);
     }
     return mapped;
   }
