@@ -1695,6 +1695,36 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     assert "/creators.json" in seen_paths
 
 
+def test_manyfold_client_retries_models_json_with_generic_accept_after_406() -> None:
+    seen_accept_headers: list[str | None] = []
+    model_calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/models.json":
+            model_calls["count"] += 1
+            seen_accept_headers.append(request.headers.get("Accept"))
+            if model_calls["count"] == 1:
+                return httpx.Response(406, json={"error": "not acceptable"})
+            return httpx.Response(200, json={"member": [{"@id": "/models/retry-ok", "name": "Retry OK"}]})
+        raise AssertionError(f"Unexpected request path: {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        models = client.list_models()
+    finally:
+        client.close()
+
+    assert model_calls["count"] == 2
+    assert seen_accept_headers[0] == MANYFOLD_API_ACCEPT
+    assert seen_accept_headers[1] == "application/json, */*"
+    assert len(models) == 1
+    assert models[0].name == "Retry OK"
+
+
 def test_manyfold_client_falls_back_to_model_html_for_detail_and_file_list() -> None:
     seen_paths: list[str] = []
 

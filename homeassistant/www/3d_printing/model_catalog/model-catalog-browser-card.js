@@ -155,8 +155,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var msg = payload && payload.message ? String(payload.message) : "Service call failed (HTTP " + String(response.status) + ")";
       throw new Error(msg);
     }
+    var normalized = this._normalizeServiceResponse(payload);
 
-    return this._normalizeServiceResponse(payload);
+    // When using rest_command + return_response, Home Assistant may wrap
+    // downstream HTTP failures as a successful service call payload
+    // (e.g. {content: "Internal Server Error", status: 500}).
+    // Treat that as an error instead of rendering an empty result set.
+    var wrappedStatus = Number(normalized && normalized.status);
+    if (Number.isFinite(wrappedStatus) && wrappedStatus >= 400) {
+      var wrappedMessage = "";
+      if (normalized && typeof normalized.content === "string") {
+        wrappedMessage = normalized.content;
+      } else if (normalized && normalized.content && typeof normalized.content.message === "string") {
+        wrappedMessage = normalized.content.message;
+      } else if (normalized && typeof normalized.message === "string") {
+        wrappedMessage = normalized.message;
+      }
+      throw new Error((wrappedMessage || "Service call failed") + " (HTTP " + String(wrappedStatus) + ")");
+    }
+
+    return normalized;
   }
 
   _syncFormIntoFilters() {

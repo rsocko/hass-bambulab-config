@@ -405,6 +405,23 @@ class ManyfoldClient:
             **self._auth_headers(),
         }
 
+    def _get_json_with_accept_fallback(self, path: str) -> Any:
+        response = self._client.get(path, headers=self._request_headers())
+        if response.status_code == 406:
+            logger.warning(
+                "Manyfold endpoint %s rejected vendor Accept header; retrying with generic Accept.",
+                path,
+            )
+            response = self._client.get(
+                path,
+                headers={
+                    "Accept": "application/json, */*",
+                    **self._auth_headers(),
+                },
+            )
+        response.raise_for_status()
+        return response.json()
+
     def _ensure_site_session(self) -> bool:
         if self._site_session_ready:
             return True
@@ -466,9 +483,7 @@ class ManyfoldClient:
         return [normalize_model_summary(self.base_url, row) for row in rows]
 
     def list_model_payloads(self) -> list[dict[str, Any]]:
-        response = self._client.get(_json_route(self.models_path), headers=self._request_headers())
-        response.raise_for_status()
-        payload = response.json()
+        payload = self._get_json_with_accept_fallback(_json_route(self.models_path))
         return self._extract_rows(payload)
 
     def get_model_detail(self, model_ref: str) -> dict[str, Any]:
@@ -541,14 +556,12 @@ class ManyfoldClient:
         return payload
 
     def list_collections(self) -> list[dict[str, Any]]:
-        response = self._client.get(_json_route(self.collections_path), headers=self._request_headers())
-        response.raise_for_status()
-        return self._extract_rows(response.json())
+        payload = self._get_json_with_accept_fallback(_json_route(self.collections_path))
+        return self._extract_rows(payload)
 
     def list_creators(self) -> list[dict[str, Any]]:
-        response = self._client.get(_json_route(self.creators_path), headers=self._request_headers())
-        response.raise_for_status()
-        return self._extract_rows(response.json())
+        payload = self._get_json_with_accept_fallback(_json_route(self.creators_path))
+        return self._extract_rows(payload)
 
     def update_model(self, model_ref: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Update model metadata in Manyfold (Phase 3.1).
