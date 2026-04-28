@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
 JSON_CONTENT_TYPE = "application/json"
 TUS_VERSION = "1.0.0"
+SIGN_IN_PATH = "/users/sign_in"
 
 
 @dataclass(frozen=True)
@@ -302,6 +303,57 @@ def _parse_manyfold_model_page_html(base_url: str, model_path: str, html_text: s
     return payload
 
 
+class _ManyfoldSignInFormParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._forms: list[dict[str, str]] = []
+        self._current_form: dict[str, str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attr_map = {key: value or "" for key, value in attrs}
+        if tag == "form":
+            self._current_form = {
+                "action": str(attr_map.get("action") or SIGN_IN_PATH).strip() or SIGN_IN_PATH,
+            }
+            return
+        if tag != "input" or self._current_form is None:
+            return
+
+        input_name = str(attr_map.get("name") or "").strip()
+        if input_name == "user[email]":
+            self._current_form["has_email"] = "true"
+        elif input_name == "user[password]":
+            self._current_form["has_password"] = "true"
+        elif input_name == "authenticity_token":
+            self._current_form["authenticity_token"] = str(attr_map.get("value") or "")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "form" and self._current_form is not None:
+            self._forms.append(self._current_form)
+            self._current_form = None
+
+    def extract(self) -> tuple[str, str | None] | None:
+        for form in self._forms:
+            if form.get("has_email") == "true" and form.get("has_password") == "true":
+                return form.get("action") or SIGN_IN_PATH, form.get("authenticity_token") or None
+        return None
+
+
+def _parse_manyfold_sign_in_form(html_text: str) -> tuple[str, str | None] | None:
+    parser = _ManyfoldSignInFormParser()
+    parser.feed(html_text)
+    return parser.extract()
+
+
+def _redirects_to_sign_in(response: httpx.Response) -> bool:
+    location = str(response.headers.get("location") or "").strip()
+    if response.status_code not in {301, 302, 303, 307, 308} or not location:
+        return False
+    parsed = urlsplit(location)
+    redirect_path = parsed.path or location
+    return redirect_path.startswith(SIGN_IN_PATH)
+
+
 def _lookup_keys(value: Any) -> tuple[str, ...]:
     keys: list[str] = []
 
@@ -401,6 +453,8 @@ class ManyfoldClient:
         client_id: str | None = None,
         client_secret: str | None = None,
         oauth_scopes: str | None = None,
+        session_email: str | None = None,
+        session_password: str | None = None,
         http_client: httpx.Client | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -411,6 +465,8 @@ class ManyfoldClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.oauth_scopes = oauth_scopes
+        self.session_email = str(session_email or "").strip() or None
+        self.session_password = str(session_password or "").strip() or None
         self._client = http_client or httpx.Client(base_url=self.base_url, timeout=15.0, trust_env=False)
         self._owns_client = http_client is None
         self._access_token: str | None = None
@@ -510,10 +566,82 @@ class ManyfoldClient:
         if self._site_session_ready:
             return True
 
+        if self.session_email and self.session_password:
+            login_page = self._client.get(SIGN_IN_PATH, follow_redirects=True)
+            login_page.raise_for_status()
+            sign_in_form = _parse_manyfold_sign_in_form(login_page.text)
+            if not sign_in_form:
+                raise RuntimeError("Manyfold sign-in form could not be parsed for session bootstrap.")
+            action, authenticity_token = sign_in_form
+            form_payload: dict[str, str] = {
+                "user[email]": self.session_email,
+                "user[password]": self.session_password,
+                "user[remember_me]": "1",
+            }
+            if authenticity_token:
+                form_payload["authenticity_token"] = authenticity_token
+            sign_in_response = self._client.post(
+                action,
+                data=form_payload,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Referer": f"{self.base_url}{SIGN_IN_PATH}",
+                },
+                follow_redirects=True,
+            )
+            sign_in_response.raise_for_status()
+            if sign_in_response.url.path.startswith(SIGN_IN_PATH) and not self._client.cookies:
+                raise RuntimeError(
+                    "Manyfold session login failed; verify MANYFOLD_SESSION_EMAIL and MANYFOLD_SESSION_PASSWORD."
+                )
+            self._site_session_ready = bool(self._client.cookies)
+            return self._site_session_ready
+
         response = self._client.get(self.models_path, follow_redirects=True)
         response.raise_for_status()
         self._site_session_ready = bool(self._client.cookies) or response.is_success
         return self._site_session_ready
+
+    def _post_with_session_retry(
+        self,
+        path: str,
+        *,
+        headers: dict[str, str],
+        data: Any | None = None,
+        json_body: Any | None = None,
+    ) -> httpx.Response:
+        request_headers = dict(headers)
+        if self._site_session_ready:
+            request_headers = {key: value for key, value in request_headers.items() if key.lower() != "authorization"}
+        response = self._client.post(path, headers=request_headers, data=data, json=json_body)
+        if response.is_success:
+            return response
+        if _redirects_to_sign_in(response) or response.status_code in {401, 403}:
+            if not (self.session_email and self.session_password):
+                raise RuntimeError(
+                    "Manyfold upload requires a web session. Configure MANYFOLD_SESSION_EMAIL and MANYFOLD_SESSION_PASSWORD."
+                )
+            self._ensure_site_session()
+            session_headers = {key: value for key, value in headers.items() if key.lower() != "authorization"}
+            return self._client.post(path, headers=session_headers, data=data, json=json_body)
+        return response
+
+    def _patch_with_session_retry(self, path: str, *, headers: dict[str, str], content: bytes) -> httpx.Response:
+        request_headers = dict(headers)
+        if self._site_session_ready:
+            request_headers = {key: value for key, value in request_headers.items() if key.lower() != "authorization"}
+        response = self._client.patch(path, headers=request_headers, content=content)
+        if response.is_success:
+            return response
+        if _redirects_to_sign_in(response) or response.status_code in {401, 403}:
+            if not (self.session_email and self.session_password):
+                raise RuntimeError(
+                    "Manyfold upload requires a web session. Configure MANYFOLD_SESSION_EMAIL and MANYFOLD_SESSION_PASSWORD."
+                )
+            self._ensure_site_session()
+            session_headers = {key: value for key, value in headers.items() if key.lower() != "authorization"}
+            return self._client.patch(path, headers=session_headers, content=content)
+        return response
 
     def _fallback_model_detail_from_html(self, model_ref: str) -> dict[str, Any]:
         model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
@@ -706,14 +834,14 @@ class ManyfoldClient:
         if metadata_header:
             create_headers["Upload-Metadata"] = metadata_header
 
-        create_response = self._client.post("/upload", headers=create_headers)
+        create_response = self._post_with_session_retry("/upload", headers=create_headers)
         create_response.raise_for_status()
         upload_location = str(create_response.headers.get("Location") or "").strip()
         if not upload_location:
             raise RuntimeError("Manyfold upload create response did not include a Location header.")
 
         upload_path = self._resolve_ref_path(upload_location, default_prefix="/upload")
-        patch_response = self._client.patch(
+        patch_response = self._patch_with_session_retry(
             upload_path,
             headers={
                 **self._auth_headers(),

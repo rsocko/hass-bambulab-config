@@ -1885,6 +1885,77 @@ def test_manyfold_client_uploaded_file_create_flow_uses_tus_and_uploaded_refs() 
     assert ("POST", "/models", MANYFOLD_API_ACCEPT, MANYFOLD_API_ACCEPT) in seen_requests
 
 
+def test_manyfold_client_upload_file_bootstraps_web_session_when_upload_redirects() -> None:
+    seen_requests: list[tuple[str, str, str | None, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("Authorization"),
+                request.headers.get("Cookie"),
+            )
+        )
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.method == "POST" and request.url.path == "/upload":
+            if request.headers.get("Authorization") == "Bearer token-123":
+                return httpx.Response(302, headers={"Location": "/users/sign_in"})
+            assert request.headers.get("Authorization") is None
+            assert "_manyfold_session=session-123" in str(request.headers.get("Cookie") or "")
+            return httpx.Response(201, headers={"Location": "/upload/session-upload"})
+        if request.method == "GET" and request.url.path == "/users/sign_in":
+            return httpx.Response(
+                200,
+                text='''<html><body><form action="/users/sign_in" method="post"><input type="hidden" name="authenticity_token" value="csrf-123" /><input type="email" name="user[email]" /><input type="password" name="user[password]" /></form></body></html>''',
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            )
+        if request.method == "POST" and request.url.path == "/users/sign_in":
+            body = request.read().decode("utf-8")
+            assert "user%5Bemail%5D=user%40example.com" in body
+            assert "user%5Bpassword%5D=secret-pass" in body
+            assert "authenticity_token=csrf-123" in body
+            return httpx.Response(
+                200,
+                text="<html><body>signed in</body></html>",
+                headers={
+                    "Content-Type": "text/html; charset=utf-8",
+                    "Set-Cookie": "_manyfold_session=session-123; Path=/; HttpOnly",
+                },
+                request=request,
+            )
+        if request.method == "PATCH" and request.url.path == "/upload/session-upload":
+            assert request.headers.get("Authorization") is None
+            assert "_manyfold_session=session-123" in str(request.headers.get("Cookie") or "")
+            assert request.content == b"1234"
+            return httpx.Response(204, headers={"Upload-Offset": "4"})
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        oauth_scopes="public read",
+        session_email="user@example.com",
+        session_password="secret-pass",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        uploaded = client.upload_file(filename="part.3mf", content=b"1234", content_type="model/3mf")
+    finally:
+        client.close()
+
+    assert uploaded == {
+        "id": "http://manyfold.test/upload/session-upload",
+        "name": "part.3mf",
+        "type": "model/3mf",
+        "size": 4,
+    }
+    assert ("GET", "/users/sign_in", None, None) in seen_requests
+
+
 def test_manyfold_client_retries_models_with_generic_accept_after_406() -> None:
     seen_accept_headers: list[str | None] = []
     model_calls = {"count": 0}
@@ -2093,6 +2164,7 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
         assert config.json()["manyfold_creators_path"] == "/creators"
         assert config.json()["manyfold_oauth_enabled"] is True
         assert config.json()["manyfold_oauth_scopes"] == "public read"
+        assert config.json()["manyfold_session_auth_enabled"] is False
         assert config.json()["image_tag"] == "0.1.0"
         assert config.json()["image_version"] == "0.1.0"
         assert config.json()["image_revision"] == "abc123"

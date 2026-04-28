@@ -996,6 +996,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             client_id=resolved_settings.manyfold_client_id,
             client_secret=resolved_settings.manyfold_client_secret,
             oauth_scopes=resolved_settings.manyfold_oauth_scopes,
+            session_email=resolved_settings.manyfold_session_email,
+            session_password=resolved_settings.manyfold_session_password,
         )
         try:
             yield
@@ -1078,6 +1080,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
             "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
             "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
+            "manyfold_session_auth_enabled": bool(state.settings.manyfold_session_email and state.settings.manyfold_session_password),
             "db_path": str(state.settings.db_path),
             "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
             "host": state.settings.host,

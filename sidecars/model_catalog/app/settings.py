@@ -23,6 +23,8 @@ class Settings:
     image_version: str
     image_revision: str
     image_created: str
+    manyfold_session_email: str | None = None
+    manyfold_session_password: str | None = None
     source_filesystem_roots: tuple[Path, ...] = ()
 
 
@@ -35,6 +37,8 @@ def load_settings() -> Settings:
     client_id = str(os.getenv("MANYFOLD_CLIENT_ID", "")).strip() or None
     client_secret = str(os.getenv("MANYFOLD_CLIENT_SECRET", "")).strip() or None
     oauth_scopes = str(os.getenv("MANYFOLD_OAUTH_SCOPES", "")).strip() or None
+    session_email = str(os.getenv("MANYFOLD_SESSION_EMAIL", "")).strip() or None
+    session_password = str(os.getenv("MANYFOLD_SESSION_PASSWORD", "")).strip() or None
     db_path = Path(os.getenv("MODEL_CATALOG_DB_PATH", ":memory:"))
     refresh_ttl_seconds = int(os.getenv("MODEL_CATALOG_REFRESH_TTL_SECONDS", "900"))
     host = os.getenv("MODEL_CATALOG_HOST", "127.0.0.1")
@@ -66,5 +70,7 @@ def load_settings() -> Settings:
         image_version=image_version,
         image_revision=image_revision,
         image_created=image_created,
+        manyfold_session_email=session_email,
+        manyfold_session_password=session_password,
         source_filesystem_roots=source_filesystem_roots,
     )
