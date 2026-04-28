@@ -108,36 +108,40 @@ Compatibility aliases:
 - persists discovery metadata on each created `working_group`
 - returns created groups/items plus skipped duplicate and failed-file details
 
-### Intake Queue + Manyfold Upload (Planned)
+### Intake Queue + Manyfold Upload
 
-The routes below are planned contracts for remote-client-safe intake where files are uploaded or selected first, then imported and uploaded to Manyfold-managed storage.
+The routes below support remote-client-safe intake where files are queued first, then uploaded into Manyfold-managed storage.
 
-Planned route family:
+Route family:
 
 - `POST /api/intake/uploads`
 - `GET /api/intake/uploads`
 - `DELETE /api/intake/uploads/{upload_id}`
+- `POST /api/intake/uploads/{upload_id}/upload-to-manyfold`
 - `GET /api/source-filesystems`
 - `GET /api/source-filesystems/browse`
 - `POST /api/source-filesystems/select`
 
-Planned behavior:
+Current behavior:
 
 - browser local files are accepted via multipart upload into a temporary sidecar queue
 - sidecar-mounted server roots are browsed and selected through explicit allowlisted roots
 - source selection supports explicit files, folders, or mixed file+folder batches
 - folder source entries support traversal controls: `recurse` (bool) and optional `max_depth`
-- queue items are uploaded to Manyfold via API during import processing
-- working-item metadata persists Manyfold references (model/file) as canonical destination
+- `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` resolves queued files, creates one Manyfold model per file, and attaches the file through the Manyfold API
+- upload verification prefers Manyfold-reported hashes and falls back to filename+size matching when hashes are unavailable
+- successful uploads persist queue `file_hashes_json`, `manyfold_file_ids_json`, `verification_status`, and advance queue status from `uploaded_unverified` to `verified`
+- failed uploads persist partial queue metadata, write an error payload, and transition the queue record to `failed`
+- matching `working_items` rows persist a `manyfold_destination` object in `source_metadata_json` with Manyfold model ref, file ref, canonical URLs, upload id, and verification metadata
 - optional source cleanup policies are applied only after verified upload
 
-Planned source entry shape:
+Source entry shape:
 
 - `sources[]` where each item is either:
 	- `{ "type": "file", ... }`
 	- `{ "type": "folder", "path": "...", "recurse": true|false, "max_depth": <int optional> }`
 
-Planned source cleanup policies:
+Source cleanup policies:
 
 - `keep` (default)
 - `delete_on_verified`

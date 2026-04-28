@@ -42,7 +42,7 @@ from .db import (
     update_archive_link,
 )
 from .geometry_3mf import extract_3mf_geometry
-from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
+from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
 
@@ -4418,26 +4418,378 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         finally:
             connection.close()
         
-        # For now, return a success stub
-        # Full implementation would:
-        # 1. Stream file from filesystem to Manyfold
-        # 2. Verify multipart upload with hash checking
-        # 3. Update intake_queue_uploads status to "uploaded_verified"
-        # 4. Return Manyfold response metadata
-        
+        client: ManyfoldClient = app.state.manyfold_client
+
+        def _expand_upload_files(source_entries: list[dict[str, Any]]) -> list[Path]:
+            files: list[Path] = []
+            for entry in source_entries:
+                entry_type = str(entry.get("type") or "").strip().lower()
+                resolved = Path(str(entry.get("path") or "").strip()).expanduser().resolve()
+                if entry_type == "file":
+                    if resolved.exists() and resolved.is_file():
+                        files.append(resolved)
+                    continue
+                if entry_type != "folder" or not resolved.exists() or not resolved.is_dir():
+                    continue
+                recurse = _coerce_bool(entry.get("recurse", True))
+                max_depth = _coerce_int(entry.get("max_depth"))
+                files.extend(_collect_files_in_folder(resolved, recurse=recurse, max_depth=max_depth))
+            return files
+
+        def _guess_content_type(file_path: Path) -> str:
+            suffix = file_path.suffix.lower()
+            return {
+                ".3mf": "model/3mf",
+                ".stl": "model/stl",
+                ".obj": "model/obj",
+                ".step": "model/step",
+                ".stp": "model/step",
+                ".gcode": "text/x.gcode",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".png": "image/png",
+                ".webp": "image/webp",
+            }.get(suffix, "application/octet-stream")
+
+        def _normalized_filename(value: str | None) -> str:
+            return Path(str(value or "").strip()).name.lower()
+
+        def _candidate_size(row: Any) -> int | None:
+            if not isinstance(row, dict):
+                return None
+            for key in ("byteSize", "contentSize", "size", "size_bytes"):
+                value = row.get(key)
+                if value in (None, ""):
+                    continue
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    continue
+            return None
+
+        def _candidate_names(row: Any) -> set[str]:
+            names: set[str] = set()
+            if isinstance(row, dict):
+                for key in ("filename", "original_filename", "name", "title"):
+                    normalized = _normalized_filename(str(row.get(key) or ""))
+                    if normalized:
+                        names.add(normalized)
+                for key in ("contentUrl", "url", "@id"):
+                    raw_value = str(row.get(key) or "").strip()
+                    if not raw_value:
+                        continue
+                    parsed_path = urlsplit(raw_value).path or raw_value
+                    normalized = _normalized_filename(parsed_path)
+                    if normalized:
+                        names.add(normalized)
+            return names
+
+        def _verify_uploaded_file(
+            *,
+            model_ref: str,
+            attached_file: dict[str, Any],
+            expected_hash: str,
+            expected_size: int,
+            expected_name: str,
+        ) -> tuple[bool, str, list[dict[str, Any]]]:
+            candidate_rows: list[dict[str, Any]] = []
+            if attached_file:
+                candidate_rows.append(attached_file)
+
+            model_detail: dict[str, Any] = {}
+            try:
+                model_detail = client.get_model_detail(model_ref)
+            except Exception:
+                model_detail = {}
+
+            if model_detail:
+                has_part = model_detail.get("hasPart")
+                if isinstance(has_part, list):
+                    candidate_rows.extend(row for row in has_part if isinstance(row, dict))
+
+            try:
+                candidate_rows.extend(client.list_model_files(model_ref))
+            except Exception:
+                pass
+
+            if expected_hash.lower() in _extract_model_hashes(model_detail or attached_file):
+                return True, "hash", candidate_rows
+
+            normalized_name = _normalized_filename(expected_name)
+            for row in candidate_rows:
+                if normalized_name not in _candidate_names(row):
+                    continue
+                candidate_size = _candidate_size(row)
+                if candidate_size is not None and candidate_size == expected_size:
+                    return True, "size_name", candidate_rows
+
+            return False, "missing", candidate_rows
+
+        def _canonical_file_url(model_url: str, attached_file: dict[str, Any], file_ref: str | None) -> str | None:
+            raw_url = str(attached_file.get("contentUrl") or attached_file.get("url") or attached_file.get("@id") or "").strip()
+            if raw_url:
+                return canonicalize_model_url(state.settings.manyfold_base_url, raw_url)
+            normalized_ref = str(file_ref or "").strip()
+            if normalized_ref.startswith("/"):
+                return canonicalize_model_url(state.settings.manyfold_base_url, normalized_ref)
+            if normalized_ref:
+                return f"{model_url.rstrip('/')}/model_files/{quote(normalized_ref, safe='')}"
+            return None
+
+        def _write_working_item_refs(
+            *,
+            file_path: Path,
+            file_hash: str,
+            model_ref: str,
+            file_ref: str | None,
+            canonical_model_url: str,
+            canonical_file_url: str | None,
+            verification_method: str,
+            verified_at: str,
+        ) -> None:
+            write_connection = connect(state.settings.db_path)
+            write_connection.row_factory = sqlite3.Row
+            try:
+                rows = write_connection.execute(
+                    """
+                    SELECT id, source_metadata_json
+                    FROM working_items
+                    WHERE file_hash = ? OR file_path = ?
+                    """,
+                    (file_hash, str(file_path)),
+                ).fetchall()
+                for row in rows:
+                    try:
+                        metadata = json.loads(str(row["source_metadata_json"] or "{}"))
+                    except json.JSONDecodeError:
+                        metadata = {}
+                    metadata["manyfold_destination"] = {
+                        "upload_id": upload_id,
+                        "verification_status": "pass",
+                        "verification_method": verification_method,
+                        "verified_at": verified_at,
+                        "manyfold_model_ref": model_ref,
+                        "manyfold_file_ref": file_ref,
+                        "canonical_model_url": canonical_model_url,
+                        "canonical_file_url": canonical_file_url,
+                    }
+                    write_connection.execute(
+                        "UPDATE working_items SET source_metadata_json = ?, updated_at = ? WHERE id = ?",
+                        (json.dumps(metadata), verified_at, int(row["id"])),
+                    )
+                write_connection.commit()
+            finally:
+                write_connection.close()
+
+        source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
+        if not isinstance(source_entries, list):
+            source_entries = []
+        files_to_upload = _expand_upload_files([entry for entry in source_entries if isinstance(entry, dict)])
+        if not files_to_upload:
+            error_message = "Upload queue entry did not resolve to any readable files."
+            failed, transition_error = _transition_queue_status(
+                state.settings.db_path,
+                upload_id,
+                "failed",
+                event_type="manyfold_upload_failed",
+                error_message=error_message,
+            )
+            if not failed and transition_error:
+                error_message = f"{error_message} {transition_error}"
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "no_files_to_upload",
+                    "message": error_message,
+                },
+            )
+
+        try:
+            collection_ref = client.resolve_collection_ref(collection_id=collection_id, collection_name=collection_name)
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "collection_not_found",
+                    "message": str(exc),
+                },
+            )
+
+        uploaded_rows: list[dict[str, Any]] = []
+        file_hashes: list[str] = []
+        manyfold_file_ids: list[str] = []
+        verification_methods: list[str] = []
+
+        try:
+            for file_path in files_to_upload:
+                file_bytes = file_path.read_bytes()
+                file_hash = hashlib.sha256(file_bytes).hexdigest()
+                file_size = len(file_bytes)
+                model_payload = client.create_model(
+                    name=file_path.stem,
+                    collection_ref=collection_ref,
+                )
+                model_id = str(model_payload.get("id") or "").strip() or None
+                model_ref = _model_ref_from_payload(model_payload)
+                if not model_ref:
+                    raise RuntimeError(f"Manyfold create_model did not return a usable model reference for {file_path.name}.")
+                canonical_model_url = canonicalize_model_url(
+                    state.settings.manyfold_base_url,
+                    str(model_payload.get("url") or model_payload.get("@id") or "").strip(),
+                    fallback_model_id=model_id,
+                )
+                attached_file = client.attach_file_to_model(
+                    model_ref,
+                    filename=file_path.name,
+                    content=file_bytes,
+                    content_type=_guess_content_type(file_path),
+                )
+                file_ref = str(attached_file.get("id") or attached_file.get("@id") or attached_file.get("url") or "").strip() or None
+                verified, verification_method, _candidate_rows = _verify_uploaded_file(
+                    model_ref=model_ref,
+                    attached_file=attached_file,
+                    expected_hash=file_hash,
+                    expected_size=file_size,
+                    expected_name=file_path.name,
+                )
+                if not verified:
+                    raise RuntimeError(f"Manyfold verification failed for {file_path.name}.")
+                verified_at = _bulk_utc_now_iso()
+                canonical_file_url = _canonical_file_url(canonical_model_url, attached_file, file_ref)
+                _write_working_item_refs(
+                    file_path=file_path,
+                    file_hash=file_hash,
+                    model_ref=model_ref,
+                    file_ref=file_ref,
+                    canonical_model_url=canonical_model_url,
+                    canonical_file_url=canonical_file_url,
+                    verification_method=verification_method,
+                    verified_at=verified_at,
+                )
+                file_hashes.append(file_hash)
+                if file_ref:
+                    manyfold_file_ids.append(file_ref)
+                verification_methods.append(verification_method)
+                uploaded_rows.append(
+                    {
+                        "source_path": str(file_path),
+                        "filename": file_path.name,
+                        "sha256": file_hash,
+                        "size_bytes": file_size,
+                        "manyfold_model_ref": model_ref,
+                        "manyfold_model_id": model_id,
+                        "manyfold_model_url": canonical_model_url,
+                        "manyfold_file_ref": file_ref,
+                        "manyfold_file_url": canonical_file_url,
+                        "verification_method": verification_method,
+                    }
+                )
+        except Exception as exc:
+            failure_connection = connect(state.settings.db_path)
+            try:
+                failure_connection.execute(
+                    """
+                    UPDATE intake_queue_uploads
+                    SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+                    WHERE upload_id = ?
+                    """,
+                    (
+                        json.dumps(file_hashes),
+                        json.dumps(manyfold_file_ids),
+                        "failed",
+                        _bulk_utc_now_iso(),
+                        upload_id,
+                    ),
+                )
+                failure_connection.commit()
+            finally:
+                failure_connection.close()
+            _transition_queue_status(
+                state.settings.db_path,
+                upload_id,
+                "failed",
+                event_type="manyfold_upload_failed",
+                error_message=str(exc),
+                metadata={
+                    "uploaded_count": len(uploaded_rows),
+                    "file_hashes": file_hashes,
+                    "manyfold_file_ids": manyfold_file_ids,
+                },
+            )
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "success": False,
+                    "error": "manyfold_upload_failed",
+                    "message": str(exc),
+                    "upload_id": upload_id,
+                    "files_uploaded": uploaded_rows,
+                },
+            )
+
+        verified_at = _bulk_utc_now_iso()
+        success_connection = connect(state.settings.db_path)
+        success_connection.row_factory = sqlite3.Row
+        try:
+            success_connection.execute(
+                """
+                UPDATE intake_queue_uploads
+                SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+                WHERE upload_id = ?
+                """,
+                (
+                    json.dumps(file_hashes),
+                    json.dumps(manyfold_file_ids),
+                    "pass",
+                    verified_at,
+                    upload_id,
+                ),
+            )
+            success_connection.commit()
+        finally:
+            success_connection.close()
+
+        transitioned, transition_error = _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "verified",
+            event_type="manyfold_upload_verified",
+            metadata={
+                "uploaded_count": len(uploaded_rows),
+                "file_hashes": file_hashes,
+                "manyfold_file_ids": manyfold_file_ids,
+                "verification_methods": verification_methods,
+            },
+        )
+        if not transitioned:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "status_transition_failed",
+                    "message": transition_error or "Could not transition upload to verified.",
+                    "upload_id": upload_id,
+                },
+            )
+
         return {
             "success": True,
             "upload_id": upload_id,
+            "status": "verified",
+            "verification_status": "pass",
             "manyfold_response": {
-                "model_id": None,
-                "created_at": None,
                 "collection_id": collection_id,
                 "collection_name": collection_name,
+                "collection_ref": collection_ref,
+                "uploaded_count": len(uploaded_rows),
             },
-            "files_uploaded": [],
+            "files_uploaded": uploaded_rows,
             "meta": {
-                "adapter_version": "1.0",
-                "implementation": "stub — full multipart handler pending",
+                "adapter_version": "1.1",
+                "verification_methods": verification_methods,
+                "verified_at": verified_at,
             },
         }
 

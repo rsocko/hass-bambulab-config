@@ -336,6 +336,22 @@ def _model_ref_from_payload(payload: dict[str, Any]) -> str | None:
     return ref or None
 
 
+def _collection_ref_from_payload(payload: dict[str, Any]) -> str | None:
+    ref = str(payload.get("@id") or payload.get("url") or "").strip()
+    if ref:
+        return ref
+
+    explicit_id = str(payload.get("id") or "").strip()
+    if explicit_id:
+        return explicit_id
+
+    slug = str(payload.get("slug") or "").strip()
+    if slug:
+        return slug
+
+    return None
+
+
 class ManyfoldClient:
     def __init__(
         self,
@@ -572,6 +588,74 @@ class ManyfoldClient:
     def list_creators(self) -> list[dict[str, Any]]:
         payload = self._get_json_with_accept_fallback(_json_route(self.creators_path))
         return self._extract_rows(payload)
+
+    def resolve_collection_ref(self, *, collection_id: int | None = None, collection_name: str | None = None) -> str | None:
+        normalized_name = str(collection_name or "").strip().lower()
+        if normalized_name:
+            for collection in self.list_collections():
+                name = str(collection.get("name") or collection.get("title") or "").strip().lower()
+                if name != normalized_name:
+                    continue
+                return _collection_ref_from_payload(collection)
+            raise ValueError(f"Manyfold collection not found: {collection_name}")
+
+        if collection_id is not None:
+            normalized_id = str(collection_id).strip()
+            for collection in self.list_collections():
+                if str(collection.get("id") or "").strip() == normalized_id:
+                    return _collection_ref_from_payload(collection)
+            return normalized_id
+
+        return None
+
+    def create_model(self, *, name: str, collection_ref: str | None = None) -> dict[str, Any]:
+        normalized_name = str(name or "").strip()
+        if not normalized_name:
+            raise ValueError("Manyfold model name is required.")
+
+        payload: dict[str, Any] = {"name": normalized_name}
+        if collection_ref:
+            payload["collection"] = collection_ref
+
+        headers = {
+            **self._request_headers(),
+            "Content-Type": MANYFOLD_API_ACCEPT,
+        }
+        response = self._client.post(self.models_path, headers=headers, json=payload)
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("Manyfold model create response was not a JSON object.")
+        return body
+
+    def attach_file_to_model(
+        self,
+        model_ref: str,
+        *,
+        filename: str,
+        content: bytes,
+        content_type: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_filename = str(filename or "").strip()
+        if not normalized_filename:
+            raise ValueError("Manyfold filename is required.")
+
+        model_path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        path = f"{model_path.rstrip('/')}/files"
+        file_content_type = str(content_type or "application/octet-stream").strip() or "application/octet-stream"
+        response = self._client.post(
+            path,
+            headers=self._auth_headers(),
+            files={
+                "file": (normalized_filename, content, file_content_type),
+                "filename": (None, normalized_filename),
+            },
+        )
+        response.raise_for_status()
+        body = response.json()
+        if not isinstance(body, dict):
+            raise RuntimeError("Manyfold file attach response was not a JSON object.")
+        return body
 
     def update_model(self, model_ref: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Update model metadata in Manyfold (Phase 3.1).
