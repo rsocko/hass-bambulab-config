@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import hashlib
 from io import BytesIO
 import json
@@ -1046,6 +1047,145 @@ def test_refresh_manyfold_cache_prunes_stale_rows(tmp_path: Path) -> None:
     assert rows[0][2] == "Live Model"
 
 
+def test_refresh_manyfold_cache_preserves_existing_rows_on_empty_refresh(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:existing-model",
+                "http://manyfold.test/models/existing-model",
+                "existing-model",
+                "Existing Model",
+                "1001",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _StubClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return []
+
+    refreshed = refresh_manyfold_cache(db_path=settings.db_path, client=_StubClient())
+
+    assert len(refreshed) == 1
+    assert refreshed[0].public_id == "existing-model"
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        rows = connection.execute(
+            "SELECT manyfold_model_key, manyfold_model_url, manyfold_model_name FROM manyfold_model_summary_cache ORDER BY manyfold_model_name"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert len(rows) == 1
+    assert rows[0][0] == "public:existing-model"
+    assert rows[0][1] == "http://manyfold.test/models/existing-model"
+    assert rows[0][2] == "Existing Model"
+
+
+def test_refresh_manyfold_cache_logs_warning_when_empty_refresh_preserves_cache(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:existing-model",
+                "http://manyfold.test/models/existing-model",
+                "existing-model",
+                "Existing Model",
+                "1001",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _StubClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return []
+
+    caplog.set_level(logging.WARNING, logger="sidecars.model_catalog.app.manyfold")
+    refresh_manyfold_cache(db_path=settings.db_path, client=_StubClient())
+
+    assert any(
+        "Manyfold refresh returned 0 models while cache has" in record.message
+        for record in caplog.records
+    )
+
+
+def test_refresh_manyfold_cache_does_not_log_preserve_warning_on_non_empty_refresh(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    class _StubClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return [{"@id": "/models/live-model", "public_id": "live-model", "name": "Live Model"}]
+
+    caplog.set_level(logging.WARNING, logger="sidecars.model_catalog.app.manyfold")
+    refresh_manyfold_cache(db_path=settings.db_path, client=_StubClient())
+
+    assert not any(
+        "Manyfold refresh returned 0 models while cache has" in record.message
+        for record in caplog.records
+    )
+
+
 def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)
@@ -1102,6 +1242,70 @@ def test_model_search_refresh_uses_live_data_and_prunes_stale(tmp_path: Path) ->
         payload = response.json()
         assert payload["pagination"]["total"] == 1
         assert payload["results"][0]["public_id"] == "transformers-live"
+        assert payload["refresh_status"]["refresh_requested"] is True
+        assert payload["refresh_status"]["outcome"] == "live_refresh_applied"
+        assert payload["refresh_status"]["preserved_cache"] is False
+
+
+def test_model_search_refresh_reports_preserved_cache_fallback(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_key,
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "public:existing-model",
+                "http://manyfold.test/models/existing-model",
+                "existing-model",
+                "Existing Model",
+                "1001",
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-20T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    class _EmptyRefreshClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_payloads(self):
+            return []
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_EmptyRefreshClient())
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/search?refresh=true")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["pagination"]["total"] == 1
+        assert payload["results"][0]["public_id"] == "existing-model"
+        assert payload["refresh_status"]["refresh_requested"] is True
+        assert payload["refresh_status"]["outcome"] == "preserved_cache_after_empty_live_result"
+        assert payload["refresh_status"]["preserved_cache"] is True
 
 
 def test_refresh_manyfold_cache_resolves_collections_from_isPartOf_field(tmp_path: Path) -> None:

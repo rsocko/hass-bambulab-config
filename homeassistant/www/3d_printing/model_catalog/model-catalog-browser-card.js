@@ -6,6 +6,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._config = null;
     this._loading = false;
     this._error = "";
+    this._refreshStatus = null;
     this._results = [];
     this._pagination = { page: 1, per_page: 12, total: 0, total_pages: 0 };
 
@@ -185,6 +186,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this._loading = true;
     this._error = "";
+    this._refreshStatus = null;
     this._render();
 
     try {
@@ -204,6 +206,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
       var data = await this._callServiceWithResponse("rest_command", "model_catalog_search_models", requestPayload);
       this._results = Array.isArray(data && data.results) ? data.results : [];
+      this._refreshStatus = data && data.refresh_status ? data.refresh_status : null;
 
       var pagination = data && data.pagination ? data.pagination : {};
       this._pagination.page = Number(pagination.page || requestPayload.page) || 1;
@@ -459,6 +462,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this.dispatchEvent(event);
   }
 
+  _refreshStatusText() {
+    var status = this._refreshStatus && typeof this._refreshStatus === "object" ? this._refreshStatus : null;
+    if (!status) {
+      return "";
+    }
+
+    var outcome = String(status.outcome || "").trim();
+    if (outcome === "preserved_cache_after_empty_live_result") {
+      return "Refresh used previous cache because the live Manyfold response was empty.";
+    }
+    if (outcome === "live_refresh_applied") {
+      return "Refresh succeeded from live Manyfold data.";
+    }
+    if (outcome === "live_refresh_applied_empty") {
+      return "Refresh completed from live Manyfold data with zero visible models.";
+    }
+    return "";
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) {
       return;
@@ -474,6 +496,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     } else {
       cardsHtml = this._results.map(this._renderModelCard.bind(this)).join("");
     }
+
+    var refreshInfo = this._refreshStatusText();
 
     this.shadowRoot.innerHTML = ''
       + '<style>'
@@ -547,7 +571,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '    </div>'
       + '    <div class="results">' + cardsHtml + '</div>'
       + '    <div class="footer">'
-      + '      <div>Total models: ' + String(this._pagination.total || 0) + '</div>'
+      + '      <div>'
+      + '        <div>Total models: ' + String(this._pagination.total || 0) + '</div>'
+      + (refreshInfo ? ('<div class="meta" style="margin-top:4px;">' + this._escapeHtml(refreshInfo) + '</div>') : '')
+      + '      </div>'
       + '      <div class="actions">'
       + '        <button class="btn secondary" type="button" data-action="prev-page" ' + (this._loading || this._pagination.page <= 1 ? 'disabled' : '') + '>Prev</button>'
       + '        <div>Page ' + String(this._pagination.page || 1) + ' of ' + String(this._pagination.total_pages || 1) + '</div>'

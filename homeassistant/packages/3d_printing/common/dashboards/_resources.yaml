@@ -32,7 +32,7 @@
   type: module
 - url: /local/3d_printing/print_statistics/print-statistics-failure-analysis-card.js?v=1
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=8
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=9
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-bulk-import-card.js?v=4
   type: module

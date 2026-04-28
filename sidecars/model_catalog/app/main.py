@@ -42,7 +42,7 @@ from .db import (
     update_archive_link,
 )
 from .geometry_3mf import extract_3mf_geometry
-from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache
+from .manyfold import CachedManyfoldModel, ManyfoldClient, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
 from .models import ManyfoldModelSummary
 from .settings import Settings, load_settings
 
@@ -1550,7 +1550,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         client: ManyfoldClient = app.state.manyfold_client
         
         try:
-            summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            summaries, refresh_status = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
             
             # Check result
             models_with_collections = sum(1 for s in summaries if s.collection_names)
@@ -1559,6 +1559,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "success": True,
                 "refreshed_count": len(summaries),
                 "models_with_collections": models_with_collections,
+                "refresh_status": refresh_status,
                 "sample": [
                     {
                         "name": s.name,
@@ -1611,14 +1612,24 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
         preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
+        refresh_status: dict[str, Any] = {
+            "refresh_requested": bool(refresh),
+            "outcome": "cache_only",
+            "preserved_cache": False,
+        }
         if refresh:
-            summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
+            refresh_status.update(refresh_meta)
             source = "manyfold"
         else:
             summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
             source = "cache"
             if not summaries:
-                summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
+                refresh_status = {
+                    "refresh_requested": False,
+                    **refresh_meta,
+                }
                 source = "manyfold"
 
         ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
@@ -1651,6 +1662,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "source": source,
             "count": len(models),
             "models": models,
+            "refresh_status": refresh_status,
         }
 
     @app.get("/api/models/search")
@@ -1672,6 +1684,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     ) -> dict[str, Any]:
         """Search curated catalog with pagination and filtering support."""
         state: AppState = app.state.model_catalog
+        refresh_status: dict[str, Any] = {
+            "refresh_requested": bool(refresh),
+            "outcome": "cache_only",
+            "preserved_cache": False,
+        }
         
         # Clamp pagination parameters
         page = max(1, page)
@@ -1681,7 +1698,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
         if refresh or not summaries:
             client: ManyfoldClient = app.state.manyfold_client
-            summaries = refresh_manyfold_cache(db_path=state.settings.db_path, client=client)
+            summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
+            refresh_status = {
+                "refresh_requested": bool(refresh),
+                **refresh_meta,
+            }
         
         # Parse search query into tokens
         query_tokens = _normalize_tokens(q or "")
@@ -1753,6 +1774,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "contract": "model-search.v1alpha1",
             "query": q or "",
+            "refresh_status": refresh_status,
             "filters": {
                 "collection": collection,
                 "creator": creator,

@@ -668,7 +668,7 @@ def normalize_model_summary(
     )
 
 
-def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldModelSummary]:
+def _refresh_manyfold_cache_internal(*, db_path, client: ManyfoldClient) -> tuple[list[ManyfoldModelSummary], dict[str, Any]]:
     model_rows: list[dict[str, Any]] | None = None
     creator_lookup: dict[str, str] = {}
     collection_lookup: dict[str, str] = {}
@@ -795,6 +795,28 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
         summaries = client.list_models()
     connection = connect(db_path)
     try:
+        existing_count_row = connection.execute("SELECT COUNT(*) AS count FROM manyfold_model_summary_cache").fetchone()
+        existing_count = int(existing_count_row["count"]) if existing_count_row else 0
+
+        # Guardrail: if a refresh returns zero models while cache already has data,
+        # keep the existing cache instead of wiping it due to a transient upstream issue.
+        if not summaries and existing_count > 0:
+            logger.warning(
+                "Manyfold refresh returned 0 models while cache has %s rows; preserving existing cache.",
+                existing_count,
+            )
+            preserved = read_cached_manyfold_summaries(db_path=db_path)
+            return (
+                preserved,
+                {
+                    "outcome": "preserved_cache_after_empty_live_result",
+                    "live_model_count": 0,
+                    "cache_count_before": existing_count,
+                    "cache_count_after": len(preserved),
+                    "preserved_cache": True,
+                },
+            )
+
         refreshed_at = utc_now_iso()
         active_model_keys: list[str] = []
         for index, summary in enumerate(summaries):
@@ -858,6 +880,24 @@ def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldM
         connection.commit()
     finally:
         connection.close()
+    return (
+        summaries,
+        {
+            "outcome": "live_refresh_applied_empty" if not summaries else "live_refresh_applied",
+            "live_model_count": len(summaries),
+            "cache_count_before": existing_count,
+            "cache_count_after": len(summaries),
+            "preserved_cache": False,
+        },
+    )
+
+
+def refresh_manyfold_cache_with_status(*, db_path, client: ManyfoldClient) -> tuple[list[ManyfoldModelSummary], dict[str, Any]]:
+    return _refresh_manyfold_cache_internal(db_path=db_path, client=client)
+
+
+def refresh_manyfold_cache(*, db_path, client: ManyfoldClient) -> list[ManyfoldModelSummary]:
+    summaries, _status = _refresh_manyfold_cache_internal(db_path=db_path, client=client)
     return summaries
 
 
