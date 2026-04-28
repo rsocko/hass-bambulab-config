@@ -1758,6 +1758,59 @@ def test_manyfold_client_model_detail_file_detail_collections_and_creators() -> 
     assert "/creators.json" in seen_paths
 
 
+def test_manyfold_client_write_routes_use_json_contract() -> None:
+    seen_requests: list[tuple[str, str, str | None, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("Accept"),
+                request.headers.get("Content-Type"),
+            )
+        )
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.method == "POST" and request.url.path == "/models.json":
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+            assert request.headers.get("Content-Type") == "application/json"
+            return httpx.Response(200, json={"id": 900, "public_id": "model-900", "url": "/models/900"})
+        if request.method == "POST" and request.url.path == "/models/model-900/files":
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+            return httpx.Response(200, json={"id": "file-900", "@id": "/models/900/model_files/file-900"})
+        if request.method == "GET" and request.url.path == "/models":
+            return httpx.Response(200, text="<html><body>Manyfold</body></html>", headers={"Content-Type": "text/html"})
+        if request.method == "PATCH" and request.url.path == "/models/model-900.json":
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+            assert request.headers.get("Content-Type") == "application/json"
+            return httpx.Response(200, json={"id": 900, "public_id": "model-900", "name": "Updated Name"})
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        oauth_scopes="public read",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        created = client.create_model(name="Write Route Test")
+        assert created["public_id"] == "model-900"
+
+        attached = client.attach_file_to_model("model-900", filename="part.3mf", content=b"1234", content_type="model/3mf")
+        assert attached["id"] == "file-900"
+
+        updated = client.update_model("model-900", {"name": "Updated Name"})
+        assert updated["name"] == "Updated Name"
+    finally:
+        client.close()
+
+    assert ("POST", "/models.json", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
+    assert ("PATCH", "/models/model-900.json", MANYFOLD_API_ACCEPT, "application/json") in seen_requests
+
+
 def test_manyfold_client_retries_models_json_with_generic_accept_after_406() -> None:
     seen_accept_headers: list[str | None] = []
     model_calls = {"count": 0}

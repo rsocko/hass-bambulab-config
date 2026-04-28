@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database
 from sidecars.model_catalog.app.main import create_app
-from sidecars.model_catalog.app.manyfold import ManyfoldClient
+from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient
 from sidecars.model_catalog.app.settings import Settings
 
 
@@ -73,8 +73,10 @@ def _build_manyfold_client(
                 },
             )
 
-        if request.method == "POST" and request.url.path == "/models":
+        if request.method == "POST" and request.url.path == "/models.json":
             assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
+            assert request.headers.get("Content-Type") == "application/json"
             payload = json.loads(request.content.decode("utf-8"))
             assert payload["name"]
             return httpx.Response(
@@ -89,6 +91,7 @@ def _build_manyfold_client(
 
         if request.method == "POST" and request.url.path == f"/models/{model_public_id}/files":
             assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Accept") == MANYFOLD_API_ACCEPT
             return httpx.Response(
                 200,
                 json={

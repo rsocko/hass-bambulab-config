@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 MANYFOLD_API_ACCEPT = "application/vnd.manyfold.v0+json"
+JSON_CONTENT_TYPE = "application/json"
 
 
 @dataclass(frozen=True)
@@ -617,11 +618,12 @@ class ManyfoldClient:
         if collection_ref:
             payload["collection"] = collection_ref
 
+        path = _json_route(self.models_path)
         headers = {
             **self._request_headers(),
-            "Content-Type": MANYFOLD_API_ACCEPT,
+            "Content-Type": JSON_CONTENT_TYPE,
         }
-        response = self._client.post(self.models_path, headers=headers, json=payload)
+        response = self._client.post(path, headers=headers, json=payload)
         response.raise_for_status()
         body = response.json()
         if not isinstance(body, dict):
@@ -645,7 +647,7 @@ class ManyfoldClient:
         file_content_type = str(content_type or "application/octet-stream").strip() or "application/octet-stream"
         response = self._client.post(
             path,
-            headers=self._auth_headers(),
+            headers=self._request_headers(),
             files={
                 "file": (normalized_filename, content, file_content_type),
                 "filename": (None, normalized_filename),
@@ -667,14 +669,14 @@ class ManyfoldClient:
         Returns:
             Updated model detail from Manyfold
         """
-        path = self._resolve_ref_path(model_ref, default_prefix=self.models_path)
+        path = _json_route(self._resolve_ref_path(model_ref, default_prefix=self.models_path))
         
         # Ensure site session is established before attempting PATCH
         self._ensure_site_session()
 
         headers = {
             **self._request_headers(),
-            "Content-Type": MANYFOLD_API_ACCEPT,
+            "Content-Type": JSON_CONTENT_TYPE,
         }
         response = self._client.patch(path, headers=headers, json=updates)
         response.raise_for_status()

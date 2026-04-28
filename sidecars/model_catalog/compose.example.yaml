@@ -5,16 +5,24 @@ services:
     environment:
       MANYFOLD_BASE_URL: http://manyfold:3214
       MANYFOLD_MODELS_PATH: /models
+      
       MANYFOLD_OAUTH_TOKEN_PATH: /oauth/token
       MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
       MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
-      MANYFOLD_OAUTH_SCOPES: ${MANYFOLD_OAUTH_SCOPES:-public read}
+      MANYFOLD_OAUTH_SCOPES: ${MANYFOLD_OAUTH_SCOPES:-public read write delete}
+
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       MODEL_CATALOG_REFRESH_TTL_SECONDS: 900
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
+
+      # Important: container paths, not host paths.
+      SOURCE_FILESYSTEM_ROOTS: /imports/intake,/imports/validation
+
     volumes:
       - model_catalog_data:/data
+      - /mnt/c/.../3D Printing/Model Inbox:/imports/intake
+      - /mnt/c/.../3D Printing/Validation:/imports/validation
     ports:
       - "127.0.0.1:8314:8314"
     restart: unless-stopped
