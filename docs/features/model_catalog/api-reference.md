@@ -118,6 +118,7 @@ Route family:
 - `GET /api/intake/uploads`
 - `DELETE /api/intake/uploads/{upload_id}`
 - `POST /api/intake/uploads/{upload_id}/upload-to-manyfold`
+- `POST /api/intake/uploads/{upload_id}/cleanup`
 - `GET /api/source-filesystems`
 - `GET /api/source-filesystems/browse`
 - `POST /api/source-filesystems/select`
@@ -131,8 +132,11 @@ Current behavior:
 - `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` resolves queued files, creates one Manyfold model per file, and attaches the file through the Manyfold API
 - upload verification prefers Manyfold-reported hashes and falls back to filename+size matching when hashes are unavailable
 - successful uploads persist queue `file_hashes_json`, `manyfold_file_ids_json`, `verification_status`, and advance queue status from `uploaded_unverified` to `verified`
+- when `cleanup_policy` is `delete_on_verified` or `replace_with_stub`, the upload flow immediately attempts source cleanup after verification and advances status to `cleanup_done` or `cleanup_failed`
+- `POST /api/intake/uploads/{upload_id}/cleanup` retries cleanup for uploads already in `verified` or `cleanup_failed`
 - failed uploads persist partial queue metadata, write an error payload, and transition the queue record to `failed`
 - matching `working_items` rows persist a `manyfold_destination` object in `source_metadata_json` with Manyfold model ref, file ref, canonical URLs, upload id, and verification metadata
+- `replace_with_stub` overwrites the original file with a small audit marker containing the upload id and Manyfold refs when that metadata is available
 - optional source cleanup policies are applied only after verified upload
 
 Source entry shape:

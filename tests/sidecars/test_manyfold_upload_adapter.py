@@ -14,7 +14,7 @@ from sidecars.model_catalog.app.manyfold import ManyfoldClient
 from sidecars.model_catalog.app.settings import Settings
 
 
-def _build_settings(tmp_path: Path) -> Settings:
+def _build_settings(tmp_path: Path, source_roots: list[Path] | None = None) -> Settings:
     return Settings(
         manyfold_base_url="http://manyfold.test",
         manyfold_models_path="/models",
@@ -32,6 +32,7 @@ def _build_settings(tmp_path: Path) -> Settings:
         image_version="0.1.0",
         image_revision="abc123",
         image_created="2026-04-22T00:00:00Z",
+        source_filesystem_roots=tuple(source_roots or []),
     )
 
 
@@ -287,6 +288,7 @@ def test_manyfold_upload_adapter_accepts_verified_upload(tmp_path: Path) -> None
         assert payload["upload_id"] == "upload-002"
         assert payload["status"] == "verified"
         assert payload["verification_status"] == "pass"
+        assert payload["cleanup"]["status"] == "skipped"
         assert payload["manyfold_response"]["collection_id"] == 42
         assert payload["manyfold_response"]["collection_name"] == "Tools"
         assert payload["manyfold_response"]["collection_ref"] == "/collections/tools"
@@ -418,36 +420,239 @@ def test_manyfold_upload_adapter_marks_failed_when_verification_cannot_match(tmp
     finally:
         connection.close()
 
+
+def test_manyfold_upload_adapter_delete_policy_removes_source_after_verification(tmp_path: Path) -> None:
+    root = tmp_path / "allowed"
+    root.mkdir()
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = root / "delete-me.3mf"
+    source_bytes = b"delete-me"
+    source_file.write_bytes(source_bytes)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-005",
+                "uploaded_unverified",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "delete_on_verified",
+                "2026-04-26T10:00:00Z",
+                "2026-04-26T10:05:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
     with TestClient(app) as test_client:
         original_client = app.state.manyfold_client
         original_client.close()
         mock_client = _build_manyfold_client(
             file_name=source_file.name,
             file_bytes=source_bytes,
-            verification_hash=None,
-            returned_file_name="unexpected.3mf",
-            returned_size=len(source_bytes) + 7,
+            verification_hash=hashlib.sha256(source_bytes).hexdigest(),
         )
         app.state.manyfold_client = mock_client
-        response = test_client.post("/api/intake/uploads/upload-004/upload-to-manyfold")
-        assert response.status_code == 502
+        response = test_client.post("/api/intake/uploads/upload-005/upload-to-manyfold")
+        assert response.status_code == 200
         payload = response.json()
-        assert payload["success"] is False
-        assert payload["error"] == "manyfold_upload_failed"
-        assert payload["upload_id"] == "upload-004"
+        assert payload["status"] == "cleanup_done"
+        assert payload["cleanup"]["status"] == "cleanup_done"
+        assert payload["cleanup"]["processed_count"] == 1
+        assert payload["cleanup"]["failed_count"] == 0
         mock_client.close()
+
+    assert source_file.exists() is False
 
     connection = sqlite3.connect(settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(
-            "SELECT status, verification_status, error_json FROM intake_queue_uploads WHERE upload_id = ?",
-            ("upload-004",),
+            "SELECT status, cleanup_done_at FROM intake_queue_uploads WHERE upload_id = ?",
+            ("upload-005",),
         ).fetchone()
         assert row is not None
-        assert row["status"] == "failed"
-        assert row["verification_status"] == "failed"
-        error_payload = json.loads(str(row["error_json"]))
-        assert "verification failed" in error_payload["error"].lower()
+        assert row["status"] == "cleanup_done"
+        assert row["cleanup_done_at"] is not None
     finally:
         connection.close()
+
+
+def test_manyfold_upload_adapter_replace_policy_writes_stub(tmp_path: Path) -> None:
+    root = tmp_path / "allowed"
+    root.mkdir()
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = root / "replace-me.3mf"
+    source_bytes = b"replace-me"
+    source_file.write_bytes(source_bytes)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-006",
+                "uploaded_unverified",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "replace_with_stub",
+                "2026-04-26T10:00:00Z",
+                "2026-04-26T10:05:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        original_client = app.state.manyfold_client
+        original_client.close()
+        mock_client = _build_manyfold_client(
+            file_name=source_file.name,
+            file_bytes=source_bytes,
+            verification_hash=hashlib.sha256(source_bytes).hexdigest(),
+        )
+        app.state.manyfold_client = mock_client
+        response = test_client.post("/api/intake/uploads/upload-006/upload-to-manyfold")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "cleanup_done"
+        assert payload["cleanup"]["results"][0]["action"] == "replaced_with_stub"
+        mock_client.close()
+
+    stub_text = source_file.read_text(encoding="utf-8")
+    assert "[MODEL_CATALOG_UPLOAD_STUB_V1]" in stub_text
+    assert "manyfold_model_ref=model-900" in stub_text
+    assert "manyfold_file_ref=file-900" in stub_text
+
+
+def test_manyfold_upload_adapter_cleanup_fails_outside_allowlisted_roots(tmp_path: Path) -> None:
+    allowed_root = tmp_path / "allowed"
+    allowed_root.mkdir()
+    outside_root = tmp_path / "outside"
+    outside_root.mkdir()
+    settings = _build_settings(tmp_path, [allowed_root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = outside_root / "outside.3mf"
+    source_bytes = b"outside"
+    source_file.write_bytes(source_bytes)
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-007",
+                "uploaded_unverified",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "delete_on_verified",
+                "2026-04-26T10:00:00Z",
+                "2026-04-26T10:05:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        original_client = app.state.manyfold_client
+        original_client.close()
+        mock_client = _build_manyfold_client(
+            file_name=source_file.name,
+            file_bytes=source_bytes,
+            verification_hash=hashlib.sha256(source_bytes).hexdigest(),
+        )
+        app.state.manyfold_client = mock_client
+        response = test_client.post("/api/intake/uploads/upload-007/upload-to-manyfold")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "cleanup_failed"
+        assert payload["cleanup"]["status"] == "cleanup_failed"
+        assert payload["cleanup"]["failed_count"] == 1
+        assert payload["cleanup"]["results"][0]["reason"] == "path_not_allowed"
+        mock_client.close()
+
+    assert source_file.exists() is True
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT status FROM intake_queue_uploads WHERE upload_id = ?",
+            ("upload-007",),
+        ).fetchone()
+        assert row is not None
+        assert row["status"] == "cleanup_failed"
+    finally:
+        connection.close()
+
+
+def test_intake_cleanup_endpoint_retries_cleanup_failed_upload(tmp_path: Path) -> None:
+    root = tmp_path / "allowed"
+    root.mkdir()
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    source_file = root / "retry.3mf"
+    source_file.write_bytes(b"retry")
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at, verified_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "upload-008",
+                "cleanup_failed",
+                json.dumps([{"type": "file", "path": str(source_file)}]),
+                "pass",
+                "delete_on_verified",
+                "2026-04-26T10:00:00Z",
+                "2026-04-26T10:05:00Z",
+                "2026-04-26T10:05:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/intake/uploads/upload-008/cleanup")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "cleanup_done"
+        assert payload["cleanup"]["processed_count"] == 1
+
+    assert source_file.exists() is False

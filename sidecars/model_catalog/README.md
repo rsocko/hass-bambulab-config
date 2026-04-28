@@ -208,6 +208,18 @@ docker compose exec app bundle exec rails console
 curl http://127.0.0.1:8314/healthz
 ```
 
+## Live Smoke Validation
+
+For a non-destructive smoke check against the deployed sidecar:
+
+```powershell
+& "c:\Users\rysock\AppData\Local\Python\pythoncore-3.14-64\python.exe" \
+	"c:\dev\hass-bambulab-config\tools\model_catalog\validate_live_sidecar_smoke.py" \
+	--base-url "http://model-catalog.socko.us"
+```
+
+This validates the live health/config/diagnostics/openapi endpoints plus the safe intake queue read and validation paths without creating or mutating Manyfold data.
+
 ## API Docs Landing
 
 When the sidecar is running, these API docs endpoints are available:

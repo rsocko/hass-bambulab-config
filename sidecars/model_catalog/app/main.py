@@ -3975,6 +3975,243 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             pass
         return results
 
+    def _expand_source_entries_to_files(source_entries: list[dict[str, Any]]) -> list[Path]:
+        files: list[Path] = []
+        for entry in source_entries:
+            entry_type = str(entry.get("type") or "").strip().lower()
+            resolved = Path(str(entry.get("path") or "").strip()).expanduser().resolve()
+            if entry_type == "file":
+                if resolved.exists() and resolved.is_file():
+                    files.append(resolved)
+                continue
+            if entry_type != "folder" or not resolved.exists() or not resolved.is_dir():
+                continue
+            recurse = _coerce_bool(entry.get("recurse", True))
+            max_depth = _coerce_int(entry.get("max_depth"))
+            files.extend(_collect_files_in_folder(resolved, recurse=recurse, max_depth=max_depth))
+        return files
+
+    def _record_queue_event(*, upload_id: str, event_type: str, payload: dict[str, Any]) -> None:
+        connection = connect(app.state.model_catalog.settings.db_path)
+        try:
+            connection.execute(
+                """
+                INSERT INTO model_catalog_events (event_type, entity_type, entity_id, payload_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    event_type,
+                    "intake_queue_upload",
+                    upload_id,
+                    json.dumps(payload),
+                    _bulk_utc_now_iso(),
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def _build_cleanup_stub(*, upload_id: str, file_path: Path, uploaded_row: dict[str, Any] | None) -> str:
+        lines = [
+            "[MODEL_CATALOG_UPLOAD_STUB_V1]",
+            f"upload_id={upload_id}",
+            f"source_path={file_path}",
+        ]
+        if uploaded_row:
+            model_ref = str(uploaded_row.get("manyfold_model_ref") or "").strip()
+            file_ref = str(uploaded_row.get("manyfold_file_ref") or "").strip()
+            model_url = str(uploaded_row.get("manyfold_model_url") or "").strip()
+            file_url = str(uploaded_row.get("manyfold_file_url") or "").strip()
+            if model_ref:
+                lines.append(f"manyfold_model_ref={model_ref}")
+            if file_ref:
+                lines.append(f"manyfold_file_ref={file_ref}")
+            if model_url:
+                lines.append(f"manyfold_model_url={model_url}")
+            if file_url:
+                lines.append(f"manyfold_file_url={file_url}")
+        lines.append("status=source_replaced_after_verified_manyfold_upload")
+        return "\n".join(lines) + "\n"
+
+    def _run_source_cleanup(
+        *,
+        upload_id: str,
+        uploaded_rows: list[dict[str, Any]] | None = None,
+    ) -> tuple[bool, dict[str, Any]]:
+        state: AppState = app.state.model_catalog
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            upload_row = connection.execute(
+                "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        if upload_row is None:
+            return False, {
+                "success": False,
+                "error": "upload_not_found",
+                "message": f"Upload not found: {upload_id}",
+            }
+
+        cleanup_policy = str(upload_row["cleanup_policy"] or "keep").strip().lower()
+        current_status = str(upload_row["status"] or "").strip().lower()
+        verification_status = str(upload_row["verification_status"] or "").strip().lower()
+        if cleanup_policy == "keep":
+            return True, {
+                "success": True,
+                "upload_id": upload_id,
+                "status": current_status,
+                "cleanup": {
+                    "policy": cleanup_policy,
+                    "status": "skipped",
+                    "skipped": True,
+                    "reason": "policy_keep",
+                    "processed_count": 0,
+                    "failed_count": 0,
+                    "results": [],
+                },
+            }
+
+        if verification_status != "pass":
+            return False, {
+                "success": False,
+                "error": "cleanup_requires_verified_upload",
+                "message": f"Cleanup requires verification_status=pass, got '{verification_status or 'unknown'}'.",
+            }
+
+        if current_status not in {"verified", "cleanup_failed"}:
+            return False, {
+                "success": False,
+                "error": "cleanup_status_invalid",
+                "message": f"Cleanup can only run from 'verified' or 'cleanup_failed', got '{current_status}'.",
+            }
+
+        source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
+        if not isinstance(source_entries, list):
+            source_entries = []
+        files_to_cleanup = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
+        if not files_to_cleanup:
+            return False, {
+                "success": False,
+                "error": "cleanup_no_files",
+                "message": "Upload queue entry did not resolve to any files for cleanup.",
+            }
+
+        roots = _source_filesystem_roots()
+        if not roots:
+            return False, {
+                "success": False,
+                "error": "cleanup_roots_not_configured",
+                "message": "Cleanup requires configured SOURCE_FILESYSTEM_ROOTS.",
+            }
+
+        transitioned, transition_error = _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "cleanup_pending",
+            event_type="cleanup_started",
+            metadata={
+                "policy": cleanup_policy,
+                "source_count": len(files_to_cleanup),
+            },
+        )
+        if not transitioned:
+            return False, {
+                "success": False,
+                "error": "cleanup_status_transition_failed",
+                "message": transition_error or "Could not transition cleanup to pending.",
+            }
+
+        uploaded_by_path = {
+            str(Path(str(row.get("source_path") or "")).expanduser().resolve()): row
+            for row in (uploaded_rows or [])
+            if isinstance(row, dict)
+        }
+
+        processed_count = 0
+        failure_messages: list[str] = []
+        results: list[dict[str, Any]] = []
+        for file_path in files_to_cleanup:
+            resolved = file_path.expanduser().resolve()
+            result: dict[str, Any] = {
+                "path": str(resolved),
+                "policy": cleanup_policy,
+            }
+            if not _is_path_within_roots(resolved, roots):
+                result.update({"success": False, "reason": "path_not_allowed"})
+                failure_messages.append(f"{resolved}: outside allowlisted roots")
+                results.append(result)
+                continue
+            if not resolved.exists() or not resolved.is_file():
+                result.update({"success": False, "reason": "missing_source"})
+                failure_messages.append(f"{resolved}: source file missing")
+                results.append(result)
+                continue
+
+            try:
+                if cleanup_policy == "delete_on_verified":
+                    resolved.unlink()
+                    result.update({"success": True, "action": "deleted"})
+                else:
+                    stub_text = _build_cleanup_stub(
+                        upload_id=upload_id,
+                        file_path=resolved,
+                        uploaded_row=uploaded_by_path.get(str(resolved)),
+                    )
+                    resolved.write_text(stub_text, encoding="utf-8")
+                    result.update({"success": True, "action": "replaced_with_stub"})
+                processed_count += 1
+            except OSError as exc:
+                result.update({"success": False, "reason": "write_error", "detail": str(exc)})
+                failure_messages.append(f"{resolved}: {exc}")
+            results.append(result)
+
+        final_status = "cleanup_done" if not failure_messages else "cleanup_failed"
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            final_status,
+            event_type="cleanup_result",
+            metadata={
+                "policy": cleanup_policy,
+                "processed_count": processed_count,
+                "failed_count": len(failure_messages),
+                "results": results,
+            },
+        )
+        _record_queue_event(
+            upload_id=upload_id,
+            event_type="intake_cleanup_summary",
+            payload={
+                "upload_id": upload_id,
+                "policy": cleanup_policy,
+                "status": final_status,
+                "processed_count": processed_count,
+                "failed_count": len(failure_messages),
+                "results": results,
+            },
+        )
+
+        summary = {
+            "policy": cleanup_policy,
+            "status": final_status,
+            "skipped": False,
+            "processed_count": processed_count,
+            "failed_count": len(failure_messages),
+            "results": results,
+        }
+        if failure_messages:
+            summary["message"] = "; ".join(failure_messages)
+        return True, {
+            "success": True,
+            "upload_id": upload_id,
+            "status": final_status,
+            "cleanup": summary,
+        }
+
     @app.get("/api/source-filesystems")
     def list_source_filesystems() -> Any:
         """
@@ -4420,22 +4657,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         client: ManyfoldClient = app.state.manyfold_client
 
-        def _expand_upload_files(source_entries: list[dict[str, Any]]) -> list[Path]:
-            files: list[Path] = []
-            for entry in source_entries:
-                entry_type = str(entry.get("type") or "").strip().lower()
-                resolved = Path(str(entry.get("path") or "").strip()).expanduser().resolve()
-                if entry_type == "file":
-                    if resolved.exists() and resolved.is_file():
-                        files.append(resolved)
-                    continue
-                if entry_type != "folder" or not resolved.exists() or not resolved.is_dir():
-                    continue
-                recurse = _coerce_bool(entry.get("recurse", True))
-                max_depth = _coerce_int(entry.get("max_depth"))
-                files.extend(_collect_files_in_folder(resolved, recurse=recurse, max_depth=max_depth))
-            return files
-
         def _guess_content_type(file_path: Path) -> str:
             suffix = file_path.suffix.lower()
             return {
@@ -4584,7 +4805,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
         if not isinstance(source_entries, list):
             source_entries = []
-        files_to_upload = _expand_upload_files([entry for entry in source_entries if isinstance(entry, dict)])
+        files_to_upload = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
         if not files_to_upload:
             error_message = "Upload queue entry did not resolve to any readable files."
             failed, transition_error = _transition_queue_status(
@@ -4774,10 +4995,36 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 },
             )
 
+        cleanup_result = {
+            "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+            "status": "skipped",
+            "skipped": True,
+            "reason": "policy_keep",
+            "processed_count": 0,
+            "failed_count": 0,
+            "results": [],
+        }
+        effective_status = "verified"
+        if cleanup_result["policy"] != "keep":
+            cleanup_ok, cleanup_payload = _run_source_cleanup(upload_id=upload_id, uploaded_rows=uploaded_rows)
+            if not cleanup_ok:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": cleanup_payload.get("error") or "cleanup_failed",
+                        "message": cleanup_payload.get("message") or "Cleanup could not be started.",
+                        "upload_id": upload_id,
+                        "files_uploaded": uploaded_rows,
+                    },
+                )
+            cleanup_result = cleanup_payload["cleanup"]
+            effective_status = str(cleanup_payload["status"])
+
         return {
             "success": True,
             "upload_id": upload_id,
-            "status": "verified",
+            "status": effective_status,
             "verification_status": "pass",
             "manyfold_response": {
                 "collection_id": collection_id,
@@ -4786,12 +5033,26 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "uploaded_count": len(uploaded_rows),
             },
             "files_uploaded": uploaded_rows,
+            "cleanup": cleanup_result,
             "meta": {
-                "adapter_version": "1.1",
+                "adapter_version": "1.2",
                 "verification_methods": verification_methods,
                 "verified_at": verified_at,
             },
         }
+
+    @app.post("/api/intake/uploads/{upload_id}/cleanup")
+    def intake_cleanup_upload(upload_id: str) -> Any:
+        """Run or retry post-upload source cleanup for a verified upload."""
+        cleanup_ok, payload = _run_source_cleanup(upload_id=upload_id)
+        if not cleanup_ok:
+            error = str(payload.get("error") or "cleanup_failed")
+            status_code = 404 if error == "upload_not_found" else 409
+            return JSONResponse(
+                status_code=status_code,
+                content=payload,
+            )
+        return payload
 
     return app
 
