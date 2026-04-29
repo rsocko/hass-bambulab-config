@@ -3,6 +3,6 @@ print_history_page_size:
   min: 5
   max: 50
   step: 5
-  initial: 10
+  initial: 15
   icon: mdi:table-large
   mode: slider

@@ -2822,7 +2822,7 @@ class PrintHistoryStore:
                 0,
                 as_int(states.get("input_number.print_history_filter_activity_metric_bucket", 0), 0),
             ),
-            "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 10), 10)),
+            "page_size": max(1, as_int(states.get("input_number.print_history_page_size", 15), 15)),
             "requested_page": max(1, as_int(states.get("input_number.history_current_page", 1), 1)),
             "today": current_time.astimezone(local_timezone()).date(),
         }

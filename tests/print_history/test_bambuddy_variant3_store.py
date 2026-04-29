@@ -1587,6 +1587,47 @@ def test_variant3_store_activity_metric_total_uses_kg_for_large_filament_totals(
     assert result.activity_metric_total_compact_label == "1.01 kg"
 
 
+def test_query_archives_defaults_page_size_to_fifteen_when_helper_missing() -> None:
+    template = _projected_archives()[0]
+    archives = []
+    for index in range(12):
+        archive = dict(template)
+        archive["id"] = 1000 + index
+        archive["print_name"] = f"Default Page Size Sample {index}"
+        archive["created_at"] = f"2026-04-{index + 1:02d}T09:58:00Z"
+        archive["started_at"] = f"2026-04-{index + 1:02d}T10:00:00Z"
+        archive["completed_at"] = f"2026-04-{index + 1:02d}T14:00:00Z"
+        archives.append(archive)
+
+    states = {
+        "input_select.print_history_filter_status": "All",
+        "input_select.print_history_filter_archive_error": "All",
+        "input_select.print_history_filter_enrichment_status": "All",
+        "input_select.print_history_filter_material": "All",
+        "input_select.print_history_filter_duplicates": "All",
+        "input_select.print_history_filter_printer": "All",
+        "input_select.print_history_filter_date_range": "All Time",
+        "input_text.print_history_filter_start_date": "",
+        "input_text.print_history_filter_end_date": "",
+        "input_select.print_history_filter_designer": "All",
+        "input_select.print_history_filter_project": "All",
+        "input_select.print_history_filter_layer_height": "All",
+        "input_select.print_history_filter_tag": "All",
+        "input_boolean.print_history_filter_favorites_only": "off",
+        "input_text.print_history_search": "",
+        "input_text.print_history_filter_colors": "",
+        "input_text.print_history_activity_selected_date": "",
+        "input_select.print_history_sort": "Date (Newest)",
+        "input_select.print_history_activity_metric": "Print Count",
+        "input_number.history_current_page": "1",
+    }
+
+    result = query_archives(archives, states, now=datetime(2026, 4, 9, tzinfo=timezone.utc))
+
+    assert result.total_pages == 1
+    assert len(result.page_items) == 12
+
+
 def test_variant3_query_activity_metric_total_labels_cover_new_modes() -> None:
     archives = [
         {

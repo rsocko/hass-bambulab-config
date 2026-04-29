@@ -1138,7 +1138,7 @@ The Bambuddy API has **no `sort` or `order` query params** (confirmed via OpenAP
 
 | Helper | Type | Purpose | Default |
 |--------|------|---------|---------|
-| `input_number.print_history_page_size` | input_number | Items per page | 10 (min 5, max 50) |
+| `input_number.print_history_page_size` | input_number | Items per page | 15 (min 5, max 50) |
 | `input_number.print_history_current_page` | input_number | Current page (1-indexed) | 1 |
 
 Pagination is computed in the template sensor: the full filtered+sorted list is sliced by `[(page-1)*size : page*size]`.
@@ -1798,7 +1798,7 @@ The existing `print_history_loader.yaml` already uses `!include_dir_merge_list` 
 | `input_boolean.print_history_filter_favorites_only` | input_boolean | `off` |
 | `input_text.print_history_search` | input_text | `""` |
 | `input_text.print_history_filter_colors` | input_text | `""` |
-| `input_number.print_history_page_size` | input_number | 10 |
+| `input_number.print_history_page_size` | input_number | 15 |
 | `input_number.print_history_max_archives` | input_number | 500 |
 
 ### Automations
@@ -1877,7 +1877,7 @@ The template sensor logic follows the same pattern as `sensor.filament_catalog_f
 {% set search_text = states('input_text.print_history_search') | lower | trim %}
 {% set sort_option = states('input_select.print_history_sort')
      | default('Date (Newest)', true) %}
-{% set page_size = states('input_number.print_history_page_size') | int(10) %}
+{% set page_size = states('input_number.print_history_page_size') | int(15) %}
 {% set current_page = states('input_number.print_history_current_page') | int(1) %}
 {% set now_ts = as_timestamp(now()) | float(0) %}
 

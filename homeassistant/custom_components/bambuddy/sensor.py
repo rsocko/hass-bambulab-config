@@ -149,7 +149,7 @@ class BambuddyBrowserSensor(SensorEntity):
                 "store_proc_fd_max_count": store_stats.get("proc_fd_max_count"),
                 "store_db_fd_count": store_stats.get("db_fd_count"),
                 "store_db_fd_max_count": store_stats.get("db_fd_max_count"),
-                "page_size": self.manager.hass.states.get("input_number.print_history_page_size").state if self.manager.hass.states.get("input_number.print_history_page_size") else "10",
+                "page_size": self.manager.hass.states.get("input_number.print_history_page_size").state if self.manager.hass.states.get("input_number.print_history_page_size") else "15",
                 "current_page": self.manager.result.current_page,
                 "query_request_count": self.manager.query_stats.get("count", 0),
                 "query_slow_count": self.manager.query_stats.get("slow_count", 0),

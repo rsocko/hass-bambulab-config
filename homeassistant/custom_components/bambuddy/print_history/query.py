@@ -1491,7 +1491,7 @@ def query_archives(
     colors = selected_colors(states.get("input_text.print_history_filter_colors", ""))
     sort_option = states.get("input_select.print_history_sort", "Date (Newest)")
     activity_mode = states.get("input_select.print_history_activity_metric", "Print Count")
-    page_size = max(1, as_int(states.get("input_number.print_history_page_size", 10), 10))
+    page_size = max(1, as_int(states.get("input_number.print_history_page_size", 15), 15))
     requested_page = max(1, as_int(states.get("input_number.history_current_page", 1), 1))
     selected_printer_ids = resolve_printer_filter_ids(archives, printer_filter)
 
