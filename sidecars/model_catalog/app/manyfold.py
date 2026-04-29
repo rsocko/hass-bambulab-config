@@ -664,9 +664,10 @@ class ManyfoldClient:
         headers: dict[str, str],
         data: Any | None = None,
         json_body: Any | None = None,
+        prefer_session_auth: bool = False,
     ) -> httpx.Response:
         request_headers = dict(headers)
-        if self._site_session_ready and path.startswith("/upload"):
+        if self._site_session_ready and (path.startswith("/upload") or prefer_session_auth):
             request_headers = {key: value for key, value in request_headers.items() if key.lower() != "authorization"}
         response = self._client.post(path, headers=request_headers, data=data, json=json_body)
         if response.is_success:
@@ -959,6 +960,7 @@ class ManyfoldClient:
                 "Content-Type": MANYFOLD_API_ACCEPT,
             },
             json_body=payload,
+            prefer_session_auth=True,
         )
         response.raise_for_status()
         if not response.content:
@@ -985,6 +987,7 @@ class ManyfoldClient:
                 "Content-Type": MANYFOLD_API_ACCEPT,
             },
             json_body={"files": uploaded_files},
+            prefer_session_auth=True,
         )
         response.raise_for_status()
         if not response.content:

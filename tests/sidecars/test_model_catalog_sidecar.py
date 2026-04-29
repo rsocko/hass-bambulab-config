@@ -1956,7 +1956,7 @@ def test_manyfold_client_upload_file_bootstraps_web_session_when_upload_redirect
     assert ("GET", "/users/sign_in", None, None) in seen_requests
 
 
-def test_manyfold_client_create_model_keeps_bearer_auth_after_session_bootstrap() -> None:
+def test_manyfold_client_create_model_prefers_session_auth_after_session_bootstrap() -> None:
     seen_requests: list[tuple[str, str, str | None, str | None]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -1998,7 +1998,7 @@ def test_manyfold_client_create_model_keeps_bearer_auth_after_session_bootstrap(
             assert request.content == b"1234"
             return httpx.Response(204, headers={"Upload-Offset": "4"})
         if request.method == "POST" and request.url.path == "/models":
-            assert request.headers.get("Authorization") == "Bearer token-123"
+            assert request.headers.get("Authorization") is None
             assert "_manyfold_session=session-123" in str(request.headers.get("Cookie") or "")
             return httpx.Response(202)
         raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
@@ -2019,7 +2019,7 @@ def test_manyfold_client_create_model_keeps_bearer_auth_after_session_bootstrap(
         client.close()
 
     assert created == {}
-    assert ("POST", "/models", "Bearer token-123", "_manyfold_session=session-123") in seen_requests
+    assert ("POST", "/models", None, "_manyfold_session=session-123") in seen_requests
 
 
 def test_manyfold_client_retries_models_with_generic_accept_after_406() -> None:
