@@ -53,26 +53,26 @@ The model catalog sidecar now manages its own file storage independently of Many
 **Contents**:
 ```
 /assets/
-├── catalog/                      # Catalog models (local authority, Phase 1.1+)
+├── Model Catalog/                # Catalog models (local authority, Phase 1.1+)
 │   └── {model_id}/
 │       ├── model.3mf
 │       ├── preview.jpg
 │       └── metadata.json         # Optional metadata
 │
-├── working/                      # Working groups (Phase 1.5+)
+├── Model Working Files/          # Working groups (Phase 1.5+)
 │   └── {working_group_id}/
 │       ├── model.3mf
 │       ├── variant_1.3mf
 │       ├── texture.png
 │       └── notes.txt
 │
-├── inbox/                        # Temporary staging (Phase 1.5+)
+├── Model Inbox/                  # Temporary staging (Phase 1.5+)
 │   └── {session_id}/
 │       ├── upload_1.3mf          # Uploaded file (TTL 1-2 hours)
 │       ├── upload_2.3mf
 │       └── session_metadata.json
 │
-└── imported/                     # Imported models (Phase 2+)
+└── Imported/                     # Imported models (Phase 2+)
     └── {source}/
         └── {model_id}/
             ├── model.3mf         # Copied from Manyfold or external
@@ -90,9 +90,9 @@ The model catalog sidecar now manages its own file storage independently of Many
 
 ## Logical File Organization Tiers
 
-### Tier 1: Inbox (Temporary Staging)
+### Tier 1: Model Inbox (Temporary Staging)
 
-**Path**: `/assets/inbox/{session_id}/`  
+**Path**: `/assets/Model Inbox/{session_id}/`
 **Lifetime**: 1-2 hours (TTL-based cleanup)  
 **Owner**: Sidecar  
 **Phase**: 1.5+ (bulk import/discovery)
@@ -101,6 +101,7 @@ The model catalog sidecar now manages its own file storage independently of Many
 - Receive uploaded files from bulk import or HA file picker
 - Stage files before review and grouping
 - Deduplicate against existing working/catalog
+- Deduplicate against existing Model Working Files/Model Catalog
 - Preview extraction and metadata discovery
 
 **Workflow**:
@@ -114,14 +115,14 @@ The model catalog sidecar now manages its own file storage independently of Many
 ```python
 model_catalog_entries:
   storage_tier: 'inbox'
-  storage_path: 'inbox/{session_id}/upload.3mf'
+  storage_path: 'Model Inbox/{session_id}/upload.3mf'
   inbox_status: 'pending' | 'approved' | 'rejected'
   inbox_expires_at: datetime
 ```
 
-### Tier 2: Working (Active Projects)
+### Tier 2: Model Working Files (Active Projects)
 
-**Path**: `/assets/working/{working_group_id}/`  
+**Path**: `/assets/Model Working Files/{working_group_id}/`
 **Lifetime**: Until published or deleted  
 **Owner**: Sidecar + User (collaborative editing)  
 **Phase**: 1.5+ (working group management)
@@ -143,14 +144,14 @@ model_catalog_entries:
 ```python
 model_catalog_entries:
   storage_tier: 'working'
-  storage_path: 'working/{working_group_id}/primary.3mf'
+  storage_path: 'Model Working Files/{working_group_id}/primary.3mf'
   working_group_id: str
   working_status: 'draft' | 'ready_for_review' | 'printing'
 ```
 
-### Tier 3: Catalog (Published & Stable)
+### Tier 3: Model Catalog (Published & Stable)
 
-**Path**: `/assets/catalog/{model_id}/`  
+**Path**: `/assets/Model Catalog/{model_id}/`
 **Lifetime**: Long-term (until deleted)  
 **Owner**: Sidecar (managed)  
 **Phase**: 1.1+ (local model authority)
@@ -171,7 +172,7 @@ model_catalog_entries:
 ```python
 model_catalog_entries:
   storage_tier: 'catalog'
-  storage_path: 'catalog/{model_id}/model.3mf'
+  storage_path: 'Model Catalog/{model_id}/model.3mf'
   published_at: datetime
   version: str
   is_featured: bool
@@ -179,7 +180,7 @@ model_catalog_entries:
 
 ### Tier 4: Imported (External Sources)
 
-**Path**: `/assets/imported/{source}/{model_id}/`  
+**Path**: `/assets/Imported/{source}/{model_id}/`
 **Lifetime**: Long-term (until deleted)  
 **Owner**: Sidecar (managed)  
 **Phase**: 2+ (Manyfold integration + external imports)
@@ -200,7 +201,7 @@ model_catalog_entries:
 ```python
 model_catalog_entries:
   storage_tier: 'imported'
-  storage_path: 'imported/{source}/{model_id}/model.3mf'
+  storage_path: 'Imported/{source}/{model_id}/model.3mf'
   source_platform: 'manyfold' | 'makerworld' | 'printables' | 'url'
   source_url: str
   imported_from_id: str  # Original Manyfold ID, Makerworld ID, etc.
