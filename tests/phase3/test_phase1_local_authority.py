@@ -251,6 +251,7 @@ class TestModelAssetManagement:
         )
 
         assert asset.asset_id == "asset-001"
+        assert asset.sort_order == 0
         assert asset.asset_filename == "model.3mf"
         assert asset.asset_type == "3mf"
         assert asset.file_size_bytes == 1024000
@@ -341,6 +342,7 @@ class TestModelAssetManagement:
         )
 
         assert len(assets) == 2
+        assert [asset.sort_order for asset in assets] == [0, 1]
 
     def test_delete_asset(self, db_path):
         """Delete an asset."""
@@ -389,6 +391,7 @@ class TestModelAssetManagement:
             db_path=db_path,
             local_model_id="parent-model",
             asset_id="update-me",
+            sort_order=7,
             asset_role="preview",
             file_hash=None,
             preview_url=None,
@@ -397,6 +400,7 @@ class TestModelAssetManagement:
         )
 
         assert updated is not None
+        assert updated.sort_order == 7
         assert updated.asset_role == "preview"
         assert updated.file_hash is None
         assert updated.preview_url is None
@@ -685,8 +689,10 @@ class TestListModelsEndpointMerge:
         assert payload["model"]["preview_file_id"] == "preview-image"
         assert [file_item["id"] for file_item in payload["model"]["files"]] == ["preview-image", "primary-3mf"]
         assert payload["model"]["files"][0]["is_preview"] is True
+        assert payload["model"]["files"][0]["sort_order"] == 1
         assert payload["model"]["files"][0]["asset_role"] == "preview"
         assert payload["model"]["files"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
+        assert payload["model"]["files"][1]["sort_order"] == 0
         assert payload["model"]["files"][1]["asset_role"] == "primary"
         assert payload["model"]["files"][1]["file_hash"] == "hash-primary"
         assert payload["model"]["files"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
@@ -704,7 +710,9 @@ class TestListModelsEndpointMerge:
         assert payload["preview_file_id"] == "preview-image"
         assert [asset["asset_id"] for asset in payload["assets"]] == ["preview-image", "primary-3mf"]
         assert payload["assets"][0]["is_preview"] is True
+        assert payload["assets"][0]["sort_order"] == 1
         assert payload["assets"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
+        assert payload["assets"][1]["sort_order"] == 0
         assert payload["assets"][1]["file_hash"] == "hash-primary"
         assert payload["assets"][1]["file_size_bytes"] == 2048
         assert payload["assets"][1]["storage_path"] == "/models/local-alpha.3mf"
@@ -716,6 +724,7 @@ class TestListModelsEndpointMerge:
         response = client.patch(
             "/api/local/models/local-001/assets/primary-3mf",
             json={
+                "sort_order": -1,
                 "asset_role": "preview",
                 "preview_url": None,
                 "file_hash": None,
@@ -729,6 +738,7 @@ class TestListModelsEndpointMerge:
         assert payload["asset"]["asset_id"] == "primary-3mf"
         assert payload["asset"]["asset_role"] == "preview"
         assert payload["asset"]["is_preview"] is True
+        assert payload["asset"]["sort_order"] == -1
         assert payload["asset"]["preview_url"] is None
         assert payload["asset"]["file_hash"] is None
         assert payload["asset"]["geometry_bounds"] is None

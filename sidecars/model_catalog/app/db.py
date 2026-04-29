@@ -206,6 +206,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         id INTEGER PRIMARY KEY,
         model_catalog_entry_id INTEGER NOT NULL,
         asset_id TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
         asset_filename TEXT NOT NULL,
         asset_type TEXT NOT NULL,
         asset_role TEXT NOT NULL DEFAULT 'primary',
@@ -229,6 +230,10 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     ON model_catalog_assets (asset_type)
     """,
         ),
+    ),
+    (
+        9,
+        (),
     ),
 )
 
@@ -351,6 +356,8 @@ def _apply_migrations(connection: sqlite3.Connection) -> None:
                 WHERE file_hash IS NOT NULL
                 """
             )
+        if version == 9:
+            _ensure_column(connection, "model_catalog_assets", "sort_order", "INTEGER NOT NULL DEFAULT 0")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

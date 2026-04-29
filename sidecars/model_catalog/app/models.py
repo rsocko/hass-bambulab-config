@@ -42,6 +42,7 @@ class ModelAsset:
     """File/image asset attached to a local model."""
     id: int
     asset_id: str
+    sort_order: int
     asset_filename: str
     asset_type: str  # "image", "3mf", "stl", "obj", "pdf", etc.
     asset_role: str  # "primary", "supporting", "preview", "documentation"

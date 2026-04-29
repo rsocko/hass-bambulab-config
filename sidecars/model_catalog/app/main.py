@@ -246,6 +246,7 @@ def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
         assets,
         key=lambda asset: (
             0 if str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) == preview_asset_id else 1,
+            int(getattr(asset, "sort_order", 0) or 0),
             _asset_rank(getattr(asset, "asset_role", None)),
             str(getattr(asset, "created_at", "") or ""),
             str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
@@ -272,6 +273,7 @@ def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
                 "preview_url": preview_url,
                 "created_at": getattr(asset, "created_at", None),
                 "updated_at": getattr(asset, "updated_at", None),
+                "sort_order": getattr(asset, "sort_order", None),
                 "asset_role": getattr(asset, "asset_role", None),
                 "file_size_bytes": getattr(asset, "file_size_bytes", None),
                 "file_hash": getattr(asset, "file_hash", None),
@@ -295,10 +297,10 @@ def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
     selected = sorted(
         preview_candidates,
         key=lambda asset: (
+            int(getattr(asset, "sort_order", 0) or 0),
             str(getattr(asset, "updated_at", "") or ""),
             str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
         ),
-        reverse=True,
     )[0]
     asset_id = str(getattr(selected, "asset_id", "") or getattr(selected, "id", ""))
     return asset_id or None
@@ -2577,6 +2579,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             asset_filename=payload.get("asset_filename") if "asset_filename" in payload else _UNSET,
             asset_type=payload.get("asset_type") if "asset_type" in payload else _UNSET,
             storage_path=payload.get("storage_path") if "storage_path" in payload else _UNSET,
+            sort_order=payload.get("sort_order") if "sort_order" in payload else _UNSET,
             asset_role=payload.get("asset_role") if "asset_role" in payload else _UNSET,
             file_size_bytes=payload.get("file_size_bytes") if "file_size_bytes" in payload else _UNSET,
             file_hash=payload.get("file_hash") if "file_hash" in payload else _UNSET,

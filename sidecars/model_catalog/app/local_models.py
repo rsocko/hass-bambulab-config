@@ -348,18 +348,24 @@ def create_model_asset(
 
         model_id = model_id_row["id"]
         now = utc_now_iso()
+        sort_order_row = connection.execute(
+            "SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order FROM model_catalog_assets WHERE model_catalog_entry_id = ?",
+            (model_id,),
+        ).fetchone()
+        sort_order = int(sort_order_row["next_sort_order"] if sort_order_row is not None else 0)
 
         connection.execute(
             """
             INSERT INTO model_catalog_assets (
-                model_catalog_entry_id, asset_id, asset_filename, asset_type, asset_role,
+                model_catalog_entry_id, asset_id, sort_order, asset_filename, asset_type, asset_role,
                 file_size_bytes, file_hash, storage_path, preview_url, geometry_bounds_json,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 model_id,
                 asset_id,
+                sort_order,
                 asset_filename,
                 asset_type,
                 asset_role,
@@ -430,7 +436,7 @@ def list_model_assets(
             SELECT a.* FROM model_catalog_assets a
             JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
             WHERE {where_sql}
-            ORDER BY a.asset_role ASC, a.created_at ASC
+            ORDER BY a.sort_order ASC, a.asset_role ASC, a.created_at ASC, a.asset_id ASC
             """,
             params,
         ).fetchall()
@@ -448,6 +454,7 @@ def update_model_asset(
     asset_filename: str | object = _UNSET,
     asset_type: str | object = _UNSET,
     storage_path: str | object = _UNSET,
+    sort_order: int | object = _UNSET,
     asset_role: str | object = _UNSET,
     file_size_bytes: int | None | object = _UNSET,
     file_hash: str | None | object = _UNSET,
@@ -484,6 +491,9 @@ def update_model_asset(
         if storage_path is not _UNSET:
             update_fields.append("storage_path = ?")
             params.append(storage_path)
+        if sort_order is not _UNSET:
+            update_fields.append("sort_order = ?")
+            params.append(sort_order)
         if asset_role is not _UNSET:
             update_fields.append("asset_role = ?")
             params.append(asset_role)
@@ -580,6 +590,7 @@ def _row_to_model_asset(row: Any) -> ModelAsset:
     return ModelAsset(
         id=int(row["id"]),
         asset_id=str(row["asset_id"]),
+        sort_order=int(row["sort_order"] or 0),
         asset_filename=str(row["asset_filename"]),
         asset_type=str(row["asset_type"]),
         asset_role=str(row["asset_role"]),
