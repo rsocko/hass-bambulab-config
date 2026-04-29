@@ -1,0 +1,101 @@
+version: '3.8'
+
+# Independent Model Catalog Sidecar Stack
+# This stack runs independently from Manyfold and can exist on its own.
+#
+# Storage Architecture:
+# - /data          → Named volume (sidecar-owned database)
+# - /assets        → Bind mount to host (model files, working groups, intake)
+# - Traefik        → External shared network for reverse proxy
+#
+# Network Note:
+# This stack creates its own 'model-catalog-stack' network.
+# Home Assistant can reach this sidecar via shared 'traefik' network or by
+# reference to the 'model-catalog-stack' network if HA is on a separate stack.
+
+services:
+  model-catalog-sidecar:
+    image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+    container_name: model-catalog-sidecar
+    
+    networks:
+      - model-catalog-stack
+      - traefik
+    
+    environment:
+      # Manyfold integration (OPTIONAL as of Phase 1.1)
+      # These can be empty; the sidecar will work without Manyfold.
+      MANYFOLD_BASE_URL: ${MANYFOLD_BASE_URL:-http://manyfold:3214}
+      MANYFOLD_MODELS_PATH: ${MANYFOLD_MODELS_PATH:-/models}
+      MANYFOLD_COLLECTIONS_PATH: ${MANYFOLD_COLLECTIONS_PATH:-/collections}
+      MANYFOLD_CREATORS_PATH: ${MANYFOLD_CREATORS_PATH:-/creators}
+      MANYFOLD_OAUTH_TOKEN_PATH: ${MANYFOLD_OAUTH_TOKEN_PATH:-/oauth/token}
+      MANYFOLD_CLIENT_ID: ${MANYFOLD_CLIENT_ID:-}
+      MANYFOLD_CLIENT_SECRET: ${MANYFOLD_CLIENT_SECRET:-}
+      MANYFOLD_OAUTH_SCOPES: ${MANYFOLD_OAUTH_SCOPES:-public read}
+      MANYFOLD_SESSION_EMAIL: ${MANYFOLD_SESSION_EMAIL:-}
+      MANYFOLD_SESSION_PASSWORD: ${MANYFOLD_SESSION_PASSWORD:-}
+      
+      # Sidecar Configuration
+      MODEL_CATALOG_DB_PATH: /data/model_catalog.db
+      MODEL_CATALOG_REFRESH_TTL_SECONDS: ${MODEL_CATALOG_REFRESH_TTL_SECONDS:-900}
+      MODEL_CATALOG_HOST: 0.0.0.0
+      MODEL_CATALOG_PORT: 8314
+      
+      # Optional: Standalone mode (for testing without Manyfold)
+      # When true, Manyfold unavailability does not prevent sidecar startup
+      # MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-false}
+    
+    volumes:
+      # Named volume for sidecar-owned database and ephemeral cache
+      - model_catalog_data:/data
+      
+      # Bind mount for model assets, working groups, and inbox
+      # Point this to your host directory (e.g., Windows OneDrive, NAS, local path)
+      # Example: ${ASSETS_ROOT_HOST}:/assets
+      # On Windows with OneDrive: /mnt/c/OneDrive/ModelAssets:/assets
+      - ${ASSETS_ROOT_HOST:?Error: ASSETS_ROOT_HOST not set in .env}:/assets
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog.rule=Host(`${MODEL_CATALOG_HOSTNAME:-model-catalog.socko.us}`)"
+      - "traefik.http.routers.model-catalog.entrypoints=web"
+      - "traefik.http.routers.model-catalog.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog.loadbalancer.server.port=8314"
+      - "traefik.docker.network=traefik"
+    
+    ports:
+      # Local debugging access (localhost only)
+      - "127.0.0.1:8314:8314"
+    
+    restart: unless-stopped
+    
+    # NOTE: No depends_on on Manyfold
+    # The sidecar starts independently and handles Manyfold unavailability gracefully.
+    # If Manyfold is not running, the sidecar will:
+    # - Start successfully with catalog models available
+    # - Log warnings about Manyfold unavailability
+    # - Return degraded status in /healthz
+    # - Resume Manyfold operations when it becomes available
+
+volumes:
+  model_catalog_data:
+    # Named volume stores:
+    # - model_catalog.db        (SQLite database, primary durable state)
+    # - cache/                  (ephemeral: generated previews, geometry analysis)
+    # 
+    # This volume is sidecar-owned and opaque to the host.
+    # Backup this volume separately using Docker volume backup procedures.
+    driver: bridge
+
+networks:
+  model-catalog-stack:
+    # Internal network for this stack
+    name: model-catalog-stack
+    driver: bridge
+  
+  traefik:
+    # External shared network for reverse proxy
+    # Must exist before bringing up this stack:
+    # docker network create traefik
+    external: true

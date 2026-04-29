@@ -44,8 +44,19 @@ from .db import (
     update_archive_link,
 )
 from .geometry_3mf import extract_3mf_geometry
+from .local_models import (
+    create_local_model,
+    read_local_model,
+    list_local_models,
+    update_local_model,
+    delete_local_model,
+    create_model_asset,
+    read_model_asset,
+    list_model_assets,
+    delete_model_asset,
+)
 from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
-from .models import ManyfoldModelSummary
+from .models import ManyfoldModelSummary, LocalModelEntry
 from .settings import Settings, load_settings
 
 
@@ -82,6 +93,27 @@ def _image_metadata(settings: Settings) -> dict[str, str]:
         "image_revision": settings.image_revision,
         "image_created": settings.image_created,
     }
+
+
+def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
+    """Convert LocalModelEntry to ManyfoldModelSummary for backward compatibility.
+    
+    This wrapper allows HA services to work with local models without changes.
+    Model URLs use local:// scheme for non-Manyfold entries.
+    
+    Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
+    this function handles local-authority models created after Phase 1.
+    """
+    return ManyfoldModelSummary(
+        model_url=f"local://{entry.local_model_id}",
+        public_id=entry.local_model_id,
+        model_id=str(entry.id),
+        name=entry.model_name,
+        preview_url=entry.preview_image_url,
+        creator_name=entry.creator_name,
+        collection_names=entry.collection_names,
+        keyword_names=entry.keyword_names,
+    )
 
 
 def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
@@ -1941,6 +1973,274 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             response_payload["collection_lookup_diagnostics"] = collection_diagnostics
 
         return response_payload
+
+    # ==================== Local Model CRUD (Phase 1) ====================
+    # These endpoints manage models created locally, not imported from Manyfold.
+    # Local models use local:// scheme and are stored in local SQLite authority.
+
+    @app.post("/api/local/models")
+    def create_local_model_endpoint(payload: dict[str, Any]) -> dict[str, Any]:
+        """Create a new local model entry."""
+        state: AppState = app.state.model_catalog
+        
+        local_model_id = str(payload.get("local_model_id") or "").strip()
+        model_name = str(payload.get("model_name") or "").strip()
+        
+        if not local_model_id or not model_name:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "local_model_id and model_name are required"}
+            )
+        
+        try:
+            entry = create_local_model(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                model_name=model_name,
+                model_description=payload.get("model_description"),
+                creator_name=payload.get("creator_name"),
+                collection_names=payload.get("collection_names"),
+                keyword_names=payload.get("keyword_names"),
+                tags=payload.get("tags"),
+                license_type=payload.get("license_type"),
+                preview_image_url=payload.get("preview_image_url"),
+                source_origin=payload.get("source_origin"),
+                source_origin_url=payload.get("source_origin_url"),
+            )
+            summary = _local_entry_to_summary(entry)
+            return {
+                "success": True,
+                "local_model_id": entry.local_model_id,
+                "model_name": entry.model_name,
+                "summary": asdict(summary),
+            }
+        except Exception as error:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": str(error)}
+            )
+
+    @app.get("/api/local/models")
+    def list_local_models_endpoint(
+        limit: int = 50,
+        offset: int = 0,
+        q: str | None = None,
+    ) -> dict[str, Any]:
+        """List local model entries with pagination and search."""
+        state: AppState = app.state.model_catalog
+        
+        try:
+            entries, total = list_local_models(
+                db_path=state.settings.db_path,
+                limit=limit,
+                offset=offset,
+                search_query=q,
+            )
+            
+            summaries = [_local_entry_to_summary(entry) for entry in entries]
+            return {
+                "success": True,
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": total,
+                },
+                "models": [asdict(s) for s in summaries],
+            }
+        except Exception as error:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": str(error)}
+            )
+
+    @app.get("/api/local/models/{local_model_id}")
+    def get_local_model_endpoint(local_model_id: str) -> dict[str, Any]:
+        """Fetch a single local model entry."""
+        state: AppState = app.state.model_catalog
+        
+        entry = read_local_model(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+        )
+        
+        if not entry:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
+            )
+        
+        summary = _local_entry_to_summary(entry)
+        assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+        
+        return {
+            "success": True,
+            "model": asdict(summary),
+            "assets": [
+                {
+                    "asset_id": a.asset_id,
+                    "asset_filename": a.asset_filename,
+                    "asset_type": a.asset_type,
+                    "asset_role": a.asset_role,
+                    "file_size_bytes": a.file_size_bytes,
+                    "preview_url": a.preview_url,
+                }
+                for a in assets
+            ],
+        }
+
+    @app.patch("/api/local/models/{local_model_id}")
+    def update_local_model_endpoint(local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Update a local model entry (partial update)."""
+        state: AppState = app.state.model_catalog
+        
+        updated = update_local_model(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            model_name=payload.get("model_name"),
+            model_description=payload.get("model_description"),
+            tags=payload.get("tags"),
+            keyword_names=payload.get("keyword_names"),
+            collection_names=payload.get("collection_names"),
+            license_type=payload.get("license_type"),
+            preview_image_url=payload.get("preview_image_url"),
+        )
+        
+        if not updated:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
+            )
+        
+        summary = _local_entry_to_summary(updated)
+        return {
+            "success": True,
+            "local_model_id": updated.local_model_id,
+            "summary": asdict(summary),
+        }
+
+    @app.delete("/api/local/models/{local_model_id}")
+    def delete_local_model_endpoint(local_model_id: str, hard_delete: bool = False) -> dict[str, Any]:
+        """Delete a local model (soft-delete by default, or hard-delete if requested)."""
+        state: AppState = app.state.model_catalog
+        
+        deleted = delete_local_model(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            hard_delete=hard_delete,
+        )
+        
+        if not deleted:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
+            )
+        
+        return {
+            "success": True,
+            "local_model_id": local_model_id,
+            "deleted": True,
+            "hard_delete": hard_delete,
+        }
+
+    @app.post("/api/local/models/{local_model_id}/assets")
+    def create_model_asset_endpoint(local_model_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Add a file/image asset to a local model."""
+        state: AppState = app.state.model_catalog
+        
+        asset_id = str(payload.get("asset_id") or "").strip()
+        asset_filename = str(payload.get("asset_filename") or "").strip()
+        asset_type = str(payload.get("asset_type") or "").strip()
+        storage_path = str(payload.get("storage_path") or "").strip()
+        
+        if not all([asset_id, asset_filename, asset_type, storage_path]):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "asset_id, asset_filename, asset_type, and storage_path are required"}
+            )
+        
+        try:
+            asset = create_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=asset_id,
+                asset_filename=asset_filename,
+                asset_type=asset_type,
+                storage_path=storage_path,
+                asset_role=payload.get("asset_role", "primary"),
+                file_size_bytes=payload.get("file_size_bytes"),
+                file_hash=payload.get("file_hash"),
+                preview_url=payload.get("preview_url"),
+                geometry_bounds=payload.get("geometry_bounds"),
+            )
+            
+            return {
+                "success": True,
+                "local_model_id": local_model_id,
+                "asset_id": asset.asset_id,
+                "asset_filename": asset.asset_filename,
+            }
+        except Exception as error:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": str(error)}
+            )
+
+    @app.get("/api/local/models/{local_model_id}/assets")
+    def list_model_assets_endpoint(
+        local_model_id: str,
+        asset_type: str | None = None,
+    ) -> dict[str, Any]:
+        """List assets for a local model."""
+        state: AppState = app.state.model_catalog
+        
+        assets = list_model_assets(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_type=asset_type,
+        )
+        
+        return {
+            "success": True,
+            "local_model_id": local_model_id,
+            "assets": [
+                {
+                    "asset_id": a.asset_id,
+                    "asset_filename": a.asset_filename,
+                    "asset_type": a.asset_type,
+                    "asset_role": a.asset_role,
+                    "file_size_bytes": a.file_size_bytes,
+                    "file_hash": a.file_hash,
+                    "storage_path": a.storage_path,
+                    "preview_url": a.preview_url,
+                    "created_at": a.created_at,
+                }
+                for a in assets
+            ],
+        }
+
+    @app.delete("/api/local/models/{local_model_id}/assets/{asset_id}")
+    def delete_model_asset_endpoint(local_model_id: str, asset_id: str) -> dict[str, Any]:
+        """Delete an asset from a local model."""
+        state: AppState = app.state.model_catalog
+        
+        deleted = delete_model_asset(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_id=asset_id,
+        )
+        
+        if not deleted:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "asset_not_found", "asset_id": asset_id}
+            )
+        
+        return {
+            "success": True,
+            "local_model_id": local_model_id,
+            "asset_id": asset_id,
+            "deleted": True,
+        }
 
     @app.get("/api/models/preview", name="proxy_model_preview")
     def proxy_model_preview(source: str) -> Response:

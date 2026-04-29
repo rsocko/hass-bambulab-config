@@ -173,6 +173,63 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+    (
+        8,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS model_catalog_entries (
+        id INTEGER PRIMARY KEY,
+        local_model_id TEXT NOT NULL UNIQUE,
+        model_name TEXT NOT NULL,
+        model_description TEXT,
+        creator_name TEXT,
+        created_by TEXT,
+        collection_names_json TEXT NOT NULL DEFAULT '[]',
+        keyword_names_json TEXT NOT NULL DEFAULT '[]',
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        license_type TEXT,
+        preview_image_url TEXT,
+        source_origin TEXT,
+        source_origin_url TEXT,
+        revision_hash TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_model_catalog_entries_local_id
+    ON model_catalog_entries (local_model_id)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS model_catalog_assets (
+        id INTEGER PRIMARY KEY,
+        model_catalog_entry_id INTEGER NOT NULL,
+        asset_id TEXT NOT NULL,
+        asset_filename TEXT NOT NULL,
+        asset_type TEXT NOT NULL,
+        asset_role TEXT NOT NULL DEFAULT 'primary',
+        file_size_bytes INTEGER,
+        file_hash TEXT,
+        storage_path TEXT NOT NULL,
+        preview_url TEXT,
+        geometry_bounds_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (model_catalog_entry_id) REFERENCES model_catalog_entries(id),
+        UNIQUE(model_catalog_entry_id, asset_id)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_assets_entry_id
+    ON model_catalog_assets (model_catalog_entry_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_assets_type
+    ON model_catalog_assets (asset_type)
+    """,
+        ),
+    ),
 )
 
 

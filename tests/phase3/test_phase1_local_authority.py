@@ -1,0 +1,474 @@
+"""Integration tests for Phase 1 Local Model Authority.
+
+Tests cover:
+- Local model CRUD operations
+- Asset management
+- Backward-compatibility conversions
+- Database schema and migrations
+"""
+
+import json
+import tempfile
+from pathlib import Path
+
+import pytest
+
+from sidecars.model_catalog.app.db import bootstrap_database
+from sidecars.model_catalog.app.local_models import (
+    create_local_model,
+    read_local_model,
+    list_local_models,
+    update_local_model,
+    delete_local_model,
+    create_model_asset,
+    read_model_asset,
+    list_model_assets,
+    delete_model_asset,
+)
+from sidecars.model_catalog.app.models import LocalModelEntry, ManyfoldModelSummary
+
+
+class TestLocalModelCRUD:
+    """Test local model creation, reading, updating, deletion."""
+
+    @pytest.fixture
+    def db_path(self):
+        """Create temporary database for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db)
+            yield db
+
+    def test_create_local_model(self, db_path):
+        """Create a new local model entry."""
+        entry = create_local_model(
+            db_path=db_path,
+            local_model_id="test-model-001",
+            model_name="Test Model",
+            model_description="A test model",
+            creator_name="Test Creator",
+            tags=["tag1", "tag2"],
+            collection_names=["collection1"],
+        )
+
+        assert entry.local_model_id == "test-model-001"
+        assert entry.model_name == "Test Model"
+        assert entry.creator_name == "Test Creator"
+        assert entry.tags == ("tag1", "tag2")
+        assert entry.collection_names == ("collection1",)
+        assert entry.created_at is not None
+        assert entry.updated_at is not None
+
+    def test_read_local_model(self, db_path):
+        """Read a created local model entry."""
+        created = create_local_model(
+            db_path=db_path,
+            local_model_id="test-model-002",
+            model_name="Test Model 2",
+        )
+
+        retrieved = read_local_model(
+            db_path=db_path,
+            local_model_id="test-model-002",
+        )
+
+        assert retrieved is not None
+        assert retrieved.local_model_id == created.local_model_id
+        assert retrieved.model_name == created.model_name
+
+    def test_read_nonexistent_model(self, db_path):
+        """Reading a non-existent model returns None."""
+        result = read_local_model(
+            db_path=db_path,
+            local_model_id="nonexistent",
+        )
+        assert result is None
+
+    def test_list_local_models(self, db_path):
+        """List local models with pagination."""
+        # Create multiple models
+        for i in range(5):
+            create_local_model(
+                db_path=db_path,
+                local_model_id=f"model-{i}",
+                model_name=f"Model {i}",
+            )
+
+        entries, total = list_local_models(db_path=db_path, limit=3, offset=0)
+
+        assert len(entries) == 3
+        assert total == 5
+
+        # Test offset
+        entries_page2, total = list_local_models(db_path=db_path, limit=3, offset=3)
+        assert len(entries_page2) == 2
+        assert total == 5
+
+    def test_list_models_with_search(self, db_path):
+        """Search local models by name."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="unique-1",
+            model_name="Unique Model Alpha",
+        )
+        create_local_model(
+            db_path=db_path,
+            local_model_id="unique-2",
+            model_name="Beta Model",
+        )
+
+        entries, total = list_local_models(
+            db_path=db_path,
+            search_query="Alpha",
+        )
+
+        assert total == 1
+        assert entries[0].model_name == "Unique Model Alpha"
+
+    def test_update_local_model(self, db_path):
+        """Update a local model entry (partial update)."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="update-test",
+            model_name="Original Name",
+            tags=["original"],
+        )
+
+        updated = update_local_model(
+            db_path=db_path,
+            local_model_id="update-test",
+            model_name="Updated Name",
+            tags=["updated"],
+        )
+
+        assert updated is not None
+        assert updated.model_name == "Updated Name"
+        assert updated.tags == ("updated",)
+
+    def test_update_nonexistent_model(self, db_path):
+        """Updating a non-existent model returns None."""
+        result = update_local_model(
+            db_path=db_path,
+            local_model_id="nonexistent",
+            model_name="New Name",
+        )
+        assert result is None
+
+    def test_delete_soft_delete(self, db_path):
+        """Soft-delete a model (archival)."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="soft-delete-test",
+            model_name="Delete Me",
+        )
+
+        deleted = delete_local_model(
+            db_path=db_path,
+            local_model_id="soft-delete-test",
+            hard_delete=False,
+        )
+
+        assert deleted is True
+
+        # Model should not be readable after soft-delete
+        result = read_local_model(
+            db_path=db_path,
+            local_model_id="soft-delete-test",
+        )
+        assert result is None
+
+    def test_delete_hard_delete(self, db_path):
+        """Hard-delete a model (permanent removal)."""
+        create_local_model(
+            db_path=db_path,
+            local_model_id="hard-delete-test",
+            model_name="Delete Me Permanently",
+        )
+
+        deleted = delete_local_model(
+            db_path=db_path,
+            local_model_id="hard-delete-test",
+            hard_delete=True,
+        )
+
+        assert deleted is True
+        
+        result = read_local_model(
+            db_path=db_path,
+            local_model_id="hard-delete-test",
+        )
+        assert result is None
+
+    def test_delete_nonexistent_model(self, db_path):
+        """Deleting a non-existent model returns False."""
+        result = delete_local_model(
+            db_path=db_path,
+            local_model_id="nonexistent",
+        )
+        assert result is False
+
+
+class TestModelAssetManagement:
+    """Test asset (file/image) management."""
+
+    @pytest.fixture
+    def db_path(self):
+        """Create temporary database with a parent model."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db)
+            create_local_model(
+                db_path=db,
+                local_model_id="parent-model",
+                model_name="Parent Model",
+            )
+            yield db
+
+    def test_create_asset(self, db_path):
+        """Create an asset for a model."""
+        asset = create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="asset-001",
+            asset_filename="model.3mf",
+            asset_type="3mf",
+            storage_path="/models/model.3mf",
+            asset_role="primary",
+            file_size_bytes=1024000,
+            file_hash="abc123",
+        )
+
+        assert asset.asset_id == "asset-001"
+        assert asset.asset_filename == "model.3mf"
+        assert asset.asset_type == "3mf"
+        assert asset.file_size_bytes == 1024000
+
+    def test_create_asset_for_nonexistent_model(self, db_path):
+        """Creating asset for non-existent model raises error."""
+        with pytest.raises(ValueError):
+            create_model_asset(
+                db_path=db_path,
+                local_model_id="nonexistent-model",
+                asset_id="asset-001",
+                asset_filename="model.3mf",
+                asset_type="3mf",
+                storage_path="/models/model.3mf",
+            )
+
+    def test_read_asset(self, db_path):
+        """Read a specific asset."""
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="asset-002",
+            asset_filename="preview.jpg",
+            asset_type="image",
+            storage_path="/models/preview.jpg",
+        )
+
+        asset = read_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="asset-002",
+        )
+
+        assert asset is not None
+        assert asset.asset_filename == "preview.jpg"
+        assert asset.asset_type == "image"
+
+    def test_list_assets_by_type(self, db_path):
+        """List assets filtered by type."""
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="3mf-1",
+            asset_filename="model.3mf",
+            asset_type="3mf",
+            storage_path="/models/model.3mf",
+        )
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="img-1",
+            asset_filename="preview.jpg",
+            asset_type="image",
+            storage_path="/models/preview.jpg",
+        )
+
+        assets = list_model_assets(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_type="3mf",
+        )
+
+        assert len(assets) == 1
+        assert assets[0].asset_type == "3mf"
+
+    def test_list_all_assets(self, db_path):
+        """List all assets for a model."""
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="asset-1",
+            asset_filename="file1.3mf",
+            asset_type="3mf",
+            storage_path="/models/file1.3mf",
+        )
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="asset-2",
+            asset_filename="file2.stl",
+            asset_type="stl",
+            storage_path="/models/file2.stl",
+        )
+
+        assets = list_model_assets(
+            db_path=db_path,
+            local_model_id="parent-model",
+        )
+
+        assert len(assets) == 2
+
+    def test_delete_asset(self, db_path):
+        """Delete an asset."""
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="delete-me",
+            asset_filename="delete.3mf",
+            asset_type="3mf",
+            storage_path="/models/delete.3mf",
+        )
+
+        deleted = delete_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="delete-me",
+        )
+
+        assert deleted is True
+
+        # Verify asset is gone
+        result = read_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="delete-me",
+        )
+        assert result is None
+
+
+class TestBackwardCompatibility:
+    """Test backward-compatibility conversions."""
+
+    def test_local_entry_to_manyfold_summary(self):
+        """Convert LocalModelEntry to ManyfoldModelSummary."""
+        from sidecars.model_catalog.app.main import _local_entry_to_summary
+
+        entry = LocalModelEntry(
+            id=1,
+            local_model_id="test-001",
+            model_name="Test Model",
+            model_description="A test",
+            creator_name="Creator",
+            collection_names=("col1",),
+            keyword_names=("kw1",),
+            tags=("tag1",),
+            license_type="MIT",
+            preview_image_url="http://example.com/preview.jpg",
+            source_origin="test",
+            source_origin_url="http://test.com",
+            created_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        summary = _local_entry_to_summary(entry)
+
+        assert summary.model_url == "local://test-001"
+        assert summary.public_id == "test-001"
+        assert summary.name == "Test Model"
+        assert summary.creator_name == "Creator"
+        assert summary.collection_names == ("col1",)
+
+    def test_local_summary_model_dump(self):
+        """Verify converted summary can be serialized."""
+        from dataclasses import asdict
+        from sidecars.model_catalog.app.main import _local_entry_to_summary
+
+        entry = LocalModelEntry(
+            id=2,
+            local_model_id="serialize-test",
+            model_name="Serializable Model",
+            model_description=None,
+            creator_name=None,
+            collection_names=(),
+            keyword_names=(),
+            tags=(),
+            license_type=None,
+            preview_image_url=None,
+            source_origin=None,
+            source_origin_url=None,
+            created_at="2025-01-01T00:00:00Z",
+            updated_at="2025-01-01T00:00:00Z",
+        )
+
+        summary = _local_entry_to_summary(entry)
+        dump = asdict(summary)
+
+        assert dump["model_url"] == "local://serialize-test"
+        assert dump["name"] == "Serializable Model"
+        assert isinstance(dump, dict)
+
+
+class TestDatabaseMigration:
+    """Test database schema and migrations."""
+
+    def test_bootstrap_creates_tables(self):
+        """Bootstrap creates model_catalog_entries and assets tables."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db)
+
+            from sidecars.model_catalog.app.db import connect
+
+            connection = connect(db)
+            try:
+                # Check that tables exist
+                tables = connection.execute(
+                    """
+                    SELECT name FROM sqlite_master
+                    WHERE type='table' AND name IN ('model_catalog_entries', 'model_catalog_assets')
+                    """
+                ).fetchall()
+
+                assert len(tables) == 2
+                table_names = {t["name"] for t in tables}
+                assert "model_catalog_entries" in table_names
+                assert "model_catalog_assets" in table_names
+            finally:
+                connection.close()
+
+    def test_soft_delete_functionality(self):
+        """Verify soft-delete via archived_at column."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db)
+
+            entry = create_local_model(
+                db_path=db,
+                local_model_id="archive-test",
+                model_name="Archive Test",
+            )
+
+            assert entry.id is not None
+
+            # Soft-delete
+            delete_local_model(db_path=db, local_model_id="archive-test", hard_delete=False)
+
+            # Verify not readable
+            result = read_local_model(db_path=db, local_model_id="archive-test")
+            assert result is None
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

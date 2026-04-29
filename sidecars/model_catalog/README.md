@@ -1,15 +1,37 @@
 # Model Catalog Sidecar
 
-Minimal Phase 1A scaffold for the model-catalog service.
+**Phase 1.1**: Independent sidecar stack with local model authority, independent of Manyfold.
 
 Current scope:
 
-- FastAPI service scaffold
-- health, config, and diagnostics endpoints
-- SQLite schema bootstrap for model-catalog local state
-- Manyfold read baseline for model summaries
-- normalized summary endpoint for fetched or cached models
-- first archive-link read contract endpoint for HA/print_history integration
+- FastAPI service scaffold with local SQLite authority
+- Independent Docker Compose stack (no Manyfold dependency)
+- Local model CRUD + asset management (Phase 1.1)
+- Optional Manyfold integration (graceful degradation)
+- Bind-mount file storage for host visibility
+- Health, config, and diagnostics endpoints
+- Archive-link read contract endpoint for HA/print_history integration
+
+## Quick Start
+
+```bash
+# 1. Create .env from template
+cp .env.example .env
+
+# Edit .env and set ASSETS_ROOT_HOST to your local path:
+# ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
+
+# 2. Ensure traefik network exists
+docker network create traefik || true
+
+# 3. Start the independent stack
+docker compose up -d
+
+# 4. Verify health
+curl http://localhost:8314/healthz
+```
+
+See **Deployment** section below for detailed options.
 
 ## Build An Image Locally
 
@@ -78,34 +100,90 @@ That gives Dockhand a stable image reference to pull and recreate on demand, whi
 Suggested `.env` entries:
 
 ```text
+ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
 MODEL_CATALOG_IMAGE_TAG=0.1.0
+MODEL_CATALOG_HOSTNAME=model-catalog.socko.us
 MANYFOLD_BASE_URL=http://manyfold:3214
-MANYFOLD_MODELS_PATH=/models
-MANYFOLD_OAUTH_TOKEN_PATH=/oauth/token
-MANYFOLD_CLIENT_ID=replace-with-oauth-client-id
-MANYFOLD_CLIENT_SECRET=replace-with-oauth-client-secret
-MANYFOLD_OAUTH_SCOPES=public read
-MANYFOLD_SESSION_EMAIL=replace-with-manyfold-login-email
-MANYFOLD_SESSION_PASSWORD=replace-with-manyfold-login-password
-MODEL_CATALOG_REFRESH_TTL_SECONDS=900
+MANYFOLD_CLIENT_ID=
+MANYFOLD_CLIENT_SECRET=
 ```
 
-Known-good fallback from live debugging:
+See `.env.example` for complete template with detailed comments on each option.
+
+## Deployment Tiers & Storage
+
+### Independent Stack Deployment (Phase 1.1+)
+
+The sidecar now runs as a standalone Docker stack with independent file storage:
+
+- **Named Volume** (`/data`): Sidecar-owned SQLite database + ephemeral cache
+- **Bind Mount** (`/assets`): Host-visible model files (OneDrive, local, NAS)
+- **No dependency on Manyfold**: Standalone or optional integration
+
+**File Organization in `/assets`**:
+```
+/assets/
+├── catalog/         # Catalog models (local authority)
+├── working/         # Active projects (Phase 1.5+)
+├── inbox/           # Temporary staging (Phase 1.5+)
+└── imported/        # External imports (Phase 2+)
+```
+
+### Network Configuration
+
+```bash
+# Create traefik network (shared reverse proxy network)
+docker network create traefik
+
+# Sidecar joins both networks:
+# - model-catalog-stack (internal)
+# - traefik (shared with HA and other services)
+```
+
+### File Storage Architecture
+
+See **detailed documentation**:
+- [storage-architecture-and-file-organization.md](../../docs/features/model_catalog/storage-architecture-and-file-organization.md)
+- [persistence-and-backup-strategy.md](../../docs/features/model_catalog/persistence-and-backup-strategy.md)
+
+Topics covered:
+- Bind mount vs named volume tradeoffs
+- Backup automation (SQLite + file-level)
+- Restore procedures
+- OneDrive / NAS / local disk deployment options
+- Inbox/working/catalog/imported tier organization
+
+## Compose Tag Management
+
+The example compose file uses an environment variable for the image tag:
+
+```yaml
+image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+```
+
+Recommended update flow:
+
+1. run the workflow
+2. copy the `MODEL_CATALOG_IMAGE_TAG=...` line from the run summary
+3. paste it into the stack `.env`
+4. run `docker compose pull && docker compose up -d`
+
+If you want to stop updating the stack `.env` for every release, run the workflow with `push_latest=true` and set the compose tag to `latest` once:
 
 ```text
-MANYFOLD_BASE_URL=http://host.docker.internal:3214
+MODEL_CATALOG_IMAGE_TAG=latest
 ```
 
-That path previously worked from an n8n container using the same OAuth client against `GET /models` with `Accept: application/vnd.manyfold.v0+json`.
+That gives Dockhand a stable image reference to pull and recreate on demand, while the workflow still publishes the immutable semantic tag for rollback.
 
-## Dockhand / Manyfold Stack Compose
+## Dockhand / Manyfold Stack Compose (Legacy)
 
-There is not currently a committed Manyfold Dockhand stack file in this repo, so this sidecar ships two compose examples instead:
+There is not currently a committed Manyfold Dockhand stack file in this repo. If you want to embed the sidecar in an existing Manyfold stack:
 
-- `compose.example.yaml` — standalone sidecar deployment
-- `compose.manyfold-stack.example.yaml` — example service block for adding the sidecar to a same-host Manyfold stack in Dockhand
+- See `compose.manyfold-stack.example.yaml` for reference
+- Recommended: Migrate to independent stack (`docker-compose.yml`) for Phase 1.1+
 
-For the Manyfold stack example, the expected pattern is:
+For the legacy Manyfold stack example, the pattern is:
 
 - put the sidecar on the same Docker network as Manyfold
 - keep the sidecar state in its own Docker volume
