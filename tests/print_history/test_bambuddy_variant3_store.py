@@ -2247,16 +2247,10 @@ def test_variant3_store_skip_overlay_infers_plate_from_print_name_when_stored_pl
 
 
 def test_variant3_store_skip_overlay_infers_plate_from_raw_payload_plate_id(tmp_path: Path) -> None:
-    """When plate_number=0 is stored and json_payload contains plate_id, that value is used.
-    NOTE: project_archive currently strips unknown fields so plate_id won't survive the
-    projection pipeline in practice. This test injects it directly via the store's upsert
-    to verify the extraction logic without requiring a project_archive change.
-    """
+    """When plate_number=0 is stored and json_payload contains plate_id, that value is used."""
     store = PrintHistoryStore(tmp_path / "print_history.db")
     store.initialize()
     from query import project_archive
-    import json
-    # Start with a normal archive, then patch json_payload to include plate_id
     base_archive = project_archive({
         "id": 304,
         "printer_id": 1,
@@ -2276,21 +2270,9 @@ def test_variant3_store_skip_overlay_infers_plate_from_raw_payload_plate_id(tmp_
         "is_favorite": False,
         "tags": "",
         "notes": "",
+        "plate_id": 7,
     })
     store.replace_archives([base_archive])
-    # Directly patch json_payload to inject plate_id (simulates a future Bambuddy API field
-    # that has been projected and stored in json_payload)
-    import json
-    with store._borrow_connection(None) as conn:
-        existing_payload = json.loads(conn.execute(
-            "SELECT json_payload FROM archives WHERE archive_id = 304"
-        ).fetchone()[0])
-        existing_payload["plate_id"] = 7
-        conn.execute(
-            "UPDATE archives SET json_payload = ? WHERE archive_id = 304",
-            (json.dumps(existing_payload, separators=(",", ":"), sort_keys=True),),
-        )
-        conn.commit()
     store.save_archive_skip_overlay_state(
         304,
         {

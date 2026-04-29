@@ -113,10 +113,11 @@ Recommended additions:
 
 The issue-specific popup timeline contract for `archive_event_timeline` is defined in [archive-popup-timeline-design.md](../ui-media/archive-popup-timeline-design.md).
 
-Additional linkage recommendation:
+Additional linkage guidance:
 
-- when Bambuddy current-print status emits linkage fields such as `current_archive_id` and `current_plate_id`, persist a bind-time snapshot in a dedicated local table rather than flattening those fields into card-level state or hidden notes payloads
-- this preserves a stable provenance anchor for plate-aware archive behaviors while keeping mirrored archive-core rows lean
+- the shipped Variant 3 integration now preserves `plate_id` directly on the local projected archive row when live printer status confirms `current_archive_id == archive.id`
+- if a later schema slice adds `archive_binding_snapshots`, keep using that dedicated table for provenance/evidence, but continue exposing the resolved `plate_id` on the projected archive row because current plate-aware UI consumers already depend on that local archive snapshot
+- do not move this linkage into tags, notes, or card-only state; plate-aware consumers need a stable local archive field while provenance remains separately modelled
 
 These should be integration-owned in Variant 3. If Variant 4 happens later, the same tables or equivalent collections should move behind the sidecar without changing their semantic contract.
 
@@ -308,7 +309,7 @@ Recommended columns:
 | `printer_id` | integer | mirrored/local | optional when known |
 | `binding_source` | text | local | `webhook`, `api_fallback`, `hybrid_status_verified` |
 | `status_current_archive_id` | integer/text | local | from current-print status payload |
-| `status_current_plate_id` | integer | local | from current-print status payload when present |
+| `status_current_plate_id` | integer | local | from current-print status payload when present; current shipped Variant 3 projection also copies the resolved value onto archive `plate_id` for local archive consumers |
 | `status_subtask_id` | text | local | optional runtime bridge key |
 | `task_name_snapshot` | text | local | normalized active task at bind time |
 | `binding_confidence` | text | local | `high`, `medium`, `degraded` |

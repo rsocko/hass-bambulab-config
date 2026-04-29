@@ -800,6 +800,7 @@ def project_archive(raw_archive: dict[str, Any]) -> dict[str, Any]:
         ),
         "project_id": raw_archive.get("project_id"),
         "project_name": as_text(raw_archive.get("project_name")).strip(),
+        "plate_id": as_int(raw_archive.get("plate_id")),
         "duplicate_count": duplicate_count(raw_archive.get("duplicate_count")),
         "duplicate_sequence": duplicate_sequence(raw_archive.get("duplicate_sequence")),
         "original_archive_id": original_archive_id(raw_archive.get("original_archive_id")),

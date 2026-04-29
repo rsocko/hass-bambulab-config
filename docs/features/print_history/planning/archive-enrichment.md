@@ -95,16 +95,27 @@ That archive-detail lookup is important in the current implementation because it
 
 The shipped automation does **not** currently inspect Bambuddy `extra_data._print_data.raw_data.ams` or archived tray UUID data when building the live enrichment payload.
 
-## Forward Design Note: Persist Bind-Time Current-Print Metadata
+## Shipped Behavior: Persist Current-Print Plate Metadata On Archive Refresh
 
-This section is a design-direction note and not yet part of the shipped behavior.
+The active `print_history` integration now preserves `plate_id` in the local
+archive projection and opportunistically populates it from live Bambuddy printer
+status when the printer reports a matching `current_archive_id`.
 
-When Bambuddy emits current-print linkage fields (for example `current_archive_id` and `current_plate_id`) during active print status, capture that data at archive bind time and persist it as local metadata tied to the resolved `archive_id`.
+Current shipped behavior:
+
+- during archive refresh, the integration fetches both raw archives and raw printer status from Bambuddy
+- when a printer row reports `current_archive_id == archive.id` and a positive `current_plate_id`, the integration writes that `current_plate_id` into the archive payload before local projection/upsert
+- the projected archive JSON now preserves `plate_id`, so downstream local-store consumers can prefer it over title parsing
+- if the archive title still includes a `- Plate N` suffix and it disagrees with the live status plate, the live `current_plate_id` wins and the suffix remains fallback-only
+
+This is now part of the shipped behavior for the Variant 3 local store path. It
+is not stored in Bambuddy's archive-core row; it is captured in the
+Home-Assistant-owned local archive snapshot.
 
 Suggested capture moment:
 
-- in the same logical window where `bambuddy_capture_archive_id.yaml` (or `script.resolve_current_archive_id`) establishes the active archive binding
-- before enrichment/photo uploads begin, so plate/linkage context is stable for downstream decisions
+- in the same logical window where the integration refresh already has both archive detail and printer status in hand
+- before later UI consumers such as skip-overlay reconstruction or pick-image lookups need a plate-aware archive snapshot
 
 Suggested persisted fields (local-store scope):
 
@@ -119,7 +130,7 @@ Suggested persisted fields (local-store scope):
 Suggested validation rules:
 
 - `high` confidence only when status `current_archive_id` equals the resolved/bound archive id
-- if mismatch occurs, keep existing stale-binding guard behavior and avoid persisting guessed plate metadata
+- if mismatch occurs, keep existing stale-binding guard behavior and avoid persisting guessed plate metadata from that status row
 - if status fields are absent, persist binding without plate metadata and mark confidence/provenance accordingly
 
 Why this helps enrichment and popup behavior:
@@ -127,6 +138,7 @@ Why this helps enrichment and popup behavior:
 - gives a durable plate/linkage snapshot even if later archive fields are normalized or task names are ambiguous
 - improves explainability in timeline/review flows by separating "what was known at bind time" from later reconstructed metadata
 - avoids overloading tags/notes with transport-level linkage details that are better modeled as local structured metadata
+- lets skip-overlay and pick-image flows prefer a real stored plate over `print_name` suffix inference when that status evidence was available during refresh
 
 ## Current PATCH Contract
 

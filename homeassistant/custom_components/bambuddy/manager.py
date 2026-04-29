@@ -5,6 +5,7 @@ from collections import deque
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
+import re
 import sqlite3
 from time import perf_counter
 from typing import Any, Callable
@@ -101,6 +102,16 @@ SPOOL_USAGE_FAILURE_EVENT_TYPES = {
     "spool_usage_review_failed",
 }
 SPOOL_USAGE_REVIEW_EVENT_TYPES = {"spool_usage_review_estimated"}
+
+
+def _title_plate_id(print_name: Any) -> int:
+    match = re.search(r"[-\u2013]\s*[Pp]late\s+(\d+)\s*$", str(print_name or "").strip())
+    if not match:
+        return 0
+    try:
+        return int(match.group(1))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _summarize_spool_usage_recording(timeline: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -568,7 +579,7 @@ class PrintHistoryBrowserManager:
                 self.last_refresh_printer_count = len(raw_printers)
                 self.last_refresh_project_count = len(raw_projects)
                 self.project_options = self._project_options_from_projects(raw_projects)
-                enriched_archives = self._enrich_archives_with_printer_names(raw_archives, raw_printers)
+                enriched_archives = self._enrich_archives_with_printer_context(raw_archives, raw_printers)
                 projected = [project_archive(item) for item in enriched_archives]
                 archives_changed = projected != self.archives
                 store_replace_started = perf_counter()
@@ -648,19 +659,9 @@ class PrintHistoryBrowserManager:
         raw_archive = await client.async_fetch_archive_detail(normalized_archive_id)
         enriched_archive = dict(raw_archive)
         printer_id = str(enriched_archive.get("printer_id") or "").strip()
-        printer_name = str(enriched_archive.get("printer_name") or "").strip()
-        if printer_id and not printer_name:
-            known_printer_names = {
-                str(archive.get("printer_id") or "").strip(): str(archive.get("printer_name") or "").strip()
-                for archive in self.archives
-                if str(archive.get("printer_id") or "").strip() and str(archive.get("printer_name") or "").strip()
-            }
-            resolved_printer_name = known_printer_names.get(printer_id, "")
-            if not resolved_printer_name:
-                raw_printers = await client.async_fetch_printers()
-                resolved_printer_name = self._printer_name_by_id(raw_printers).get(printer_id, "")
-            if resolved_printer_name:
-                enriched_archive["printer_name"] = resolved_printer_name
+        if printer_id:
+            raw_printers = await client.async_fetch_printers()
+            enriched_archive = self._enrich_archive_with_printer_context(enriched_archive, raw_printers)
 
         projected_archive = project_archive(enriched_archive)
         sync_result = await self.hass.async_add_executor_job(self.store.upsert_archive, projected_archive)
@@ -1101,29 +1102,52 @@ class PrintHistoryBrowserManager:
             snapshot[entity_id] = str(value)
         return snapshot
 
-    def _enrich_archives_with_printer_names(
+    def _enrich_archives_with_printer_context(
         self,
         raw_archives: list[dict[str, Any]],
         raw_printers: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        printer_names = self._printer_name_by_id(raw_printers)
-        if not printer_names:
+        if not raw_printers:
             return list(raw_archives)
 
-        enriched_archives: list[dict[str, Any]] = []
-        for archive in raw_archives:
-            printer_name = str(archive.get("printer_name") or "").strip()
-            printer_id = str(archive.get("printer_id") or "").strip()
-            resolved_printer_name = printer_names.get(printer_id, "")
-            if printer_name or not resolved_printer_name:
-                enriched_archives.append(archive)
-                continue
+        return [self._enrich_archive_with_printer_context(archive, raw_printers) for archive in raw_archives]
 
-            enriched_archive = dict(archive)
+    def _enrich_archive_with_printer_context(
+        self,
+        raw_archive: dict[str, Any],
+        raw_printers: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        printer_id = str(raw_archive.get("printer_id") or "").strip()
+        if not printer_id:
+            return raw_archive
+
+        printer_names = self._printer_name_by_id(raw_printers)
+        printer_runtime = self._printer_runtime_by_id(raw_printers)
+        runtime = printer_runtime.get(printer_id) or {}
+        resolved_printer_name = printer_names.get(printer_id, "")
+        current_archive_id = as_int(runtime.get("current_archive_id"))
+        current_plate_id = as_int(runtime.get("current_plate_id"))
+        archive_id = as_int(raw_archive.get("id"))
+
+        enriched_archive = raw_archive
+        if not str(raw_archive.get("printer_name") or "").strip() and resolved_printer_name:
+            enriched_archive = dict(enriched_archive)
             enriched_archive["printer_name"] = resolved_printer_name
-            enriched_archives.append(enriched_archive)
 
-        return enriched_archives
+        if archive_id > 0 and current_archive_id == archive_id and current_plate_id > 0:
+            if enriched_archive is raw_archive:
+                enriched_archive = dict(enriched_archive)
+            title_plate_id = _title_plate_id(enriched_archive.get("print_name"))
+            if title_plate_id > 0 and title_plate_id != current_plate_id:
+                _LOGGER.debug(
+                    "Using live current_plate_id=%s for archive %s despite title-derived plate=%s",
+                    current_plate_id,
+                    archive_id,
+                    title_plate_id,
+                )
+            enriched_archive["plate_id"] = current_plate_id
+
+        return enriched_archive
 
     def _printer_name_by_id(self, raw_printers: list[dict[str, Any]]) -> dict[str, str]:
         printer_names: dict[str, str] = {}
@@ -1134,6 +1158,18 @@ class PrintHistoryBrowserManager:
                 continue
             printer_names[printer_id] = printer_name
         return printer_names
+
+    def _printer_runtime_by_id(self, raw_printers: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        printer_runtime: dict[str, dict[str, Any]] = {}
+        for printer in raw_printers:
+            printer_id = str(printer.get("id") or printer.get("printer_id") or "").strip()
+            if not printer_id or printer_id in printer_runtime:
+                continue
+            printer_runtime[printer_id] = {
+                "current_archive_id": as_int(printer.get("current_archive_id")),
+                "current_plate_id": as_int(printer.get("current_plate_id")),
+            }
+        return printer_runtime
 
     def _recompute_query(self, reason: str = "internal") -> bool:
         started = perf_counter()

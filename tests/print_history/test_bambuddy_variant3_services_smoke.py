@@ -2807,6 +2807,60 @@ def test_variant3_refresh_archive_detail_updates_photo_list_after_upload(tmp_pat
     assert manager.mutation_stats["last_operation"] == "upload_archive_photo"
 
 
+def test_variant3_refresh_archive_detail_applies_live_current_plate_id_to_matching_archive(tmp_path: Path) -> None:
+    _const_module, query_module, manager_module, _init_module = _import_component_modules()
+
+    hass = FakeHass(tmp_path, _default_state_map())
+    entry = sys.modules["homeassistant.config_entries"].ConfigEntry(
+        entry_id="entry-1",
+        data={"base_url": "http://example.local", "api_key": "token"},
+        options={},
+    )
+    manager = manager_module.PrintHistoryBrowserManager(hass, entry)
+    manager.store.initialize()
+    manager.store.replace_archives(_projected_archives(query_module.project_archive))
+    manager.archives = manager.store.load_archives()
+    manager._recompute_query()
+
+    FakeApiClient.archives = [
+        {
+            "id": 101,
+            "printer_id": 1,
+            "printer_name": "Workshop P1S",
+            "print_name": "Hueforge Batman - Plate 2",
+            "actual_time_seconds": 7200,
+            "print_time_seconds": 7200,
+            "filament_used_grams": 42.5,
+            "filament_type": "PLA",
+            "filament_color": "#101010",
+            "status": "printing",
+            "started_at": "2026-04-20T10:00:00Z",
+            "completed_at": "",
+            "created_at": "2026-04-20T09:58:00Z",
+            "cost": 1.5,
+            "layer_height": 0.2,
+            "is_favorite": False,
+            "tags": "",
+            "notes": "",
+            "photos": [],
+        }
+    ]
+    FakeApiClient.printers = [
+        {"id": 1, "name": "Workshop P1S", "current_archive_id": 101, "current_plate_id": 7}
+    ]
+
+    original_manager_api_client = manager_module.BambuddyApiClient
+    manager_module.BambuddyApiClient = FakeApiClient
+
+    try:
+        refreshed = asyncio.run(manager.async_refresh_archive_detail(101, operation="refresh_archive_detail"))
+    finally:
+        manager_module.BambuddyApiClient = original_manager_api_client
+
+    assert refreshed is not None
+    assert refreshed["plate_id"] == 7
+
+
 def test_variant3_manager_records_helper_recompute_diagnostics(tmp_path: Path) -> None:
     _const_module, query_module, manager_module, _init_module = _import_component_modules()
 
