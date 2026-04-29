@@ -713,6 +713,51 @@ class TestListModelsEndpointMerge:
         assert structured["publishing"]["published_to"] == []
         assert structured["catalog_signals"]["model_favorite"] is None
 
+    def test_update_local_model_endpoint_normalizes_structured_metadata(self, app_with_local_models):
+        """PATCH /api/models/{model_ref} normalizes canonical metadata values to the documented contract."""
+        client, db = app_with_local_models
+        response = client.patch(
+            "/api/models/local-001",
+            json={
+                "enrichment": {
+                    "structured_metadata": {
+                        "provenance": {
+                            "origin_type": "REMIX",
+                            "remix_source": {
+                                "label": "Original Model",
+                                "platform": "MakerWorld",
+                                "url": "https://makerworld.example/original",
+                            },
+                            "source_platform": "Printables",
+                        },
+                        "publishing": {
+                            "published_to": ["MakerWorld", "original_local", "makerworld", "Printables"],
+                            "published_urls": {
+                                "MakerWorld": "https://makerworld.example/published",
+                                "original_local": "https://invalid.example/local",
+                                "printables": "https://printables.example/model/123",
+                            },
+                        },
+                        "catalog_signals": {
+                            "model_rating": 99,
+                        },
+                    }
+                },
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        structured = payload["enrichment"]["structured_metadata"]
+        assert structured["provenance"]["origin_type"] == "remix"
+        assert structured["provenance"]["remix_source"]["platform"] == "makerworld"
+        assert structured["provenance"]["source_platform"] == "printables"
+        assert structured["publishing"]["published_to"] == ["makerworld", "printables"]
+        assert structured["publishing"]["published_urls"] == {
+            "makerworld": "https://makerworld.example/published",
+            "printables": "https://printables.example/model/123",
+        }
+        assert structured["catalog_signals"]["model_rating"] is None
+
 
 class TestDatabaseMigration:
     """Test database schema and migrations."""

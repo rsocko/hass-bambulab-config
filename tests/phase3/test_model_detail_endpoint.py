@@ -226,6 +226,47 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld", "printables"]
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_rating"] == 5
+
+    def test_model_detail_normalizes_structured_metadata(self, client, sample_model_summary):
+        """Detail response normalizes stored structured metadata to canonical platform IDs and rating bounds."""
+        enrichment_data = {
+            "origin_type": "REMIX",
+            "remix_source": {"label": "Original Bin", "platform": "MakerWorld", "url": "https://makerworld.example/original-bin"},
+            "source_platform": "Printables",
+            "published_to": ["MakerWorld", "original_local", "makerworld", "Printables"],
+            "published_urls": {
+                "MakerWorld": "https://makerworld.example/published/bin",
+                "original_local": "https://invalid.example/local",
+                "printables": "https://printables.example/model/123",
+            },
+            "model_rating": 99,
+        }
+
+        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.main.read_model_fields") as mock_fields, \
+             patch("app.main.read_archive_links") as mock_links, \
+             patch("app.main.read_model_ranking") as mock_ranking, \
+             patch.object(client.app.state, "manyfold_client") as mock_client:
+
+            mock_summaries.return_value = [sample_model_summary]
+            mock_fields.return_value = enrichment_data
+            mock_links.return_value = []
+            mock_ranking.return_value = None
+            mock_client.get_model_detail.return_value = {"name": "Test"}
+
+            response = client.get("/api/models/gridfinity-bin/detail")
+            data = response.json()
+
+            structured = data["enrichment"]["structured_metadata"]
+            assert structured["provenance"]["origin_type"] == "remix"
+            assert structured["provenance"]["remix_source"]["platform"] == "makerworld"
+            assert structured["provenance"]["source_platform"] == "printables"
+            assert structured["publishing"]["published_to"] == ["makerworld", "printables"]
+            assert structured["publishing"]["published_urls"] == {
+                "makerworld": "https://makerworld.example/published/bin",
+                "printables": "https://printables.example/model/123",
+            }
+            assert structured["catalog_signals"]["model_rating"] is None
     
     def test_model_detail_includes_linked_archives(self, client, sample_model_summary):
         """Test that linked archives are included in response."""

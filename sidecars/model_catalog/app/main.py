@@ -540,6 +540,38 @@ def _coerce_boolish(value: object | None) -> bool | None:
     return None
 
 
+_CANONICAL_PLATFORM_IDS = {
+    "makerworld",
+    "printables",
+    "thingiverse",
+    "cults3d",
+    "manyfold",
+    "other",
+    "original_local",
+}
+
+_PUBLISHABLE_PLATFORM_IDS = _CANONICAL_PLATFORM_IDS - {"original_local"}
+
+_ALLOWED_ORIGIN_TYPES = {"custom_unique", "remix", "derivative"}
+
+
+def _normalize_platform_id(value: object | None, *, allow_original_local: bool = True) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    allowed = _CANONICAL_PLATFORM_IDS if allow_original_local else _PUBLISHABLE_PLATFORM_IDS
+    if normalized not in allowed:
+        return None
+    return normalized
+
+
+def _normalize_origin_type(value: object | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if normalized in _ALLOWED_ORIGIN_TYPES:
+        return normalized
+    return None
+
+
 def _normalize_string_list(value: object | None) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -565,27 +597,79 @@ def _normalize_string_map(value: object | None) -> dict[str, str]:
     return normalized
 
 
+def _normalize_published_to(value: object | None) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    if not isinstance(value, list):
+        return normalized
+    for item in value:
+        platform_id = _normalize_platform_id(item, allow_original_local=False)
+        if platform_id and platform_id not in seen:
+            seen.add(platform_id)
+            normalized.append(platform_id)
+    return normalized
+
+
+def _normalize_published_urls(
+    value: object | None,
+    *,
+    allowed_platforms: set[str] | None = None,
+) -> dict[str, str]:
+    normalized: dict[str, str] = {}
+    if not isinstance(value, dict):
+        return normalized
+    for raw_key, raw_value in value.items():
+        platform_id = _normalize_platform_id(raw_key, allow_original_local=False)
+        text = str(raw_value or "").strip()
+        if not platform_id or not text:
+            continue
+        if allowed_platforms is not None and platform_id not in allowed_platforms:
+            continue
+        normalized[platform_id] = text
+    return normalized
+
+
+def _normalize_remix_source(value: object | None) -> dict[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    label = str(value.get("label") or "").strip()
+    platform = _normalize_platform_id(value.get("platform"))
+    url = str(value.get("url") or "").strip()
+    if not any((label, platform, url)):
+        return None
+    normalized: dict[str, str] = {}
+    if label:
+        normalized["label"] = label
+    if platform:
+        normalized["platform"] = platform
+    if url:
+        normalized["url"] = url
+    return normalized or None
+
+
 def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict[str, Any]:
     fields = custom_fields or {}
     model_rating = _coerce_int(fields.get("model_rating"))
     if model_rating is not None and not 1 <= model_rating <= 5:
         model_rating = None
 
-    remix_source = fields.get("remix_source")
-    if not isinstance(remix_source, dict):
-        remix_source = None
+    origin_type = _normalize_origin_type(fields.get("origin_type"))
+    remix_source = _normalize_remix_source(fields.get("remix_source"))
+    source_platform = _normalize_platform_id(fields.get("source_platform"))
+    published_to = _normalize_published_to(fields.get("published_to"))
+    published_urls = _normalize_published_urls(fields.get("published_urls"), allowed_platforms=set(published_to) or None)
 
     return {
         "provenance": {
-            "origin_type": str(fields.get("origin_type") or "").strip() or None,
+            "origin_type": origin_type,
             "remix_source": remix_source,
-            "source_platform": str(fields.get("source_platform") or "").strip() or None,
+            "source_platform": source_platform,
             "source_download_url": str(fields.get("source_download_url") or "").strip() or None,
             "internal_notes": str(fields.get("internal_notes") or "").strip() or None,
         },
         "publishing": {
-            "published_to": _normalize_string_list(fields.get("published_to")),
-            "published_urls": _normalize_string_map(fields.get("published_urls")),
+            "published_to": published_to,
+            "published_urls": published_urls,
         },
         "catalog_signals": {
             "model_favorite": _coerce_boolish(fields.get("model_favorite")),
@@ -605,39 +689,67 @@ def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, 
     if isinstance(structured_metadata, dict):
         provenance = structured_metadata.get("provenance")
         if isinstance(provenance, dict):
-            for field_key in (
-                "origin_type",
-                "remix_source",
-                "source_platform",
-                "source_download_url",
-                "internal_notes",
-            ):
+            if "origin_type" in provenance:
+                normalized_origin_type = _normalize_origin_type(provenance.get("origin_type"))
+                if normalized_origin_type is None:
+                    clears.add("origin_type")
+                else:
+                    normalized["origin_type"] = normalized_origin_type
+            if "remix_source" in provenance:
+                normalized_remix_source = _normalize_remix_source(provenance.get("remix_source"))
+                if normalized_remix_source is None:
+                    clears.add("remix_source")
+                else:
+                    normalized["remix_source"] = normalized_remix_source
+            if "source_platform" in provenance:
+                normalized_source_platform = _normalize_platform_id(provenance.get("source_platform"))
+                if normalized_source_platform is None:
+                    clears.add("source_platform")
+                else:
+                    normalized["source_platform"] = normalized_source_platform
+            for field_key in ("source_download_url", "internal_notes"):
                 if field_key not in provenance:
                     continue
-                if provenance.get(field_key) is None:
+                value = str(provenance.get(field_key) or "").strip()
+                if not value:
                     clears.add(field_key)
                 else:
-                    normalized[field_key] = provenance.get(field_key)
+                    normalized[field_key] = value
 
         publishing = structured_metadata.get("publishing")
         if isinstance(publishing, dict):
-            for field_key in ("published_to", "published_urls"):
-                if field_key not in publishing:
-                    continue
-                if publishing.get(field_key) is None:
-                    clears.add(field_key)
+            normalized_published_to: list[str] | None = None
+            if "published_to" in publishing:
+                normalized_published_to = _normalize_published_to(publishing.get("published_to"))
+                if not normalized_published_to:
+                    clears.add("published_to")
                 else:
-                    normalized[field_key] = publishing.get(field_key)
+                    normalized["published_to"] = normalized_published_to
+            if "published_urls" in publishing:
+                allowed_platforms = set(normalized_published_to) if normalized_published_to else None
+                normalized_published_urls = _normalize_published_urls(
+                    publishing.get("published_urls"),
+                    allowed_platforms=allowed_platforms,
+                )
+                if not normalized_published_urls:
+                    clears.add("published_urls")
+                else:
+                    normalized["published_urls"] = normalized_published_urls
 
         catalog_signals = structured_metadata.get("catalog_signals")
         if isinstance(catalog_signals, dict):
-            for field_key in ("model_favorite", "model_rating"):
-                if field_key not in catalog_signals:
-                    continue
-                if catalog_signals.get(field_key) is None:
-                    clears.add(field_key)
+            if "model_favorite" in catalog_signals:
+                normalized_model_favorite = _coerce_boolish(catalog_signals.get("model_favorite"))
+                if normalized_model_favorite is None:
+                    clears.add("model_favorite")
                 else:
-                    normalized[field_key] = catalog_signals.get(field_key)
+                    normalized["model_favorite"] = normalized_model_favorite
+            if "model_rating" in catalog_signals:
+                normalized_model_rating = _coerce_int(catalog_signals.get("model_rating"))
+                if normalized_model_rating is None or not 1 <= normalized_model_rating <= 5:
+                    clears.add("model_rating")
+                else:
+                    normalized["model_rating"] = normalized_model_rating
 
     for key, value in enrichment.items():
         if key == "structured_metadata":
