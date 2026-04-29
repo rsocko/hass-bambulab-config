@@ -336,3 +336,52 @@ class TestModelDetailEndpoint:
             assert "support_type_hint" in enrichment
             assert "difficulty_level" in enrichment
             assert "print_notes" in enrichment
+
+    def test_update_model_endpoint_persists_structured_metadata(self, client, sample_model_summary):
+        """PATCH /api/models/{model_ref} round-trips nested structured metadata for Manyfold-backed models."""
+        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.main.read_archive_links") as mock_links, \
+             patch("app.main.read_model_ranking") as mock_ranking, \
+             patch("app.main.refresh_manyfold_cache") as mock_refresh_cache, \
+             patch.object(client.app.state, "manyfold_client") as mock_client:
+
+            mock_summaries.return_value = [sample_model_summary]
+            mock_links.return_value = []
+            mock_ranking.return_value = None
+            mock_refresh_cache.return_value = None
+            mock_client.get_model_detail.return_value = {
+                "name": "Gridfinity Bin",
+                "description": "Updated detail",
+                "keywords": ["gridfinity", "updated"],
+                "files": [],
+            }
+
+            response = client.patch(
+                "/api/models/gridfinity-bin",
+                json={
+                    "enrichment": {
+                        "structured_metadata": {
+                            "provenance": {
+                                "origin_type": "remix",
+                                "source_platform": "makerworld",
+                            },
+                            "publishing": {
+                                "published_to": ["makerworld"],
+                            },
+                            "catalog_signals": {
+                                "model_favorite": True,
+                                "model_rating": 5,
+                            },
+                        }
+                    }
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
+            assert data["enrichment"]["structured_metadata"]["provenance"]["source_platform"] == "makerworld"
+            assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld"]
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_rating"] == 5
+            mock_client.update_model.assert_not_called()

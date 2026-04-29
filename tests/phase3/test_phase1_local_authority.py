@@ -653,6 +653,44 @@ class TestListModelsEndpointMerge:
         result_urls = [result["model_url"] for result in search_payload["results"]]
         assert "local://local-001" in result_urls
 
+    def test_update_local_model_endpoint_persists_structured_metadata(self, app_with_local_models):
+        """PATCH /api/models/{model_ref} accepts nested structured metadata and persists it."""
+        client, db = app_with_local_models
+        response = client.patch(
+            "/api/models/local-001",
+            json={
+                "enrichment": {
+                    "structured_metadata": {
+                        "provenance": {
+                            "origin_type": "derivative",
+                            "source_platform": "printables",
+                            "internal_notes": "Phase 2 round-trip",
+                        },
+                        "publishing": {
+                            "published_to": ["printables"],
+                            "published_urls": {
+                                "printables": "https://printables.example/model/123"
+                            },
+                        },
+                        "catalog_signals": {
+                            "model_favorite": False,
+                            "model_rating": 4,
+                        },
+                    }
+                },
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        structured = payload["enrichment"]["structured_metadata"]
+        assert structured["provenance"]["origin_type"] == "derivative"
+        assert structured["provenance"]["source_platform"] == "printables"
+        assert structured["provenance"]["internal_notes"] == "Phase 2 round-trip"
+        assert structured["publishing"]["published_to"] == ["printables"]
+        assert structured["publishing"]["published_urls"]["printables"] == "https://printables.example/model/123"
+        assert structured["catalog_signals"]["model_favorite"] is False
+        assert structured["catalog_signals"]["model_rating"] == 4
+
 
 class TestDatabaseMigration:
     """Test database schema and migrations."""

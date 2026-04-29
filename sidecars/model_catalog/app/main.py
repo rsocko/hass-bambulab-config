@@ -594,6 +594,47 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     }
 
 
+def _normalize_enrichment_updates(enrichment: object | None) -> dict[str, object]:
+    if not isinstance(enrichment, dict):
+        return {}
+
+    normalized: dict[str, object] = {}
+
+    structured_metadata = enrichment.get("structured_metadata")
+    if isinstance(structured_metadata, dict):
+        provenance = structured_metadata.get("provenance")
+        if isinstance(provenance, dict):
+            for field_key in (
+                "origin_type",
+                "remix_source",
+                "source_platform",
+                "source_download_url",
+                "internal_notes",
+            ):
+                if provenance.get(field_key) is not None:
+                    normalized[field_key] = provenance.get(field_key)
+
+        publishing = structured_metadata.get("publishing")
+        if isinstance(publishing, dict):
+            for field_key in ("published_to", "published_urls"):
+                if publishing.get(field_key) is not None:
+                    normalized[field_key] = publishing.get(field_key)
+
+        catalog_signals = structured_metadata.get("catalog_signals")
+        if isinstance(catalog_signals, dict):
+            for field_key in ("model_favorite", "model_rating"):
+                if catalog_signals.get(field_key) is not None:
+                    normalized[field_key] = catalog_signals.get(field_key)
+
+    for key, value in enrichment.items():
+        if key == "structured_metadata":
+            continue
+        if value is not None:
+            normalized[key] = value
+
+    return normalized
+
+
 def _compute_recent_score(*, last_printed_at: str | None, reference_time: datetime) -> float | None:
     parsed = _parse_iso_datetime(last_printed_at)
     if parsed is None:
@@ -3467,6 +3508,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         tags = payload.get("tags")
         collection = payload.get("collection")
         enrichment = payload.get("enrichment")
+        normalized_enrichment = _normalize_enrichment_updates(enrichment)
         
         # Resolve model reference
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -3487,15 +3529,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
             if updated_entry is None:
                 return JSONResponse(status_code=404, content={"error": "Model not found"})
-            if isinstance(enrichment, dict):
-                for key, value in enrichment.items():
-                    if value is not None:
-                        set_model_field(
-                            db_path=state.settings.db_path,
-                            model_ref=str(summary.public_id or model_ref),
-                            field_key=key,
-                            field_value=value,
-                        )
+            for key, value in normalized_enrichment.items():
+                set_model_field(
+                    db_path=state.settings.db_path,
+                    model_ref=str(summary.public_id or model_ref),
+                    field_key=key,
+                    field_value=value,
+                )
             return get_model_detail_endpoint(request, model_ref)
         
         # Build update payload for Manyfold (only include fields that are provided)
@@ -3525,15 +3565,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 return JSONResponse(status_code=502, content={"error": f"Failed to update model in Manyfold: {e}"})
         
         # Update enrichment fields in local database (these are HA-only)
-        if isinstance(enrichment, dict):
-            for key, value in enrichment.items():
-                if value is not None:
-                    set_model_field(
-                        db_path=state.settings.db_path,
-                        model_ref=str(summary.public_id or summary.model_id),
-                        field_key=key,
-                        field_value=value
-                    )
+        for key, value in normalized_enrichment.items():
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=str(summary.public_id or summary.model_id),
+                field_key=key,
+                field_value=value
+            )
         
         # Return updated model detail
         return get_model_detail_endpoint(request, model_ref)
