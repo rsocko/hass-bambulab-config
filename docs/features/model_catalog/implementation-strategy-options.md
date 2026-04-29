@@ -1,7 +1,15 @@
 # Implementation Strategy Options
 
 > **Status**: Decision reference.
-> **Last updated**: 2026-04-22
+> **Last updated**: 2026-04-28
+
+## Decision Update
+
+This document now serves as historical context. The active strategy is recorded in [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md):
+
+- sidecar-owned custom catalog authority
+- Manyfold retired from active operational path
+- sequential post-Manyfold phase execution
 
 ## Purpose
 
@@ -34,13 +42,22 @@ Implement required capabilities by extending Manyfold directly via fork and/or u
 | Curated catalog enhancement fit | Good | Good | Good for broadly useful native features |
 | Long-term maintainability | Good | Good | Good only if upstreamed; weaker if long-lived fork |
 
-## Recommendation
+## Historical Recommendation (Superseded)
 
-Approved baseline:
+Previously approved baseline:
 
-- prefer **same-stack sidecar** when operationally convenient
-- continue using **Manyfold REST** as the primary integration contract
-- avoid **direct Manyfold DB writes** as the baseline product strategy
+- preferred **same-stack sidecar** when operationally convenient
+- continued using **Manyfold REST** as the primary integration contract
+- avoided **direct Manyfold DB writes** as the baseline product strategy
+
+## Active Strategy (Current)
+
+Active baseline now:
+
+- sidecar is the source of truth for model metadata and model assets
+- sidecar APIs provide CRUD/search/filter/file workflows used by HA
+- archive linkage remains sidecar-owned and Bambuddy-aligned
+- Manyfold support is optional and non-critical (future read-only adapter only)
 
 ## Why Same-Stack Wins
 

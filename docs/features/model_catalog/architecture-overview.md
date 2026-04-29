@@ -1,8 +1,17 @@
 # Model Catalog — Architecture Overview
 
-> **Status**: Approved design baseline.
-> **Last updated**: 2026-04-22
-> **Scope**: Single-user personal model catalog with Working-file veneer, curated Manyfold catalog, and Bambuddy-backed archive intelligence.
+> **Status**: Approved baseline with post-Manyfold transition in execution.
+> **Last updated**: 2026-04-28
+> **Scope**: Single-user personal model catalog with sidecar-owned curated catalog + Working veneer, and Bambuddy-backed archive intelligence.
+
+## Transition Authority Note
+
+This document contains historical architectural context and current-state boundaries, but the authoritative migration direction is now captured in [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md).
+
+Final authority decision:
+
+- sidecar-owned custom catalog is the active curated catalog authority
+- Manyfold is retired from the active operational path (optional future read-only adapter only)
 
 ## Problem Statement
 
@@ -15,14 +24,14 @@ The repo already has strong archive-centric workflows via Bambuddy and `print_hi
 - structured metadata that does not naturally belong in Manyfold
 - a practical operator surface in Home Assistant
 
-The final design has to respect what Manyfold can actually do today, not what would be convenient if its API were broader.
+The final design must preserve clean authority boundaries across sidecar, Bambuddy, and HA while completing migration away from Manyfold-backed authority.
 
 ## Approved Topology
 
 The approved architecture separates three zones:
 
 1. **Working veneer** — filesystem-native files and logical groups managed by the sidecar
-2. **Curated catalog** — stable Manyfold-backed model records and files
+2. **Curated catalog** — stable sidecar-owned model records and assets
 3. **Archive intelligence** — Bambuddy archives, runtime facts, filament usage, and print-history context
 
 ```
@@ -33,7 +42,7 @@ The approved architecture separates three zones:
           |
           | publish new canonical revision
           v
-[Curated catalog entry in Manyfold] <-----> [Catalog sidecar]
+[Curated catalog entry in sidecar] <-----> [Catalog sidecar]
           |                                      |
           | linked model summary, ranking        | linkage, custom fields,
           v                                      | working groups, caches,
@@ -45,32 +54,32 @@ The approved architecture separates three zones:
 
 ## Baseline Decisions
 
-### Manyfold Is The Curated Catalog Authority
+### Sidecar Is The Curated Catalog Authority
 
-Manyfold owns:
+Sidecar catalog owns:
 
 - model records
-- curated model files
-- preview selection and derivative-backed visual browsing
-- tags, creators, collections, and human-facing notes
+- model asset graph (multiple files per model)
+- metadata fields including tags, creators, collections, links, and notes
+- preview asset selection and local enrichment state
 
-Manyfold does **not** own:
+Manyfold does **not** own active catalog authority for this feature set.
 
-- Working-file group state
-- archive linkage state
-- print queue or backlog state
-- ranking fields such as recent/common/frequent overrides
-- provenance or custom metadata that has no clean native home in Manyfold
+The sidecar still separates and preserves non-catalog authorities:
+
+- Bambuddy archive truth and runtime telemetry
+- printer queue execution semantics
+- HA operator surface state
 
 ### Working Is Filesystem-Native And Sidecar-Owned
 
-The `Working` area is intentionally outside Manyfold by default.
+The `Working` area is intentionally outside archive and runtime systems by default and remains sidecar-owned.
 
 Reasons:
 
 - active edits need unrestricted filesystem access
 - filenames and folder structure may churn during iteration
-- Manyfold's scanned external-library model is folder-oriented and path-sensitive
+- shared external-library assumptions are path-sensitive and must avoid dual-write ownership
 - the sidecar can provide grouping and status without forcing an unstable tree into the curated catalog
 
 The Working experience should be implemented as a sidecar/HA veneer with logical grouping, notes, stage tracking, and quick-open actions.
@@ -91,7 +100,7 @@ The catalog uses Bambuddy archives as a navigation and ranking input, not as the
 
 ### Recommended Curated Storage Direction
 
-For curated storage, the preferred baseline is to let Manyfold manage organization when practical.
+For curated storage, the preferred baseline is sidecar-owned storage and indexing with explicit asset typing.
 
 Why:
 
@@ -102,7 +111,7 @@ Why:
 This means the default recommendation is:
 
 - **Working**: external filesystem, sidecar-owned veneer
-- **Curated catalog**: Manyfold catalog, with Manyfold-managed/internal-style organization preferred when the operator wants Manyfold to own structure
+- **Curated catalog**: sidecar-owned local catalog and asset graph
 
 ### External Scanned Storage Is Still Valid, But Narrower
 
@@ -149,7 +158,7 @@ The preferred deployment shape is a same-stack sidecar:
 
 The baseline explicitly avoids treating direct Manyfold DB writes as a supported product path.
 
-See [Implementation Strategy Options](implementation-strategy-options.md) for the full decision matrix.
+See [Implementation Strategy Options](implementation-strategy-options.md) and [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) for the active execution direction.
 
 ## Working Groups
 

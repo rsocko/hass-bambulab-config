@@ -1,8 +1,26 @@
 # Phase Delivery And Validation Tracker
 
 > **Status**: Active execution tracker.
-> **Last updated**: 2026-04-25
+> **Last updated**: 2026-04-28
 > **Purpose**: Turn the phased implementation plan into concrete, reviewable deliverables with validation gates.
+
+## Authoritative Roadmap Update
+
+The authoritative phase roadmap is now the sequential post-Manyfold plan in [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md).
+
+Use the following sequence for active execution:
+
+1. Phase 1 - Authority Pivot Foundation
+2. Phase 2 - Canonical Data Model Expansion
+3. Phase 3 - API and Storage Cutover
+4. Phase 4 - UI Continuity and In-Flight Preservation
+5. Phase 5 - Intake, Bulk Discovery, and Working/Curated Unification
+6. Phase 6 - Search, Ranking, and Enrichment Parity
+7. Phase 7 - Data Migration and Compatibility Layer
+8. Phase 8 - Docs and Issue Realignment
+9. Phase 9 - Future Integrations and Advanced Work
+
+Legacy phase sections below are retained for implementation history and crosswalk only.
 
 ## How To Use This Tracker
 

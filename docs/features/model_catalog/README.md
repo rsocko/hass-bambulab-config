@@ -1,8 +1,20 @@
 # Model Catalog — Feature Overview
 
-> **Status**: Revised design baseline with Phase 2 archive-linkage slice implemented.
-> **Last updated**: 2026-04-23
-> **Scope**: Single-user personal 3D model catalog spanning Manyfold, Bambuddy, a catalog sidecar, and Home Assistant.
+> **Status**: Revised design baseline with approved post-Manyfold transition.
+> **Last updated**: 2026-04-28
+> **Scope**: Single-user personal 3D model catalog with sidecar-owned catalog authority, Bambuddy archive authority, and Home Assistant operator surfaces.
+
+## Transition Note (Authoritative)
+
+The active implementation direction has changed from Manyfold-backed catalog authority to a sidecar-owned custom catalog authority.
+
+See [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) for:
+
+- final authority decision
+- sequential phase renumbering
+- migration priority matrix
+- legacy-to-new phase crosswalk
+- GitHub issue migration policy
 
 ## Purpose
 
@@ -14,9 +26,9 @@ Provide a cohesive operator surface for managing personal 3D model assets across
 
 The approved baseline is:
 
-- Manyfold is the authority for the curated catalog
+- sidecar-owned custom model catalog is the authority for curated records and model metadata
 - Bambuddy is the authority for print archives and printer/runtime workflows
-- a dedicated catalog sidecar owns cross-system linkage, Working-file veneer, ranking signals, and custom metadata that does not belong in Manyfold
+- a dedicated catalog sidecar owns cross-system linkage, Working-file veneer, ranking signals, and model assets
 - Home Assistant is the operator-facing control plane
 
 External sources such as Printables and Makerworld are in scope for discovery, provenance capture, and optional ingestion. Tracking publication destinations and links as operator-managed metadata is also in scope. Actual publish execution or broader social workflows remain out of scope.
@@ -42,15 +54,17 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
 - [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
 
-### Manyfold Constraints
+### Historical/Compatibility Context
 
-- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Verified API coverage, corrected assumptions from issue review, and implications for this feature
+- [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) — Authoritative migration plan and sequential phase roadmap
+- [Manyfold API Gap Analysis](manyfold-api-gap-analysis-2026-04-21.md) — Historical analysis retained for context and optional future adapter work
 - [External Storage Behavior](external-storage-behavior.md) — Source-verified behavior for filesystem-scanned libraries, missing files, rescans, and recovery paths
 - [Implementation Strategy Options](implementation-strategy-options.md) — Decision matrix comparing pure sidecar, same-stack sidecar, and direct Manyfold enhancement/forking
 - [Persistence And Backup Strategy](persistence-and-backup-strategy.md) — Phase 1.25 persistence boundary, backup/restore runbook shape, named-volume vs bind-mount tradeoffs, and backup-tool comparison
 
 ### Data Model And Working Layer
 
+- [Persistence Strategy and Database Graduation Path](persistence-strategy-and-graduation.md) — SQLite baseline decision, graduation criteria to Postgres, SQLAlchemy ORM migration path (3-4 day effort), and Phase 6+ evaluation checkpoints
 - [ER Diagrams and Sidecar Datamodel](planning/model-catalog-er-diagrams.md) — Complete sidecar SQLite schema (Diagrams A–D), Manyfold API contract, sidecar field touchpoint matrix, and maintenance checklist
 - [3MF Analysis Cache Schema And API Draft](planning/3mf-analysis-cache-schema-and-api-draft.md) — Proposed SQLite tables and `/api/3mf-analysis/...` contract for Phase 3.5 parser/cache work tracked in issue #1135
 - [Manyfold-Bambuddy Linkage Model](manyfold-bambuddy-linkage-model.md) — Data model and ownership split for archive-to-model links
@@ -78,7 +92,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 | Component | Role | Authority |
 |---|---|---|
-| Manyfold | Curated model catalog: model records, files, previews, tags, creators, collections | Separate Docker service |
+| Sidecar Model Catalog | Curated model catalog: model records, files/assets, metadata, previews, and enrichment state | Separate Docker service |
 | Bambuddy | Archive truth: print history, runtime metrics, spool tracking, queue, archive media | Separate Docker service |
 | Model Catalog Sidecar | Cross-system logic: Working groups, linkage, custom fields, ranking, ingestion, 3MF parsing, photo proxy | Separate Docker service |
 | Local Sidecar DB | Persistent sidecar state: links, fields, Working groups, review states, caches | Owned by sidecar |
@@ -88,7 +102,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ### In Scope
 
-- curated Manyfold catalog browsing and enrichment
+- curated sidecar catalog browsing and enrichment
 - archive-to-model linkage and review
 - Working-file veneer with logical grouping
 - quick reprint, recent/common/frequent signals derived from archive history and sidecar fields
@@ -98,9 +112,8 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 ### Deliberately Out Of Scope For The Baseline
 
 - managing `Downloads/` as a first-class system
-- true Manyfold storage-mode conversion workflows
-- relying on Manyfold DB internals as the primary integration contract
-- reimplementing all native Manyfold admin and library-management flows in HA
+- requiring Manyfold for active catalog CRUD or uploads
+- active bidirectional sync with Manyfold as a baseline requirement
 - full social/publishing parity with Manyfold's native UI
 
 ## Issue Alignment

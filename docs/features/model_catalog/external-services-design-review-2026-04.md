@@ -1,5 +1,7 @@
 # Model Library External Services Design Review (2026-04)
 
+> Update 2026-04-28: The repo has selected a post-Manyfold transition path where sidecar-owned custom catalog authority is active. This review remains useful for alternatives context and future optional adapters.
+
 ## Scope
 
 This review revisits the model-library decision as a broader external-services comparison rather than assuming the answer is only `Manyfold` vs `Bambuddy`.
@@ -205,11 +207,11 @@ Less useful carry-over findings:
 
 ### Short Answer
 
-The decision is not literally only `Manyfold` vs `Bambuddy`, but after a broader pass they are still the two tools that matter most for this repo's actual model-library problem.
+The decision is not literally only `Manyfold` vs `Bambuddy`. In active execution, the repo is now moving to sidecar-owned catalog authority while retaining this analysis for alternatives context.
 
 ### Best Dedicated Library Choice
 
-`Manyfold` remains the best dedicated self-hosted model-library candidate.
+Historically, `Manyfold` was the best dedicated self-hosted model-library candidate.
 
 Why:
 
@@ -229,12 +231,14 @@ Why:
 
 ### Best Overall Architecture
 
-The best overall model-library architecture is still:
+The currently selected operational architecture is:
 
 - Bambuddy as runtime archive authority
-- Manyfold as optional curated source-library authority
+- sidecar as curated catalog authority
 - Home Assistant as the operator-facing control plane
-- a small adjunct link layer if strong archive-to-library provenance is required
+- a sidecar-owned link layer for strong archive-to-library provenance
+
+Manyfold is now out of the active critical path and may return only as an optional read-only adapter in future phases.
 
 ### What Did Not Change The Recommendation
 
