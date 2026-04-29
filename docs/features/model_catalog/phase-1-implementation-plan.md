@@ -1,6 +1,6 @@
 # Phase 1 Implementation Plan: Authority Pivot to Local Model CRUD
 
-> **Status**: In Progress — Ready for implementation  
+> **Status**: Complete — Implemented and live; migration-helper work deferred to Phase 7  
 > **Issue**: #1129  
 > **Target completion**: 5-7 working days  
 > **Date started**: 2026-04-28
@@ -44,8 +44,8 @@ Replace Manyfold-dependent read paths with local model CRUD authority in SQLite.
    - Document which endpoints now use local authority
 
 5. ✅ **Data migration preparation**
-   - Create migration helpers to convert Manyfold cache → local entries (not executed yet)
-   - Design for Phase 7 data migration without schema thrashing
+    - Defer cache → local conversion helpers to Phase 7 (not implemented in Phase 1 by design)
+    - Keep the Phase 1 schema migration-safe so Phase 7 can add conversion/import helpers without schema thrashing
 
 ### Phase 1 Constraints (Out of Scope)
 
@@ -529,6 +529,8 @@ After Phase 1 completion, the sidecar will:
 ✅ Return local models from existing `/api/models` endpoint (backward-compatible)  
 ✅ Keep HA services working without changes  
 ✅ Be ready for Phase 2 (expanded metadata) and Phase 5 (bulk intake)
+
+Phase 1 does **not** include a cache-to-local import path. That work is intentionally deferred to Phase 7 alongside broader data migration and compatibility-layer execution.
 
 ---
 
