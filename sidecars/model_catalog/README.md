@@ -12,6 +12,12 @@ Current scope:
 - Health, config, and diagnostics endpoints
 - Archive-link read contract endpoint for HA/print_history integration
 
+Unified endpoint authority modes:
+
+- `local` - local SQLite authority only for `/api/models` and `/api/models/search` (default for the standalone stack)
+- `hybrid` - merge frozen Manyfold cache with local models for compatibility
+- `manyfold` - legacy compatibility mode backed by Manyfold cache
+
 ## Quick Start
 
 ```bash
@@ -103,6 +109,7 @@ Suggested `.env` entries:
 ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
 MODEL_CATALOG_IMAGE_TAG=0.1.0
 MODEL_CATALOG_HOSTNAME=model-catalog.socko.us
+MODEL_CATALOG_AUTHORITY_MODE=local
 MANYFOLD_BASE_URL=http://manyfold:3214
 MANYFOLD_CLIENT_ID=
 MANYFOLD_CLIENT_SECRET=

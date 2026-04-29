@@ -116,9 +116,91 @@ def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
     )
 
 
+def _normalized_authority_mode(settings: Settings) -> str:
+    normalized = str(getattr(settings, "authority_mode", "hybrid") or "hybrid").strip().lower()
+    if normalized not in {"local", "hybrid", "manyfold"}:
+        return "hybrid"
+    return normalized
+
+
+def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
+    return str(summary.model_url or "").startswith("local://")
+
+
+def _read_local_summaries(*, db_path: Any) -> list[ManyfoldModelSummary]:
+    local_entries, _local_total = list_local_models(db_path=db_path, limit=10000, offset=0)
+    return [_local_entry_to_summary(entry) for entry in local_entries]
+
+
 def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
-    summaries = read_cached_manyfold_summaries(db_path=db_path)
+    summaries = [*_read_local_summaries(db_path=db_path), *read_cached_manyfold_summaries(db_path=db_path)]
     return {summary.model_url: summary for summary in summaries}
+
+
+def _load_runtime_summaries(
+    *,
+    settings: Settings,
+    client: ManyfoldClient,
+    refresh: bool,
+) -> tuple[list[ManyfoldModelSummary], str, dict[str, Any]]:
+    authority_mode = _normalized_authority_mode(settings)
+    refresh_status: dict[str, Any] = {
+        "refresh_requested": bool(refresh),
+        "outcome": "cache_only",
+        "preserved_cache": False,
+        "authority_mode": authority_mode,
+    }
+
+    local_summaries = _read_local_summaries(db_path=settings.db_path)
+    manyfold_summaries: list[ManyfoldModelSummary] = []
+    manyfold_source = "cache"
+
+    if authority_mode in {"hybrid", "manyfold"}:
+        if refresh:
+            try:
+                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+                refresh_status.update(refresh_meta)
+                manyfold_source = "manyfold"
+            except Exception as error:
+                fallback_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
+                if fallback_summaries:
+                    manyfold_summaries = fallback_summaries
+                    refresh_status.update(
+                        {
+                            "outcome": "refresh_failed_cache_retained",
+                            "preserved_cache": True,
+                            "error": str(error),
+                            "error_type": type(error).__name__,
+                        }
+                    )
+                else:
+                    raise
+        else:
+            manyfold_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
+            if not manyfold_summaries:
+                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+                refresh_status = {
+                    "refresh_requested": False,
+                    "authority_mode": authority_mode,
+                    **refresh_meta,
+                }
+                manyfold_source = "manyfold"
+
+    if authority_mode == "local":
+        refresh_status.update(
+            {
+                "outcome": "local_authority_only",
+                "preserved_cache": bool(read_cached_manyfold_summaries(db_path=settings.db_path)),
+            }
+        )
+        return local_summaries, "local", refresh_status
+    if authority_mode == "manyfold":
+        return manyfold_summaries, manyfold_source, refresh_status
+    if local_summaries and manyfold_summaries:
+        return [*manyfold_summaries, *local_summaries], f"{manyfold_source}+local", refresh_status
+    if local_summaries:
+        return local_summaries, "local", refresh_status
+    return manyfold_summaries, manyfold_source, refresh_status
 
 
 def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
@@ -133,6 +215,28 @@ def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], mode
         if normalized_ref == str(summary.model_id or "").strip():
             return summary
     return None
+
+
+def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
+    serialized: list[dict[str, Any]] = []
+    for asset in assets:
+        filename = str(getattr(asset, "asset_filename", "") or "").strip()
+        preview_url = str(getattr(asset, "preview_url", "") or "").strip() or None
+        serialized.append(
+            {
+                "id": str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+                "file_id": str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+                "filename": filename,
+                "name": filename,
+                "download_url": None,
+                "content_type": str(getattr(asset, "asset_type", "") or "").strip() or None,
+                "image_url": preview_url,
+                "thumbnail_url": preview_url,
+                "created_at": getattr(asset, "created_at", None),
+                "asset_role": getattr(asset, "asset_role", None),
+            }
+        )
+    return serialized
 
 
 def _coerce_int(value: object | None) -> int | None:
@@ -1105,6 +1209,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     def config() -> dict[str, Any]:
         state: AppState = app.state.model_catalog
         return {
+            "authority_mode": _normalized_authority_mode(state.settings),
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
             "manyfold_collections_path": state.settings.manyfold_collections_path,
@@ -1155,6 +1260,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         return {
             "service": "model-catalog",
+            "authority_mode": _normalized_authority_mode(state.settings),
             "db_tables": list(state.db_info.tables),
             "schema_version": state.db_info.schema_version,
             "manyfold_base_url": state.settings.manyfold_base_url,
@@ -1759,48 +1865,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         state: AppState = app.state.model_catalog
         client: ManyfoldClient = app.state.manyfold_client
         preview_proxy_base_url = str(request.url_for("proxy_model_preview"))
-        refresh_status: dict[str, Any] = {
-            "refresh_requested": bool(refresh),
-            "outcome": "cache_only",
-            "preserved_cache": False,
-        }
-        if refresh:
-            try:
-                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-                refresh_status.update(refresh_meta)
-                source = "manyfold"
-            except Exception as error:
-                fallback_summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
-                if fallback_summaries:
-                    summaries = fallback_summaries
-                    refresh_status.update(
-                        {
-                            "outcome": "refresh_failed_cache_retained",
-                            "preserved_cache": True,
-                            "error": str(error),
-                            "error_type": type(error).__name__,
-                        }
-                    )
-                    source = "cache"
-                else:
-                    raise
-        else:
-            summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
-            source = "cache"
-            if not summaries:
-                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-                refresh_status = {
-                    "refresh_requested": False,
-                    **refresh_meta,
-                }
-                source = "manyfold"
-
-        # Merge local model entries (Phase 1 local authority)
-        local_entries, _local_total = list_local_models(db_path=state.settings.db_path, limit=10000, offset=0)
-        local_summaries = [_local_entry_to_summary(entry) for entry in local_entries]
-        all_summaries = summaries + local_summaries
-        if local_summaries:
-            source = f"{source}+local" if source != "local" else "local"
+        all_summaries, source, refresh_status = _load_runtime_summaries(
+            settings=state.settings,
+            client=client,
+            refresh=refresh,
+        )
 
         ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
         link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
@@ -1854,42 +1923,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     ) -> dict[str, Any]:
         """Search curated catalog with pagination and filtering support."""
         state: AppState = app.state.model_catalog
-        refresh_status: dict[str, Any] = {
-            "refresh_requested": bool(refresh),
-            "outcome": "cache_only",
-            "preserved_cache": False,
-        }
+        client: ManyfoldClient = app.state.manyfold_client
         
         # Clamp pagination parameters
         page = max(1, page)
         per_page = max(1, min(per_page, 100))
         
-        # Get cached models (refresh if requested or empty)
-        summaries = read_cached_manyfold_summaries(db_path=state.settings.db_path)
-        if refresh or not summaries:
-            client: ManyfoldClient = app.state.manyfold_client
-            try:
-                summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-                refresh_status = {
-                    "refresh_requested": bool(refresh),
-                    **refresh_meta,
-                }
-            except Exception as error:
-                if summaries:
-                    refresh_status = {
-                        "refresh_requested": bool(refresh),
-                        "outcome": "refresh_failed_cache_retained",
-                        "preserved_cache": True,
-                        "error": str(error),
-                        "error_type": type(error).__name__,
-                    }
-                else:
-                    raise
-        
-        # Merge local model entries (Phase 1 local authority)
-        local_entries, _local_total = list_local_models(db_path=state.settings.db_path, limit=10000, offset=0)
-        local_summaries = [_local_entry_to_summary(entry) for entry in local_entries]
-        summaries = summaries + local_summaries
+        summaries, _source, refresh_status = _load_runtime_summaries(
+            settings=state.settings,
+            client=client,
+            refresh=refresh,
+        )
 
         # Parse search query into tokens
         query_tokens = _normalize_tokens(q or "")
@@ -2997,6 +3041,91 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "model_ref": model_ref,
                 }
             )
+
+        if _is_local_summary(summary):
+            local_model_id = str(summary.public_id or model_ref or "").strip()
+            entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id)
+            if entry is None:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "error": "model_not_found",
+                        "model_ref": model_ref,
+                    }
+                )
+
+            custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=local_model_id) or {}
+            archive_links: list[ArchiveModelLink] = []
+            ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
+            assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+            preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
+            response: dict[str, Any] = {
+                "success": True,
+                "model_ref": model_ref,
+                "manyfold_model_url": summary.model_url,
+                "model": {
+                    "public_id": summary.public_id,
+                    "model_id": summary.model_id,
+                    "name": entry.model_name,
+                    "description": entry.model_description or "",
+                    "preview_url": entry.preview_image_url,
+                    "creator_name": entry.creator_name,
+                    "collection_names": list(entry.collection_names),
+                    "keywords": list(entry.keyword_names),
+                    "files": _serialize_local_model_assets(assets=assets),
+                    "preview_file_id": None,
+                    "created_at": entry.created_at,
+                    "updated_at": entry.updated_at,
+                },
+                "enrichment": {
+                    "custom_fields": {
+                        key: value
+                        for key, value in custom_fields.items()
+                        if key not in {MODEL_UPLOAD_PHOTOS_FIELD, MODEL_PREVIEW_PHOTO_FIELD}
+                    },
+                    "color_scheme": custom_fields.get("color_scheme", []),
+                    "print_time_estimate": custom_fields.get("print_time_estimate"),
+                    "support_type_hint": custom_fields.get("support_type_hint"),
+                    "multi_color_scheme": custom_fields.get("multi_color_scheme"),
+                    "difficulty_level": custom_fields.get("difficulty_level"),
+                    "print_notes": custom_fields.get("print_notes"),
+                    "external_reference": custom_fields.get("external_reference"),
+                    "bambuddy_project_id": custom_fields.get("bambuddy_project_id"),
+                },
+                "photos": _serialize_uploaded_photo_rows(
+                    request=request,
+                    settings=state.settings,
+                    model_ref=local_model_id,
+                    preview_photo_id=preview_photo_id,
+                    uploaded_rows=_read_uploaded_photo_rows(db_path=state.settings.db_path, model_ref=local_model_id),
+                ),
+                "preview_photo_id": preview_photo_id,
+                "ranking": None if ranking is None else _ranking_payload(ranking),
+                "linked_archives": [
+                    {
+                        "archive_id": link.archive_id,
+                        "model_url": link.manyfold_model_url,
+                        "link_id": link.id,
+                        "review_state": link.review_state,
+                        "is_active": link.is_active,
+                        "match_method": link.match_method,
+                        "match_confidence": link.match_confidence,
+                        "created_at": link.created_at,
+                        "updated_at": link.updated_at,
+                    }
+                    for link in archive_links
+                ],
+                "link_count": len(archive_links),
+                "degraded": False,
+            }
+            if include_debug:
+                response["_debug"] = {
+                    "resolved_ref": local_model_id,
+                    "authority": "local",
+                    "asset_count": len(assets),
+                }
+            return response
         
         resolved_ref = summary.public_id or summary.model_id or summary.model_url
         debug_info: dict[str, Any] = {
@@ -3274,6 +3403,31 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        if _is_local_summary(summary):
+            normalized_tags = tags
+            if isinstance(normalized_tags, str):
+                normalized_tags = [token.strip() for token in normalized_tags.split(",") if token.strip()]
+            updated_entry = update_local_model(
+                db_path=state.settings.db_path,
+                local_model_id=str(summary.public_id or model_ref),
+                model_name=str(model_name) if model_name is not None else None,
+                model_description=str(description) if description is not None else None,
+                tags=normalized_tags if isinstance(normalized_tags, list) else None,
+                collection_names=[str(collection).strip()] if collection is not None and str(collection).strip() else None,
+            )
+            if updated_entry is None:
+                return JSONResponse(status_code=404, content={"error": "Model not found"})
+            if isinstance(enrichment, dict):
+                for key, value in enrichment.items():
+                    if value is not None:
+                        set_model_field(
+                            db_path=state.settings.db_path,
+                            model_ref=str(summary.public_id or model_ref),
+                            field_key=key,
+                            field_value=value,
+                        )
+            return get_model_detail_endpoint(request, model_ref)
         
         # Build update payload for Manyfold (only include fields that are provided)
         manyfold_updates = {}

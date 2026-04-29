@@ -26,6 +26,7 @@ class Settings:
     manyfold_session_email: str | None = None
     manyfold_session_password: str | None = None
     source_filesystem_roots: tuple[Path, ...] = ()
+    authority_mode: str = "hybrid"
 
 
 def load_settings() -> Settings:
@@ -47,6 +48,10 @@ def load_settings() -> Settings:
     image_version = os.getenv("MODEL_CATALOG_IMAGE_VERSION", "unknown")
     image_revision = os.getenv("MODEL_CATALOG_IMAGE_REVISION", "unknown")
     image_created = os.getenv("MODEL_CATALOG_IMAGE_CREATED", "unknown")
+    authority_mode = str(os.getenv("MODEL_CATALOG_AUTHORITY_MODE", "")).strip().lower()
+    standalone_mode = str(os.getenv("MODEL_CATALOG_STANDALONE_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}
+    if not authority_mode:
+        authority_mode = "local" if standalone_mode else "hybrid"
     source_filesystem_roots_raw = os.getenv("SOURCE_FILESYSTEM_ROOTS", "")
     source_filesystem_roots: tuple[Path, ...] = tuple(
         Path(p.strip()).expanduser().resolve()
@@ -73,4 +78,5 @@ def load_settings() -> Settings:
         manyfold_session_email=session_email,
         manyfold_session_password=session_password,
         source_filesystem_roots=source_filesystem_roots,
+        authority_mode=authority_mode,
     )

@@ -8,6 +8,7 @@ Tests cover:
 """
 
 import json
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -509,6 +510,107 @@ class TestListModelsEndpointMerge:
         assert len(local_models) == 2
         names = {m["name"] for m in local_models}
         assert names == {"Local Alpha", "Local Beta"}
+
+    def test_list_models_local_authority_hides_manyfold_cache(self, app_with_local_models):
+        """Local authority mode does not surface Manyfold cache records in /api/models."""
+        client, db = app_with_local_models
+        connection = sqlite3.connect(db)
+        try:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url, manyfold_model_public_id, manyfold_model_id, manyfold_model_name,
+                    preview_url, creator_name, collection_names_json, keyword_names_json,
+                    raw_json, refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "http://manyfold.test/models/legacy-1",
+                    "legacy-1",
+                    "legacy-1",
+                    "Legacy Manyfold Model",
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-29T00:00:00Z",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["source"] == "local"
+        model_names = {model["name"] for model in data["models"]}
+        assert "Legacy Manyfold Model" not in model_names
+
+    def test_search_models_local_authority_hides_manyfold_cache(self, app_with_local_models):
+        """Local authority mode does not surface Manyfold cache records in /api/models/search."""
+        client, db = app_with_local_models
+        connection = sqlite3.connect(db)
+        try:
+            connection.execute(
+                """
+                INSERT INTO manyfold_model_summary_cache (
+                    manyfold_model_url, manyfold_model_public_id, manyfold_model_id, manyfold_model_name,
+                    preview_url, creator_name, collection_names_json, keyword_names_json,
+                    raw_json, refreshed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "http://manyfold.test/models/legacy-2",
+                    "legacy-2",
+                    "legacy-2",
+                    "Legacy Search Model",
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "{}",
+                    "2026-04-29T00:00:00Z",
+                ),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        resp = client.get("/api/models/search?q=Legacy")
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []
+
+    def test_local_model_detail_endpoint_uses_local_authority(self, app_with_local_models):
+        """GET /api/models/{model_ref}/detail resolves local models without Manyfold reads."""
+        client, db = app_with_local_models
+        response = client.get("/api/models/local-001/detail")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["manyfold_model_url"] == "local://local-001"
+        assert payload["model"]["name"] == "Local Alpha"
+        assert payload["model"]["collection_names"] == []
+
+    def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
+        """PATCH /api/models/{model_ref} updates local models in SQLite authority."""
+        client, db = app_with_local_models
+        response = client.patch(
+            "/api/models/local-001",
+            json={
+                "model_name": "Local Alpha Updated",
+                "description": "Updated description",
+                "tags": ["updated"],
+                "enrichment": {"difficulty_level": "easy"},
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["model"]["name"] == "Local Alpha Updated"
+        assert payload["model"]["description"] == "Updated description"
+        assert payload["enrichment"]["difficulty_level"] == "easy"
 
 
 class TestDatabaseMigration:

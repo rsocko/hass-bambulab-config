@@ -31,12 +31,13 @@ services:
       # Service Configuration
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       MODEL_CATALOG_REFRESH_TTL_SECONDS: ${MODEL_CATALOG_REFRESH_TTL_SECONDS:-900}
+      MODEL_CATALOG_AUTHORITY_MODE: ${MODEL_CATALOG_AUTHORITY_MODE:-local}
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
       
-      # Optional: Standalone mode (for testing without Manyfold)
-      # When true, Manyfold unavailability does not prevent service startup
-      # MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-false}
+      # Local authority is the default for the standalone stack.
+      # Keep standalone mode enabled so the sidecar can start without Manyfold.
+      MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-true}
     
     volumes:
       # Named volume for service-owned database and ephemeral cache
