@@ -1,4 +1,4 @@
-name: Build Model Catalog Sidecar Image
+name: Build Model Catalog Image
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ on:
       registry:
         description: Registry/repository prefix
         required: true
-        default: registry.socko.us/model-catalog-sidecar
+        default: registry.socko.us/model-catalog
       push_image:
         description: Push built image to registry
         required: true
@@ -77,7 +77,7 @@ jobs:
           LATEST_TAG='${{ steps.version.outputs.latest_tag }}'
           PUSH_LATEST='${{ github.event.inputs.push_latest }}'
           {
-            echo '## Model Catalog Sidecar Image Version'
+            echo '## Model Catalog Image Version'
             echo
             echo "Resolved tag: \`$RESOLVED_TAG\`"
             echo
@@ -93,7 +93,7 @@ jobs:
             echo
             echo "Latest existing semantic tag: \`${LATEST_TAG:-none}\`"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=Resolved model-catalog sidecar image::$RESOLVED_IMAGE"
+          echo "::notice title=Resolved model-catalog image::$RESOLVED_IMAGE"
 
       - name: Build image
         shell: bash

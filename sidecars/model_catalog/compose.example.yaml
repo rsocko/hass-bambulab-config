@@ -1,7 +1,7 @@
 services:
-  model-catalog-sidecar:
-    image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
-    container_name: model-catalog-sidecar
+  model-catalog:
+    image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+    container_name: model-catalog
     environment:
       MANYFOLD_BASE_URL: http://manyfold:3214
       MANYFOLD_MODELS_PATH: /models

@@ -1,30 +1,22 @@
-version: '3.8'
-
-# Independent Model Catalog Sidecar Stack
+# Independent Model Catalog Stack
 # This stack runs independently from Manyfold and can exist on its own.
 #
 # Storage Architecture:
-# - /data          → Named volume (sidecar-owned database)
+# - /data          → Named volume (service-owned database)
 # - /assets        → Bind mount to host (model files, working groups, intake)
 # - Traefik        → External shared network for reverse proxy
-#
-# Network Note:
-# This stack creates its own 'model-catalog-stack' network.
-# Home Assistant can reach this sidecar via shared 'traefik' network or by
-# reference to the 'model-catalog-stack' network if HA is on a separate stack.
 
 services:
-  model-catalog-sidecar:
-    image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
-    container_name: model-catalog-sidecar
+  model-catalog:
+    image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+    container_name: model-catalog
     
     networks:
-      - model-catalog-stack
       - traefik
     
     environment:
       # Manyfold integration (OPTIONAL as of Phase 1.1)
-      # These can be empty; the sidecar will work without Manyfold.
+      # These can be empty; the service will work without Manyfold.
       MANYFOLD_BASE_URL: ${MANYFOLD_BASE_URL:-http://manyfold:3214}
       MANYFOLD_MODELS_PATH: ${MANYFOLD_MODELS_PATH:-/models}
       MANYFOLD_COLLECTIONS_PATH: ${MANYFOLD_COLLECTIONS_PATH:-/collections}
@@ -36,25 +28,25 @@ services:
       MANYFOLD_SESSION_EMAIL: ${MANYFOLD_SESSION_EMAIL:-}
       MANYFOLD_SESSION_PASSWORD: ${MANYFOLD_SESSION_PASSWORD:-}
       
-      # Sidecar Configuration
+      # Service Configuration
       MODEL_CATALOG_DB_PATH: /data/model_catalog.db
       MODEL_CATALOG_REFRESH_TTL_SECONDS: ${MODEL_CATALOG_REFRESH_TTL_SECONDS:-900}
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
       
       # Optional: Standalone mode (for testing without Manyfold)
-      # When true, Manyfold unavailability does not prevent sidecar startup
+      # When true, Manyfold unavailability does not prevent service startup
       # MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-false}
     
     volumes:
-      # Named volume for sidecar-owned database and ephemeral cache
+      # Named volume for service-owned database and ephemeral cache
       - model_catalog_data:/data
       
       # Bind mount for model assets, working groups, and inbox
       # Point this to your host directory (e.g., Windows OneDrive, NAS, local path)
       # Example: ${ASSETS_ROOT_HOST}:/assets
       # On Windows with OneDrive: /mnt/c/OneDrive/ModelAssets:/assets
-      - ${ASSETS_ROOT_HOST:?Error: ASSETS_ROOT_HOST not set in .env}:/assets
+      - "${ASSETS_ROOT_HOST:?Error: ASSETS_ROOT_HOST not set in .env}:/assets"
     
     labels:
       - "traefik.enable=true"
@@ -71,8 +63,8 @@ services:
     restart: unless-stopped
     
     # NOTE: No depends_on on Manyfold
-    # The sidecar starts independently and handles Manyfold unavailability gracefully.
-    # If Manyfold is not running, the sidecar will:
+    # The service starts independently and handles Manyfold unavailability gracefully.
+    # If Manyfold is not running, the service will:
     # - Start successfully with catalog models available
     # - Log warnings about Manyfold unavailability
     # - Return degraded status in /healthz
@@ -84,16 +76,10 @@ volumes:
     # - model_catalog.db        (SQLite database, primary durable state)
     # - cache/                  (ephemeral: generated previews, geometry analysis)
     # 
-    # This volume is sidecar-owned and opaque to the host.
+    # This volume is service-owned and opaque to the host.
     # Backup this volume separately using Docker volume backup procedures.
-    driver: bridge
 
 networks:
-  model-catalog-stack:
-    # Internal network for this stack
-    name: model-catalog-stack
-    driver: bridge
-  
   traefik:
     # External shared network for reverse proxy
     # Must exist before bringing up this stack:

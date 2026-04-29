@@ -420,6 +420,97 @@ class TestBackwardCompatibility:
         assert isinstance(dump, dict)
 
 
+class TestListModelsEndpointMerge:
+    """Test that GET /api/models merges local model entries into the unified listing."""
+
+    @pytest.fixture
+    def app_with_local_models(self):
+        """Create test app with local models pre-loaded."""
+        import tempfile
+        from unittest.mock import patch
+        from sidecars.model_catalog.app.main import create_app
+        from sidecars.model_catalog.app.settings import Settings
+        from fastapi.testclient import TestClient
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db)
+
+            # Create two local models
+            create_local_model(db_path=db, local_model_id="local-001", model_name="Local Alpha")
+            create_local_model(db_path=db, local_model_id="local-002", model_name="Local Beta", creator_name="Test Creator")
+
+            settings = Settings(
+                manyfold_base_url="http://manyfold.test",
+                manyfold_models_path="/models",
+                manyfold_collections_path="/collections",
+                manyfold_creators_path="/creators",
+                manyfold_oauth_token_path="/oauth/token",
+                manyfold_client_id=None,
+                manyfold_client_secret=None,
+                manyfold_oauth_scopes=None,
+                db_path=db,
+                refresh_ttl_seconds=900,
+                host="127.0.0.1",
+                port=8314,
+                image_tag="0.1.0-test",
+                image_version="0.1.0",
+                image_revision="test",
+                image_created="2026-01-01T00:00:00Z",
+            )
+            app = create_app(settings=settings)
+            # Patch Manyfold cache/refresh so tests don't make real HTTP calls.
+            # Empty Manyfold cache is fine — local models are the point of these tests.
+            with (
+                patch("sidecars.model_catalog.app.main.read_cached_manyfold_summaries", return_value=[]),
+                patch(
+                    "sidecars.model_catalog.app.main.refresh_manyfold_cache_with_status",
+                    return_value=([], {"outcome": "refreshed"}),
+                ),
+            ):
+                with TestClient(app) as client:
+                    yield client, db
+
+    def test_list_models_includes_local_entries(self, app_with_local_models):
+        """GET /api/models returns local model entries merged into the response."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        model_urls = [m["model_url"] for m in data["models"]]
+        assert "local://local-001" in model_urls
+        assert "local://local-002" in model_urls
+
+    def test_list_models_source_reflects_local(self, app_with_local_models):
+        """source field in /api/models reflects local model inclusion."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "local" in data["source"]
+
+    def test_search_includes_local_entries(self, app_with_local_models):
+        """GET /api/models/search returns local models in results."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models/search?q=Local+Alpha")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        result_urls = [r["model_url"] for r in data["results"]]
+        assert "local://local-001" in result_urls
+
+    def test_local_model_url_scheme(self, app_with_local_models):
+        """Local models use local:// URL scheme in unified listing."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+        local_models = [m for m in resp.json()["models"] if m["model_url"].startswith("local://")]
+        assert len(local_models) == 2
+        names = {m["name"] for m in local_models}
+        assert names == {"Local Alpha", "Local Beta"}
+
+
 class TestDatabaseMigration:
     """Test database schema and migrations."""
 

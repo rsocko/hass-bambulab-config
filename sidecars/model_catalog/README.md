@@ -40,14 +40,14 @@ Build from the repository root:
 ```bash
 docker build \
 	-f sidecars/model_catalog/Dockerfile \
-	-t registry.socko.us/model-catalog-sidecar:0.1.0 \
+	-t registry.socko.us/model-catalog:0.1.0 \
 	.
 ```
 
 ## Push To Local Registry
 
 ```bash
-docker push registry.socko.us/model-catalog-sidecar:0.1.0
+docker push registry.socko.us/model-catalog:0.1.0
 ```
 
 After that, Dockhand can deploy from the registry image without building from source.
@@ -58,7 +58,7 @@ Repository workflow:
 
 Default workflow registry:
 
-- `registry.socko.us/model-catalog-sidecar`
+- `registry.socko.us/model-catalog`
 
 Workflow tag resolution:
 
@@ -79,7 +79,7 @@ The workflow writes a copy-ready version block into the GitHub Actions run summa
 The example compose file uses an environment variable for the image tag:
 
 ```yaml
-image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
 ```
 
 Recommended update flow:
@@ -135,9 +135,7 @@ The sidecar now runs as a standalone Docker stack with independent file storage:
 # Create traefik network (shared reverse proxy network)
 docker network create traefik
 
-# Sidecar joins both networks:
-# - model-catalog-stack (internal)
-# - traefik (shared with HA and other services)
+# Service joins the shared traefik network.
 ```
 
 ### File Storage Architecture
@@ -158,7 +156,7 @@ Topics covered:
 The example compose file uses an environment variable for the image tag:
 
 ```yaml
-image: registry.socko.us/model-catalog-sidecar:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
+image: registry.socko.us/model-catalog:${MODEL_CATALOG_IMAGE_TAG:-0.1.0}
 ```
 
 Recommended update flow:
@@ -178,18 +176,9 @@ That gives Dockhand a stable image reference to pull and recreate on demand, whi
 
 ## Dockhand / Manyfold Stack Compose (Legacy)
 
-There is not currently a committed Manyfold Dockhand stack file in this repo. If you want to embed the sidecar in an existing Manyfold stack:
+The repo now standardizes on the independent stack in `docker-compose.yml`.
 
-- See `compose.manyfold-stack.example.yaml` for reference
-- Recommended: Migrate to independent stack (`docker-compose.yml`) for Phase 1.1+
-
-For the legacy Manyfold stack example, the pattern is:
-
-- put the sidecar on the same Docker network as Manyfold
-- keep the sidecar state in its own Docker volume
-- keep the image tag in the stack `.env`
-- point `MANYFOLD_BASE_URL` at the service name reachable inside the stack network
-- let the preview proxy bootstrap an anonymous Manyfold site session when raw `model_files` URLs require one before returning image bytes
+If your live environment still has a model catalog service embedded in the Manyfold stack, remove that duplicate service during cutover so only the standalone model-catalog service owns `model-catalog.socko.us`.
 
 ## Environment Variables
 

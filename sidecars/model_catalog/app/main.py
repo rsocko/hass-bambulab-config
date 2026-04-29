@@ -1154,7 +1154,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             connection.close()
         
         return {
-            "service": "model-catalog-sidecar",
+            "service": "model-catalog",
             "db_tables": list(state.db_info.tables),
             "schema_version": state.db_info.schema_version,
             "manyfold_base_url": state.settings.manyfold_base_url,
@@ -1795,10 +1795,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 }
                 source = "manyfold"
 
+        # Merge local model entries (Phase 1 local authority)
+        local_entries, _local_total = list_local_models(db_path=state.settings.db_path, limit=10000, offset=0)
+        local_summaries = [_local_entry_to_summary(entry) for entry in local_entries]
+        all_summaries = summaries + local_summaries
+        if local_summaries:
+            source = f"{source}+local" if source != "local" else "local"
+
         ranking_by_url = read_all_model_ranking(db_path=state.settings.db_path)
         link_counts_by_url = read_model_link_counts(db_path=state.settings.db_path)
         models = []
-        for summary in summaries:
+        for summary in all_summaries:
             model_ref = summary.public_id or summary.model_id or summary.model_url
             custom_fields = read_model_fields(db_path=state.settings.db_path, model_ref=str(model_ref))
             if to_print_status and str(custom_fields.get("to_print_status") or "") != to_print_status:
@@ -1879,6 +1886,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 else:
                     raise
         
+        # Merge local model entries (Phase 1 local authority)
+        local_entries, _local_total = list_local_models(db_path=state.settings.db_path, limit=10000, offset=0)
+        local_summaries = [_local_entry_to_summary(entry) for entry in local_entries]
+        summaries = summaries + local_summaries
+
         # Parse search query into tokens
         query_tokens = _normalize_tokens(q or "")
         
