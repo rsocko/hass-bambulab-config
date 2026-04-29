@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from sidecars.model_catalog.app.db import bootstrap_database
+from sidecars.model_catalog.app.db import bootstrap_database, set_model_field
 from sidecars.model_catalog.app.local_models import (
     create_local_model,
     read_local_model,
@@ -459,6 +459,14 @@ class TestListModelsEndpointMerge:
                 created_by="phase2-user",
                 revision_hash="rev-local-001",
             )
+            set_model_field(db_path=db, model_ref="local-001", field_key="origin_type", field_value="remix")
+            set_model_field(
+                db_path=db,
+                model_ref="local-001",
+                field_key="published_to",
+                field_value=["makerworld"],
+            )
+            set_model_field(db_path=db, model_ref="local-001", field_key="model_favorite", field_value=True)
             create_local_model(db_path=db, local_model_id="local-002", model_name="Local Beta", creator_name="Test Creator")
 
             settings = Settings(
@@ -615,6 +623,9 @@ class TestListModelsEndpointMerge:
         assert payload["model"]["collection_names"] == []
         assert payload["model"]["created_by"] == "phase2-user"
         assert payload["model"]["revision_hash"] == "rev-local-001"
+        assert payload["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
+        assert payload["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld"]
+        assert payload["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
 
     def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
         """PATCH /api/models/{model_ref} updates local models in SQLite authority."""
