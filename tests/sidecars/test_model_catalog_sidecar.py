@@ -2022,6 +2022,76 @@ def test_manyfold_client_create_model_prefers_session_auth_after_session_bootstr
     assert ("POST", "/models", None, "_manyfold_session=session-123") in seen_requests
 
 
+def test_manyfold_client_create_model_relogs_session_after_sign_in_redirect() -> None:
+    seen_requests: list[tuple[str, str, str | None, str | None]] = []
+    sign_in_posts = {"count": 0}
+    model_posts = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("Authorization"),
+                request.headers.get("Cookie"),
+            )
+        )
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.method == "POST" and request.url.path == "/upload":
+            if request.headers.get("Authorization") == "Bearer token-123":
+                return httpx.Response(302, headers={"Location": "/users/sign_in"})
+            return httpx.Response(201, headers={"Location": "/upload/session-upload"})
+        if request.method == "GET" and request.url.path == "/users/sign_in":
+            return httpx.Response(
+                200,
+                text='''<html><body><form action="/users/sign_in" method="post"><input type="hidden" name="authenticity_token" value="csrf-123" /><input type="email" name="user[email]" /><input type="password" name="user[password]" /></form></body></html>''',
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            )
+        if request.method == "POST" and request.url.path == "/users/sign_in":
+            sign_in_posts["count"] += 1
+            return httpx.Response(
+                200,
+                text="<html><body>signed in</body></html>",
+                headers={
+                    "Content-Type": "text/html; charset=utf-8",
+                    "Set-Cookie": f"_manyfold_session=session-{sign_in_posts['count']}; Path=/; HttpOnly",
+                },
+                request=request,
+            )
+        if request.method == "PATCH" and request.url.path == "/upload/session-upload":
+            assert request.headers.get("Authorization") is None
+            assert request.content == b"1234"
+            return httpx.Response(204, headers={"Upload-Offset": "4"})
+        if request.method == "POST" and request.url.path == "/models":
+            model_posts["count"] += 1
+            if model_posts["count"] == 1:
+                assert "_manyfold_session=session-1" in str(request.headers.get("Cookie") or "")
+                return httpx.Response(302, headers={"Location": "/users/sign_in"})
+            assert request.headers.get("Authorization") is None
+            assert "_manyfold_session=session-2" in str(request.headers.get("Cookie") or "")
+            return httpx.Response(202)
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        session_email="user@example.com",
+        session_password="secret-pass",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        uploaded = client.upload_file(filename="part.3mf", content=b"1234", content_type="model/3mf")
+        created = client.create_model_from_uploads(name="Uploaded Flow", uploaded_files=[uploaded])
+    finally:
+        client.close()
+
+    assert created == {}
+    assert sign_in_posts["count"] == 2
+
+
 def test_manyfold_client_retries_models_with_generic_accept_after_406() -> None:
     seen_accept_headers: list[str | None] = []
     model_calls = {"count": 0}

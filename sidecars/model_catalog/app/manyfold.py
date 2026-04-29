@@ -617,7 +617,9 @@ class ManyfoldClient:
         last_response.raise_for_status()
         return last_response.json()
 
-    def _ensure_site_session(self) -> bool:
+    def _ensure_site_session(self, *, force: bool = False) -> bool:
+        if force:
+            self._site_session_ready = False
         if self._site_session_ready:
             return True
 
@@ -677,7 +679,7 @@ class ManyfoldClient:
                 raise RuntimeError(
                     "Manyfold upload requires a web session. Configure MANYFOLD_SESSION_EMAIL and MANYFOLD_SESSION_PASSWORD."
                 )
-            self._ensure_site_session()
+            self._ensure_site_session(force=True)
             session_headers = {key: value for key, value in headers.items() if key.lower() != "authorization"}
             return self._client.post(path, headers=session_headers, data=data, json=json_body)
         return response
@@ -694,7 +696,7 @@ class ManyfoldClient:
                 raise RuntimeError(
                     "Manyfold upload requires a web session. Configure MANYFOLD_SESSION_EMAIL and MANYFOLD_SESSION_PASSWORD."
                 )
-            self._ensure_site_session()
+            self._ensure_site_session(force=True)
             session_headers = {key: value for key, value in headers.items() if key.lower() != "authorization"}
             return self._client.patch(path, headers=session_headers, content=content)
         return response
