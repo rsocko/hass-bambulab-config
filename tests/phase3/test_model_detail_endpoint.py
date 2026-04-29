@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
 import sys
 from pathlib import Path
+import tempfile
 from fastapi.testclient import TestClient
 
 # Add sidecars to path for imports
@@ -19,7 +20,7 @@ sys.path.insert(0, str(sidecars_path))
 
 from app.main import create_app
 from app.models import ManyfoldModelSummary
-from app.db import ArchiveModelLink
+from app.db import ArchiveModelLink, bootstrap_database
 
 
 class TestModelDetailEndpoint:
@@ -29,34 +30,38 @@ class TestModelDetailEndpoint:
     def app(self):
         """Create test app with mocked dependencies."""
         from app.settings import Settings
-        from pathlib import Path
         
-        settings = Settings(
-            manyfold_base_url="https://manyfold.test",
-            manyfold_models_path="/models",
-            manyfold_collections_path="/collections",
-            manyfold_creators_path="/creators",
-            manyfold_oauth_token_path="/oauth/token",
-            manyfold_client_id=None,
-            manyfold_client_secret=None,
-            manyfold_oauth_scopes=None,
-            db_path=Path(":memory:"),
-            refresh_ttl_seconds=3600,
-            host="127.0.0.1",
-            port=8314,
-            image_tag="test",
-            image_version="0.0.1",
-            image_revision="test-rev",
-            image_created="2026-03-28",
-        )
-        
-        app = create_app(settings=settings)
-        return app
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db_path)
+
+            settings = Settings(
+                manyfold_base_url="https://manyfold.test",
+                manyfold_models_path="/models",
+                manyfold_collections_path="/collections",
+                manyfold_creators_path="/creators",
+                manyfold_oauth_token_path="/oauth/token",
+                manyfold_client_id=None,
+                manyfold_client_secret=None,
+                manyfold_oauth_scopes=None,
+                db_path=db_path,
+                refresh_ttl_seconds=3600,
+                host="127.0.0.1",
+                port=8314,
+                image_tag="test",
+                image_version="0.0.1",
+                image_revision="test-rev",
+                image_created="2026-03-28",
+            )
+
+            app = create_app(settings=settings)
+            yield app
     
     @pytest.fixture
     def client(self, app):
         """Create test client."""
-        return TestClient(app)
+        with TestClient(app) as client:
+            yield client
     
     @pytest.fixture
     def sample_model_summary(self):
@@ -78,7 +83,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             # Mock cached summaries
             mock_summaries.return_value = [sample_model_summary]
@@ -116,7 +121,7 @@ class TestModelDetailEndpoint:
             
             # Assert response
             assert response.status_code == 200
-            data = json.loads(response.data)
+            data = response.json()
             assert data["success"] is True
             assert data["model"]["name"] == "Gridfinity Bin"
             assert data["model"]["creator_name"] == "Alex Chiang"
@@ -131,7 +136,7 @@ class TestModelDetailEndpoint:
             response = client.get("/api/models/nonexistent-model/detail")
             
             assert response.status_code == 404
-            data = json.loads(response.data)
+            data = response.json()
             assert data["success"] is False
             assert data["error"] == "model_not_found"
     
@@ -141,7 +146,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = {}
@@ -153,7 +158,7 @@ class TestModelDetailEndpoint:
             response = client.get("/api/models/gridfinity-bin/detail")
             
             assert response.status_code == 200
-            data = json.loads(response.data)
+            data = response.json()
             assert data["success"] is True
     
     def test_model_detail_resolves_by_model_id(self, client, sample_model_summary):
@@ -162,7 +167,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = {}
@@ -174,7 +179,7 @@ class TestModelDetailEndpoint:
             response = client.get("/api/models/1/detail")
             
             assert response.status_code == 200
-            data = json.loads(response.data)
+            data = response.json()
             assert data["success"] is True
     
     def test_model_detail_includes_enrichment(self, client, sample_model_summary):
@@ -187,13 +192,22 @@ class TestModelDetailEndpoint:
             "print_notes": "Test notes",
             "external_reference": "https://example.com",
             "bambuddy_project_id": "proj-123",
+            "origin_type": "remix",
+            "remix_source": {"label": "Original Bin", "platform": "makerworld", "url": "https://makerworld.example/original-bin"},
+            "source_platform": "makerworld",
+            "source_download_url": "https://makerworld.example/downloads/bin.3mf",
+            "published_to": ["makerworld", "printables"],
+            "published_urls": {"makerworld": "https://makerworld.example/published/bin"},
+            "internal_notes": "Use PETG for outdoor prints",
+            "model_favorite": True,
+            "model_rating": 5,
         }
         
         with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = enrichment_data
@@ -202,24 +216,32 @@ class TestModelDetailEndpoint:
             mock_client.get_model_detail.return_value = {"name": "Test"}
             
             response = client.get("/api/models/gridfinity-bin/detail")
-            data = json.loads(response.data)
+            data = response.json()
             
             assert data["enrichment"]["print_time_estimate"] == 7200
             assert data["enrichment"]["support_type_hint"] == "linear"
             assert data["enrichment"]["custom_fields"] == enrichment_data
+            assert data["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
+            assert data["enrichment"]["structured_metadata"]["provenance"]["source_platform"] == "makerworld"
+            assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld", "printables"]
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
+            assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_rating"] == 5
     
     def test_model_detail_includes_linked_archives(self, client, sample_model_summary):
         """Test that linked archives are included in response."""
         link = ArchiveModelLink(
             id=1,
-            archive_id=100,
             manyfold_model_url="https://manyfold.test/models/1",
             manyfold_model_public_id="gridfinity-bin",
+            manyfold_model_file_id=None,
+            bambuddy_archive_id=100,
+            relationship_type="model",
+            link_role="primary",
             match_method="name_similarity",
             match_confidence="high",
             review_state="accepted",
-            is_active=True,
             review_note="Manual acceptance",
+            is_active=True,
             created_at="2026-04-20T10:00:00Z",
             updated_at="2026-04-25T14:00:00Z",
         )
@@ -228,7 +250,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+             patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = {}
@@ -237,7 +259,7 @@ class TestModelDetailEndpoint:
             mock_client.get_model_detail.return_value = {"name": "Test"}
             
             response = client.get("/api/models/gridfinity-bin/detail")
-            data = json.loads(response.data)
+            data = response.json()
             
             assert data["link_count"] == 1
             assert len(data["linked_archives"]) == 1
@@ -250,7 +272,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = {}
@@ -260,7 +282,7 @@ class TestModelDetailEndpoint:
             mock_client.get_model_detail.return_value = {"name": "Test", "files": []}
             
             response = client.get("/api/models/gridfinity-bin/detail")
-            data = json.loads(response.data)
+            data = response.json()
             
             assert response.status_code == 200
             assert data["model"]["files"] == []
@@ -271,7 +293,7 @@ class TestModelDetailEndpoint:
              patch("app.main.read_model_fields") as mock_fields, \
              patch("app.main.read_archive_links") as mock_links, \
              patch("app.main.read_model_ranking") as mock_ranking, \
-             patch.object(client.application.state, "manyfold_client") as mock_client:
+               patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
             mock_fields.return_value = {}
@@ -284,7 +306,7 @@ class TestModelDetailEndpoint:
             }
             
             response = client.get("/api/models/gridfinity-bin/detail")
-            data = json.loads(response.data)
+            data = response.json()
             
             # Verify required fields
             assert "success" in data
@@ -308,6 +330,7 @@ class TestModelDetailEndpoint:
             # Verify enrichment object structure
             enrichment = data["enrichment"]
             assert "custom_fields" in enrichment
+            assert "structured_metadata" in enrichment
             assert "color_scheme" in enrichment
             assert "print_time_estimate" in enrichment
             assert "support_type_hint" in enrichment

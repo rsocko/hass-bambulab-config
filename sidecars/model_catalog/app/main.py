@@ -529,6 +529,71 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
         return None
 
 
+def _coerce_boolish(value: object | None) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    return None
+
+
+def _normalize_string_list(value: object | None) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            normalized.append(text)
+    return normalized
+
+
+def _normalize_string_map(value: object | None) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, str] = {}
+    for raw_key, raw_value in value.items():
+        key = str(raw_key or "").strip()
+        text = str(raw_value or "").strip()
+        if key and text:
+            normalized[key] = text
+    return normalized
+
+
+def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict[str, Any]:
+    fields = custom_fields or {}
+    model_rating = _coerce_int(fields.get("model_rating"))
+    if model_rating is not None and not 1 <= model_rating <= 5:
+        model_rating = None
+
+    remix_source = fields.get("remix_source")
+    if not isinstance(remix_source, dict):
+        remix_source = None
+
+    return {
+        "provenance": {
+            "origin_type": str(fields.get("origin_type") or "").strip() or None,
+            "remix_source": remix_source,
+            "source_platform": str(fields.get("source_platform") or "").strip() or None,
+            "source_download_url": str(fields.get("source_download_url") or "").strip() or None,
+            "internal_notes": str(fields.get("internal_notes") or "").strip() or None,
+        },
+        "publishing": {
+            "published_to": _normalize_string_list(fields.get("published_to")),
+            "published_urls": _normalize_string_map(fields.get("published_urls")),
+        },
+        "catalog_signals": {
+            "model_favorite": _coerce_boolish(fields.get("model_favorite")),
+            "model_rating": model_rating,
+        },
+    }
+
+
 def _compute_recent_score(*, last_printed_at: str | None, reference_time: datetime) -> float | None:
     parsed = _parse_iso_datetime(last_printed_at)
     if parsed is None:
@@ -3107,6 +3172,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         for key, value in custom_fields.items()
                         if key not in {MODEL_UPLOAD_PHOTOS_FIELD, MODEL_PREVIEW_PHOTO_FIELD}
                     },
+                    "structured_metadata": _structured_detail_metadata(custom_fields),
                     "color_scheme": custom_fields.get("color_scheme", []),
                     "print_time_estimate": custom_fields.get("print_time_estimate"),
                     "support_type_hint": custom_fields.get("support_type_hint"),
@@ -3125,20 +3191,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 ),
                 "preview_photo_id": preview_photo_id,
                 "ranking": None if ranking is None else _ranking_payload(ranking),
-                "linked_archives": [
-                    {
-                        "archive_id": link.archive_id,
-                        "model_url": link.manyfold_model_url,
-                        "link_id": link.id,
-                        "review_state": link.review_state,
-                        "is_active": link.is_active,
-                        "match_method": link.match_method,
-                        "match_confidence": link.match_confidence,
-                        "created_at": link.created_at,
-                        "updated_at": link.updated_at,
-                    }
-                    for link in archive_links
-                ],
+                "linked_archives": [_archive_link_to_response(link) for link in archive_links],
                 "link_count": len(archive_links),
                 "degraded": False,
             }
@@ -3184,6 +3237,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             },
             "enrichment": {
                 "custom_fields": {},
+                "structured_metadata": _structured_detail_metadata({}),
                 "color_scheme": [],
                 "print_time_estimate": None,
                 "support_type_hint": None,
@@ -3290,17 +3344,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         linked_archives = []
         for link in archive_links:
             try:
-                linked_archives.append({
-                    "archive_id": link.archive_id,
-                    "model_url": link.manyfold_model_url,
-                    "link_id": link.id,
-                    "review_state": link.review_state,
-                    "is_active": link.is_active,
-                    "match_method": link.match_method,
-                    "match_confidence": link.match_confidence,
-                    "created_at": link.created_at,
-                    "updated_at": link.updated_at,
-                })
+                linked_archives.append(_archive_link_to_response(link))
             except Exception:
                 response["degraded"] = True
         
@@ -3328,6 +3372,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 for key, value in custom_fields.items()
                 if key not in {MODEL_UPLOAD_PHOTOS_FIELD, MODEL_PREVIEW_PHOTO_FIELD}
             },
+            "structured_metadata": _structured_detail_metadata(custom_fields),
             "color_scheme": custom_fields.get("color_scheme", []),
             "print_time_estimate": custom_fields.get("print_time_estimate"),
             "support_type_hint": custom_fields.get("support_type_hint"),
