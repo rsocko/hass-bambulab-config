@@ -467,6 +467,30 @@ class TestListModelsEndpointMerge:
                 field_value=["makerworld"],
             )
             set_model_field(db_path=db, model_ref="local-001", field_key="model_favorite", field_value=True)
+            create_model_asset(
+                db_path=db,
+                local_model_id="local-001",
+                asset_id="primary-3mf",
+                asset_filename="local-alpha.3mf",
+                asset_type="3mf",
+                storage_path="/models/local-alpha.3mf",
+                asset_role="primary",
+                file_size_bytes=2048,
+                file_hash="hash-primary",
+                geometry_bounds={"x": 256.1, "y": 128.2, "z": 64.3},
+            )
+            create_model_asset(
+                db_path=db,
+                local_model_id="local-001",
+                asset_id="preview-image",
+                asset_filename="local-alpha-preview.png",
+                asset_type="image",
+                storage_path="/models/local-alpha-preview.png",
+                asset_role="preview",
+                file_size_bytes=512,
+                file_hash="hash-preview",
+                preview_url="https://example.com/local-alpha-preview.png",
+            )
             create_local_model(db_path=db, local_model_id="local-002", model_name="Local Beta", creator_name="Test Creator")
 
             settings = Settings(
@@ -623,9 +647,33 @@ class TestListModelsEndpointMerge:
         assert payload["model"]["collection_names"] == []
         assert payload["model"]["created_by"] == "phase2-user"
         assert payload["model"]["revision_hash"] == "rev-local-001"
+        assert payload["model"]["preview_file_id"] == "preview-image"
+        assert [file_item["id"] for file_item in payload["model"]["files"]] == ["preview-image", "primary-3mf"]
+        assert payload["model"]["files"][0]["is_preview"] is True
+        assert payload["model"]["files"][0]["asset_role"] == "preview"
+        assert payload["model"]["files"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
+        assert payload["model"]["files"][1]["asset_role"] == "primary"
+        assert payload["model"]["files"][1]["file_hash"] == "hash-primary"
+        assert payload["model"]["files"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
         assert payload["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
         assert payload["enrichment"]["structured_metadata"]["publishing"]["published_to"] == ["makerworld"]
         assert payload["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is True
+
+    def test_local_model_assets_endpoint_exposes_asset_graph_metadata(self, app_with_local_models):
+        """GET /api/local/models/{local_model_id}/assets exposes preview selection and rich asset metadata."""
+        client, db = app_with_local_models
+        response = client.get("/api/local/models/local-001/assets")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["preview_file_id"] == "preview-image"
+        assert [asset["asset_id"] for asset in payload["assets"]] == ["preview-image", "primary-3mf"]
+        assert payload["assets"][0]["is_preview"] is True
+        assert payload["assets"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
+        assert payload["assets"][1]["file_hash"] == "hash-primary"
+        assert payload["assets"][1]["file_size_bytes"] == 2048
+        assert payload["assets"][1]["storage_path"] == "/models/local-alpha.3mf"
+        assert payload["assets"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
 
     def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
         """PATCH /api/models/{model_ref} updates local models in SQLite authority."""

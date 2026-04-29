@@ -226,25 +226,71 @@ def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], mode
 
 
 def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
+    def _asset_rank(asset_role: object | None) -> int:
+        normalized = str(asset_role or "").strip().lower()
+        if normalized == "preview":
+            return 0
+        if normalized == "primary":
+            return 1
+        if normalized == "supporting":
+            return 2
+        if normalized == "documentation":
+            return 3
+        return 4
+
+    ordered_assets = sorted(
+        assets,
+        key=lambda asset: (
+            _asset_rank(getattr(asset, "asset_role", None)),
+            str(getattr(asset, "created_at", "") or ""),
+            str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+        ),
+    )
+
+    preview_asset_id = None
+    for asset in ordered_assets:
+        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview":
+            preview_asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) or None
+            break
+
     serialized: list[dict[str, Any]] = []
-    for asset in assets:
+    for asset in ordered_assets:
+        asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
         filename = str(getattr(asset, "asset_filename", "") or "").strip()
         preview_url = str(getattr(asset, "preview_url", "") or "").strip() or None
         serialized.append(
             {
-                "id": str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
-                "file_id": str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+                "id": asset_id,
+                "asset_id": asset_id,
+                "file_id": asset_id,
                 "filename": filename,
                 "name": filename,
                 "download_url": None,
                 "content_type": str(getattr(asset, "asset_type", "") or "").strip() or None,
+                "asset_type": str(getattr(asset, "asset_type", "") or "").strip() or None,
                 "image_url": preview_url,
                 "thumbnail_url": preview_url,
+                "preview_url": preview_url,
                 "created_at": getattr(asset, "created_at", None),
+                "updated_at": getattr(asset, "updated_at", None),
                 "asset_role": getattr(asset, "asset_role", None),
+                "file_size_bytes": getattr(asset, "file_size_bytes", None),
+                "file_hash": getattr(asset, "file_hash", None),
+                "storage_path": getattr(asset, "storage_path", None),
+                "geometry_bounds": getattr(asset, "geometry_bounds", None),
+                "is_preview": bool(preview_asset_id and asset_id == preview_asset_id),
             }
         )
     return serialized
+
+
+def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
+    for asset in assets:
+        asset_role = str(getattr(asset, "asset_role", "") or "").strip().lower()
+        if asset_role == "preview":
+            asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+            return asset_id or None
+    return None
 
 
 def _coerce_int(value: object | None) -> int | None:
@@ -2370,22 +2416,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         
         summary = _local_entry_to_summary(entry)
         assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+        preview_file_id = _select_local_preview_asset_id(assets=assets)
         
         return {
             "success": True,
             "model": asdict(summary),
             "entry": asdict(entry),
-            "assets": [
-                {
-                    "asset_id": a.asset_id,
-                    "asset_filename": a.asset_filename,
-                    "asset_type": a.asset_type,
-                    "asset_role": a.asset_role,
-                    "file_size_bytes": a.file_size_bytes,
-                    "preview_url": a.preview_url,
-                }
-                for a in assets
-            ],
+            "preview_file_id": preview_file_id,
+            "assets": _serialize_local_model_assets(assets=assets),
         }
 
     @app.patch("/api/local/models/{local_model_id}")
@@ -2508,20 +2546,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "success": True,
             "local_model_id": local_model_id,
-            "assets": [
-                {
-                    "asset_id": a.asset_id,
-                    "asset_filename": a.asset_filename,
-                    "asset_type": a.asset_type,
-                    "asset_role": a.asset_role,
-                    "file_size_bytes": a.file_size_bytes,
-                    "file_hash": a.file_hash,
-                    "storage_path": a.storage_path,
-                    "preview_url": a.preview_url,
-                    "created_at": a.created_at,
-                }
-                for a in assets
-            ],
+            "preview_file_id": _select_local_preview_asset_id(assets=assets),
+            "assets": _serialize_local_model_assets(assets=assets),
         }
 
     @app.delete("/api/local/models/{local_model_id}/assets/{asset_id}")
@@ -3309,7 +3335,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             archive_links: list[ArchiveModelLink] = []
             ranking = read_model_ranking(db_path=state.settings.db_path, manyfold_model_url=summary.model_url)
             assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+            preview_file_id = _select_local_preview_asset_id(assets=assets)
             preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
+            serialized_assets = _serialize_local_model_assets(assets=assets)
             response: dict[str, Any] = {
                 "success": True,
                 "model_ref": model_ref,
@@ -3329,8 +3357,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "source_origin": entry.source_origin,
                     "source_origin_url": entry.source_origin_url,
                     "revision_hash": entry.revision_hash,
-                    "files": _serialize_local_model_assets(assets=assets),
-                    "preview_file_id": None,
+                    "files": serialized_assets,
+                    "preview_file_id": preview_file_id,
                     "created_at": entry.created_at,
                     "updated_at": entry.updated_at,
                 },
