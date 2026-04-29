@@ -71,6 +71,105 @@ services:
     # - Return degraded status in /healthz
     # - Resume Manyfold operations when it becomes available
 
+  model-catalog-datasette:
+    image: datasetteproject/datasette:latest
+    container_name: model-catalog-datasette
+
+    networks:
+      - traefik
+
+    command:
+      - datasette
+      - /data/model_catalog.db
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+      - --immutable
+      - /data/model_catalog.db
+      - --setting
+      - default_page_size
+      - "50"
+      - --setting
+      - sql_time_limit_ms
+      - "5000"
+
+    volumes:
+      - model_catalog_data:/data:ro
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog-datasette.rule=Host(`model-catalog-datasette.socko.us`)"
+      - "traefik.http.routers.model-catalog-datasette.entrypoints=web"
+      - "traefik.http.routers.model-catalog-datasette.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog-datasette.loadbalancer.server.port=8001"
+      - "traefik.docker.network=traefik"
+
+    # Local debugging access can be re-enabled if you want host-only exposure too.
+    # ports:
+    #   - "127.0.0.1:8401:8001"
+
+    restart: unless-stopped
+
+    depends_on:
+      - model-catalog
+
+  model-catalog-schema-crawler:
+    image: schemacrawler/schemacrawler:latest
+    container_name: model-catalog-schema-crawler
+
+    entrypoint:
+      - /bin/sh
+      - -c
+
+    command: >
+      while true; do
+        schemacrawler
+        --server=sqlite
+        --database=/data/model_catalog.db
+        --info-level=maximum
+        --command=schema
+        --output-format=html
+        --output-file=/output/index.html;
+        sleep 21600;
+      done
+
+    volumes:
+      - model_catalog_data:/data:ro
+      - ./diagnostics/schema:/output
+
+    restart: unless-stopped
+
+    depends_on:
+      - model-catalog
+
+  model-catalog-schema-viewer:
+    image: nginx:alpine
+    container_name: model-catalog-schema-viewer
+
+    networks:
+      - traefik
+
+    volumes:
+      - ./diagnostics/schema:/usr/share/nginx/html:ro
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog-schema-viewer.rule=Host(`model-catalog-schema-crawler.socko.us`)"
+      - "traefik.http.routers.model-catalog-schema-viewer.entrypoints=web"
+      - "traefik.http.routers.model-catalog-schema-viewer.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog-schema-viewer.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik"
+
+    # Local debugging access can be re-enabled if you want host-only exposure too.
+    # ports:
+    #   - "127.0.0.1:8402:80"
+
+    restart: unless-stopped
+
+    depends_on:
+      - model-catalog-schema-crawler
+
 volumes:
   model_catalog_data:
     # Named volume stores:
@@ -79,6 +178,10 @@ volumes:
     # 
     # This volume is service-owned and opaque to the host.
     # Backup this volume separately using Docker volume backup procedures.
+    #
+    # Diagnostics tools also mount this volume read-only:
+    # - model-catalog-datasette for browser inspection and ad-hoc SELECT queries
+    # - model-catalog-schema-crawler for recurring HTML schema generation
 
 networks:
   traefik:
