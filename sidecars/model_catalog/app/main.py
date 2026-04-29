@@ -8,6 +8,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import sqlite3
@@ -227,7 +228,7 @@ def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], mode
     return None
 
 
-def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
+def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = None) -> list[dict[str, Any]]:
     def _asset_rank(asset_role: object | None) -> int:
         normalized = str(asset_role or "").strip().lower()
         if normalized == "preview":
@@ -265,7 +266,11 @@ def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
                 "file_id": asset_id,
                 "filename": filename,
                 "name": filename,
-                "download_url": None,
+                "download_url": (
+                    f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/download"
+                    if model_ref
+                    else None
+                ),
                 "content_type": str(getattr(asset, "asset_type", "") or "").strip() or None,
                 "asset_type": str(getattr(asset, "asset_type", "") or "").strip() or None,
                 "image_url": preview_url,
@@ -304,6 +309,40 @@ def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
     )[0]
     asset_id = str(getattr(selected, "asset_id", "") or getattr(selected, "id", ""))
     return asset_id or None
+
+
+def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path | None:
+    storage_path_raw = str(getattr(asset, "storage_path", "") or "").strip()
+    if not storage_path_raw:
+        return None
+
+    configured_roots = list(settings.source_filesystem_roots)
+    storage_path = Path(storage_path_raw).expanduser()
+
+    if storage_path.is_absolute():
+        resolved = storage_path.resolve()
+        if configured_roots and not _is_path_within_roots(resolved, configured_roots):
+            return None
+        return resolved
+
+    for root in configured_roots:
+        candidate = (root / storage_path).resolve()
+        try:
+            candidate.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+    if configured_roots:
+        fallback = (configured_roots[0] / storage_path).resolve()
+        try:
+            fallback.relative_to(configured_roots[0].resolve())
+        except ValueError:
+            return None
+        return fallback
+
+    return None
 
 
 def _coerce_int(value: object | None) -> int | None:
@@ -2436,7 +2475,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "model": asdict(summary),
             "entry": asdict(entry),
             "preview_file_id": preview_file_id,
-            "assets": _serialize_local_model_assets(assets=assets),
+            "assets": _serialize_local_model_assets(assets=assets, model_ref=local_model_id),
         }
 
     @app.patch("/api/local/models/{local_model_id}")
@@ -2560,7 +2599,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "local_model_id": local_model_id,
             "preview_file_id": _select_local_preview_asset_id(assets=assets),
-            "assets": _serialize_local_model_assets(assets=assets),
+            "assets": _serialize_local_model_assets(assets=assets, model_ref=local_model_id),
         }
 
     @app.patch("/api/local/models/{local_model_id}/assets/{asset_id}")
@@ -2597,7 +2636,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             db_path=state.settings.db_path,
             local_model_id=local_model_id,
         )
-        serialized_assets = _serialize_local_model_assets(assets=assets)
+        serialized_assets = _serialize_local_model_assets(assets=assets, model_ref=local_model_id)
         serialized_asset = next((asset for asset in serialized_assets if asset.get("asset_id") == asset_id), None)
 
         return {
@@ -3394,7 +3433,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
             preview_file_id = _select_local_preview_asset_id(assets=assets)
             preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
-            serialized_assets = _serialize_local_model_assets(assets=assets)
+            serialized_assets = _serialize_local_model_assets(assets=assets, model_ref=local_model_id)
             response: dict[str, Any] = {
                 "success": True,
                 "model_ref": model_ref,
@@ -3990,6 +4029,47 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
 
+        if str(summary.model_url or "").startswith("local://"):
+            local_model_id = str(summary.public_id or model_ref).strip()
+            asset = read_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=file_id,
+            )
+            if asset is None:
+                payload: dict[str, Any] = {"error": "File not found"}
+                if include_debug:
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
+
+            storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+            if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+                payload = {"error": "Local model file source not found"}
+                if include_debug:
+                    debug_info["local_storage_path"] = str(storage_path) if storage_path is not None else None
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
+
+            file_name = str(asset.asset_filename or storage_path.name)
+            file_type = str(asset.asset_type or "")
+            download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
+            response_payload: dict[str, Any] = {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_name,
+                "download_url": download_url,
+                "file_type": file_type,
+            }
+
+            is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
+            if is_3mf:
+                response_payload["geometry"] = extract_3mf_geometry(storage_path.read_bytes(), plate_id=plate_id)
+
+            if include_debug:
+                debug_info["local_storage_path"] = str(storage_path)
+                response_payload["_debug"] = debug_info
+            return response_payload
+
         def _normalize_candidate_url(value: Any) -> str | None:
             text = str(value or "").strip()
             if not text:
@@ -4065,6 +4145,28 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        if str(summary.model_url or "").startswith("local://"):
+            local_model_id = str(summary.public_id or model_ref).strip()
+            asset = read_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=file_id,
+            )
+            if asset is None:
+                return JSONResponse(status_code=404, content={"error": "File not found"})
+
+            storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+            if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+                return JSONResponse(status_code=404, content={"error": "Local model file source not found"})
+
+            media_type = (
+                mimetypes.guess_type(str(storage_path))[0]
+                or mimetypes.guess_type(str(asset.asset_filename or ""))[0]
+                or "application/octet-stream"
+            )
+            headers = {"Content-Disposition": f'inline; filename="{asset.asset_filename or storage_path.name}"'}
+            return Response(content=storage_path.read_bytes(), media_type=media_type, headers=headers)
 
         resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
 

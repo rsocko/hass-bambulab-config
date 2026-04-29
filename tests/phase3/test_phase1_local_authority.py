@@ -10,6 +10,8 @@ Tests cover:
 import json
 import sqlite3
 import tempfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -28,6 +30,40 @@ from sidecars.model_catalog.app.local_models import (
     delete_model_asset,
 )
 from sidecars.model_catalog.app.models import LocalModelEntry, ManyfoldModelSummary
+
+
+def _build_simple_3mf() -> bytes:
+    model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"20\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"1\" />
+    </build>
+</model>
+"""
+    rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("_rels/.rels", rels_xml)
+        archive.writestr("3D/3dmodel.model", model_xml)
+    return buffer.getvalue()
 
 
 class TestLocalModelCRUD:
@@ -488,6 +524,12 @@ class TestListModelsEndpointMerge:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "test.db"
+            models_root = Path(tmpdir) / "models"
+            models_root.mkdir(parents=True, exist_ok=True)
+            primary_file = models_root / "local-alpha.3mf"
+            primary_file.write_bytes(_build_simple_3mf())
+            preview_file = models_root / "local-alpha-preview.png"
+            preview_file.write_bytes(b"\x89PNG\r\n\x1a\nlocal-preview")
             bootstrap_database(db_path=db)
 
             # Create two local models
@@ -512,7 +554,7 @@ class TestListModelsEndpointMerge:
                 asset_id="primary-3mf",
                 asset_filename="local-alpha.3mf",
                 asset_type="3mf",
-                storage_path="/models/local-alpha.3mf",
+                storage_path="models/local-alpha.3mf",
                 asset_role="primary",
                 file_size_bytes=2048,
                 file_hash="hash-primary",
@@ -524,7 +566,7 @@ class TestListModelsEndpointMerge:
                 asset_id="preview-image",
                 asset_filename="local-alpha-preview.png",
                 asset_type="image",
-                storage_path="/models/local-alpha-preview.png",
+                storage_path="models/local-alpha-preview.png",
                 asset_role="preview",
                 file_size_bytes=512,
                 file_hash="hash-preview",
@@ -549,6 +591,7 @@ class TestListModelsEndpointMerge:
                 image_version="0.1.0",
                 image_revision="test",
                 image_created="2026-01-01T00:00:00Z",
+                source_filesystem_roots=(Path(tmpdir).resolve(),),
             )
             app = create_app(settings=settings)
             # Patch Manyfold cache/refresh so tests don't make real HTTP calls.
@@ -691,9 +734,11 @@ class TestListModelsEndpointMerge:
         assert payload["model"]["files"][0]["is_preview"] is True
         assert payload["model"]["files"][0]["sort_order"] == 1
         assert payload["model"]["files"][0]["asset_role"] == "preview"
+        assert payload["model"]["files"][0]["download_url"].endswith("/api/models/local-001/files/preview-image/download")
         assert payload["model"]["files"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
         assert payload["model"]["files"][1]["sort_order"] == 0
         assert payload["model"]["files"][1]["asset_role"] == "primary"
+        assert payload["model"]["files"][1]["download_url"].endswith("/api/models/local-001/files/primary-3mf/download")
         assert payload["model"]["files"][1]["file_hash"] == "hash-primary"
         assert payload["model"]["files"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
         assert payload["enrichment"]["structured_metadata"]["provenance"]["origin_type"] == "remix"
@@ -711,11 +756,13 @@ class TestListModelsEndpointMerge:
         assert [asset["asset_id"] for asset in payload["assets"]] == ["preview-image", "primary-3mf"]
         assert payload["assets"][0]["is_preview"] is True
         assert payload["assets"][0]["sort_order"] == 1
+        assert payload["assets"][0]["download_url"].endswith("/api/models/local-001/files/preview-image/download")
         assert payload["assets"][0]["preview_url"] == "https://example.com/local-alpha-preview.png"
         assert payload["assets"][1]["sort_order"] == 0
+        assert payload["assets"][1]["download_url"].endswith("/api/models/local-001/files/primary-3mf/download")
         assert payload["assets"][1]["file_hash"] == "hash-primary"
         assert payload["assets"][1]["file_size_bytes"] == 2048
-        assert payload["assets"][1]["storage_path"] == "/models/local-alpha.3mf"
+        assert payload["assets"][1]["storage_path"] == "models/local-alpha.3mf"
         assert payload["assets"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
 
     def test_update_local_model_asset_endpoint_reassigns_preview_and_clears_metadata(self, app_with_local_models):
@@ -749,6 +796,27 @@ class TestListModelsEndpointMerge:
         assert detail_payload["model"]["preview_file_id"] == "primary-3mf"
         assert detail_payload["model"]["files"][0]["id"] == "primary-3mf"
         assert detail_payload["model"]["files"][0]["is_preview"] is True
+
+    def test_download_local_model_asset_endpoint_serves_file_bytes(self, app_with_local_models):
+        """GET /api/models/{model_ref}/files/{file_id}/download serves local asset bytes."""
+        client, db = app_with_local_models
+        response = client.get("/api/models/local-001/files/primary-3mf/download")
+
+        assert response.status_code == 200
+        assert response.content.startswith(b"PK")
+        assert "local-alpha.3mf" in response.headers["content-disposition"]
+
+    def test_geometry_endpoint_reads_local_3mf_asset(self, app_with_local_models):
+        """GET /api/models/{model_ref}/geometry/{file_id} parses local 3MF geometry."""
+        client, db = app_with_local_models
+        response = client.get("/api/models/local-001/geometry/primary-3mf")
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["success"] is True
+        assert payload["file_id"] == "primary-3mf"
+        assert payload["download_url"].endswith("/api/models/local-001/files/primary-3mf/download")
+        assert payload["geometry"]["dimensions_mm"] == {"x": 10.0, "y": 20.0, "z": 0.0}
 
     def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
         """PATCH /api/models/{model_ref} updates local models in SQLite authority."""
