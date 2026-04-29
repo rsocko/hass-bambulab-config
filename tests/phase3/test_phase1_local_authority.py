@@ -48,15 +48,19 @@ class TestLocalModelCRUD:
             model_name="Test Model",
             model_description="A test model",
             creator_name="Test Creator",
+            created_by="operator@example.com",
             tags=["tag1", "tag2"],
             collection_names=["collection1"],
+            revision_hash="rev-001",
         )
 
         assert entry.local_model_id == "test-model-001"
         assert entry.model_name == "Test Model"
         assert entry.creator_name == "Test Creator"
+        assert entry.created_by == "operator@example.com"
         assert entry.tags == ("tag1", "tag2")
         assert entry.collection_names == ("collection1",)
+        assert entry.revision_hash == "rev-001"
         assert entry.created_at is not None
         assert entry.updated_at is not None
 
@@ -133,6 +137,8 @@ class TestLocalModelCRUD:
             local_model_id="update-test",
             model_name="Original Name",
             tags=["original"],
+            created_by="initial-user",
+            revision_hash="rev-initial",
         )
 
         updated = update_local_model(
@@ -140,11 +146,15 @@ class TestLocalModelCRUD:
             local_model_id="update-test",
             model_name="Updated Name",
             tags=["updated"],
+            created_by="phase2-user",
+            revision_hash="rev-002",
         )
 
         assert updated is not None
         assert updated.model_name == "Updated Name"
         assert updated.tags == ("updated",)
+        assert updated.created_by == "phase2-user"
+        assert updated.revision_hash == "rev-002"
 
     def test_update_nonexistent_model(self, db_path):
         """Updating a non-existent model returns None."""
@@ -372,6 +382,7 @@ class TestBackwardCompatibility:
             model_name="Test Model",
             model_description="A test",
             creator_name="Creator",
+            created_by="operator@example.com",
             collection_names=("col1",),
             keyword_names=("kw1",),
             tags=("tag1",),
@@ -379,6 +390,7 @@ class TestBackwardCompatibility:
             preview_image_url="http://example.com/preview.jpg",
             source_origin="test",
             source_origin_url="http://test.com",
+            revision_hash="rev-001",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
@@ -402,6 +414,7 @@ class TestBackwardCompatibility:
             model_name="Serializable Model",
             model_description=None,
             creator_name=None,
+            created_by=None,
             collection_names=(),
             keyword_names=(),
             tags=(),
@@ -409,6 +422,7 @@ class TestBackwardCompatibility:
             preview_image_url=None,
             source_origin=None,
             source_origin_url=None,
+            revision_hash=None,
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
@@ -438,7 +452,13 @@ class TestListModelsEndpointMerge:
             bootstrap_database(db_path=db)
 
             # Create two local models
-            create_local_model(db_path=db, local_model_id="local-001", model_name="Local Alpha")
+            create_local_model(
+                db_path=db,
+                local_model_id="local-001",
+                model_name="Local Alpha",
+                created_by="phase2-user",
+                revision_hash="rev-local-001",
+            )
             create_local_model(db_path=db, local_model_id="local-002", model_name="Local Beta", creator_name="Test Creator")
 
             settings = Settings(
@@ -593,6 +613,8 @@ class TestListModelsEndpointMerge:
         assert payload["manyfold_model_url"] == "local://local-001"
         assert payload["model"]["name"] == "Local Alpha"
         assert payload["model"]["collection_names"] == []
+        assert payload["model"]["created_by"] == "phase2-user"
+        assert payload["model"]["revision_hash"] == "rev-local-001"
 
     def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
         """PATCH /api/models/{model_ref} updates local models in SQLite authority."""
@@ -610,7 +632,15 @@ class TestListModelsEndpointMerge:
         payload = response.json()
         assert payload["model"]["name"] == "Local Alpha Updated"
         assert payload["model"]["description"] == "Updated description"
+        assert payload["model"]["tags"] == ["updated"]
+        assert payload["model"]["keywords"] == ["updated"]
         assert payload["enrichment"]["difficulty_level"] == "easy"
+
+        search_response = client.get("/api/models/search?tag=updated")
+        assert search_response.status_code == 200
+        search_payload = search_response.json()
+        result_urls = [result["model_url"] for result in search_payload["results"]]
+        assert "local://local-001" in result_urls
 
 
 class TestDatabaseMigration:

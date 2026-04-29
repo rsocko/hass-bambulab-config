@@ -104,6 +104,14 @@ def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
     Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
     this function handles local-authority models created after Phase 1.
     """
+    compatibility_keywords: list[str] = []
+    seen_keywords: set[str] = set()
+    for raw_keyword in (*entry.keyword_names, *entry.tags):
+        keyword = str(raw_keyword or "").strip()
+        if keyword and keyword not in seen_keywords:
+            seen_keywords.add(keyword)
+            compatibility_keywords.append(keyword)
+
     return ManyfoldModelSummary(
         model_url=f"local://{entry.local_model_id}",
         public_id=entry.local_model_id,
@@ -112,7 +120,7 @@ def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
         preview_url=entry.preview_image_url,
         creator_name=entry.creator_name,
         collection_names=entry.collection_names,
-        keyword_names=entry.keyword_names,
+        keyword_names=tuple(compatibility_keywords),
     )
 
 
@@ -2055,6 +2063,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 model_name=model_name,
                 model_description=payload.get("model_description"),
                 creator_name=payload.get("creator_name"),
+                created_by=payload.get("created_by"),
                 collection_names=payload.get("collection_names"),
                 keyword_names=payload.get("keyword_names"),
                 tags=payload.get("tags"),
@@ -2062,6 +2071,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 preview_image_url=payload.get("preview_image_url"),
                 source_origin=payload.get("source_origin"),
                 source_origin_url=payload.get("source_origin_url"),
+                revision_hash=payload.get("revision_hash"),
             )
             summary = _local_entry_to_summary(entry)
             return {
@@ -2131,6 +2141,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "success": True,
             "model": asdict(summary),
+            "entry": asdict(entry),
             "assets": [
                 {
                     "asset_id": a.asset_id,
@@ -2154,11 +2165,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             local_model_id=local_model_id,
             model_name=payload.get("model_name"),
             model_description=payload.get("model_description"),
+            creator_name=payload.get("creator_name"),
+            created_by=payload.get("created_by"),
             tags=payload.get("tags"),
             keyword_names=payload.get("keyword_names"),
             collection_names=payload.get("collection_names"),
             license_type=payload.get("license_type"),
             preview_image_url=payload.get("preview_image_url"),
+            source_origin=payload.get("source_origin"),
+            source_origin_url=payload.get("source_origin_url"),
+            revision_hash=payload.get("revision_hash"),
         )
         
         if not updated:
@@ -2172,6 +2188,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "local_model_id": updated.local_model_id,
             "summary": asdict(summary),
+            "entry": asdict(updated),
         }
 
     @app.delete("/api/local/models/{local_model_id}")
@@ -3071,8 +3088,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "description": entry.model_description or "",
                     "preview_url": entry.preview_image_url,
                     "creator_name": entry.creator_name,
+                    "created_by": entry.created_by,
                     "collection_names": list(entry.collection_names),
-                    "keywords": list(entry.keyword_names),
+                    "keywords": list(_local_entry_to_summary(entry).keyword_names),
+                    "tags": list(entry.tags),
+                    "license_type": entry.license_type,
+                    "source_origin": entry.source_origin,
+                    "source_origin_url": entry.source_origin_url,
+                    "revision_hash": entry.revision_hash,
                     "files": _serialize_local_model_assets(assets=assets),
                     "preview_file_id": None,
                     "created_at": entry.created_at,
@@ -3293,6 +3316,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         detail_keywords = manyfold_detail.get("keywords")
         if isinstance(detail_keywords, list):
             response["model"]["keywords"] = [str(tag).strip() for tag in detail_keywords if str(tag).strip()]
+        response["model"]["tags"] = list(response["model"].get("keywords") or [])
         response["model"]["files"] = model_files
         response["model"]["preview_file_id"] = manyfold_detail.get("preview_file_id")
         response["model"]["created_at"] = manyfold_detail.get("created_at")

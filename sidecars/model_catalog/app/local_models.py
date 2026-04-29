@@ -24,6 +24,7 @@ def create_local_model(
     model_name: str,
     model_description: str | None = None,
     creator_name: str | None = None,
+    created_by: str | None = None,
     collection_names: list[str] | None = None,
     keyword_names: list[str] | None = None,
     tags: list[str] | None = None,
@@ -31,6 +32,7 @@ def create_local_model(
     preview_image_url: str | None = None,
     source_origin: str | None = None,
     source_origin_url: str | None = None,
+    revision_hash: str | None = None,
 ) -> LocalModelEntry:
     """Create a new local model catalog entry."""
     connection = connect(db_path)
@@ -40,17 +42,19 @@ def create_local_model(
             """
             INSERT INTO model_catalog_entries (
                 local_model_id, model_name, model_description, creator_name,
+                created_by,
                 collection_names_json, keyword_names_json, tags_json,
                 license_type, preview_image_url,
-                source_origin, source_origin_url,
+                source_origin, source_origin_url, revision_hash,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 local_model_id,
                 model_name,
                 model_description,
                 creator_name,
+                created_by,
                 json.dumps(collection_names or []),
                 json.dumps(keyword_names or []),
                 json.dumps(tags or []),
@@ -58,6 +62,7 @@ def create_local_model(
                 preview_image_url,
                 source_origin,
                 source_origin_url,
+                revision_hash,
                 now,
                 now,
             ),
@@ -155,11 +160,16 @@ def update_local_model(
     local_model_id: str,
     model_name: str | None = None,
     model_description: str | None = None,
+    creator_name: str | None = None,
+    created_by: str | None = None,
     tags: list[str] | None = None,
     keyword_names: list[str] | None = None,
     collection_names: list[str] | None = None,
     license_type: str | None = None,
     preview_image_url: str | None = None,
+    source_origin: str | None = None,
+    source_origin_url: str | None = None,
+    revision_hash: str | None = None,
 ) -> LocalModelEntry | None:
     """Update a local model entry (partial update).
     
@@ -187,6 +197,12 @@ def update_local_model(
         if model_description is not None:
             updates.append("model_description = ?")
             params.append(model_description)
+        if creator_name is not None:
+            updates.append("creator_name = ?")
+            params.append(creator_name)
+        if created_by is not None:
+            updates.append("created_by = ?")
+            params.append(created_by)
         if tags is not None:
             updates.append("tags_json = ?")
             params.append(json.dumps(tags))
@@ -202,6 +218,15 @@ def update_local_model(
         if preview_image_url is not None:
             updates.append("preview_image_url = ?")
             params.append(preview_image_url)
+        if source_origin is not None:
+            updates.append("source_origin = ?")
+            params.append(source_origin)
+        if source_origin_url is not None:
+            updates.append("source_origin_url = ?")
+            params.append(source_origin_url)
+        if revision_hash is not None:
+            updates.append("revision_hash = ?")
+            params.append(revision_hash)
 
         if not updates:
             # No updates requested, return current state
@@ -445,6 +470,7 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         model_name=str(row["model_name"]),
         model_description=row["model_description"],
         creator_name=row["creator_name"],
+        created_by=row["created_by"],
         collection_names=tuple(json.loads(row["collection_names_json"] or "[]")),
         keyword_names=tuple(json.loads(row["keyword_names_json"] or "[]")),
         tags=tuple(json.loads(row["tags_json"] or "[]")),
@@ -452,6 +478,7 @@ def _row_to_local_model_entry(row: Any) -> LocalModelEntry:
         preview_image_url=row["preview_image_url"],
         source_origin=row["source_origin"],
         source_origin_url=row["source_origin_url"],
+        revision_hash=row["revision_hash"],
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
     )

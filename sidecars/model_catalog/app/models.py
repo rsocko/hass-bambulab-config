@@ -24,6 +24,7 @@ class LocalModelEntry:
     model_name: str
     model_description: str | None
     creator_name: str | None
+    created_by: str | None
     collection_names: tuple[str, ...]
     keyword_names: tuple[str, ...]
     tags: tuple[str, ...]
@@ -31,6 +32,7 @@ class LocalModelEntry:
     preview_image_url: str | None
     source_origin: str | None
     source_origin_url: str | None
+    revision_hash: str | None
     created_at: str
     updated_at: str
 
