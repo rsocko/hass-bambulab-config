@@ -594,11 +594,12 @@ def _structured_detail_metadata(custom_fields: dict[str, object] | None) -> dict
     }
 
 
-def _normalize_enrichment_updates(enrichment: object | None) -> dict[str, object]:
+def _normalize_enrichment_changes(enrichment: object | None) -> tuple[dict[str, object], set[str]]:
     if not isinstance(enrichment, dict):
-        return {}
+        return {}, set()
 
     normalized: dict[str, object] = {}
+    clears: set[str] = set()
 
     structured_metadata = enrichment.get("structured_metadata")
     if isinstance(structured_metadata, dict):
@@ -611,28 +612,42 @@ def _normalize_enrichment_updates(enrichment: object | None) -> dict[str, object
                 "source_download_url",
                 "internal_notes",
             ):
-                if provenance.get(field_key) is not None:
+                if field_key not in provenance:
+                    continue
+                if provenance.get(field_key) is None:
+                    clears.add(field_key)
+                else:
                     normalized[field_key] = provenance.get(field_key)
 
         publishing = structured_metadata.get("publishing")
         if isinstance(publishing, dict):
             for field_key in ("published_to", "published_urls"):
-                if publishing.get(field_key) is not None:
+                if field_key not in publishing:
+                    continue
+                if publishing.get(field_key) is None:
+                    clears.add(field_key)
+                else:
                     normalized[field_key] = publishing.get(field_key)
 
         catalog_signals = structured_metadata.get("catalog_signals")
         if isinstance(catalog_signals, dict):
             for field_key in ("model_favorite", "model_rating"):
-                if catalog_signals.get(field_key) is not None:
+                if field_key not in catalog_signals:
+                    continue
+                if catalog_signals.get(field_key) is None:
+                    clears.add(field_key)
+                else:
                     normalized[field_key] = catalog_signals.get(field_key)
 
     for key, value in enrichment.items():
         if key == "structured_metadata":
             continue
-        if value is not None:
+        if value is None:
+            clears.add(key)
+        else:
             normalized[key] = value
 
-    return normalized
+    return normalized, clears
 
 
 def _compute_recent_score(*, last_printed_at: str | None, reference_time: datetime) -> float | None:
@@ -3508,7 +3523,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         tags = payload.get("tags")
         collection = payload.get("collection")
         enrichment = payload.get("enrichment")
-        normalized_enrichment = _normalize_enrichment_updates(enrichment)
+        normalized_enrichment, cleared_enrichment_fields = _normalize_enrichment_changes(enrichment)
         
         # Resolve model reference
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -3535,6 +3550,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     model_ref=str(summary.public_id or model_ref),
                     field_key=key,
                     field_value=value,
+                )
+            for field_key in cleared_enrichment_fields:
+                delete_model_field(
+                    db_path=state.settings.db_path,
+                    model_ref=str(summary.public_id or model_ref),
+                    field_key=field_key,
                 )
             return get_model_detail_endpoint(request, model_ref)
         
@@ -3571,6 +3592,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 model_ref=str(summary.public_id or summary.model_id),
                 field_key=key,
                 field_value=value
+            )
+        for field_key in cleared_enrichment_fields:
+            delete_model_field(
+                db_path=state.settings.db_path,
+                model_ref=str(summary.public_id or summary.model_id),
+                field_key=field_key,
             )
         
         # Return updated model detail

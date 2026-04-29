@@ -691,6 +691,28 @@ class TestListModelsEndpointMerge:
         assert structured["catalog_signals"]["model_favorite"] is False
         assert structured["catalog_signals"]["model_rating"] == 4
 
+    def test_update_local_model_endpoint_clears_structured_metadata(self, app_with_local_models):
+        """PATCH /api/models/{model_ref} clears structured metadata fields when null is provided."""
+        client, db = app_with_local_models
+        response = client.patch(
+            "/api/models/local-001",
+            json={
+                "enrichment": {
+                    "structured_metadata": {
+                        "provenance": {"origin_type": None},
+                        "publishing": {"published_to": None},
+                        "catalog_signals": {"model_favorite": None},
+                    }
+                },
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        structured = payload["enrichment"]["structured_metadata"]
+        assert structured["provenance"]["origin_type"] is None
+        assert structured["publishing"]["published_to"] == []
+        assert structured["catalog_signals"]["model_favorite"] is None
+
 
 class TestDatabaseMigration:
     """Test database schema and migrations."""
