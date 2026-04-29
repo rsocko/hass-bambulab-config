@@ -289,37 +289,25 @@ curl http://127.0.0.1:8314/healthz
 
 ## Optional Debug Tooling
 
-The stack now includes always-on diagnostics services alongside the main API:
+The stack now includes one always-on diagnostics service alongside the main API:
 
 - `model-catalog-datasette` - read-only SQLite browser for table inspection,
 	schema browsing, exports, and ad-hoc `SELECT` queries
-- `model-catalog-schema-crawler` - recurring SchemaCrawler generator that writes
-	an HTML schema report to `sidecars/model_catalog/diagnostics/schema/index.html`
-- `model-catalog-schema-viewer` - static web server that publishes the generated
-	SchemaCrawler output
 
 Practical commands:
 
 ```bash
-# Start the full stack, including diagnostics services
+# Start the full stack, including Datasette
 docker compose up -d
 
 # Open Datasette via Traefik
 http://model-catalog-datasette.socko.us
-
-# Open the generated SchemaCrawler report via Traefik
-http://model-catalog-schema-crawler.socko.us
 ```
 
 Notes:
 
 - Datasette mounts the sidecar SQLite volume read-only and opens the database in
 	immutable mode, so it is appropriate for diagnostics and ad-hoc read queries.
-- SchemaCrawler mounts the same SQLite volume read-only, regenerates the HTML
-	report on a recurring schedule, and writes it to
-	`./diagnostics/schema/index.html` next to the compose file.
-- The SchemaCrawler hostname is served by the lightweight viewer container;
-	SchemaCrawler itself remains a report generator rather than a web app.
 - A generic writable DB UI is still not recommended for normal operations,
 	because app-level workflows maintain additional invariants and audit events.
 
