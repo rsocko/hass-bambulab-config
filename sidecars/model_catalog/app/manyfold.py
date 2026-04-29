@@ -628,6 +628,9 @@ class ManyfoldClient:
             login_page.raise_for_status()
             sign_in_form = _parse_manyfold_sign_in_form(login_page.text)
             if not sign_in_form:
+                if self._client.cookies or not login_page.url.path.startswith(SIGN_IN_PATH):
+                    self._site_session_ready = bool(self._client.cookies) or login_page.is_success
+                    return self._site_session_ready
                 raise RuntimeError("Manyfold sign-in form could not be parsed for session bootstrap.")
             action, authenticity_token = sign_in_form
             form_payload: dict[str, str] = {

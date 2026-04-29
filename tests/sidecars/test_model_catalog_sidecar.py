@@ -2092,6 +2092,64 @@ def test_manyfold_client_create_model_relogs_session_after_sign_in_redirect() ->
     assert sign_in_posts["count"] == 2
 
 
+def test_manyfold_client_session_bootstrap_accepts_redirected_non_form_page_when_already_signed_in() -> None:
+    seen_requests: list[tuple[str, str, str | None, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("Authorization"),
+                request.headers.get("Cookie"),
+            )
+        )
+        if request.url.path == "/oauth/token":
+            return httpx.Response(200, json={"access_token": "token-123", "token_type": "Bearer"})
+        if request.method == "POST" and request.url.path == "/upload":
+            if request.headers.get("Authorization") == "Bearer token-123":
+                return httpx.Response(302, headers={"Location": "/users/sign_in"})
+            assert request.headers.get("Authorization") is None
+            assert "_manyfold_session=session-123" in str(request.headers.get("Cookie") or "")
+            return httpx.Response(201, headers={"Location": "/upload/session-upload"})
+        if request.method == "GET" and request.url.path == "/users/sign_in":
+            return httpx.Response(
+                200,
+                text="<html><body>Already signed in</body></html>",
+                headers={
+                    "Content-Type": "text/html; charset=utf-8",
+                    "Set-Cookie": "_manyfold_session=session-123; Path=/; HttpOnly",
+                },
+                request=httpx.Request("GET", "http://manyfold.test/models"),
+            )
+        if request.method == "PATCH" and request.url.path == "/upload/session-upload":
+            assert request.headers.get("Authorization") is None
+            assert request.content == b"1234"
+            return httpx.Response(204, headers={"Upload-Offset": "4"})
+        raise AssertionError(f"Unexpected request path: {request.method} {request.url.path}")
+
+    client = ManyfoldClient(
+        "http://manyfold.test",
+        client_id="client-id",
+        client_secret="client-secret",
+        session_email="user@example.com",
+        session_password="secret-pass",
+        http_client=httpx.Client(base_url="http://manyfold.test", transport=httpx.MockTransport(handler)),
+    )
+
+    try:
+        uploaded = client.upload_file(filename="part.3mf", content=b"1234", content_type="model/3mf")
+    finally:
+        client.close()
+
+    assert uploaded == {
+        "id": "http://manyfold.test/upload/session-upload",
+        "name": "part.3mf",
+        "type": "model/3mf",
+        "size": 4,
+    }
+
+
 def test_manyfold_client_retries_models_with_generic_accept_after_406() -> None:
     seen_accept_headers: list[str | None] = []
     model_calls = {"count": 0}
