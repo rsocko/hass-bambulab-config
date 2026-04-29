@@ -2220,9 +2220,12 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       await this._hass.callService("bambuddy", "delete_print_history_archive", {
         archive_id: archiveId,
       });
+      this._busy = false;
+      this._busyContext = "";
       await this._hass.callService("browser_mod", "close_popup", {});
     } catch (error) {
       this._busy = false;
+      this._busyContext = "";
       this._setStatus(this._describeError(error, "Archive delete failed"), "error");
     }
   }

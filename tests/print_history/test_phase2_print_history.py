@@ -821,10 +821,10 @@ class TestHeatmapActivityCard(unittest.TestCase):
 
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=58", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=123", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=64", content)
         self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=60", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=51", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=68", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=8", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
@@ -2409,10 +2409,10 @@ class TestPrintHistoryTagEditorCard(unittest.TestCase):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-tag-colors.js?v=4", content)
         self.assertIn("/local/3d_printing/print_history/print-history-tag-editor-card.js?v=10", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=51", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=68", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-restore-card.js?v=42", content)
         self.assertIn("/local/3d_printing/print_history/print-history-3d-viewer-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=121", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=123", content)
 
     def test_popup_project_refresh_script_forces_immediate_browser_refresh_and_reseeds_popup_options(self):
         content = (
