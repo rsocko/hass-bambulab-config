@@ -24,6 +24,7 @@ from sidecars.model_catalog.app.local_models import (
     create_model_asset,
     read_model_asset,
     list_model_assets,
+    update_model_asset,
     delete_model_asset,
 )
 from sidecars.model_catalog.app.models import LocalModelEntry, ManyfoldModelSummary
@@ -368,6 +369,40 @@ class TestModelAssetManagement:
         )
         assert result is None
 
+    def test_update_asset_supports_metadata_changes_and_clears(self, db_path):
+        """Update an asset without delete/recreate and allow explicit null clears."""
+        create_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="update-me",
+            asset_filename="model.3mf",
+            asset_type="3mf",
+            storage_path="/models/model.3mf",
+            asset_role="primary",
+            file_size_bytes=1024,
+            file_hash="hash-before",
+            preview_url="https://example.com/before.png",
+            geometry_bounds={"x": 1, "y": 2, "z": 3},
+        )
+
+        updated = update_model_asset(
+            db_path=db_path,
+            local_model_id="parent-model",
+            asset_id="update-me",
+            asset_role="preview",
+            file_hash=None,
+            preview_url=None,
+            geometry_bounds=None,
+            file_size_bytes=2048,
+        )
+
+        assert updated is not None
+        assert updated.asset_role == "preview"
+        assert updated.file_hash is None
+        assert updated.preview_url is None
+        assert updated.geometry_bounds is None
+        assert updated.file_size_bytes == 2048
+
 
 class TestBackwardCompatibility:
     """Test backward-compatibility conversions."""
@@ -674,6 +709,36 @@ class TestListModelsEndpointMerge:
         assert payload["assets"][1]["file_size_bytes"] == 2048
         assert payload["assets"][1]["storage_path"] == "/models/local-alpha.3mf"
         assert payload["assets"][1]["geometry_bounds"] == {"x": 256.1, "y": 128.2, "z": 64.3}
+
+    def test_update_local_model_asset_endpoint_reassigns_preview_and_clears_metadata(self, app_with_local_models):
+        """PATCH /api/local/models/{local_model_id}/assets/{asset_id} updates preview semantics and supports null clears."""
+        client, db = app_with_local_models
+        response = client.patch(
+            "/api/local/models/local-001/assets/primary-3mf",
+            json={
+                "asset_role": "preview",
+                "preview_url": None,
+                "file_hash": None,
+                "geometry_bounds": None,
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["preview_file_id"] == "primary-3mf"
+        assert payload["asset"]["asset_id"] == "primary-3mf"
+        assert payload["asset"]["asset_role"] == "preview"
+        assert payload["asset"]["is_preview"] is True
+        assert payload["asset"]["preview_url"] is None
+        assert payload["asset"]["file_hash"] is None
+        assert payload["asset"]["geometry_bounds"] is None
+
+        detail_response = client.get("/api/models/local-001/detail")
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+        assert detail_payload["model"]["preview_file_id"] == "primary-3mf"
+        assert detail_payload["model"]["files"][0]["id"] == "primary-3mf"
+        assert detail_payload["model"]["files"][0]["is_preview"] is True
 
     def test_update_local_model_endpoint_updates_local_authority(self, app_with_local_models):
         """PATCH /api/models/{model_ref} updates local models in SQLite authority."""

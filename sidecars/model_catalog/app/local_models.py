@@ -17,6 +17,9 @@ from .db import connect, utc_now_iso
 from .models import LocalModelEntry, ModelAsset
 
 
+_UNSET = object()
+
+
 def create_local_model(
     *,
     db_path: Path,
@@ -435,6 +438,91 @@ def list_model_assets(
         return [_row_to_model_asset(row) for row in rows]
     finally:
         connection.close()
+
+
+def update_model_asset(
+    *,
+    db_path: Path,
+    local_model_id: str,
+    asset_id: str,
+    asset_filename: str | object = _UNSET,
+    asset_type: str | object = _UNSET,
+    storage_path: str | object = _UNSET,
+    asset_role: str | object = _UNSET,
+    file_size_bytes: int | None | object = _UNSET,
+    file_hash: str | None | object = _UNSET,
+    preview_url: str | None | object = _UNSET,
+    geometry_bounds: dict[str, Any] | None | object = _UNSET,
+) -> ModelAsset | None:
+    """Update mutable fields for a single model asset.
+
+    Returns the updated asset, or None if the asset/model does not exist.
+    """
+    connection = connect(db_path)
+    try:
+        existing = connection.execute(
+            """
+            SELECT a.id FROM model_catalog_assets a
+            JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
+            WHERE e.local_model_id = ? AND a.asset_id = ? AND e.archived_at IS NULL
+            """,
+            (local_model_id, asset_id),
+        ).fetchone()
+
+        if not existing:
+            return None
+
+        update_fields: list[str] = []
+        params: list[Any] = []
+
+        if asset_filename is not _UNSET:
+            update_fields.append("asset_filename = ?")
+            params.append(asset_filename)
+        if asset_type is not _UNSET:
+            update_fields.append("asset_type = ?")
+            params.append(asset_type)
+        if storage_path is not _UNSET:
+            update_fields.append("storage_path = ?")
+            params.append(storage_path)
+        if asset_role is not _UNSET:
+            update_fields.append("asset_role = ?")
+            params.append(asset_role)
+        if file_size_bytes is not _UNSET:
+            update_fields.append("file_size_bytes = ?")
+            params.append(file_size_bytes)
+        if file_hash is not _UNSET:
+            update_fields.append("file_hash = ?")
+            params.append(file_hash)
+        if preview_url is not _UNSET:
+            update_fields.append("preview_url = ?")
+            params.append(preview_url)
+        if geometry_bounds is not _UNSET:
+            update_fields.append("geometry_bounds_json = ?")
+            params.append(json.dumps(geometry_bounds) if geometry_bounds is not None else None)
+
+        if not update_fields:
+            return read_model_asset(db_path=db_path, local_model_id=local_model_id, asset_id=asset_id)
+
+        update_fields.append("updated_at = ?")
+        params.append(utc_now_iso())
+        params.extend([local_model_id, asset_id])
+
+        connection.execute(
+            f"""
+            UPDATE model_catalog_assets
+            SET {', '.join(update_fields)}
+            WHERE model_catalog_entry_id IN (
+                SELECT id FROM model_catalog_entries
+                WHERE local_model_id = ? AND archived_at IS NULL
+            ) AND asset_id = ?
+            """,
+            params,
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    return read_model_asset(db_path=db_path, local_model_id=local_model_id, asset_id=asset_id)
 
 
 def delete_model_asset(

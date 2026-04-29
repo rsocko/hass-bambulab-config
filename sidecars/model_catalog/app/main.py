@@ -45,6 +45,7 @@ from .db import (
 )
 from .geometry_3mf import extract_3mf_geometry
 from .local_models import (
+    _UNSET,
     create_local_model,
     read_local_model,
     list_local_models,
@@ -53,6 +54,7 @@ from .local_models import (
     create_model_asset,
     read_model_asset,
     list_model_assets,
+    update_model_asset,
     delete_model_asset,
 )
 from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
@@ -238,20 +240,17 @@ def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
             return 3
         return 4
 
+    preview_asset_id = _select_local_preview_asset_id(assets=assets)
+
     ordered_assets = sorted(
         assets,
         key=lambda asset: (
+            0 if str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) == preview_asset_id else 1,
             _asset_rank(getattr(asset, "asset_role", None)),
             str(getattr(asset, "created_at", "") or ""),
             str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
         ),
     )
-
-    preview_asset_id = None
-    for asset in ordered_assets:
-        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview":
-            preview_asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) or None
-            break
 
     serialized: list[dict[str, Any]] = []
     for asset in ordered_assets:
@@ -285,12 +284,24 @@ def _serialize_local_model_assets(*, assets: list[Any]) -> list[dict[str, Any]]:
 
 
 def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
-    for asset in assets:
-        asset_role = str(getattr(asset, "asset_role", "") or "").strip().lower()
-        if asset_role == "preview":
-            asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
-            return asset_id or None
-    return None
+    preview_candidates = [
+        asset
+        for asset in assets
+        if str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview"
+    ]
+    if not preview_candidates:
+        return None
+
+    selected = sorted(
+        preview_candidates,
+        key=lambda asset: (
+            str(getattr(asset, "updated_at", "") or ""),
+            str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")),
+        ),
+        reverse=True,
+    )[0]
+    asset_id = str(getattr(selected, "asset_id", "") or getattr(selected, "id", ""))
+    return asset_id or None
 
 
 def _coerce_int(value: object | None) -> int | None:
@@ -2548,6 +2559,49 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "local_model_id": local_model_id,
             "preview_file_id": _select_local_preview_asset_id(assets=assets),
             "assets": _serialize_local_model_assets(assets=assets),
+        }
+
+    @app.patch("/api/local/models/{local_model_id}/assets/{asset_id}")
+    def update_model_asset_endpoint(
+        local_model_id: str,
+        asset_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update mutable metadata for a local model asset."""
+        state: AppState = app.state.model_catalog
+
+        updated_asset = update_model_asset(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_id=asset_id,
+            asset_filename=payload.get("asset_filename") if "asset_filename" in payload else _UNSET,
+            asset_type=payload.get("asset_type") if "asset_type" in payload else _UNSET,
+            storage_path=payload.get("storage_path") if "storage_path" in payload else _UNSET,
+            asset_role=payload.get("asset_role") if "asset_role" in payload else _UNSET,
+            file_size_bytes=payload.get("file_size_bytes") if "file_size_bytes" in payload else _UNSET,
+            file_hash=payload.get("file_hash") if "file_hash" in payload else _UNSET,
+            preview_url=payload.get("preview_url") if "preview_url" in payload else _UNSET,
+            geometry_bounds=payload.get("geometry_bounds") if "geometry_bounds" in payload else _UNSET,
+        )
+
+        if updated_asset is None:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "asset not found"},
+            )
+
+        assets = list_model_assets(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+        )
+        serialized_assets = _serialize_local_model_assets(assets=assets)
+        serialized_asset = next((asset for asset in serialized_assets if asset.get("asset_id") == asset_id), None)
+
+        return {
+            "success": True,
+            "local_model_id": local_model_id,
+            "asset": serialized_asset,
+            "preview_file_id": _select_local_preview_asset_id(assets=assets),
         }
 
     @app.delete("/api/local/models/{local_model_id}/assets/{asset_id}")
