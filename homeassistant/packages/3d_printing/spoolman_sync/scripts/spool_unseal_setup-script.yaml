@@ -114,7 +114,8 @@ spool_unseal_setup:
     # --- Step 4a: Set location on target (if copying from source) ---
     - if:
         - condition: template
-          value_template: "{{ copy_location and source_location }}"
+          value_template: >-
+            {{ copy_location and ((source_location | string | trim | length) > 0) }}
       then:
         - if:
             - condition: template
