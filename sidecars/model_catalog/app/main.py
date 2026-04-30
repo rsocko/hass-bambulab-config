@@ -62,6 +62,13 @@ from .local_models import (
 from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
 from .models import ManyfoldModelSummary, LocalModelEntry
 from .settings import Settings, load_settings
+from .services import (
+    get_all_indexed_file_hashes,
+    get_all_intake_queue_hashes,
+    get_working_items_hashes,
+    detect_duplicate_files,
+    build_dedup_collision_warning,
+)
 
 
 MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
@@ -2784,7 +2791,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 },
             )
 
-        existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+        existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
         now_iso = _bulk_utc_now_iso()
 
         proposals_by_key: dict[str, dict[str, Any]] = {}
@@ -2984,7 +2991,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
         connection = connect(state.settings.db_path)
         connection.row_factory = None
-        existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+        existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
         batch_hashes: set[str] = set()
         created_groups: list[dict[str, Any]] = []
         duplicate_skipped: list[dict[str, Any]] = []
@@ -5511,7 +5518,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         now_iso = _bulk_utc_now_iso()
         created_items: list[dict[str, Any]] = []
         pending_events: list[dict[str, Any]] = []
-        existing_hashes = _read_existing_working_hashes(state.settings.db_path) if auto_validate else set()
+        existing_hashes = get_all_indexed_file_hashes(state.settings.db_path) if auto_validate else set()
 
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row

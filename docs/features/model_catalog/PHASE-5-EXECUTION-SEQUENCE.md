@@ -258,7 +258,7 @@ Implement the core workflow endpoints that tie together indexing, queue, and wor
 
 Build the HA UI surfaces that operators use to interact with working groups and intake.
 
-#### 1️⃣1️⃣ #1076 (HA component): HA UI - working groups and link management
+#### 1️⃣1️⃣ #1077 (HA component): HA UI - working groups and link management
 - **Effort**: 2–3 days (HA UI)
 - **Dependency**: #1080 (sidecar endpoints complete)
 - **Blocker for**: #1082
@@ -401,9 +401,9 @@ Lay groundwork for Phase 6 publish workflow. Document operations and deployment.
 ## Validation Gates by Wave
 
 ### Wave 1 Completion Gate
-- [ ] All three spec documents are complete and reviewed
-- [ ] Team agrees on state machine, file normalization, and indexing strategy
-- [ ] No blocking unknowns remain for Wave 2
+- [x] All three spec documents are complete and reviewed
+- [x] Team agrees on state machine, file normalization, and indexing strategy
+- [x] No blocking unknowns remain for Wave 2
 
 ### Wave 2 Completion Gate
 - [ ] All sidecar endpoints exist and are tested
