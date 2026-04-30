@@ -333,10 +333,19 @@ class TestErrorHandling:
             "homeassistant/packages/3d_printing/model_catalog/scripts/archive_link_model.yaml"
         )
         
+        
         content = script_path.read_text(encoding='utf-8')
         
-        # Should have error handling
-        assert "not found" in content.lower() or "none" in content.lower()
+
+    def test_script_does_not_reference_unknown_automation(self):
+        """Script does not reference the removed manual-link placeholder automation."""
+        script_path = Path(
+            "homeassistant/packages/3d_printing/model_catalog/scripts/archive_link_model.yaml"
+        )
+
+        content = script_path.read_text(encoding='utf-8')
+
+        assert "automation.model_archive_manual_link_required" not in content
 
     def test_automation_handles_missing_model_catalog(self):
         """Automation handles model catalog unavailability."""

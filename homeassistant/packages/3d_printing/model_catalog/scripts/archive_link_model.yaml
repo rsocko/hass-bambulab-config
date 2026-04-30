@@ -64,6 +64,3 @@ archive_link_model:
             title: Model Not Found
             message: "Archive #{{ archive_id }} ({{ model_filename }}) could not be automatically linked. Manual linking may be required."
             notification_id: "model_unlinked_{{ archive_id }}"
-        - action: automation.trigger
-          target:
-            entity_id: automation.model_archive_manual_link_required
