@@ -32,6 +32,81 @@ Future-facing publish, lineage, preview-promotion, and library-import surfaces a
 
 ---
 
+## Overall 3D Printing Dashboard Placement
+
+The current 3D Printing dashboard already uses a crowded **top-level Home Assistant view bar** for major domains such as Home, Model Catalog, Filament Catalog, Print History, and Print Statistics.
+
+For that reason, the recommended Wave 4 placement is:
+
+- keep **one** top-level `Model Catalog` view in the global 3D Printing nav
+- do **not** add separate top-level nav tabs for `Curated`, `Working`, and `Intake`
+- implement `Curated`, `Working`, `Intake`, and `Inbox / Queue Review` as hidden child views within the Model Catalog area
+- use navigation cards or buttons on a visible `Model Catalog Home` parent view to open those child views
+
+Reason:
+
+- `Curated`, `Working`, and `Intake` are subdomains of Model Catalog, not peer domains to Print History or Filament Catalog
+- adding all three to the global top nav would over-fragment the 3D Printing dashboard
+- the existing top nav is already carrying too many major domains to make three more global tabs a good fit
+
+### Recommended Global Nav Shape
+
+```text
+3D Printing Dashboard Top Nav
+
+[Home] [Model Catalog] [Filament Tags] [Filament Catalog] [Print History] [Stats] [...]
+```
+
+### Recommended Model Catalog Internal Shape
+
+Inside the single top-level `Model Catalog` domain, use a visible parent view plus hidden child views:
+
+```text
+Visible parent:
+Model Catalog Home
+
+[Curated] [Working] [Intake] [Inbox]
+
+Hidden children:
+- Curated Catalog Browser
+- Working Board
+- Intake Home
+- Inbox / Queue Review
+```
+
+This means the entry controls appear below the global 3D Printing top nav on the visible Model Catalog landing view, while the actual high-density surfaces live in hidden child views.
+
+### Recommended Visual Mockup
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 3D Printing Dashboard                                                       │
+│ [Home] [Model Catalog] [Filament Tags] [Filament Catalog] [Print History]   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Model Catalog Home                                                          │
+│                                                                              │
+│ [ Curated ] [ Working ] [ Intake ] [ Inbox ]                                │
+│                                                                              │
+│ ┌──────────────────────────────────────────────────────────────────────────┐ │
+│ │ Curated  -> hidden Curated view                                         │ │
+│ │ Working  -> hidden Working view                                         │ │
+│ │ Intake   -> hidden Intake Home view                                     │ │
+│ │ Inbox    -> hidden Inbox / Queue Review view                            │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Container Recommendation
+
+- **Global top nav**: built-in HA views for major 3D Printing domains
+- **Model Catalog parent view**: visible landing view with navigation cards/buttons
+- **Model Catalog child views**: built-in HA hidden views used for Curated, Working, Intake, and Inbox surfaces
+- **Focused actions**: popups for submission, browse, detail, and link-management flows
+
+This is the cleanest balance between native HA navigation, mobile stability, and hierarchical organization without overloading the global top nav.
+
+---
+
 ## Design Inputs
 
 ### Immediate Wave 4 Drivers
@@ -107,6 +182,38 @@ Model Catalog Home
    └─ Batch / Intake Actions
 ```
 
+### Navigation Placement
+
+For Wave 4, **Intake Home should be treated as a hidden Model Catalog child view/page**, not as a popup and not as a tab embedded inside the curated catalog browser.
+
+Recommended Home Assistant placement:
+
+- the overall `Model Catalog` area exposes one visible parent view plus hidden child views
+- `Intake Home` is a hidden child view focused on submission, queue health, and inbox entry
+- `Working Board` is a hidden child view focused on sidecar-owned Working groups
+- `Curated Catalog Browser` remains a hidden child view for stable catalog browsing
+
+Recommended navigation model:
+
+- enter the overall `Model Catalog` area from the dashboard/sidebar/navigation structure already used for model surfaces
+- land on `Model Catalog Home`, then navigate into `Curated`, `Working`, `Intake`, or `Inbox` child views
+- use popups only for focused actions such as `Submit Intake`, `Server Browse`, `Working Group Detail`, and `Link Management`
+
+This keeps the intake workflow visible and durable enough for queue and inbox monitoring while avoiding the density and state-management problems that would come from trying to fit queue review into a transient popup.
+
+### Surface Type Summary
+
+| Surface | Intended Container |
+|---|---|
+| Intake Home | Hidden Model Catalog child view/page |
+| Intake Submission | Popup launched from Intake Home |
+| Server Browse Picker | Popup launched from Intake Submission |
+| Inbox And Queue Review | Hidden child view/page, reachable from Model Catalog Home or Intake Home |
+| Working Board | Hidden Model Catalog child view/page |
+| Working Group Detail | Popup launched from Working Board or Inbox Review |
+| Link Management | Popup launched from Working Group Detail |
+| Batch Result Summary | Inline panel or modal layered over the current view |
+
 ---
 
 ## Reusable Component System
@@ -130,9 +237,48 @@ The Wave 4 UI should be broken into reusable elements rather than large one-off 
 
 Follow the Print History split:
 
-- **HA helpers** hold mode-level state such as source mode, cleanup policy, and whether bulk mode is active.
-- **Card-local state** holds selected working-group IDs, selected inbox item IDs, open row expansion, and active tabs.
+- **HA helpers** hold durable cross-subview state when it helps multiple Model Catalog child views stay in sync.
+- **Card-local state** holds transient selection, expansion, popup, and per-session interaction state.
 - **Service responses** provide authoritative progress and outcome payloads; the UI should not invent long-lived optimistic states.
+
+### Cross-Subview Sharing Rule
+
+Prefer shared state only when it satisfies at least one of these:
+
+- the state should persist while navigating between hidden Model Catalog child views
+- the same control needs to be visible or honored in more than one child view
+- the state represents an operator preference or workflow mode rather than a temporary selection
+
+Good candidates for shared state:
+
+- source mode
+- cleanup policy
+- shared search/filter seed passed from Model Catalog Home into Intake or Working
+- a broad workflow mode such as bulk mode if multiple views need to honor it
+
+Keep local instead:
+
+- selected row IDs
+- expanded row state
+- popup tab state
+- temporary review selections or inline draft edits
+
+The goal is to reuse components and preserve useful context across hidden child views without turning HA helpers into a second application database.
+
+### Initial Shared Helper And Entity Contract
+
+Start with a narrow shared-state contract so the first implementation stays predictable:
+
+| Entity | Type | Purpose | Shared Across |
+|---|---|---|---|
+| `input_select.model_catalog_source_mode` | HA helper | Persist browser-upload vs server-browse preference | Intake Home, Intake Submission, future import presets |
+| `input_select.model_catalog_cleanup_policy` | HA helper | Persist cleanup policy default for new intake actions | Intake Home, Intake Submission, Cleanup Audit |
+| `input_boolean.model_catalog_bulk_mode` | HA helper | Preserve broad bulk-action mode when multiple child views honor it | Inbox Review, Working Board |
+| `input_text.model_catalog_filter_seed` | HA helper or derived helper-backed state | Carry a coarse search/filter seed from Model Catalog Home into child views | Model Catalog Home, Intake Home, Working Board |
+| `sensor.model_catalog_queue_summary` | Sidecar-backed entity | Authoritative queue counts and health summary | Model Catalog Home, Intake Home, Inbox Review |
+| `sensor.model_catalog_working_summary` | Sidecar-backed entity | Authoritative working-group counts and stage summary | Model Catalog Home, Working Board |
+
+Do not create shared helpers for row-level selection, popup tabs, or inline edit drafts. Those remain local to the active child view.
 
 ---
 
@@ -141,6 +287,19 @@ Follow the Print History split:
 ### Purpose
 
 Provide the top-level landing surface for new submissions, current queue visibility, and quick access into inbox review.
+
+### Container Decision
+
+This surface is intended to be a **hidden child view within the overall Model Catalog UI**.
+
+It should function as the intake-focused sibling of the Curated Catalog Browser and the Working Board. In other words:
+
+- the operator enters `Model Catalog`
+- they land on `Model Catalog Home`
+- they navigate to the hidden `Intake` view when they want to submit or triage items
+- they open popups from that view for submission and picker/detail tasks
+
+It is **not** intended to be only a popup, and it is **not** intended to be a custom in-card tab router hidden inside the curated-model browser.
 
 ### Required Content
 
@@ -187,6 +346,7 @@ Provide the top-level landing surface for new submissions, current queue visibil
 - This is a dashboard summary surface, not the place for detailed row editing.
 - Queue health should use the same compact status-summary semantics as Print History counters.
 - On mobile, the three summary panels stack vertically before the activity block.
+- Primary CTA flow: `Intake Home` → `Submit Intake` popup or `Review Inbox` view.
 
 ---
 
@@ -284,6 +444,16 @@ Give operators a controlled, allowlisted filesystem picker that feels like part 
 ### Purpose
 
 Review submitted items before creating or attaching Working groups.
+
+### Container Decision
+
+Treat this as a **hidden child view/page linked from Intake Home or Model Catalog Home**, not a large popup.
+
+Reason:
+
+- it needs filters, multi-select state, durable queue context, and mixed-result review
+- those behaviors are closer to Print History browser semantics than popup semantics
+- the operator may stay here for an extended review session
 
 ### Layout Strategy
 

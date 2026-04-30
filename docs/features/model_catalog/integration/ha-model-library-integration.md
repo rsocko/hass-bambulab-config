@@ -29,6 +29,16 @@ HA should not depend on direct Manyfold DB access.
 
 ## Primary HA Surfaces
 
+Recommended container model:
+
+- use the overall `Model Catalog` area as a multi-view dashboard domain
+- keep high-density operator surfaces as dedicated views/pages
+- use popups for focused drill-in and action flows rather than as the primary home for browsing or triage
+- keep the **global 3D Printing top nav** reserved for major domains such as Home, Model Catalog, Filament Catalog, and Print History
+- keep `Curated`, `Working`, and `Intake` nested **inside** the Model Catalog area rather than promoting all three to peer top-nav tabs
+- prefer the built-in **visible parent view + hidden child views** pattern for the Model Catalog sub-hierarchy
+- use navigation cards/buttons from the visible parent view to open hidden child views
+
 ### 1. Archive Popup
 
 First-slice and highest-value surface.
@@ -58,6 +68,30 @@ Responsibilities:
 - group related files logically, not only by folder shape
 - expose quick-open actions for primary file or folder
 - allow publish-to-curated entrypoints
+
+### 3.5. Intake Home And Inbox Review
+
+Responsibilities:
+
+- act as the intake-focused peer view within the overall Model Catalog UI
+- summarize source mode, cleanup policy, queue health, and inbox counts
+- launch submission and server-browse popups
+- route the operator into a dedicated Inbox/Queue review view for detailed triage
+
+Container recommendation:
+
+- `Intake Home` should be a hidden child view under the visible `Model Catalog Home`
+- `Inbox / Queue Review` should also be a hidden child view due to filter density and review duration
+- `Submit Intake` and filesystem browse should remain popup-driven tasks launched from the Intake view
+
+### Shared State Guidance
+
+When reusable Model Catalog components appear across hidden child views, prefer a split similar to Print History:
+
+- use shared helpers or shared sidecar-backed entities for durable cross-view state and operator preferences
+- keep temporary selection, expanded-row state, and popup-local interactions inside the specific card/view
+
+This gives reuse and continuity across hidden views without creating unnecessary helper duplication.
 
 ### 4. Backlog / Queue View
 

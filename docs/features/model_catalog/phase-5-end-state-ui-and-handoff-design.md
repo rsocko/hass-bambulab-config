@@ -33,9 +33,40 @@ Wave 4 establishes the first durable UI shell:
 
 The later end-state should expand these same surfaces rather than replacing them.
 
+Navigation assumption carried forward from Wave 4:
+
+- `Model Catalog Home` remains the visible parent view in the global 3D Printing dashboard
+- `Intake Home`, `Inbox Review`, `Working Board`, and the curated browser remain durable hidden child views/pages under Model Catalog
+- publish, preview-promotion, asset-selection, and lineage flows layer on top as popups or drill-in subflows launched from those views
+- the end-state should not collapse the intake workflow back into a single modal-only interaction
+
+### Navigation Contract Carried Forward
+
+Use multiple hidden views plus navigation cards/buttons plus `browser_mod` navigation for smooth transitions.
+
+This preserves:
+
+- real URLs and deep links for operator handoff and debugging
+- clean YAML separation so each major Model Catalog surface stays independently versioned
+- fast transitions without iframe-style compromises
+- a navigation pattern that matches Home Assistant's native view model
+
+Recommended navigation action pattern:
+
+```yaml
+tap_action:
+	action: fire-dom-event
+	browser_mod:
+		command: navigate
+		navigation_path: /dashboard-3d-printing/model-catalog-intake
+```
+
+Use the same pattern for `Curated`, `Working`, and `Inbox` child views from `Model Catalog Home` and from any cross-links between child views.
+
 ```text
 Wave 4 shell
-├─ Intake and queue review
+├─ Model Catalog Home
+├─ Hidden child views for intake, inbox, working, and curated browsing
 ├─ Working board and detail
 └─ Curated-link visibility
 
@@ -53,6 +84,7 @@ Future expansion
 
 | Surface | First Appears | Future Expansion |
 |---|---|---|
+| Model Catalog Home | Wave 4 | richer cross-links, summary badges, remote-source presets, deployment health |
 | Intake Home | Wave 4 | remote-client badges, volume health, OneDrive/local-library presets |
 | Inbox Review | Wave 4 | publish recommendations, lineage hints, provenance confidence |
 | Working Group Detail | Wave 4 | project context, publish readiness, preview candidates, revision lineage |
@@ -62,6 +94,15 @@ Future expansion
 | Supporting Asset Picker | Future | subflow within publish review |
 | Cleanup Audit Detail | Future | extension of result-summary panel |
 | Import Source Presets | Future | extension of Intake Home / Submission |
+
+### Shared State Carried Forward
+
+The end-state should keep the same split defined in Wave 4:
+
+- share durable operator preferences and cross-view summary entities
+- keep transient selection and popup-local interaction state inside the active child view
+
+That allows future publish, lineage, and import-presets flows to reuse the same helper/entity contract instead of inventing a separate navigation-state layer.
 
 ---
 
