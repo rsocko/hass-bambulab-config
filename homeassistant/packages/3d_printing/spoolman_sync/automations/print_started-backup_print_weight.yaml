@@ -117,11 +117,9 @@
   # Store only AMS and External Spool keys from print_weight attributes as JSON
   # Filtering avoids the 255 char input_text limit by excluding irrelevant attributes
   # (e.g. friendly_name, unit_of_measurement, icon)
-  - action: input_text.set_value
-    target:
-      entity_id: input_text.print_weight_backup
-    data:
-      value: >
+  # GUARD: Do not overwrite a valid same-task backup with empty string during sensor instability.
+  - variables:
+      new_backup_json: >
         {% set ns = namespace(d={}) %}
         {% for key, value in states.sensor.ntk_ryansoffice_3dprinter_print_weight.attributes.items() %}
           {% if (key is match('^(AMS|External)')) and (value | float(0) > 0) %}
@@ -129,6 +127,36 @@
           {% endif %}
         {% endfor %}
         {{ ns.d | tojson if (ns.d | count > 0) else '' }}
+  
+  # Prevent clobbering valid backup with empty string during sensor outages.
+  # If new data is empty AND existing backup is for same task, keep existing backup.
+  - if:
+      - condition: template
+        value_template: >-
+          {{
+            new_backup_json | length <= 2 and
+            existing_backup_has_keys and
+            metadata_task == task_name and
+            task_name not in ['unknown', 'unavailable', 'none', 'None', '']
+          }}
+        alias: Skip write - would clobber valid same-task backup with empty
+    then:
+      - action: system_log.write
+        metadata: {}
+        data:
+          message: >-
+            Print Backup: Sensor attributes unavailable after wait, but valid
+            backup already exists for "{{ task_name }}". Preserving existing backup
+            to protect against mid-print connectivity flaps. Trigger: {{ trigger.id }}.
+          level: info
+          logger: homeassistant.components.bambulab.spoolman_sync
+      - stop: Preserving valid same-task backup.
+  
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.print_weight_backup
+    data:
+      value: "{{ new_backup_json }}"
   
   # Store metadata for validation (task name, start time, total weight)
   - action: input_text.set_value

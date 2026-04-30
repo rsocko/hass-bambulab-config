@@ -43,8 +43,19 @@
       trigger_id: "{{ trigger.id | default('unknown', true) }}"
       trigger_from_state_obj: "{{ trigger.get('from_state') if trigger is mapping else none }}"
       trigger_to_state_obj: "{{ trigger.get('to_state') if trigger is mapping else none }}"
-      trigger_from_status: "{{ trigger_from_state_obj.state | string | lower if trigger_from_state_obj is not none else '' }}"
-      trigger_to_status: "{{ trigger_to_state_obj.state | string | lower if trigger_to_state_obj is not none else '' }}"
+      # Safe extraction of trigger status with fallback chain to handle state object inconsistencies
+      trigger_from_status: >
+        {%- if trigger_from_state_obj is not none and trigger_from_state_obj.state is defined -%}
+          {{ trigger_from_state_obj.state | string | lower }}
+        {%- else -%}
+          ''
+        {%- endif -%}
+      trigger_to_status: >
+        {%- if trigger_to_state_obj is not none and trigger_to_state_obj.state is defined -%}
+          {{ trigger_to_state_obj.state | string | lower }}
+        {%- else -%}
+          ''
+        {%- endif -%}
       archive_id_raw: "{{ states('input_text.bambuddy_current_archive_id') | string | trim }}"
       archive_id_valid: "{{ archive_id_raw | regex_match('^-?\\d+$') }}"
       task_name_current: "{{ states('sensor.ntk_ryansoffice_3dprinter_task_name') }}"
