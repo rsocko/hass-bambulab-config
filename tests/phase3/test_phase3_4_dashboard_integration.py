@@ -98,16 +98,14 @@ class TestHAScriptIntegration:
         assert "required: true" in content
 
     def test_script_timeout_reasonable(self):
-        """Script has reasonable timeout value."""
+        """Script does not use unsupported top-level timeout config."""
         script_path = Path(
             "homeassistant/packages/3d_printing/model_catalog/scripts/archive_link_model.yaml"
         )
         
         content = script_path.read_text(encoding='utf-8')
         
-        # Should have a timeout between 1 and 10 minutes
-        assert "timeout:" in content
-        assert "00:" in content  # Has hour:minute format
+        assert "\n  timeout:" not in content
 
 
 class TestHAAutomationIntegration:

@@ -2,7 +2,6 @@ archive_link_model:
   alias: Archive Link Model
   description: Link an archive to its source model.
   mode: single
-  timeout: "00:05:00"
   fields:
     archive_id:
       name: Archive ID
