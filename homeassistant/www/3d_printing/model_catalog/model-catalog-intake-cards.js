@@ -38,6 +38,56 @@
       .join(" ");
   }
 
+  function parseDecisionWarnings(item) {
+    if (!item || !item.decision_note) {
+      return [];
+    }
+    try {
+      var parsed = JSON.parse(item.decision_note);
+      return Array.isArray(parsed)
+        ? parsed.filter(function (entry) { return entry && typeof entry === "object"; })
+        : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  function warningMessages(warnings) {
+    return (warnings || []).map(function (warning) {
+      if (!warning || typeof warning !== "object") {
+        return "";
+      }
+      return String(warning.message || warning.code || "").trim();
+    }).filter(Boolean);
+  }
+
+  function duplicateWarnings(item) {
+    return parseDecisionWarnings(item).filter(function (warning) {
+      var code = String(warning && warning.code ? warning.code : "").toLowerCase();
+      var message = String(warning && warning.message ? warning.message : "").toLowerCase();
+      return code.indexOf("duplicate") >= 0
+        || code.indexOf("hash_match") >= 0
+        || message.indexOf("duplicate") >= 0
+        || message.indexOf("existing working item") >= 0;
+    });
+  }
+
+  function batchActionLabel(action) {
+    if (action === "validate") {
+      return "Validate";
+    }
+    if (action === "create-group") {
+      return "Create Groups";
+    }
+    if (action === "defer") {
+      return "Defer";
+    }
+    if (action === "reject") {
+      return "Reject";
+    }
+    return formatLabel(action);
+  }
+
   function summarizeStates(items, key) {
     var counts = {};
     (items || []).forEach(function (item) {
@@ -170,6 +220,7 @@
     + '.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(30,64,175,0.18);border:1px solid rgba(96,165,250,0.3);font-size:11px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;}'
     + '.chip.warn{background:rgba(180,83,9,0.18);border-color:rgba(245,158,11,0.3);}'
     + '.chip.error{background:rgba(153,27,27,0.2);border-color:rgba(248,113,113,0.3);}'
+    + '.chip.ok{background:rgba(22,101,52,0.22);border-color:rgba(74,222,128,0.3);}'
     + '.entries,.items{display:grid;gap:10px;}'
     + '.entry-row{display:grid;gap:10px;padding:12px;}'
     + '.entry-row.selected{border-color:rgba(96,165,250,0.4);background:rgba(30,64,175,0.18);}'
@@ -180,6 +231,12 @@
     + '.two-column{display:grid;gap:14px;grid-template-columns:minmax(0,1.2fr) minmax(0,0.8fr);}'
     + '.item-grid{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr));}'
     + '.link{color:var(--primary-color);cursor:pointer;text-decoration:underline;}'
+    + '.batch-toolbar{display:grid;gap:10px;padding:12px;border-radius:18px;border:1px solid rgba(96,165,250,0.35);background:rgba(30,64,175,0.14);}'
+    + '.result-summary{display:grid;gap:10px;padding:12px;border-radius:18px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);}'
+    + '.result-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;}'
+    + '.warning-box{display:grid;gap:6px;padding:12px;border-radius:14px;border:1px solid rgba(245,158,11,0.32);background:rgba(180,83,9,0.14);}'
+    + '.warning-title{font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fbbf24;}'
+    + '.selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
     + '@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:14px;}}';
 
   class ModelCatalogIntakeHomeCard extends HTMLElement {
@@ -585,6 +642,9 @@
       this._items = [];
       this._workingGroups = [];
       this._stateFilter = '';
+      this._selectMode = false;
+      this._selectedIds = {};
+      this._batchResult = null;
     }
 
     setConfig(config) {
@@ -764,6 +824,142 @@
       }
     }
 
+    _selectedItems() {
+      return this._items.filter(function (item) {
+        return !!this._selectedIds[item.item_id];
+      }, this);
+    }
+
+    _toggleSelectMode(forceValue) {
+      this._selectMode = typeof forceValue === 'boolean' ? forceValue : !this._selectMode;
+      if (!this._selectMode) {
+        this._selectedIds = {};
+      }
+      this._render();
+    }
+
+    _toggleItemSelection(itemId) {
+      if (!itemId) {
+        return;
+      }
+      if (this._selectedIds[itemId]) {
+        delete this._selectedIds[itemId];
+      } else {
+        this._selectedIds[itemId] = true;
+      }
+      this._render();
+    }
+
+    async _runBatchAction(action) {
+      var selectedItems = this._selectedItems();
+      if (!selectedItems.length) {
+        this._error = 'Select one or more inbox items first.';
+        this._render();
+        return;
+      }
+
+      var note = '';
+      if (action === 'defer') {
+        note = window.prompt('Batch deferral note', 'Deferred by operator (batch)');
+        if (note == null) {
+          return;
+        }
+      }
+      if (action === 'reject') {
+        note = window.prompt('Batch rejection note', 'Rejected by operator (batch)');
+        if (note == null) {
+          return;
+        }
+      }
+
+      this._loading = true;
+      this._error = '';
+      this._status = '';
+      this._batchResult = null;
+      this._render();
+
+      var results = [];
+      for (var index = 0; index < selectedItems.length; index += 1) {
+        var item = selectedItems[index];
+        var sourceEntry = item.source_entry || {};
+        try {
+          if (action === 'validate') {
+            var validationResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_validate_intake_item', { item_id: item.item_id });
+            var validationState = validationResponse.validation ? validationResponse.validation.validation_state : 'done';
+            var validationWarnings = validationResponse.validation ? validationResponse.validation.warnings || [] : [];
+            results.push({
+              item_id: item.item_id,
+              label: basename(sourceEntry.path || item.item_id),
+              outcome: validationState === 'ready' ? 'succeeded' : 'partial',
+              message: validationState === 'ready'
+                ? 'validated ready'
+                : 'validated ' + validationState + (validationWarnings.length ? ': ' + warningMessages(validationWarnings).join('; ') : ''),
+            });
+            continue;
+          }
+
+          if (action === 'create-group') {
+            var title = basename(sourceEntry.path || '') || 'Working Group';
+            await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_group_intake_item', {
+              item_id: item.item_id,
+              action: 'create_working_group',
+              title: title,
+              stage: 'draft',
+            });
+            results.push({
+              item_id: item.item_id,
+              label: basename(sourceEntry.path || item.item_id),
+              outcome: 'succeeded',
+              message: 'created working group ' + title,
+            });
+            continue;
+          }
+
+          if (action === 'defer') {
+            await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_defer_intake_item', { item_id: item.item_id, note: note || 'Deferred by operator (batch)' });
+            results.push({
+              item_id: item.item_id,
+              label: basename(sourceEntry.path || item.item_id),
+              outcome: 'succeeded',
+              message: 'deferred',
+            });
+            continue;
+          }
+
+          if (action === 'reject') {
+            await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_reject_intake_item', { item_id: item.item_id, note: note || 'Rejected by operator (batch)' });
+            results.push({
+              item_id: item.item_id,
+              label: basename(sourceEntry.path || item.item_id),
+              outcome: 'succeeded',
+              message: 'rejected',
+            });
+          }
+        } catch (error) {
+          results.push({
+            item_id: item.item_id,
+            label: basename(sourceEntry.path || item.item_id),
+            outcome: 'failed',
+            message: error && error.message ? String(error.message) : 'action failed',
+          });
+        }
+      }
+
+      this._batchResult = {
+        action: action,
+        total: results.length,
+        succeeded: results.filter(function (result) { return result.outcome === 'succeeded'; }).length,
+        partial: results.filter(function (result) { return result.outcome === 'partial'; }).length,
+        failed: results.filter(function (result) { return result.outcome === 'failed'; }).length,
+        results: results,
+      };
+      this._status = 'Batch ' + batchActionLabel(action).toLowerCase() + ' complete.';
+      this._selectedIds = {};
+      this._selectMode = false;
+      this._loading = false;
+      await this._refresh();
+    }
+
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
       if (!target) {
@@ -774,6 +970,35 @@
       var sourcePath = String(target.getAttribute('data-source-path') || '');
       if (action === 'refresh-inbox') {
         this._refresh();
+        return;
+      }
+      if (action === 'toggle-select-mode') {
+        this._toggleSelectMode();
+        return;
+      }
+      if (action === 'toggle-item-selection') {
+        this._toggleItemSelection(itemId);
+        return;
+      }
+      if (action === 'clear-batch-result') {
+        this._batchResult = null;
+        this._render();
+        return;
+      }
+      if (action === 'batch-validate') {
+        this._runBatchAction('validate');
+        return;
+      }
+      if (action === 'batch-create-group') {
+        this._runBatchAction('create-group');
+        return;
+      }
+      if (action === 'batch-defer') {
+        this._runBatchAction('defer');
+        return;
+      }
+      if (action === 'batch-reject') {
+        this._runBatchAction('reject');
         return;
       }
       if (action === 'validate-item') {
@@ -810,36 +1035,38 @@
       if (!this.shadowRoot || !this._config) {
         return;
       }
+      var selectedCount = this._selectedItems().length;
       this.shadowRoot.innerHTML = ''
         + '<style>' + sharedStyles + '</style>'
         + '<ha-card>'
         + '  <div class="shell">'
-        + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Review queue-first intake items before grouping them into Working.</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button></div></div>'
+        + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Review queue-first intake items before grouping them into Working.</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button><button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button></div></div>'
         + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
         + '    ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
         + '    </div>'
-        + '    <section class="section"><div class="toolbar-row"><div class="field"><label for="inbox-state-filter">State Filter</label><select id="inbox-state-filter" class="select"><option value="">All</option><option value="submitted"' + (this._stateFilter === 'submitted' ? ' selected' : '') + '>Submitted</option><option value="validated_ready"' + (this._stateFilter === 'validated_ready' ? ' selected' : '') + '>Validated Ready</option><option value="validated_warning"' + (this._stateFilter === 'validated_warning' ? ' selected' : '') + '>Validated Warning</option><option value="deferred"' + (this._stateFilter === 'deferred' ? ' selected' : '') + '>Deferred</option><option value="rejected"' + (this._stateFilter === 'rejected' ? ' selected' : '') + '>Rejected</option><option value="grouped_new"' + (this._stateFilter === 'grouped_new' ? ' selected' : '') + '>Grouped New</option><option value="grouped_existing"' + (this._stateFilter === 'grouped_existing' ? ' selected' : '') + '>Grouped Existing</option></select></div><div class="status">Items: ' + String(this._items.length) + '</div></div></section>'
+        + '    <section class="section"><div class="toolbar-row"><div class="field"><label for="inbox-state-filter">State Filter</label><select id="inbox-state-filter" class="select"><option value="">All</option><option value="submitted"' + (this._stateFilter === 'submitted' ? ' selected' : '') + '>Submitted</option><option value="validated_ready"' + (this._stateFilter === 'validated_ready' ? ' selected' : '') + '>Validated Ready</option><option value="validated_warning"' + (this._stateFilter === 'validated_warning' ? ' selected' : '') + '>Validated Warning</option><option value="deferred"' + (this._stateFilter === 'deferred' ? ' selected' : '') + '>Deferred</option><option value="rejected"' + (this._stateFilter === 'rejected' ? ' selected' : '') + '>Rejected</option><option value="grouped_new"' + (this._stateFilter === 'grouped_new' ? ' selected' : '') + '>Grouped New</option><option value="grouped_existing"' + (this._stateFilter === 'grouped_existing' ? ' selected' : '') + '>Grouped Existing</option></select></div><div class="status">Items: ' + String(this._items.length) + (this._selectMode ? ' / Selected: ' + String(selectedCount) : '') + '</div></div></section>'
+        + '    ' + (this._selectMode ? '<section class="batch-toolbar"><div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch review uses the existing item-level intake services and keeps mixed outcomes visible below.</div></div></div><div class="button-row"><button class="button primary" data-action="batch-validate"' + (!selectedCount ? ' disabled' : '') + '>Validate</button><button class="button primary" data-action="batch-create-group"' + (!selectedCount ? ' disabled' : '') + '>Create Groups</button><button class="button warn" data-action="batch-defer"' + (!selectedCount ? ' disabled' : '') + '>Defer</button><button class="button danger" data-action="batch-reject"' + (!selectedCount ? ' disabled' : '') + '>Reject</button><button class="button" data-action="toggle-select-mode">Cancel</button></div></section>' : '')
+        + '    ' + (this._batchResult ? '<section class="result-summary"><div class="title-row"><div><div class="title">Batch Result Summary</div><div class="subtitle">' + escapeHtml(batchActionLabel(this._batchResult.action)) + ' across ' + String(this._batchResult.total) + ' item(s).</div></div><button class="button" data-action="clear-batch-result">Dismiss</button></div><div class="button-row"><span class="chip ok">Succeeded ' + String(this._batchResult.succeeded) + '</span><span class="chip warn">Partial ' + String(this._batchResult.partial) + '</span><span class="chip error">Failed ' + String(this._batchResult.failed) + '</span></div><div class="entries">' + this._batchResult.results.map(function (result) { return '<div class="result-line"><span>' + escapeHtml(result.label || result.item_id) + '</span><span>' + escapeHtml(result.message || result.outcome) + '</span></div>'; }).join('') + '</div></section>' : '')
         + '    ' + (this._loading && !this._items.length ? '<div class="state-row">Loading inbox items...</div>' : '')
         + '    ' + (!this._loading && !this._items.length ? '<div class="state-row">No intake items match the current filter.</div>' : '')
         + '    ' + (this._items.length ? '<div class="items">' + this._items.map(function (item) {
             var sourceEntry = item.source_entry || {};
-            var warningsText = '';
-            try {
-              var parsedDecision = item.decision_note ? JSON.parse(item.decision_note) : [];
-              if (Array.isArray(parsedDecision) && parsedDecision.length) {
-                warningsText = parsedDecision.map(function (warning) { return warning.message || warning.code; }).join('; ');
-              }
-            } catch (_error) {
+            var warnings = parseDecisionWarnings(item);
+            var warningsText = warningMessages(warnings).join('; ');
+            if (!warningsText) {
               warningsText = item.decision_note || '';
             }
+            var duplicateSignals = duplicateWarnings(item);
+            var isSelected = !!this._selectedIds[item.item_id];
             return ''
-              + '<article class="entry-row">'
-              + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(formatLabel(item.state || item.status)) + '</span><span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
+              + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
+              + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel(item.state || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
               + '  <div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div></div>'
+              + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
               + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')
-              + '  <div class="entry-actions"><button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '">Create Group</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button></div>'
+              + (this._selectMode ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>' : '<div class="entry-actions"><button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '">Create Group</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button></div>')
               + '</article>';
-          }).join('') + '</div>' : '')
+          }, this).join('') + '</div>' : '')
         + '  </div>'
         + '</ha-card>';
 
