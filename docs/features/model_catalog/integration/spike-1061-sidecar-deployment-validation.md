@@ -79,12 +79,58 @@ Docker Compose Network (model-catalog-stack)
 | `MANYFOLD_CREATORS_PATH` | `/creators` | API path prefix |
 | `MANYFOLD_OAUTH_TOKEN_PATH` | `/oauth/token` | OAuth token endpoint |
 | `MODEL_CATALOG_REFRESH_TTL_SECONDS` | `900` | Cache refresh interval |
+| `SOURCE_FILESYSTEM_ROOTS` | empty | Comma-separated container paths allowed for server-browse intake and verification-gated cleanup |
+
+### Queue Volume And Remote-Client Intake Notes
+
+Phase 5 remote-client intake adds a runtime dependency that earlier deployment guidance did not call out explicitly:
+
+- browser-upload intake stages files under the parent directory of `MODEL_CATALOG_DB_PATH`
+- with the standard standalone path `MODEL_CATALOG_DB_PATH=/data/model_catalog.db`, the staged upload directory is `/data/intake_browser_uploads`
+- the `/data` mount is therefore both the database volume and the queue volume for browser-upload intake
+
+Operational implications:
+
+- `/data` must be writable
+- `/data` should be sized for queued upload batches, not just SQLite growth
+- queue continuity across restarts depends on persisting `/data`
+- if operators depend on remote browser upload, do not treat `/data` as disposable cache-only storage
+
+### Allowed-Root Configuration Examples
+
+Server-browse mode only works when the sidecar can resolve requested files inside `SOURCE_FILESYSTEM_ROOTS`.
+
+Examples:
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets
+```
+
+Broad standalone allowlist for the full bind mount.
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
+```
+
+Recommended when intake should stay out of curated catalog folders.
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets/inbox,/assets/imported/remotes
+```
+
+Recommended when server browse is only for controlled intake drops.
+
+Rules validated by implementation:
+
+- values are container paths, not host paths
+- the list is comma-separated
+- browse, select, and destructive cleanup must all remain within those roots
+- empty allowlists should be treated as browser-upload-only deployments
 
 ### Docker Compose Example
 
 ```yaml
 version: '3.8'
-
 services:
   manyfold:
     image: manyfold3d/manyfold:latest
@@ -145,6 +191,7 @@ services:
       MODEL_CATALOG_HOST: "0.0.0.0"
       MODEL_CATALOG_PORT: "8314"
       MODEL_CATALOG_REFRESH_TTL_SECONDS: "900"
+      SOURCE_FILESYSTEM_ROOTS: "/data/model-library/working,/data/model-library/inbox"
     depends_on:
       manyfold:
         condition: service_healthy
@@ -564,6 +611,91 @@ Before Phase 2 implementation, test:
 - [ ] Test OAuth credential rotation (update secret, restart sidecar)
 - [ ] Monitor resource usage (CPU, memory) during operation
 - [ ] Verify cross-stack networking if HA is on separate compose stack
+
+---
+
+## Phase 5 Intake Validation Plan
+
+Use this checklist when validating queue volume behavior and both remote-client intake source modes.
+
+### Browser Upload Path
+
+1. Start the sidecar with writable persistent `/data` storage.
+2. Submit a browser-upload batch to `POST /api/intake/uploads/browser`.
+3. Confirm the API returns `success=true` and an `upload_id`.
+4. Confirm staged files appear under `/data/intake_browser_uploads` in the running container.
+5. Confirm `GET /api/intake/uploads` lists the upload in `queued` or later state.
+
+Pass criteria:
+
+- queue row exists
+- staged file exists under `/data/intake_browser_uploads`
+- restart does not lose the queued upload when `/data` is persistent
+
+### Server Browse Path
+
+1. Set `SOURCE_FILESYSTEM_ROOTS` to a known mounted container path.
+2. Call `GET /api/source-filesystems` and confirm the expected root is returned.
+3. Browse with `GET /api/source-filesystems/browse` for an allowed path.
+4. Submit a server-side selection with `POST /api/source-filesystems/select`.
+5. Confirm the resulting upload appears in `GET /api/intake/uploads`.
+
+Pass criteria:
+
+- allowed path browse succeeds
+- out-of-root path is rejected
+- selected files or folders expand into queue source entries as expected
+
+### Verification Success And Failure
+
+Success path:
+
+1. Publish a queued upload with `POST /api/intake/uploads/{upload_id}/publish-to-local`.
+2. Confirm status advances through `uploading` and lands in `verified` or `cleanup_done`.
+3. Confirm `verification_status=pass` and `file_hashes_json` is populated.
+
+Failure path:
+
+1. Use a missing, unreadable, or intentionally invalid source.
+2. Attempt validation or publish.
+3. Confirm the queue response returns warnings or errors and no destructive cleanup runs.
+
+Pass criteria:
+
+- verified items persist hash and provenance metadata
+- failed verification or publish attempts preserve source material
+- failure states are visible as `failed`, `validated_warning`, or `cleanup_failed` rather than silent loss
+
+### Cleanup Policy Outcomes
+
+Validate each policy separately after a successful verified publish:
+
+1. `keep`
+  - expected: source remains intact and upload stops at `verified`
+2. `delete_on_verified`
+  - expected: source file is removed and upload lands in `cleanup_done`
+3. `replace_with_stub`
+  - expected: source file is replaced by an audit stub and upload lands in `cleanup_done`
+4. cleanup retry
+  - expected: `POST /api/intake/uploads/{upload_id}/cleanup` succeeds from `verified` or `cleanup_failed`
+
+Pass criteria:
+
+- destructive policies only execute after verified state
+- destructive policies only affect files under `SOURCE_FILESYSTEM_ROOTS`
+- cleanup failures are auditable and retryable
+
+## Phase 5 Validation Checklist
+
+- `MODEL_CATALOG_DB_PATH` points to persistent writable storage
+- `/data` capacity accounts for browser-upload staging, not just SQLite
+- `SOURCE_FILESYSTEM_ROOTS` uses container paths and is narrower than the full host when possible
+- browser-upload intake works from a remote client without requiring the client filesystem to be mounted on the sidecar host
+- server-browse intake works only for allowlisted roots
+- verification success records queue metadata and permits configured cleanup
+- verification failure blocks destructive cleanup
+- `keep`, `delete_on_verified`, and `replace_with_stub` each have one successful validation run
+- queue rows remain visible after restart when `/data` is persistent
 
 ---
 

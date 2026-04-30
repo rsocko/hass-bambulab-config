@@ -175,6 +175,28 @@ Folder sources should expose traversal controls:
 - Destructive actions are limited to explicitly allowed mounted roots.
 - Cleanup results are recorded as auditable queue/import events.
 
+### Cleanup Policy Decision Matrix
+
+Use the cleanup policy based on source ownership and recovery expectations:
+
+| Policy | Use it when | Avoid it when | Outcome after verified processing |
+|---|---|---|---|
+| `keep` | the source folder is still your working copy, the source machine is not guaranteed to stay connected, or you want the easiest rollback path | you are intentionally draining a temporary intake drop location | source remains unchanged; queue stops at `verified` |
+| `delete_on_verified` | the source is an intentional staging or drop zone and a verified publish should consume it | the source path is your only editable copy or you still need local/manual comparison after publish | source file is deleted after verification; queue advances through `cleanup_pending` to `cleanup_done` |
+| `replace_with_stub` | you want the source path to show that intake consumed the file while preserving an audit breadcrumb in place | downstream tools require the original binary to remain at the same path | original file is replaced with a text stub containing upload and destination metadata; queue advances through `cleanup_pending` to `cleanup_done` |
+
+Practical defaults:
+
+- browser upload from a laptop or remote desktop client: use `keep`
+- server browse from a temporary ingest folder: use `delete_on_verified`
+- server browse from a shared inbox where operators want visible proof-of-consumption: use `replace_with_stub`
+
+Do not use destructive policies unless all of the following are true:
+
+- the upload has reached verified state
+- the source path is under `SOURCE_FILESYSTEM_ROOTS`
+- the operator is comfortable with queue-driven cleanup retry semantics instead of manual file handling
+
 ### Rollback And Error Handling
 
 - If discovery results look wrong, rerun discover with a different strategy before importing.

@@ -110,6 +110,7 @@ ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
 MODEL_CATALOG_IMAGE_TAG=0.1.0
 MODEL_CATALOG_HOSTNAME=model-catalog.socko.us
 MODEL_CATALOG_AUTHORITY_MODE=local
+SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
 MANYFOLD_BASE_URL=http://manyfold:3214
 MANYFOLD_CLIENT_ID=
 MANYFOLD_CLIENT_SECRET=
@@ -126,6 +127,78 @@ The sidecar now runs as a standalone Docker stack with independent file storage:
 - **Named Volume** (`/data`): Sidecar-owned SQLite database + ephemeral cache
 - **Bind Mount** (`/assets`): Host-visible model files (OneDrive, local, NAS)
 - **No dependency on Manyfold**: Standalone or optional integration
+
+### Intake Queue Runtime Storage
+
+Remote-client browser uploads do not write directly into `/assets`.
+
+- Browser-uploaded files are staged under the parent folder of `MODEL_CATALOG_DB_PATH`.
+- With the default standalone compose (`MODEL_CATALOG_DB_PATH=/data/model_catalog.db`), the queue lives at `/data/intake_browser_uploads`.
+- That means the existing `model_catalog_data` volume is the durable runtime store for:
+	- `model_catalog.db`
+	- `intake_browser_uploads/` browser-upload staging files
+	- retry and cleanup state tied to queued uploads
+- Size `/data` for your largest expected remote upload batches, not just for the SQLite file.
+- Do not place `/data` on a read-only mount if browser-upload intake must work.
+
+Operational recommendation:
+
+- treat `/data` as the queue volume for remote-client intake
+- back it up together with the SQLite database when queue continuity matters
+- clear stale queue files only after confirming no active `queued`, `uploading`, or `cleanup_failed` items remain
+
+Example runtime expectation:
+
+```yaml
+services:
+	model-catalog:
+		environment:
+			MODEL_CATALOG_DB_PATH: /data/model_catalog.db
+		volumes:
+			- model_catalog_data:/data
+			- /srv/3d-models:/assets
+```
+
+In that layout:
+
+- browser uploads stage in `/data/intake_browser_uploads`
+- server-browse selections resolve from `/assets/...`
+- local publish can copy reviewed files from queue or server roots into sidecar-owned asset storage
+
+### Server Browse Allowed Roots
+
+Server-browse mode is controlled by `SOURCE_FILESYSTEM_ROOTS`.
+
+- This value must use container-visible paths, not host-native paths.
+- The sidecar resolves the variable as a comma-separated allowlist.
+- Browsing, selecting, and destructive cleanup are all constrained to these roots.
+- Keep the allowlist narrow. Only expose folders the sidecar should inspect or mutate.
+
+Examples:
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets
+```
+
+Use this when the whole mounted asset tree is intentionally browseable.
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
+```
+
+Use this when curated catalog storage should stay out of browse and cleanup scope.
+
+```text
+SOURCE_FILESYSTEM_ROOTS=/assets/inbox,/assets/imported/remotes
+```
+
+Use this when server browse should only target intake-oriented staging areas.
+
+Host-path mapping reminder:
+
+- host bind mount: `D:\Model Library:/assets`
+- allowlist value: `/assets` or `/assets/subfolder`
+- not allowed in `SOURCE_FILESYSTEM_ROOTS`: `D:\Model Library`
 
 **File Organization in `/assets`**:
 ```
@@ -203,6 +276,7 @@ If your live environment still has a model catalog service embedded in the Manyf
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
 - `MODEL_CATALOG_PORT` — local bind port for manual `uvicorn` runs
+- `SOURCE_FILESYSTEM_ROOTS` — comma-separated allowlisted container paths for server-browse intake and verification-gated cleanup actions
 - `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)
