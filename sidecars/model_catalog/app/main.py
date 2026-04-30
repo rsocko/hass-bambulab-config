@@ -3550,6 +3550,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             response: dict[str, Any] = {
                 "success": True,
                 "model_ref": model_ref,
+                "authority": "local",
+                "local_model_id": local_model_id,
                 "manyfold_model_url": summary.model_url,
                 "model": {
                     "public_id": summary.public_id,
@@ -3625,6 +3627,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         response: dict[str, Any] = {
             "success": True,
             "model_ref": model_ref,
+            "authority": "manyfold",
+            "local_model_id": None,
             "manyfold_model_url": summary.model_url,
             "model": {
                 "public_id": summary.public_id,
