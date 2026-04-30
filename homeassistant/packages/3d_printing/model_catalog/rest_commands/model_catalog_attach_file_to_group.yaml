@@ -1,0 +1,14 @@
+model_catalog_attach_file_to_group:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/{{ group_id }}/items
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'file_path': (file_path | string),
+      'item_role': (item_role | default('supporting', true) | string)
+    } | tojson }}

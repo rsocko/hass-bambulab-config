@@ -1,0 +1,31 @@
+title: Inbox
+path: model-catalog-inbox
+icon: mdi:inbox-arrow-down-outline
+subview: true
+panel: false
+cards:
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          # Model Catalog Inbox
+
+          The queue and inbox review surface is reserved inside the new Model Catalog subview framework.
+
+          For this slice, use the Intake view for discovery/import and the Working view for working-group review. This child view keeps the Wave 4 navigation contract in place so inbox review can land without another dashboard restructure.
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:button-card
+            name: Open Intake
+            icon: mdi:upload-outline
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-intake
+          - type: custom:button-card
+            name: Open Working
+            icon: mdi:briefcase-outline
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-working

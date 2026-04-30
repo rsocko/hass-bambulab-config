@@ -1,13 +1,107 @@
 title: Model Catalog
 path: model-catalog
 icon: mdi:bookshelf
-panel: true
+panel: false
 cards:
   - type: vertical-stack
     cards:
-      - type: custom:model-catalog-browser-card
-        title: Curated Catalog Browser
-        per_page: 12
-      - type: custom:model-catalog-bulk-import-card
-        title: Bulk Discovery and Import
-        default_grouping_strategy: by-folder
+      - type: markdown
+        content: |
+          # Model Catalog Home
+
+          Use this parent view to move between curated browsing, working-group review, intake, and the reserved inbox surface without adding more top-level dashboard tabs.
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:button-card
+            name: Curated
+            icon: mdi:bookshelf
+            show_label: true
+            label: Browse the curated catalog in its own child view.
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-curated
+            styles:
+              card:
+                - padding: 18px
+                - border-radius: 20px
+                - text-align: left
+              name:
+                - justify-self: start
+                - font-size: 18px
+                - font-weight: 700
+              label:
+                - justify-self: start
+                - white-space: normal
+                - color: var(--secondary-text-color)
+          - type: custom:button-card
+            name: Working
+            icon: mdi:briefcase-outline
+            show_label: true
+            label: Browse working groups, inspect files, and manage curated links.
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-working
+            styles:
+              card:
+                - padding: 18px
+                - border-radius: 20px
+                - text-align: left
+              name:
+                - justify-self: start
+                - font-size: 18px
+                - font-weight: 700
+              label:
+                - justify-self: start
+                - white-space: normal
+                - color: var(--secondary-text-color)
+          - type: custom:button-card
+            name: Intake
+            icon: mdi:upload-outline
+            show_label: true
+            label: Launch intake-owned discovery and import tools from their own child view.
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-intake
+            styles:
+              card:
+                - padding: 18px
+                - border-radius: 20px
+                - text-align: left
+              name:
+                - justify-self: start
+                - font-size: 18px
+                - font-weight: 700
+              label:
+                - justify-self: start
+                - white-space: normal
+                - color: var(--secondary-text-color)
+          - type: custom:button-card
+            name: Inbox
+            icon: mdi:inbox-arrow-down-outline
+            show_label: true
+            label: Reserved child view for queue and inbox review as Wave 4 continues.
+            tap_action:
+              action: navigate
+              navigation_path: /3d-printing/model-catalog-inbox
+            styles:
+              card:
+                - padding: 18px
+                - border-radius: 20px
+                - text-align: left
+              name:
+                - justify-self: start
+                - font-size: 18px
+                - font-weight: 700
+              label:
+                - justify-self: start
+                - white-space: normal
+                - color: var(--secondary-text-color)
+      - type: markdown
+        content: |
+          **Wave 4 shell**
+
+          - Curated browsing now has a dedicated child view.
+          - Working groups now land in a dedicated Working Board child view.
+          - Intake and Inbox are scaffolded inside the same Model Catalog hierarchy so later Wave 4 work does not require another dashboard restructure.

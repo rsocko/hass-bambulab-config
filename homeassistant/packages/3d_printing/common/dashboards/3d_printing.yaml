@@ -4,6 +4,10 @@ button_card_templates: !include_dir_merge_named ../dashboard_cards/card_template
 views:
   - !include ../dashboard_views/view_main.yaml
   - !include ../../model_catalog/dashboard_views/view_model_catalog.yaml
+  - !include ../../model_catalog/dashboard_views/view_model_catalog_curated.yaml
+  - !include ../../model_catalog/dashboard_views/view_model_catalog_working.yaml
+  - !include ../../model_catalog/dashboard_views/view_model_catalog_intake.yaml
+  - !include ../../model_catalog/dashboard_views/view_model_catalog_inbox.yaml
   - !include ../dashboard_views/view_filament_tags.yaml
   - !include ../../filament_catalog/dashboard_views/view_filament_catalog.yaml
   - !include ../../print_history/dashboard_views/view_print_history.yaml

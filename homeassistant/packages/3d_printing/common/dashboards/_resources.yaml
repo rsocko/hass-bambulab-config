@@ -46,3 +46,5 @@
   type: module
 - url: /local/3d_printing/model_catalog/intake-browser-card.js?v=1
   type: module
+- url: /local/3d_printing/model_catalog/model-catalog-working-groups-card.js?v=1
+  type: module

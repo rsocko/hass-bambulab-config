@@ -1,0 +1,16 @@
+title: Intake
+path: model-catalog-intake
+icon: mdi:upload-outline
+subview: true
+panel: false
+cards:
+  - type: vertical-stack
+    cards:
+      - type: markdown
+        content: |
+          # Model Catalog Intake
+
+          Bulk discovery and import now live in their own intake child view instead of being appended below curated browsing.
+      - type: custom:model-catalog-bulk-import-card
+        title: Bulk Discovery and Import
+        default_grouping_strategy: by-folder

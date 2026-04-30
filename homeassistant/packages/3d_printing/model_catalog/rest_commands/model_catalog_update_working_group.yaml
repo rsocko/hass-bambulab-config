@@ -1,0 +1,17 @@
+model_catalog_update_working_group:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/{{ group_id }}
+  method: PATCH
+  content_type: application/json
+  payload: >-
+    {{ {
+      'title': (title | default('', true) | string),
+      'stage': (stage | default('', true) | string),
+      'notes': (notes | default('', true) | string),
+      'primary_file_path': (primary_file_path | default('', true) | string),
+      'folder_hint': (folder_hint | default('', true) | string)
+    } | tojson }}

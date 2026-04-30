@@ -1,0 +1,15 @@
+model_catalog_create_working_group_link:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/{{ group_id }}/links
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'model_ref': (model_ref | string),
+      'link_role': (link_role | default('related', true) | string),
+      'metadata': (metadata | default({}, true))
+    } | tojson }}

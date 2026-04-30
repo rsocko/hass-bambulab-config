@@ -1,0 +1,9 @@
+title: Working
+path: model-catalog-working
+icon: mdi:briefcase-outline
+subview: true
+panel: true
+cards:
+  - type: custom:model-catalog-working-groups-card
+    title: Working Board
+    per_page: 24
