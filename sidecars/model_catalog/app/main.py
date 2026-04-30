@@ -7550,10 +7550,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             f"source_path={file_path}",
         ]
         if uploaded_row:
+            local_model_id = str(uploaded_row.get("local_model_id") or "").strip()
+            local_asset_id = str(uploaded_row.get("local_asset_id") or uploaded_row.get("asset_id") or "").strip()
+            local_storage_path = str(uploaded_row.get("local_storage_path") or uploaded_row.get("storage_path") or "").strip()
             model_ref = str(uploaded_row.get("manyfold_model_ref") or "").strip()
             file_ref = str(uploaded_row.get("manyfold_file_ref") or "").strip()
             model_url = str(uploaded_row.get("manyfold_model_url") or "").strip()
             file_url = str(uploaded_row.get("manyfold_file_url") or "").strip()
+            if local_model_id:
+                lines.append(f"local_model_id={local_model_id}")
+            if local_asset_id:
+                lines.append(f"local_asset_id={local_asset_id}")
+            if local_storage_path:
+                lines.append(f"local_storage_path={local_storage_path}")
             if model_ref:
                 lines.append(f"manyfold_model_ref={model_ref}")
             if file_ref:
@@ -7562,7 +7571,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 lines.append(f"manyfold_model_url={model_url}")
             if file_url:
                 lines.append(f"manyfold_file_url={file_url}")
-        lines.append("status=source_replaced_after_verified_manyfold_upload")
+        lines.append("status=source_replaced_after_verified_publish")
         return "\n".join(lines) + "\n"
 
     def _run_source_cleanup(
@@ -8364,6 +8373,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 has_primary = has_primary or asset_role == "primary"
                 imported_assets.append(
                     {
+                        "local_model_id": local_model_id,
+                        "local_asset_id": asset.asset_id,
+                        "local_storage_path": asset.storage_path,
                         "asset_id": asset.asset_id,
                         "filename": asset.asset_filename,
                         "asset_type": asset.asset_type,
@@ -8485,6 +8497,32 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 },
             )
 
+        cleanup_result = {
+            "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+            "status": "skipped",
+            "skipped": True,
+            "reason": "policy_keep",
+            "processed_count": 0,
+            "failed_count": 0,
+            "results": [],
+        }
+        effective_status = "verified"
+        if imported_assets and cleanup_result["policy"] != "keep":
+            cleanup_ok, cleanup_payload = _run_source_cleanup(upload_id=upload_id, uploaded_rows=imported_assets)
+            if not cleanup_ok:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": cleanup_payload.get("error") or "cleanup_failed",
+                        "message": cleanup_payload.get("message") or "Cleanup could not be started.",
+                        "upload_id": upload_id,
+                        "local_model_id": local_model_id,
+                    },
+                )
+            cleanup_result = cleanup_payload["cleanup"]
+            effective_status = str(cleanup_payload["status"])
+
         detail_response = get_model_detail_endpoint(Request(scope={"type": "http", "headers": [], "method": "GET", "path": "/"}), local_model_id)
         detail_payload = detail_response if isinstance(detail_response, dict) else None
 
@@ -8492,7 +8530,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "success": True,
             "contract": "intake-publish-local.v1alpha1",
             "upload_id": upload_id,
-            "status": "verified",
+            "status": effective_status,
             "verification_status": "pass",
             "local_model_id": local_model_id,
             "model_ref": local_model_id,
@@ -8504,6 +8542,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "duplicate_skipped": duplicate_skipped,
             "failed_files": failed_files,
             "warnings": expansion_warnings,
+            "cleanup": cleanup_result,
             "legacy_adapter": {
                 "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
                 "authoritative": False,

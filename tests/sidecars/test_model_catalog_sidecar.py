@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import logging
 import hashlib
 from io import BytesIO
@@ -434,8 +435,8 @@ def test_search_results_emit_proxy_preview_urls(tmp_path: Path) -> None:
 
     connection = sqlite3.connect(settings.db_path)
     try:
-        connection.execute(
-            """
+    preview_file = source_root / "queue-preview.stl"
+    preview_file.write_bytes(b"solid queue preview\nendsolid queue preview\n")
             INSERT INTO manyfold_model_summary_cache (
                 manyfold_model_url,
                 manyfold_model_public_id,
@@ -5205,13 +5206,15 @@ def test_intake_queue_post_upload_persists_source_timestamp_metadata(tmp_path: P
 
 
 def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_path: Path) -> None:
-    settings = _build_settings(tmp_path)
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
 
-    model_file = tmp_path / "queue-model.3mf"
+    model_file = source_root / "queue-model.3mf"
     model_file.write_bytes(b"queue model bytes")
-    preview_file = tmp_path / "queue-preview.png"
+    preview_file = source_root / "queue-preview.png"
     preview_file.write_bytes(b"\x89PNG\r\n\x1a\nqueue preview")
 
     with TestClient(app) as test_client:
@@ -5246,6 +5249,8 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
         assert payload["created_model"] is True
         assert payload["imported_asset_count"] == 2
         assert payload["duplicate_skipped_count"] == 0
+        assert payload["cleanup"]["status"] == "skipped"
+        assert payload["cleanup"]["reason"] == "policy_keep"
         local_model_id = payload["local_model_id"]
 
         detail = test_client.get(f"/api/models/{local_model_id}/detail")
@@ -5297,6 +5302,98 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
             assert stored_path.exists()
     finally:
         connection.close()
+
+    assert model_file.exists() is True
+    assert preview_file.exists() is True
+
+
+def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    model_file = source_root / "delete-after-publish.3mf"
+    model_file.write_bytes(b"delete after publish")
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [{"type": "file", "path": str(model_file)}],
+                "cleanup_policy": "delete_on_verified",
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={"model_name": "Delete Policy Model"},
+        )
+
+    assert publish.status_code == 200
+    payload = publish.json()
+    assert payload["success"] is True
+    assert payload["status"] == "cleanup_done"
+    assert payload["cleanup"]["status"] == "cleanup_done"
+    assert payload["cleanup"]["processed_count"] == 1
+    assert payload["cleanup"]["results"][0]["action"] == "deleted"
+    assert model_file.exists() is False
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT status, cleanup_done_at FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        assert row is not None
+        assert row["status"] == "cleanup_done"
+        assert row["cleanup_done_at"] is not None
+    finally:
+        connection.close()
+
+
+def test_intake_queue_publish_to_local_replace_policy_writes_stub(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    model_file = source_root / "stub-after-publish.3mf"
+    model_file.write_bytes(b"stub after publish")
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [{"type": "file", "path": str(model_file)}],
+                "cleanup_policy": "replace_with_stub",
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={"model_name": "Stub Policy Model"},
+        )
+
+    assert publish.status_code == 200
+    payload = publish.json()
+    assert payload["success"] is True
+    assert payload["status"] == "cleanup_done"
+    assert payload["cleanup"]["status"] == "cleanup_done"
+    assert payload["cleanup"]["results"][0]["action"] == "replaced_with_stub"
+
+    stub_text = model_file.read_text(encoding="utf-8")
+    assert "[MODEL_CATALOG_UPLOAD_STUB_V1]" in stub_text
+    assert "status=source_replaced_after_verified_publish" in stub_text
+    assert f"upload_id={upload_id}" in stub_text
+    assert f"local_model_id={payload['local_model_id']}" in stub_text
 
 
 def test_intake_queue_post_upload_validates_source_entries(tmp_path: Path) -> None:
