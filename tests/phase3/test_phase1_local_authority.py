@@ -547,6 +547,63 @@ class TestBackwardCompatibility:
 
         assert resolved == model_file.resolve()
 
+    def test_local_geometry_endpoint_fast_fails_for_large_3mf(self, tmp_path):
+        """Large local 3MF files should return a fast non-200 so the frontend can fall back to raw download parsing."""
+        from fastapi.testclient import TestClient
+        from sidecars.model_catalog.app.main import create_app
+
+        db = tmp_path / "test.db"
+        assets_root = tmp_path / "assets"
+        inbox_dir = assets_root / "Model Inbox"
+        inbox_dir.mkdir(parents=True, exist_ok=True)
+        large_file = inbox_dir / "oversized.3mf"
+        large_file.write_bytes(b"0" * ((10 * 1024 * 1024) + 1))
+        bootstrap_database(db_path=db)
+
+        create_local_model(
+            db_path=db,
+            local_model_id="oversized-local",
+            model_name="Oversized Local",
+        )
+        create_model_asset(
+            db_path=db,
+            local_model_id="oversized-local",
+            asset_id="oversized-3mf",
+            asset_filename="oversized.3mf",
+            asset_type="3mf",
+            storage_path=str(large_file.resolve()),
+            asset_role="primary",
+        )
+
+        settings = Settings(
+            manyfold_base_url="http://manyfold.test",
+            manyfold_models_path="/models",
+            manyfold_collections_path="/collections",
+            manyfold_creators_path="/creators",
+            manyfold_oauth_token_path="/oauth/token",
+            manyfold_client_id=None,
+            manyfold_client_secret=None,
+            manyfold_oauth_scopes=None,
+            db_path=db,
+            refresh_ttl_seconds=900,
+            host="127.0.0.1",
+            port=8314,
+            image_tag="0.1.0-test",
+            image_version="0.1.0",
+            image_revision="test",
+            image_created="2026-01-01T00:00:00Z",
+            source_filesystem_roots=(assets_root.resolve(),),
+        )
+
+        app = create_app(settings=settings)
+        with TestClient(app) as client:
+            response = client.get("/api/models/oversized-local/geometry/oversized-3mf")
+
+        assert response.status_code == 422
+        payload = response.json()
+        assert payload["error"] == "3MF package too large for server-side geometry extraction"
+        assert payload["package_size_bytes"] == (10 * 1024 * 1024) + 1
+
 
 class TestListModelsEndpointMerge:
     """Test that GET /api/models merges local model entries into the unified listing."""

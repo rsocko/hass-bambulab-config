@@ -66,6 +66,7 @@ from .settings import Settings, load_settings
 MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
 MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
+MAX_SERVER_SIDE_3MF_BYTES = 10 * 1024 * 1024
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -4070,7 +4071,18 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
             is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
             if is_3mf:
-                response_payload["geometry"] = extract_3mf_geometry(storage_path.read_bytes(), plate_id=plate_id)
+                package_bytes = storage_path.read_bytes()
+                if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
+                    payload: dict[str, Any] = {
+                        "error": "3MF package too large for server-side geometry extraction",
+                        "package_size_bytes": len(package_bytes),
+                        "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
+                    }
+                    if include_debug:
+                        debug_info["local_storage_path"] = str(storage_path)
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
+                response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
 
             if include_debug:
                 debug_info["local_storage_path"] = str(storage_path)
