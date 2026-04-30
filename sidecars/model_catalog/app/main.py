@@ -6014,6 +6014,10 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
             group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             connection.commit()
+            
+            # Serialize before closing connection since _serialize_working_group queries related tables
+            serialized_group = _serialize_working_group(connection, group_row)
+            
             event_payload = {
                 "upload_id": item_id,
                 "action": action,
@@ -6028,7 +6032,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "working_group_id": group_id,
                 "added_items": added_items,
                 "duplicate_items": duplicate_items,
-                "group": _serialize_working_group(connection, group_row),
+                "group": serialized_group,
             }
         finally:
             connection.close()
