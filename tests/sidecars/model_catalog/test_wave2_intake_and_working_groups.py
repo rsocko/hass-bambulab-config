@@ -166,3 +166,49 @@ def test_intake_submit_validate_and_group(tmp_path: Path) -> None:
     decoded_note = detail_payload["item"]["decision_note"]
     assert isinstance(decoded_note, str)
     assert "working_group_id" in decoded_note
+
+
+def test_intake_group_duplicate_hash_is_handled_without_500(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    source_file = source_root / "duplicate_fixture.3mf"
+    source_file.write_bytes(b"same-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        seed_group_response = client.post(
+            "/api/working-groups",
+            json={"title": "Seed Group", "stage": "draft"},
+        )
+        assert seed_group_response.status_code == 200
+        seed_group_id = seed_group_response.json()["group"]["id"]
+
+        seed_item_response = client.post(
+            f"/api/working-groups/{seed_group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert seed_item_response.status_code == 200
+
+        submit_response = client.post(
+            "/api/intake/submit",
+            json={
+                "items": [{"source_path": str(source_file), "source_type": "filesystem_action"}],
+                "auto_validate": True,
+                "cleanup_policy": "keep",
+            },
+        )
+        assert submit_response.status_code == 200
+        item_id = submit_response.json()["items"][0]["item_id"]
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group", "title": "Duplicate Candidate Group"},
+        )
+        assert group_response.status_code == 200
+        payload = group_response.json()
+        assert payload["success"] is True
+        assert payload["state"] == "grouped_new"
+        assert payload["working_group_id"] > 0
+        assert payload["duplicate_items"] >= 1
+    finally:
+        client.__exit__(None, None, None)

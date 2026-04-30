@@ -5980,6 +5980,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             duplicate_items = 0
             for index, file_item in enumerate(expanded_files):
                 file_path = str(file_item["path"])
+                file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
                 existing_item = connection.execute(
                     "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
                     (group_id, file_path),
@@ -5987,6 +5988,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 if existing_item is not None:
                     duplicate_items += 1
                     continue
+                # Keep grouping idempotent even when the same file hash already exists
+                # in another working group (global unique index on working_items.file_hash).
+                if file_hash:
+                    existing_hash_match = connection.execute(
+                        "SELECT id FROM working_items WHERE file_hash = ?",
+                        (file_hash,),
+                    ).fetchone()
+                    if existing_hash_match is not None:
+                        duplicate_items += 1
+                        continue
                 item_role = "primary" if index == 0 and action == "create_working_group" else "supporting"
                 connection.execute(
                     """
@@ -6001,7 +6012,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         item_role,
                         now_iso,
                         now_iso,
-                        str(file_item.get("file_hash") or "").strip().lower() or None,
+                        file_hash,
                         int(file_item.get("size_bytes") or 0) or None,
                         json.dumps(file_item.get("source_metadata") or {}),
                     ),
