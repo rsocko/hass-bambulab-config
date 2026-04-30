@@ -131,6 +131,21 @@ def test_upload_photo_rejects_invalid_mime_type(tmp_path: Path) -> None:
     }
 
 
+def test_chartdb_schema_export_returns_live_sqlite_ddl(tmp_path: Path) -> None:
+    client = _create_client(tmp_path)
+    try:
+        response = client.get("/api/admin/schema/chartdb")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert response.headers["content-disposition"] == 'inline; filename="model_catalog_chartdb_schema.sql"'
+    assert "CREATE TABLE manyfold_model_summary_cache" in response.text
+    assert "CREATE TABLE model_catalog_entries" in response.text
+    assert "CREATE INDEX idx_model_catalog_assets_entry_id" in response.text
+
+
 def test_upload_photo_rejects_files_larger_than_10mb(tmp_path: Path) -> None:
     client = _create_client(tmp_path)
     oversized_png = b"\x89PNG\r\n\x1a\n" + (b"x" * (10 * 1024 * 1024 + 1))

@@ -20,7 +20,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from .db import (
     ArchiveModelLink,
@@ -97,6 +97,35 @@ def _image_metadata(settings: Settings) -> dict[str, str]:
         "image_revision": settings.image_revision,
         "image_created": settings.image_created,
     }
+
+
+def _export_sqlite_schema_ddl(db_path: Path) -> str:
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT type, name, sql
+            FROM sqlite_master
+            WHERE name NOT LIKE 'sqlite_%'
+              AND sql IS NOT NULL
+              AND type IN ('table', 'index', 'view', 'trigger')
+            ORDER BY
+              CASE type
+                WHEN 'table' THEN 0
+                WHEN 'index' THEN 1
+                WHEN 'view' THEN 2
+                WHEN 'trigger' THEN 3
+                ELSE 4
+              END,
+              name
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    statements = [str(row["sql"]).strip().rstrip(";") + ";" for row in rows]
+    return "\n\n".join(statement for statement in statements if statement)
 
 
 def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
@@ -1622,6 +1651,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             },
             **_image_metadata(state.settings),
         }
+
+    @app.get("/api/admin/schema/chartdb", response_class=PlainTextResponse)
+    def export_chartdb_schema() -> PlainTextResponse:
+        state: AppState = app.state.model_catalog
+        schema_ddl = _export_sqlite_schema_ddl(state.settings.db_path)
+        return PlainTextResponse(
+            schema_ddl,
+            headers={
+                "Content-Disposition": 'inline; filename="model_catalog_chartdb_schema.sql"',
+            },
+        )
 
     @app.post("/working-groups/bulk-discover")
     @app.post("/api/working-groups/bulk-discover")
