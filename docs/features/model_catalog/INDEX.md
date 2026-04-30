@@ -15,6 +15,11 @@
 2. **[phase-delivery-and-validation.md](phase-delivery-and-validation.md)** ← Active execution tracker
 3. **[Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md)** ← Legacy Phase 4 UI continuity roadmap
 
+### 🚀 Phase 5 Wave 1 (Current Execution)
+- **[Working-File Indexing And Grouping Feasibility](working-file-indexing-feasibility.md)** ← Issue #1059
+- **[Working File Inventory And Normalization Spec](working-file-spec.md)** ← Issue #1074
+- **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
+
 ### 📖 Implementation Guides (For Developers)
 - **[Phase 3.1: Edit Mode & Photo Management](phase-3.1-implementation-guide.md)** (30-35 hrs)
   - Tasks: Edit form, conflict detection, photo gallery, services, endpoints
