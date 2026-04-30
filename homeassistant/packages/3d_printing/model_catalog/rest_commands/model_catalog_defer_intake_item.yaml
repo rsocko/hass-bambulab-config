@@ -1,0 +1,13 @@
+model_catalog_defer_intake_item:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/intake/items/{{ item_id }}/defer
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'note': (note | default('Deferred by operator', true) | string)
+    } | tojson }}

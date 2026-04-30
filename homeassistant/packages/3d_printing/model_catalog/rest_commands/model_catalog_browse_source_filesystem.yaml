@@ -1,0 +1,12 @@
+model_catalog_browse_source_filesystem:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if path is defined and (path | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['path=' ~ ((path | string) | urlencode)] -%}
+    {%- endif -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/source-filesystems/browse{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
+  method: GET

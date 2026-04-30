@@ -1,0 +1,13 @@
+model_catalog_list_intake_uploads:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if status is defined and (status | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['status=' ~ ((status | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(100)) | int(100) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/intake/uploads?{{ ns.params | join('&') }}
+  method: GET

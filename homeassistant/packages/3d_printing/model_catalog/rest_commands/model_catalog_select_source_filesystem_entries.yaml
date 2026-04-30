@@ -1,0 +1,14 @@
+model_catalog_select_source_filesystem_entries:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/source-filesystems/select
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'selections': (selections | default([], true)),
+      'cleanup_policy': (cleanup_policy | default('keep', true) | string)
+    } | tojson }}

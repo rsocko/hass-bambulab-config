@@ -1,0 +1,14 @@
+model_catalog_list_intake_items:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if state_filter is defined and (state_filter | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['state_filter=' ~ ((state_filter | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(100)) | int(100) | string)] -%}
+    {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0)) | int(0) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/intake/items?{{ ns.params | join('&') }}
+  method: GET
