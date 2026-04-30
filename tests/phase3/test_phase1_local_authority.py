@@ -30,6 +30,7 @@ from sidecars.model_catalog.app.local_models import (
     delete_model_asset,
 )
 from sidecars.model_catalog.app.models import LocalModelEntry, ManyfoldModelSummary
+from sidecars.model_catalog.app.settings import Settings
 
 
 def _build_simple_3mf() -> bytes:
@@ -508,6 +509,43 @@ class TestBackwardCompatibility:
         assert dump["model_url"] == "local://serialize-test"
         assert dump["name"] == "Serializable Model"
         assert isinstance(dump, dict)
+
+    def test_resolve_local_asset_storage_path_accepts_absolute_path_within_allowed_root(self, tmp_path):
+        """Absolute asset paths within SOURCE_FILESYSTEM_ROOTS resolve without NameError/regression."""
+        from sidecars.model_catalog.app.main import _resolve_local_asset_storage_path
+
+        assets_root = tmp_path / "assets"
+        inbox_dir = assets_root / "Model Inbox"
+        inbox_dir.mkdir(parents=True, exist_ok=True)
+        model_file = inbox_dir / "absolute-file.3mf"
+        model_file.write_bytes(_build_simple_3mf())
+
+        settings = Settings(
+            manyfold_base_url="http://manyfold.test",
+            manyfold_models_path="/models",
+            manyfold_collections_path="/collections",
+            manyfold_creators_path="/creators",
+            manyfold_oauth_token_path="/oauth/token",
+            manyfold_client_id=None,
+            manyfold_client_secret=None,
+            manyfold_oauth_scopes=None,
+            db_path=tmp_path / "test.db",
+            refresh_ttl_seconds=900,
+            host="127.0.0.1",
+            port=8314,
+            image_tag="0.1.0-test",
+            image_version="0.1.0",
+            image_revision="test",
+            image_created="2026-01-01T00:00:00Z",
+            source_filesystem_roots=(assets_root.resolve(),),
+        )
+
+        class AssetStub:
+            storage_path = str(model_file.resolve())
+
+        resolved = _resolve_local_asset_storage_path(settings=settings, asset=AssetStub())
+
+        assert resolved == model_file.resolve()
 
 
 class TestListModelsEndpointMerge:

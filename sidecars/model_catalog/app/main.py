@@ -311,6 +311,13 @@ def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
     return asset_id or None
 
 
+def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
+    return any(
+        resolved == root or resolved.is_relative_to(root)
+        for root in roots
+    )
+
+
 def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path | None:
     storage_path_raw = str(getattr(asset, "storage_path", "") or "").strip()
     if not storage_path_raw:
@@ -4840,12 +4847,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         """Return configured allowlisted source filesystem roots from settings."""
         state: AppState = app.state.model_catalog
         return list(state.settings.source_filesystem_roots)
-
-    def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
-        return any(
-            resolved == root or resolved.is_relative_to(root)
-            for root in roots
-        )
 
     def _collect_files_in_folder(
         folder: Path,
