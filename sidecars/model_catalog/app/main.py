@@ -5912,8 +5912,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {"success": True, "item_id": item_id, "state": "rejected", "note": note}
 
     @app.post("/api/intake/items/{item_id}/group")
-    def group_intake_item(item_id: str, payload: dict[str, Any]) -> Any:
+    def group_intake_item(item_id: str, payload: dict[str, Any] | None = None) -> Any:
         state: AppState = app.state.model_catalog
+        payload = payload or {}
         action = str(payload.get("action") or "create_working_group").strip().lower()
         if action not in {"create_working_group", "attach_existing_working_group"}:
             return JSONResponse(status_code=400, content={"success": False, "error": "invalid_action", "message": "action must be create_working_group or attach_existing_working_group"})
