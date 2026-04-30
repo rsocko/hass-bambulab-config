@@ -128,12 +128,47 @@ def _export_sqlite_schema_ddl(db_path: Path) -> str:
     return "\n\n".join(statement for statement in statements if statement)
 
 
-def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
+def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None = None) -> str | None:
+    preview_url = str(entry.preview_image_url or "").strip()
+    if preview_url:
+        return preview_url
+
+    if db_path is None:
+        return None
+
+    assets = list_model_assets(db_path=db_path, local_model_id=entry.local_model_id)
+    preview_asset_id = _select_local_preview_asset_id(assets=assets)
+    if not preview_asset_id:
+        return None
+
+    preview_asset = next(
+        (
+            asset
+            for asset in assets
+            if str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) == preview_asset_id
+        ),
+        None,
+    )
+    if preview_asset is None:
+        return None
+
+    asset_preview_url = str(getattr(preview_asset, "preview_url", "") or "").strip()
+    if asset_preview_url:
+        return asset_preview_url
+
+    asset_type = str(getattr(preview_asset, "asset_type", "") or "").strip().lower()
+    if asset_type == "image":
+        return f"/api/models/{quote(entry.local_model_id, safe='')}/files/{quote(preview_asset_id, safe='')}/download"
+
+    return None
+
+
+def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = None) -> ManyfoldModelSummary:
     """Convert LocalModelEntry to ManyfoldModelSummary for backward compatibility.
-    
+
     This wrapper allows HA services to work with local models without changes.
     Model URLs use local:// scheme for non-Manyfold entries.
-    
+
     Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
     this function handles local-authority models created after Phase 1.
     """
@@ -150,7 +185,7 @@ def _local_entry_to_summary(entry: LocalModelEntry) -> ManyfoldModelSummary:
         public_id=entry.local_model_id,
         model_id=str(entry.id),
         name=entry.model_name,
-        preview_url=entry.preview_image_url,
+        preview_url=_local_summary_preview_url(entry=entry, db_path=db_path),
         creator_name=entry.creator_name,
         collection_names=entry.collection_names,
         keyword_names=tuple(compatibility_keywords),
@@ -170,7 +205,7 @@ def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
 
 def _read_local_summaries(*, db_path: Any) -> list[ManyfoldModelSummary]:
     local_entries, _local_total = list_local_models(db_path=db_path, limit=10000, offset=0)
-    return [_local_entry_to_summary(entry) for entry in local_entries]
+    return [_local_entry_to_summary(entry, db_path=db_path) for entry in local_entries]
 
 
 def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
@@ -628,6 +663,8 @@ def _serialize_model_summary(
     ranking_by_url: dict[str, Any],
     link_counts_by_url: dict[str, int],
     preview_proxy_base_url: str | None = None,
+    request: Request | None = None,
+    settings: Settings | None = None,
 ) -> dict[str, Any]:
     ranking = ranking_by_url.get(summary.model_url)
     ranking_payload = None
@@ -642,12 +679,36 @@ def _serialize_model_summary(
             "refreshed_at": ranking.refreshed_at,
         }
     preview_url = summary.preview_url
-    if preview_url and preview_proxy_base_url:
+    if request is not None and settings is not None and _is_local_summary(summary):
+        preview_photo_id = str(custom_fields.get(MODEL_PREVIEW_PHOTO_FIELD) or "").strip()
+        local_model_id = str(summary.public_id or summary.model_id or "").strip()
+        if preview_photo_id and local_model_id:
+            uploaded_rows = _read_uploaded_photo_rows(db_path=settings.db_path, model_ref=local_model_id)
+            preview_row = next(
+                (row for row in uploaded_rows if str(row.get("id") or "").strip() == preview_photo_id),
+                None,
+            )
+            if preview_row is not None:
+                storage_path = _resolve_uploaded_photo_storage_path(settings=settings, photo_row=preview_row)
+                if storage_path is not None and storage_path.exists() and storage_path.is_file():
+                    preview_url = str(
+                        request.url_for(
+                            "get_uploaded_model_photo_endpoint",
+                            model_ref=local_model_id,
+                            photo_id=preview_photo_id,
+                        )
+                    )
+    if preview_url and preview_proxy_base_url and not _is_local_summary(summary):
         preview_url = f"{preview_proxy_base_url}?source={quote(preview_url, safe='')}"
 
+    authority = "local" if _is_local_summary(summary) else "manyfold"
+    model_ref = str(summary.public_id or summary.model_id or summary.model_url)
     return {
         **asdict(summary),
         "preview_url": preview_url,
+        "authority": authority,
+        "model_ref": model_ref,
+        "local_model_id": str(summary.public_id or "").strip() if authority == "local" else None,
         "custom_fields": custom_fields,
         "ranking": ranking_payload,
         "linked_archive_count": int(link_counts_by_url.get(summary.model_url, 0)),
@@ -2280,6 +2341,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     ranking_by_url=ranking_by_url,
                     link_counts_by_url=link_counts_by_url,
                     preview_proxy_base_url=preview_proxy_base_url,
+                    request=request,
+                    settings=state.settings,
                 )
             )
 
@@ -2367,6 +2430,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 ranking_by_url=ranking_by_url,
                 link_counts_by_url=link_counts_by_url,
                 preview_proxy_base_url=preview_proxy_base_url,
+                request=request,
+                settings=state.settings,
             )
             
             scored_models.append((score, model_payload))
@@ -2452,7 +2517,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 source_origin_url=payload.get("source_origin_url"),
                 revision_hash=payload.get("revision_hash"),
             )
-            summary = _local_entry_to_summary(entry)
+            summary = _local_entry_to_summary(entry, db_path=state.settings.db_path)
             return {
                 "success": True,
                 "local_model_id": entry.local_model_id,
@@ -2482,7 +2547,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 search_query=q,
             )
             
-            summaries = [_local_entry_to_summary(entry) for entry in entries]
+            summaries = [_local_entry_to_summary(entry, db_path=state.settings.db_path) for entry in entries]
             return {
                 "success": True,
                 "pagination": {
@@ -2514,7 +2579,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
             )
         
-        summary = _local_entry_to_summary(entry)
+        summary = _local_entry_to_summary(entry, db_path=state.settings.db_path)
         assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
         preview_file_id = _select_local_preview_asset_id(assets=assets)
         
@@ -2554,7 +2619,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 content={"success": False, "error": "model_not_found", "local_model_id": local_model_id}
             )
         
-        summary = _local_entry_to_summary(updated)
+        summary = _local_entry_to_summary(updated, db_path=state.settings.db_path)
         return {
             "success": True,
             "local_model_id": updated.local_model_id,
@@ -3491,11 +3556,11 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "model_id": summary.model_id,
                     "name": entry.model_name,
                     "description": entry.model_description or "",
-                    "preview_url": entry.preview_image_url,
+                    "preview_url": _local_summary_preview_url(entry=entry, db_path=state.settings.db_path),
                     "creator_name": entry.creator_name,
                     "created_by": entry.created_by,
                     "collection_names": list(entry.collection_names),
-                    "keywords": list(_local_entry_to_summary(entry).keyword_names),
+                    "keywords": list(_local_entry_to_summary(entry, db_path=state.settings.db_path).keyword_names),
                     "tags": list(entry.tags),
                     "license_type": entry.license_type,
                     "source_origin": entry.source_origin,
@@ -3813,6 +3878,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         if summary is None:
             return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        authority_mode = _normalized_authority_mode(state.settings)
+        if authority_mode == "local" and not _is_local_summary(summary):
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "model_not_writable_in_local_authority",
+                    "authority_mode": authority_mode,
+                    "model_ref": model_ref,
+                },
+            )
 
         if _is_local_summary(summary):
             normalized_tags = tags

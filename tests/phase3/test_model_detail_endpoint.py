@@ -352,6 +352,8 @@ class TestModelDetailEndpoint:
             # Verify required fields
             assert "success" in data
             assert "model_ref" in data
+            assert data["authority"] == "manyfold"
+            assert data["local_model_id"] is None
             assert "manyfold_model_url" in data
             assert "model" in data
             assert "enrichment" in data
@@ -478,3 +480,49 @@ class TestModelDetailEndpoint:
             assert data["enrichment"]["structured_metadata"]["provenance"]["origin_type"] is None
             assert data["enrichment"]["structured_metadata"]["publishing"]["published_to"] == []
             assert data["enrichment"]["structured_metadata"]["catalog_signals"]["model_favorite"] is None
+
+    def test_update_model_endpoint_rejects_manyfold_backed_updates_in_local_authority_mode(self, sample_model_summary):
+        """PATCH /api/models/{model_ref} refuses Manyfold-backed writes when authority_mode is local."""
+        from app.settings import Settings
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            bootstrap_database(db_path=db_path)
+
+            settings = Settings(
+                manyfold_base_url="https://manyfold.test",
+                manyfold_models_path="/models",
+                manyfold_collections_path="/collections",
+                manyfold_creators_path="/creators",
+                manyfold_oauth_token_path="/oauth/token",
+                manyfold_client_id=None,
+                manyfold_client_secret=None,
+                manyfold_oauth_scopes=None,
+                db_path=db_path,
+                refresh_ttl_seconds=3600,
+                host="127.0.0.1",
+                port=8314,
+                image_tag="test",
+                image_version="0.0.1",
+                image_revision="test-rev",
+                image_created="2026-03-28",
+                authority_mode="local",
+            )
+
+            app = create_app(settings=settings)
+            with TestClient(app) as client:
+                with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
+                     patch.object(client.app.state, "manyfold_client") as mock_client:
+
+                    mock_summaries.return_value = [sample_model_summary]
+
+                    response = client.patch(
+                        "/api/models/gridfinity-bin",
+                        json={"model_name": "Should Not Write"},
+                    )
+
+                    assert response.status_code == 409
+                    payload = response.json()
+                    assert payload["error"] == "model_not_writable_in_local_authority"
+                    assert payload["authority_mode"] == "local"
+                    mock_client.update_model.assert_not_called()

@@ -8,6 +8,7 @@ Tests cover:
 """
 
 import json
+import hashlib
 import sqlite3
 import tempfile
 import zipfile
@@ -50,6 +51,7 @@ def _build_simple_3mf() -> bytes:
             </mesh>
         </object>
     </resources>
+
     <build>
         <item objectid=\"1\" />
     </build>
@@ -730,6 +732,103 @@ class TestListModelsEndpointMerge:
         result_urls = [r["model_url"] for r in data["results"]]
         assert "local://local-001" in result_urls
 
+    def test_list_models_local_entries_use_local_preview_asset_url(self, app_with_local_models):
+        """GET /api/models exposes local preview asset URLs without Manyfold proxy rewriting."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+
+        local_alpha = next(model for model in resp.json()["models"] if model["model_url"] == "local://local-001")
+        assert local_alpha["preview_url"] == "https://example.com/local-alpha-preview.png"
+
+    def test_search_local_entries_use_local_preview_asset_url(self, app_with_local_models):
+        """GET /api/models/search preserves local preview asset URLs for local results."""
+        client, db = app_with_local_models
+        resp = client.get("/api/models/search?q=Local+Alpha")
+        assert resp.status_code == 200
+
+        local_alpha = next(model for model in resp.json()["results"] if model["model_url"] == "local://local-001")
+        assert local_alpha["preview_url"] == "https://example.com/local-alpha-preview.png"
+
+    def test_list_models_local_entries_prefer_uploaded_preview_photo(self, app_with_local_models):
+        """GET /api/models prefers locally uploaded preview photos over asset previews for local models."""
+        client, db = app_with_local_models
+        photo_root = db.parent / "model_catalog_photos"
+        model_folder = photo_root / hashlib.sha256(b"local-001").hexdigest()[:16]
+        model_folder.mkdir(parents=True, exist_ok=True)
+        photo_path = model_folder / "photo-preview.png"
+        photo_path.write_bytes(b"\x89PNG\r\n\x1a\nlocal-upload-preview")
+
+        set_model_field(
+            db_path=db,
+            model_ref="local-001",
+            field_key="uploaded_photos",
+            field_value=[
+                {
+                    "id": "photo-preview",
+                    "relative_path": str(photo_path.relative_to(photo_root)).replace("\\", "/"),
+                    "filename": "photo-preview.png",
+                    "mime_type": "image/png",
+                    "created_at": "2026-04-29T00:00:00Z",
+                }
+            ],
+        )
+        set_model_field(db_path=db, model_ref="local-001", field_key="preview_photo_id", field_value="photo-preview")
+
+        resp = client.get("/api/models")
+        assert resp.status_code == 200
+
+        local_alpha = next(model for model in resp.json()["models"] if model["model_url"] == "local://local-001")
+        assert local_alpha["preview_url"].endswith("/api/models/local-001/photos/photo-preview/content")
+
+    def test_search_local_entries_prefer_uploaded_preview_photo(self, app_with_local_models):
+        """GET /api/models/search prefers locally uploaded preview photos over asset previews for local models."""
+        client, db = app_with_local_models
+        photo_root = db.parent / "model_catalog_photos"
+        model_folder = photo_root / hashlib.sha256(b"local-001").hexdigest()[:16]
+        model_folder.mkdir(parents=True, exist_ok=True)
+        photo_path = model_folder / "photo-preview.png"
+        photo_path.write_bytes(b"\x89PNG\r\n\x1a\nlocal-upload-preview")
+
+        set_model_field(
+            db_path=db,
+            model_ref="local-001",
+            field_key="uploaded_photos",
+            field_value=[
+                {
+                    "id": "photo-preview",
+                    "relative_path": str(photo_path.relative_to(photo_root)).replace("\\", "/"),
+                    "filename": "photo-preview.png",
+                    "mime_type": "image/png",
+                    "created_at": "2026-04-29T00:00:00Z",
+                }
+            ],
+        )
+        set_model_field(db_path=db, model_ref="local-001", field_key="preview_photo_id", field_value="photo-preview")
+        resp = client.get("/api/models/search?q=Local+Alpha")
+        assert resp.status_code == 200
+
+        local_alpha = next(model for model in resp.json()["results"] if model["model_url"] == "local://local-001")
+        assert local_alpha["preview_url"].endswith("/api/models/local-001/photos/photo-preview/content")
+
+    def test_local_browse_search_payloads_include_explicit_authority_and_model_ref(self, app_with_local_models):
+        """Local browse/search payloads expose stable authority-aware identifiers."""
+        client, db = app_with_local_models
+
+        list_response = client.get("/api/models")
+        assert list_response.status_code == 200
+        list_local_alpha = next(model for model in list_response.json()["models"] if model["model_url"] == "local://local-001")
+        assert list_local_alpha["authority"] == "local"
+        assert list_local_alpha["model_ref"] == "local-001"
+        assert list_local_alpha["local_model_id"] == "local-001"
+
+        search_response = client.get("/api/models/search?q=Local+Alpha")
+        assert search_response.status_code == 200
+        search_local_alpha = next(model for model in search_response.json()["results"] if model["model_url"] == "local://local-001")
+        assert search_local_alpha["authority"] == "local"
+        assert search_local_alpha["model_ref"] == "local-001"
+        assert search_local_alpha["local_model_id"] == "local-001"
+
     def test_local_model_url_scheme(self, app_with_local_models):
         """Local models use local:// URL scheme in unified listing."""
         client, db = app_with_local_models
@@ -819,6 +918,8 @@ class TestListModelsEndpointMerge:
         payload = response.json()
 
         assert payload["success"] is True
+        assert payload["authority"] == "local"
+        assert payload["local_model_id"] == "local-001"
         assert payload["manyfold_model_url"] == "local://local-001"
         assert payload["model"]["name"] == "Local Alpha"
         assert payload["model"]["collection_names"] == []
