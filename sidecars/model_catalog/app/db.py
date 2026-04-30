@@ -235,6 +235,66 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         9,
         (),
     ),
+    (
+        10,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS working_file_inventory (
+        id INTEGER PRIMARY KEY,
+        source_path_raw TEXT NOT NULL,
+        source_path_canonical TEXT NOT NULL,
+        source_path_compare_key TEXT NOT NULL,
+        file_name_raw TEXT NOT NULL,
+        file_name_base_hint TEXT NOT NULL,
+        file_extension TEXT NOT NULL,
+        file_size_bytes INTEGER NOT NULL,
+        sha256_hash TEXT,
+        source_mtime TEXT,
+        source_ctime TEXT,
+        source_birthtime TEXT,
+        validation_state TEXT NOT NULL DEFAULT 'ready',
+        warnings_json TEXT NOT NULL DEFAULT '[]',
+        detected_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        root_path TEXT
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_working_file_inventory_compare_key
+    ON working_file_inventory(source_path_compare_key)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_working_file_inventory_name
+    ON working_file_inventory(file_name_base_hint)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_working_file_inventory_extension
+    ON working_file_inventory(file_extension)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_working_file_inventory_hash
+    ON working_file_inventory(sha256_hash)
+    WHERE sha256_hash IS NOT NULL
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS working_group_model_links (
+        id INTEGER PRIMARY KEY,
+        working_group_id INTEGER NOT NULL,
+        model_ref TEXT NOT NULL,
+        link_role TEXT NOT NULL DEFAULT 'related',
+        link_metadata_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (working_group_id) REFERENCES working_groups(id),
+        UNIQUE(working_group_id, model_ref)
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_working_group_model_links_model_ref
+    ON working_group_model_links(model_ref)
+    """,
+        ),
+    ),
 )
 
 
@@ -358,6 +418,9 @@ def _apply_migrations(connection: sqlite3.Connection) -> None:
             )
         if version == 9:
             _ensure_column(connection, "model_catalog_assets", "sort_order", "INTEGER NOT NULL DEFAULT 0")
+        if version == 10:
+            _ensure_column(connection, "intake_queue_uploads", "inbox_state", "TEXT NOT NULL DEFAULT 'submitted'")
+            _ensure_column(connection, "intake_queue_uploads", "decision_note", "TEXT")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
