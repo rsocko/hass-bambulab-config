@@ -1,18 +1,16 @@
-model_catalog_create_working_group:
+model_catalog_create_project:
   url: >-
     {{ (
       states('input_text.model_catalog_sidecar_base_url')
       if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
       else 'http://model-catalog-sidecar:8314'
-    ) }}/api/working-groups
+    ) }}/api/projects
   method: POST
   content_type: application/json
   payload: >-
     {{ {
       'title': (title | string),
-      'stage': (stage | default('draft', true) | string),
+      'description': (description | default('', true) | string),
       'notes': (notes | default('', true) | string),
-      'primary_file_path': (primary_file_path | default('', true) | string),
-      'folder_hint': (folder_hint | default('', true) | string),
-      'project_id': (project_id | default(None, true))
+      'bambuddy_project_id': (bambuddy_project_id | default(None, true))
     } | tojson }}

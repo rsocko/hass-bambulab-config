@@ -1790,6 +1790,14 @@ def _refresh_working_file_inventory(*, db_path: Path, roots: list[Path], compute
 
 def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
     group_id = int(group_row["id"])
+    group_keys = set(group_row.keys())
+    project_id_value = group_row["project_id"] if "project_id" in group_keys else None
+    project_row = None
+    if project_id_value is not None:
+        project_row = connection.execute(
+            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+            (project_id_value,),
+        ).fetchone()
     item_rows = connection.execute(
         """
         SELECT id, file_path, item_role, file_hash, file_size, source_metadata_json, created_at, updated_at
@@ -1813,6 +1821,8 @@ def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
         "slug": group_row["slug"],
         "title": group_row["title"],
         "stage": group_row["stage"],
+        "project_id": int(project_id_value) if project_id_value is not None else None,
+        "project": _serialize_project_row(project_row) if project_row is not None else None,
         "notes": group_row["notes"],
         "primary_file_path": group_row["primary_file_path"],
         "folder_hint": group_row["folder_hint"],
@@ -1849,6 +1859,121 @@ def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
         ],
         "created_at": group_row["created_at"],
         "updated_at": group_row["updated_at"],
+    }
+
+
+def _serialize_project_row(project_row: Any) -> dict[str, Any]:
+    return {
+        "id": int(project_row["id"]),
+        "slug": project_row["slug"],
+        "title": project_row["title"],
+        "description": project_row["description"],
+        "notes": project_row["notes"],
+        "bambuddy_project_id": int(project_row["bambuddy_project_id"]) if project_row["bambuddy_project_id"] is not None else None,
+        "created_at": project_row["created_at"],
+        "updated_at": project_row["updated_at"],
+        "archived_at": project_row["archived_at"],
+    }
+
+
+def _unique_project_slug(connection: Any, title: str) -> str:
+    base = _slugify_title(title) or "project"
+    candidate = base
+    suffix = 2
+    rows = connection.execute("SELECT slug FROM model_catalog_projects").fetchall()
+    existing = {str(row["slug"]) for row in rows}
+    while candidate in existing:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _resolve_project_id_value(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    try:
+        resolved = int(value)
+    except (TypeError, ValueError):
+        return None
+    return resolved if resolved > 0 else None
+
+
+def _create_project_record(
+    connection: Any,
+    *,
+    title: str,
+    description: str | None,
+    notes: str | None,
+    bambuddy_project_id: int | None,
+    now_iso: str,
+) -> dict[str, Any]:
+    slug = _unique_project_slug(connection, title)
+    connection.execute(
+        """
+        INSERT INTO model_catalog_projects (
+            slug, title, description, notes, bambuddy_project_id, created_at, updated_at, archived_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (slug, title, description, notes, bambuddy_project_id, now_iso, now_iso, None),
+    )
+    project_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+    project_row = connection.execute("SELECT * FROM model_catalog_projects WHERE id = ?", (project_id,)).fetchone()
+    return _serialize_project_row(project_row)
+
+
+def _resolve_publish_project(connection: Any, *, payload: dict[str, Any], group_row: Any, now_iso: str) -> tuple[int | None, dict[str, Any] | None]:
+    create_project_payload = payload.get("create_project") if isinstance(payload.get("create_project"), dict) else None
+    if create_project_payload:
+        project_title = str(create_project_payload.get("title") or "").strip()
+        if not project_title:
+            raise ValueError("create_project.title is required")
+        created_project = _create_project_record(
+            connection,
+            title=project_title,
+            description=str(create_project_payload.get("description") or "").strip() or None,
+            notes=str(create_project_payload.get("notes") or "").strip() or None,
+            bambuddy_project_id=_resolve_project_id_value(create_project_payload.get("bambuddy_project_id")),
+            now_iso=now_iso,
+        )
+        return int(created_project["id"]), created_project
+
+    explicit_project_id = _resolve_project_id_value(payload.get("project_id"))
+    if explicit_project_id is not None:
+        project_row = connection.execute(
+            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+            (explicit_project_id,),
+        ).fetchone()
+        if project_row is None:
+            raise LookupError(f"Project not found: {explicit_project_id}")
+        return explicit_project_id, _serialize_project_row(project_row)
+
+    group_project_id = group_row["project_id"] if "project_id" in set(group_row.keys()) else None
+    if group_project_id is not None:
+        project_row = connection.execute(
+            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+            (group_project_id,),
+        ).fetchone()
+        if project_row is not None:
+            return int(group_project_id), _serialize_project_row(project_row)
+
+    return None, None
+
+
+def _lineage_payload_for_model(*, db_path: Path, model_ref: str) -> dict[str, Any]:
+    fields = read_model_fields(db_path=db_path, model_ref=model_ref) or {}
+    lineage = fields.get("lineage") if isinstance(fields.get("lineage"), dict) else {}
+    publish_history = fields.get("intake_publish_history")
+    if not isinstance(publish_history, list):
+        publish_history = []
+    return {
+        "model_ref": model_ref,
+        "project_id": fields.get("project_id"),
+        "published_from_group_id": fields.get("published_from_group_id"),
+        "publish_outcome": fields.get("publish_outcome"),
+        "lineage": lineage,
+        "publish_history": publish_history,
     }
 
 
@@ -2383,24 +2508,33 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         notes = str(payload.get("notes") or "").strip() or None
         folder_hint = str(payload.get("folder_hint") or "").strip() or None
         primary_file_path = str(payload.get("primary_file_path") or "").strip() or None
+        project_id = _resolve_project_id_value(payload.get("project_id"))
         now_iso = _bulk_utc_now_iso()
 
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
         try:
+            if project_id is not None:
+                project_row = connection.execute(
+                    "SELECT id FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+                    (project_id,),
+                ).fetchone()
+                if project_row is None:
+                    return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": f"Project not found: {project_id}"})
             slug = _unique_slug(connection, title)
             connection.execute(
                 """
                 INSERT INTO working_groups (
-                    slug, title, stage, notes, primary_file_path, folder_hint,
+                    slug, title, stage, project_id, notes, primary_file_path, folder_hint,
                     related_manyfold_model_id, created_at, updated_at,
                     discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     slug,
                     title,
                     stage,
+                    project_id,
                     notes,
                     primary_file_path,
                     folder_hint,
@@ -2421,7 +2555,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             connection.close()
 
     @app.get("/api/working-groups")
-    def list_working_groups(limit: int | None = None, offset: int | None = None, stage: str | None = None) -> Any:
+    def list_working_groups(limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None) -> Any:
         state: AppState = app.state.model_catalog
         limit_value = max(1, min(int(limit or 100), 500))
         offset_value = max(0, int(offset or 0))
@@ -2431,6 +2565,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if stage and stage.strip():
             where_sql += " AND stage = ?"
             params.append(stage.strip())
+        if project_id is not None:
+            where_sql += " AND project_id = ?"
+            params.append(int(project_id))
 
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
@@ -2507,6 +2644,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             if row is None:
                 return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
+            if "project_id" in payload:
+                requested_project_id = payload.get("project_id")
+                project_id_value = _resolve_project_id_value(requested_project_id)
+                if requested_project_id not in {None, "", 0, "0"} and project_id_value is None:
+                    return JSONResponse(status_code=400, content={"success": False, "error": "invalid_project_id", "message": "project_id must be a positive integer or null"})
+                if project_id_value is not None:
+                    project_row = connection.execute(
+                        "SELECT id FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+                        (project_id_value,),
+                    ).fetchone()
+                    if project_row is None:
+                        return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": f"Project not found: {project_id_value}"})
+                updates.append("project_id = ?")
+                params.append(project_id_value)
             updates.append("updated_at = ?")
             params.append(_bulk_utc_now_iso())
             params.append(group_id)
@@ -2517,6 +2668,97 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             connection.commit()
             return {"success": True, "group": _serialize_working_group(connection, row)}
+        finally:
+            connection.close()
+
+    @app.post("/api/projects")
+    def create_model_catalog_project(payload: dict[str, Any]) -> Any:
+        state: AppState = app.state.model_catalog
+        title = str(payload.get("title") or "").strip()
+        if not title:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title is required"})
+
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            project = _create_project_record(
+                connection,
+                title=title,
+                description=str(payload.get("description") or "").strip() or None,
+                notes=str(payload.get("notes") or "").strip() or None,
+                bambuddy_project_id=_resolve_project_id_value(payload.get("bambuddy_project_id")),
+                now_iso=_bulk_utc_now_iso(),
+            )
+            connection.commit()
+            return {"success": True, "project": project}
+        finally:
+            connection.close()
+
+    @app.get("/api/projects")
+    def list_model_catalog_projects(limit: int | None = None, offset: int | None = None) -> Any:
+        state: AppState = app.state.model_catalog
+        limit_value = max(1, min(int(limit or 100), 500))
+        offset_value = max(0, int(offset or 0))
+
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            total_row = connection.execute(
+                "SELECT COUNT(*) AS cnt FROM model_catalog_projects WHERE archived_at IS NULL"
+            ).fetchone()
+            rows = connection.execute(
+                """
+                SELECT * FROM model_catalog_projects
+                WHERE archived_at IS NULL
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit_value, offset_value),
+            ).fetchall()
+            projects = [_serialize_project_row(row) for row in rows]
+        finally:
+            connection.close()
+
+        return {
+            "success": True,
+            "pagination": {
+                "limit": limit_value,
+                "offset": offset_value,
+                "total": int(total_row["cnt"] if total_row else 0),
+            },
+            "projects": projects,
+        }
+
+    @app.get("/api/projects/{project_id}")
+    def get_model_catalog_project(project_id: int) -> Any:
+        state: AppState = app.state.model_catalog
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            row = connection.execute(
+                "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
+                (project_id,),
+            ).fetchone()
+            if row is None:
+                return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
+            group_count_row = connection.execute(
+                "SELECT COUNT(*) AS cnt FROM working_groups WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()
+            model_count_row = connection.execute(
+                """
+                SELECT COUNT(*) AS cnt
+                FROM model_catalog_custom_fields
+                WHERE entity_type = 'model'
+                  AND field_key = 'project_id'
+                  AND json_extract(field_value_json, '$') = ?
+                """,
+                (project_id,),
+            ).fetchone()
+            project = _serialize_project_row(row)
+            project["working_group_count"] = int(group_count_row["cnt"] if group_count_row else 0)
+            project["curated_model_count"] = int(model_count_row["cnt"] if model_count_row else 0)
+            return {"success": True, "project": project}
         finally:
             connection.close()
 
@@ -2758,6 +3000,215 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             }
         finally:
             connection.close()
+
+    @app.post("/api/working-groups/{group_id}/publish-to-local")
+    def publish_working_group_to_local(group_id: int, payload: dict[str, Any] | None = None) -> Any:
+        state: AppState = app.state.model_catalog
+        payload = payload or {}
+        publish_outcome = str(payload.get("publish_outcome") or "").strip().lower()
+        valid_outcomes = {
+            "new_canonical_revision",
+            "add_as_additional_file_or_variant",
+            "keep_separate_curated_model",
+            "cancel_for_cleanup",
+        }
+        if publish_outcome not in valid_outcomes:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_publish_outcome", "message": "publish_outcome is required and must be a supported value"})
+        if publish_outcome == "cancel_for_cleanup":
+            return {"success": True, "cancelled": True, "publish_outcome": publish_outcome, "working_group_id": group_id}
+
+        lineage_type = str(payload.get("lineage_type") or "").strip().lower() or None
+        if lineage_type and lineage_type not in {"canonical_revision", "supersedes", "superseded_by", "additional_variant", "separate_related"}:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_lineage_type", "message": "Unsupported lineage_type"})
+
+        connection = connect(state.settings.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
+            if group_row is None:
+                return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
+            item_rows = connection.execute(
+                "SELECT * FROM working_items WHERE working_group_id = ? ORDER BY id ASC",
+                (group_id,),
+            ).fetchall()
+            if not item_rows:
+                return JSONResponse(status_code=400, content={"success": False, "error": "no_items", "message": "Working group has no files to publish"})
+
+            now_iso = _bulk_utc_now_iso()
+            try:
+                resolved_project_id, created_project = _resolve_publish_project(connection, payload=payload, group_row=group_row, now_iso=now_iso)
+            except ValueError as exc:
+                return JSONResponse(status_code=400, content={"success": False, "error": "invalid_project", "message": str(exc)})
+            except LookupError as exc:
+                return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": str(exc)})
+
+            target_model_ref = str(payload.get("target_model_ref") or payload.get("local_model_id") or "").strip() or None
+            model_name = str(payload.get("model_name") or "").strip() or str(group_row["title"] or f"group-{group_id}")
+            if not target_model_ref or publish_outcome == "keep_separate_curated_model":
+                target_model_ref = _ensure_unique_local_model_id(db_path=state.settings.db_path, preferred=model_name)
+
+            requested_description = str(payload.get("description") or "").strip() or None
+            requested_tags = payload.get("tags") if isinstance(payload.get("tags"), list) else None
+            requested_collection_names = payload.get("collection_names") if isinstance(payload.get("collection_names"), list) else None
+
+            target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=target_model_ref)
+            created_model = False
+            if target_entry is None:
+                target_entry = create_local_model(
+                    db_path=state.settings.db_path,
+                    local_model_id=target_model_ref,
+                    model_name=model_name,
+                    model_description=requested_description,
+                    created_by="working_group_publish",
+                    collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
+                    tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                    keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                    source_origin="working_group_publish",
+                    source_origin_url=f"working-group://{group_id}",
+                )
+                created_model = True
+            else:
+                target_entry = update_local_model(
+                    db_path=state.settings.db_path,
+                    local_model_id=target_model_ref,
+                    model_name=(model_name if payload.get("model_name") is not None else None),
+                    model_description=requested_description,
+                    collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
+                    tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                    keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                )
+
+            if target_entry is None:
+                return JSONResponse(status_code=500, content={"success": False, "error": "publish_failed", "message": "Could not create or update local model"})
+
+            if resolved_project_id is not None and group_row["project_id"] != resolved_project_id:
+                connection.execute(
+                    "UPDATE working_groups SET project_id = ?, updated_at = ? WHERE id = ?",
+                    (resolved_project_id, now_iso, group_id),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+
+        existing_assets = list_model_assets(db_path=state.settings.db_path, local_model_id=target_model_ref)
+        existing_hashes = {
+            str(getattr(asset, "file_hash", "") or "").strip().lower()
+            for asset in existing_assets
+            if str(getattr(asset, "file_hash", "") or "").strip()
+        }
+        existing_asset_ids = {
+            str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+            for asset in existing_assets
+            if str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+        }
+        has_preview = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview" for asset in existing_assets)
+        has_primary = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "primary" for asset in existing_assets)
+
+        imported_assets: list[dict[str, Any]] = []
+        duplicate_skipped: list[dict[str, Any]] = []
+        failed_files: list[dict[str, Any]] = []
+
+        for item_row in item_rows:
+            source_path = Path(str(item_row["file_path"])).expanduser().resolve()
+            if not source_path.exists() or not source_path.is_file():
+                failed_files.append({"source_path": str(source_path), "message": "Source file not found"})
+                continue
+            file_hash = str(item_row["file_hash"] or "").strip().lower()
+            if file_hash and file_hash in existing_hashes:
+                duplicate_skipped.append({"source_path": str(source_path), "filename": source_path.name, "sha256": file_hash, "reason": "duplicate_hash"})
+                continue
+            try:
+                storage_path = _copy_local_import_source(settings=state.settings, local_model_id=target_model_ref, source_path=source_path)
+                asset_type = _normalize_local_asset_type(source_path)
+                normalized_asset_role = _normalize_local_asset_role(
+                    asset_type=asset_type,
+                    has_preview=has_preview,
+                    has_primary=has_primary,
+                    preview_selected=False,
+                )
+                if str(item_row["item_role"] or "") == "primary" and not has_primary:
+                    normalized_asset_role = "primary"
+                asset_id = _unique_asset_id(filename=source_path.name, file_hash=file_hash, existing_ids=existing_asset_ids)
+                asset = create_model_asset(
+                    db_path=state.settings.db_path,
+                    local_model_id=target_model_ref,
+                    asset_id=asset_id,
+                    asset_filename=source_path.name,
+                    asset_type=asset_type,
+                    storage_path=storage_path,
+                    asset_role=normalized_asset_role,
+                    file_size_bytes=int(item_row["file_size"] or 0) or None,
+                    file_hash=file_hash or None,
+                    preview_url=None,
+                    geometry_bounds=None,
+                )
+                if file_hash:
+                    existing_hashes.add(file_hash)
+                existing_asset_ids.add(asset.asset_id)
+                has_preview = has_preview or asset.asset_role == "preview"
+                has_primary = has_primary or asset.asset_role == "primary"
+                imported_assets.append(
+                    {
+                        "asset_id": asset.asset_id,
+                        "filename": asset.asset_filename,
+                        "asset_type": asset.asset_type,
+                        "asset_role": asset.asset_role,
+                        "storage_path": asset.storage_path,
+                        "file_hash": asset.file_hash,
+                        "source_path": str(source_path),
+                    }
+                )
+            except Exception as exc:
+                failed_files.append({"source_path": str(source_path), "filename": source_path.name, "message": str(exc)})
+
+        lineage_payload = {
+            "lineage_type": lineage_type,
+            "target_model_ref": str(payload.get("target_model_ref") or "").strip() or None,
+            "reconciliation_notes": str(payload.get("reconciliation_notes") or "").strip() or None,
+        }
+        set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="project_id", field_value=resolved_project_id)
+        set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="published_from_group_id", field_value=group_id)
+        set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="publish_outcome", field_value=publish_outcome)
+        set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="lineage", field_value=lineage_payload)
+        publish_history = _append_intake_publish_history(
+            db_path=state.settings.db_path,
+            model_ref=target_model_ref,
+            entry={
+                "published_at": _bulk_utc_now_iso(),
+                "source": "working_group_publish",
+                "working_group_id": group_id,
+                "publish_outcome": publish_outcome,
+                "project_id": resolved_project_id,
+                "created_model": created_model,
+                "imported_asset_count": len(imported_assets),
+                "duplicate_skipped_count": len(duplicate_skipped),
+                "failed_file_count": len(failed_files),
+            },
+        )
+
+        return {
+            "success": True,
+            "working_group_id": group_id,
+            "model_ref": target_model_ref,
+            "publish_outcome": publish_outcome,
+            "project_id": resolved_project_id,
+            "created_project": created_project,
+            "created_model": created_model,
+            "published_from_group_id": group_id,
+            "lineage": lineage_payload,
+            "imported_assets": imported_assets,
+            "duplicate_skipped": duplicate_skipped,
+            "failed_files": failed_files,
+            "publish_history": publish_history,
+        }
+
+    @app.get("/api/models/{model_ref:path}/lineage")
+    def get_model_lineage(model_ref: str) -> Any:
+        state: AppState = app.state.model_catalog
+        normalized_ref = str(model_ref or "").strip()
+        if not normalized_ref:
+            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_model_ref", "message": "model_ref is required"})
+        return {"success": True, **_lineage_payload_for_model(db_path=state.settings.db_path, model_ref=normalized_ref)}
 
     @app.post("/working-groups/bulk-discover")
     @app.post("/api/working-groups/bulk-discover")

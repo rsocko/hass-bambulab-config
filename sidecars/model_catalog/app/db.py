@@ -295,6 +295,28 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+    (
+        11,
+        (
+    """
+    CREATE TABLE IF NOT EXISTS model_catalog_projects (
+        id INTEGER PRIMARY KEY,
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT,
+        notes TEXT,
+        bambuddy_project_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_model_catalog_projects_slug
+    ON model_catalog_projects(slug)
+    """,
+        ),
+    ),
 )
 
 
@@ -421,6 +443,8 @@ def _apply_migrations(connection: sqlite3.Connection) -> None:
         if version == 10:
             _ensure_column(connection, "intake_queue_uploads", "inbox_state", "TEXT NOT NULL DEFAULT 'submitted'")
             _ensure_column(connection, "intake_queue_uploads", "decision_note", "TEXT")
+        if version == 11:
+            _ensure_column(connection, "working_groups", "project_id", "INTEGER")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

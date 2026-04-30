@@ -1,17 +1,11 @@
-model_catalog_list_working_groups:
+model_catalog_list_projects:
   url: >-
     {%- set ns = namespace(params=[]) -%}
-    {%- if stage is defined and (stage | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['stage=' ~ ((stage | string) | urlencode)] -%}
-    {%- endif -%}
-    {%- if project_id is defined and (project_id | string | trim) != '' -%}
-      {%- set ns.params = ns.params + ['project_id=' ~ ((project_id | string) | urlencode)] -%}
-    {%- endif -%}
     {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(100)) | int(100) | string)] -%}
     {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0)) | int(0) | string)] -%}
     {{- (
         states('input_text.model_catalog_sidecar_base_url')
         if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
         else 'http://model-catalog-sidecar:8314'
-      ) -}}/api/working-groups?{{ ns.params | join('&') }}
+      ) -}}/api/projects?{{ ns.params | join('&') }}
   method: GET

@@ -8,7 +8,6 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;");
   }
 
   function basename(filePath) {
@@ -75,109 +74,155 @@
   }
 
   function normalizeServiceResponse(payload) {
-    if (Array.isArray(payload) && payload.length) {
-      return normalizeServiceResponse(payload[0]);
-    }
-    if (payload && typeof payload === "object") {
-      if (payload.service_response && typeof payload.service_response === "object") {
-        return normalizeServiceResponse(payload.service_response);
+    async _saveMetadata() {
+      if (!this._group || !this._hass || !this.shadowRoot) {
+        return;
       }
-      if (payload.response && typeof payload.response === "object") {
-        return normalizeServiceResponse(payload.response);
-      }
-      if (
-        payload.content
-        && typeof payload.content === "object"
-        && (Object.prototype.hasOwnProperty.call(payload, "status")
-          || Object.prototype.hasOwnProperty.call(payload, "headers"))
-      ) {
-        return Object.assign({}, payload.content, {
-          status: payload.status,
-          headers: payload.headers,
+      var titleNode = this.shadowRoot.querySelector("#detail-title");
+      var stageNode = this.shadowRoot.querySelector("#detail-stage");
+      var notesNode = this.shadowRoot.querySelector("#detail-notes");
+      var projectNode = this.shadowRoot.querySelector("#detail-project");
+      this._loading = true;
+      this._error = "";
+      this._status = "";
+      this._publishResult = null;
+      this._render();
+      try {
+        await callServiceWithResponse(this._hass, "rest_command", "model_catalog_update_working_group", {
+          group_id: this._group.id,
+          title: titleNode ? String(titleNode.value || "").trim() : this._group.title,
+          stage: stageNode ? String(stageNode.value || this._group.stage) : this._group.stage,
+          notes: notesNode ? String(notesNode.value || "") : this._group.notes,
+          project_id: projectNode ? String(projectNode.value || "").trim() : String(this._group.project_id || ""),
         });
+        this._status = "Working group updated.";
+        this._loading = false;
+        await this._loadGroup();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not update working group.";
+        this._loading = false;
+        this._render();
       }
     }
-    return payload && typeof payload === "object" ? payload : {};
+
+    async _createProject() {
+      if (!this._group || !this._hass || !this.shadowRoot) {
+        return;
+      }
+      var titleNode = this.shadowRoot.querySelector("#detail-create-project-title");
+      var descriptionNode = this.shadowRoot.querySelector("#detail-create-project-description");
+      var title = titleNode ? String(titleNode.value || "").trim() : "";
+      if (!title) {
+        this._error = "Project title is required.";
+        this._render();
+        return;
+      }
+
+      this._loading = true;
+      this._error = "";
+      this._status = "";
+      this._publishResult = null;
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_create_project", {
+          title: title,
+          description: descriptionNode ? String(descriptionNode.value || "").trim() : "",
+        });
+        var project = response.project || null;
+        if (project && project.id) {
+          await callServiceWithResponse(this._hass, "rest_command", "model_catalog_update_working_group", {
+            group_id: this._group.id,
+            project_id: String(project.id),
+          });
+        }
+        this._status = project ? ("Project created and assigned: " + String(project.title || project.slug || project.id)) : "Project created.";
         this._loading = false;
-  }
+        await this._loadGroup();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not create project.";
+        this._loading = false;
+        this._render();
+      }
+    }
 
-  async function callServiceWithResponse(hass, domain, service, data) {
-    var endpoint = "/api/services/" + encodeURIComponent(String(domain || "")) + "/" + encodeURIComponent(String(service || "")) + "?return_response";
-    var body = JSON.stringify(data && typeof data === "object" ? data : {});
+    async _publishToLocal() {
+      if (!this._group || !this._hass || !this.shadowRoot) {
+        return;
+      }
+      var publishOutcomeNode = this.shadowRoot.querySelector("#publish-outcome");
+      var projectNode = this.shadowRoot.querySelector("#publish-project");
+      var modelNameNode = this.shadowRoot.querySelector("#publish-model-name");
+      var targetModelRefNode = this.shadowRoot.querySelector("#publish-target-model-ref");
+      var lineageTypeNode = this.shadowRoot.querySelector("#publish-lineage-type");
+      var notesNode = this.shadowRoot.querySelector("#publish-reconciliation-notes");
+      var createProjectTitleNode = this.shadowRoot.querySelector("#publish-create-project-title");
+      var createProjectDescriptionNode = this.shadowRoot.querySelector("#publish-create-project-description");
+      var publishOutcome = publishOutcomeNode ? String(publishOutcomeNode.value || "").trim() : "";
+      if (!publishOutcome) {
+        this._error = "Publish outcome is required.";
+        this._render();
+        return;
+      }
 
-    var response = await fetch(endpoint, {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders(hass, false)),
-      credentials: "same-origin",
-      body: body,
-    });
-
-    if (response.status === 401) {
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders(hass, true)),
-        credentials: "same-origin",
-        body: body,
+      this._loading = true;
+      this._error = "";
+      this._status = "";
+      this._publishResult = null;
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_publish_working_group_to_local", {
+          group_id: this._group.id,
+          publish_outcome: publishOutcome,
+          project_id: projectNode ? String(projectNode.value || "").trim() : "",
+          model_name: modelNameNode ? String(modelNameNode.value || "").trim() : "",
+          target_model_ref: targetModelRefNode ? String(targetModelRefNode.value || "").trim() : "",
+          lineage_type: lineageTypeNode ? String(lineageTypeNode.value || "").trim() : "",
+          reconciliation_notes: notesNode ? String(notesNode.value || "").trim() : "",
+          create_project_title: createProjectTitleNode ? String(createProjectTitleNode.value || "").trim() : "",
+          create_project_description: createProjectDescriptionNode ? String(createProjectDescriptionNode.value || "").trim() : "",
+        });
+        this._publishResult = response;
+        this._status = response.cancelled ? "Publish review marked for cleanup." : "Working group published to local curated storage.";
+        this._loading = false;
+        await this._loadGroup();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not publish working group.";
+        this._loading = false;
+        this._render();
+      }
+    }
       });
-    }
-
-    var payload = {};
-    try {
-      payload = await response.json();
-    } catch (_error) {
-      payload = {};
-    }
-
-    if (!response.ok) {
-      var message = payload && payload.message ? String(payload.message) : "Service call failed (HTTP " + String(response.status) + ")";
-      throw new Error(message);
-    }
-
-    var normalized = normalizeServiceResponse(payload);
-    if (normalized && normalized.success === false) {
-      throw new Error(normalized.message || normalized.error || "Request failed.");
-    }
-    if (normalized && typeof normalized.status === "number" && normalized.status >= 400) {
-      throw new Error(normalized.message || ("Request failed (HTTP " + String(normalized.status) + ")."));
-    }
-    return normalized;
-  }
-
-  function fireBrowserModEvent(node, service, data) {
-    var event = new CustomEvent("ll-custom", {
-      bubbles: true,
-      composed: true,
-      detail: {
-        browser_mod: {
-          service: service,
-          data: data,
-          target: {},
-        },
-      },
     });
-
-    if (document && document.body) {
-      document.body.dispatchEvent(event);
-      return;
-    }
-
-    node.dispatchEvent(event);
-  }
-
-  function stageOptionsHtml(selectedValue, includeAll) {
-    var options = includeAll ? [""].concat(STAGE_OPTIONS) : STAGE_OPTIONS.slice();
-    return options.map(function (stage) {
-      var value = stage;
-      var label = stage ? formatStage(stage) : "All stages";
+    return entries.map(function (project) {
+      var value = String(project.id || "");
       var selected = String(selectedValue || "") === value ? " selected" : "";
-      return '<option value="' + escapeHtml(value) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+      return '<option value="' + escapeHtml(value) + '"' + selected + '>' + escapeHtml(project.title || value) + '</option>';
     }).join("");
   }
 
-  function linkRoleOptionsHtml(selectedValue) {
-    return LINK_ROLE_OPTIONS.map(function (role) {
-      var selected = String(selectedValue || "related") === role ? " selected" : "";
-      return '<option value="' + escapeHtml(role) + '"' + selected + '>' + escapeHtml(formatStage(role)) + '</option>';
+  function publishOutcomeOptionsHtml(selectedValue) {
+    return [
+      ["new_canonical_revision", "New Canonical Revision"],
+      ["add_as_additional_file_or_variant", "Additional File / Variant"],
+      ["keep_separate_curated_model", "Keep Separate Curated Model"],
+      ["cancel_for_cleanup", "Cancel For Cleanup"]
+    ].map(function (entry) {
+      var selected = String(selectedValue || "new_canonical_revision") === entry[0] ? " selected" : "";
+      return '<option value="' + escapeHtml(entry[0]) + '"' + selected + '>' + escapeHtml(entry[1]) + '</option>';
+    }).join("");
+  }
+
+  function lineageOptionsHtml(selectedValue) {
+    return [
+      ["", "No explicit lineage"],
+      ["canonical_revision", "Canonical Revision"],
+      ["supersedes", "Supersedes"],
+      ["superseded_by", "Superseded By"],
+      ["additional_variant", "Additional Variant"],
+      ["separate_related", "Separate Related"]
+    ].map(function (entry) {
+      var selected = String(selectedValue || "") === entry[0] ? " selected" : "";
+      return '<option value="' + escapeHtml(entry[0]) + '"' + selected + '>' + escapeHtml(entry[1]) + '</option>';
     }).join("");
   }
 
@@ -252,8 +297,10 @@
       this._error = "";
       this._status = "";
       this._groups = [];
+      this._projects = [];
       this._search = "";
       this._stage = "";
+      this._projectId = "";
       this._createOpen = false;
       this._selectMode = false;
       this._selectedIds = {};
@@ -269,8 +316,10 @@
       };
       this._render();
     }
+      var projectNode = root.querySelector("#working-board-project");
 
     set hass(hass) {
+      this._projectId = projectNode ? String(projectNode.value || "").trim() : "";
       this._hass = hass;
       if (this.isConnected && !this._loaded && !this._loading) {
         this._loadGroups();
@@ -320,8 +369,14 @@
         var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_list_working_groups", {
           limit: this._config && this._config.per_page ? this._config.per_page : 24,
           stage: this._stage || undefined,
+          project_id: this._projectId || undefined,
+        });
+        var projectResponse = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_list_projects", {
+          limit: 100,
+          offset: 0,
         });
         this._groups = Array.isArray(response.groups) ? response.groups : [];
+        this._projects = Array.isArray(projectResponse.projects) ? projectResponse.projects : [];
         this._loaded = true;
       } catch (error) {
         this._error = error && error.message ? String(error.message) : "Could not load working groups.";
@@ -342,6 +397,7 @@
       var titleNode = root.querySelector("#create-group-title");
       var stageNode = root.querySelector("#create-group-stage");
       var notesNode = root.querySelector("#create-group-notes");
+      var projectNode = root.querySelector("#create-group-project");
       var title = titleNode ? String(titleNode.value || "").trim() : "";
       if (!title) {
         this._error = "Group title is required.";
@@ -358,6 +414,7 @@
           title: title,
           stage: stageNode ? String(stageNode.value || "draft") : "draft",
           notes: notesNode ? String(notesNode.value || "") : "",
+          project_id: projectNode ? String(projectNode.value || "").trim() || undefined : undefined,
         });
         this._status = "Working group created.";
         this._createOpen = false;
@@ -376,6 +433,7 @@
           return true;
         }
         var haystack = [group.title, group.notes, group.primary_file_path, group.folder_hint]
+          .concat(group.project && group.project.title ? [group.project.title] : [])
           .concat((group.items || []).map(function (item) { return item.file_path; }))
           .concat((group.links || []).map(function (link) { return link.model_ref; }))
           .join(" ")
@@ -419,6 +477,21 @@
       } else {
         this._selectedIds[numericId] = true;
       }
+        var projectTitle = this._group.project && this._group.project.title ? this._group.project.title : "Unassigned";
+        var publishResultHtml = this._publishResult
+          ? ''
+            + '<section class="section result-summary">'
+            + '  <div class="title">Publish Result</div>'
+            + '  <div class="meta-grid">'
+            + '    <div class="meta-item"><div class="meta-label">Outcome</div><div class="meta-value">' + escapeHtml(formatPublishOutcome(this._publishResult.publish_outcome || "")) + '</div></div>'
+            + '    <div class="meta-item"><div class="meta-label">Model Ref</div><div class="meta-value">' + escapeHtml(this._publishResult.model_ref || "") + '</div></div>'
+            + '    <div class="meta-item"><div class="meta-label">Imported</div><div class="meta-value">' + String((this._publishResult.imported_assets || []).length) + '</div></div>'
+            + '    <div class="meta-item"><div class="meta-label">Skipped</div><div class="meta-value">' + String((this._publishResult.duplicate_skipped || []).length) + '</div></div>'
+            + '    <div class="meta-item"><div class="meta-label">Failed</div><div class="meta-value">' + String((this._publishResult.failed_files || []).length) + '</div></div>'
+            + '    <div class="meta-item"><div class="meta-label">Project</div><div class="meta-value">' + escapeHtml(String(this._publishResult.project_id || "")) + '</div></div>'
+            + '  </div>'
+            + '</section>'
+          : '';
       this._render();
     }
 
@@ -568,6 +641,7 @@
     _renderGroup(group) {
       var primaryFileName = basename(group.primary_file_path || (group.items && group.items[0] ? group.items[0].file_path : "")) || "No primary file";
       var isSelected = !!this._selectedIds[group.id];
+      var projectTitle = group.project && group.project.title ? group.project.title : "Unassigned";
       return ''
         + '<article class="group-card' + (isSelected ? ' selected' : '') + '">'
         + '  <div class="title-row">'
@@ -581,6 +655,7 @@
         + '    <div class="meta-item"><div class="meta-label">Files</div><div class="meta-value">' + String((group.items || []).length) + '</div></div>'
         + '    <div class="meta-item"><div class="meta-label">Curated Links</div><div class="meta-value">' + String((group.links || []).length) + '</div></div>'
         + '    <div class="meta-item"><div class="meta-label">Primary</div><div class="meta-value">' + escapeHtml(primaryFileName) + '</div></div>'
+        + '    <div class="meta-item"><div class="meta-label">Project</div><div class="meta-value">' + escapeHtml(projectTitle) + '</div></div>'
         + '    <div class="meta-item"><div class="meta-label">Updated</div><div class="meta-value">' + escapeHtml(group.updated_at || group.created_at || "Unknown") + '</div></div>'
         + '  </div>'
         + (this._selectMode
@@ -613,6 +688,7 @@
           + '    <div class="field"><label for="create-group-title">Group Title</label><input id="create-group-title" class="input" type="text" placeholder="Bracket Group"></div>'
           + '    <div class="field"><label for="create-group-stage">Stage</label><select id="create-group-stage" class="select">' + stageOptionsHtml("draft", false) + '</select></div>'
           + '  </div>'
+          + '  <div class="field"><label for="create-group-project">Project</label><select id="create-group-project" class="select">' + projectOptionsHtml(this._projects, "", true, "Unassigned") + '</select></div>'
           + '  <div class="field"><label for="create-group-notes">Notes</label><textarea id="create-group-notes" class="textarea" placeholder="Optional notes for the new working group"></textarea></div>'
           + '  <div class="button-row"><button class="button primary" data-action="create-group">Create Group</button><button class="button" data-action="toggle-create">Cancel</button></div>'
           + '</section>'
@@ -659,6 +735,7 @@
         + '      <div class="toolbar-row">'
         + '        <div class="field grow"><label for="working-board-search">Search</label><input id="working-board-search" class="input" type="text" value="' + escapeHtml(this._search) + '" placeholder="Group title, notes, file, or model ref"></div>'
         + '        <div class="field"><label for="working-board-stage">Stage</label><select id="working-board-stage" class="select">' + stageOptionsHtml(this._stage, true) + '</select></div>'
+        + '        <div class="field"><label for="working-board-project">Project</label><select id="working-board-project" class="select">' + projectOptionsHtml(this._projects, this._projectId, true, "All projects") + '</select></div>'
         + '      </div>'
         + '      <div class="button-row">'
         + '        <button class="button primary" data-action="apply-search">Apply Filters</button>'
@@ -684,6 +761,8 @@
       this._group = null;
       this._error = "";
       this._status = "";
+      this._projects = [];
+      this._publishResult = null;
       this._searchResults = [];
       this._searchingFiles = false;
 
@@ -729,10 +808,16 @@
       this._error = "";
       this._render();
       try {
-        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_get_working_group", {
-          group_id: this._config.group_id,
-        });
-        this._group = response.group || null;
+        var responses = await Promise.all([
+          callServiceWithResponse(this._hass, "rest_command", "model_catalog_get_working_group", {
+            group_id: this._config.group_id,
+          }),
+          callServiceWithResponse(this._hass, "rest_command", "model_catalog_list_projects", {
+            limit: 200,
+          }),
+        ]);
+        this._group = responses[0].group || null;
+        this._projects = Array.isArray(responses[1].projects) ? responses[1].projects : [];
       } catch (error) {
         this._error = error && error.message ? String(error.message) : "Could not load working group detail.";
       } finally {
@@ -747,10 +832,97 @@
       }
       var titleNode = this.shadowRoot.querySelector("#detail-title");
       var stageNode = this.shadowRoot.querySelector("#detail-stage");
-      var notesNode = this.shadowRoot.querySelector("#detail-notes");
+      if (!this._group || !this._hass || !this.shadowRoot) {
+        return;
+      }
+      var titleNode = this.shadowRoot.querySelector("#detail-create-project-title");
+      var descriptionNode = this.shadowRoot.querySelector("#detail-create-project-description");
+      var title = titleNode ? String(titleNode.value || "").trim() : "";
+      if (!title) {
+        this._error = "Project title is required.";
+        this._render();
+        return;
+      }
+
       this._loading = true;
       this._error = "";
       this._status = "";
+      this._publishResult = null;
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_create_project", {
+          title: title,
+          description: descriptionNode ? String(descriptionNode.value || "").trim() : "",
+        });
+        var project = response.project || null;
+        if (project && project.id) {
+          await callServiceWithResponse(this._hass, "rest_command", "model_catalog_update_working_group", {
+            group_id: this._group.id,
+            project_id: String(project.id),
+          });
+        }
+        this._status = project ? ("Project created and assigned: " + String(project.title || project.slug || project.id)) : "Project created.";
+        this._loading = false;
+        await this._loadGroup();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not create project.";
+        this._loading = false;
+        this._render();
+      }
+    }
+
+    async _publishToLocal() {
+      if (!this._group || !this._hass || !this.shadowRoot) {
+        return;
+      }
+      var publishOutcomeNode = this.shadowRoot.querySelector("#publish-outcome");
+      var projectNode = this.shadowRoot.querySelector("#publish-project");
+      var modelNameNode = this.shadowRoot.querySelector("#publish-model-name");
+      var targetModelRefNode = this.shadowRoot.querySelector("#publish-target-model-ref");
+      var lineageTypeNode = this.shadowRoot.querySelector("#publish-lineage-type");
+      var notesNode = this.shadowRoot.querySelector("#publish-reconciliation-notes");
+      var createProjectTitleNode = this.shadowRoot.querySelector("#publish-create-project-title");
+      var createProjectDescriptionNode = this.shadowRoot.querySelector("#publish-create-project-description");
+      var publishOutcome = publishOutcomeNode ? String(publishOutcomeNode.value || "").trim() : "";
+      if (!publishOutcome) {
+        this._error = "Publish outcome is required.";
+        this._render();
+        return;
+      }
+
+      this._loading = true;
+      this._error = "";
+      this._status = "";
+      this._publishResult = null;
+      this._render();
+      try {
+        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_publish_working_group_to_local", {
+          group_id: this._group.id,
+          publish_outcome: publishOutcome,
+          project_id: projectNode ? String(projectNode.value || "").trim() : "",
+          model_name: modelNameNode ? String(modelNameNode.value || "").trim() : "",
+          target_model_ref: targetModelRefNode ? String(targetModelRefNode.value || "").trim() : "",
+          lineage_type: lineageTypeNode ? String(lineageTypeNode.value || "").trim() : "",
+          reconciliation_notes: notesNode ? String(notesNode.value || "").trim() : "",
+          create_project_title: createProjectTitleNode ? String(createProjectTitleNode.value || "").trim() : "",
+          create_project_description: createProjectDescriptionNode ? String(createProjectDescriptionNode.value || "").trim() : "",
+        });
+        this._publishResult = response;
+        this._status = response.cancelled ? "Publish review marked for cleanup." : "Working group published to local curated storage.";
+        this._loading = false;
+        await this._loadGroup();
+      } catch (error) {
+        this._error = error && error.message ? String(error.message) : "Could not publish working group.";
+        this._loading = false;
+        this._render();
+      }
+    }
+      var notesNode = this.shadowRoot.querySelector("#detail-notes");
+      var projectNode = this.shadowRoot.querySelector("#detail-project");
+      this._loading = true;
+      this._error = "";
+      this._status = "";
+      this._publishResult = null;
       this._render();
       try {
         await callServiceWithResponse(this._hass, "rest_command", "model_catalog_update_working_group", {
@@ -758,6 +930,7 @@
           title: titleNode ? String(titleNode.value || "").trim() : this._group.title,
           stage: stageNode ? String(stageNode.value || this._group.stage) : this._group.stage,
           notes: notesNode ? String(notesNode.value || "") : this._group.notes,
+          project_id: projectNode ? String(projectNode.value || "").trim() : String(this._group.project_id || ""),
         });
         this._status = "Working group updated.";
         this._loading = false;
@@ -970,6 +1143,14 @@
         this._addLink();
         return;
       }
+      if (action === "create-project") {
+        this._createProject();
+        return;
+      }
+      if (action === "publish-working-group") {
+        this._publishToLocal();
+        return;
+      }
       if (action === "remove-link") {
         this._removeLink(Number(target.getAttribute("data-link-id") || 0));
         return;
@@ -1090,14 +1271,19 @@
           + '    <div class="title">Metadata</div>'
           + '    <div class="field"><label for="detail-title">Title</label><input id="detail-title" class="input" type="text" value="' + escapeHtml(this._group.title || "") + '"></div>'
           + '    <div class="field"><label for="detail-stage">Stage</label><select id="detail-stage" class="select">' + stageOptionsHtml(this._group.stage || "draft", false) + '</select></div>'
+          + '    <div class="field"><label for="detail-project">Project</label><select id="detail-project" class="select">' + projectOptionsHtml(this._projects, this._group.project_id, true, "Unassigned") + '</select></div>'
           + '    <div class="field"><label for="detail-notes">Notes</label><textarea id="detail-notes" class="textarea">' + escapeHtml(this._group.notes || "") + '</textarea></div>'
           + '    <div class="button-row"><button class="button primary" data-action="save-metadata">Save Metadata</button></div>'
+          + '    <div class="field"><label for="detail-create-project-title">Create Project</label><input id="detail-create-project-title" class="input" type="text" placeholder="Working board migration"></div>'
+          + '    <div class="field"><label for="detail-create-project-description">Project Description</label><textarea id="detail-create-project-description" class="textarea" placeholder="Optional project notes"></textarea></div>'
+          + '    <div class="button-row"><button class="button" data-action="create-project">Create And Assign Project</button></div>'
           + '  </section>'
           + '  <section class="section">'
           + '    <div class="title">Group Summary</div>'
           + '    <div class="meta-grid">'
           + '      <div class="meta-item"><div class="meta-label">Slug</div><div class="meta-value">' + escapeHtml(this._group.slug || "") + '</div></div>'
           + '      <div class="meta-item"><div class="meta-label">Stage</div><div class="meta-value">' + escapeHtml(formatStage(this._group.stage || "draft")) + '</div></div>'
+          + '      <div class="meta-item"><div class="meta-label">Project</div><div class="meta-value">' + escapeHtml(projectTitle) + '</div></div>'
           + '      <div class="meta-item"><div class="meta-label">Files</div><div class="meta-value">' + String((this._group.items || []).length) + '</div></div>'
           + '      <div class="meta-item"><div class="meta-label">Curated Links</div><div class="meta-value">' + String((this._group.links || []).length) + '</div></div>'
           + '      <div class="meta-item"><div class="meta-label">Folder Hint</div><div class="meta-value">' + escapeHtml(this._group.folder_hint || folderPath || "") + '</div></div>'
@@ -1118,6 +1304,25 @@
           + '    <div class="button-row"><button class="button primary" data-action="save-link">Save Link</button></div>'
           + '  </section>'
           + '</div>'
+          + '<section class="section">'
+          + '  <div class="title">Publish Review</div>'
+          + '  <div class="toolbar-row">'
+          + '    <div class="field"><label for="publish-outcome">Outcome</label><select id="publish-outcome" class="select">' + publishOutcomeOptionsHtml("new_canonical_revision") + '</select></div>'
+          + '    <div class="field"><label for="publish-project">Project</label><select id="publish-project" class="select">' + projectOptionsHtml(this._projects, this._group.project_id, true, "Use group project or none") + '</select></div>'
+          + '    <div class="field"><label for="publish-lineage-type">Lineage</label><select id="publish-lineage-type" class="select">' + lineageOptionsHtml("") + '</select></div>'
+          + '  </div>'
+          + '  <div class="toolbar-row">'
+          + '    <div class="field grow"><label for="publish-model-name">Model Name</label><input id="publish-model-name" class="input" type="text" value="' + escapeHtml(this._group.title || "") + '" placeholder="Curated model title"></div>'
+          + '    <div class="field grow"><label for="publish-target-model-ref">Target Model Ref</label><input id="publish-target-model-ref" class="input" type="text" placeholder="Leave blank to create or auto-resolve"></div>'
+          + '  </div>'
+          + '  <div class="field"><label for="publish-reconciliation-notes">Reconciliation Notes</label><textarea id="publish-reconciliation-notes" class="textarea" placeholder="Describe why this publish outcome is correct"></textarea></div>'
+          + '  <div class="toolbar-row">'
+          + '    <div class="field grow"><label for="publish-create-project-title">Create Project On Publish</label><input id="publish-create-project-title" class="input" type="text" placeholder="Optional new project title"></div>'
+          + '    <div class="field grow"><label for="publish-create-project-description">New Project Description</label><input id="publish-create-project-description" class="input" type="text" placeholder="Optional description"></div>'
+          + '  </div>'
+          + '  <div class="button-row"><button class="button primary" data-action="publish-working-group">Publish To Local Curated Model</button></div>'
+          + '</section>'
+          + publishResultHtml
           + '<section class="section">'
           + '  <div class="title">Search Working Files</div>'
           + '  <div class="toolbar-row">'

@@ -212,3 +212,105 @@ def test_intake_group_duplicate_hash_is_handled_without_500(tmp_path: Path) -> N
         assert payload["duplicate_items"] >= 1
     finally:
         client.__exit__(None, None, None)
+
+
+def test_projects_can_be_assigned_to_working_groups_and_filtered(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        project_response = client.post(
+            "/api/projects",
+            json={"title": "Gridfinity Family", "description": "Shared project context"},
+        )
+        assert project_response.status_code == 200
+        project_payload = project_response.json()["project"]
+
+        group_response = client.post(
+            "/api/working-groups",
+            json={"title": "Bit Holder Remix", "stage": "draft", "project_id": project_payload["id"]},
+        )
+        assert group_response.status_code == 200
+        group_payload = group_response.json()["group"]
+        assert group_payload["project_id"] == project_payload["id"]
+        assert group_payload["project"]["title"] == "Gridfinity Family"
+
+        filtered = client.get("/api/working-groups", params={"project_id": project_payload["id"]})
+        assert filtered.status_code == 200
+        filtered_payload = filtered.json()
+        assert filtered_payload["pagination"]["total"] == 1
+        assert filtered_payload["groups"][0]["id"] == group_payload["id"]
+
+        project_detail = client.get(f"/api/projects/{project_payload['id']}")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert project_detail.status_code == 200
+    project_detail_payload = project_detail.json()["project"]
+    assert project_detail_payload["working_group_count"] == 1
+
+
+def test_working_group_publish_to_local_persists_project_and_lineage(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    model_file = source_root / "bit_holder_v3.3mf"
+    model_file.write_bytes(b"3mf-working-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        project_response = client.post(
+            "/api/projects",
+            json={"title": "Bit Holder Family"},
+        )
+        assert project_response.status_code == 200
+        project_id = project_response.json()["project"]["id"]
+
+        create_group = client.post(
+            "/api/working-groups",
+            json={"title": "Bit Holder v3", "stage": "ready_to_publish", "project_id": project_id},
+        )
+        assert create_group.status_code == 200
+        group_id = create_group.json()["group"]["id"]
+
+        attach_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(model_file), "item_role": "primary"},
+        )
+        assert attach_item.status_code == 200
+
+        publish_response = client.post(
+            f"/api/working-groups/{group_id}/publish-to-local",
+            json={
+                "publish_outcome": "new_canonical_revision",
+                "model_name": "Bit Holder v3",
+                "project_id": project_id,
+                "lineage_type": "supersedes",
+                "target_model_ref": "bit-holder-v3",
+                "reconciliation_notes": "Promote the new canonical revision.",
+            },
+        )
+        assert publish_response.status_code == 200
+        publish_payload = publish_response.json()
+        assert publish_payload["success"] is True
+        assert publish_payload["project_id"] == project_id
+        assert publish_payload["published_from_group_id"] == group_id
+        assert publish_payload["lineage"]["lineage_type"] == "supersedes"
+        assert publish_payload["model_ref"] == "bit-holder-v3"
+        assert len(publish_payload["imported_assets"]) == 1
+
+        lineage_response = client.get("/api/models/bit-holder-v3/lineage")
+        assert lineage_response.status_code == 200
+        lineage_payload = lineage_response.json()
+        assert lineage_payload["project_id"] == project_id
+        assert lineage_payload["published_from_group_id"] == group_id
+        assert lineage_payload["publish_outcome"] == "new_canonical_revision"
+        assert len(lineage_payload["publish_history"]) == 1
+
+        working_group = client.get(f"/api/working-groups/{group_id}")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert working_group.status_code == 200
+    working_group_payload = working_group.json()["group"]
+    assert working_group_payload["project_id"] == project_id
