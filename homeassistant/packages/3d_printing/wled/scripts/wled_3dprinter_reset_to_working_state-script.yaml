@@ -83,9 +83,10 @@ wled_3dprinter_reset_to_working_state:
           {% endif %}
 
     # ── 3. Force-set core state ──
-    - action: input_select.select_option
-      data:
+    - action: select.select_option
+      target:
         entity_id: input_select.wled_3dprinter_core_state
+      data:
         option: "{{ correct_state | trim }}"
     - action: input_text.set_value
       data:
