@@ -702,7 +702,7 @@
             - condition: template
               value_template: "{{ has_photos }}"
           then:
-            - action: input_select.select_option
+            - action: input_select.select
               target:
                 entity_id: input_select.bambuddy_photo_review_state
               data:
