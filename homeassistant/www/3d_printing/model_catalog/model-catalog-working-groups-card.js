@@ -181,6 +181,19 @@
     }).join("");
   }
 
+  function batchActionLabel(action) {
+    if (action === "ready_to_publish") {
+      return "Mark Ready";
+    }
+    if (action === "open_intake") {
+      return "Open Intake";
+    }
+    if (action === "link_review") {
+      return "Link Review";
+    }
+    return formatStage(action);
+  }
+
   var sharedStyles = ''
     + 'ha-card{border-radius:20px;border:1px solid rgba(148,163,184,0.18);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}'
     + '.shell{display:grid;gap:14px;padding:16px;}'
@@ -207,12 +220,18 @@
     + '.status.error{color:#f87171;}'
     + '.groups{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));}'
     + '.group-card{display:grid;gap:10px;padding:14px;}'
+    + '.group-card.selected{border-color:rgba(96,165,250,0.4);background:rgba(30,64,175,0.18);}'
     + '.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(30,64,175,0.18);border:1px solid rgba(96,165,250,0.3);font-size:11px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;}'
+    + '.chip.ok{background:rgba(22,101,52,0.22);border-color:rgba(74,222,128,0.3);}'
     + '.meta-grid{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr));}'
     + '.meta-item{display:grid;gap:4px;min-width:0;}'
     + '.meta-label{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
     + '.meta-value{font-size:13px;overflow-wrap:anywhere;}'
     + '.state-row{padding:18px;border-radius:16px;border:1px dashed rgba(148,163,184,0.28);color:var(--secondary-text-color);text-align:center;}'
+    + '.selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
+    + '.batch-toolbar{display:grid;gap:10px;padding:12px;border-radius:18px;border:1px solid rgba(96,165,250,0.35);background:rgba(30,64,175,0.14);}'
+    + '.result-summary{display:grid;gap:10px;padding:12px;border-radius:18px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.16);}'
+    + '.result-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;}'
     + '.list{display:grid;gap:10px;}'
     + '.list-row{display:grid;gap:10px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.1);}'
     + '.list-row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
@@ -236,6 +255,9 @@
       this._search = "";
       this._stage = "";
       this._createOpen = false;
+      this._selectMode = false;
+      this._selectedIds = {};
+      this._batchResult = null;
 
       this._boundClick = this._handleClick.bind(this);
     }
@@ -373,6 +395,111 @@
       });
     }
 
+    _selectedGroups() {
+      return this._groups.filter(function (group) {
+        return !!this._selectedIds[group.id];
+      }, this);
+    }
+
+    _toggleSelectMode(forceValue) {
+      this._selectMode = typeof forceValue === "boolean" ? forceValue : !this._selectMode;
+      if (!this._selectMode) {
+        this._selectedIds = {};
+      }
+      this._render();
+    }
+
+    _toggleGroupSelection(groupId) {
+      var numericId = Number(groupId || 0);
+      if (!numericId) {
+        return;
+      }
+      if (this._selectedIds[numericId]) {
+        delete this._selectedIds[numericId];
+      } else {
+        this._selectedIds[numericId] = true;
+      }
+      this._render();
+    }
+
+    _openIntakeView() {
+      window.location.assign('/3d-printing/model-catalog-intake');
+    }
+
+    _openSelectedLinkReview() {
+      var groups = this._selectedGroups();
+      if (!groups.length) {
+        this._error = 'Select a working group first.';
+        this._render();
+        return;
+      }
+      if (groups.length !== 1) {
+        this._error = 'Link review currently supports one selected working group at a time.';
+        this._render();
+        return;
+      }
+      this._status = '';
+      this._error = '';
+      this._openGroupDetail(groups[0]);
+    }
+
+    async _runBatchStageUpdate(stage) {
+      var groups = this._selectedGroups();
+      if (!groups.length) {
+        this._error = 'Select one or more working groups first.';
+        this._render();
+        return;
+      }
+
+      this._loading = true;
+      this._error = '';
+      this._status = '';
+      this._batchResult = null;
+      this._render();
+
+      var results = [];
+      for (var index = 0; index < groups.length; index += 1) {
+        var group = groups[index];
+        try {
+          await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_update_working_group', {
+            group_id: group.id,
+            title: group.title || '',
+            stage: stage,
+            notes: group.notes || '',
+            primary_file_path: group.primary_file_path || '',
+            folder_hint: group.folder_hint || '',
+          });
+          results.push({
+            group_id: group.id,
+            label: group.title || ('Group ' + String(group.id)),
+            outcome: 'succeeded',
+            message: 'marked ' + formatStage(stage),
+          });
+        } catch (error) {
+          results.push({
+            group_id: group.id,
+            label: group.title || ('Group ' + String(group.id)),
+            outcome: 'failed',
+            message: error && error.message ? String(error.message) : 'update failed',
+          });
+        }
+      }
+
+      this._batchResult = {
+        action: stage,
+        total: results.length,
+        succeeded: results.filter(function (result) { return result.outcome === 'succeeded'; }).length,
+        partial: 0,
+        failed: results.filter(function (result) { return result.outcome === 'failed'; }).length,
+        results: results,
+      };
+      this._status = 'Batch ' + batchActionLabel(stage).toLowerCase() + ' complete.';
+      this._selectedIds = {};
+      this._selectMode = false;
+      this._loading = false;
+      await this._loadGroups();
+    }
+
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest("[data-action]") : null;
       if (!target) {
@@ -400,6 +527,31 @@
         this._render();
         return;
       }
+      if (action === 'toggle-select-mode') {
+        this._toggleSelectMode();
+        return;
+      }
+      if (action === 'toggle-group-selection') {
+        this._toggleGroupSelection(target.getAttribute('data-group-id'));
+        return;
+      }
+      if (action === 'batch-mark-ready') {
+        this._runBatchStageUpdate('ready_to_publish');
+        return;
+      }
+      if (action === 'open-intake') {
+        this._openIntakeView();
+        return;
+      }
+      if (action === 'link-review') {
+        this._openSelectedLinkReview();
+        return;
+      }
+      if (action === 'clear-batch-result') {
+        this._batchResult = null;
+        this._render();
+        return;
+      }
       if (action === "create-group") {
         this._createGroup();
         return;
@@ -415,14 +567,15 @@
 
     _renderGroup(group) {
       var primaryFileName = basename(group.primary_file_path || (group.items && group.items[0] ? group.items[0].file_path : "")) || "No primary file";
+      var isSelected = !!this._selectedIds[group.id];
       return ''
-        + '<article class="group-card">'
+        + '<article class="group-card' + (isSelected ? ' selected' : '') + '">'
         + '  <div class="title-row">'
         + '    <div>'
         + '      <div class="title">' + escapeHtml(group.title || "Untitled Group") + '</div>'
         + '      <div class="subtitle">' + escapeHtml(group.notes || group.folder_hint || "Sidecar-owned working group") + '</div>'
         + '    </div>'
-        + '    <span class="chip">' + escapeHtml(formatStage(group.stage)) + '</span>'
+        + '    <div class="button-row">' + (this._selectMode ? '<label class="selector"><input type="checkbox" data-action="toggle-group-selection" data-group-id="' + String(group.id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip">' + escapeHtml(formatStage(group.stage)) + '</span></div>'
         + '  </div>'
         + '  <div class="meta-grid">'
         + '    <div class="meta-item"><div class="meta-label">Files</div><div class="meta-value">' + String((group.items || []).length) + '</div></div>'
@@ -430,9 +583,9 @@
         + '    <div class="meta-item"><div class="meta-label">Primary</div><div class="meta-value">' + escapeHtml(primaryFileName) + '</div></div>'
         + '    <div class="meta-item"><div class="meta-label">Updated</div><div class="meta-value">' + escapeHtml(group.updated_at || group.created_at || "Unknown") + '</div></div>'
         + '  </div>'
-        + '  <div class="button-row">'
-        + '    <button class="button primary" data-action="open-group" data-group-id="' + String(group.id) + '">Open</button>'
-        + '  </div>'
+        + (this._selectMode
+          ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>'
+          : '<div class="button-row"><button class="button primary" data-action="open-group" data-group-id="' + String(group.id) + '">Open</button><button class="button" data-action="open-intake">Open Intake</button></div>')
         + '</article>';
     }
 
@@ -465,6 +618,24 @@
           + '</section>'
         : '';
 
+      var selectedCount = this._selectedGroups().length;
+      var batchToolbarHtml = this._selectMode
+        ? ''
+          + '<section class="batch-toolbar">'
+          + '  <div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch actions stay local to the Working Board and use the existing working-group update and popup flows.</div></div></div>'
+          + '  <div class="button-row"><button class="button primary" data-action="batch-mark-ready"' + (!selectedCount ? ' disabled' : '') + '>Mark Ready</button><button class="button" data-action="open-intake"' + (!selectedCount ? ' disabled' : '') + '>Open Intake</button><button class="button" data-action="link-review"' + (!selectedCount ? ' disabled' : '') + '>Link Review</button><button class="button warn" data-action="toggle-select-mode">Cancel</button></div>'
+          + '</section>'
+        : '';
+
+      var batchResultHtml = this._batchResult
+        ? ''
+          + '<section class="result-summary">'
+          + '  <div class="title-row"><div><div class="title">Batch Result Summary</div><div class="subtitle">' + escapeHtml(batchActionLabel(this._batchResult.action)) + ' across ' + String(this._batchResult.total) + ' group(s).</div></div><button class="button" data-action="clear-batch-result">Close</button></div>'
+          + '  <div class="button-row"><span class="chip ok">Succeeded ' + String(this._batchResult.succeeded) + '</span><span class="chip">Partial ' + String(this._batchResult.partial) + '</span><span class="chip warn">Failed ' + String(this._batchResult.failed) + '</span></div>'
+          + '  <div class="list">' + this._batchResult.results.map(function (result) { return '<div class="result-line"><span>' + escapeHtml(result.label || ('Group ' + String(result.group_id || ''))) + '</span><span>' + escapeHtml(result.message || result.outcome) + '</span></div>'; }).join('') + '</div>'
+          + '</section>'
+        : '';
+
       this.shadowRoot.innerHTML = ''
         + '<style>' + sharedStyles + '</style>'
         + '<ha-card>'
@@ -477,10 +648,12 @@
         + '        </div>'
         + '        <div class="button-row">'
         + '          <button class="button" data-action="refresh-board">Refresh</button>'
+        + '          <button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Groups') + '</button>'
         + '          <button class="button primary" data-action="toggle-create">' + (this._createOpen ? 'Close Create Form' : 'New Working Group') + '</button>'
         + '        </div>'
         + '      </div>'
         + '      ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+        + '      ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
         + '    </div>'
         + '    <section class="toolbar">'
         + '      <div class="toolbar-row">'
@@ -489,9 +662,11 @@
         + '      </div>'
         + '      <div class="button-row">'
         + '        <button class="button primary" data-action="apply-search">Apply Filters</button>'
-        + '        <span class="status">Showing ' + String(groups.length) + ' group' + (groups.length === 1 ? '' : 's') + '</span>'
+        + '        <span class="status">Showing ' + String(groups.length) + ' group' + (groups.length === 1 ? '' : 's') + (this._selectMode ? ' / Selected ' + String(selectedCount) : '') + '</span>'
         + '      </div>'
         + '    </section>'
+        + batchToolbarHtml
+        + batchResultHtml
         + createPanelHtml
         + bodyHtml
         + '  </div>'
