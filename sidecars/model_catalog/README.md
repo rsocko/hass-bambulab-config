@@ -289,25 +289,41 @@ curl http://127.0.0.1:8314/healthz
 
 ## Optional Debug Tooling
 
-The stack now includes one always-on diagnostics service alongside the main API:
+The stack now includes three always-on diagnostics services alongside the main API:
 
 - `model-catalog-datasette` - read-only SQLite browser for table inspection,
 	schema browsing, exports, and ad-hoc `SELECT` queries
+- `model-catalog-sqlite-web` - read-only SQLite visualizer with structure,
+	indexes, foreign-key browsing, and richer table/query navigation
+- `model-catalog-chartdb` - self-hosted ERD editor for importing the SQLite
+	schema and producing diagrams or migration drafts
 
 Practical commands:
 
 ```bash
-# Start the full stack, including Datasette
+# Start the full stack, including Datasette, sqlite-web, and ChartDB
 docker compose up -d
 
 # Open Datasette via Traefik
 http://model-catalog-datasette.socko.us
+
+# Open sqlite-web via Traefik
+http://model-catalog-sqlite-web.socko.us
+
+# Open ChartDB via Traefik
+http://model-catalog-chartdb.socko.us
 ```
 
 Notes:
 
 - Datasette mounts the sidecar SQLite volume read-only and opens the database in
 	immutable mode, so it is appropriate for diagnostics and ad-hoc read queries.
+- sqlite-web also mounts the same volume read-only, so it is safe for schema and
+	query exploration without bypassing application workflows.
+- ChartDB is a self-hosted diagramming UI, not a direct SQLite file browser. For
+	SQLite, use ChartDB's SQLite import flow, run its generated schema query inside
+	Datasette or sqlite-web against `model_catalog.db`, then paste the result back
+	into ChartDB to build the ERD.
 - A generic writable DB UI is still not recommended for normal operations,
 	because app-level workflows maintain additional invariants and audit events.
 

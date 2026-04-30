@@ -64,6 +64,54 @@ services:
     depends_on:
       - model-catalog
 
+  model-catalog-chartdb:
+    image: ghcr.io/chartdb/chartdb:latest
+    container_name: model-catalog-chartdb
+    networks:
+      - traefik
+    environment:
+      HIDE_CHARTDB_CLOUD: "true"
+      DISABLE_ANALYTICS: "true"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog-chartdb.rule=Host(`model-catalog-chartdb.socko.us`)"
+      - "traefik.http.routers.model-catalog-chartdb.entrypoints=web"
+      - "traefik.http.routers.model-catalog-chartdb.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog-chartdb.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik"
+    # ports:
+    #   - "127.0.0.1:8402:80"
+    restart: unless-stopped
+    depends_on:
+      - model-catalog
+
+  model-catalog-sqlite-web:
+    image: ghcr.io/coleifer/sqlite-web:latest
+    container_name: model-catalog-sqlite-web
+    networks:
+      - traefik
+    command:
+      - model_catalog.db
+      - --read-only
+      - --rows-per-page
+      - "100"
+      - --query-rows-per-page
+      - "2000"
+    volumes:
+      - model_catalog_data:/data:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.model-catalog-sqlite-web.rule=Host(`model-catalog-sqlite-web.socko.us`)"
+      - "traefik.http.routers.model-catalog-sqlite-web.entrypoints=web"
+      - "traefik.http.routers.model-catalog-sqlite-web.middlewares=compression@file,security-headers@file"
+      - "traefik.http.services.model-catalog-sqlite-web.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik"
+    # ports:
+    #   - "127.0.0.1:8403:8080"
+    restart: unless-stopped
+    depends_on:
+      - model-catalog
+
 volumes:
   model_catalog_data:
 
