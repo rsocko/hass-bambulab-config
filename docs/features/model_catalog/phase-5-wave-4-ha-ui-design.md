@@ -32,6 +32,98 @@ Future-facing publish, lineage, preview-promotion, and library-import surfaces a
 
 ---
 
+## Current Core UI Assessment
+
+The current shipped `Model Catalog` view is still the earlier pre-Phase-5 shape:
+
+- one visible panel view stacks `custom:model-catalog-browser-card` above `custom:model-catalog-bulk-import-card`
+- the curated browser renders a single compact card style only
+- filter controls live in a single top input row with no explicit `Clear Filters` affordance
+- the browser exposes a primary `Search` button and a primary `Refresh Cache` button
+- pagination is bottom-only and currently limited to `Prev` / `Next`
+- bulk discovery/import appears as a separate card appended below curated browsing instead of living in the intake workflow
+
+Against the Print History browser pattern, that leaves four gaps:
+
+1. the browser shell is not yet visually or behaviorally aligned with the repository's dominant browsing surface
+2. the current curated browser mixes operator browsing with what is now clearly an intake-oriented import workflow
+3. the current refresh affordance still reflects the older remote-refresh mindset rather than a local-authority catalog model
+4. the existing top-level Model Catalog view does not yet act as the visible parent view for the hidden child-view structure defined above
+
+### Retrofit Decision
+
+Treat the current core curated browser as a **retrofit target**, not as a preserved final surface.
+
+Phase 5 should refactor the current `view_model_catalog.yaml` stack into:
+
+- a visible `Model Catalog Home` parent view with navigation cards
+- a dedicated hidden `Curated Catalog Browser` child view
+- dedicated hidden `Intake Home`, `Inbox / Queue Review`, and `Working Board` child views
+- intake-owned bulk discovery/import tools launched from `Intake Home` and `Inbox / Queue Review`, not appended below curated browsing
+
+---
+
+## Curated Browser Alignment With Print History
+
+The curated browser should adopt the same core browser-shell language already proven in Print History.
+
+### Required Shell Changes
+
+| Area | Current Core Model Catalog UI | Print History Pattern To Reuse | Phase 5 Recommendation |
+|---|---|---|---|
+| Toolbar placement | Top actions, bottom-only paging | Reusable browser toolbar rhythm around the result list | Add a page toolbar above and below the result list |
+| Pagination affordance | `Prev` / `Next` only | Richer paging affordance with clear page context | Support `First`, `Prev`, page status, `Next`, `Last` in both locations |
+| Card variants | Single compact-ish grid card | `Compact`, `Media`, and `List` views | Add the same three view styles for curated models |
+| Filter bar | Single row of controls, no reset affordance | Persistent filter strip with clearer structure | Keep a permanent filter section with aligned spacing and a global `Clear Filters` action |
+| Search semantics | Explicit `Search` button plus Enter key | Query-driven browsing pattern | Keep the field labeled `Query`; remove the primary `Search` button from the steady-state design |
+| Refresh affordance | Primary `Refresh Cache` button | No equivalent primary action on the main browser shell | Remove primary refresh from the main curated browser path |
+| Intake adjacency | Bulk import card appended below browser | Separate browsing from intake/review workflow | Move bulk discovery/import into Intake Home and Inbox flows |
+
+### Search And Filter Contract
+
+For curated browsing, the `Query` box should behave like the Print History browser search path rather than a traditional form submit.
+
+Recommended behavior:
+
+- keep `Query` as the primary free-text field label
+- apply select/dropdown changes immediately
+- apply text-field changes with a short debounce or on Enter
+- reset pagination back to page 1 whenever filters change
+- provide a global `Clear Filters` action that restores defaults in one step
+
+That means the current standalone `Search` button should not be part of the long-term browser shell unless later testing proves the query backend is too expensive for helper-style apply semantics.
+
+### Refresh Cache Contract
+
+The current `Refresh Cache` button should not remain a primary curated-browser action once the catalog is treated as local-authority state.
+
+Recommended contract:
+
+- if the curated browser is backed by local authoritative model-catalog storage, remove `Refresh Cache` from the primary browser chrome
+- if an external source sync or reindex still exists, expose that as a lower-prominence admin/maintenance action such as `Rescan Sources` or `Sync Sources`
+- keep that maintenance action off the main browsing toolbar and out of the normal operator path
+
+### Curated Browser Mockup Direction
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Curated Catalog Browser                                                     │
+│ [First] [Prev]  Page 2 of 8  [Next] [Last]   [Compact] [Media] [List]      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Query [....................] Collection [........] Creator [........]       │
+│ Tag [........] Queue [All v] Min Priority [ ] Max Priority [ ] Sort [Recent]│
+│ [Clear Filters]                                                             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ model cards in selected view style                                          │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [First] [Prev]  Page 2 of 8  [Next] [Last]                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This is the right place to align Model Catalog visually with Print History. Bulk discovery/import should no longer appear as a separate block under this browser.
+
+---
+
 ## Overall 3D Printing Dashboard Placement
 
 The current 3D Printing dashboard already uses a crowded **top-level Home Assistant view bar** for major domains such as Home, Model Catalog, Filament Catalog, Print History, and Print Statistics.
@@ -165,6 +257,11 @@ The operator should experience Phase 5 Wave 4 as one coherent Working workflow w
 
 ```text
 Model Catalog Home
+├─ Curated Catalog Browser
+│  ├─ Compact View
+│  ├─ Media View
+│  ├─ List View
+│  └─ Detail Popup
 ├─ Intake Home
 │  ├─ Submit Intake
 │  │  ├─ Browser Upload Mode
@@ -205,6 +302,7 @@ This keeps the intake workflow visible and durable enough for queue and inbox mo
 
 | Surface | Intended Container |
 |---|---|
+| Curated Catalog Browser | Hidden Model Catalog child view/page |
 | Intake Home | Hidden Model Catalog child view/page |
 | Intake Submission | Popup launched from Intake Home |
 | Server Browse Picker | Popup launched from Intake Submission |
@@ -222,11 +320,14 @@ The Wave 4 UI should be broken into reusable elements rather than large one-off 
 
 | Component | Purpose | Reuse Target |
 |---|---|---|
+| `mc-browser-toolbar` | Page navigation, view-style toggle, result-count context | Curated Browser, Working Board, Inbox Review |
+| `mc-filter-bar` | Structured browser filters plus clear/reset affordance | Curated Browser, Working Board, Inbox Review |
 | `mc-surface-header` | Title, subtitle, counts, primary actions | Intake Home, Working Board |
 | `mc-source-mode-toggle` | Browser upload vs server browse segmented control | Intake popup, future remote-import surfaces |
 | `mc-queue-status-chip` | Visual queue/upload/verify/cleanup state | Inbox rows, group detail, result summaries |
 | `mc-validation-banner` | Duplicate, warning, unsupported, missing-source summary | Inbox detail, group detail, batch result modal |
 | `mc-selection-toolbar` | Multi-select mode, counts, bulk actions | Working Board, Inbox review |
+| `mc-view-style-toggle` | Compact, Media, List switching for browser surfaces | Curated Browser, Working Board (if later needed) |
 | `mc-working-group-card` | Group summary card with stage, files, link status | Board grid and list variants |
 | `mc-file-member-table` | Primary file, supporting files, attach/detach actions | Group detail, future publish review |
 | `mc-curated-link-row` | Curated link summary with status and actions | Group detail, link popup |

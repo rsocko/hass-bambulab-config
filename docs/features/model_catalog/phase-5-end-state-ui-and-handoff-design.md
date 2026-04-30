@@ -104,6 +104,21 @@ The end-state should keep the same split defined in Wave 4:
 
 That allows future publish, lineage, and import-presets flows to reuse the same helper/entity contract instead of inventing a separate navigation-state layer.
 
+### Curated Browser Shell Carried Forward
+
+The current core Model Catalog browser should also converge on the same browser-shell language as Print History.
+
+Carry these rules forward beyond Wave 4:
+
+- keep top and bottom page toolbars around long-lived browser lists
+- keep `Compact`, `Media`, and `List` as the standard view-style vocabulary for curated browsing
+- keep filter bars structured and always visible, with a single `Clear Filters` action
+- keep `Query` as the primary text-search label rather than restoring a separate search-submit workflow
+- keep bulk discovery/import inside intake-owned surfaces instead of appending it beneath curated browsing
+- keep maintenance sync/reindex actions out of the main browsing chrome unless a later external-source workflow truly needs them
+
+This ensures the Model Catalog domain reads as one coherent product rather than a mix of older Manyfold-era cards and newer Phase 5 intake surfaces.
+
 ---
 
 ## End-State Flow 1: Working Group To Publish Review

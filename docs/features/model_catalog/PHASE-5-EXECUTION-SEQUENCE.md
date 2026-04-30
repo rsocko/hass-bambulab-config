@@ -258,6 +258,15 @@ Implement the core workflow endpoints that tie together indexing, queue, and wor
 
 Build the HA UI surfaces that operators use to interact with working groups and intake.
 
+Additional retrofit work should also be planned inside this wave so the pre-existing core Model Catalog UI does not remain visually or structurally divergent from the new intake/working surfaces.
+
+Recommended add-on work items for Wave 4:
+
+- retrofit the current curated Model Catalog browser to the Print History browser shell: top and bottom paging toolbar, `Compact` / `Media` / `List` view styles, persistent filter bar, and `Clear Filters`
+- remove the current primary `Search` button from the curated browser steady-state design and treat `Query` as helper-style browsing input
+- demote or remove the current `Refresh Cache` action from the primary curated-browser path when local catalog storage is authoritative
+- move bulk discovery/import out of the current stacked `Model Catalog` browser view and into the new intake-owned child views
+
 **Design docs for this wave**:
 - [Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)
 - [Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)
