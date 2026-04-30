@@ -35,6 +35,14 @@ services:
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
       
+      # Allowlisted in-container roots for source browsing and local asset file resolution.
+      # Use container paths, not host paths. Because this stack mounts the asset tree at
+      # /assets, the default standalone example points at /assets so relative storage paths
+      # like catalog/model-a/file.3mf resolve under that bind mount.
+      # Narrow this to subfolders such as /assets/catalog,/assets/working if you want a
+      # stricter allowlist.
+      SOURCE_FILESYSTEM_ROOTS: ${SOURCE_FILESYSTEM_ROOTS:-/assets}
+      
       # Local authority is the default for the standalone stack.
       # Keep standalone mode enabled so the sidecar can start without Manyfold.
       MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-true}
