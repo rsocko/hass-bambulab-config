@@ -258,11 +258,11 @@ Implement the core workflow endpoints that tie together indexing, queue, and wor
 
 Build the HA UI surfaces that operators use to interact with working groups and intake.
 
+**Design docs for this wave**:
+- [Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)
+- [Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)
+
 #### 1️⃣1️⃣ #1077 (HA component): HA UI - working groups and link management
-- **Effort**: 2–3 days (HA UI)
-- **Dependency**: #1080 (sidecar endpoints complete)
-- **Blocker for**: #1082
-- **What it delivers**:
   - HA service `model_catalog.create_working_group` (simple wrapper)
   - HA service `model_catalog.update_working_group` (metadata updates)
   - HA service `model_catalog.attach_file_to_group` (file attach)
@@ -270,131 +270,96 @@ Build the HA UI surfaces that operators use to interact with working groups and 
   - Detail popup for each working group (files, links, metadata)
   - Link management UI (add/remove curated model links)
   - Quick-open actions (open folder, open primary file)
-- **Acceptance criteria**:
   - Can see all working groups in card
   - Can view group detail (files, links)
   - Can attach/detach files via UI
   - Can create/delete links via UI
-- **GitHub**: [#1077](https://github.com/rsocko/hass-bambulab-config/issues/1077)
-- **Deliverable**:
   - HA custom component services
   - HA cards: `homeassistant/packages/model_catalog/cards/working_groups_board.yaml`, `working_group_detail.yaml`
+  - UI design reference: `docs/features/model_catalog/phase-5-wave-4-ha-ui-design.md`
 
 #### 1️⃣2️⃣ #1082: HA UI actions for curation workflows
-- **Effort**: 2 days (HA UI)
-- **Dependency**: #1076 (HA working groups UI complete)
-- **What it delivers**:
   - HA UI buttons/actions for batch operations
   - Intake entry points from working group views
   - Batch selection (multi-select working groups)
   - Batch actions (convert to curated, mark for publish, etc.)
   - Clear feedback for success/failure
   - Progress indicators for long-running operations
-- **Acceptance criteria**:
   - Can batch-select working groups
   - Can trigger batch actions
   - Feedback is clear (success/fail/partial)
-- **GitHub**: [#1082](https://github.com/rsocko/hass-bambulab-config/issues/1082)
-- **Deliverable**:
   - HA cards with batch UI: `homeassistant/packages/model_catalog/cards/batch_actions.yaml`
+  - UI design reference: `docs/features/model_catalog/phase-5-wave-4-ha-ui-design.md`
 
 #### 1️⃣3️⃣ #1145: Update HA Model Catalog UI/services for source mode, queue, and cleanup policy
-- **Effort**: 1–2 days (HA config)
-- **Dependency**: #1144, #1147 (queue and browser complete)
-- **What it delivers**:
   - HA service `model_catalog.set_upload_source` (drag-drop, file-picker, server-browse, stream-deck)
   - HA service `model_catalog.set_cleanup_policy` (keep, delete_on_verified, replace_with_stub)
   - HA input helpers for configuration:
     - `input_select.model_catalog_upload_source_mode`
     - `input_select.model_catalog_cleanup_policy`
   - HA dashboard card for intake configuration
-- **Acceptance criteria**:
   - Can set upload source mode
   - Can set cleanup policy
   - Settings persist
-- **GitHub**: [#1145](https://github.com/rsocko/hass-bambulab-config/issues/1145)
-- **Deliverable**:
   - HA services and helpers
   - HA configuration card: `homeassistant/packages/model_catalog/cards/intake_config.yaml`
+  - UI design reference: `docs/features/model_catalog/phase-5-wave-4-ha-ui-design.md`
 
----
 
 ### **WAVE 5: Publish Workflow Prep & Supporting Docs (Days 21–25)**
 
 Lay groundwork for Phase 6 publish workflow. Document operations and deployment.
 
+**End-state UI companion**:
+- [Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)
+
 #### 1️⃣4️⃣ #1163 + #1137: Phase 5 3MF Publish Workflow — Preview Promotion & Supporting-Asset Import
-- **Effort**: 1 day (spec only; implementation in Phase 6)
-- **Dependency**: None (can be parallel)
-- **What it delivers**:
   - Design doc for publish workflow behavior
   - How to promote extracted 3MF preview as curated preview
   - Which supporting assets (PDFs, STLs, images) to attach on publish
   - Publish-time conflict resolution (new revision vs add file vs keep separate)
-- **Acceptance criteria**:
   - Design is documented and approved
   - Ready for Phase 6 implementation
-- **GitHub**: [#1163](https://github.com/rsocko/hass-bambulab-config/issues/1163), [#1137](https://github.com/rsocko/hass-bambulab-config/issues/1137)
-- **Deliverable**: `docs/features/model_catalog/publish-workflow-3mf.md`
+  - UI handoff reference: `docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md`
 
 #### 1️⃣5️⃣ #1132 + #1133: Working Groups And Working Veneer (Enhanced) + Publish Workflow And Revision Lineage
-- **Effort**: 1 day (spec only; implementation deferred)
-- **Dependency**: #1076 (working groups exist)
-- **What it delivers**:
   - Enhanced working group data model (provisional; deferred to Phase 6)
   - Publish workflow state machine (to be implemented in Phase 6)
   - Revision lineage design (deferred to Phase 6)
-- **Acceptance criteria**:
   - Design is documented
   - Ready as Phase 6 baseline
-- **GitHub**: [#1132](https://github.com/rsocko/hass-bambulab-config/issues/1132), [#1133](https://github.com/rsocko/hass-bambulab-config/issues/1133)
-- **Deliverable**: `docs/features/model_catalog/working-groups-enhanced.md`
+  - UI handoff reference: `docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md`
 
 #### 1️⃣6️⃣ #1149: Add deployment docs and validation plan for queue volume + remote-client intake flows
-- **Effort**: 1–2 days (ops docs)
-- **Dependency**: #1080, #1144, #1147 (features complete)
-- **What it delivers**:
   - Deployment guide for queue volume sizing
   - Remote-client intake flow documentation (Streamdeck, network paths, etc.)
   - Testing validation checklist for 500+ file scenarios
   - Performance expectations and tuning guidance
-- **Acceptance criteria**:
   - Deployment docs are complete
   - Can scale to 500+ files without issues
   - Remote-client flows are documented
-- **GitHub**: [#1149](https://github.com/rsocko/hass-bambulab-config/issues/1149)
-- **Deliverable**: `docs/features/model_catalog/DEPLOYMENT-INTAKE-GUIDE.md`
+  - UI handoff reference: `docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md`
 
 #### 1️⃣7️⃣ #1146: Add optional post-upload source cleanup policy with safety guardrails
-- **Effort**: 1 day (spec + implementation)
-- **Dependency**: #1144 (queue state machine)
-- **What it delivers**:
   - Cleanup policy options: `keep` (default), `delete_on_verified`, `replace_with_stub`
   - Safety guardrails: only for allowlisted roots, requires verification before cleanup
   - Audit trail for cleanup actions
   - HA UI for policy selection
-- **Acceptance criteria**:
   - Policy can be set and persisted
   - Cleanup only happens after verification
   - Audit log exists
-- **GitHub**: [#1146](https://github.com/rsocko/hass-bambulab-config/issues/1146)
-- **Deliverable**: 
   - Integrated into #1144
   - HA service: `model_catalog.set_source_cleanup_policy`
+  - UI handoff reference: `docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md`
 
 #### 1️⃣8️⃣ #213: Import existing local model library from OneDrive
-- **Effort**: 0.5–1 day (proof-of-concept)
-- **Dependency**: #1130, #1147 (bulk import complete)
-- **What it delivers**:
   - Proof-of-concept integration with OneDrive API (or local sync folder)
   - One-time bulk import of existing library
   - Documents the workflow for operators
-- **Acceptance criteria**:
   - Can import 100+ files from OneDrive successfully
   - All files end up as working groups
   - Duplicate detection works correctly
-- **GitHub**: [#213](https://github.com/rsocko/hass-bambulab-config/issues/213)
-- **Deliverable**: `docs/features/model_catalog/ONEDRIVE-IMPORT-GUIDE.md`
+  - UI handoff reference: `docs/features/model_catalog/phase-5-end-state-ui-and-handoff-design.md`
 
 ---
 

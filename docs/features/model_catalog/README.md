@@ -84,6 +84,8 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA responsibilities, service boundaries, and how curated catalog + Working veneer should surface in HA
 - [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Archive popup service contract and linked-model interaction surface
 - [UX Concepts And Mockups](ux-concepts-and-mockups.md) — Embedded low-fi wireframes plus guidance for future mid-fi mockups of the key operator surfaces
+- [Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md) — Implementation-facing Intake, Working Board, link management, batch-action, and queue UI design for issues #1077, #1082, and #1145
+- [Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md) — Companion design showing how Wave 4 surfaces grow into publish, lineage, preview-promotion, cleanup, and local-library flows
 
 ### Supporting Analysis
 

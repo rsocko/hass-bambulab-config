@@ -80,6 +80,46 @@ Phase 0 is complete when all of the following are true:
 
 ## Phase 1A: First Executable Milestone
 
+## Phase 5 Wave 4 Design Baseline
+
+Before Wave 4 implementation begins, the UI design baseline should be treated as frozen enough to support card, popup, and helper work without reopening the operator-surface shape.
+
+### Required Deliverables
+
+1. Wave 4 implementation-facing UI design doc exists.
+   - `phase-5-wave-4-ha-ui-design.md`
+2. End-state and handoff companion exists.
+   - `phase-5-end-state-ui-and-handoff-design.md`
+3. The design set explicitly covers:
+   - #1077 working groups and link management
+   - #1082 batch selection and curation actions
+   - #1145 source mode, queue, and cleanup policy UI
+4. The design set explicitly threads forward dependencies from:
+   - #1163 / #1137 preview promotion and supporting-asset import
+   - #1132 / #1133 enhanced Working groups, publish workflow, revision lineage
+   - #1149 deployment/runtime and remote-client intake
+   - #1146 cleanup safety and retry visibility
+   - #213 local-library / OneDrive import path
+
+### Validation Gate
+
+Wave 4 UI implementation is ready to start when all of the following are true:
+
+1. The Wave 4 doc names the concrete surfaces, reusable components, and key interaction states needed for implementation.
+2. The end-state doc shows how those surfaces expand later without requiring a parallel UI system.
+3. The new docs align with the post-Manyfold authority model and the existing intake/Working docs.
+4. The docs are linked from the model-catalog overview/index and the Phase 5 execution sequence.
+
+### What Can Be Validated Automatically
+
+- markdown file existence
+- markdown diagnostics/errors
+- targeted checks that the new docs are linked from the overview/index and execution-sequence docs
+
+### What Remains Manual
+
+- final human review that the surface hierarchy, componentization, and interaction density are correct before card implementation starts
+
 ### Selected Scope
 
 This is the first implementation milestone chosen at the end of Phase 0.

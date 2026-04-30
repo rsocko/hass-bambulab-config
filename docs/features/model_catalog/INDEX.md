@@ -20,6 +20,10 @@
 - **[Working File Inventory And Normalization Spec](working-file-spec.md)** ← Issue #1074
 - **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
 
+### 🧭 Phase 5 Wave 4 UI Design (New)
+- **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
+- **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
+
 ### 📖 Implementation Guides (For Developers)
 - **[Phase 3.1: Edit Mode & Photo Management](phase-3.1-implementation-guide.md)** (30-35 hrs)
   - Tasks: Edit form, conflict detection, photo gallery, services, endpoints
@@ -41,6 +45,8 @@
 
 ### 🎨 Design & Reference
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
+- **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Intake, Working, and batch-action UI architecture
+- **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Publish-handoff and future Phase 5/6 UI direction
 - **[Legacy Manyfold Photo Publication Design](phase-6-manyfold-photo-publication-design.md)** ← Optional post-pivot Manyfold adapter work, now aligned to Phase 9 rather than an active core-path phase
 - **[Phase 3.0 Implementation Guide](phase-3-implementation-guide.md)** ← Completed phase reference
 - **[Print History Features](../print_history/)** ← Related features
