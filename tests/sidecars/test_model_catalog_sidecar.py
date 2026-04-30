@@ -2354,6 +2354,8 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         config = test_client.get("/config")
         assert config.status_code == 200
+        assert config.json()["source_filesystem_roots"] == []
+        assert config.json()["source_filesystem_root_count"] == 0
         assert config.json()["manyfold_models_path"] == "/models"
         assert config.json()["manyfold_collections_path"] == "/collections"
         assert config.json()["manyfold_creators_path"] == "/creators"
@@ -2367,6 +2369,8 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         diagnostics = test_client.get("/diagnostics")
         assert diagnostics.status_code == 200
+        assert diagnostics.json()["source_filesystem_roots"] == []
+        assert diagnostics.json()["source_filesystem_root_count"] == 0
         assert diagnostics.json()["schema_version"] >= 2
         assert diagnostics.json()["manyfold_collections_path"] == "/collections"
         assert diagnostics.json()["manyfold_creators_path"] == "/creators"

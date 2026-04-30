@@ -2339,10 +2339,9 @@ def _transition_queue_status(
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:
-    resolved_settings = settings or load_settings()
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        resolved_settings = settings if settings is not None else load_settings()
         app.state.model_catalog = AppState(resolved_settings)
         app.state.manyfold_client = manyfold_client or ManyfoldClient(
             resolved_settings.manyfold_base_url,
@@ -2431,6 +2430,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         state: AppState = app.state.model_catalog
         return {
             "authority_mode": _normalized_authority_mode(state.settings),
+            "source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
+            "source_filesystem_root_count": len(state.settings.source_filesystem_roots),
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
             "manyfold_collections_path": state.settings.manyfold_collections_path,
@@ -2482,6 +2483,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "service": "model-catalog",
             "authority_mode": _normalized_authority_mode(state.settings),
+            "source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
+            "source_filesystem_root_count": len(state.settings.source_filesystem_roots),
             "db_tables": list(state.db_info.tables),
             "schema_version": state.db_info.schema_version,
             "manyfold_base_url": state.settings.manyfold_base_url,

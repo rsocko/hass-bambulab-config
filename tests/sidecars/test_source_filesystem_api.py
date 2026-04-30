@@ -101,6 +101,27 @@ def test_list_source_filesystems_empty_when_no_roots(tmp_path: Path) -> None:
     assert payload["roots"] == []
 
 
+def test_create_app_loads_source_roots_from_env_at_startup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "assets"
+    root.mkdir()
+
+    monkeypatch.setenv("MODEL_CATALOG_DB_PATH", str(tmp_path / "model_catalog.db"))
+    monkeypatch.setenv("MODEL_CATALOG_AUTHORITY_MODE", "local")
+    monkeypatch.delenv("SOURCE_FILESYSTEM_ROOTS", raising=False)
+
+    app = create_app()
+
+    monkeypatch.setenv("SOURCE_FILESYSTEM_ROOTS", str(root))
+
+    with TestClient(app) as client:
+        response = client.get("/api/source-filesystems")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["root_count"] == 1
+    assert payload["roots"][0]["path"] == str(root)
+
+
 # ===== GET /api/source-filesystems/browse =====
 
 def test_browse_virtual_root_lists_configured_roots(tmp_path: Path) -> None:
