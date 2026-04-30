@@ -310,6 +310,8 @@ Own publish-time and curated-model application:
 - attach selected support artifacts where justified
 - preserve analysis revision linkage when publishing from Working to curated
 
+Detailed publish-time behavior for this slice is specified in [phase-5-publish-preview-and-supporting-assets-design.md](phase-5-publish-preview-and-supporting-assets-design.md).
+
 ### Phase 7
 
 Own online provenance capture:
@@ -336,6 +338,8 @@ Older references in this document to legacy `Phase 3.5` or legacy draft `Phase 7
 - `Phase 9: Implement async 3MF parser pipeline and refresh modes`
 - `Phase 5: Publish-time preview promotion and supporting-asset import`
 - `Phase 9: Public-source provenance capture for MakerWorld and other source URLs`
+
+See [phase-5-publish-preview-and-supporting-assets-design.md](phase-5-publish-preview-and-supporting-assets-design.md) for the explicit Phase 5 publish-review and asset-selection contract.
 
 ## Open Questions
 

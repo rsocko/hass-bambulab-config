@@ -361,7 +361,7 @@ The Wave 4 component system should be built so these future additions remain add
 ### UI-Adjacent Docs That Should Link Here
 
 - deployment/runtime guide for queue volume and remote-client flows
-- publish workflow and preview-promotion implementation doc when created
+- [phase-5-publish-preview-and-supporting-assets-design.md](phase-5-publish-preview-and-supporting-assets-design.md)
 - enhanced Working/lineage design doc when created
 
 ### What This Doc Does Not Require Yet
@@ -412,4 +412,5 @@ Those can still evolve as long as the surface boundaries in this document remain
 - [phase-5-wave-4-ha-ui-design.md](phase-5-wave-4-ha-ui-design.md)
 - [projects-design.md](projects-design.md)
 - [3mf-resource-extraction-and-online-provenance-design.md](3mf-resource-extraction-and-online-provenance-design.md)
+- [phase-5-publish-preview-and-supporting-assets-design.md](phase-5-publish-preview-and-supporting-assets-design.md)
 - [workflow-and-ingestion-guide.md](workflow-and-ingestion-guide.md)

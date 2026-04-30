@@ -88,6 +88,8 @@ Deliverables:
 - cross-feature contract doc approved
 - first implementation milestone chosen from the updated phases below
 
+
+Design handoff for preview promotion and supporting-asset behavior: [phase-5-publish-preview-and-supporting-assets-design.md](phase-5-publish-preview-and-supporting-assets-design.md)
 ### Phase 1: Sidecar Scaffold And Manyfold Read Baseline
 
 Status:
