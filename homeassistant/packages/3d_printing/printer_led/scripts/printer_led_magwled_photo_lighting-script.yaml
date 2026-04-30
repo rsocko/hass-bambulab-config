@@ -1,8 +1,8 @@
 printer_led_magwled_photo_lighting:
   alias: "Printer LED - MagWLED Photo Lighting"
   description: >-
-    Snapshots MagWLED into a temporary scene, forces solid cool white for
-    photo capture, then restores the saved scene on request.
+    Snapshots MagWLED into a temporary scene, verifies a solid cool-white
+    photo state before capture, then restores the saved scene on request.
   mode: queued
   max: 10
   fields:
@@ -52,6 +52,13 @@ printer_led_magwled_photo_lighting:
              | replace(' ', '_') | replace('-', '_') }}
         restore_scene_entity_id: "{{ 'scene.' ~ requested_scene_id }}"
         settle_seconds: "{{ settle_delay_seconds | default(0, true) | int(0) }}"
+        white_state_ready_template: >-
+          {% set effect = state_attr(requested_light_entity, 'effect') | default('', true) | string %}
+          {% set rgbw = state_attr(requested_light_entity, 'rgbw_color') %}
+          {% set rgb = state_attr(requested_light_entity, 'rgb_color') %}
+          {% set rgbw_ready = rgbw is sequence and (rgbw | count) >= 4 and (rgbw[3] | int(0) >= 200) %}
+          {% set rgb_ready = rgb is sequence and (rgb | count) >= 3 and (rgb[0] | int(0) >= 240) and (rgb[1] | int(0) >= 240) and (rgb[2] | int(0) >= 240) %}
+          {{ is_state(requested_light_entity, 'on') and effect == 'Solid' and (rgbw_ready or rgb_ready) }}
         light_available: >-
           {{ states(requested_light_entity) not in ['unknown', 'unavailable', 'none', 'None'] }}
     - choose:
@@ -78,8 +85,23 @@ printer_led_magwled_photo_lighting:
                 brightness: 255
                 effect: Solid
                 rgbw_color: [0, 0, 0, 255]
+            - wait_template: "{{ white_state_ready_template }}"
+              timeout:
+                seconds: 5
+              continue_on_timeout: true
             - delay:
-                seconds: 3
+                seconds: 5
+            - action: light.turn_on
+              target:
+                entity_id: "{{ requested_light_entity }}"
+              data:
+                brightness: 255
+                effect: Solid
+                rgbw_color: [0, 0, 0, 255]
+            - wait_template: "{{ white_state_ready_template }}"
+              timeout:
+                seconds: 2
+              continue_on_timeout: true
         - conditions:
             - condition: template
               value_template: >-
