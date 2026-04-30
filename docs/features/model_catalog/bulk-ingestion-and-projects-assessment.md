@@ -4,6 +4,15 @@
 > **Created**: 2026-04-24
 > **Scope**: Evaluation of bulk-ingestion workflows for large existing 3MF collections and project-relationship patterns across Model Catalog, Print History, and Manyfold.
 
+## Post-Manyfold Status Note
+
+This assessment predates the approved post-Manyfold phase renumbering.
+
+- Legacy `Phase 1.5` bulk-ingest recommendations now map to current **Phase 5**.
+- Legacy `Phase 3.5` bulk-enrichment recommendations now map primarily to current **Phase 6**.
+- Legacy `Phase 10` project/navigation recommendations now map to current **Phase 9**.
+- References below to Manyfold as an active curated destination reflect the pre-pivot baseline and should be read as historical context unless explicitly marked as optional adapter work.
+
 ---
 
 ## Executive Summary
@@ -456,9 +465,15 @@ Query paths:
 
 ## Implementation Roadmap — Revised Sequencing
 
+Current-sequence crosswalk:
+
+- legacy `Phase 1.5` -> current `Phase 5`
+- legacy `Phase 3.5` -> current `Phase 6`
+- legacy `Phase 10+` -> current `Phase 9`
+
 ### Immediate (Before Phase 1 Implementation)
 
-- [ ] **Design**: Finalize bulk-ingestion workflow (Phase 1.5)
+- [ ] **Design**: Finalize bulk-ingestion workflow (current Phase 5)
 - [ ] **Design**: Define Model Catalog project model
 - [ ] **Design**: Document cross-feature contracts (project + variant + archive linkage)
 - [ ] **Validation spike**: Test sidecar feasibility for filesystem scanning and group inference
@@ -467,9 +482,9 @@ Query paths:
 
 - Keep Phase 1 as sidecar scaffold
 - Add Working-group discovery-metadata fields for audit trail
-- Plan Phase 1.5 as immediate follow-up
+- Plan current Phase 5 as the immediate follow-up delivery slice for intake and bulk discovery/import
 
-### Phase 1.5 (New — Before Phase 2)
+### Current Phase 5 (Legacy Phase 1.5)
 
 - Implement bulk-discovery endpoint
 - Implement bulk-import endpoint
@@ -478,7 +493,7 @@ Query paths:
 ### Phase 3 (Taxonomy) — Refined
 
 - Unchanged core taxonomy
-- **Add**: Phase 3.5 sub-phase for bulk metadata enrichment
+- **Add**: current Phase 6 bulk metadata enrichment work
 - 3MF parsing and color extraction
 - Bulk tag assignment and enrichment card in HA
 
@@ -494,7 +509,7 @@ Query paths:
 - **Add**: On publish, offer to add curated model to existing or new project
 - Support creating a Model Catalog project during publish
 
-### Phase 10+ (New — Project Management)
+### Current Phase 9 (Legacy Phase 10+ Project Management)
 
 - Add sidecar project CRUD endpoints
 - Implement HA project views and navigation
@@ -806,14 +821,14 @@ Later, when you print from a curated model:
 
 | Gap | Recommendation | Phase | Implementation Effort |
 |-----|-----------------|-------|----------------------|
-| **No bulk ingest workflow** | Add Phase 1.5 with bulk-discover/import | Phase 1.5 | Medium |
-| **No project concept in Model Catalog** | Create sidecar-owned project model | Phase 4-5 | Medium |
-| **No project linkage across systems** | Define cross-feature contracts | Phase 10 | Low (design) |
-| **No bulk metadata enrichment** | Add Phase 3.5 with 3MF analysis and bulk tag assignment | Phase 3.5 | Medium |
+| **No bulk ingest workflow** | Add current Phase 5 bulk-discover/import | Phase 5 | Medium |
+| **No project concept in Model Catalog** | Create sidecar-owned project model | Phase 9 | Medium |
+| **No project linkage across systems** | Define cross-feature contracts | Phase 9 | Low (design) |
+| **No bulk metadata enrichment** | Add current Phase 6 bulk tag/color enrichment | Phase 6 | Medium |
 | **No "related models" pattern** | Clarify three model patterns (variants/family/remix) | Phase 1-2 (design) | Low |
-| **Working groups not discoverable by project** | Add project_id to working groups; HA project view | Phase 4-5 | Low |
-| **Duplicate handling incomplete** | Add file-hash deduplication to bulk import | Phase 1.5 | Low |
-| **No folder audit trail** | Add discovery_metadata to working groups | Phase 1.5 | Low |
+| **Working groups not discoverable by project** | Add project_id to working groups; HA project view | Phase 9 | Low |
+| **Duplicate handling incomplete** | Add file-hash deduplication to bulk import | Phase 5 | Low |
+| **No folder audit trail** | Add discovery_metadata to working groups | Phase 5 | Low |
 
 ---
 
@@ -821,7 +836,7 @@ Later, when you print from a curated model:
 
 ### Immediate (Design Phase)
 
-1. **Validate**: Review this assessment against your actual folder structure. Does the Phase 1.5 bulk-discover strategy match your organization patterns?
+1. **Validate**: Review this assessment against your actual folder structure. Does the current Phase 5 bulk-discover strategy match your organization patterns?
 
 2. **Decide**: Accept or modify the project model recommendation. Confirm project ownership should be Model Catalog sidecar.
 
@@ -830,10 +845,10 @@ Later, when you print from a curated model:
 ### Implementation Sequencing
 
 1. **Phase 1** (Unchanged): Sidecar scaffold
-2. **Phase 1.5** (New): Bulk discovery & import
+2. **Phase 5**: Bulk discovery & import
 3. **Phase 2** (Unchanged): Archive linkage
-4. **Phase 3** (Unchanged): Taxonomy + **3.5 (New)**: Bulk enrichment
-5. **Phase 4-5** (Enhanced): Working groups + projects
+4. **Phase 3** (Unchanged): Taxonomy + **Phase 6**: Bulk enrichment
+5. **Phase 9**: Working groups + projects
 6. ...rest unchanged
 
 ### Open Questions for You

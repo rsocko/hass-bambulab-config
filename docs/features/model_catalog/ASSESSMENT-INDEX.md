@@ -4,6 +4,15 @@
 > **Review Scope**: Bulk ingestion workflows, project relationships, and design completeness
 > **Status**: Assessment complete. Ready for architecture review and implementation planning.
 
+## Post-Manyfold Status Note
+
+This assessment was written before the approved post-Manyfold renumbering.
+
+- Legacy `Phase 1.5` recommendations now map to current **Phase 5**.
+- Legacy `Phase 3.5` recommendations now map primarily to current **Phase 6**, with parser/provenance-heavy follow-on work deferred into current **Phase 9** where noted.
+- Legacy `Phase 10` project/navigation recommendations now map to current **Phase 9**.
+- Use [post-manyfold-transition-plan-2026-04.md](post-manyfold-transition-plan-2026-04.md) for the authoritative current sequence.
+
 ---
 
 ## Quick Navigation
@@ -21,7 +30,7 @@
 - Your specific use case walkthrough (with examples)
 - Design decisions required
 - Risks and mitigations
-- Detailed implementation recommendations for Phase 1.5, 3.5, and projects
+- Detailed implementation recommendations crosswalked to current Phases 5, 6, and 9
 
 ### Project Model Design (If Approved)
 → **[projects-design.md](projects-design.md)** (15 min read)
@@ -34,7 +43,7 @@
 
 ### Updated Implementation Roadmap
 → **[ROADMAP-REVISED-WITH-BULK.md](ROADMAP-REVISED-WITH-BULK.md)** (10 min read)
-- Original plan + three new phases (1.5, 3.5, Phase 10 enhanced)
+- Legacy revised roadmap with the post-Manyfold crosswalk called out at the top
 - Revised timeline and sequencing
 - Option A (Bulk-first, recommended) vs Option B (Browse-first)
 - Success criteria
@@ -53,10 +62,10 @@
 
 | Gap | Impact | Severity | Recommendation |
 |-----|--------|----------|-----------------|
-| **Bulk ingestion workflow** | Can't efficiently add 500+ files | High | Add Phase 1.5 |
-| **Project as shared concept** | No way to organize "project-family" across working/curated/archives | High | Add projects design to Phase 4-5 and 10 |
-| **Bulk metadata enrichment** | Must manually assign colors/tags to 500+ files | Medium | Add Phase 3.5 |
-| **Cross-system navigation** | No way to navigate from archive → project → related variants | Medium | Add to Phase 10 |
+| **Bulk ingestion workflow** | Can't efficiently add 500+ files | High | Current Phase 5 |
+| **Project as shared concept** | No way to organize "project-family" across working/curated/archives | High | Current Phase 9 project integration |
+| **Bulk metadata enrichment** | Must manually assign colors/tags to 500+ files | Medium | Current Phase 6, with parser-heavy follow-on in Phase 9 |
+| **Cross-system navigation** | No way to navigate from archive → project → related variants | Medium | Current Phase 9 |
 
 ### Recommended Changes (In Priority Order)
 

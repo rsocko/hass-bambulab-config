@@ -4,6 +4,16 @@
 > **Created**: 2026-04-24
 > **Basis**: [bulk-ingestion-and-projects-assessment.md](bulk-ingestion-and-projects-assessment.md), [projects-design.md](projects-design.md)
 
+## Post-Manyfold Status Note
+
+This roadmap is a legacy pre-transition sequencing document.
+
+- Legacy `Phase 1.25` now maps to current **Phase 7**.
+- Legacy `Phase 1.5` now maps to current **Phase 5**.
+- Legacy `Phase 3.5` now maps primarily to current **Phase 6**, with parser/provenance-heavy follow-on work deferred into current **Phase 9**.
+- Legacy project/navigation work previously described under `Phase 10` now maps to current **Phase 9**.
+- Use [post-manyfold-transition-plan-2026-04.md](post-manyfold-transition-plan-2026-04.md) and [phase-delivery-and-validation.md](phase-delivery-and-validation.md) as the authoritative current sequencing documents.
+
 ---
 
 ## Execution Snapshot
@@ -20,13 +30,19 @@ Open planning or implementation work:
 - **Phase 1.5**: Intake Inbox and bulk discovery/import are designed, not yet implemented
 - **Phase 3+**: Browse, Working, publish, enrichment, provenance, backfill, and project integration remain open
 
+Current-sequence reading:
+
+- legacy `Phase 1.25` -> current `Phase 7`
+- legacy `Phase 1.5` -> current `Phase 5`
+- legacy `Phase 3.5` -> current `Phase 6` / `Phase 9` split
+
 Use this roadmap for sequencing and scope boundaries. Use [phase-delivery-and-validation.md](phase-delivery-and-validation.md) for the stricter current execution state.
 
 Issue tracking note:
 
-- The roadmap keeps `Phase 6` through `Phase 10` as sequence labels for the design.
-- The current GitHub umbrella issues also retain older late-phase numbering for continuity.
-- Revised `.3mf` extraction follow-up from issue `#173` is tracked across `Phase 3.5`, `Phase 5`, and `Phase 7` rather than opening a second conflicting `Phase 6` issue set.
+- GitHub phase titles have now been realigned to the post-Manyfold sequence.
+- Keep this document as historical sequencing context only.
+- Revised `.3mf` extraction follow-up from issue `#173` now maps to current `Phase 5` and current `Phase 9` rather than legacy `Phase 3.5` / `Phase 7` labels in active issue titles.
 
 ---
 
@@ -37,11 +53,17 @@ The original [implementation-plan.md](implementation-plan.md) assumed single-fil
 - Project as a first-class concept linking working groups, curated models, and archives
 - Bulk metadata enrichment (color extraction, tag assignment)
 
-**Revised plan** adds three new sub-phases:
+**Legacy revised plan** adds three pre-transition sub-phases:
 - **Phase 1.25**: Sidecar persistence & backup automation
 - **Phase 1.5**: Intake Inbox, bulk discovery & import
 - **Phase 3.5**: Bulk metadata enrichment
 - **Phase 4-5 (Enhanced)**: Project model and working group/curated model linkage
+
+In the current post-Manyfold sequence, read those as:
+- current **Phase 7**: persistence / backup / compatibility boundary
+- current **Phase 5**: intake inbox, bulk discovery & import
+- current **Phase 6**: bulk metadata enrichment baseline
+- current **Phase 9**: project integration and advanced follow-on work
 
 ---
 
