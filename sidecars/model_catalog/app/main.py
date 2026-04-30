@@ -165,6 +165,136 @@ def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None =
     return fallback_preview_url
 
 
+def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = None) -> ManyfoldModelSummary:
+    """Convert LocalModelEntry to ManyfoldModelSummary for backward compatibility.
+
+    This wrapper allows HA services to work with local models without changes.
+    Model URLs use local:// scheme for non-Manyfold entries.
+
+    Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
+    this function handles local-authority models created after Phase 1.
+    """
+    compatibility_keywords: list[str] = []
+    seen_keywords: set[str] = set()
+    for raw_keyword in (*entry.keyword_names, *entry.tags):
+        keyword = str(raw_keyword or "").strip()
+        if keyword and keyword not in seen_keywords:
+            seen_keywords.add(keyword)
+            compatibility_keywords.append(keyword)
+
+    return ManyfoldModelSummary(
+        model_url=f"local://{entry.local_model_id}",
+        public_id=entry.local_model_id,
+        model_id=str(entry.id),
+        name=entry.model_name,
+        preview_url=_local_summary_preview_url(entry=entry, db_path=db_path),
+        creator_name=entry.creator_name,
+        collection_names=entry.collection_names,
+        keyword_names=tuple(compatibility_keywords),
+    )
+
+
+def _normalized_authority_mode(settings: Settings) -> str:
+    normalized = str(getattr(settings, "authority_mode", "hybrid") or "hybrid").strip().lower()
+    if normalized not in {"local", "hybrid", "manyfold"}:
+        return "hybrid"
+    return normalized
+
+
+def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
+    return str(summary.model_url or "").startswith("local://")
+
+
+def _read_local_summaries(*, db_path: Any) -> list[ManyfoldModelSummary]:
+    local_entries, _local_total = list_local_models(db_path=db_path, limit=10000, offset=0)
+    return [_local_entry_to_summary(entry, db_path=db_path) for entry in local_entries]
+
+
+def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
+    summaries = [*_read_local_summaries(db_path=db_path), *read_cached_manyfold_summaries(db_path=db_path)]
+    return {summary.model_url: summary for summary in summaries}
+
+
+def _load_runtime_summaries(
+    *,
+    settings: Settings,
+    client: ManyfoldClient,
+    refresh: bool,
+) -> tuple[list[ManyfoldModelSummary], str, dict[str, Any]]:
+    authority_mode = _normalized_authority_mode(settings)
+    refresh_status: dict[str, Any] = {
+        "refresh_requested": bool(refresh),
+        "outcome": "cache_only",
+        "preserved_cache": False,
+        "authority_mode": authority_mode,
+    }
+
+    local_summaries = _read_local_summaries(db_path=settings.db_path)
+    manyfold_summaries: list[ManyfoldModelSummary] = []
+    manyfold_source = "cache"
+
+    if authority_mode in {"hybrid", "manyfold"}:
+        if refresh:
+            try:
+                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+                refresh_status.update(refresh_meta)
+                manyfold_source = "manyfold"
+            except Exception as error:
+                fallback_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
+                if fallback_summaries:
+                    manyfold_summaries = fallback_summaries
+                    refresh_status.update(
+                        {
+                            "outcome": "refresh_failed_cache_retained",
+                            "preserved_cache": True,
+                            "error": str(error),
+                            "error_type": type(error).__name__,
+                        }
+                    )
+                else:
+                    raise
+        else:
+            manyfold_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
+            if not manyfold_summaries:
+                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
+                refresh_status = {
+                    "refresh_requested": False,
+                    "authority_mode": authority_mode,
+                    **refresh_meta,
+                }
+                manyfold_source = "manyfold"
+
+    if authority_mode == "local":
+        refresh_status.update(
+            {
+                "outcome": "local_authority_only",
+                "preserved_cache": bool(read_cached_manyfold_summaries(db_path=settings.db_path)),
+            }
+        )
+        return local_summaries, "local", refresh_status
+    if authority_mode == "manyfold":
+        return manyfold_summaries, manyfold_source, refresh_status
+    if local_summaries and manyfold_summaries:
+        return [*manyfold_summaries, *local_summaries], f"{manyfold_source}+local", refresh_status
+    if local_summaries:
+        return local_summaries, "local", refresh_status
+    return manyfold_summaries, manyfold_source, refresh_status
+
+
+def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
+    normalized_ref = str(model_ref or "").strip()
+    if not normalized_ref:
+        return None
+    if normalized_ref in summary_by_url:
+        return summary_by_url[normalized_ref]
+    for summary in summary_by_url.values():
+        if normalized_ref == str(summary.public_id or "").strip():
+            return summary
+        if normalized_ref == str(summary.model_id or "").strip():
+            return summary
+    return None
+
+
 def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = None) -> list[dict[str, Any]]:
     def _asset_rank(value: object | None) -> int:
         normalized = str(value or "").strip().lower()
