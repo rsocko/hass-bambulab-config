@@ -2,7 +2,6 @@ model_catalog_publish_queue_to_local:
   alias: Publish Queue Upload To Local Catalog
   description: Publish a reviewed intake upload into the sidecar-owned local curated catalog.
   mode: single
-  timeout: "00:05:00"
   fields:
     upload_id:
       name: Upload ID
@@ -33,15 +32,12 @@ model_catalog_publish_queue_to_local:
       name: Tags
       description: Optional tag list.
       required: false
-      example:
-        - gridfinity
-        - storage
+      example: "gridfinity, storage"
     collection_names:
       name: Collection Names
       description: Optional collection names to persist on the local model.
       required: false
-      example:
-        - Inbox
+      example: "Inbox"
     creator_name:
       name: Creator Name
       description: Optional creator name.
