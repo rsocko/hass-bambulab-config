@@ -180,6 +180,38 @@
     return normalized;
   }
 
+  async function postJsonWithAuth(hass, endpoint, payload) {
+    var body = JSON.stringify(payload && typeof payload === "object" ? payload : {});
+    var response = await fetch(endpoint, {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders(hass, false)),
+      mode: "cors",
+      body: body,
+    });
+
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders(hass, true)),
+        mode: "cors",
+        body: body,
+      });
+    }
+
+    var parsed = {};
+    try {
+      parsed = await response.json();
+    } catch (_error) {
+      parsed = {};
+    }
+
+    if (!response.ok || (parsed && parsed.success === false)) {
+      throw new Error(parsed && (parsed.message || parsed.error) ? String(parsed.message || parsed.error) : "Request failed.");
+    }
+
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
   async function setHelperValue(hass, domain, entityId, value) {
     if (!hass || !entityId) {
       return;
@@ -237,6 +269,7 @@
     + '.warning-box{display:grid;gap:6px;padding:12px;border-radius:14px;border:1px solid rgba(245,158,11,0.32);background:rgba(180,83,9,0.14);}'
     + '.warning-title{font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fbbf24;}'
     + '.selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
+    + '.hidden-upload-input{display:none;}'
     + '@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:14px;}}';
 
   class ModelCatalogIntakeHomeCard extends HTMLElement {
@@ -253,6 +286,7 @@
       this._roots = [];
       this._browse = { path: "/", entries: [], parent_path: null, is_root: true };
       this._selected = {};
+      this._browserFiles = [];
       this._intakeItems = [];
       this._queueUploads = [];
     }
@@ -375,13 +409,86 @@
       return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
     }
 
+    _resolveSidecarUrl() {
+      if (this._hass && this._hass.states) {
+        var baseUrlEntity = this._hass.states['input_text.model_catalog_sidecar_base_url'];
+        if (baseUrlEntity && baseUrlEntity.state) {
+          return String(baseUrlEntity.state).trim();
+        }
+      }
+      return String(this._config && this._config.model_sidecar_url || '').trim();
+    }
+
+    _serverPayloadSelections(sourceMode) {
+      if (sourceMode === 'browser') {
+        return [];
+      }
+      return this._selectedList().map(function (entry) {
+        var next = { type: entry.type, path: entry.path };
+        if (entry.type === 'folder') {
+          next.recurse = !!entry.recurse;
+          if (entry.recurse && entry.max_depth !== '' && entry.max_depth != null) {
+            next.max_depth = Number(entry.max_depth);
+          }
+        }
+        return next;
+      });
+    }
+
+    _enabledBrowserFiles(sourceMode) {
+      return sourceMode === 'server' ? [] : this._browserFiles.slice();
+    }
+
+    _appendBrowserFiles(fileList) {
+      var nextByKey = {};
+      this._browserFiles.forEach(function (entry) {
+        var existingKey = String(entry.relative_path || entry.name || '').toLowerCase() + '::' + String(entry.size_bytes || 0);
+        nextByKey[existingKey] = entry;
+      });
+      Array.prototype.slice.call(fileList || []).forEach(function (file) {
+        if (!file || typeof file.arrayBuffer !== 'function') {
+          return;
+        }
+        var relativePath = String(file.webkitRelativePath || file.name || '').trim() || String(file.name || '').trim();
+        var nextEntry = {
+          file: file,
+          name: String(file.name || relativePath || 'upload.bin'),
+          relative_path: relativePath,
+          size_bytes: Number(file.size || 0),
+        };
+        var key = String(nextEntry.relative_path || nextEntry.name).toLowerCase() + '::' + String(nextEntry.size_bytes || 0);
+        nextByKey[key] = nextEntry;
+      });
+      this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
+        return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
+      });
+      this._render();
+    }
+
+    async _encodeBrowserFile(fileEntry) {
+      var buffer = await fileEntry.file.arrayBuffer();
+      var bytes = new Uint8Array(buffer);
+      var chunkSize = 0x8000;
+      var binary = '';
+      for (var index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunkSize));
+      }
+      return {
+        filename: fileEntry.name,
+        relative_path: fileEntry.relative_path,
+        content_base64: btoa(binary),
+      };
+    }
+
     async _submitServerSelections() {
       if (!this._hass) {
         return;
       }
-      var selections = this._selectedList();
-      if (!selections.length) {
-        this._error = "Select at least one file or folder first.";
+      var sourceMode = this._sourceMode();
+      var payloadSelections = this._serverPayloadSelections(sourceMode);
+      var browserFiles = this._enabledBrowserFiles(sourceMode);
+      if (!payloadSelections.length && !browserFiles.length) {
+        this._error = 'Select at least one browser file or server-side file first.';
         this._render();
         return;
       }
@@ -391,34 +498,44 @@
       this._result = null;
       this._render();
       try {
-        var payloadSelections = selections.map(function (entry) {
-          var next = { type: entry.type, path: entry.path };
-          if (entry.type === "folder") {
-            next.recurse = !!entry.recurse;
-            if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
-              next.max_depth = Number(entry.max_depth);
-            }
+        var response;
+        if (browserFiles.length) {
+          var sidecarBaseUrl = this._resolveSidecarUrl();
+          if (!sidecarBaseUrl) {
+            throw new Error('Set input_text.model_catalog_sidecar_base_url to enable browser uploads.');
           }
-          return next;
-        });
-        var response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_select_source_filesystem_entries", {
-          selections: payloadSelections,
-          cleanup_policy: this._cleanupPolicy(),
-        });
+          var encodedBrowserFiles = [];
+          for (var browserIndex = 0; browserIndex < browserFiles.length; browserIndex += 1) {
+            encodedBrowserFiles.push(await this._encodeBrowserFile(browserFiles[browserIndex]));
+          }
+          response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/browser', {
+            cleanup_policy: this._cleanupPolicy(),
+            browser_files: encodedBrowserFiles,
+            server_selections: payloadSelections,
+          });
+        } else {
+          response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_select_source_filesystem_entries', {
+            selections: payloadSelections,
+            cleanup_policy: this._cleanupPolicy(),
+          });
+        }
         var validation = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_validate_intake_item", {
           item_id: response.upload_id,
         });
         this._result = {
           upload_id: response.upload_id,
           upload_status: response.status,
-          selection_count: response.selection_count,
-          expanded_file_count: response.expanded_file_count,
+          selection_count: payloadSelections.length + browserFiles.length,
+          expanded_file_count: response.expanded_file_count != null ? response.expanded_file_count : response.source_entry_count,
           validation_state: validation.validation ? validation.validation.validation_state : "unknown",
-          warnings: validation.validation ? validation.validation.warnings || [] : [],
+          warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
           cleanup_policy: this._cleanupPolicy(),
         };
-        this._status = "Selection submitted to intake and validated.";
+        this._status = browserFiles.length && payloadSelections.length
+          ? 'Browser files and server selections were submitted together and validated.'
+          : (browserFiles.length ? 'Browser files were submitted to intake and validated.' : 'Selection submitted to intake and validated.');
         this._selected = {};
+        this._browserFiles = [];
         this._loading = false;
         await this._refreshAll();
       } catch (error) {
@@ -449,11 +566,23 @@
       var itemCounts = summarizeStates(this._intakeItems, "state");
       return ''
         + '<div class="grid">'
-        + '  <div class="summary-card"><div class="summary-label">Source Mode</div><div class="summary-value">' + escapeHtml(formatLabel(this._sourceMode())) + '</div><div class="muted">Both source modes remain in the UI contract; server browse is wired to the live local-authority endpoint.</div></div>'
-        + '  <div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied to new server-side intake submissions. Destructive modes still require verified allowlisted paths.</div></div>'
+        + '  <div class="summary-card"><div class="summary-label">Source Mode</div><div class="summary-value">' + escapeHtml(formatLabel(this._sourceMode())) + '</div><div class="muted">Browser uploads now stage into the same intake queue contract as server-browse selections.</div></div>'
+        + '  <div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied to new queue submissions. Browser-upload staging is managed by the sidecar before publish or delete.</div></div>'
         + '  <div class="summary-card"><div class="summary-label">Queue Health</div><div class="summary-value">Queued ' + String(uploadCounts.queued || 0) + ' / Verified ' + String(uploadCounts.verified || 0) + '</div><div class="muted">Failed ' + String(uploadCounts.failed || 0) + ' / Cleanup pending ' + String(uploadCounts.cleanup_pending || 0) + '</div></div>'
         + '  <div class="summary-card"><div class="summary-label">Inbox Snapshot</div><div class="summary-value">Ready ' + String(itemCounts.validated_ready || 0) + ' / Warning ' + String(itemCounts.validated_warning || 0) + '</div><div class="muted">Deferred ' + String(itemCounts.deferred || 0) + ' / Grouped ' + String((itemCounts.grouped_new || 0) + (itemCounts.grouped_existing || 0)) + '</div></div>'
         + '</div>';
+    }
+
+    _renderBrowserEntries() {
+      if (!this._browserFiles.length) {
+        return '<div class="state-row">Choose local files or a local folder to stage a browser-upload batch.</div>';
+      }
+      return '<div class="entries">' + this._browserFiles.map(function (entry) {
+        return ''
+          + '<article class="entry-row">'
+          + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || '') + '</div></div><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span></div>'
+          + '</article>';
+      }).join('') + '</div>';
     }
 
     _renderBrowseEntries() {
@@ -521,6 +650,25 @@
         this._toggleSelection(String(target.getAttribute('data-path') || ''), String(target.getAttribute('data-entry-type') || 'file'));
         return;
       }
+      if (action === 'choose-browser-files') {
+        var fileInput = this.shadowRoot && this.shadowRoot.getElementById('browser-file-input');
+        if (fileInput) {
+          fileInput.click();
+        }
+        return;
+      }
+      if (action === 'choose-browser-folder') {
+        var folderInput = this.shadowRoot && this.shadowRoot.getElementById('browser-folder-input');
+        if (folderInput) {
+          folderInput.click();
+        }
+        return;
+      }
+      if (action === 'clear-browser-files') {
+        this._browserFiles = [];
+        this._render();
+        return;
+      }
       if (action === 'submit-server-selection') {
         this._submitServerSelections();
         return;
@@ -538,6 +686,11 @@
       var action = String(target.getAttribute('data-action') || '');
       if (action === 'source-mode') {
         this._setSourceMode(target.value);
+        return;
+      }
+      if (action === 'browser-files' || action === 'browser-folder') {
+        this._appendBrowserFiles(target.files);
+        target.value = '';
         return;
       }
       if (action === 'cleanup-policy') {
@@ -565,6 +718,10 @@
 
     _render() {
       if (!this.shadowRoot || !this._config) {
+      var browserFiles = this._enabledBrowserFiles(sourceMode);
+      var serverSelections = this._serverPayloadSelections(sourceMode);
+      var pendingSubmissionCount = browserFiles.length + serverSelections.length;
+      var canSubmit = !this._loading && pendingSubmissionCount > 0;
         return;
       }
       var sourceMode = this._sourceMode();
@@ -594,8 +751,8 @@
         + '        <div class="field"><label for="cleanup-policy-select">Cleanup Policy</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
         + '      </div>'
         + '    </section>'
-        + (sourceMode === 'browser'
-          ? '<section class="banner"><div class="title">Browser Upload Mode</div><div class="muted">The UI mode toggle is present, but the local-authority browser blob-upload endpoint is not wired in this package yet. Use Server Browse for live intake submissions right now.</div></section>'
+        + (sourceMode !== 'server'
+          ? '<section class="section"><div class="title-row"><div><div class="title">Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. Mixed mode submits them together with selected allowlisted server paths.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(browserFiles.length) + '</div>' + this._renderBrowserEntries() + '</section>'
           : '')
         + '    <div class="two-column">'
         + '      <section class="section">'
@@ -607,11 +764,18 @@
         + '      </section>'
         + '      <section class="section">'
         + '        <div class="title">Submission</div>'
-        + '        <div class="muted">Selected entries: ' + String(selectedList.length) + '</div>'
-        + (selectedList.length ? '<div class="entries">' + selectedList.map(function (entry) {
-            return '<article class="entry-row"><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (entry.type === 'folder' ? '<span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') : '') + '</div></article>';
-          }).join('') + '</div>' : '<div class="state-row">Select server-side files or folders to submit a queue-first intake batch.</div>')
-        + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!selectedList.length || sourceMode === 'browser' ? ' disabled' : '') + '>Submit To Intake</button></div>'
+        + '        <div class="muted">Pending sources: ' + String(pendingSubmissionCount) + ' (' + String(serverSelections.length) + ' server / ' + String(browserFiles.length) + ' browser)</div>'
+        + ((serverSelections.length || browserFiles.length)
+          ? '<div class="entries">'
+            + browserFiles.map(function (entry) {
+                return '<article class="entry-row"><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || '') + '</div><div class="button-row"><span class="chip">browser</span><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span></div></article>';
+              }).join('')
+            + serverSelections.map(function (entry) {
+                return '<article class="entry-row"><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (entry.type === 'folder' ? '<span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') : '') + '</div></article>';
+              }).join('')
+            + '</div>'
+          : '<div class="state-row">Select browser files, server-side files, or both to submit a queue-first intake batch.</div>')
+        + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!canSubmit ? ' disabled' : '') + '>Submit To Intake</button></div>'
         + '        <div class="muted">Recent activity</div>'
         + (recentItems.length ? '<div class="entries">' + recentItems.map(function (item) {
             var sourceEntry = item.source_entry || {};

@@ -14,9 +14,10 @@ import re
 import shutil
 import sqlite3
 import time
+import uuid
 from typing import Any
 from sqlite3 import connect
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
@@ -75,6 +76,7 @@ MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
 MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
 MAX_SERVER_SIDE_3MF_BYTES = 10 * 1024 * 1024
+BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -116,22 +118,22 @@ def _export_sqlite_schema_ddl(db_path: Path) -> str:
     connection.row_factory = sqlite3.Row
     try:
         rows = connection.execute(
-            """
-            SELECT type, name, sql
-            FROM sqlite_master
-            WHERE name NOT LIKE 'sqlite_%'
-              AND sql IS NOT NULL
-              AND type IN ('table', 'index', 'view', 'trigger')
-            ORDER BY
-              CASE type
-                WHEN 'table' THEN 0
-                WHEN 'index' THEN 1
-                WHEN 'view' THEN 2
-                WHEN 'trigger' THEN 3
-                ELSE 4
-              END,
-              name
-            """
+                        """
+                        SELECT type, name, sql
+                        FROM sqlite_master
+                        WHERE name NOT LIKE 'sqlite_%'
+                            AND sql IS NOT NULL
+                            AND type IN ('table', 'index', 'view', 'trigger')
+                        ORDER BY
+                            CASE type
+                                WHEN 'table' THEN 0
+                                WHEN 'index' THEN 1
+                                WHEN 'view' THEN 2
+                                WHEN 'trigger' THEN 3
+                                ELSE 4
+                            END,
+                            name
+                        """
         ).fetchall()
     finally:
         connection.close()
@@ -150,164 +152,22 @@ def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None =
 
     assets = list_model_assets(db_path=db_path, local_model_id=entry.local_model_id)
     preview_asset_id = _select_local_preview_asset_id(assets=assets)
-    if not preview_asset_id:
-        return None
-
-    preview_asset = next(
-        (
-            asset
-            for asset in assets
-            if str(getattr(asset, "asset_id", "") or getattr(asset, "id", "")) == preview_asset_id
-        ),
-        None,
-    )
-    if preview_asset is None:
-        return None
-
-    asset_preview_url = str(getattr(preview_asset, "preview_url", "") or "").strip()
-    if asset_preview_url:
-        return asset_preview_url
-
-    asset_type = str(getattr(preview_asset, "asset_type", "") or "").strip().lower()
-    if asset_type == "image":
-        return f"/api/models/{quote(entry.local_model_id, safe='')}/files/{quote(preview_asset_id, safe='')}/download"
-
-    return None
-
-
-def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = None) -> ManyfoldModelSummary:
-    """Convert LocalModelEntry to ManyfoldModelSummary for backward compatibility.
-
-    This wrapper allows HA services to work with local models without changes.
-    Model URLs use local:// scheme for non-Manyfold entries.
-
-    Phase 1 Note: Manyfold-originated models still use manyfold:// URLs;
-    this function handles local-authority models created after Phase 1.
-    """
-    compatibility_keywords: list[str] = []
-    seen_keywords: set[str] = set()
-    for raw_keyword in (*entry.keyword_names, *entry.tags):
-        keyword = str(raw_keyword or "").strip()
-        if keyword and keyword not in seen_keywords:
-            seen_keywords.add(keyword)
-            compatibility_keywords.append(keyword)
-
-    return ManyfoldModelSummary(
-        model_url=f"local://{entry.local_model_id}",
-        public_id=entry.local_model_id,
-        model_id=str(entry.id),
-        name=entry.model_name,
-        preview_url=_local_summary_preview_url(entry=entry, db_path=db_path),
-        creator_name=entry.creator_name,
-        collection_names=entry.collection_names,
-        keyword_names=tuple(compatibility_keywords),
-    )
-
-
-def _normalized_authority_mode(settings: Settings) -> str:
-    normalized = str(getattr(settings, "authority_mode", "hybrid") or "hybrid").strip().lower()
-    if normalized not in {"local", "hybrid", "manyfold"}:
-        return "hybrid"
-    return normalized
-
-
-def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
-    return str(summary.model_url or "").startswith("local://")
-
-
-def _read_local_summaries(*, db_path: Any) -> list[ManyfoldModelSummary]:
-    local_entries, _local_total = list_local_models(db_path=db_path, limit=10000, offset=0)
-    return [_local_entry_to_summary(entry, db_path=db_path) for entry in local_entries]
-
-
-def _summary_map(db_path: Any) -> dict[str, ManyfoldModelSummary]:
-    summaries = [*_read_local_summaries(db_path=db_path), *read_cached_manyfold_summaries(db_path=db_path)]
-    return {summary.model_url: summary for summary in summaries}
-
-
-def _load_runtime_summaries(
-    *,
-    settings: Settings,
-    client: ManyfoldClient,
-    refresh: bool,
-) -> tuple[list[ManyfoldModelSummary], str, dict[str, Any]]:
-    authority_mode = _normalized_authority_mode(settings)
-    refresh_status: dict[str, Any] = {
-        "refresh_requested": bool(refresh),
-        "outcome": "cache_only",
-        "preserved_cache": False,
-        "authority_mode": authority_mode,
-    }
-
-    local_summaries = _read_local_summaries(db_path=settings.db_path)
-    manyfold_summaries: list[ManyfoldModelSummary] = []
-    manyfold_source = "cache"
-
-    if authority_mode in {"hybrid", "manyfold"}:
-        if refresh:
-            try:
-                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
-                refresh_status.update(refresh_meta)
-                manyfold_source = "manyfold"
-            except Exception as error:
-                fallback_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
-                if fallback_summaries:
-                    manyfold_summaries = fallback_summaries
-                    refresh_status.update(
-                        {
-                            "outcome": "refresh_failed_cache_retained",
-                            "preserved_cache": True,
-                            "error": str(error),
-                            "error_type": type(error).__name__,
-                        }
-                    )
-                else:
-                    raise
-        else:
-            manyfold_summaries = read_cached_manyfold_summaries(db_path=settings.db_path)
-            if not manyfold_summaries:
-                manyfold_summaries, refresh_meta = refresh_manyfold_cache_with_status(db_path=settings.db_path, client=client)
-                refresh_status = {
-                    "refresh_requested": False,
-                    "authority_mode": authority_mode,
-                    **refresh_meta,
-                }
-                manyfold_source = "manyfold"
-
-    if authority_mode == "local":
-        refresh_status.update(
-            {
-                "outcome": "local_authority_only",
-                "preserved_cache": bool(read_cached_manyfold_summaries(db_path=settings.db_path)),
-            }
-        )
-        return local_summaries, "local", refresh_status
-    if authority_mode == "manyfold":
-        return manyfold_summaries, manyfold_source, refresh_status
-    if local_summaries and manyfold_summaries:
-        return [*manyfold_summaries, *local_summaries], f"{manyfold_source}+local", refresh_status
-    if local_summaries:
-        return local_summaries, "local", refresh_status
-    return manyfold_summaries, manyfold_source, refresh_status
-
-
-def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], model_ref: str) -> ManyfoldModelSummary | None:
-    normalized_ref = str(model_ref or "").strip()
-    if not normalized_ref:
-        return None
-    if normalized_ref in summary_by_url:
-        return summary_by_url[normalized_ref]
-    for summary in summary_by_url.values():
-        if normalized_ref == str(summary.public_id or "").strip():
-            return summary
-        if normalized_ref == str(summary.model_id or "").strip():
-            return summary
-    return None
+    fallback_preview_url: str | None = None
+    for asset in assets:
+        asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+        candidate_url = str(getattr(asset, "preview_url", "") or "").strip()
+        if not candidate_url:
+            continue
+        if fallback_preview_url is None:
+            fallback_preview_url = candidate_url
+        if preview_asset_id and asset_id == preview_asset_id:
+            return candidate_url
+    return fallback_preview_url
 
 
 def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = None) -> list[dict[str, Any]]:
-    def _asset_rank(asset_role: object | None) -> int:
-        normalized = str(asset_role or "").strip().lower()
+    def _asset_rank(value: object | None) -> int:
+        normalized = str(value or "").strip().lower()
         if normalized == "preview":
             return 0
         if normalized == "primary":
@@ -395,6 +255,57 @@ def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
     )
 
 
+def _browser_intake_upload_storage_root(settings: Settings) -> Path:
+    return (settings.db_path.parent / BROWSER_INTAKE_UPLOAD_STORAGE_DIR).resolve()
+
+
+def _sanitize_browser_upload_relative_path(relative_path: str | None, fallback_name: str) -> Path:
+    raw_value = str(relative_path or "").strip().replace("\\", "/")
+    fallback = Path(Path(fallback_name or "upload.bin").name or "upload.bin")
+    if not raw_value:
+        return fallback
+
+    candidate = PurePosixPath(raw_value)
+    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+        return fallback
+
+    parts = [part for part in candidate.parts if part not in {"", "."}]
+    if not parts:
+        return fallback
+
+    sanitized = Path(*parts)
+    if sanitized.name in {"", ".", ".."}:
+        return fallback
+    return sanitized
+
+
+def _browser_upload_stage_directories(settings: Settings, source_entries: list[dict[str, Any]]) -> list[Path]:
+    storage_root = _browser_intake_upload_storage_root(settings)
+    directories: set[Path] = set()
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("source_type") or "").strip().lower() != "browser_upload":
+            continue
+
+        upload_id = str(entry.get("upload_id") or "").strip()
+        if upload_id:
+            directories.add((storage_root / upload_id).resolve())
+            continue
+
+        entry_path_raw = str(entry.get("path") or "").strip()
+        if not entry_path_raw:
+            continue
+        entry_path = Path(entry_path_raw).expanduser().resolve()
+        if not entry_path.is_relative_to(storage_root):
+            continue
+        relative_path = entry_path.relative_to(storage_root)
+        if relative_path.parts:
+            directories.add((storage_root / relative_path.parts[0]).resolve())
+
+    return sorted(directories)
+
+
 def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path | None:
     storage_path_raw = str(getattr(asset, "storage_path", "") or "").strip()
     if not storage_path_raw:
@@ -444,7 +355,7 @@ def _local_model_id_exists(*, db_path: Path, local_model_id: str) -> bool:
     connection = connect(db_path)
     try:
         row = connection.execute(
-            "SELECT 1 FROM model_catalog_entries WHERE local_model_id = ? LIMIT 1",
+            "SELECT id FROM model_catalog_entries WHERE local_model_id = ? AND archived_at IS NULL",
             (local_model_id,),
         ).fetchone()
         return row is not None
@@ -1591,6 +1502,135 @@ def _bulk_path_source_metadata(path: Path, stat_result: Any | None = None) -> di
     if birthtime is not None:
         metadata["source_birthtime"] = _bulk_timestamp_iso(birthtime)
     return metadata
+
+
+class IntakeSourceValidationError(ValueError):
+    def __init__(self, *, error: str, message: str, detail: str | None = None) -> None:
+        super().__init__(message)
+        self.error = error
+        self.message = message
+        self.detail = detail
+
+
+def _normalize_intake_cleanup_policy(value: object | None) -> str:
+    cleanup_policy = str(value or "keep").strip().lower()
+    if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
+        return "keep"
+    return cleanup_policy
+
+
+def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not isinstance(source_entries, list) or len(source_entries) == 0:
+        raise IntakeSourceValidationError(
+            error="invalid_payload",
+            message="source_entries must be a non-empty list of {type, path, recurse?, max_depth?}",
+        )
+
+    validated_entries: list[dict[str, Any]] = []
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            raise IntakeSourceValidationError(
+                error="invalid_source_entry",
+                message="Each source_entry must be an object",
+            )
+
+        entry_type = str(entry.get("type") or "").strip().lower()
+        entry_path = str(entry.get("path") or "").strip()
+        if entry_type not in {"file", "folder"}:
+            raise IntakeSourceValidationError(
+                error="invalid_source_type",
+                message=f"source_entry.type must be 'file' or 'folder', got '{entry_type}'",
+            )
+        if not entry_path:
+            raise IntakeSourceValidationError(
+                error="invalid_source_path",
+                message="source_entry.path is required",
+            )
+
+        resolved_path = Path(entry_path).expanduser().resolve()
+        if not resolved_path.exists():
+            raise IntakeSourceValidationError(
+                error="source_not_found",
+                message=f"source_entry.path does not exist: {entry_path}",
+            )
+        if entry_type == "file" and not resolved_path.is_file():
+            raise IntakeSourceValidationError(
+                error="source_is_not_file",
+                message=f"source_entry marked as 'file' but path is not a file: {entry_path}",
+            )
+        if entry_type == "folder" and not resolved_path.is_dir():
+            raise IntakeSourceValidationError(
+                error="source_is_not_folder",
+                message=f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
+            )
+        if entry_type == "file" and resolved_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            raise IntakeSourceValidationError(
+                error="unsupported_file_type",
+                message=f"Unsupported file type for intake: {resolved_path.name}",
+            )
+
+        try:
+            stat_result = resolved_path.stat()
+            entry_source_metadata = _bulk_path_source_metadata(resolved_path, stat_result)
+        except (OSError, PermissionError) as error:
+            raise IntakeSourceValidationError(
+                error="source_stat_error",
+                message=f"source_entry.path metadata could not be read: {entry_path}",
+                detail=str(error),
+            ) from error
+
+        validated_entry = {
+            "type": entry_type,
+            "path": str(resolved_path),
+            "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
+            "max_depth": _coerce_int(entry.get("max_depth")) if entry_type == "folder" else None,
+            "source_mtime": entry_source_metadata["source_mtime"],
+            "source_ctime": entry_source_metadata["source_ctime"],
+            "source_birthtime": entry_source_metadata.get("source_birthtime"),
+            "source_size_bytes": int(stat_result.st_size) if entry_type == "file" else None,
+        }
+        for extra_key in ("source_type", "original_filename", "relative_path", "upload_id"):
+            extra_value = entry.get(extra_key)
+            if extra_value not in {None, ""}:
+                validated_entry[extra_key] = extra_value
+        validated_entries.append(validated_entry)
+
+    return validated_entries
+
+
+def _create_intake_queue_upload_record(
+    *,
+    db_path: Path,
+    validated_entries: list[dict[str, Any]],
+    cleanup_policy: str,
+) -> tuple[str, str]:
+    upload_id = str(uuid.uuid4())
+    now_iso = _bulk_utc_now_iso()
+
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO intake_queue_uploads (
+                upload_id, status, source_entries_json, verification_status,
+                cleanup_policy, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                upload_id,
+                "queued",
+                json.dumps(validated_entries),
+                "unverified",
+                cleanup_policy,
+                now_iso,
+                now_iso,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    return upload_id, now_iso
 
 
 def _normalize_grouping_strategy(value: object | None) -> str:
@@ -6724,29 +6764,27 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         now_iso = _bulk_utc_now_iso()
         source_entries_json = json.dumps(validated_entries)
         
-        connection = connect(state.settings.db_path)
+        cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
+
         try:
-            connection.execute(
-                """
-                INSERT INTO intake_queue_uploads (
-                    upload_id, status, source_entries_json, verification_status,
-                    cleanup_policy, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    upload_id,
-                    "queued",
-                    source_entries_json,
-                    "unverified",
-                    cleanup_policy,
-                    now_iso,
-                    now_iso,
-                ),
+            validated_entries = _validate_intake_source_entries(payload.get("source_entries") or [])
+        except IntakeSourceValidationError as error:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": error.error,
+                    "message": error.message,
+                    **({"detail": error.detail} if error.detail else {}),
+                },
             )
-            connection.commit()
-        finally:
-            connection.close()
-        
+
+        upload_id, now_iso = _create_intake_queue_upload_record(
+            db_path=state.settings.db_path,
+            validated_entries=validated_entries,
+            cleanup_policy=cleanup_policy,
+        )
+
         return {
             "success": True,
             "upload_id": upload_id,
@@ -6754,6 +6792,187 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "verification_status": "unverified",
             "cleanup_policy": cleanup_policy,
             "source_entry_count": len(validated_entries),
+            "created_at": now_iso,
+        }
+
+    @app.post("/api/intake/uploads/browser")
+    async def intake_queue_post_browser_upload(request: Request) -> Any:
+        state: AppState = app.state.model_catalog
+        try:
+            payload = await request.json()
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "Browser upload payload must be valid JSON.",
+                },
+            )
+        if not isinstance(payload, dict):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_payload",
+                    "message": "Browser upload payload must be a JSON object.",
+                },
+            )
+
+        browser_files = payload.get("browser_files") or []
+        cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
+        warnings: list[dict[str, Any]] = []
+        source_entries: list[dict[str, Any]] = []
+
+        parsed_selections = payload.get("server_selections") or []
+        if parsed_selections and not isinstance(parsed_selections, list):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "invalid_server_selections",
+                    "message": "server_selections must be a list.",
+                },
+            )
+        source_entries.extend([entry for entry in parsed_selections if isinstance(entry, dict)])
+
+        if not browser_files and not source_entries:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "missing_browser_files",
+                    "message": "Select at least one browser file or server selection before submitting.",
+                },
+            )
+
+        staged_upload_id = str(uuid.uuid4())
+        staged_root = _browser_intake_upload_storage_root(state.settings) / staged_upload_id
+        staged_root.mkdir(parents=True, exist_ok=True)
+
+        for index, upload in enumerate(browser_files):
+            if not isinstance(upload, dict):
+                warnings.append(
+                    {
+                        "code": "invalid_browser_file",
+                        "message": "Skipped malformed browser upload entry.",
+                    }
+                )
+                continue
+
+            filename = Path(str(upload.get("filename") or "")).name or f"upload-{index + 1}.bin"
+            relative_path = _sanitize_browser_upload_relative_path(
+                str(upload.get("relative_path") or ""),
+                filename,
+            )
+            if relative_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+                warnings.append(
+                    {
+                        "code": "unsupported_file_type",
+                        "message": f"Skipped unsupported browser upload: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            destination = (staged_root / relative_path).resolve()
+            if not destination.is_relative_to(staged_root.resolve()):
+                warnings.append(
+                    {
+                        "code": "invalid_relative_path",
+                        "message": f"Skipped browser upload with unsafe path: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            encoded_content = str(upload.get("content_base64") or "").strip()
+            if not encoded_content:
+                warnings.append(
+                    {
+                        "code": "empty_upload",
+                        "message": f"Skipped empty browser upload: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            try:
+                file_bytes = base64.b64decode(encoded_content, validate=True)
+            except (binascii.Error, ValueError):
+                warnings.append(
+                    {
+                        "code": "invalid_base64",
+                        "message": f"Skipped browser upload with invalid base64 content: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+            if not file_bytes:
+                warnings.append(
+                    {
+                        "code": "empty_upload",
+                        "message": f"Skipped empty browser upload: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            destination.write_bytes(file_bytes)
+            source_entries.append(
+                {
+                    "type": "file",
+                    "path": str(destination),
+                    "source_type": "browser_upload",
+                    "original_filename": filename,
+                    "relative_path": str(relative_path).replace("\\", "/"),
+                    "upload_id": staged_upload_id,
+                }
+            )
+
+        if not source_entries:
+            shutil.rmtree(staged_root, ignore_errors=True)
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "no_supported_sources",
+                    "message": "No supported intake sources remained after browser upload filtering.",
+                    "warnings": warnings,
+                },
+            )
+
+        try:
+            validated_entries = _validate_intake_source_entries(source_entries)
+        except IntakeSourceValidationError as error:
+            shutil.rmtree(staged_root, ignore_errors=True)
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": error.error,
+                    "message": error.message,
+                    **({"detail": error.detail} if error.detail else {}),
+                    "warnings": warnings,
+                },
+            )
+
+        upload_id, now_iso = _create_intake_queue_upload_record(
+            db_path=state.settings.db_path,
+            validated_entries=validated_entries,
+            cleanup_policy=cleanup_policy,
+        )
+
+        return {
+            "success": True,
+            "upload_id": upload_id,
+            "status": "queued",
+            "verification_status": "unverified",
+            "cleanup_policy": cleanup_policy,
+            "source_entry_count": len(validated_entries),
+            "browser_file_count": len([entry for entry in validated_entries if entry.get("source_type") == "browser_upload"]),
+            "warnings": warnings,
             "created_at": now_iso,
         }
 
@@ -6853,7 +7072,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         connection.row_factory = sqlite3.Row
         try:
             row = connection.execute(
-                "SELECT id, status FROM intake_queue_uploads WHERE upload_id = ?",
+                "SELECT id, status, source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
                 (upload_id,),
             ).fetchone()
             
@@ -6885,6 +7104,12 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             connection.commit()
         finally:
             connection.close()
+
+        source_entries = json.loads(str(row["source_entries_json"] or "[]"))
+        if not isinstance(source_entries, list):
+            source_entries = []
+        for stage_dir in _browser_upload_stage_directories(state.settings, source_entries):
+            shutil.rmtree(stage_dir, ignore_errors=True)
         
         return {
             "success": True,
@@ -7278,12 +7503,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             }
 
         roots = _source_filesystem_roots()
-        if not roots:
-            return False, {
-                "success": False,
-                "error": "cleanup_roots_not_configured",
-                "message": "Cleanup requires configured SOURCE_FILESYSTEM_ROOTS.",
-            }
+        managed_roots = roots + [_browser_intake_upload_storage_root(state.settings)]
+        browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
 
         transitioned, transition_error = _transition_queue_status(
             state.settings.db_path,
@@ -7317,9 +7538,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "path": str(resolved),
                 "policy": cleanup_policy,
             }
-            if not _is_path_within_roots(resolved, roots):
+            if not _is_path_within_roots(resolved, managed_roots):
                 result.update({"success": False, "reason": "path_not_allowed"})
-                failure_messages.append(f"{resolved}: outside allowlisted roots")
+                failure_messages.append(f"{resolved}: outside managed intake roots")
                 results.append(result)
                 continue
             if not resolved.exists() or not resolved.is_file():
@@ -7347,6 +7568,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             results.append(result)
 
         final_status = "cleanup_done" if not failure_messages else "cleanup_failed"
+        if final_status == "cleanup_done" and cleanup_policy == "delete_on_verified":
+            for stage_dir in browser_stage_dirs:
+                shutil.rmtree(stage_dir, ignore_errors=True)
         _transition_queue_status(
             state.settings.db_path,
             upload_id,

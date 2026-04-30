@@ -1,4 +1,7 @@
 from pathlib import Path
+import base64
+import json
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -298,6 +301,89 @@ def test_folder_selection_with_unreadable_file_returns_warning_instead_of_500(tm
         group_payload = group_response.json()
         assert group_payload["added_items"] == 1
         assert any(warning.get("code") == "source_unreadable" for warning in group_payload["warnings"])
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    server_file = source_root / "server_part.3mf"
+    server_file.write_bytes(b"server-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "server_selections": [
+                    {"type": "file", "path": str(server_file)}
+                ],
+                "browser_files": [
+                    {
+                        "filename": "fresh_part.3mf",
+                        "relative_path": "browser/fresh_part.3mf",
+                        "content_base64": base64.b64encode(b"browser-bytes").decode("ascii"),
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["success"] is True
+        assert upload_payload["source_entry_count"] == 2
+        assert upload_payload["browser_file_count"] == 1
+        assert upload_payload["warnings"] == []
+
+        validate_response = client.post(f"/api/intake/items/{upload_payload['upload_id']}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        assert validate_payload["validation"]["validation_state"] == "ready"
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_delete_browser_upload_removes_staged_directory(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "delete_me.3mf",
+                        "relative_path": "browser/delete_me.3mf",
+                        "content_base64": base64.b64encode(b"browser-bytes").decode("ascii"),
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_id = upload_response.json()["upload_id"]
+
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(row[0])
+        stage_upload_id = source_entries[0]["upload_id"]
+        stage_dir = main_module._browser_intake_upload_storage_root(client.app.state.model_catalog.settings) / stage_upload_id
+        assert stage_dir.exists() is True
+
+        delete_response = client.delete(f"/api/intake/uploads/{upload_id}")
+        assert delete_response.status_code == 200
+        assert stage_dir.exists() is False
     finally:
         client.__exit__(None, None, None)
 
