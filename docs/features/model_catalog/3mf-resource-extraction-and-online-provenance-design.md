@@ -321,20 +321,21 @@ Own online provenance capture:
 
 ## Issue Tracking Note
 
-The current GitHub issue track already uses `Phase 6` through `Phase 10` for a different late-phase delivery sequence. To avoid creating a second conflicting `Phase 6` umbrella, this design maps issue #173 follow-up work to:
+The GitHub phase track has now been renumbered to the post-Manyfold sequence.
 
-- `Phase 3.5` for parser and cache foundations
-- `Phase 5` for publish-time asset application
-- `Phase 7` for public-source provenance and online ingestion
+Under the active roadmap, this design fans out into two tracks:
 
-Historical docs that described this work as old draft "Phase 6" or "Phase 7" should be treated as legacy wording until the broader phase plan is renumbered in one deliberate pass.
+- **Phase 5** for publish-time preview promotion and supporting-asset application
+- **Phase 9** for parser/cache foundations and public-source provenance capture
+
+Older references in this document to legacy `Phase 3.5` or legacy draft `Phase 7` should be read through that current mapping.
 
 ## Recommended Follow-Up Issues
 
-- `Phase 3.5: Define 3MF analysis cache and resource inventory`
-- `Phase 3.5: Implement async 3MF parser pipeline and refresh modes`
+- `Phase 9: Define 3MF analysis cache and resource inventory`
+- `Phase 9: Implement async 3MF parser pipeline and refresh modes`
 - `Phase 5: Publish-time preview promotion and supporting-asset import`
-- `Phase 7: Public-source provenance capture for MakerWorld and other source URLs`
+- `Phase 9: Public-source provenance capture for MakerWorld and other source URLs`
 
 ## Open Questions
 

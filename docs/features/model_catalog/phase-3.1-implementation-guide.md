@@ -5,6 +5,8 @@
 **Priority**: HIGH  
 **Status**: Ready for Development
 
+**Post-Manyfold mapping**: legacy `Phase 3.1` now executes within current **Phase 4**.
+
 ---
 
 ## Overview

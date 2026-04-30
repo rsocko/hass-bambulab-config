@@ -1,15 +1,19 @@
 # Model Catalog Project - Complete Documentation Index
 
-**Project Status**: Phase 3.0 Deployed ✅ | Phase 3.1-3.3 Ready for Development 🚀
+**Documentation Status**: Legacy Phase 3 UI guide set retained for implementation history. In the current post-Manyfold sequence, legacy Phases 3.1-3.3 map to **Phase 4: UI Continuity and In-Flight Preservation**.
+
+**Use First**:
+- [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md) for the authoritative phase sequence
+- [phase-delivery-and-validation.md](phase-delivery-and-validation.md) for current execution order and validation gates
 
 ---
 
 ## 📚 Documentation Quick Links
 
 ### 🎯 Get Started Here (First Time?)
-1. **[Phase 3 Quick Reference](phase-3-quick-reference.md)** ← Start here (5 min read)
-2. **[Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md)** ← Executive summary
-3. **[Development Checklist](phase-3.1-3.3-development-checklist.md)** ← Execution plan
+1. **[Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026-04.md)** ← Authoritative phase map
+2. **[phase-delivery-and-validation.md](phase-delivery-and-validation.md)** ← Active execution tracker
+3. **[Phase 3.1-3.3 Roadmap](phase-3.1-3.3-roadmap.md)** ← Legacy Phase 4 UI continuity roadmap
 
 ### 📖 Implementation Guides (For Developers)
 - **[Phase 3.1: Edit Mode & Photo Management](phase-3.1-implementation-guide.md)** (30-35 hrs)
@@ -32,7 +36,7 @@
 
 ### 🎨 Design & Reference
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
-- **[Phase 6: Publish Uploaded Photos To Manyfold](phase-6-manyfold-photo-publication-design.md)** ← Later-phase design for promoting staged model photos into Manyfold media
+- **[Legacy Manyfold Photo Publication Design](phase-6-manyfold-photo-publication-design.md)** ← Optional post-pivot Manyfold adapter work, now aligned to Phase 9 rather than an active core-path phase
 - **[Phase 3.0 Implementation Guide](phase-3-implementation-guide.md)** ← Completed phase reference
 - **[Print History Features](../print_history/)** ← Related features
 - **[Bambuddy API Reference](../../../bambuddy/README.md)** ← Backend API

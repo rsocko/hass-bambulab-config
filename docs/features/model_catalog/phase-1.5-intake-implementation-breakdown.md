@@ -4,6 +4,14 @@
 > **Created**: 2026-04-25
 > **Scope**: Concrete delivery slices for Phase 1.5 intake, review, and Working-group creation.
 
+## Post-Manyfold Mapping Note
+
+This is a legacy phase-numbered design document.
+
+- Legacy `Phase 1.5` now maps to **Phase 5: Intake, Bulk Discovery, and Working/Curated Unification**.
+- References below to Manyfold as the curated authority reflect the pre-pivot baseline, not the current active operational model.
+- The intake/review/Working-group boundary definitions remain useful, but the authoritative destination model is now the sidecar-owned post-Manyfold path.
+
 ## Purpose
 
 Turn the Phase 1.5 design into an implementation-ready breakdown for:

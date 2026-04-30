@@ -1,8 +1,17 @@
 # Model Catalog Implementation Plan
 
-> **Status**: Revised implementation plan.
+> **Status**: Legacy pre-transition implementation plan retained for historical context.
 > **Last updated**: 2026-04-25
-> **Scope**: Single-user personal model catalog using Manyfold for curated cataloging, Bambuddy for archives, a same-stack sidecar for cross-system logic, and HA as the operator-facing control plane.
+> **Current roadmap**: Use [post-manyfold-transition-plan-2026-04.md](post-manyfold-transition-plan-2026-04.md) for authoritative phase sequencing and [phase-delivery-and-validation.md](phase-delivery-and-validation.md) for active execution tracking.
+> **Scope below**: Historical Manyfold-first baseline and legacy phase names.
+
+## Post-Manyfold Status Note
+
+This file is no longer the authoritative sequencing document.
+
+- The active model-catalog direction is sidecar-owned authority.
+- The phase numbers below are preserved as historical implementation context.
+- When this file references legacy phases such as `Phase 1.25`, `Phase 1.5`, `Phase 3.5`, or `Phase 10`, use the crosswalk in [post-manyfold-transition-plan-2026-04.md](post-manyfold-transition-plan-2026-04.md#legacy-to-new-phase-crosswalk) to map them into the current post-Manyfold sequence.
 
 ## Goal
 
@@ -42,12 +51,13 @@ Use this document as the baseline implementation plan. Use [phase-delivery-and-v
 
 ## Issue Tracking Note
 
-The current GitHub issue track for model-catalog already reserves `Phase 6` through `Phase 10` for a different late-phase delivery sequence. To avoid creating a second conflicting `Phase 6` or `Phase 7` issue series while the broader plan is still settling, the `.3mf` extraction and online provenance work from issue `#173` is tracked in this plan as:
+At the time this document was written, the GitHub phase track had not yet been renumbered to the post-Manyfold sequence. The `.3mf` extraction and online provenance work from issue `#173` was therefore described here under legacy sub-phases:
 
 - `Phase 3.5` for reusable parser, cache, and async analysis foundations
 - `Phase 5` for publish-time preview and supporting-asset application
 - `Phase 7` for public-source provenance capture and online metadata refresh
 
+Current issue titles have since been realigned. See [3mf-resource-extraction-and-online-provenance-design.md](3mf-resource-extraction-and-online-provenance-design.md) plus the post-Manyfold transition plan for the active mapping.
 See [3mf-resource-extraction-and-online-provenance-design.md](3mf-resource-extraction-and-online-provenance-design.md) for the detailed capability review and extraction contract.
 
 ## Phase Plan

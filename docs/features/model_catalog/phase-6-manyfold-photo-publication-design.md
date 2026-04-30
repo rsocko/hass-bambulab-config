@@ -1,6 +1,14 @@
-# Phase 6 Design: Publish Uploaded Model Photos To Manyfold
+# Legacy Design: Publish Uploaded Model Photos To Manyfold
 
-Status: proposed
+Status: retained as optional post-pivot adapter design
+
+## Post-Manyfold Status Note
+
+This document is no longer on the active core implementation path.
+
+- In the current post-Manyfold roadmap, Manyfold photo publication is optional future adapter work rather than a required curated-authority step.
+- The related follow-up issues now live under **Phase 9** advanced/optional integration work.
+- Treat the design below as a reference for an optional adapter, not as a dependency for the sidecar-owned catalog baseline.
 
 Owner surface:
 - Model Catalog sidecar

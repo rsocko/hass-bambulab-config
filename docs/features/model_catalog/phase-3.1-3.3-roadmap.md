@@ -4,6 +4,13 @@
 **Prepared**: 2026-04-25  
 **Based on**: Phase 3.0 MVP validated ✅
 
+## Post-Manyfold Mapping Note
+
+This roadmap keeps the legacy `Phase 3.1-3.3` file naming for continuity.
+
+- Legacy Phases `3.1-3.3` now map to **Phase 4: UI Continuity and In-Flight Preservation**.
+- The project-aware navigation portion that used to ride along with legacy `Phase 3.3` is now split from the narrower UI continuity slice and should be tracked against the current Phase 9 project-integration work when applicable.
+
 ---
 
 ## Overview

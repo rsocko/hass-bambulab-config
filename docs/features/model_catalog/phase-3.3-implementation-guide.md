@@ -5,14 +5,16 @@
 **Priority**: MEDIUM-LOW  
 **Status**: Ready for Development
 
+**Post-Manyfold mapping**: legacy `Phase 3.3` splits across current **Phase 4** UI continuity and current **Phase 6** search/navigation work. Project-aware navigation now belongs with the current Phase 9 project-integration track.
+
 ---
 
 ## Overview
 
-Phase 3.3 creates seamless navigation between models, archives (prints), and projects. Users can:
+Phase 3.3 creates seamless navigation between models and archives, with project-aware navigation deferred to the later project-integration track. Users can:
 - Click linked archives to view print details
 - Browse related models by similarity
-- Navigate from model → print → project and back
+- Navigate between model and print surfaces
 - View model print history timeline
 - Search unified across all concepts
 
