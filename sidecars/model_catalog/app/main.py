@@ -521,8 +521,42 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
     return str(relative_path).replace("\\", "/")
 
 
-def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _collect_intake_source_files_in_folder(
+    folder: Path,
+    *,
+    recurse: bool,
+    max_depth: int | None,
+    current_depth: int = 0,
+) -> list[Path]:
+    results: list[Path] = []
+    try:
+        for item in sorted(folder.iterdir()):
+            if item.name.startswith("."):
+                continue
+            try:
+                if item.is_file():
+                    if item.suffix.lower() in SUPPORTED_WORKING_FILE_EXTENSIONS:
+                        results.append(item)
+                elif item.is_dir() and recurse:
+                    if max_depth is None or current_depth < max_depth:
+                        results.extend(
+                            _collect_intake_source_files_in_folder(
+                                item,
+                                recurse=True,
+                                max_depth=max_depth,
+                                current_depth=current_depth + 1,
+                            )
+                        )
+            except (OSError, PermissionError):
+                pass
+    except (OSError, PermissionError):
+        pass
+    return results
+
+
+def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     expanded: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
 
     for entry in source_entries:
@@ -537,17 +571,45 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> li
         else:
             recurse = _coerce_bool(entry.get("recurse", True))
             max_depth = _coerce_int(entry.get("max_depth"))
-            candidate_paths = _collect_files_in_folder(source_path, recurse=recurse, max_depth=max_depth)
+            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse, max_depth=max_depth)
 
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
                 continue
+            if file_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+                warnings.append(
+                    {
+                        "code": "unsupported_type",
+                        "message": f"Unsupported extension: {file_path.suffix.lower() or '<none>'}",
+                        "path": normalized_path,
+                    }
+                )
+                continue
             if not file_path.exists() or not file_path.is_file():
-                raise FileNotFoundError(f"Source file not found: {file_path}")
+                warnings.append(
+                    {
+                        "code": "missing_source",
+                        "message": f"Source file not found: {file_path}",
+                        "path": normalized_path,
+                    }
+                )
+                continue
 
-            stat_result = file_path.stat()
-            source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+            try:
+                stat_result = file_path.stat()
+                source_metadata = _bulk_path_source_metadata(file_path, stat_result)
+                file_hash = _sha256_file(file_path).lower()
+            except (OSError, PermissionError) as exc:
+                warnings.append(
+                    {
+                        "code": "source_unreadable",
+                        "message": f"Could not read source file: {file_path} ({exc})",
+                        "path": normalized_path,
+                    }
+                )
+                continue
+
             expanded.append(
                 {
                     "path": normalized_path,
@@ -555,13 +617,13 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> li
                     "entry_type": entry_type,
                     "source_entry": entry,
                     "source_metadata": source_metadata,
-                    "file_hash": _sha256_file(file_path).lower(),
+                    "file_hash": file_hash,
                     "size_bytes": int(stat_result.st_size),
                 }
             )
             seen_paths.add(normalized_path)
 
-    return expanded
+    return expanded, warnings
 
 
 def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict[str, Any]) -> list[dict[str, Any]]:
@@ -6254,12 +6316,17 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         warnings: list[dict[str, Any]] = []
         validation_state = "ready"
 
-        try:
-            expanded_files = _expand_intake_source_entries(source_entries=[entry for entry in source_entries if isinstance(entry, dict)])
-        except FileNotFoundError as exc:
-            expanded_files = []
+        expanded_files, expansion_warnings = _expand_intake_source_entries(
+            source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+        )
+        warnings.extend(expansion_warnings)
+        warning_codes = {str(warning.get("code") or "").strip().lower() for warning in expansion_warnings if isinstance(warning, dict)}
+        if "missing_source" in warning_codes or "source_unreadable" in warning_codes:
             validation_state = "missing_source"
-            warnings.append({"code": "missing_source", "message": str(exc)})
+        elif "unsupported_type" in warning_codes and not expanded_files:
+            validation_state = "unsupported_type"
+        elif expansion_warnings:
+            validation_state = "source_warning"
 
         existing_hashes = _read_existing_working_hashes(state.settings.db_path)
         file_hashes: list[str] = []
@@ -6390,9 +6457,19 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
 
             source_entries = json.loads(str(row["source_entries_json"] or "[]"))
-            expanded_files = _expand_intake_source_entries(source_entries=[entry for entry in source_entries if isinstance(entry, dict)])
+            expanded_files, expansion_warnings = _expand_intake_source_entries(
+                source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+            )
             if not expanded_files:
-                return JSONResponse(status_code=400, content={"success": False, "error": "no_files", "message": "Intake item has no resolved files to group"})
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "no_files",
+                        "message": "Intake item has no resolved files to group",
+                        "warnings": expansion_warnings,
+                    },
+                )
 
             now_iso = _bulk_utc_now_iso()
             if action == "create_working_group":
@@ -6494,6 +6571,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "working_group_id": group_id,
                 "added_items": added_items,
                 "duplicate_items": duplicate_items,
+                "warnings": expansion_warnings,
             }
             response_payload = {
                 "success": True,
@@ -6502,6 +6580,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "working_group_id": group_id,
                 "added_items": added_items,
                 "duplicate_items": duplicate_items,
+                "warnings": expansion_warnings,
                 "group": serialized_group,
             }
         finally:
@@ -7586,6 +7665,15 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                             "message": f"selections[{idx}].path could not be read: {exc}",
                         },
                     )
+                if resolved.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "success": False,
+                            "error": "unsupported_type",
+                            "message": f"selections[{idx}].path has unsupported extension: {resolved.suffix.lower() or '<none>'}",
+                        },
+                    )
                 entry_meta = _bulk_path_source_metadata(resolved, stat_result)
                 validated_entries.append(
                     {
@@ -7624,7 +7712,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     )
                 folder_meta = _bulk_path_source_metadata(resolved, folder_stat)
                 # Expand to count contained files (for metadata); the queue entry stores the folder
-                contained_files = _collect_files_in_folder(
+                contained_files = _collect_intake_source_files_in_folder(
                     resolved, recurse=recurse, max_depth=max_depth
                 )
                 validated_entries.append(
@@ -7741,41 +7829,23 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 },
             )
 
-        expanded_files: list[dict[str, Any]]
-        try:
-            expanded_files = _expand_intake_source_entries(source_entries=source_entries)
-        except FileNotFoundError as exc:
+        expanded_files, expansion_warnings = _expand_intake_source_entries(source_entries=source_entries)
+        if not expanded_files:
             _transition_queue_status(
                 state.settings.db_path,
                 upload_id,
                 "failed",
                 event_type="local_publish_failed",
-                error_message=str(exc),
+                error_message="Upload did not resolve to any readable supported files.",
             )
             return JSONResponse(
                 status_code=400,
                 content={
                     "success": False,
-                    "error": "source_not_found",
-                    "message": str(exc),
+                    "error": "no_files_to_publish",
+                    "message": "Upload did not resolve to any readable supported files.",
                     "upload_id": upload_id,
-                },
-            )
-        except Exception as exc:
-            _transition_queue_status(
-                state.settings.db_path,
-                upload_id,
-                "failed",
-                event_type="local_publish_failed",
-                error_message=str(exc),
-            )
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "success": False,
-                    "error": "local_publish_failed",
-                    "message": str(exc),
-                    "upload_id": upload_id,
+                    "warnings": expansion_warnings,
                 },
             )
 
@@ -8079,6 +8149,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "imported_assets": imported_assets,
             "duplicate_skipped": duplicate_skipped,
             "failed_files": failed_files,
+            "warnings": expansion_warnings,
             "legacy_adapter": {
                 "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
                 "authoritative": False,

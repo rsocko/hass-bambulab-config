@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import app.main as main_module
 from app.main import create_app
 from app.settings import Settings
 
@@ -210,6 +211,93 @@ def test_intake_group_duplicate_hash_is_handled_without_500(tmp_path: Path) -> N
         assert payload["state"] == "grouped_new"
         assert payload["working_group_id"] > 0
         assert payload["duplicate_items"] >= 1
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_folder_selection_ignores_unsupported_files_during_validate_and_group(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "Model Working Files"
+    folder.mkdir()
+    (folder / "usable_part.3mf").write_bytes(b"3mf-bytes")
+    (folder / "notes.txt").write_text("ignore me", encoding="utf-8")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(folder), "recurse": True}]},
+        )
+        assert select_response.status_code == 200
+        assert select_response.json()["expanded_file_count"] == 1
+        item_id = select_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        assert validate_payload["validation"]["validation_state"] == "ready"
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group", "title": "Folder Intake Group"},
+        )
+        assert group_response.status_code == 200
+        group_payload = group_response.json()
+        assert group_payload["added_items"] == 1
+        assert group_payload["duplicate_items"] == 0
+        assert group_payload["warnings"] == []
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_folder_selection_with_unreadable_file_returns_warning_instead_of_500(tmp_path: Path, monkeypatch) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "Model Working Files"
+    folder.mkdir()
+    good_file = folder / "good_part.3mf"
+    bad_file = folder / "bad_part.3mf"
+    good_file.write_bytes(b"good-bytes")
+    bad_file.write_bytes(b"bad-bytes")
+
+    original_sha256_file = main_module._sha256_file
+
+    def flaky_sha256(path: Path) -> str:
+        if path.name == "bad_part.3mf":
+            raise OSError("simulated read failure")
+        return original_sha256_file(path)
+
+    monkeypatch.setattr(main_module, "_sha256_file", flaky_sha256)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(folder), "recurse": True}]},
+        )
+        assert select_response.status_code == 200
+        assert select_response.json()["expanded_file_count"] == 2
+        item_id = select_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        assert validate_payload["state"] == "validated_warning"
+        assert validate_payload["validation"]["validation_state"] == "missing_source"
+        assert any(
+            warning.get("code") == "source_unreadable"
+            for warning in validate_payload["validation"].get("warnings", [])
+        )
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group", "title": "Partial Folder Intake Group"},
+        )
+        assert group_response.status_code == 200
+        group_payload = group_response.json()
+        assert group_payload["added_items"] == 1
+        assert any(warning.get("code") == "source_unreadable" for warning in group_payload["warnings"])
     finally:
         client.__exit__(None, None, None)
 
