@@ -108,9 +108,13 @@ Compatibility aliases:
 - persists discovery metadata on each created `working_group`
 - returns created groups/items plus skipped duplicate and failed-file details
 
-### Intake Queue + Manyfold Upload
+### Intake Queue + Source Selection
 
-The routes below support remote-client-safe intake where files are queued first, then uploaded into Manyfold-managed storage.
+Post-Manyfold note:
+
+- The queue, source-selection, and cleanup-policy routes below remain valid and shipped.
+- The `upload-to-manyfold` route is retained as a legacy transition adapter, not the active authoritative path.
+- The active migration direction is sidecar-owned catalog authority as documented in `post-manyfold-transition-plan-2026-04.md`.
 
 Route family:
 
@@ -129,15 +133,15 @@ Current behavior:
 - sidecar-mounted server roots are browsed and selected through explicit allowlisted roots
 - source selection supports explicit files, folders, or mixed file+folder batches
 - folder source entries support traversal controls: `recurse` (bool) and optional `max_depth`
-- `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` resolves queued files, creates one Manyfold model per file, and attaches the file through the Manyfold API
-- upload verification prefers Manyfold-reported hashes and falls back to filename+size matching when hashes are unavailable
-- successful uploads persist queue `file_hashes_json`, `manyfold_file_ids_json`, `verification_status`, and advance queue status from `uploaded_unverified` to `verified`
-- when `cleanup_policy` is `delete_on_verified` or `replace_with_stub`, the upload flow immediately attempts source cleanup after verification and advances status to `cleanup_done` or `cleanup_failed`
+- `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` remains available only for legacy/transition workflows that still exercise the historical Manyfold adapter
+- legacy upload verification prefers Manyfold-reported hashes and falls back to filename+size matching when hashes are unavailable
+- legacy upload success persists queue `file_hashes_json`, `manyfold_file_ids_json`, `verification_status`, and advances queue status from `uploaded_unverified` to `verified`
+- when `cleanup_policy` is `delete_on_verified` or `replace_with_stub`, cleanup runs only after verified queue completion and advances status to `cleanup_done` or `cleanup_failed`
 - `POST /api/intake/uploads/{upload_id}/cleanup` retries cleanup for uploads already in `verified` or `cleanup_failed`
 - failed uploads persist partial queue metadata, write an error payload, and transition the queue record to `failed`
-- matching `working_items` rows persist a `manyfold_destination` object in `source_metadata_json` with Manyfold model ref, file ref, canonical URLs, upload id, and verification metadata
-- `replace_with_stub` overwrites the original file with a small audit marker containing the upload id and Manyfold refs when that metadata is available
-- optional source cleanup policies are applied only after verified upload
+- matching `working_items` rows persist provenance metadata in `source_metadata_json`; legacy Manyfold adapter runs also add a `manyfold_destination` object
+- `replace_with_stub` overwrites the original file with a small audit marker containing the upload id and any available verification destination metadata
+- optional source cleanup policies are applied only after verified processing
 
 Source entry shape:
 

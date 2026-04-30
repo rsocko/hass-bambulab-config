@@ -112,6 +112,12 @@ Use Bambuddy when:
 
 Use the bulk flow when onboarding large local libraries (for example `~/3D Printing`).
 
+Post-Manyfold note:
+
+- Bulk discover/import and the queue/source-selection primitives remain valid.
+- These flows currently stage and organize intake work; they are not the new canonical publish path by themselves.
+- The historical Manyfold upload adapter remains legacy-only and is no longer the authoritative destination in the active migration plan.
+
 ### Remote-Sidecar Source Modes
 
 When Home Assistant clients run on different machines than the sidecar host, use one of two source modes:
@@ -147,23 +153,24 @@ Folder sources should expose traversal controls:
 4. For folder scans, run `model_catalog_bulk_discover_working_groups` using your target folder.
 5. Review duplicate hash warnings before import commit.
 6. In the bulk review card, rename groups, mark noise as `skip`, and merge related folders where needed.
-7. Choose post-upload source action policy:
+7. Choose post-verification source action policy:
 	- `keep` (default)
 	- `delete_on_verified`
 	- `replace_with_stub`
 8. Run `model_catalog_bulk_import_working_groups` with reviewed proposals.
 9. Verify summary output: created groups/items, duplicate skips, failed files, and cleanup results.
 
-### Manyfold-Managed Storage Behavior
+### Current Intake Behavior
 
-- Imported files are uploaded to Manyfold through API-managed storage.
-- Sidecar queue storage is temporary and is not the final durable model store.
-- Working-item metadata should persist Manyfold model/file references as canonical storage location.
+- Bulk import creates or updates sidecar-owned `working_groups` / `working_items` staging records.
+- Browser upload queue and server browse/select remain valid ways to collect source files and provenance.
+- The legacy `upload-to-manyfold` adapter is retained only for transitional workflows and is not the active post-Manyfold target.
+- Future Phase 5 work rebinds reviewed intake outputs into sidecar-owned curated model authority.
 
 ### Optional Post-Upload Cleanup
 
 - Cleanup is optional and defaults to `keep`.
-- `delete_on_verified` and `replace_with_stub` run only after successful Manyfold upload and verification.
+- `delete_on_verified` and `replace_with_stub` run only after verified queue processing.
 - Verification should use hash comparison when available, with size/name fallback when necessary.
 - Destructive actions are limited to explicitly allowed mounted roots.
 - Cleanup results are recorded as auditable queue/import events.
@@ -172,8 +179,8 @@ Folder sources should expose traversal controls:
 
 - If discovery results look wrong, rerun discover with a different strategy before importing.
 - If import returns failed files (`missing_source`, `read_error`), fix path/permissions and rerun import with only failed proposals.
-- If upload succeeds but verification fails, do not cleanup source files; mark items for operator review.
-- If cleanup fails, keep Manyfold upload result and return `cleanup_failed` status for retry.
+- If a legacy upload adapter run succeeds but verification fails, do not cleanup source files; mark items for operator review.
+- If cleanup fails, keep the verified intake result and return `cleanup_failed` status for retry.
 - If import produced unwanted groups, remove those `working_groups` records before downstream curation/publish.
 - Hash dedupe prevents orphan duplicates by skipping files already present in `working_items`.
 

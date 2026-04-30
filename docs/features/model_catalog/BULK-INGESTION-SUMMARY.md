@@ -1,5 +1,13 @@
 # Model Catalog Review — Quick Summary
 
+## 2026-04-29 Post-Manyfold Note
+
+This document captures the original Phase 1.5 bulk-ingestion rationale.
+
+- References below to uploading into Manyfold reflect the pre-transition design baseline.
+- The active migration direction now keeps bulk discovery/import, queue persistence, and allowlisted source browsing as valid intake primitives while retiring Manyfold from the authoritative operational path.
+- See `post-manyfold-transition-plan-2026-04.md` for the current phase mapping and destination model.
+
 ## 2026-04-26 Design Revision Note
 
 The Phase 1.5 design has been revised to support remote-client workflows:
