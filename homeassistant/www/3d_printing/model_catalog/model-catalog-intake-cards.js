@@ -718,13 +718,13 @@
 
     _render() {
       if (!this.shadowRoot || !this._config) {
+        return;
+      }
+      var sourceMode = this._sourceMode();
       var browserFiles = this._enabledBrowserFiles(sourceMode);
       var serverSelections = this._serverPayloadSelections(sourceMode);
       var pendingSubmissionCount = browserFiles.length + serverSelections.length;
       var canSubmit = !this._loading && pendingSubmissionCount > 0;
-        return;
-      }
-      var sourceMode = this._sourceMode();
       var selectedList = this._selectedList();
       var recentItems = this._intakeItems.slice(0, 5);
       var resultHtml = this._result
