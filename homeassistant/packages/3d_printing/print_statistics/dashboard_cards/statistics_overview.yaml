@@ -61,7 +61,7 @@ cards:
   - type: horizontal-stack
     cards:
       - type: custom:button-card
-        entity: sensor.bambuddy_success_rate
+        entity: sensor.bambuddy_print_success_rate
         name: Success Rate
         icon: mdi:check-circle-outline
         show_state: true
