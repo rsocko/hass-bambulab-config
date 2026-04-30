@@ -1,0 +1,51 @@
+# Publish a queued intake upload into the sidecar-owned local curated catalog.
+# This is the authoritative post-Manyfold sink for reviewed intake uploads.
+model_catalog_publish_to_local:
+  url: >-
+    {{
+      (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      )
+    }}/api/intake/uploads/{{ upload_id }}/publish-to-local
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% if model_ref is defined and (model_ref | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, model_ref=(model_ref | string)) %}
+    {% endif %}
+    {% if local_model_id is defined and (local_model_id | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, local_model_id=(local_model_id | string)) %}
+    {% endif %}
+    {% if model_name is defined and (model_name | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, model_name=(model_name | string)) %}
+    {% endif %}
+    {% if description is defined and (description | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, description=(description | string)) %}
+    {% endif %}
+    {% if tags is defined %}
+      {% set ns.body = dict(ns.body, tags=(tags | default([], true))) %}
+    {% endif %}
+    {% if collection_names is defined %}
+      {% set ns.body = dict(ns.body, collection_names=(collection_names | default([], true))) %}
+    {% endif %}
+    {% if creator_name is defined and (creator_name | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, creator_name=(creator_name | string)) %}
+    {% endif %}
+    {% if created_by is defined and (created_by | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, created_by=(created_by | string)) %}
+    {% endif %}
+    {% if source_origin is defined and (source_origin | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, source_origin=(source_origin | string)) %}
+    {% endif %}
+    {% if source_origin_url is defined and (source_origin_url | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, source_origin_url=(source_origin_url | string)) %}
+    {% endif %}
+    {% if preview_source_path is defined and (preview_source_path | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, preview_source_path=(preview_source_path | string)) %}
+    {% endif %}
+    {{ ns.body | to_json }}
+  timeout: 60

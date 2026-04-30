@@ -1,0 +1,104 @@
+model_catalog_publish_queue_to_local:
+  alias: Publish Queue Upload To Local Catalog
+  description: Publish a reviewed intake upload into the sidecar-owned local curated catalog.
+  mode: single
+  timeout: "00:05:00"
+  fields:
+    upload_id:
+      name: Upload ID
+      description: Intake queue upload ID to publish.
+      required: true
+      example: "upload-001"
+    model_ref:
+      name: Existing Model Ref
+      description: Optional local model ref to append or merge into.
+      required: false
+      example: "gridfinity-bins"
+    local_model_id:
+      name: Local Model ID
+      description: Optional explicit local model ID for new model creation.
+      required: false
+      example: "gridfinity-bins"
+    model_name:
+      name: Model Name
+      description: Optional display name for a new or updated local model.
+      required: false
+      example: "Gridfinity Bins"
+    description:
+      name: Description
+      description: Optional model description.
+      required: false
+      example: "Imported from intake queue"
+    tags:
+      name: Tags
+      description: Optional tag list.
+      required: false
+      example:
+        - gridfinity
+        - storage
+    collection_names:
+      name: Collection Names
+      description: Optional collection names to persist on the local model.
+      required: false
+      example:
+        - Inbox
+    creator_name:
+      name: Creator Name
+      description: Optional creator name.
+      required: false
+      example: "Ryan"
+    created_by:
+      name: Created By
+      description: Optional actor marker for provenance.
+      required: false
+      example: "home_assistant"
+    source_origin:
+      name: Source Origin
+      description: Optional source-origin marker override.
+      required: false
+      example: "intake_queue"
+    source_origin_url:
+      name: Source Origin URL
+      description: Optional source-origin URL override.
+      required: false
+      example: "intake://uploads/upload-001"
+    preview_source_path:
+      name: Preview Source Path
+      description: Optional source file path that should become the preview asset.
+      required: false
+      example: "/assets/inbox/preview.png"
+  variables:
+    upload_id: "{{ upload_id }}"
+  sequence:
+    - alias: Publish intake upload to local authority
+      action: rest_command.model_catalog_publish_to_local
+      data:
+        upload_id: "{{ upload_id }}"
+        model_ref: "{{ model_ref | default('', true) }}"
+        local_model_id: "{{ local_model_id | default('', true) }}"
+        model_name: "{{ model_name | default('', true) }}"
+        description: "{{ description | default('', true) }}"
+        tags: "{{ tags | default([], true) }}"
+        collection_names: "{{ collection_names | default([], true) }}"
+        creator_name: "{{ creator_name | default('', true) }}"
+        created_by: "{{ created_by | default('', true) }}"
+        source_origin: "{{ source_origin | default('', true) }}"
+        source_origin_url: "{{ source_origin_url | default('', true) }}"
+        preview_source_path: "{{ preview_source_path | default('', true) }}"
+      response_variable: publish_response
+    - if:
+        - condition: template
+          value_template: "{{ publish_response is defined and publish_response.status == 200 }}"
+      then:
+        - event: model_catalog_publish_to_local_complete
+          event_data:
+            upload_id: "{{ upload_id }}"
+            status: "success"
+            response: "{{ publish_response.content | default({}, true) }}"
+            local_model_id: "{{ publish_response.content.local_model_id | default('', true) }}"
+      else:
+        - event: model_catalog_publish_to_local_complete
+          event_data:
+            upload_id: "{{ upload_id }}"
+            status: "failed"
+            response: "{{ publish_response.content | default({}, true) if publish_response is defined else {} }}"
