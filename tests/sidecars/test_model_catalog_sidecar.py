@@ -5204,6 +5204,101 @@ def test_intake_queue_post_upload_persists_source_timestamp_metadata(tmp_path: P
         connection.close()
 
 
+def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    model_file = tmp_path / "queue-model.3mf"
+    model_file.write_bytes(b"queue model bytes")
+    preview_file = tmp_path / "queue-preview.png"
+    preview_file.write_bytes(b"\x89PNG\r\n\x1a\nqueue preview")
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {"type": "file", "path": str(model_file)},
+                    {"type": "file", "path": str(preview_file)},
+                ]
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={
+                "model_name": "Queued Local Model",
+                "tags": ["queue", "local"],
+                "collection_names": ["Inbox"],
+                "preview_source_path": str(preview_file),
+            },
+        )
+
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload["contract"] == "intake-publish-local.v1alpha1"
+        assert payload["status"] == "verified"
+        assert payload["verification_status"] == "pass"
+        assert payload["created_model"] is True
+        assert payload["imported_asset_count"] == 2
+        assert payload["duplicate_skipped_count"] == 0
+        local_model_id = payload["local_model_id"]
+
+        detail = test_client.get(f"/api/models/{local_model_id}/detail")
+        assert detail.status_code == 200
+        detail_payload = detail.json()
+        assert detail_payload["authority"] == "local"
+        assert detail_payload["model"]["name"] == "Queued Local Model"
+        assert detail_payload["model"]["tags"] == ["queue", "local"]
+        assert detail_payload["model"]["collection_names"] == ["Inbox"]
+        assert len(detail_payload["model"]["files"]) == 2
+        preview_file_id = detail_payload["model"]["preview_file_id"]
+        assert preview_file_id is not None
+        preview_asset = next(file for file in detail_payload["model"]["files"] if file["id"] == preview_file_id)
+        assert preview_asset["asset_role"] == "preview"
+        assert preview_asset["is_preview"] is True
+        assert any(file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
+        assert detail_payload["model"]["source_origin"] == "intake_queue"
+        assert detail_payload["model"]["source_origin_url"] == f"intake://uploads/{upload_id}"
+        assert detail_payload["enrichment"]["structured_metadata"]["provenance"]["internal_notes"] == f"Imported from intake upload {upload_id}"
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        upload_row = connection.execute(
+            "SELECT status, verification_status, file_hashes_json FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        assert upload_row is not None
+        assert upload_row["status"] == "verified"
+        assert upload_row["verification_status"] == "pass"
+        assert len(json.loads(str(upload_row["file_hashes_json"]))) == 2
+
+        field_rows = connection.execute(
+            "SELECT field_key, field_value_json FROM model_catalog_custom_fields WHERE entity_type = ? AND entity_id = ?",
+            ("manyfold_model", local_model_id),
+        ).fetchall()
+        fields = {row["field_key"]: json.loads(str(row["field_value_json"])) for row in field_rows}
+        assert fields["intake_queue_upload_id"] == upload_id
+        assert len(fields["intake_source_entries"]) == 2
+        assert fields["internal_notes"] == f"Imported from intake upload {upload_id}"
+
+        asset_rows = connection.execute(
+            "SELECT storage_path FROM model_catalog_assets a JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id WHERE e.local_model_id = ? ORDER BY sort_order",
+            (local_model_id,),
+        ).fetchall()
+        assert len(asset_rows) == 2
+        for row in asset_rows:
+            stored_path = (settings.db_path.parent / str(row["storage_path"])).resolve()
+            assert stored_path.exists()
+    finally:
+        connection.close()
+
+
 def test_intake_queue_post_upload_validates_source_entries(tmp_path: Path) -> None:
     app = create_app(settings=_build_settings(tmp_path))
 

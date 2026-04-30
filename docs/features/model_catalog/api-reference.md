@@ -121,6 +121,7 @@ Route family:
 - `POST /api/intake/uploads`
 - `GET /api/intake/uploads`
 - `DELETE /api/intake/uploads/{upload_id}`
+- `POST /api/intake/uploads/{upload_id}/publish-to-local`
 - `POST /api/intake/uploads/{upload_id}/upload-to-manyfold`
 - `POST /api/intake/uploads/{upload_id}/cleanup`
 - `GET /api/source-filesystems`
@@ -133,9 +134,12 @@ Current behavior:
 - sidecar-mounted server roots are browsed and selected through explicit allowlisted roots
 - source selection supports explicit files, folders, or mixed file+folder batches
 - folder source entries support traversal controls: `recurse` (bool) and optional `max_depth`
+- `POST /api/intake/uploads/{upload_id}/publish-to-local` is the active authoritative sink for reviewed queue/source inputs and creates or updates sidecar-owned local curated models plus typed local assets
 - `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` remains available only for legacy/transition workflows that still exercise the historical Manyfold adapter
+- local publish persists queue provenance on the resulting local model through source-origin fields plus sidecar custom-field history (`intake_queue_upload_id`, `intake_source_entries`, `intake_publish_history`)
 - legacy upload verification prefers Manyfold-reported hashes and falls back to filename+size matching when hashes are unavailable
 - legacy upload success persists queue `file_hashes_json`, `manyfold_file_ids_json`, `verification_status`, and advances queue status from `uploaded_unverified` to `verified`
+- local publish success copies imported files into sidecar-owned asset storage, persists file hashes into `file_hashes_json`, and advances queue status through `uploading -> uploaded_unverified -> verified`
 - when `cleanup_policy` is `delete_on_verified` or `replace_with_stub`, cleanup runs only after verified queue completion and advances status to `cleanup_done` or `cleanup_failed`
 - `POST /api/intake/uploads/{upload_id}/cleanup` retries cleanup for uploads already in `verified` or `cleanup_failed`
 - failed uploads persist partial queue metadata, write an error payload, and transition the queue record to `failed`
