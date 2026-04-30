@@ -339,6 +339,14 @@ For a non-destructive smoke check against the deployed sidecar:
 
 This validates the live health/config/diagnostics/openapi endpoints plus the safe intake queue read and validation paths without creating or mutating Manyfold data.
 
+For issue #1160 local-authority API cutover validation (creates a temporary local model, validates browse/search/detail/update behavior, then hard-deletes it):
+
+```powershell
+& "c:\Users\rysock\AppData\Local\Python\pythoncore-3.14-64\python.exe" \
+	"c:\dev\hass-bambulab-config\tools\model_catalog\validate_live_issue1160_cutover.py" \
+	--base-url "http://model-catalog.socko.us"
+```
+
 ## API Docs Landing
 
 When the sidecar is running, these API docs endpoints are available:
