@@ -663,9 +663,6 @@
         if (!windowsPath && /^[a-zA-Z]:[\\/]/.test(sourcePath)) {
           windowsPath = sourcePath;
         }
-        var canLaunch = !!windowsPath;
-        var launchHref = canLaunch ? toFileUri(windowsPath) : '';
-        var explorerHref = canLaunch ? toFileUri(dirname(windowsPath)) : '';
         var memberships = Array.isArray(entry.group_memberships) ? entry.group_memberships : [];
         var selected = !!this._selectedPaths[canonicalPath];
         return ''
@@ -678,14 +675,6 @@
           + '    <label class="selector"><input type="checkbox" data-action="toggle-select-path" data-file-path="' + escapeHtml(canonicalPath) + '"' + (selected ? ' checked' : '') + '> Select</label>'
           + '  </div>'
           + '  <div class="meta"><span>Ext ' + escapeHtml(String(entry.file_extension || '').replace(/^\./, '') || 'file') + '</span><span>Size ' + escapeHtml(formatBytes(entry.file_size_bytes || 0)) + '</span><span>Groups ' + String(memberships.length) + '</span></div>'
-          + '  <div class="button-row">'
-          + (canLaunch
-            ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(launchHref) + '" target="_blank" rel="noopener noreferrer">Launch</a>'
-            : '    <button class="button" disabled>Launch</button>')
-          + (canLaunch
-            ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(explorerHref) + '" target="_blank" rel="noopener noreferrer">Explorer</a>'
-            : '    <button class="button" disabled>Explorer</button>')
-          + '  </div>'
           + '</article>';
       }, this).join('') + '</div>';
     }

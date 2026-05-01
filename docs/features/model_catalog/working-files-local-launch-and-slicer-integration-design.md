@@ -18,6 +18,11 @@ The design must respect the browser security boundary already observed in produc
 
 The current Working Files card can compute correct Windows host paths from `/assets/...`, but modern Chromium-based browsers block `http(s) -> file://` navigation.
 
+Temporary UI policy while this design is unresolved:
+
+- hide the current `Launch` and `Explorer` buttons from the Working Files UI rather than showing broken actions
+- do not restore local-launch affordances until either tokenized slicer launch or a companion-backed local-open path is implemented
+
 Observed result:
 
 - the UI can render valid `file:///C:/...` links
