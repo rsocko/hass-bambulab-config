@@ -1293,6 +1293,13 @@ class ModelDetailPopupCard extends HTMLElement {
             border-radius: 4px;
             font-size: 12px;
             cursor: pointer;
+            color-scheme: light dark;
+          }
+
+          .sort-select option,
+          .sort-select optgroup {
+            background: var(--card-background-color);
+            color: var(--primary-text-color);
           }
           
           .archive-grid {

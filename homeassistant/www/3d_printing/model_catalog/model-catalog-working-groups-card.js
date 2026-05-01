@@ -209,6 +209,8 @@
     + '.field{display:grid;gap:6px;min-width:0;}'
     + '.field label{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
     + '.input,.select,.textarea{width:100%;box-sizing:border-box;min-height:40px;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.16);color:var(--primary-text-color);}'
+    + '.select{color-scheme:light dark;}'
+    + '.select option,.select optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
     + '.textarea{min-height:96px;resize:vertical;}'
     + '.button-row{display:flex;gap:8px;flex-wrap:wrap;}'
     + '.button{min-height:38px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'

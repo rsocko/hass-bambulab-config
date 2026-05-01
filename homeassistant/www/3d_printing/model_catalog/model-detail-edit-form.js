@@ -73,6 +73,14 @@ class ModelDetailEditForm extends HTMLElement {
           background: var(--card-background-color);
           color: var(--primary-text-color);
         }
+        .form-group select {
+          color-scheme: light dark;
+        }
+        .form-group select option,
+        .form-group select optgroup {
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
+        }
         .form-group textarea {
           resize: vertical;
           min-height: 120px;

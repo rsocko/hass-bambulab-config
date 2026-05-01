@@ -677,6 +677,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.control{display:grid;gap:5px;min-width:0;}'
       + '.control label{font-size:11px;color:var(--secondary-text-color);font-weight:800;letter-spacing:.03em;text-transform:uppercase;}'
       + '.control-input{width:100%;box-sizing:border-box;min-height:40px;padding:9px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.26);background:rgba(15,23,42,0.18);color:var(--primary-text-color);}'
+      + 'select.control-input{color-scheme:light dark;}'
+      + '.control-input option,.control-input optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
       + '.filter-actions{display:flex;justify-content:flex-start;}'
       + '.results{display:grid;gap:12px;}'
       + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'

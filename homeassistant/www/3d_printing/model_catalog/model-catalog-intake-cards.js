@@ -242,6 +242,8 @@
     + '.field{display:grid;gap:6px;min-width:0;}'
     + '.field label{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--secondary-text-color);}'
     + '.input,.select{width:100%;box-sizing:border-box;min-height:40px;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.16);color:var(--primary-text-color);}'
+    + '.select{color-scheme:light dark;}'
+    + '.select option,.select optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
     + '.button{min-height:38px;padding:0 14px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
     + '.button.primary{background:rgba(30,64,175,0.22);border-color:rgba(96,165,250,0.4);}'
     + '.button.warn{background:rgba(180,83,9,0.22);border-color:rgba(245,158,11,0.4);}'

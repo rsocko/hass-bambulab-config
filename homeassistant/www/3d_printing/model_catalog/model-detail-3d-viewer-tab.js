@@ -273,6 +273,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
           border-radius: 4px;
           background: var(--card-background-color);
           color: var(--primary-text-color);
+          color-scheme: light dark;
+        }
+
+        .file-selector select option,
+        .file-selector select optgroup {
+          background: var(--card-background-color);
+          color: var(--primary-text-color);
         }
 
         .viewer-controls {
