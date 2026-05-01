@@ -47,6 +47,10 @@ services:
       # All local models store their files here: {root}/{local_model_id}/{files}
       # Includes model files, uploaded photos, and extracted assets
       MODEL_CATALOG_ASSETS_ROOT: ${MODEL_CATALOG_ASSETS_ROOT:-/assets/Model Catalog}
+
+      # Host bind source used for launch/explorer path mapping diagnostics.
+      # Required by Working Files actions that translate /assets paths to host paths.
+      ASSETS_ROOT_HOST: ${ASSETS_ROOT_HOST:-}
       
       # Local authority is the default for the standalone stack.
       # Keep standalone mode enabled so the sidecar can start without Manyfold.

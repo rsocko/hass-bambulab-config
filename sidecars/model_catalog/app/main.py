@@ -1858,6 +1858,87 @@ def _normalize_compare_key(path_value: Path) -> str:
     return str(path_value).replace("\\", "/").lower()
 
 
+def _windows_launch_enabled(settings: Settings) -> bool:
+    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip().replace("\\", "/").lower()
+    return "/mnt/c" in assets_root_host
+
+
+def _windows_root_from_assets_host(settings: Settings) -> str | None:
+    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip().replace("\\", "/")
+    if not assets_root_host:
+        return None
+    normalized = assets_root_host
+    marker_index = normalized.lower().find("/mnt/c")
+    if marker_index < 0:
+        return None
+    normalized = normalized[marker_index:]
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) < 2:
+        return None
+    drive_letter = str(parts[1] or "").strip().upper()
+    if drive_letter != "C":
+        return None
+    tail = parts[2:]
+    if not tail:
+        return "C:\\"
+    return "C:\\" + "\\".join(tail)
+
+
+def _container_assets_path_to_windows(path_value: str | None, settings: Settings) -> str | None:
+    if not _windows_launch_enabled(settings):
+        return None
+
+    windows_root = _windows_root_from_assets_host(settings)
+    if not windows_root:
+        return None
+
+    normalized = str(path_value or "").strip().replace("\\", "/")
+    if not normalized:
+        return None
+    if normalized != "/assets" and not normalized.startswith("/assets/"):
+        return None
+
+    relative = normalized[len("/assets"):].lstrip("/")
+    target = PureWindowsPath(windows_root)
+    if not relative:
+        return str(target)
+    for segment in [item for item in relative.split("/") if item]:
+        target = target / segment
+    return str(target)
+
+
+def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict[str, Any]:
+    container_path = str(path_value or "").strip()
+    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip()
+    launch_enabled = _windows_launch_enabled(settings)
+    windows_path = _container_assets_path_to_windows(container_path, settings)
+
+    reason: str | None = None
+    if not launch_enabled:
+        reason = "assets_root_host_not_mnt_c"
+    elif not windows_path:
+        reason = "path_outside_assets_mount"
+
+    return {
+        "container_path": container_path,
+        "assets_root_host": assets_root_host,
+        "windows_launch_enabled": launch_enabled,
+        "can_launch_file": bool(windows_path),
+        "can_open_in_explorer": bool(windows_path),
+        "windows_path": windows_path,
+        "reason": reason,
+    }
+
+
+def _preferred_working_files_roots(allowlisted_roots: list[Path]) -> list[Path]:
+    if not allowlisted_roots:
+        return []
+    preferred_root = Path("/assets/Model Working Files").resolve()
+    if _is_path_within_roots(preferred_root, allowlisted_roots):
+        return [preferred_root]
+    return allowlisted_roots
+
+
 def _normalize_file_name_hint(file_name: str) -> str:
     stem = Path(file_name).stem.strip().lower()
     if not stem:
@@ -2041,7 +2122,7 @@ def _refresh_working_file_inventory(*, db_path: Path, roots: list[Path], compute
     }
 
 
-def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
+def _serialize_working_group(connection: Any, group_row: Any, settings: Settings) -> dict[str, Any]:
     group_id = int(group_row["id"])
     group_keys = set(group_row.keys())
     project_id_value = group_row["project_id"] if "project_id" in group_keys else None
@@ -2069,6 +2150,10 @@ def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
         """,
         (group_id,),
     ).fetchall()
+    primary_file_path = str(group_row["primary_file_path"] or "").strip()
+    folder_hint = str(group_row["folder_hint"] or "").strip()
+    discovery_source_folder = str(group_row["discovery_source_folder"] or "").strip()
+    effective_folder_path = folder_hint or (str(Path(primary_file_path).parent) if primary_file_path else "") or discovery_source_folder
     return {
         "id": group_id,
         "slug": group_row["slug"],
@@ -2079,6 +2164,12 @@ def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
         "notes": group_row["notes"],
         "primary_file_path": group_row["primary_file_path"],
         "folder_hint": group_row["folder_hint"],
+        "launch": {
+            "assets_root_host": str(getattr(settings, "assets_root_host", "") or "").strip(),
+            "windows_launch_enabled": _windows_launch_enabled(settings),
+            "primary": _launch_context_for_path(primary_file_path, settings),
+            "folder": _launch_context_for_path(effective_folder_path, settings),
+        },
         "related_manyfold_model_id": group_row["related_manyfold_model_id"],
         "discovery": {
             "source_folder": group_row["discovery_source_folder"],
@@ -2093,6 +2184,7 @@ def _serialize_working_group(connection: Any, group_row: Any) -> dict[str, Any]:
                 "item_role": item_row["item_role"],
                 "file_hash": item_row["file_hash"],
                 "file_size": item_row["file_size"],
+                "launch": _launch_context_for_path(str(item_row["file_path"] or ""), settings),
                 "source_metadata": json.loads(str(item_row["source_metadata_json"] or "{}")),
                 "created_at": item_row["created_at"],
                 "updated_at": item_row["updated_at"],
@@ -2506,6 +2598,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "authority_mode": _normalized_authority_mode(state.settings),
             "source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
             "source_filesystem_root_count": len(state.settings.source_filesystem_roots),
+            "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip() or None,
+            "windows_launch_enabled": _windows_launch_enabled(state.settings),
             "db_tables": list(state.db_info.tables),
             "schema_version": state.db_info.schema_version,
             "manyfold_base_url": state.settings.manyfold_base_url,
@@ -2572,7 +2666,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 )
             roots = requested_roots
         else:
-            roots = allowlisted_roots
+            roots = _preferred_working_files_roots(allowlisted_roots)
 
         if not roots:
             return JSONResponse(
@@ -2748,6 +2842,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "detected_at": row["detected_at"],
                     "last_seen_at": row["last_seen_at"],
                     "root_path": row["root_path"],
+                    "launch": _launch_context_for_path(str(row["source_path_canonical"] or row["source_path_raw"] or ""), state.settings),
                 }
                 for row in rows
             ],
@@ -2806,7 +2901,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
             row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             connection.commit()
-            return {"success": True, "group": _serialize_working_group(connection, row)}
+            return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
         finally:
             connection.close()
 
@@ -2841,7 +2936,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 """,
                 [*params, limit_value, offset_value],
             ).fetchall()
-            groups = [_serialize_working_group(connection, row) for row in rows]
+            groups = [_serialize_working_group(connection, row, state.settings) for row in rows]
         finally:
             connection.close()
 
@@ -2864,7 +2959,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             if row is None:
                 return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-            return {"success": True, "group": _serialize_working_group(connection, row)}
+            return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
         finally:
             connection.close()
 
@@ -2923,7 +3018,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             )
             row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             connection.commit()
-            return {"success": True, "group": _serialize_working_group(connection, row)}
+            return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
         finally:
             connection.close()
 
@@ -3100,7 +3195,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 )
             connection.commit()
             refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            return {"success": True, "group": _serialize_working_group(connection, refreshed)}
+            return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
         finally:
             connection.close()
 
@@ -3131,7 +3226,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 )
             connection.commit()
             refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            return {"success": True, "group": _serialize_working_group(connection, refreshed)}
+            return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
         finally:
             connection.close()
 
@@ -3171,7 +3266,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 )
             connection.commit()
             refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            return {"success": True, "group": _serialize_working_group(connection, refreshed)}
+            return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
         finally:
             connection.close()
 
@@ -3224,7 +3319,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             connection.execute("DELETE FROM working_group_model_links WHERE id = ?", (link_id,))
             connection.commit()
             refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            return {"success": True, "group": _serialize_working_group(connection, refreshed)}
+            return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
         finally:
             connection.close()
 
@@ -3247,7 +3342,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 """,
                 (normalized_ref,),
             ).fetchall()
-            groups = [_serialize_working_group(connection, row) for row in group_rows]
+            groups = [_serialize_working_group(connection, row, state.settings) for row in group_rows]
             return {
                 "success": True,
                 "model_ref": normalized_ref,
@@ -6757,7 +6852,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             connection.commit()
             
             # Serialize before closing connection since _serialize_working_group queries related tables
-            serialized_group = _serialize_working_group(connection, group_row)
+            serialized_group = _serialize_working_group(connection, group_row, state.settings)
             
             event_payload = {
                 "upload_id": item_id,

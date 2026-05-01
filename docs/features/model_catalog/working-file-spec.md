@@ -1,9 +1,9 @@
 # Working File Inventory And Normalization Spec
 
 > Status: Wave 1 specification
-> Issue: #1074
-> Last updated: 2026-04-30
-> Scope: Canonical rules for working-file discovery, normalization, and duplicate identity in Phase 5 intake workflows.
+> Issues: #1074, #1169
+> Last updated: 2026-05-01
+> Scope: Canonical rules for working-file discovery, normalization, duplicate identity, and group-first Working Files behavior in Phase 5 workflows.
 
 ## Purpose
 
@@ -13,8 +13,20 @@ Define a single, implementation-ready contract for:
 - how source paths and names are normalized
 - how duplicate identity is computed
 - how conflicts are surfaced to operators before commit
+- how grouped and ungrouped Working Files views should behave
 
 This document is authoritative for Phase 5 backend and HA workflow implementations.
+
+## Phase Boundary (Issue #1169)
+
+Current approved focus:
+
+- start from indexing and organizing files in `/assets/Model Working Files`
+- provide group-first and ungrouped Working Files operations
+
+Deferred to a later phase:
+
+- full Intake/Inbox to Working Files handoff pipeline
 
 ## Inventory Scope
 
@@ -38,12 +50,18 @@ This document is authoritative for Phase 5 backend and HA workflow implementatio
 
 Working-file indexing and browse/select must be restricted to allowlisted roots configured for the sidecar.
 
+Default Working Files root target for this phase:
+
+- `/assets/Model Working Files`
+
 Required behavior:
 
 - all source paths are resolved to absolute canonical paths
 - all canonical paths must remain within an allowlisted root
 - path traversal attempts are rejected
 - rejected paths return explicit validation errors
+
+When no explicit root override is provided, implementations should prefer `/assets/Model Working Files` when that path is within `SOURCE_FILESYSTEM_ROOTS`.
 
 ## Path Normalization Rules
 
@@ -60,6 +78,29 @@ Recommended persisted fields:
 - `source_path_raw`: operator-provided input
 - `source_path_canonical`: absolute canonical path used for IO
 - `source_path_compare_key`: lowercase `/`-separated key used for equality checks
+
+## Host Path Mapping For Launch Actions
+
+For `Launch File` and `Show In Explorer`, container paths must be mapped to host-visible paths.
+
+Mapping inputs:
+
+- bind mount root from `ASSETS_ROOT_HOST`
+- container assets root (default `/assets`)
+- canonical indexed file path
+
+Required behavior:
+
+- map `/assets/<rest>` to `<ASSETS_ROOT_HOST>/<rest>`
+- keep mapping read-only for launch actions (no implicit move/write)
+- return both `container_path` and `host_path` in launch payloads
+- if `ASSETS_ROOT_HOST` does not include `/mnt/c`, disable launch and explorer actions for this phase
+
+WSL compatibility guidance:
+
+- when host mapping begins with `/mnt/c`, launcher integrations should support Windows `C:\...` resolution for Explorer-based actions
+- paths containing `/OneDrive` should be treated as user OneDrive-backed locations unless explicitly overridden
+- `Show In Explorer` should open the containing folder for the mapped file path
 
 ## Filename Normalization Rules
 
@@ -120,6 +161,17 @@ Group proposal metadata must include:
 - `source_paths`
 - `duplicate_warnings`
 
+## Group Membership Rules
+
+Working groups are logical overlays over indexed files.
+
+Required behavior:
+
+- files may belong to multiple groups
+- one optional primary-group marker may be used for default display intent
+- adding an already-grouped file should warn, not block
+- `Ungrouped` view means no current group memberships
+
 ## Validation States
 
 Working-file validation outcomes:
@@ -149,18 +201,23 @@ Minimum schema contract for working-file index rows:
 - `last_seen_at`
 - `validation_state`
 - `warnings_json`
+- `root_path`
 
-## Acceptance Checklist (Issue #1074)
+## Acceptance Checklist (Issues #1074, #1169)
 
 - supported file types and root-scope rules are documented
 - path and filename normalization rules are explicit and ordered
 - hash-first identity strategy is explicit
 - dedupe classes and operator handling are explicit
 - grouping strategy behavior is explicitly defined
+- root-first indexing for `/assets/Model Working Files` is explicit
+- multi-group membership semantics are explicit
+- grouped vs ungrouped behavior is explicit
 
 ## Related Docs
 
 - `docs/features/model_catalog/integration/spike-1059-working-file-indexing-validation.md`
+- `docs/features/model_catalog/working-files-workflow-redesign-issue-1169.md`
 - `docs/features/model_catalog/intake-inbox-design.md`
 - `docs/features/model_catalog/phase-1.5-intake-implementation-breakdown.md`
 - `docs/features/model_catalog/phase-delivery-and-validation.md`

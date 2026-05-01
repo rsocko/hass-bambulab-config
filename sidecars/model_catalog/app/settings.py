@@ -28,6 +28,7 @@ class Settings:
     source_filesystem_roots: tuple[Path, ...] = ()
     authority_mode: str = "hybrid"
     model_catalog_assets_root: Path | None = None
+    assets_root_host: str | None = None
 
 
 def load_settings() -> Settings:
@@ -64,6 +65,7 @@ def load_settings() -> Settings:
     model_catalog_assets_root: Path | None = None
     if assets_root_raw:
         model_catalog_assets_root = Path(assets_root_raw).expanduser().resolve()
+    assets_root_host = str(os.getenv("ASSETS_ROOT_HOST", "")).strip() or None
     return Settings(
         manyfold_base_url=base_url.rstrip("/"),
         manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
@@ -86,4 +88,5 @@ def load_settings() -> Settings:
         source_filesystem_roots=source_filesystem_roots,
         authority_mode=authority_mode,
         model_catalog_assets_root=model_catalog_assets_root,
+        assets_root_host=assets_root_host,
     )

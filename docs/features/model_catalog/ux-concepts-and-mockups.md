@@ -230,6 +230,51 @@ Important distinction:
 
 Working detail should surface provenance and publication metadata when already known, even if the primary editing affordance lives on the curated model later.
 
+## Surface 3A: Working Files Explorer (Issue #1169)
+
+Primary purpose:
+
+- give operators a file-first control point rooted at `/assets/Model Working Files`
+- support fast triage between grouped and ungrouped files
+- provide launch and explorer actions using host-path mapping
+
+Must support:
+
+- `Groups`, `All Files`, and `Ungrouped` views
+- `.3mf`-first ordering within group detail
+- multi-select `Create Group` and `Add To Group`
+- `Launch File` and `Show In Explorer`
+- explicit `Reorganize` flow into group folder
+
+### Low-Fi Visual
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Working Files Explorer                                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Root: /assets/Model Working Files      Last indexed: 2m ago   [Refresh]     │
+│ View: [Groups] [All Files] [Ungrouped]   Search: [_____________]             │
+│ Host Map: /mnt/c/OneDrive/... -> C:\Users\...\OneDrive\...                │
+│                                                                              │
+│ Groups                                   Files                               │
+│ ┌───────────────────────────────┐         ┌───────────────────────────────┐ │
+│ │ Gridfinity Holders (12)       │         │ .3mf                          │ │
+│ │ [Open] [Reorganize]           │         │ - holder_v3.3mf [Launch]      │ │
+│ ├───────────────────────────────┤         │   [Show in Explorer]          │ │
+│ │ Vacuum Adapters (8)           │         │ Other                          │ │
+│ │ [Open] [Reorganize]           │         │ - notes.md [Show in Explorer] │ │
+│ └───────────────────────────────┘         └───────────────────────────────┘ │
+│                                                                              │
+│ Selection: [Create Group] [Add To Group] [Remove From Group]                │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Behavior Notes
+
+- Explorer and launch actions should display both container and mapped host paths in debug details.
+- Mapping failures should show a recoverable error with copy-path fallback.
+- Membership is logical and may include multi-group assignment.
+
 ## Surface 4: Backlog / Queue
 
 Primary purpose:

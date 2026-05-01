@@ -53,6 +53,9 @@
     if (!normalized) {
       return "";
     }
+    if (/^[a-zA-Z]:\//.test(normalized)) {
+      return "file:///" + normalized;
+    }
     return "file:///" + normalized.replace(/^\//, "");
   }
 
@@ -938,6 +941,14 @@
       });
     }
 
+    _openContainingFolder(filePath) {
+      var folderPath = dirname(filePath);
+      if (!folderPath) {
+        return;
+      }
+      this._openLocalPath(folderPath);
+    }
+
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest("[data-action]") : null;
       if (!target) {
@@ -982,6 +993,10 @@
       }
       if (action === "open-primary") {
         this._openLocalPath(String(target.getAttribute("data-file-path") || ""));
+        return;
+      }
+      if (action === "open-item-explorer") {
+        this._openContainingFolder(String(target.getAttribute("data-file-path") || ""));
         return;
       }
       if (action === "open-folder") {
@@ -1031,10 +1046,21 @@
       } else if (!this._group) {
         bodyHtml = '<div class="state-row">Working group detail is not available.</div>';
       } else {
+        var launchMeta = this._group.launch || {};
+        var windowsLaunchEnabled = !!launchMeta.windows_launch_enabled;
+        var primaryLaunch = launchMeta.primary || {};
+        var folderLaunch = launchMeta.folder || {};
         var primaryFile = this._group.primary_file_path || ((this._group.items || []).length ? this._group.items[0].file_path : "");
         var folderPath = dirname(primaryFile) || this._group.folder_hint || (this._group.discovery && this._group.discovery.source_folder) || "";
+        var primaryWindowsPath = String(primaryLaunch.windows_path || "");
+        var folderWindowsPath = String(folderLaunch.windows_path || "");
+        var disabledHint = windowsLaunchEnabled ? "" : "Launch and Explorer actions are disabled because ASSETS_ROOT_HOST is not mapped under /mnt/c.";
         var itemsHtml = (this._group.items || []).length
           ? '<div class="list">' + (this._group.items || []).map(function (item) {
+              var itemLaunch = item && item.launch ? item.launch : {};
+              var itemWindowsPath = String(itemLaunch.windows_path || "");
+              var canLaunch = !!(itemLaunch && itemLaunch.can_launch_file && itemWindowsPath);
+              var canExplorer = !!(itemLaunch && itemLaunch.can_open_in_explorer && itemWindowsPath);
               return ''
                 + '<article class="list-row">'
                 + '  <div class="list-row-top">'
@@ -1045,7 +1071,8 @@
                 + '    <span class="chip">' + escapeHtml(item.item_role || "supporting") + '</span>'
                 + '  </div>'
                 + '  <div class="button-row">'
-                + '    <button class="button" data-action="open-primary" data-file-path="' + escapeHtml(item.file_path || "") + '">Open File</button>'
+                + '    <button class="button" data-action="open-primary" data-file-path="' + escapeHtml(itemWindowsPath) + '"' + (canLaunch ? '' : ' disabled') + '>Launch File</button>'
+                + '    <button class="button" data-action="open-item-explorer" data-file-path="' + escapeHtml(itemWindowsPath) + '"' + (canExplorer ? '' : ' disabled') + '>Open In Explorer</button>'
                 + '    <button class="button danger" data-action="remove-item" data-item-id="' + String(item.id) + '">Remove</button>'
                 + '  </div>'
                 + '</article>';
@@ -1080,12 +1107,13 @@
           + '    </div>'
           + '    <div class="button-row">'
           + '      <button class="button" data-action="refresh-detail">Refresh</button>'
-          + (folderPath ? '<button class="button" data-action="open-folder" data-file-path="' + escapeHtml(folderPath) + '">Open Folder</button>' : '')
-          + (primaryFile ? '<button class="button" data-action="open-primary" data-file-path="' + escapeHtml(primaryFile) + '">Open Primary</button>' : '')
+          + (folderPath ? '<button class="button" data-action="open-folder" data-file-path="' + escapeHtml(folderWindowsPath) + '"' + (folderWindowsPath ? '' : ' disabled') + '>Open Folder</button>' : '')
+          + (primaryFile ? '<button class="button" data-action="open-primary" data-file-path="' + escapeHtml(primaryWindowsPath) + '"' + (primaryWindowsPath ? '' : ' disabled') + '>Launch Primary</button>' : '')
           + '    </div>'
           + '  </div>'
           + '  ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
           + '  ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
+          + '  ' + (disabledHint ? '<div class="status">' + escapeHtml(disabledHint) + '</div>' : '')
           + '</section>'
           + '<div class="two-column">'
           + '  <section class="section">'

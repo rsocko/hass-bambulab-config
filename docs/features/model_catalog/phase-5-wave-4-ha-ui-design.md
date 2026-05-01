@@ -206,6 +206,9 @@ This is the cleanest balance between native HA navigation, mobile stability, and
 - **#1077**: browse working groups, inspect files, manage curated-model links
 - **#1082**: batch selection and curation workflow actions with feedback and progress
 - **#1145**: source mode, queue visibility, folder-selection controls, cleanup policy, result summaries
+- **#1169**: rework Working Files around `/assets/Model Working Files`, group-first navigation, and Explorer/launch actions
+
+Working Files redesign details for #1169 are tracked in [working-files-workflow-redesign-issue-1169.md](working-files-workflow-redesign-issue-1169.md).
 
 ### Near-Term End-State Drivers
 

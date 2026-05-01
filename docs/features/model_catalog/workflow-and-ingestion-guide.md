@@ -21,15 +21,15 @@ The approved design no longer treats “promote/demote” as a native Manyfold c
 ## Folder Roles
 
 ```
-/3d_prints/
-  Downloads/          ← Raw downloads. Out of scope for the catalog baseline.
-  Working/            ← Active edits. Not scanned by Manyfold by default.
-  Library/            ← Optional curated filesystem library when using scanned external storage.
+/assets/
+  Model Intake/       ← Optional staging/inbox source area (later-phase handoff).
+  Model Working Files/← Active edits and grouped working inventory.
+  Model Catalog/      ← Stable local catalog records.
 ```
 
 ### Working
 
-`Working/` stays outside Manyfold by default.
+`/assets/Model Working Files` stays outside Manyfold by default.
 
 Use it for:
 
@@ -39,6 +39,11 @@ Use it for:
 - grouped work that may not yet have stable filenames or folder layout
 
 The sidecar provides the Working veneer and `working_group` model on top of this area.
+
+Issue #1169 sequencing for this phase:
+
+- first, index and organize files directly in `/assets/Model Working Files`
+- later, connect Intake/Inbox handoff into this Working Files flow
 
 ### Intake Inbox
 
