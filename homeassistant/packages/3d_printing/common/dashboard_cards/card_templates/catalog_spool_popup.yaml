@@ -1,4 +1,4 @@
-# catalog_spool_popup.yaml
+﻿# catalog_spool_popup.yaml
 # Lightweight popup trigger for the Filament Catalog.
 # This template is inherited by catalog_spool_card and evaluated on every
 # card render. To keep the main grid fast, only the entity_id and minimal
@@ -6,6 +6,7 @@
 # catalog_spool_popup_content (rendered only when the popup opens).
 #
 # Inherited by: catalog_spool_card
+
 catalog_spool_popup:
   tap_action: |
     [[[
@@ -77,25 +78,10 @@ catalog_spool_popup:
       }
       const desIcon = desStatus === 'empty' ? 'mdi:water-off' : 'mdi:water';
       const lastDried = entity?.attributes?.extra_last_dried || '';
-      const dryYellow = 45;
-      const dryOrange = 60;
-      const dryRed = 90;
-      let driedStatus = isSealed ? 'green' : 'empty';
-      let driedDays = null;
       let lastDriedText = 'Never';
-      if (lastDried) {
-        const driedDate = new Date(lastDried);
-        driedDays = Math.floor((Date.now() - driedDate) / 86400000);
-        lastDriedText = driedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        if (isSealed) driedStatus = 'green';
-        else if (driedDays < dryYellow) driedStatus = 'green';
-        else if (driedDays < dryOrange) driedStatus = 'yellow';
-        else if (driedDays < dryRed) driedStatus = 'orange';
-        else driedStatus = 'red';
-      }
+      if (lastDried) { lastDriedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
 
       // --- Action button style ---
-                },
       const btnS = {
         grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
         card: [{ background: 'var(--primary-color)' }, { 'box-shadow': 'none' }, { 'border-radius': '6px' }, { padding: '6px' }],
@@ -120,6 +106,9 @@ catalog_spool_popup:
       const filamentId = entity?.attributes?.filament_id;
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const ft = (filamentId != null && filamentTotals) ? filamentTotals[String(filamentId)] : null;
+      const otherSpools = (ft && ft.spools)
+        ? ft.spools.filter(function(s) { return s.entity_id !== eid; })
+        : [];
       const totalWeightText = ft
         ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
         : 'N/A';
@@ -136,6 +125,51 @@ catalog_spool_popup:
         .filter(function(entry) { return entry[0].startsWith('extra_'); })
         .reduce(function(acc, entry) {
           acc[entry[0].replace('extra_', '')] = entry[1];
+          return acc;
+        }, {});
+      const spoolMirroredFilamentExtra = Object.entries(entity?.attributes || {})
+        .filter(function(entry) { return entry[0].startsWith('filament_extra_'); })
+        .reduce(function(acc, entry) {
+          acc[entry[0].replace('filament_extra_', '')] = entry[1];
+          return acc;
+        }, {});
+      const mergedFilamentExtra = {
+        ...filamentEntityExtra,
+        ...spoolMirroredFilamentExtra
+      };
+      const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
+      const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
+      const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
+      const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
+      const normalizeInventoryRule = function(value) {
+        const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+        const normalized = raw.toLowerCase();
+        const aliases = {
+          'keep in stock': 'Keep In Stock',
+          'maintain backup spool': 'Maintain Backup Spool',
+          'max inventory': 'Max Inventory',
+          'as needed': 'As Needed',
+          'do not stock': 'Do Not Stock'
+        };
+        const resolved = aliases[normalized] || '';
+        return inventoryRuleOptions.includes(resolved) ? resolved : 'As Needed';
+      };
+      const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
+
+      const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
+      const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
+      const weightEditorDeltaMetersEntity = 'input_number.spoolman_weight_editor_delta_meters';
+      const weightEditorAbsoluteGramsEntity = 'input_number.spoolman_weight_editor_absolute_grams';
+      const weightEditorSpoolIdEntity = 'input_text.spoolman_weight_editor_spool_id';
+      const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
+        ? Number(remainingWeight)
+        : null;
+      const buildQtyToOrderAction = function(nextQty) {
+        const normalizedQty = Math.max(0, Number.parseInt(nextQty, 10) || 0);
+        if (!Number.isFinite(filamentIdInt)) {
+          return { action: 'none' };
+        }
+        const nextFilamentExtra = {
           ...mergedFilamentExtra,
           purchase_qty: String(normalizedQty)
         };
@@ -144,6 +178,43 @@ catalog_spool_popup:
           browser_mod: {
             service: 'browser_mod.sequence',
             data: {
+              sequence: [
+                {
+                  service: 'rest_command.spoolman_patch_filament_extra',
+                  data: {
+                    filament_id: filamentIdInt,
+                    extra: nextFilamentExtra
+                  }
+                },
+                {
+                  service: 'homeassistant.update_entity',
+                  data: { entity_id: eid }
+                },
+                {
+                  service: 'homeassistant.update_entity',
+                  data: { entity_id: filamentEntityId }
+                }
+              ]
+            }
+          }
+        };
+      };
+      const increaseQtyToOrderAction = buildQtyToOrderAction(qtyToOrder + 1);
+      const decreaseQtyToOrderAction = qtyToOrder > 0 ? buildQtyToOrderAction(qtyToOrder - 1) : { action: 'none' };
+      const openWeightEditorAction = {
+        action: 'fire-dom-event',
+        browser_mod: {
+          service: 'browser_mod.sequence',
+          data: {
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: weightEditorSpoolIdEntity,
+                  value: String(spoolIdInt)
+                }
+              },
+              {
                 service: 'input_select.select_option',
                 data: {
                   entity_id: weightEditorModeEntity,
@@ -196,6 +267,80 @@ catalog_spool_popup:
                       {
                         type: 'entities',
                         show_header_toggle: false,
+                        entities: [
+                          {
+                            entity: weightEditorModeEntity,
+                            name: 'Adjustment Mode'
+                          }
+                        ]
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Adjust by Weight (g)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorDeltaGramsEntity,
+                              name: 'Weight Delta (+ reduce / - increase)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Adjust by Length (mm)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorDeltaMetersEntity,
+                              name: 'Length Delta (+ consume / - add back)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'conditional',
+                        conditions: [
+                          {
+                            entity: weightEditorModeEntity,
+                            state: 'Set New Weight (g)'
+                          }
+                        ],
+                        card: {
+                          type: 'entities',
+                          show_header_toggle: false,
+                          entities: [
+                            {
+                              entity: weightEditorAbsoluteGramsEntity,
+                              name: 'New Remaining Weight (g)'
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        type: 'custom:config-template-card',
+                        entities: [
+                          weightEditorModeEntity,
+                          weightEditorDeltaGramsEntity,
+                          weightEditorDeltaMetersEntity,
+                          weightEditorAbsoluteGramsEntity,
+                          eid
+                        ],
+                        card: {
                           type: 'custom:mushroom-template-card',
                           primary: "${(() => { const mode = states['input_select.spoolman_weight_editor_mode']?.state || 'Adjust by Weight (g)'; const spoolEntity = states['" + eid + "']; const current = parseFloat(spoolEntity?.attributes?.remaining_weight); const dg = parseFloat(states['input_number.spoolman_weight_editor_delta_grams']?.state) || 0; const dm = parseFloat(states['input_number.spoolman_weight_editor_delta_meters']?.state) || 0; const aw = parseFloat(states['input_number.spoolman_weight_editor_absolute_grams']?.state) || 0; if (mode === 'Set New Weight (g)') return 'Preview: ' + aw.toFixed(1) + ' g'; if (mode === 'Adjust by Length (mm)') { const rl = parseFloat(spoolEntity?.attributes?.remaining_length); return Number.isFinite(rl) ? 'Preview: ' + Math.round(rl - dm).toLocaleString() + ' mm' : 'Length delta: ' + Math.round(dm).toLocaleString() + ' mm'; } if (Number.isFinite(current)) return 'Preview: ' + (current - dg).toFixed(1) + ' g'; return 'Weight delta: ' + dg.toFixed(1) + ' g'; })()}",
                           icon: 'mdi:calculator-variant',
@@ -211,12 +356,171 @@ catalog_spool_popup:
                             type: 'custom:button-card',
                             name: 'Save to Spoolman',
                             icon: 'mdi:content-save-outline',
+                            tap_action: {
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.sequence',
+                                data: {
+                                  sequence: [
+                                    {
+                                      service: 'script.apply_spoolman_spool_usage_adjustment'
+                                    },
+                                    {
+                                      service: 'homeassistant.update_entity',
+                                      data: { entity_id: eid }
+                                    },
+                                    { service: 'browser_mod.delay', data: { time: 900 } },
+                                    { service: 'browser_mod.close_popup' }
+                                  ]
+                                }
+                              }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--primary-color)' },
+                                { 'box-shadow': 'none' },
+                                { 'border-radius': '6px' },
+                                { padding: '6px' }
+                              ],
+                              name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                              icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                            }
+                          },
+                          {
                             type: 'custom:button-card',
                             name: 'Cancel',
                             icon: 'mdi:close',
+                            tap_action: {
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.close_popup'
+                              }
+                            },
+                            styles: {
+                              grid: [
+                                { 'grid-template-areas': '"i" "n"' },
+                                { 'grid-template-rows': 'min-content min-content' },
+                                { 'justify-items': 'center' },
+                                { 'align-items': 'center' }
+                              ],
+                              card: [
+                                { background: 'var(--secondary-background-color)' },
+                                { 'box-shadow': 'none' },
+                                { 'border-radius': '6px' },
+                                { padding: '6px' }
+                              ],
+                              name: [{ color: 'var(--primary-text-color)' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
+                              icon: [{ color: 'var(--primary-text-color)' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      };
+
+      let otherSpoolsMd = '';
+      if (otherSpools.length > 0) {
+        otherSpoolsMd = '<details>\n<summary><strong>\uD83D\uDCE6 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\n\n';
+        otherSpools.forEach(function(s) {
+          const rem = (s.remaining != null) ? s.remaining.toFixed(1) + ' g' : 'N/A';
+          otherSpoolsMd += '\u2022 **' + (s.name || 'Spool') + '** (Spool #' + s.id + ')  \n';
+          otherSpoolsMd += '  \uD83D\uDCCD ' + (s.location || 'N/A') + ' \u2014 ' + rem + '\n\n';
+        });
+        otherSpoolsMd += '</details>';
+      }
+
+      return {
+        action: 'fire-dom-event',
+        browser_mod: {
           service: 'browser_mod.sequence',
           data: {
+            sequence: [
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: filamentEditorFilamentIdEntity,
+                  value: Number.isFinite(filamentIdInt) ? String(filamentIdInt) : ''
+                }
+              },
+              {
+                service: 'input_text.set_value',
+                data: {
+                  entity_id: filamentEditorSpoolEntityIdEntity,
+                  value: eid || ''
+                }
+              },
+              {
+                service: 'input_select.select_option',
+                data: {
+                  entity_id: inventoryRuleHelperEntity,
+                  option: currentInventoryRule
+                }
+              },
+              {
+                service: 'browser_mod.popup',
+                data: {
+            title: spoolName,
+            size: 'normal',
+            card_mod: {
+              style: {
+                'ha-dialog$': '.body.ha-scrollbar { overflow-y: auto !important; scrollbar-gutter: stable both-edges !important; padding-right: 2px !important; box-sizing: border-box !important; } .content-wrapper { scrollbar-gutter: stable both-edges !important; }'
+              }
+            },
+            content: {
+              type: 'vertical-stack',
+              cards: [
+                // --- All display content (heavy JS only runs when popup opens) ---
+                {
                   type: 'custom:button-card',
+                  entity: eid,
+                  template: 'catalog_spool_popup_content',
+                  tap_action: { action: 'none' },
+                  triggers_update: eid
+                },
+                {
+                  type: 'grid',
+                  columns: 2,
+                  square: false,
+                  card_mod: {
+                    style: '#root { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) !important; align-items: stretch !important; }'
+                  },
+                  cards: [
+                    {
+                      type: 'vertical-stack',
+                      cards: [
+                        {
+                          type: 'horizontal-stack',
+                          cards: [
+                            {
+                              type: 'custom:mushroom-template-card',
+                              primary: weightText,
+                              secondary: 'Remaining',
+                              icon: 'mdi:weight-gram',
+                              icon_color: 'teal',
+                              tap_action: openWeightEditorAction,
+                              layout: 'vertical',
+                              fill_container: true
+                            },
+                            {
+                              type: 'custom:mushroom-template-card',
+                              primary: costPerGText,
+                              secondary: 'Cost per g',
+                              icon: 'mdi:currency-usd',
+                              icon_color: 'green',
+                              layout: 'vertical',
+                              fill_container: true
                             },
                             {
                               type: 'custom:mushroom-template-card',
@@ -247,8 +551,8 @@ catalog_spool_popup:
                                 show_name: true,
                                 show_state: true,
                                 show_background: true,
-                                state_background: currentInventoryRule !== 'Not Defined',
-                                state_color: currentInventoryRule !== 'Not Defined',
+                                state_background: currentInventoryRule !== 'As Needed',
+                                state_color: currentInventoryRule !== 'As Needed',
                                 fill_width: true
                               }
                             ]
@@ -286,6 +590,43 @@ catalog_spool_popup:
                                   { 'justify-items': 'center' },
                                   { 'align-items': 'center' }
                                 ],
+                                img_cell: [
+                                  { 'justify-content': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
+                                card: [
+                                  { background: qtyToOrder > 0 ? 'var(--primary-color)' : 'var(--secondary-background-color)' },
+                                  { 'box-shadow': 'none' },
+                                  { 'border-radius': '999px' },
+                                  { width: '44px' },
+                                  { height: '30px' },
+                                  { padding: '0' },
+                                  { opacity: qtyToOrder > 0 ? '1' : '0.6' },
+                                  { cursor: qtyToOrder > 0 ? 'pointer' : 'default' },
+                                  { transition: 'filter 0.2s ease' }
+                                ],
+                                icon: [
+                                  { color: qtyToOrder > 0 ? 'white' : 'var(--primary-text-color)' },
+                                  { width: '17px' },
+                                  { height: '17px' }
+                                ]
+                              }
+                            },
+                            {
+                              type: 'custom:button-card',
+                              icon: 'mdi:plus',
+                              show_name: false,
+                              tap_action: increaseQtyToOrderAction,
+                              styles: {
+                                grid: [
+                                  { 'grid-template-areas': '"i"' },
+                                  { 'justify-items': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
+                                img_cell: [
+                                  { 'justify-content': 'center' },
+                                  { 'align-items': 'center' }
+                                ],
                                 card: [
                                   { background: 'var(--primary-color)' },
                                   { 'box-shadow': 'none' },
@@ -309,6 +650,11 @@ catalog_spool_popup:
                     }
                   ]
                 },
+                // --- Other spools (markdown, same pattern as AMS popup) ---
+                ...(otherSpools.length > 0 ? [{
+                  type: 'markdown',
+                  content: otherSpoolsMd
+                }] : []),
                 // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
                   type: 'horizontal-stack',
@@ -325,22 +671,13 @@ catalog_spool_popup:
                           show_name: false,
                           show_background: true,
                           tap_action: {
-                              action: 'fire-dom-event',
-                              browser_mod: {
-                                service: 'browser_mod.sequence',
-                                data: {
-                                  sequence: [
-                                    { service: 'script.mark_spool_as_dried_in_spoolman', data: { spool_id: String(spoolIdInt) } },
-                                    { service: 'homeassistant.update_entity', data: { entity_id: eid } },
-                                    { service: 'browser_mod.delay', data: { time: 1000 } },
-                                    { service: 'browser_mod.close_popup' }
-                                  ]
-                                }
-                              }
+                            action: 'call-service',
+                            service: 'spoolman.patch_spool',
+                            service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[driedStatus] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
+                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -433,7 +770,7 @@ catalog_spool_popup:
                             { service: 'browser_mod.close_popup' },
                             { service: 'browser_mod.delay', data: { time: 500 } },
                             { service: 'browser_mod.popup', data: {
-                              title: '=��� Unseal & Use',
+                              title: '≡ƒôª Unseal & Use',
                               size: 'normal',
                               content: {
                                 type: 'custom:button-card',
@@ -465,7 +802,7 @@ catalog_spool_popup:
                             { service: 'browser_mod.close_popup' },
                             { service: 'browser_mod.delay', data: { time: 500 } },
                             { service: 'browser_mod.popup', data: {
-                              title: 'G�+ Replace Spool',
+                              title: 'ΓÖ╗ Replace Spool',
                               size: 'normal',
                               content: {
                                 type: 'custom:button-card',
