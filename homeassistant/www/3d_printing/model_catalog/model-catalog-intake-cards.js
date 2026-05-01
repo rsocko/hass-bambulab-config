@@ -404,6 +404,7 @@
           path: normalizedPath,
           recurse: true,
           max_depth: "",
+          grouping_strategy: "none",
         };
       }
       this._selected = nextSelected;
@@ -503,6 +504,40 @@
       this._result = null;
       this._render();
       try {
+        // For folder selections that have a grouping strategy, expand them via
+        // bulk-discover first so individual files land in the intake queue.
+        var expandedSelections = [];
+        var plainSelections = [];
+        for (var si = 0; si < payloadSelections.length; si += 1) {
+          var sel = payloadSelections[si];
+          var selState = this._selected[sel.path] || {};
+          if (sel.type === 'folder' && selState.grouping_strategy && selState.grouping_strategy !== 'none') {
+            try {
+              var discoverRequest = {
+                folder_path: sel.path,
+                grouping_strategy: selState.grouping_strategy,
+              };
+              if (sel.max_depth != null) {
+                discoverRequest.max_depth = sel.max_depth;
+              }
+              var discoverResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_bulk_discover_working_groups', discoverRequest);
+              var proposals = Array.isArray(discoverResponse && discoverResponse.proposals) ? discoverResponse.proposals : [];
+              proposals.forEach(function (proposal) {
+                (proposal.files || []).forEach(function (fileEntry) {
+                  if (fileEntry.path) {
+                    expandedSelections.push({ type: 'file', path: String(fileEntry.path) });
+                  }
+                });
+              });
+            } catch (_discoverError) {
+              // Fallback: submit the folder as-is if discover fails.
+              plainSelections.push(sel);
+            }
+          } else {
+            plainSelections.push(sel);
+          }
+        }
+        var finalSelections = plainSelections.concat(expandedSelections);
         var response;
         if (browserFiles.length) {
           var sidecarBaseUrl = this._resolveSidecarUrl();
@@ -516,11 +551,11 @@
           response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/browser', {
             cleanup_policy: this._cleanupPolicy(),
             browser_files: encodedBrowserFiles,
-            server_selections: payloadSelections,
+            server_selections: finalSelections,
           });
         } else {
           response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_select_source_filesystem_entries', {
-            selections: payloadSelections,
+            selections: finalSelections,
             cleanup_policy: this._cleanupPolicy(),
           });
         }
@@ -530,15 +565,15 @@
         this._result = {
           upload_id: response.upload_id,
           upload_status: response.status,
-          selection_count: payloadSelections.length + browserFiles.length,
+          selection_count: finalSelections.length + browserFiles.length,
           expanded_file_count: response.expanded_file_count != null ? response.expanded_file_count : response.source_entry_count,
           validation_state: validation.validation ? validation.validation.validation_state : "unknown",
           warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
           cleanup_policy: this._cleanupPolicy(),
         };
-        this._status = browserFiles.length && payloadSelections.length
+        this._status = browserFiles.length && finalSelections.length
           ? 'Browser files and server selections were submitted together and validated.'
-          : (browserFiles.length ? 'Browser files were submitted to intake and validated.' : 'Selection submitted to intake and validated.');
+          : (browserFiles.length ? 'Browser files were submitted to intake and validated.' : 'Selection submitted to intake and validated.' + (expandedSelections.length ? ' (' + String(expandedSelections.length) + ' files expanded from grouped folder(s).)' : ''));
         this._selected = {};
         this._browserFiles = [];
         this._loading = false;
@@ -599,7 +634,7 @@
       }
       return '<div class="entries">' + this._browse.entries.map(function (entry) {
         var selected = !!this._selected[entry.path];
-        var selection = this._selected[entry.path] || { recurse: true, max_depth: "" };
+        var selection = this._selected[entry.path] || { recurse: true, max_depth: "", grouping_strategy: "none" };
         return ''
           + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
           + '  <div class="entry-top">'
@@ -620,6 +655,7 @@
             ? '<div class="item-grid">'
               + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (selection.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!selection.recurse ? ' selected' : '') + '>Off</option></select></div>'
               + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(selection.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
+              + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (selection.grouping_strategy === 'none' ? ' selected' : '') + '>None (submit folder as-is)</option><option value="by-folder"' + (selection.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (selection.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (selection.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
               + '</div>'
             : '')
           + '</article>';
@@ -723,6 +759,15 @@
           }),
         });
         this._render();
+        return;
+      }
+      if (action === 'selection-grouping') {
+        this._selected = Object.assign({}, this._selected, {
+          [path]: Object.assign({}, this._selected[path], {
+            grouping_strategy: String(target.value || 'none').trim(),
+          }),
+        });
+        this._render();
       }
     }
 
@@ -770,7 +815,7 @@
           : '')
         + '    <div class="two-column">'
         + '      <section class="section">'
-        + '        <div class="title-row"><div><div class="title">Server Browse</div><div class="subtitle">Select files, folders, or a mixed batch from allowlisted source roots.</div></div><div class="button-row"><button class="button" data-action="browse-root">Roots</button>'
+        + '        <div class="title-row"><div><div class="title">Server Browse</div><div class="subtitle">Select files or folders. Selected folders show Recurse, Max Depth, and Grouping controls inline.</div></div><div class="button-row"><button class="button" data-action="browse-root">Roots</button>'
         +          (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
         + '        </div></div>'
         + '        <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '</div>'
