@@ -6,7 +6,6 @@
 # catalog_spool_popup_content (rendered only when the popup opens).
 #
 # Inherited by: catalog_spool_card
-
 catalog_spool_popup:
   tap_action: |
     [[[
@@ -96,42 +95,6 @@ catalog_spool_popup:
       }
 
       // --- Action button style ---
-                {
-                  type: 'markdown',
-                  content: `
-{% set selected_entity = states('input_text.spoolman_filament_editor_spool_entity_id') %}
-{% set spool = states.get(selected_entity) if selected_entity not in ['unknown', 'unavailable', '', none] else none %}
-{% if spool %}
-  {% set filament_id = spool.attributes.get('filament_id') %}
-  {% set ns = namespace(items=[]) %}
-  {% for candidate in states.sensor %}
-    {% if candidate.entity_id is match('^sensor\\.spoolman_spool_\\d+$') and candidate.entity_id != selected_entity %}
-      {% set archived_raw = candidate.attributes.get('archived', false) %}
-      {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
-      {% if not archived and (candidate.attributes.get('filament_id') | string) == (filament_id | string) %}
-        {% set remaining = candidate.attributes.get('remaining_weight') %}
-        {% set remaining_text = 'N/A' if remaining in [none, 'unknown', 'unavailable'] else ((remaining | float(0) | round(1)) ~ ' g') %}
-        {% set ns.items = ns.items + [{
-          'id': candidate.attributes.get('id', candidate.entity_id.split('_')[-1]),
-          'name': candidate.attributes.get('friendly_name', 'Spool'),
-          'location': candidate.attributes.get('location', 'N/A'),
-          'remaining_text': remaining_text
-        }] %}
-      {% endif %}
-    {% endif %}
-  {% endfor %}
-  {% if ns.items | count > 0 %}
-<details>
-<summary><strong>📦 {{ ns.items | count }} other spool{{ '' if ns.items | count == 1 else 's' }} of same filament</strong></summary>
-
-{% for item in ns.items %}
-- **{{ item.name }}** (Spool #{{ item.id }})  
-  📍 {{ item.location }} — {{ item.remaining_text }}
-
-{% endfor %}
-</details>
-  {% endif %}
-{% endif %}`
                 },
       const btnS = {
         grid: [{ 'grid-template-areas': '"i" "n"' }, { 'grid-template-rows': 'min-content min-content' }, { 'justify-items': 'center' }, { 'align-items': 'center' }],
@@ -187,7 +150,6 @@ catalog_spool_popup:
       };
       const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
       const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
-                },
       const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
       const inventoryRuleOptions = ['Not Defined', 'Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
       const normalizeInventoryRule = function(value) {
@@ -205,15 +167,6 @@ catalog_spool_popup:
         return inventoryRuleOptions.includes(resolved) ? resolved : 'Not Defined';
       };
       const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
-
-      const weightEditorModeEntity = 'input_select.spoolman_weight_editor_mode';
-      const weightEditorDeltaGramsEntity = 'input_number.spoolman_weight_editor_delta_grams';
-      const weightEditorDeltaMetersEntity = 'input_number.spoolman_weight_editor_delta_meters';
-      const weightEditorAbsoluteGramsEntity = 'input_number.spoolman_weight_editor_absolute_grams';
-      const weightEditorSpoolIdEntity = 'input_text.spoolman_weight_editor_spool_id';
-      const currentRemainingWeight = (remainingWeight !== undefined && remainingWeight !== null)
-        ? Number(remainingWeight)
-        : null;
       const buildQtyToOrderAction = function(nextQty) {
         const normalizedQty = Math.max(0, Number.parseInt(nextQty, 10) || 0);
         if (!Number.isFinite(filamentIdInt)) {
@@ -406,83 +359,9 @@ catalog_spool_popup:
                             type: 'custom:button-card',
                             name: 'Save to Spoolman',
                             icon: 'mdi:content-save-outline',
-                            tap_action: {
-                              action: 'fire-dom-event',
-                              browser_mod: {
-                                service: 'browser_mod.sequence',
-                                data: {
-                                  sequence: [
-                                    {
-                                      service: 'script.apply_spoolman_spool_usage_adjustment'
-                                    },
-                                    {
-                                      service: 'homeassistant.update_entity',
-                                      data: { entity_id: eid }
-                                    },
-                                    { service: 'browser_mod.delay', data: { time: 900 } },
-                                    { service: 'browser_mod.close_popup' }
-                                  ]
-                                }
-                              }
-                            },
-                            styles: {
-                              grid: [
-                                { 'grid-template-areas': '"i" "n"' },
-                                { 'grid-template-rows': 'min-content min-content' },
-                                { 'justify-items': 'center' },
-                                { 'align-items': 'center' }
-                              ],
-                              card: [
-                                { background: 'var(--primary-color)' },
-                                { 'box-shadow': 'none' },
-                                { 'border-radius': '6px' },
-                                { padding: '6px' }
-                              ],
-                              name: [{ color: 'white' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
-                              icon: [{ color: 'white' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-                            }
-                          },
-                          {
                             type: 'custom:button-card',
                             name: 'Cancel',
                             icon: 'mdi:close',
-                            tap_action: {
-                              action: 'fire-dom-event',
-                              browser_mod: {
-                                service: 'browser_mod.close_popup'
-                              }
-                            },
-                            styles: {
-                              grid: [
-                                { 'grid-template-areas': '"i" "n"' },
-                                { 'grid-template-rows': 'min-content min-content' },
-                                { 'justify-items': 'center' },
-                                { 'align-items': 'center' }
-                              ],
-                              card: [
-                                { background: 'var(--secondary-background-color)' },
-                                { 'box-shadow': 'none' },
-                                { 'border-radius': '6px' },
-                                { padding: '6px' }
-                              ],
-                              name: [{ color: 'var(--primary-text-color)' }, { 'font-weight': '600' }, { 'font-size': '12px' }],
-                              icon: [{ color: 'var(--primary-text-color)' }, { width: '20px' }, { height: '20px' }, { 'margin-bottom': '2px' }]
-                            }
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                }
-              }
-            ]
-          }
-        }
-      };
-
-      return {
-        action: 'fire-dom-event',
-        browser_mod: {
           service: 'browser_mod.sequence',
           data: {
             sequence: [
@@ -523,43 +402,6 @@ catalog_spool_popup:
                 // --- All display content (heavy JS only runs when popup opens) ---
                 {
                   type: 'custom:button-card',
-                  entity: eid,
-                  template: 'catalog_spool_popup_content',
-                  tap_action: { action: 'none' },
-                  triggers_update: eid
-                },
-                {
-                  type: 'grid',
-                  columns: 2,
-                  square: false,
-                  card_mod: {
-                    style: '#root { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) !important; align-items: stretch !important; }'
-                  },
-                  cards: [
-                    {
-                      type: 'vertical-stack',
-                      cards: [
-                        {
-                          type: 'horizontal-stack',
-                          cards: [
-                            {
-                              type: 'custom:mushroom-template-card',
-                              primary: weightText,
-                              secondary: 'Remaining',
-                              icon: 'mdi:weight-gram',
-                              icon_color: 'teal',
-                              tap_action: openWeightEditorAction,
-                              layout: 'vertical',
-                              fill_container: true
-                            },
-                            {
-                              type: 'custom:mushroom-template-card',
-                              primary: costPerGText,
-                              secondary: 'Cost per g',
-                              icon: 'mdi:currency-usd',
-                              icon_color: 'green',
-                              layout: 'vertical',
-                              fill_container: true
                             },
                             {
                               type: 'custom:mushroom-template-card',
@@ -688,6 +530,43 @@ catalog_spool_popup:
                       ]
                     }
                   ]
+                },
+                {
+                  type: 'markdown',
+                  content: `
+{% set selected_entity = states('input_text.spoolman_filament_editor_spool_entity_id') %}
+{% set spool = states.get(selected_entity) if selected_entity not in ['unknown', 'unavailable', '', none] else none %}
+{% if spool %}
+  {% set filament_id = spool.attributes.get('filament_id') %}
+  {% set ns = namespace(items=[]) %}
+  {% for candidate in states.sensor %}
+    {% if candidate.entity_id is match('^sensor\\.spoolman_spool_\\d+$') and candidate.entity_id != selected_entity %}
+      {% set archived_raw = candidate.attributes.get('archived', false) %}
+      {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
+      {% if not archived and (candidate.attributes.get('filament_id') | string) == (filament_id | string) %}
+        {% set remaining = candidate.attributes.get('remaining_weight') %}
+        {% set remaining_text = 'N/A' if remaining in [none, 'unknown', 'unavailable'] else ((remaining | float(0) | round(1)) ~ ' g') %}
+        {% set ns.items = ns.items + [{
+          'id': candidate.attributes.get('id', candidate.entity_id.split('_')[-1]),
+          'name': candidate.attributes.get('friendly_name', 'Spool'),
+          'location': candidate.attributes.get('location', 'N/A'),
+          'remaining_text': remaining_text
+        }] %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if ns.items | count > 0 %}
+<details>
+<summary><strong>📦 {{ ns.items | count }} other spool{{ '' if ns.items | count == 1 else 's' }} of same filament</strong></summary>
+
+{% for item in ns.items %}
+- **{{ item.name }}** (Spool #{{ item.id }})  
+  📍 {{ item.location }} — {{ item.remaining_text }}
+
+{% endfor %}
+</details>
+  {% endif %}
+{% endif %}`
                 },
                 // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
