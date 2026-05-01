@@ -102,13 +102,11 @@ catalog_spool_popup:
       const costPerG = (price && initialWeight) ? (Number(price) / Number(initialWeight)) : null;
       const costPerGText = costPerG !== null ? '$' + costPerG.toFixed(3) + '/g' : 'N/A';
 
-      // --- Other spools of same filament (for markdown card) ---
+      // --- Other spools of same filament (standalone markdown card in popup stack) ---
       const filamentId = entity?.attributes?.filament_id;
+      const hasFilamentId = filamentId != null;
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const ft = (filamentId != null && filamentTotals) ? filamentTotals[String(filamentId)] : null;
-      const otherSpools = (ft && ft.spools)
-        ? ft.spools.filter(function(s) { return s.entity_id !== eid; })
-        : [];
       const totalWeightText = ft
         ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
         : 'N/A';
@@ -143,6 +141,14 @@ catalog_spool_popup:
       const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
       const normalizeInventoryRule = function(value) {
         const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
+                ...(hasFilamentId ? [{
+                  type: 'custom:config-template-card',
+                  entities: [eid],
+                  card: {
+                    type: 'markdown',
+                    content: "${(() => { const currentSpoolEntityId = '" + eid + "'; const currentFilamentId = '" + String(filamentId) + "'; const otherSpools = Object.values(states).filter(function(stateObj) { if (!stateObj || typeof stateObj.entity_id !== 'string') return false; if (!/^sensor\\.spoolman_spool_\\d+$/.test(stateObj.entity_id)) return false; if (stateObj.entity_id === currentSpoolEntityId) return false; if (String(stateObj.attributes?.filament_id) !== currentFilamentId) return false; const archivedRaw = stateObj.attributes?.archived; return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw); }).map(function(stateObj) { const remaining = Number(stateObj.attributes?.remaining_weight); return { id: String(stateObj.entity_id).split('_').pop(), name: stateObj.attributes?.friendly_name || 'Spool', location: stateObj.attributes?.location || 'N/A', remainingText: Number.isFinite(remaining) ? remaining.toFixed(1) + ' g' : 'N/A' }; }); if (!otherSpools.length) return ''; let md = '<details>\\n<summary><strong>📦 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\\n\\n'; otherSpools.forEach(function(s) { md += '• **' + s.name + '** (Spool #' + s.id + ')  \\n'; md += '  📍 ' + s.location + ' — ' + s.remainingText + '\\n\\n'; }); md += '</details>'; return md; })()}"
+                  }
+                }] : []),
         const normalized = raw.toLowerCase();
         const aliases = {
           'keep in stock': 'Keep In Stock',
