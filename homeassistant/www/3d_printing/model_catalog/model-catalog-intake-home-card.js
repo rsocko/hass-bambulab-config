@@ -90,21 +90,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _wizardStepCount() {
-    return this._wizardMode === "server" ? 3 : 2;
+    return 2;
   }
 
   _wizardStepLabel(stepNumber) {
-    if (this._wizardMode === "server") {
-      if (stepNumber === 1) {
-        return "Select";
-      }
-      if (stepNumber === 2) {
-        return "Configure";
-      }
-      return "Review";
-    }
     if (stepNumber === 1) {
-      return "Choose";
+      return this._wizardMode === "server" ? "Select" : "Choose";
     }
     return "Review";
   }
@@ -591,14 +582,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + this._renderBrowseEntries()
           + '</div>'
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Current Selection</div><div class="subtitle">Selected items carry forward to the next configuration step.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
-          + this._renderServerSelectionRows(false)
-          + '</div>';
-      }
-      if (this._wizardStep === 2) {
-        return ''
-          + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Configure Folder Handling</div><div class="subtitle">Set cleanup policy and tune recurse, depth, and grouping for any selected folders.</div></div></div>'
+          + '  <div class="title-row"><div><div class="title">Current Selection</div><div class="subtitle">Configure recurse, depth, and grouping per folder, then advance to review.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
           + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
           + this._renderServerSelectionRows(true)
           + '</div>';
