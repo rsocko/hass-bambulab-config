@@ -276,6 +276,8 @@
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
+      this._boundHandleClick = this._handleClick.bind(this);
+      this._boundHandleChange = this._handleChange.bind(this);
       this._hass = null;
       this._config = null;
       this._loading = false;
@@ -313,13 +315,13 @@
         this._refreshAll();
       }
       if (this.shadowRoot) {
-        this.shadowRoot.addEventListener("click", this._handleClick.bind(this));
+        this.shadowRoot.addEventListener("click", this._boundHandleClick);
       }
     }
 
     disconnectedCallback() {
       if (this.shadowRoot) {
-        this.shadowRoot.removeEventListener("click", this._handleClick.bind(this));
+        this.shadowRoot.removeEventListener("click", this._boundHandleClick);
       }
     }
 
@@ -389,19 +391,22 @@
     }
 
     _toggleSelection(path, entryType) {
-      if (!path) {
+      var normalizedPath = String(path || '').trim();
+      if (!normalizedPath) {
         return;
       }
-      if (this._selected[path]) {
-        delete this._selected[path];
+      var nextSelected = Object.assign({}, this._selected);
+      if (nextSelected[normalizedPath]) {
+        delete nextSelected[normalizedPath];
       } else {
-        this._selected[path] = {
+        nextSelected[normalizedPath] = {
           type: entryType,
-          path: path,
+          path: normalizedPath,
           recurse: true,
           max_depth: "",
         };
       }
+      this._selected = nextSelected;
       this._render();
     }
 
@@ -626,6 +631,7 @@
       if (!target) {
         return;
       }
+      event.preventDefault();
       var action = String(target.getAttribute('data-action') || '');
       if (!action) {
         return;
@@ -702,12 +708,20 @@
         return;
       }
       if (action === 'selection-recurse') {
-        this._selected[path].recurse = String(target.value) === 'true';
+        this._selected = Object.assign({}, this._selected, {
+          [path]: Object.assign({}, this._selected[path], {
+            recurse: String(target.value) === 'true',
+          }),
+        });
         this._render();
         return;
       }
       if (action === 'selection-depth') {
-        this._selected[path].max_depth = String(target.value || '').trim();
+        this._selected = Object.assign({}, this._selected, {
+          [path]: Object.assign({}, this._selected[path], {
+            max_depth: String(target.value || '').trim(),
+          }),
+        });
         this._render();
       }
     }
@@ -788,8 +802,8 @@
 
       var selects = this.shadowRoot.querySelectorAll('select[data-action], input[data-action]');
       for (var index = 0; index < selects.length; index += 1) {
-        selects[index].onchange = this._handleChange.bind(this);
-        selects[index].oninput = this._handleChange.bind(this);
+        selects[index].onchange = this._boundHandleChange;
+        selects[index].oninput = this._boundHandleChange;
       }
     }
   }
