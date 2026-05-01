@@ -15,40 +15,6 @@
     if (!normalized) {
       return "";
     }
-    var parts = normalized.split("/");
-    return parts[parts.length - 1] || normalized;
-  }
-
-  function dirname(pathValue) {
-    var normalized = String(pathValue || "").replace(/\\/g, "/");
-    if (!normalized || normalized.indexOf("/") < 0) {
-      return normalized;
-    }
-    return normalized.slice(0, normalized.lastIndexOf("/"));
-  }
-
-  function formatBytes(bytes) {
-    var value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) {
-      return "0 B";
-    }
-    var units = ["B", "KB", "MB", "GB", "TB"];
-    var index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-    var scaled = value / Math.pow(1024, index);
-    return scaled.toFixed(scaled >= 10 || index === 0 ? 0 : 1) + " " + units[index];
-  }
-
-  function formatStage(stage) {
-    return String(stage || "draft")
-      .split("_")
-      .map(function (segment) {
-        return segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : "";
-      })
-      .join(" ");
-  }
-
-  function toFileUri(pathValue) {
-    var normalized = String(pathValue || "").replace(/\\/g, "/");
     if (!normalized) {
       return "";
     }
@@ -619,14 +585,6 @@
         this._togglePathSelection(String(target.getAttribute('data-file-path') || ''));
         return;
       }
-      if (action === 'launch-file') {
-        this._openLocalPath(String(target.getAttribute('data-file-path') || ''));
-        return;
-      }
-      if (action === 'open-explorer') {
-        this._openExplorer(String(target.getAttribute('data-file-path') || ''));
-        return;
-      }
       if (action === 'create-group-from-selection') {
         this._createGroupFromSelection();
         return;
@@ -672,6 +630,8 @@
           windowsPath = sourcePath;
         }
         var canLaunch = !!windowsPath;
+        var launchHref = canLaunch ? toFileUri(windowsPath) : '';
+        var explorerHref = canLaunch ? toFileUri(dirname(windowsPath)) : '';
         var memberships = Array.isArray(entry.group_memberships) ? entry.group_memberships : [];
         var selected = !!this._selectedPaths[canonicalPath];
         return ''
@@ -685,8 +645,12 @@
           + '  </div>'
           + '  <div class="meta"><span>Ext ' + escapeHtml(String(entry.file_extension || '').replace(/^\./, '') || 'file') + '</span><span>Size ' + escapeHtml(formatBytes(entry.file_size_bytes || 0)) + '</span><span>Groups ' + String(memberships.length) + '</span></div>'
           + '  <div class="button-row">'
-          + '    <button class="button" data-action="launch-file" data-file-path="' + escapeHtml(windowsPath) + '"' + (canLaunch ? '' : ' disabled') + '>Launch</button>'
-          + '    <button class="button" data-action="open-explorer" data-file-path="' + escapeHtml(windowsPath) + '"' + (canLaunch ? '' : ' disabled') + '>Explorer</button>'
+          + (canLaunch
+            ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(launchHref) + '" target="_blank" rel="noopener noreferrer">Launch</a>'
+            : '    <button class="button" disabled>Launch</button>')
+          + (canLaunch
+            ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(explorerHref) + '" target="_blank" rel="noopener noreferrer">Explorer</a>'
+            : '    <button class="button" disabled>Explorer</button>')
           + '  </div>'
           + '</article>';
       }, this).join('') + '</div>';

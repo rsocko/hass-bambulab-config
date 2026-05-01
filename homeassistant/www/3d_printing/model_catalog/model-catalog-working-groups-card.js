@@ -931,24 +931,6 @@
       });
     }
 
-    _openLocalPath(filePath) {
-      var uri = toFileUri(filePath);
-      if (!uri) {
-        return;
-      }
-      fireBrowserModEvent(this, "browser_mod.javascript", {
-        code: "window.open(" + JSON.stringify(uri) + ", '_blank', 'noopener');",
-      });
-    }
-
-    _openContainingFolder(filePath) {
-      var folderPath = dirname(filePath);
-      if (!folderPath) {
-        return;
-      }
-      this._openLocalPath(folderPath);
-    }
-
     _handleClick(event) {
       var target = event.target instanceof Element ? event.target.closest("[data-action]") : null;
       if (!target) {
@@ -991,16 +973,8 @@
         this._openModel(String(target.getAttribute("data-model-ref") || ""));
         return;
       }
-      if (action === "open-primary") {
-        this._openLocalPath(String(target.getAttribute("data-file-path") || ""));
+      if (action === "open-primary" || action === "open-item-explorer" || action === "open-folder") {
         return;
-      }
-      if (action === "open-item-explorer") {
-        this._openContainingFolder(String(target.getAttribute("data-file-path") || ""));
-        return;
-      }
-      if (action === "open-folder") {
-        this._openLocalPath(String(target.getAttribute("data-file-path") || ""));
       }
     }
 
@@ -1061,6 +1035,8 @@
               var itemWindowsPath = String(itemLaunch.windows_path || "");
               var canLaunch = !!(itemLaunch && itemLaunch.can_launch_file && itemWindowsPath);
               var canExplorer = !!(itemLaunch && itemLaunch.can_open_in_explorer && itemWindowsPath);
+              var launchHref = canLaunch ? toFileUri(itemWindowsPath) : "";
+              var explorerHref = canExplorer ? toFileUri(dirname(itemWindowsPath)) : "";
               return ''
                 + '<article class="list-row">'
                 + '  <div class="list-row-top">'
@@ -1071,8 +1047,12 @@
                 + '    <span class="chip">' + escapeHtml(item.item_role || "supporting") + '</span>'
                 + '  </div>'
                 + '  <div class="button-row">'
-                + '    <button class="button" data-action="open-primary" data-file-path="' + escapeHtml(itemWindowsPath) + '"' + (canLaunch ? '' : ' disabled') + '>Launch File</button>'
-                + '    <button class="button" data-action="open-item-explorer" data-file-path="' + escapeHtml(itemWindowsPath) + '"' + (canExplorer ? '' : ' disabled') + '>Open In Explorer</button>'
+                + (canLaunch
+                  ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(launchHref) + '" target="_blank" rel="noopener noreferrer">Launch File</a>'
+                  : '    <button class="button" disabled>Launch File</button>')
+                + (canExplorer
+                  ? '    <a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(explorerHref) + '" target="_blank" rel="noopener noreferrer">Open In Explorer</a>'
+                  : '    <button class="button" disabled>Open In Explorer</button>')
                 + '    <button class="button danger" data-action="remove-item" data-item-id="' + String(item.id) + '">Remove</button>'
                 + '  </div>'
                 + '</article>';
@@ -1107,8 +1087,16 @@
           + '    </div>'
           + '    <div class="button-row">'
           + '      <button class="button" data-action="refresh-detail">Refresh</button>'
-          + (folderPath ? '<button class="button" data-action="open-folder" data-file-path="' + escapeHtml(folderWindowsPath) + '"' + (folderWindowsPath ? '' : ' disabled') + '>Open Folder</button>' : '')
-          + (primaryFile ? '<button class="button" data-action="open-primary" data-file-path="' + escapeHtml(primaryWindowsPath) + '"' + (primaryWindowsPath ? '' : ' disabled') + '>Launch Primary</button>' : '')
+          + (folderPath
+            ? (folderWindowsPath
+              ? '<a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(toFileUri(folderWindowsPath)) + '" target="_blank" rel="noopener noreferrer">Open Folder</a>'
+              : '<button class="button" disabled>Open Folder</button>')
+            : '')
+          + (primaryFile
+            ? (primaryWindowsPath
+              ? '<a class="button" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;" href="' + escapeHtml(toFileUri(primaryWindowsPath)) + '" target="_blank" rel="noopener noreferrer">Launch Primary</a>'
+              : '<button class="button" disabled>Launch Primary</button>')
+            : '')
           + '    </div>'
           + '  </div>'
           + '  ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
