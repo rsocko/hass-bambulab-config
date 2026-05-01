@@ -117,11 +117,28 @@ catalog_spool_popup:
       const costPerGText = costPerG !== null ? '$' + costPerG.toFixed(3) + '/g' : 'N/A';
 
       // --- Other spools of same filament (for markdown card) ---
+      // Only scan if totals show count > 1 (other spools exist)
       const filamentId = entity?.attributes?.filament_id;
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const ft = (filamentId != null && filamentTotals) ? filamentTotals[String(filamentId)] : null;
-      const otherSpools = (ft && ft.spools)
-        ? ft.spools.filter(function(s) { return s.entity_id !== eid; })
+      const otherSpools = (ft && ft.count > 1)
+        ? Object.values(states).filter(function(stateObj) {
+            if (!stateObj || typeof stateObj.entity_id !== 'string') return false;
+            if (!/^sensor\.spoolman_spool_\d+$/.test(stateObj.entity_id)) return false;
+            if (stateObj.entity_id === eid) return false;
+            if (String(stateObj.attributes?.filament_id) !== String(filamentId)) return false;
+            const archivedRaw = stateObj.attributes?.archived;
+            return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw);
+          }).map(function(stateObj) {
+            const remaining = Number(stateObj.attributes?.remaining_weight);
+            return {
+              id: String(stateObj.entity_id).split('_').pop(),
+              name: stateObj.attributes?.friendly_name || 'Spool',
+              location: stateObj.attributes?.location || 'N/A',
+              remaining: remaining,
+              entity_id: stateObj.entity_id
+            };
+          })
         : [];
       const totalWeightText = ft
         ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
