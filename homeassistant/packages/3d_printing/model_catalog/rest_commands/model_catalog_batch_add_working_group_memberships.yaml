@@ -1,0 +1,16 @@
+model_catalog_batch_add_working_group_memberships:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/memberships/batch-add
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'group_id': (group_id | int),
+      'file_paths': (file_paths if file_paths is defined and file_paths is iterable else []),
+      'item_role': (item_role | default('supporting', true) | string),
+      'allow_multi_group': (allow_multi_group | default(true))
+    } | tojson }}

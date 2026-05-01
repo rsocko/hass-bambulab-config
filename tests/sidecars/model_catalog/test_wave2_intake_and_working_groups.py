@@ -652,3 +652,160 @@ def test_working_group_publish_to_local_persists_project_and_lineage(tmp_path: P
     assert working_group.status_code == 200
     working_group_payload = working_group.json()["group"]
     assert working_group_payload["project_id"] == project_id
+
+
+def test_working_files_explorer_views_include_group_memberships(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    grouped_file = source_root / "grouped_part.3mf"
+    grouped_file.write_bytes(b"grouped-bytes")
+    ungrouped_file = source_root / "loose_part.stl"
+    ungrouped_file.write_bytes(b"ungrouped-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        reindex_response = client.post("/api/working-files/reindex", json={"compute_hashes": True, "recurse": True})
+        assert reindex_response.status_code == 200
+
+        create_group = client.post("/api/working-groups", json={"title": "Explorer Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+
+        add_response = client.post(
+            "/api/working-groups/memberships/batch-add",
+            json={"group_id": group_id, "file_paths": [str(grouped_file)], "item_role": "primary", "allow_multi_group": True},
+        )
+        assert add_response.status_code == 200
+        assert add_response.json()["summary"]["added"] == 1
+
+        all_response = client.get("/api/working-files/explorer", params={"view": "all"})
+        assert all_response.status_code == 200
+        all_payload = all_response.json()
+        assert all_payload["summary"]["all_count"] == 2
+        assert any(len(file_row["group_memberships"]) == 1 for file_row in all_payload["files"])
+
+        ungrouped_response = client.get("/api/working-files/explorer", params={"view": "ungrouped"})
+        assert ungrouped_response.status_code == 200
+        ungrouped_payload = ungrouped_response.json()
+        assert ungrouped_payload["summary"]["ungrouped_count"] == 1
+        assert ungrouped_payload["pagination"]["total"] == 1
+
+        groups_response = client.get("/api/working-files/explorer", params={"view": "groups"})
+    finally:
+        client.__exit__(None, None, None)
+
+    assert groups_response.status_code == 200
+    groups_payload = groups_response.json()
+    assert groups_payload["summary"]["group_count"] == 1
+    assert groups_payload["groups"][0]["counts"]["count_3mf"] == 1
+
+
+def test_batch_add_memberships_allows_multi_group_with_hash_conflict(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    shared_file = source_root / "shared.3mf"
+    shared_file.write_bytes(b"same-shared-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        first_group = client.post("/api/working-groups", json={"title": "Group A", "stage": "draft"})
+        second_group = client.post("/api/working-groups", json={"title": "Group B", "stage": "draft"})
+        assert first_group.status_code == 200
+        assert second_group.status_code == 200
+        group_a_id = int(first_group.json()["group"]["id"])
+        group_b_id = int(second_group.json()["group"]["id"])
+
+        add_a = client.post(
+            "/api/working-groups/memberships/batch-add",
+            json={"group_id": group_a_id, "file_paths": [str(shared_file)], "allow_multi_group": True},
+        )
+        assert add_a.status_code == 200
+        assert add_a.json()["summary"]["added"] == 1
+
+        add_b = client.post(
+            "/api/working-groups/memberships/batch-add",
+            json={"group_id": group_b_id, "file_paths": [str(shared_file)], "allow_multi_group": True},
+        )
+        assert add_b.status_code == 200
+        add_b_payload = add_b.json()
+        assert add_b_payload["summary"]["added"] == 1
+        assert add_b_payload["results"][0]["warning"] == "hash_conflict_in_existing_group"
+
+        group_b = client.get(f"/api/working-groups/{group_b_id}")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert group_b.status_code == 200
+    assert len(group_b.json()["group"]["items"]) == 1
+
+
+def test_reorganize_working_group_dry_run_and_execute(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    source_folder = source_root / "incoming"
+    source_folder.mkdir(parents=True, exist_ok=True)
+    source_file = source_folder / "move_me.3mf"
+    source_file.write_bytes(b"move-me")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "Move Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+        slug = str(create_group.json()["group"]["slug"])
+
+        add_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert add_item.status_code == 200
+
+        dry_run = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": False})
+        assert dry_run.status_code == 200
+        dry_payload = dry_run.json()
+        assert dry_payload["dry_run"] is True
+        assert dry_payload["can_execute"] is True
+        assert any(entry["action"] == "move" for entry in dry_payload["plan"])
+
+        execute = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": True})
+        assert execute.status_code == 200
+        execute_payload = execute.json()
+        assert execute_payload["dry_run"] is False
+        assert execute_payload["moved_count"] == 1
+
+        expected_path = source_root / slug / source_file.name
+        assert expected_path.exists() is True
+        assert source_file.exists() is False
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_batch_add_memberships_accepts_folder_path(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "bundle"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "part_a.3mf").write_bytes(b"a")
+    (folder / "part_b.stl").write_bytes(b"b")
+    (folder / "ignore.txt").write_text("ignored", encoding="utf-8")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "Folder Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+
+        add_response = client.post(
+            "/api/working-groups/memberships/batch-add",
+            json={"group_id": group_id, "file_paths": [str(folder)], "allow_multi_group": True},
+        )
+        assert add_response.status_code == 200
+        payload = add_response.json()
+        assert payload["summary"]["added"] == 2
+
+        group_detail = client.get(f"/api/working-groups/{group_id}")
+    finally:
+        client.__exit__(None, None, None)
+
+    assert group_detail.status_code == 200
+    assert len(group_detail.json()["group"]["items"]) == 2

@@ -1,0 +1,23 @@
+model_catalog_explore_working_files:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if view is defined and (view | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['view=' ~ ((view | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if q is defined and (q | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['q=' ~ ((q | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if extension is defined and (extension | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['extension=' ~ ((extension | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- if path_contains is defined and (path_contains | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['path_contains=' ~ ((path_contains | string) | urlencode)] -%}
+    {%- endif -%}
+    {%- set ns.params = ns.params + ['limit=' ~ ((limit | default(200)) | int(200) | string)] -%}
+    {%- set ns.params = ns.params + ['offset=' ~ ((offset | default(0)) | int(0) | string)] -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/explorer?{{ ns.params | join('&') }}
+  method: GET

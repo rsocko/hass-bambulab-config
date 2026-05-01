@@ -1,0 +1,14 @@
+model_catalog_reorganize_working_group:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/{{ group_id }}/reorganize
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'execute': (execute | default(false)),
+      'file_paths': (file_paths if file_paths is defined and file_paths is iterable else [])
+    } | tojson }}

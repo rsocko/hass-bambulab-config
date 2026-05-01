@@ -4,6 +4,6 @@ icon: mdi:briefcase-outline
 subview: true
 panel: true
 cards:
-  - type: custom:model-catalog-working-groups-card
-    title: Working Board
-    per_page: 24
+  - type: custom:model-catalog-working-files-explorer-card
+    title: Working Files
+    per_page: 200

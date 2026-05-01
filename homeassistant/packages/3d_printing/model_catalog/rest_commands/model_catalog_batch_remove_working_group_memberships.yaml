@@ -1,0 +1,14 @@
+model_catalog_batch_remove_working_group_memberships:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/working-groups/memberships/batch-remove
+  method: POST
+  content_type: application/json
+  payload: >-
+    {{ {
+      'group_id': (group_id | int),
+      'file_paths': (file_paths if file_paths is defined and file_paths is iterable else [])
+    } | tojson }}
