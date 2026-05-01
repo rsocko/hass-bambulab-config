@@ -33,6 +33,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._browserFiles = [];
     this._intakeItems = [];
     this._queueUploads = [];
+    this._wizardOpen = false;
+    this._wizardMode = "";
+    this._wizardStep = 1;
   }
 
   setConfig(config) {
@@ -70,7 +73,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 14;
+    return 12;
   }
 
   _sourceMode() {
@@ -84,6 +87,60 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return this._hass && this._hass.states[this._config.cleanupPolicyEntity]
       ? String(this._hass.states[this._config.cleanupPolicyEntity].state || "keep")
       : "keep";
+  }
+
+  _wizardStepCount() {
+    return this._wizardMode === "server" ? 3 : 2;
+  }
+
+  _wizardStepLabel(stepNumber) {
+    if (this._wizardMode === "server") {
+      if (stepNumber === 1) {
+        return "Select";
+      }
+      if (stepNumber === 2) {
+        return "Configure";
+      }
+      return "Review";
+    }
+    if (stepNumber === 1) {
+      return "Choose";
+    }
+    return "Review";
+  }
+
+  _wizardTitle() {
+    return this._wizardMode === "server"
+      ? "Import From Server Inbox"
+      : "Upload Files Or Folder";
+  }
+
+  _browserFileKey(entry) {
+    return String(entry.relative_path || entry.name || "").toLowerCase() + "::" + String(entry.size_bytes || 0);
+  }
+
+  _selectedList() {
+    return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
+  }
+
+  _serverPayloadSelections(sourceMode) {
+    if (sourceMode !== "server") {
+      return [];
+    }
+    return this._selectedList().map(function (entry) {
+      var next = { type: entry.type, path: entry.path };
+      if (entry.type === "folder") {
+        next.recurse = !!entry.recurse;
+        if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
+          next.max_depth = Number(entry.max_depth);
+        }
+      }
+      return next;
+    });
+  }
+
+  _enabledBrowserFiles(sourceMode) {
+    return sourceMode === "browser" ? this._browserFiles.slice() : [];
   }
 
   async _navigateToSection(option, fallbackPath) {
@@ -150,6 +207,55 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
+  async _openWizard(mode) {
+    var nextMode = mode === "server" ? "server" : "browser";
+    this._wizardOpen = true;
+    this._wizardMode = nextMode;
+    this._wizardStep = 1;
+    this._error = "";
+    this._status = "";
+    this._result = null;
+    this._selected = {};
+    this._browserFiles = [];
+    await this._setSourceMode(nextMode);
+    if (nextMode === "server" && (!this._browse.entries || !this._browse.entries.length)) {
+      await this._loadBrowse(this._browse.path || "/");
+      return;
+    }
+    this._render();
+  }
+
+  _closeWizard() {
+    this._wizardOpen = false;
+    this._wizardMode = "";
+    this._wizardStep = 1;
+    this._selected = {};
+    this._browserFiles = [];
+    this._render();
+  }
+
+  _canAdvanceWizard() {
+    if (this._wizardMode === "server") {
+      return this._selectedList().length > 0;
+    }
+    return this._browserFiles.length > 0;
+  }
+
+  _goToWizardStep(stepNumber) {
+    var maxStep = this._wizardStepCount();
+    var nextStep = Math.max(1, Math.min(maxStep, Number(stepNumber || 1)));
+    if (nextStep > this._wizardStep && !this._canAdvanceWizard()) {
+      this._error = this._wizardMode === "server"
+        ? "Select at least one server file or folder first."
+        : "Choose at least one browser file or folder first.";
+      this._render();
+      return;
+    }
+    this._error = "";
+    this._wizardStep = nextStep;
+    this._render();
+  }
+
   _toggleSelection(path, entryType) {
     var normalizedPath = String(path || "").trim();
     if (!normalizedPath) {
@@ -171,46 +277,18 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
-  _selectedList() {
-    return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
-  }
-
-  _resolveSidecarUrl() {
-    if (this._hass && this._hass.states) {
-      var baseUrlEntity = this._hass.states["input_text.model_catalog_sidecar_base_url"];
-      if (baseUrlEntity && baseUrlEntity.state) {
-        return String(baseUrlEntity.state).trim();
-      }
-    }
-    return String(this._config && this._config.model_sidecar_url || "").trim();
-  }
-
-  _serverPayloadSelections(sourceMode) {
-    if (sourceMode !== "server") {
-      return [];
-    }
-    return this._selectedList().map(function (entry) {
-      var next = { type: entry.type, path: entry.path };
-      if (entry.type === "folder") {
-        next.recurse = !!entry.recurse;
-        if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
-          next.max_depth = Number(entry.max_depth);
-        }
-      }
-      return next;
-    });
-  }
-
-  _enabledBrowserFiles(sourceMode) {
-    return sourceMode === "browser" ? this._browserFiles.slice() : [];
+  _removeSelection(path) {
+    var nextSelected = Object.assign({}, this._selected);
+    delete nextSelected[path];
+    this._selected = nextSelected;
+    this._render();
   }
 
   _appendBrowserFiles(fileList) {
     var nextByKey = {};
     this._browserFiles.forEach(function (entry) {
-      var existingKey = String(entry.relative_path || entry.name || "").toLowerCase() + "::" + String(entry.size_bytes || 0);
-      nextByKey[existingKey] = entry;
-    });
+      nextByKey[this._browserFileKey(entry)] = entry;
+    }, this);
     Array.prototype.slice.call(fileList || []).forEach(function (file) {
       if (!file || typeof file.arrayBuffer !== "function") {
         return;
@@ -222,12 +300,18 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
       };
-      var key = String(nextEntry.relative_path || nextEntry.name).toLowerCase() + "::" + String(nextEntry.size_bytes || 0);
-      nextByKey[key] = nextEntry;
-    });
+      nextByKey[this._browserFileKey(nextEntry)] = nextEntry;
+    }, this);
     this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
       return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
     });
+    this._render();
+  }
+
+  _removeBrowserFile(key) {
+    this._browserFiles = this._browserFiles.filter(function (entry) {
+      return this._browserFileKey(entry) !== key;
+    }, this);
     this._render();
   }
 
@@ -247,6 +331,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     };
   }
 
+  _resolveSidecarUrl() {
+    if (this._hass && this._hass.states) {
+      var baseUrlEntity = this._hass.states["input_text.model_catalog_sidecar_base_url"];
+      if (baseUrlEntity && baseUrlEntity.state) {
+        return String(baseUrlEntity.state).trim();
+      }
+    }
+    return String(this._config && this._config.model_sidecar_url || "").trim();
+  }
+
   async _submitServerSelections() {
     if (!this._hass) {
       return;
@@ -255,7 +349,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var payloadSelections = this._serverPayloadSelections(sourceMode);
     var browserFiles = this._enabledBrowserFiles(sourceMode);
     if (!payloadSelections.length && !browserFiles.length) {
-      this._error = "Select at least one browser file or server-side file first.";
+      this._error = sourceMode === "server"
+        ? "Select at least one server file or folder first."
+        : "Select at least one browser file or folder first.";
       this._render();
       return;
     }
@@ -329,11 +425,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
         cleanup_policy: this._cleanupPolicy(),
       };
-      this._status = browserFiles.length && finalSelections.length
-        ? "Browser files and server selections were queued together and validated."
-        : (browserFiles.length ? "Browser files were queued to intake and validated." : "Selection queued to intake and validated." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder(s).)" : ""));
+      this._status = browserFiles.length
+        ? "Browser batch queued to intake and validated."
+        : "Server selection queued to intake and validated." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
       this._selected = {};
       this._browserFiles = [];
+      this._wizardOpen = false;
+      this._wizardMode = "";
+      this._wizardStep = 1;
       this._loading = false;
       await this._refreshAll();
     } catch (error) {
@@ -364,23 +463,25 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var itemCounts = summarizeStates(this._intakeItems, "state");
     return ""
       + '<div class="grid">'
-      + '  <div class="summary-card"><div class="summary-label">Source Mode</div><div class="summary-value">' + escapeHtml(formatLabel(this._sourceMode())) + '</div><div class="muted">Browser uploads now stage into the same intake queue contract as server-browse selections.</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied to new queue submissions. Browser-upload staging is managed by the sidecar before publish or delete.</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Queue Health</div><div class="summary-value">Queued ' + String(uploadCounts.queued || 0) + ' / Verified ' + String(uploadCounts.verified || 0) + '</div><div class="muted">Failed ' + String(uploadCounts.failed || 0) + ' / Cleanup pending ' + String(uploadCounts.cleanup_pending || 0) + '</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Inbox Snapshot</div><div class="summary-value">Ready ' + String(itemCounts.validated_ready || 0) + ' / Warning ' + String(itemCounts.validated_warning || 0) + '</div><div class="muted">Deferred ' + String(itemCounts.deferred || 0) + ' / Grouped ' + String((itemCounts.grouped_new || 0) + (itemCounts.grouped_existing || 0)) + '</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Intake Roots</div><div class="summary-value">' + String(this._roots.length) + ' configured</div><div class="muted">Server browse is constrained to allowlisted sidecar roots.</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Batch Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied when the wizard commits a new intake batch.</div></div>'
       + '</div>';
   }
 
-  _renderBrowserEntries() {
+  _renderBrowserFileRows(showActions) {
     if (!this._browserFiles.length) {
-      return '<div class="state-row">Choose local files or a local folder to stage a browser-upload batch.</div>';
+      return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
     return '<div class="entries">' + this._browserFiles.map(function (entry) {
-      return ""
+      return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || "") + '</div></div><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span></div>'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || "") + '</div></div><div class="button-row"><span class="chip">browser</span><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
+        + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(this._browserFileKey(entry)) + '">Remove</button>' : '')
+        + '  </div></div>'
         + '</article>';
-    }).join("") + '</div>';
+    }, this).join('') + '</div>';
   }
 
   _renderBrowseEntries() {
@@ -392,13 +493,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return '<div class="entries">' + this._browse.entries.map(function (entry) {
       var selected = !!this._selected[entry.path];
-      var selection = this._selected[entry.path] || { recurse: true, max_depth: "", grouping_strategy: "none" };
-      return ""
+      return ''
         + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
         + '  <div class="entry-top">'
         + '    <div>'
         + '      <div class="entry-name">' + escapeHtml(entry.name || basename(entry.path)) + '</div>'
-        + '      <div class="entry-path">' + escapeHtml(entry.path || "") + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(entry.path || '') + '</div>'
         + '    </div>'
         + '    <div class="button-row">'
         + (entry.type === 'folder' ? '<span class="chip">Folder</span>' : '<span class="chip">File</span>')
@@ -406,22 +506,158 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '    </div>'
         + '  </div>'
         + '  <div class="entry-actions">'
-        + (entry.type === 'folder'
-          ? (selected
-            ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open Contents</button>'
-            : '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>')
-          : '')
-        + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove Selection' : 'Select') + '</button>'
+        + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'
         + '  </div>'
-        + (selected && entry.type === 'folder'
-          ? '<div class="item-grid">'
-            + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (selection.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!selection.recurse ? ' selected' : '') + '>Off</option></select></div>'
-            + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(selection.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
-            + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (selection.grouping_strategy === 'none' ? ' selected' : '') + '>None (queue folder as-is)</option><option value="by-folder"' + (selection.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (selection.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (selection.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
-            + '</div>'
-          : '')
         + '</article>';
-    }, this).join("") + '</div>';
+    }, this).join('') + '</div>';
+  }
+
+  _renderServerSelectionRows(showSettings) {
+    var selections = this._selectedList();
+    if (!selections.length) {
+      return '<div class="state-row">No server files or folders selected yet.</div>';
+    }
+    return '<div class="entries">' + selections.map(function (entry) {
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
+        + (entry.type === 'folder' && showSettings
+          ? '<div class="item-grid">'
+            + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Off</option></select></div>'
+            + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(entry.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
+            + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
+            + '</div>'
+          : (entry.type === 'folder'
+            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span></div>'
+            : ''))
+        + '</article>';
+    }).join('') + '</div>';
+  }
+
+  _renderLaunchPad() {
+    var rootNames = this._roots.map(function (root) {
+      return basename(root.path || root.name || '/');
+    }).filter(Boolean).slice(0, 3);
+    return ''
+      + '<section class="section">'
+      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into Inbox.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Review Inbox</button></div></div>'
+      + '  <div class="wizard-launch-grid">'
+      + '    <article class="launch-card">'
+      + '      <div class="launch-kicker">Path 1</div><div class="launch-title">Upload Files / Folder</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
+      + '    </article>'
+      + '    <article class="launch-card">'
+      + '      <div class="launch-kicker">Path 2</div><div class="launch-title">Sync / Import From Server Inbox</div><div class="muted">Browse allowlisted server roots' + (rootNames.length ? ' such as ' + escapeHtml(rootNames.join(', ')) : '') + ', select files or folders, configure recurse/grouping, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-server-wizard">Start Server Wizard</button></div>'
+      + '    </article>'
+      + '  </div>'
+      + '</section>';
+  }
+
+  _renderRecentActivity() {
+    var recentItems = this._intakeItems.slice(0, 5);
+    return ''
+      + '<section class="section">'
+      + '  <div class="title-row"><div><div class="title">Recent Intake Activity</div><div class="subtitle">Latest queue handoffs and validation state from the shared Inbox contract.</div></div></div>'
+      + (recentItems.length
+        ? '<div class="entries">' + recentItems.map(function (item) {
+            var sourceEntry = item.source_entry || {};
+            return '<article class="entry-row"><div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><span class="chip">' + escapeHtml(formatLabel(item.state || item.status)) + '</span></div></article>';
+          }).join('') + '</div>'
+        : '<div class="state-row">No intake items have been created yet.</div>')
+      + '</section>';
+  }
+
+  _renderWizardProgress() {
+    var steps = [];
+    for (var stepNumber = 1; stepNumber <= this._wizardStepCount(); stepNumber += 1) {
+      steps.push(''
+        + '<div class="wizard-step' + (stepNumber === this._wizardStep ? ' current' : '') + (stepNumber < this._wizardStep ? ' complete' : '') + '">'
+        + '  <div class="wizard-step-number">' + String(stepNumber) + '</div>'
+        + '  <div class="wizard-step-label">' + escapeHtml(this._wizardStepLabel(stepNumber)) + '</div>'
+        + '</div>');
+    }
+    return '<div class="wizard-progress">' + steps.join('') + '</div>';
+  }
+
+  _renderWizardBody() {
+    if (this._wizardMode === 'server') {
+      if (this._wizardStep === 1) {
+        return ''
+          + '<div class="wizard-panel">'
+          + '  <div class="title-row"><div><div class="title">Select Server Files Or Folders</div><div class="subtitle">Browse the allowlisted server directory and build the selection list for this batch.</div></div><div class="button-row"><button class="button" data-action="browse-root">Roots</button>'
+          + (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
+          + '  </div></div>'
+          + '  <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '.</div>'
+          + this._renderBrowseEntries()
+          + '</div>'
+          + '<div class="wizard-panel">'
+          + '  <div class="title-row"><div><div class="title">Current Selection</div><div class="subtitle">Selected items carry forward to the next configuration step.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
+          + this._renderServerSelectionRows(false)
+          + '</div>';
+      }
+      if (this._wizardStep === 2) {
+        return ''
+          + '<div class="wizard-panel">'
+          + '  <div class="title-row"><div><div class="title">Configure Folder Handling</div><div class="subtitle">Set cleanup policy and tune recurse, depth, and grouping for any selected folders.</div></div></div>'
+          + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
+          + this._renderServerSelectionRows(true)
+          + '</div>';
+      }
+      return ''
+        + '<div class="wizard-panel">'
+        + '  <div class="title-row"><div><div class="title">Review And Commit</div><div class="subtitle">Confirm the server selections that will be normalized into the intake queue.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' pending</span></div>'
+        + '  <div class="result-summary"><div class="result-line"><span>Source path</span><strong>Server Inbox</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div></div>'
+        + this._renderServerSelectionRows(false)
+        + '</div>';
+    }
+
+    if (this._wizardStep === 1) {
+      return ''
+        + '<div class="wizard-panel">'
+        + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
+        + this._renderBrowserFileRows(true)
+        + '</div>';
+    }
+    return ''
+      + '<div class="wizard-panel">'
+      + '  <div class="title-row"><div><div class="title">Review And Commit</div><div class="subtitle">Confirm the staged browser uploads before they are pushed into the shared intake queue.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
+      + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
+      + '  <div class="result-summary"><div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div><div class="result-line"><span>Selected entries</span><strong>' + String(this._browserFiles.length) + '</strong></div></div>'
+      + this._renderBrowserFileRows(true)
+      + '</div>';
+  }
+
+  _renderWizardFooter() {
+    var atFirstStep = this._wizardStep === 1;
+    var atLastStep = this._wizardStep === this._wizardStepCount();
+    return ''
+      + '<div class="wizard-footer">'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button>'
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
+      + '  </div>'
+      + '  <div class="button-row">'
+      + (!atLastStep
+        ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
+        : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Commit To Inbox</button>')
+      + '  </div>'
+      + '</div>';
+  }
+
+  _renderWizard() {
+    return ''
+      + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
+      + '  <div class="wizard-backdrop" data-action="close-wizard"></div>'
+      + '  <div class="wizard-dialog">'
+      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into Inbox.</div></div><button class="button" data-action="close-wizard">Close</button></div>'
+      + this._renderWizardProgress()
+      + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
+      + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+      + '    <div class="wizard-body">' + this._renderWizardBody() + '</div>'
+      + this._renderWizardFooter()
+      + '    <input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files">'
+      + '    <input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder">'
+      + '  </div>'
+      + '</div>';
   }
 
   _handleClick(event) {
@@ -438,6 +674,30 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._refreshAll();
       return;
     }
+    if (action === 'open-browser-wizard') {
+      this._openWizard('browser');
+      return;
+    }
+    if (action === 'open-server-wizard') {
+      this._openWizard('server');
+      return;
+    }
+    if (action === 'close-wizard') {
+      this._closeWizard();
+      return;
+    }
+    if (action === 'wizard-next') {
+      this._goToWizardStep(this._wizardStep + 1);
+      return;
+    }
+    if (action === 'wizard-back') {
+      this._goToWizardStep(this._wizardStep - 1);
+      return;
+    }
+    if (action === 'commit-wizard') {
+      this._submitServerSelections();
+      return;
+    }
     if (action === 'browse-root') {
       this._loadBrowse('/');
       return;
@@ -452,6 +712,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'toggle-selection') {
       this._toggleSelection(String(target.getAttribute('data-path') || ''), String(target.getAttribute('data-entry-type') || 'file'));
+      return;
+    }
+    if (action === 'remove-selection') {
+      this._removeSelection(String(target.getAttribute('data-path') || ''));
       return;
     }
     if (action === 'choose-browser-files') {
@@ -473,8 +737,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
-    if (action === 'submit-server-selection') {
-      this._submitServerSelections();
+    if (action === 'remove-browser-file') {
+      this._removeBrowserFile(String(target.getAttribute('data-key') || ''));
       return;
     }
     if (action === 'goto-inbox') {
@@ -488,10 +752,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     var action = String(target.getAttribute('data-action') || '');
-    if (action === 'source-mode') {
-      this._setSourceMode(target.value);
-      return;
-    }
     if (action === 'browser-files' || action === 'browser-folder') {
       this._appendBrowserFiles(target.files);
       target.value = '';
@@ -541,74 +801,52 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!this.shadowRoot || !this._config) {
       return;
     }
-    var sourceMode = this._sourceMode();
-    var browserFiles = this._enabledBrowserFiles(sourceMode);
-    var serverSelections = this._serverPayloadSelections(sourceMode);
-    var pendingSubmissionCount = browserFiles.length + serverSelections.length;
-    var canSubmit = !this._loading && pendingSubmissionCount > 0;
-    var recentItems = this._intakeItems.slice(0, 5);
     var resultHtml = this._result
       ? '<section class="banner"><div class="title">Latest Result</div><div class="status">Upload ' + escapeHtml(this._result.upload_status) + ' / Validation ' + escapeHtml(this._result.validation_state) + ' / Cleanup ' + escapeHtml(this._result.cleanup_policy === 'keep' ? 'deferred (keep)' : 'pending policy') + '</div><div class="muted">Selection count ' + String(this._result.selection_count || 0) + ', expanded files ' + String(this._result.expanded_file_count || 0) + ', upload ' + escapeHtml(this._result.upload_id || '') + '</div>' + ((this._result.warnings || []).length ? '<div class="muted">Warnings: ' + escapeHtml((this._result.warnings || []).map(function (warning) { return warning.message || warning.code; }).join('; ')) + '</div>' : '') + '</section>'
       : '';
+    var extraStyles = ''
+      + '.wizard-launch-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}'
+      + '.launch-card{display:grid;gap:10px;padding:18px;border-radius:20px;border:1px solid rgba(148,163,184,0.2);background:linear-gradient(180deg,rgba(30,41,59,0.18),rgba(15,23,42,0.1));}'
+      + '.launch-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.launch-title{font-size:18px;font-weight:800;line-height:1.2;}'
+      + '.wizard-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;box-sizing:border-box;}'
+      + '.wizard-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.58);backdrop-filter:blur(6px);}'
+      + '.wizard-dialog{position:relative;display:grid;gap:14px;width:min(1080px,100%);max-height:min(92vh,980px);overflow:auto;padding:18px;border-radius:24px;border:1px solid rgba(148,163,184,0.22);background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9));box-shadow:0 28px 80px rgba(2,6,23,0.45);}'
+      + '.wizard-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}'
+      + '.wizard-progress{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}'
+      + '.wizard-step{display:grid;gap:6px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(30,41,59,0.45);}'
+      + '.wizard-step.current{border-color:rgba(96,165,250,0.45);background:rgba(30,64,175,0.18);}'
+      + '.wizard-step.complete{border-color:rgba(74,222,128,0.34);background:rgba(22,101,52,0.18);}'
+      + '.wizard-step-number{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.wizard-step-label{font-size:14px;font-weight:800;}'
+      + '.wizard-body{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}'
+      + '.wizard-panel{display:grid;gap:12px;padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.22);}'
+      + '.wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:4px;}'
+      + '@media (max-width: 860px){.wizard-body{grid-template-columns:1fr;}.wizard-dialog{padding:14px;max-height:94vh;}.wizard-modal{padding:12px;}}';
 
     this.shadowRoot.innerHTML = ''
-      + '<style>' + sharedStyles + '</style>'
+      + '<style>' + sharedStyles + extraStyles + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'
       + '    <div class="header">'
       + '      <div class="title-row">'
-      + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Choose one source type for this batch, configure the selection, then queue it into Inbox.</div></div>'
-      + '        <div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Review Inbox</button></div>'
+      + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Run intake as a true stepwise flow: pick one path, review the staged batch, then commit it into Inbox.</div></div>'
       + '      </div>'
-      + '      ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
-      + '      ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+      + '      ' + (this._error && !this._wizardOpen ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
+      + '      ' + (this._status && !this._wizardOpen ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
       + '    </div>'
       + resultHtml
       + this._queueSummaryHtml()
-      + '    <section class="section">'
-      + '      <div class="grid">'
-      + '        <div class="field"><label for="source-mode-select">Step 1: Source For This Batch</label><select id="source-mode-select" class="select" data-action="source-mode"><option value="browser"' + (sourceMode === 'browser' ? ' selected' : '') + '>Browser Upload</option><option value="server"' + (sourceMode === 'server' ? ' selected' : '') + '>Server Browse</option></select></div>'
-      + '        <div class="summary-card"><div class="summary-label">Current Batch Rule</div><div class="summary-value">' + escapeHtml(sourceMode === 'browser' ? 'Browser Upload' : 'Server Browse') + '</div><div class="muted">Both source panels remain visible, but only the selected source type contributes to the queued batch.</div></div>'
-      + '      </div>'
-      + '    </section>'
-      + '<section class="section"><div class="title-row"><div><div class="title">Step 2A: Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. These files queue only when Step 1 is set to Browser Upload.</div></div><div class="button-row"><span class="chip' + (sourceMode === 'browser' ? ' ok' : '') + '">' + escapeHtml(sourceMode === 'browser' ? 'Active Source' : 'Inactive For This Batch') + '</span><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(this._browserFiles.length) + (sourceMode === 'browser' ? ' ready for this batch.' : ' are staged but ignored until Browser Upload is selected.') + '</div>' + this._renderBrowserEntries() + '</section>'
-      + '    <div class="two-column">'
-      + '      <section class="section">'
-      + '        <div class="title-row"><div><div class="title">Step 2B: Server Browse</div><div class="subtitle">Select files or folders. Selected folders show Recurse, Max Depth, and Grouping controls inline.</div></div><div class="button-row"><span class="chip' + (sourceMode === 'server' ? ' ok' : '') + '">' + escapeHtml(sourceMode === 'server' ? 'Active Source' : 'Inactive For This Batch') + '</span><button class="button" data-action="browse-root">Roots</button>'
-      +          (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
-      + '        </div></div>'
-      + '        <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '</div>'
-      + this._renderBrowseEntries()
-      + '      </section>'
-      + '      <section class="section">'
-      + '        <div class="title">Step 3: Queue Into Inbox</div>'
-      + '        <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
-      + '        <div class="muted">Active source: ' + escapeHtml(sourceMode === 'browser' ? 'Browser Upload' : 'Server Browse') + '. Pending entries for this batch: ' + String(pendingSubmissionCount) + '.</div>'
-      + ((serverSelections.length || browserFiles.length)
-        ? '<div class="entries">'
-          + browserFiles.map(function (entry) {
-              return '<article class="entry-row"><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || '') + '</div><div class="button-row"><span class="chip">browser</span><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span></div></article>';
-            }).join('')
-          + serverSelections.map(function (entry) {
-              return '<article class="entry-row"><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (entry.type === 'folder' ? '<span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') : '') + '</div></article>';
-            }).join('')
-          + '</div>'
-        : '<div class="state-row">Select files or folders from the active source type, then queue this batch into Inbox.</div>')
-      + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!canSubmit ? ' disabled' : '') + '>Queue To Intake</button></div>'
-      + '        <div class="muted">Recent activity</div>'
-      + (recentItems.length ? '<div class="entries">' + recentItems.map(function (item) {
-          var sourceEntry = item.source_entry || {};
-          return '<article class="entry-row"><div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><span class="chip">' + escapeHtml(formatLabel(item.state || item.status)) + '</span></div></article>';
-        }).join('') + '</div>' : '<div class="state-row">No intake items have been created yet.</div>')
-      + '      </section>'
-      + '    </div>'
+      + this._renderLaunchPad()
+      + this._renderRecentActivity()
       + '  </div>'
-      + '</ha-card>';
+      + '</ha-card>'
+      + (this._wizardOpen ? this._renderWizard() : '');
 
-    var selects = this.shadowRoot.querySelectorAll('select[data-action], input[data-action]');
-    for (var index = 0; index < selects.length; index += 1) {
-      selects[index].onchange = this._boundHandleChange;
-      selects[index].oninput = this._boundHandleChange;
+    var inputs = this.shadowRoot.querySelectorAll('select[data-action], input[data-action]');
+    for (var index = 0; index < inputs.length; index += 1) {
+      inputs[index].onchange = this._boundHandleChange;
+      inputs[index].oninput = this._boundHandleChange;
     }
   }
 }
