@@ -127,37 +127,6 @@ catalog_spool_popup_content:
         const activeSpoolCount = Number(ft?.count || 0);
         const ruleShortage = ((inventoryRule === 'Keep In Stock' || inventoryRule === 'Not Defined') && (activeSpoolCount < 1 || aggregateWeight < stockThreshold)) || (inventoryRule === 'Maintain Backup Spool' && (activeSpoolCount < 2 || aggregateWeight < stockThreshold));
         const purchaseNeed = purchaseQty > 0 || ruleShortage;
-        const otherSpools = (filamentId != null)
-          ? Object.values(states)
-              .filter(function(stateObj) {
-                if (!stateObj || typeof stateObj.entity_id !== 'string') return false;
-                if (!/^sensor\.spoolman_spool_\d+$/.test(stateObj.entity_id)) return false;
-                if (stateObj.entity_id === spoolEntityId) return false;
-                if (String(stateObj.attributes?.filament_id) !== String(filamentId)) return false;
-                const archivedRaw = stateObj.attributes?.archived;
-                return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw);
-              })
-              .map(function(stateObj) {
-                const remaining = Number(stateObj.attributes?.remaining_weight);
-                return {
-                  id: String(stateObj.entity_id).split('_').pop(),
-                  name: stateObj.attributes?.friendly_name || 'Spool',
-                  location: stateObj.attributes?.location || 'N/A',
-                  remainingText: Number.isFinite(remaining) ? remaining.toFixed(1) + ' g' : 'N/A'
-                };
-              })
-          : [];
-        const otherSpoolsHtml = otherSpools.length > 0
-          ? `
-            <details style="padding:10px 12px;border-radius:10px;background:rgba(128,128,128,0.08);border:1px solid rgba(128,128,128,0.16);">
-              <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--primary-text-color);">${otherSpools.length} other spool${otherSpools.length === 1 ? '' : 's'} of same filament</summary>
-              <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-                ${otherSpools.map(function(s) {
-                  return `<div style="padding:8px 10px;border-radius:8px;background:rgba(128,128,128,0.08);font-size:12px;line-height:1.4;color:var(--primary-text-color);"><strong>${s.name}</strong> (Spool #${s.id})<br>${s.location} · ${s.remainingText}</div>`;
-                }).join('')}
-              </div>
-            </details>`
-          : '';
 
         // Purchase info
         const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
@@ -235,8 +204,6 @@ catalog_spool_popup_content:
             <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">
               ${purchaseHTML}${priceHTML}${settingsHTML}
             </div>
-
-            ${otherSpoolsHtml}
           </div>
         `;
       ]]]
