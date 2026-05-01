@@ -53,9 +53,9 @@
       return "";
     }
     if (/^[a-zA-Z]:\//.test(normalized)) {
-      return "file:///" + normalized;
+      return "file:///" + encodeURI(normalized);
     }
-    return "file:///" + normalized.replace(/^\//, "");
+    return "file:///" + encodeURI(normalized.replace(/^\//, ""));
   }
 
   async function authHeaders(hass, forceRefresh) {
@@ -334,11 +334,31 @@
     _openLocalPath(pathValue) {
       var uri = toFileUri(pathValue);
       if (!uri) {
+        this._error = 'Launch path is empty.';
+        this._render();
         return;
       }
+
+      var opened = null;
+      try {
+        opened = window.open(uri, '_blank', 'noopener');
+      } catch (_error) {
+        opened = null;
+      }
+
+      if (opened) {
+        this._status = 'Opened: ' + uri;
+        this._error = '';
+        this._render();
+        return;
+      }
+
       fireBrowserModEvent(this, 'browser_mod.javascript', {
         code: 'window.open(' + JSON.stringify(uri) + ', "_blank", "noopener");',
       });
+      this._status = 'Requested open via Browser Mod: ' + uri;
+      this._error = '';
+      this._render();
     }
 
     _openExplorer(pathValue) {
