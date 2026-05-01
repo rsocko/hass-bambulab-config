@@ -4,6 +4,7 @@ if (!intakeShared) {
 }
 
 var escapeHtml = intakeShared.escapeHtml;
+var basename = intakeShared.basename;
 var formatBytes = intakeShared.formatBytes;
 var formatLabel = intakeShared.formatLabel;
 var summarizeStates = intakeShared.summarizeStates;
