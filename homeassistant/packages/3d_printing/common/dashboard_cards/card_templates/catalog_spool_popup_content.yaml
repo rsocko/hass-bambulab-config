@@ -26,6 +26,7 @@ catalog_spool_popup_content:
       content:
         - padding: 0
         - margin: 0
+        - pointer-events: auto
   custom_fields:
     content: |
       [[[
@@ -147,19 +148,18 @@ catalog_spool_popup_content:
                 };
               })
           : [];
-        const otherSpoolsToggleHandler = 'event.preventDefault();event.stopPropagation();const shell=this.closest(".catalog-spool-other-spools-shell");if(shell){const isOpen=shell.classList.toggle("is-open");this.setAttribute("aria-expanded",isOpen?"true":"false");const hint=this.querySelector(".catalog-spool-other-spools-toggle-hint");if(hint){hint.textContent=isOpen?"Hide details":"View details";}const icon=this.querySelector(".catalog-spool-other-spools-toggle-icon");if(icon){icon.textContent=isOpen?"▾":"▸";}const details=shell.querySelector(".catalog-spool-other-spools-details");if(details){details.style.display=isOpen?"flex":"none";}}return false;';
         const otherSpoolsHtml = otherSpools.length > 0
-          ? '<div class="catalog-spool-other-spools-shell" style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(128,128,128,0.08);border:1px solid rgba(128,128,128,0.16);">'
-            + '<button type="button" aria-expanded="false" title="Show other spool details" onclick=\'' + otherSpoolsToggleHandler + '\' style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:0;border:none;background:none;color:var(--primary-text-color);cursor:pointer;text-align:left;font:inherit;">'
-            + '<span style="font-size:13px;font-weight:600;color:var(--primary-text-color);">📦 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</span>'
-            + '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color);"><span class="catalog-spool-other-spools-toggle-hint">View details</span><span class="catalog-spool-other-spools-toggle-icon" aria-hidden="true">▸</span></span>'
-            + '</button>'
-            + '<div class="catalog-spool-other-spools-details" style="display:none;flex-direction:column;gap:8px;">'
+          ? '<details class="catalog-spool-other-spools-shell" style="padding:10px 12px;border-radius:10px;background:rgba(128,128,128,0.08);border:1px solid rgba(128,128,128,0.16);pointer-events:auto;">'
+            + '<summary style="display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;color:var(--primary-text-color);font-size:13px;font-weight:600;list-style:none;">'
+            + '<span>📦 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</span>'
+            + '<span style="font-size:12px;color:var(--secondary-text-color);font-weight:500;">Show details</span>'
+            + '</summary>'
+            + '<div class="catalog-spool-other-spools-details" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">'
             + otherSpools.map(function(s) {
                 return '<div style="padding:8px 10px;border-radius:8px;background:rgba(128,128,128,0.08);font-size:12px;line-height:1.4;color:var(--primary-text-color);"><strong>' + s.name + '</strong> (Spool #' + s.id + ')<br>📍 ' + s.location + ' — ' + s.remainingText + '</div>';
               }).join('')
             + '</div>'
-            + '</div>'
+            + '</details>'
           : '';
 
         // Purchase info
