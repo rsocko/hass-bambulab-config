@@ -62,6 +62,12 @@ from .local_models import (
 )
 from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
 from .models import ManyfoldModelSummary, LocalModelEntry
+from .routers.archive_links import router as archive_links_router
+from .routers.intake import router as intake_router
+from .routers.models import router as models_router
+from .routers.source_filesystems import router as source_filesystems_router
+from .routers.system import router as system_router
+from .routers.working import router as working_router
 from .settings import Settings, load_settings
 from .services import (
     get_all_indexed_file_hashes,
@@ -2578,6 +2584,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Issue #1191 scaffolding: register feature routers before extracting handlers.
+    app.include_router(system_router)
+    app.include_router(source_filesystems_router)
+    app.include_router(archive_links_router)
+    app.include_router(working_router)
+    app.include_router(intake_router)
+    app.include_router(models_router)
 
     @app.get("/", response_class=HTMLResponse)
     def api_landing() -> str:
