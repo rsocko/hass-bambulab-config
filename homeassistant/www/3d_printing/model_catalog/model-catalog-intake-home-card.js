@@ -4,7 +4,6 @@ if (!intakeShared) {
 }
 
 var escapeHtml = intakeShared.escapeHtml;
-var basename = intakeShared.basename;
 var formatBytes = intakeShared.formatBytes;
 var formatLabel = intakeShared.formatLabel;
 var summarizeStates = intakeShared.summarizeStates;
@@ -583,7 +582,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Current Selection</div><div class="subtitle">Configure recurse, depth, and grouping per folder, then advance to review.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
           + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
-          + this._renderServerSelectionRows(true)
+          + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(true) + '</div>'
           + '</div>';
       }
       return ''
@@ -805,6 +804,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-body{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;}'
       + '.wizard-panel{display:grid;gap:12px;align-content:start;min-height:0;padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.22);}'
       + '.wizard-scroll-region{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
+      + '.wizard-selection-scroll{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
       + '.wizard-review-scroll{min-height:0;max-height:420px;overflow:auto;padding-right:4px;}'
       + '.wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:4px;}'
       + '@media (max-width: 860px){.wizard-body{grid-template-columns:1fr;}.wizard-dialog{padding:14px;max-height:94vh;}.wizard-modal{padding:12px;}}';
