@@ -103,8 +103,8 @@ cards:
                     {% set cards.items = cards.items + [{
                       'type': 'custom:button-card',
                       'template': 'catalog_group_header',
-                      'entity': 'sensor.filament_catalog_filtered_spools',
-                      'triggers_update': 'sensor.filament_catalog_filtered_spools',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
                       'variables': {
                         'groupName': group.name,
                         'groupCount': group.count
@@ -178,8 +178,8 @@ cards:
                     {% set cards.items = cards.items + [{
                       'type': 'custom:button-card',
                       'template': 'catalog_group_header',
-                      'entity': 'sensor.filament_catalog_filtered_spools',
-                      'triggers_update': 'sensor.filament_catalog_filtered_spools',
+                      'entity': 'sensor.spoolman_filament_totals',
+                      'triggers_update': 'sensor.spoolman_filament_totals',
                       'variables': {
                         'groupName': group.name,
                         'groupCount': group.count
