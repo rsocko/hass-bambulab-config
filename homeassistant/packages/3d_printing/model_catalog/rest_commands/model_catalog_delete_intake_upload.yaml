@@ -1,0 +1,8 @@
+model_catalog_delete_intake_upload:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/intake/uploads/{{ upload_id }}
+  method: DELETE
