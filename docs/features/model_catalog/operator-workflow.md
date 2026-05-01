@@ -194,7 +194,7 @@ Practical defaults:
 Do not use destructive policies unless all of the following are true:
 
 - the upload has reached verified state
-- the source path is under `SOURCE_FILESYSTEM_ROOTS`
+- the source path is under the configured intake roots (`MODEL_CATALOG_INTAKE_ROOTS`)
 - the operator is comfortable with queue-driven cleanup retry semantics instead of manual file handling
 
 ### Rollback And Error Handling

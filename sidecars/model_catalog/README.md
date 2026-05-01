@@ -172,7 +172,6 @@ Runtime path roles are split deliberately:
 - `MODEL_CATALOG_CURATED_ASSETS_ROOT` controls sidecar-owned published storage.
 - `MODEL_CATALOG_INTAKE_ROOTS` controls intake browse/select and intake cleanup scope.
 - `MODEL_CATALOG_WORKING_FILES_ROOT` controls Working Files explorer, reindex, and reorganize destination.
-- `SOURCE_FILESYSTEM_ROOTS` remains as a legacy compatibility input only.
 
 These values must use container-visible paths, not host-native paths.
 
@@ -194,7 +193,7 @@ Host-path mapping reminder:
 
 - host bind mount: `D:\Model Library:/assets`
 - intake/working/curated values: `/assets/...`
-- not allowed in `SOURCE_FILESYSTEM_ROOTS`: `D:\Model Library`
+- not allowed in `MODEL_CATALOG_INTAKE_ROOTS` or `MODEL_CATALOG_WORKING_FILES_ROOT`: `D:\Model Library`
 
 **File Organization in `/assets`**:
     - all local model files, assets, and photos are stored in `/assets/Model Catalog` (host-visible)
@@ -312,7 +311,6 @@ If your live environment still has a model catalog service embedded in the Manyf
 - `MODEL_CATALOG_CURATED_ASSETS_ROOT` — sidecar-controlled published asset root for curated local storage
 - `MODEL_CATALOG_INTAKE_ROOTS` — comma-separated container paths allowed for intake browse/select and intake cleanup
 - `MODEL_CATALOG_WORKING_FILES_ROOT` — container path used by Working Files explorer, reindex, and reorganize destination
-- `SOURCE_FILESYSTEM_ROOTS` — legacy compatibility input for older deployments; superseded by the role-based root settings above
 - `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)

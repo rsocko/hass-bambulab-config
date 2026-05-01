@@ -385,6 +385,15 @@ def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
     )
 
 
+def _normalize_queue_status(value: object | None) -> str | None:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return None
+    if normalized in {"none", "queued", "done"}:
+        return normalized
+    return None
+
+
 def _browser_intake_upload_storage_root(settings: Settings) -> Path:
     return (settings.db_path.parent / BROWSER_INTAKE_UPLOAD_STORAGE_DIR).resolve()
 
@@ -610,7 +619,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
                 continue
-            if file_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if file_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
                 warnings.append(
                     {
                         "code": "unsupported_type",
@@ -844,15 +853,6 @@ def _matches_priority_filters(
     if to_print_priority_max is not None and (priority is None or priority > to_print_priority_max):
         return False
     return True
-
-
-def _normalize_queue_status(value: object | None) -> str | None:
-    normalized = str(value or "").strip().lower()
-    if not normalized:
-        return None
-    if normalized in {"none", "queued", "done"}:
-        return normalized
-    return None
 
 
 def _preview_source_candidates(source: str) -> list[str]:
@@ -1687,7 +1687,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
                 error="source_is_not_folder",
                 message=f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
             )
-        if entry_type == "file" and resolved_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+        if entry_type == "file" and resolved_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
             raise IntakeSourceValidationError(
                 error="unsupported_file_type",
                 message=f"Unsupported file type for intake: {resolved_path.name}",
@@ -1749,7 +1749,7 @@ def _create_intake_queue_upload_record(
     connection = connect(db_path)
     try:
         connection.execute(
-            """
+                """
             INSERT INTO intake_queue_uploads (
                 upload_id, status, source_entries_json, verification_status,
                 cleanup_policy, created_at, updated_at
@@ -1942,22 +1942,15 @@ def _dedupe_paths(paths: list[Path]) -> list[Path]:
     return unique
 
 
-def _legacy_source_filesystem_roots(settings: Settings) -> list[Path]:
-    return [Path(root).resolve() for root in settings.source_filesystem_roots]
-
-
 def _configured_intake_source_roots(settings: Settings) -> list[Path]:
-    explicit_roots = [Path(root).resolve() for root in getattr(settings, "intake_source_roots", ())]
-    if explicit_roots:
-        return _dedupe_paths(explicit_roots)
-    return _dedupe_paths(_legacy_source_filesystem_roots(settings))
+    return _dedupe_paths([Path(root).resolve() for root in getattr(settings, "intake_source_roots", ())])
 
 
 def _configured_working_files_roots(settings: Settings) -> list[Path]:
     explicit_root = getattr(settings, "working_files_root", None)
     if explicit_root is not None:
         return [Path(explicit_root).resolve()]
-    return _preferred_working_files_roots(_legacy_source_filesystem_roots(settings))
+    return []
 
 
 def _working_files_destination_root(settings: Settings) -> Path | None:
@@ -2646,10 +2639,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         working_roots = _configured_working_files_roots(state.settings)
         return {
             "authority_mode": _normalized_authority_mode(state.settings),
-            "source_filesystem_roots": [str(root) for root in intake_roots],
-            "source_filesystem_root_count": len(intake_roots),
-            "legacy_source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
-            "legacy_source_filesystem_root_count": len(state.settings.source_filesystem_roots),
             "intake_source_roots": [str(root) for root in intake_roots],
             "intake_source_root_count": len(intake_roots),
             "working_files_roots": [str(root) for root in working_roots],
@@ -2709,10 +2698,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "service": "model-catalog",
             "authority_mode": _normalized_authority_mode(state.settings),
-            "source_filesystem_roots": [str(root) for root in intake_roots],
-            "source_filesystem_root_count": len(intake_roots),
-            "legacy_source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
-            "legacy_source_filesystem_root_count": len(state.settings.source_filesystem_roots),
             "intake_source_roots": [str(root) for root in intake_roots],
             "intake_source_root_count": len(intake_roots),
             "working_files_roots": [str(root) for root in working_roots],
@@ -5023,7 +5008,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
             # Calculate search score
             score = _search_score(query_tokens, summary) if query_tokens else 1.0
-            
             # Skip if query was provided but no match
             if q and score <= 0:
                 continue
@@ -7084,7 +7068,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
             cleanup_policy = "keep"
 
-        roots = _source_filesystem_roots()
+        roots = _intake_source_roots()
         now_iso = _bulk_utc_now_iso()
         created_items: list[dict[str, Any]] = []
         pending_events: list[dict[str, Any]] = []
@@ -8358,7 +8342,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
 
     # ========== SOURCE FILESYSTEM API (#1147) ==========
 
-    def _source_filesystem_roots() -> list[Path]:
+    def _intake_source_roots() -> list[Path]:
         """Return configured intake source roots from settings."""
         state: AppState = app.state.model_catalog
         return _configured_intake_source_roots(state.settings)
@@ -8529,7 +8513,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "message": "Upload queue entry did not resolve to any files for cleanup.",
             }
 
-        roots = _source_filesystem_roots()
+        roots = _intake_source_roots()
         managed_roots = roots + [_browser_intake_upload_storage_root(state.settings)]
         browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
 
@@ -8645,10 +8629,10 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         """
         List configured allowlisted source filesystem roots.
         
-        Roots are configured via MODEL_CATALOG_INTAKE_ROOTS (or legacy SOURCE_FILESYSTEM_ROOTS).
+        Roots are configured via MODEL_CATALOG_INTAKE_ROOTS.
         Returns metadata for each root including accessibility and item counts.
         """
-        roots = _source_filesystem_roots()
+        roots = _intake_source_roots()
         root_entries = []
         for root in roots:
             accessible = root.exists() and root.is_dir()
@@ -8683,7 +8667,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         - Provide path to list folder contents.
         - Enforces allowlist; rejects traversal outside configured roots.
         """
-        roots = _source_filesystem_roots()
+        roots = _intake_source_roots()
 
         if not path or path.strip() in {"", "/"}:
             # Virtual root: show configured roots
@@ -8806,14 +8790,14 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         """
         import uuid as _uuid
 
-        roots = _source_filesystem_roots()
+        roots = _intake_source_roots()
         if not roots:
             return JSONResponse(
                 status_code=400,
                 content={
                     "success": False,
                     "error": "no_roots_configured",
-                    "message": "No intake source roots are configured (MODEL_CATALOG_INTAKE_ROOTS and SOURCE_FILESYSTEM_ROOTS are empty).",
+                    "message": "No intake source roots are configured. Set MODEL_CATALOG_INTAKE_ROOTS.",
                 },
             )
 

@@ -45,9 +45,6 @@ services:
       # Working Files explorer/reindex root.
       MODEL_CATALOG_WORKING_FILES_ROOT: ${MODEL_CATALOG_WORKING_FILES_ROOT:-/assets/Model Working Files}
 
-      # Legacy compatibility only. Prefer the role-based settings above.
-      SOURCE_FILESYSTEM_ROOTS: ${SOURCE_FILESYSTEM_ROOTS:-}
-
       # Host bind source used for launch/explorer path mapping diagnostics.
       # Required by Working Files actions that translate /assets paths to host paths.
       ASSETS_ROOT_HOST: ${ASSETS_ROOT_HOST:-}

@@ -25,7 +25,6 @@ class Settings:
     image_created: str
     manyfold_session_email: str | None = None
     manyfold_session_password: str | None = None
-    source_filesystem_roots: tuple[Path, ...] = ()
     authority_mode: str = "hybrid"
     model_catalog_assets_root: Path | None = None
     intake_source_roots: tuple[Path, ...] = ()
@@ -56,21 +55,9 @@ def load_settings() -> Settings:
     standalone_mode = str(os.getenv("MODEL_CATALOG_STANDALONE_MODE", "")).strip().lower() in {"1", "true", "yes", "on"}
     if not authority_mode:
         authority_mode = "local" if standalone_mode else "hybrid"
-    source_filesystem_roots_raw = os.getenv("SOURCE_FILESYSTEM_ROOTS", "")
-    source_filesystem_roots: tuple[Path, ...] = tuple(
-        Path(p.strip()).expanduser().resolve()
-        for p in source_filesystem_roots_raw.split(",")
-        if p.strip()
-    )
     # Model catalog assets root: defaults to /assets/Model Catalog if not specified
-    assets_root_raw = os.getenv("MODEL_CATALOG_ASSETS_ROOT", "").strip()
-    curated_assets_root_raw = str(
-        os.getenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", "")
-        or os.getenv("MODEL_CATALOG_ASSETS_ROOT", "")
-    ).strip()
+    curated_assets_root_raw = str(os.getenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", "")).strip()
     model_catalog_assets_root: Path | None = None
-    if assets_root_raw:
-        model_catalog_assets_root = Path(assets_root_raw).expanduser().resolve()
     if curated_assets_root_raw:
         model_catalog_assets_root = Path(curated_assets_root_raw).expanduser().resolve()
     intake_source_roots_raw = str(os.getenv("MODEL_CATALOG_INTAKE_ROOTS", "")).strip()
@@ -103,7 +90,6 @@ def load_settings() -> Settings:
         image_created=image_created,
         manyfold_session_email=session_email,
         manyfold_session_password=session_password,
-        source_filesystem_roots=source_filesystem_roots,
         authority_mode=authority_mode,
         model_catalog_assets_root=model_catalog_assets_root,
         intake_source_roots=intake_source_roots,

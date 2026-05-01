@@ -513,7 +513,7 @@ class TestBackwardCompatibility:
         assert isinstance(dump, dict)
 
     def test_resolve_local_asset_storage_path_accepts_absolute_path_within_allowed_root(self, tmp_path):
-        """Absolute asset paths within SOURCE_FILESYSTEM_ROOTS resolve without NameError/regression."""
+        """Absolute asset paths within configured intake roots resolve without NameError/regression."""
         from sidecars.model_catalog.app.main import _resolve_local_asset_storage_path
 
         assets_root = tmp_path / "assets"
@@ -539,7 +539,7 @@ class TestBackwardCompatibility:
             image_version="0.1.0",
             image_revision="test",
             image_created="2026-01-01T00:00:00Z",
-            source_filesystem_roots=(assets_root.resolve(),),
+            intake_source_roots=(assets_root.resolve(),),
         )
 
         class AssetStub:
@@ -594,7 +594,7 @@ class TestBackwardCompatibility:
             image_version="0.1.0",
             image_revision="test",
             image_created="2026-01-01T00:00:00Z",
-            source_filesystem_roots=(assets_root.resolve(),),
+                    intake_source_roots=(Path(tmpdir).resolve(),),
         )
 
         app = create_app(settings=settings)
@@ -692,7 +692,7 @@ class TestListModelsEndpointMerge:
                     image_version="0.1.0",
                     image_revision="test",
                     image_created="2026-01-01T00:00:00Z",
-                    source_filesystem_roots=(Path(tmpdir).resolve(),),
+                        intake_source_roots=(Path(tmpdir).resolve(),),
                     model_catalog_assets_root=assets_root,
             )
             app = create_app(settings=settings)

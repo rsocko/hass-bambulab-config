@@ -30,7 +30,6 @@ def _build_settings(tmp_path: Path, source_roots: list[Path] | None = None) -> S
         image_revision="abc123",
         image_created="2026-04-28T00:00:00Z",
         intake_source_roots=tuple(source_roots or []),
-        source_filesystem_roots=tuple(source_roots or []),
     )
 
 
@@ -53,7 +52,6 @@ def test_list_source_filesystems_returns_configured_roots(tmp_path: Path) -> Non
         response = client.get("/api/source-filesystems")
     assert response.status_code == 200
     payload = response.json()
-
     assert payload["success"] is True
     assert payload["root_count"] == 2
     root_paths = {r["path"] for r in payload["roots"]}
@@ -108,11 +106,9 @@ def test_create_app_loads_source_roots_from_env_at_startup(tmp_path: Path, monke
 
     monkeypatch.setenv("MODEL_CATALOG_DB_PATH", str(tmp_path / "model_catalog.db"))
     monkeypatch.setenv("MODEL_CATALOG_AUTHORITY_MODE", "local")
-    monkeypatch.delenv("SOURCE_FILESYSTEM_ROOTS", raising=False)
+    monkeypatch.setenv("MODEL_CATALOG_INTAKE_ROOTS", str(root))
 
     app = create_app()
-
-    monkeypatch.setenv("SOURCE_FILESYSTEM_ROOTS", str(root))
 
     with TestClient(app) as client:
         response = client.get("/api/source-filesystems")

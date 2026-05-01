@@ -50,18 +50,7 @@ Deferred to a later phase:
 
 Working-file indexing and browse/select must be restricted to allowlisted roots configured for the sidecar.
 
-Default Working Files root target for this phase:
-
-- `/assets/Model Working Files`
-
-Required behavior:
-
-- all source paths are resolved to absolute canonical paths
-- all canonical paths must remain within an allowlisted root
-- path traversal attempts are rejected
-- rejected paths return explicit validation errors
-
-When no explicit root override is provided, implementations should prefer `/assets/Model Working Files` when that path is within `SOURCE_FILESYSTEM_ROOTS`.
+When no explicit working-files root override is provided, implementations should prefer `/assets/Model Working Files` when that path is available via `MODEL_CATALOG_WORKING_FILES_ROOT`.
 
 ## Path Normalization Rules
 

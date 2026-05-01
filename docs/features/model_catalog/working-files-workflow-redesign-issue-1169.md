@@ -54,7 +54,7 @@ Working Files indexing starts at `/assets/Model Working Files`.
 Operational contract:
 
 - default reindex root is `/assets/Model Working Files`
-- root remains constrained by `SOURCE_FILESYSTEM_ROOTS` allowlisting
+- root remains constrained by `MODEL_CATALOG_WORKING_FILES_ROOT`
 - explicit reindex still allows narrower child roots when needed
 
 ### 2) Group-First UX With Ungrouped Visibility
@@ -109,7 +109,7 @@ Primary mapping inputs:
 
 - container-side indexed path (typically under `/assets/...`)
 - bind mount declaration (`${ASSETS_ROOT_HOST}:/assets`)
-- allowlisted roots (`SOURCE_FILESYSTEM_ROOTS`)
+- configured working-files root plus intake roots when cross-surface actions need validation
 
 Default mapping contract:
 

@@ -32,7 +32,7 @@ def _build_settings(tmp_path: Path, source_roots: list[Path] | None = None) -> S
         image_version="0.1.0",
         image_revision="abc123",
         image_created="2026-04-22T00:00:00Z",
-        source_filesystem_roots=tuple(source_roots or []),
+        intake_source_roots=tuple(source_roots or []),
     )
 
 

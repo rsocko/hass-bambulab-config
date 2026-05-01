@@ -37,7 +37,8 @@ def _make_settings(db_path: Path, source_root: Path) -> Settings:
         image_version="test",
         image_revision="test",
         image_created="test",
-        source_filesystem_roots=(source_root.resolve(),),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=source_root.resolve(),
     )
 
 def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> Settings:
@@ -62,7 +63,6 @@ def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> 
         image_created="test",
         intake_source_roots=resolved_roots,
         working_files_root=working_root,
-        source_filesystem_roots=resolved_roots,
     )
 
 

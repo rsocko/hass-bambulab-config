@@ -435,8 +435,8 @@ def test_search_results_emit_proxy_preview_urls(tmp_path: Path) -> None:
 
     connection = sqlite3.connect(settings.db_path)
     try:
-    preview_file = source_root / "queue-preview.stl"
-    preview_file.write_bytes(b"solid queue preview\nendsolid queue preview\n")
+        connection.execute(
+            """
             INSERT INTO manyfold_model_summary_cache (
                 manyfold_model_url,
                 manyfold_model_public_id,
@@ -2354,8 +2354,8 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         config = test_client.get("/config")
         assert config.status_code == 200
-        assert config.json()["source_filesystem_roots"] == []
-        assert config.json()["source_filesystem_root_count"] == 0
+        assert config.json()["intake_source_roots"] == []
+        assert config.json()["intake_source_root_count"] == 0
         assert config.json()["manyfold_models_path"] == "/models"
         assert config.json()["manyfold_collections_path"] == "/collections"
         assert config.json()["manyfold_creators_path"] == "/creators"
@@ -2369,8 +2369,8 @@ def test_sidecar_startup_health_and_model_refresh(tmp_path: Path) -> None:
 
         diagnostics = test_client.get("/diagnostics")
         assert diagnostics.status_code == 200
-        assert diagnostics.json()["source_filesystem_roots"] == []
-        assert diagnostics.json()["source_filesystem_root_count"] == 0
+        assert diagnostics.json()["intake_source_roots"] == []
+        assert diagnostics.json()["intake_source_root_count"] == 0
         assert diagnostics.json()["schema_version"] >= 2
         assert diagnostics.json()["manyfold_collections_path"] == "/collections"
         assert diagnostics.json()["manyfold_creators_path"] == "/creators"
@@ -5212,7 +5212,11 @@ def test_intake_queue_post_upload_persists_source_timestamp_metadata(tmp_path: P
 def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
-    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
 
@@ -5302,7 +5306,7 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
         ).fetchall()
         assert len(asset_rows) == 2
         for row in asset_rows:
-            stored_path = (settings.db_path.parent / str(row["storage_path"])).resolve()
+            stored_path = (settings.model_catalog_assets_root / str(row["storage_path"])).resolve()
             assert stored_path.exists()
     finally:
         connection.close()
@@ -5314,7 +5318,11 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
 def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
-    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
 
@@ -5363,7 +5371,11 @@ def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_pa
 def test_intake_queue_publish_to_local_replace_policy_writes_stub(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
-    settings = replace(_build_settings(tmp_path), source_filesystem_roots=(source_root.resolve(),))
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
     bootstrap_database(settings.db_path)
     app = create_app(settings=settings)
 

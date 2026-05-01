@@ -79,7 +79,9 @@ Docker Compose Network (model-catalog-stack)
 | `MANYFOLD_CREATORS_PATH` | `/creators` | API path prefix |
 | `MANYFOLD_OAUTH_TOKEN_PATH` | `/oauth/token` | OAuth token endpoint |
 | `MODEL_CATALOG_REFRESH_TTL_SECONDS` | `900` | Cache refresh interval |
-| `SOURCE_FILESYSTEM_ROOTS` | empty | Comma-separated container paths allowed for server-browse intake and verification-gated cleanup |
+| `MODEL_CATALOG_CURATED_ASSETS_ROOT` | `/assets/Model Catalog` | Sidecar-owned curated storage root |
+| `MODEL_CATALOG_INTAKE_ROOTS` | empty | Comma-separated container paths allowed for server-browse intake and verification-gated cleanup |
+| `MODEL_CATALOG_WORKING_FILES_ROOT` | empty | Container path used by Working Files explorer, reindex, and reorganize |
 
 ### Queue Volume And Remote-Client Intake Notes
 
@@ -98,27 +100,21 @@ Operational implications:
 
 ### Allowed-Root Configuration Examples
 
-Server-browse mode only works when the sidecar can resolve requested files inside `SOURCE_FILESYSTEM_ROOTS`.
-
-Examples:
+Server-browse mode only works when the sidecar can resolve requested files inside `MODEL_CATALOG_INTAKE_ROOTS`.
 
 ```text
-SOURCE_FILESYSTEM_ROOTS=/assets
+MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
+MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
+MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
 ```
 
-Broad standalone allowlist for the full bind mount.
+Recommended split when curated storage, intake, and working files share the same `/assets` mount.
 
 ```text
-SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
+MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox,/assets/imported/remotes
 ```
 
-Recommended when intake should stay out of curated catalog folders.
-
-```text
-SOURCE_FILESYSTEM_ROOTS=/assets/inbox,/assets/imported/remotes
-```
-
-Recommended when server browse is only for controlled intake drops.
+Recommended when server browse should include additional controlled intake drops without widening the working-files root.
 
 Rules validated by implementation:
 
@@ -191,7 +187,9 @@ services:
       MODEL_CATALOG_HOST: "0.0.0.0"
       MODEL_CATALOG_PORT: "8314"
       MODEL_CATALOG_REFRESH_TTL_SECONDS: "900"
-      SOURCE_FILESYSTEM_ROOTS: "/data/model-library/working,/data/model-library/inbox"
+      MODEL_CATALOG_CURATED_ASSETS_ROOT: "/data/model-library/catalog"
+      MODEL_CATALOG_INTAKE_ROOTS: "/data/model-library/inbox"
+      MODEL_CATALOG_WORKING_FILES_ROOT: "/data/model-library/working"
     depends_on:
       manyfold:
         condition: service_healthy
@@ -629,12 +627,12 @@ Use this checklist when validating queue volume behavior and both remote-client 
 Pass criteria:
 
 - queue row exists
-- staged file exists under `/data/intake_browser_uploads`
+- destructive policies only affect files under `MODEL_CATALOG_INTAKE_ROOTS`
 - restart does not lose the queued upload when `/data` is persistent
 
 ### Server Browse Path
 
-1. Set `SOURCE_FILESYSTEM_ROOTS` to a known mounted container path.
+1. Set `MODEL_CATALOG_INTAKE_ROOTS` to a known mounted container path.
 2. Call `GET /api/source-filesystems` and confirm the expected root is returned.
 3. Browse with `GET /api/source-filesystems/browse` for an allowed path.
 4. Submit a server-side selection with `POST /api/source-filesystems/select`.
@@ -643,7 +641,7 @@ Pass criteria:
 Pass criteria:
 
 - allowed path browse succeeds
-- out-of-root path is rejected
+- destructive policies only affect files under `MODEL_CATALOG_INTAKE_ROOTS`
 - selected files or folders expand into queue source entries as expected
 
 ### Verification Success And Failure
@@ -682,14 +680,15 @@ Validate each policy separately after a successful verified publish:
 Pass criteria:
 
 - destructive policies only execute after verified state
-- destructive policies only affect files under `SOURCE_FILESYSTEM_ROOTS`
+- destructive policies only affect files under `MODEL_CATALOG_INTAKE_ROOTS`
 - cleanup failures are auditable and retryable
 
 ## Phase 5 Validation Checklist
 
 - `MODEL_CATALOG_DB_PATH` points to persistent writable storage
 - `/data` capacity accounts for browser-upload staging, not just SQLite
-- `SOURCE_FILESYSTEM_ROOTS` uses container paths and is narrower than the full host when possible
+- `MODEL_CATALOG_INTAKE_ROOTS` uses container paths and is narrower than the full host when possible
+- `MODEL_CATALOG_WORKING_FILES_ROOT` points at the intended working-files folder rather than a broad shared root
 - browser-upload intake works from a remote client without requiring the client filesystem to be mounted on the sidecar host
 - server-browse intake works only for allowlisted roots
 - verification success records queue metadata and permits configured cleanup
