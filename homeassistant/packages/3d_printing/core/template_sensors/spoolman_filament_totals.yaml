@@ -14,29 +14,19 @@
         {% set archived = archived_raw in [true, 'true', 'True', 1, '1', 'on', 'On'] %}
         {% if fid and fid != 'None' and not archived %}
           {% set w = spool.attributes.remaining_weight | default(0) | float(0) %}
-          {% set sid = spool.entity_id.split('_') | last %}
-          {% set spool_entry = {
-            'id': sid,
-            'entity_id': spool.entity_id,
-            'name': spool.attributes.friendly_name | default('Spool'),
-            'location': spool.attributes.location | default('N/A'),
-            'remaining': w
-          } %}
           {% if ns.result[fid] is defined %}
             {% set existing = ns.result[fid] %}
             {% set ns.result = ns.result | combine({
               fid: {
                 'weight': existing.weight + w,
-                'count': existing.count + 1,
-                'spools': existing.spools + [spool_entry]
+                'count': existing.count + 1
               }
             }) %}
           {% else %}
             {% set ns.result = ns.result | combine({
               fid: {
                 'weight': w,
-                'count': 1,
-                'spools': [spool_entry]
+                'count': 1
               }
             }) %}
           {% endif %}

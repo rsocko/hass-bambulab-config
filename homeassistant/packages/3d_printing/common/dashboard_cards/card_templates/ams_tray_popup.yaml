@@ -719,18 +719,25 @@ ams_tray_popup:
         return inventoryRuleOptions.includes(resolved) ? resolved : 'Not Defined';
       };
       const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
-      // Other spools of same filament — read from pre-computed sensor.spoolman_filament_totals
-      const otherSpools = (filamentId !== undefined && filamentId !== null && filamentTotal && filamentTotal.spools)
-        ? filamentTotal.spools
-            .filter(function(s) { return s.entity_id !== spoolEntityId; })
-            .map(function(s) {
+      const otherSpools = (filamentId !== undefined && filamentId !== null)
+        ? Object.values(states)
+            .filter(function(stateObj) {
+              if (!stateObj || typeof stateObj.entity_id !== 'string') return false;
+              if (!/^sensor\.spoolman_spool_\d+$/.test(stateObj.entity_id)) return false;
+              if (stateObj.entity_id === spoolEntityId) return false;
+              if (String(stateObj.attributes?.filament_id) !== String(filamentId)) return false;
+              const archivedRaw = stateObj.attributes?.archived;
+              return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw);
+            })
+            .map(function(stateObj) {
+              const remaining = Number(stateObj.attributes?.remaining_weight);
               return {
-                id: s.id,
-                entityId: s.entity_id,
-                name: s.name,
-                location: s.location,
-                remaining: s.remaining,
-                remainingText: (s.remaining !== undefined && s.remaining !== null) ? s.remaining.toFixed(1) + ' g' : 'N/A'
+                id: String(stateObj.entity_id).split('_').pop(),
+                entityId: stateObj.entity_id,
+                name: stateObj.attributes?.friendly_name || 'Spool',
+                location: stateObj.attributes?.location || 'N/A',
+                remaining: Number.isFinite(remaining) ? remaining : null,
+                remainingText: Number.isFinite(remaining) ? remaining.toFixed(1) + ' g' : 'N/A'
               };
             })
         : [];

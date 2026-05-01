@@ -120,8 +120,15 @@ catalog_spool_popup:
       const filamentId = entity?.attributes?.filament_id;
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const ft = (filamentId != null && filamentTotals) ? filamentTotals[String(filamentId)] : null;
-      const otherSpools = (ft && ft.spools)
-        ? ft.spools.filter(function(s) { return s.entity_id !== eid; })
+      const otherSpools = (filamentId != null)
+        ? Object.values(states).filter(function(stateObj) {
+            if (!stateObj || typeof stateObj.entity_id !== 'string') return false;
+            if (!/^sensor\.spoolman_spool_\d+$/.test(stateObj.entity_id)) return false;
+            if (stateObj.entity_id === eid) return false;
+            if (String(stateObj.attributes?.filament_id) !== String(filamentId)) return false;
+            const archivedRaw = stateObj.attributes?.archived;
+            return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw);
+          })
         : [];
       const totalWeightText = ft
         ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
