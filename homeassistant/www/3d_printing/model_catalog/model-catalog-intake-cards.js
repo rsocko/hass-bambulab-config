@@ -183,6 +183,17 @@
     return normalized;
   }
 
+  async function selectInputOption(hass, entityId, option) {
+    if (!hass || !entityId || !option || typeof hass.callService !== 'function') {
+      return false;
+    }
+    await hass.callService('input_select', 'select_option', {
+      entity_id: entityId,
+      option: option,
+    });
+    return true;
+  }
+
   async function postJsonWithAuth(hass, endpoint, payload) {
     var body = JSON.stringify(payload && typeof payload === "object" ? payload : {});
     var response = await fetch(endpoint, {
@@ -304,6 +315,8 @@
         sourceModeEntity: "input_select.intake_source_mode",
         cleanupPolicyEntity: "input_select.intake_cleanup_policy",
         browsePathEntity: "input_text.intake_browse_path",
+        sectionEntity: "",
+        inboxSection: "inbox",
       }, config || {});
       this._render();
     }
@@ -344,6 +357,21 @@
       return this._hass && this._hass.states[this._config.cleanupPolicyEntity]
         ? String(this._hass.states[this._config.cleanupPolicyEntity].state || "keep")
         : "keep";
+    }
+
+    async _navigateToSection(option, fallbackPath) {
+      try {
+        var navigated = await selectInputOption(this._hass, this._config.sectionEntity, option);
+        if (navigated) {
+          return;
+        }
+      } catch (_error) {
+        // Fall back to legacy path-based navigation.
+      }
+
+      if (fallbackPath) {
+        window.location.assign(fallbackPath);
+      }
     }
 
     async _refreshAll() {
@@ -726,7 +754,7 @@
         return;
       }
       if (action === 'goto-inbox') {
-        window.location.assign('/3d-printing/model-catalog-inbox');
+        this._navigateToSection(this._config.inboxSection, '/3d-printing/model-catalog-inbox');
       }
     }
 

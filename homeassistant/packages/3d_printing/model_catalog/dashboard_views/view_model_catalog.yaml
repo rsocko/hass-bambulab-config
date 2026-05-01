@@ -1,107 +1,310 @@
 title: Model Catalog
 path: model-catalog
 icon: mdi:bookshelf
-panel: false
+panel: true
 cards:
   - type: vertical-stack
     cards:
       - type: markdown
         content: |
-          # Model Catalog Home
+          # Model Catalog
 
-          Use this parent view to move between curated browsing, working-group review, intake, and the reserved inbox surface without adding more top-level dashboard tabs.
+          Top-level dashboard tabs stay visible here. Use the local workspace nav below to move between Curated, Working, Intake, Inbox, and the launch pad.
       - type: grid
-        columns: 2
+        columns: 5
         square: false
         cards:
           - type: custom:button-card
+            entity: input_select.model_catalog_workspace_view
+            name: Launch Pad
+            icon: mdi:view-dashboard-outline
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.model_catalog_workspace_view
+                option: home
+            styles:
+              card:
+                - padding: 14px 12px
+                - border-radius: 18px
+              name:
+                - font-size: 14px
+                - font-weight: 700
+            state:
+              - value: home
+                styles:
+                  card:
+                    - "background: rgba(30, 64, 175, 0.18)"
+                    - "border: 1px solid rgba(96, 165, 250, 0.42)"
+          - type: custom:button-card
+            entity: input_select.model_catalog_workspace_view
             name: Curated
             icon: mdi:bookshelf
-            show_label: true
-            label: Browse the curated catalog in its own child view.
             tap_action:
-              action: navigate
-              navigation_path: /3d-printing/model-catalog-curated
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.model_catalog_workspace_view
+                option: curated
             styles:
               card:
-                - padding: 18px
-                - border-radius: 20px
-                - text-align: left
+                - padding: 14px 12px
+                - border-radius: 18px
               name:
-                - justify-self: start
-                - font-size: 18px
+                - font-size: 14px
                 - font-weight: 700
-              label:
-                - justify-self: start
-                - white-space: normal
-                - color: var(--secondary-text-color)
+            state:
+              - value: curated
+                styles:
+                  card:
+                    - "background: rgba(30, 64, 175, 0.18)"
+                    - "border: 1px solid rgba(96, 165, 250, 0.42)"
           - type: custom:button-card
+            entity: input_select.model_catalog_workspace_view
             name: Working
             icon: mdi:briefcase-outline
-            show_label: true
-            label: Browse working groups, inspect files, and manage curated links.
             tap_action:
-              action: navigate
-              navigation_path: /3d-printing/model-catalog-working
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.model_catalog_workspace_view
+                option: working
             styles:
               card:
-                - padding: 18px
-                - border-radius: 20px
-                - text-align: left
+                - padding: 14px 12px
+                - border-radius: 18px
               name:
-                - justify-self: start
-                - font-size: 18px
+                - font-size: 14px
                 - font-weight: 700
-              label:
-                - justify-self: start
-                - white-space: normal
-                - color: var(--secondary-text-color)
+            state:
+              - value: working
+                styles:
+                  card:
+                    - "background: rgba(30, 64, 175, 0.18)"
+                    - "border: 1px solid rgba(96, 165, 250, 0.42)"
           - type: custom:button-card
+            entity: input_select.model_catalog_workspace_view
             name: Intake
             icon: mdi:upload-outline
-            show_label: true
-            label: Launch intake-owned discovery and import tools from their own child view.
             tap_action:
-              action: navigate
-              navigation_path: /3d-printing/model-catalog-intake
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.model_catalog_workspace_view
+                option: intake
             styles:
               card:
-                - padding: 18px
-                - border-radius: 20px
-                - text-align: left
+                - padding: 14px 12px
+                - border-radius: 18px
               name:
-                - justify-self: start
-                - font-size: 18px
+                - font-size: 14px
                 - font-weight: 700
-              label:
-                - justify-self: start
-                - white-space: normal
-                - color: var(--secondary-text-color)
+            state:
+              - value: intake
+                styles:
+                  card:
+                    - "background: rgba(30, 64, 175, 0.18)"
+                    - "border: 1px solid rgba(96, 165, 250, 0.42)"
           - type: custom:button-card
+            entity: input_select.model_catalog_workspace_view
             name: Inbox
             icon: mdi:inbox-arrow-down-outline
-            show_label: true
-            label: Reserved child view for queue and inbox review as Wave 4 continues.
             tap_action:
-              action: navigate
-              navigation_path: /3d-printing/model-catalog-inbox
+              action: call-service
+              service: input_select.select_option
+              service_data:
+                entity_id: input_select.model_catalog_workspace_view
+                option: inbox
             styles:
               card:
-                - padding: 18px
-                - border-radius: 20px
-                - text-align: left
+                - padding: 14px 12px
+                - border-radius: 18px
               name:
-                - justify-self: start
-                - font-size: 18px
+                - font-size: 14px
                 - font-weight: 700
-              label:
-                - justify-self: start
-                - white-space: normal
-                - color: var(--secondary-text-color)
-      - type: markdown
-        content: |
-          **Wave 4 shell**
+            state:
+              - value: inbox
+                styles:
+                  card:
+                    - "background: rgba(30, 64, 175, 0.18)"
+                    - "border: 1px solid rgba(96, 165, 250, 0.42)"
+      - type: conditional
+        conditions:
+          - entity: input_select.model_catalog_workspace_view
+            state: home
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              content: |
+                **Workspace overview**
 
-          - Curated browsing now has a dedicated child view.
-          - Working groups now land in a dedicated Working Board child view.
-          - Intake and Inbox are scaffolded inside the same Model Catalog hierarchy so later Wave 4 work does not require another dashboard restructure.
+                Keep the 3D Printing dashboard tabs visible while switching between the Model Catalog work areas below.
+            - type: grid
+              columns: 2
+              square: false
+              cards:
+                - type: custom:button-card
+                  name: Curated
+                  icon: mdi:bookshelf
+                  show_label: true
+                  label: Browse the curated catalog without leaving the main dashboard view.
+                  tap_action:
+                    action: call-service
+                    service: input_select.select_option
+                    service_data:
+                      entity_id: input_select.model_catalog_workspace_view
+                      option: curated
+                  styles:
+                    card:
+                      - padding: 18px
+                      - border-radius: 20px
+                      - text-align: left
+                    name:
+                      - justify-self: start
+                      - font-size: 18px
+                      - font-weight: 700
+                    label:
+                      - justify-self: start
+                      - white-space: normal
+                      - color: var(--secondary-text-color)
+                - type: custom:button-card
+                  name: Working
+                  icon: mdi:briefcase-outline
+                  show_label: true
+                  label: Explore working files and group review while keeping top-level navigation visible.
+                  tap_action:
+                    action: call-service
+                    service: input_select.select_option
+                    service_data:
+                      entity_id: input_select.model_catalog_workspace_view
+                      option: working
+                  styles:
+                    card:
+                      - padding: 18px
+                      - border-radius: 20px
+                      - text-align: left
+                    name:
+                      - justify-self: start
+                      - font-size: 18px
+                      - font-weight: 700
+                    label:
+                      - justify-self: start
+                      - white-space: normal
+                      - color: var(--secondary-text-color)
+                - type: custom:button-card
+                  name: Intake
+                  icon: mdi:upload-outline
+                  show_label: true
+                  label: Run intake discovery and import tools in the same Model Catalog workspace.
+                  tap_action:
+                    action: call-service
+                    service: input_select.select_option
+                    service_data:
+                      entity_id: input_select.model_catalog_workspace_view
+                      option: intake
+                  styles:
+                    card:
+                      - padding: 18px
+                      - border-radius: 20px
+                      - text-align: left
+                    name:
+                      - justify-self: start
+                      - font-size: 18px
+                      - font-weight: 700
+                    label:
+                      - justify-self: start
+                      - white-space: normal
+                      - color: var(--secondary-text-color)
+                - type: custom:button-card
+                  name: Inbox
+                  icon: mdi:inbox-arrow-down-outline
+                  show_label: true
+                  label: Review queued intake items and inbox work without dropping into a Lovelace subview.
+                  tap_action:
+                    action: call-service
+                    service: input_select.select_option
+                    service_data:
+                      entity_id: input_select.model_catalog_workspace_view
+                      option: inbox
+                  styles:
+                    card:
+                      - padding: 18px
+                      - border-radius: 20px
+                      - text-align: left
+                    name:
+                      - justify-self: start
+                      - font-size: 18px
+                      - font-weight: 700
+                    label:
+                      - justify-self: start
+                      - white-space: normal
+                      - color: var(--secondary-text-color)
+            - type: markdown
+              content: |
+                **Workspace shell**
+
+                - The Model Catalog launcher now stays inside the main 3D Printing dashboard.
+                - Use the workspace nav above to jump between sections at any time.
+                - Other top-level dashboard tabs remain available throughout.
+      - type: conditional
+        conditions:
+          - entity: input_select.model_catalog_workspace_view
+            state: curated
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              content: |
+                ## Curated Catalog
+
+                Browse the curated authority without leaving the main dashboard shell.
+            - type: custom:model-catalog-browser-card
+              title: Curated Catalog Browser
+              per_page: 12
+      - type: conditional
+        conditions:
+          - entity: input_select.model_catalog_workspace_view
+            state: working
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              content: |
+                ## Working
+
+                Inspect working files and manage group candidates inside the shared workspace shell.
+            - type: custom:model-catalog-working-files-explorer-card
+              title: Working Files
+              per_page: 200
+      - type: conditional
+        conditions:
+          - entity: input_select.model_catalog_workspace_view
+            state: intake
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              content: |
+                ## Intake
+
+                Queue intake work here, then jump to Inbox from the local workspace controls.
+            - type: custom:model-catalog-intake-home-card
+              title: Model Catalog Intake
+              sectionEntity: input_select.model_catalog_workspace_view
+              inboxSection: inbox
+      - type: conditional
+        conditions:
+          - entity: input_select.model_catalog_workspace_view
+            state: inbox
+        card:
+          type: vertical-stack
+          cards:
+            - type: markdown
+              content: |
+                ## Inbox
+
+                Review intake queue items here and jump back to other workspace sections from the nav row above.
+            - type: custom:model-catalog-inbox-review-card
+              title: Inbox Review

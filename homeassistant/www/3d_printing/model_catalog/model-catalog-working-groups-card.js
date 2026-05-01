@@ -145,6 +145,17 @@
     return normalized;
   }
 
+  async function selectInputOption(hass, entityId, option) {
+    if (!hass || !entityId || !option || typeof hass.callService !== "function") {
+      return false;
+    }
+    await hass.callService("input_select", "select_option", {
+      entity_id: entityId,
+      option: option,
+    });
+    return true;
+  }
+
   function fireBrowserModEvent(node, service, data) {
     var event = new CustomEvent("ll-custom", {
       bubbles: true,
@@ -270,6 +281,8 @@
       this._config = {
         title: config && config.title ? String(config.title) : "Working Board",
         per_page: config && config.per_page ? Number(config.per_page) : 24,
+        sectionEntity: config && config.sectionEntity ? String(config.sectionEntity) : "",
+        intakeSection: config && config.intakeSection ? String(config.intakeSection) : "intake",
       };
       this._render();
     }
@@ -426,7 +439,15 @@
       this._render();
     }
 
-    _openIntakeView() {
+    async _openIntakeView() {
+      try {
+        var navigated = await selectInputOption(this._hass, this._config.sectionEntity, this._config.intakeSection);
+        if (navigated) {
+          return;
+        }
+      } catch (_error) {
+        // Fall back to legacy path-based navigation.
+      }
       window.location.assign('/3d-printing/model-catalog-intake');
     }
 

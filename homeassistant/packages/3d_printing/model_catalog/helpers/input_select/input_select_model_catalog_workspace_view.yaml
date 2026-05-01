@@ -1,0 +1,10 @@
+model_catalog_workspace_view:
+  name: "Model Catalog Workspace View"
+  options:
+    - home
+    - curated
+    - working
+    - intake
+    - inbox
+  initial: home
+  icon: mdi:view-dashboard-outline
