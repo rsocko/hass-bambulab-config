@@ -212,6 +212,34 @@ Boundary note:
 - Phase 5 owns publish-time preview/supporting-asset application
 - Phase 7 owns public-source provenance resolution and refresh
 
+### Slicing And Archive Preparation
+
+Planned route family:
+
+- `GET /api/slicer/providers`
+- `POST /api/slice-jobs`
+- `GET /api/slice-jobs/{slice_job_id}`
+- `POST /api/slice-jobs/{slice_job_id}/overrides`
+- `POST /api/slice-jobs/{slice_job_id}/execute`
+- `POST /api/slice-jobs/{slice_job_id}/commit-archive`
+
+Draft intent:
+
+- orchestrate a reviewable source-`.3mf` to canonical-archive workflow from Model Catalog surfaces
+- reuse the planned `.3mf` analysis cache plus existing intake queue and source selection routes
+- keep actual slicing provider execution behind a stable sidecar contract so the UI can work with either upstream Bambuddy slicer mode or a future compatible local worker
+- use Filament Catalog linkage for deterministic validation suggestions and filament substitution, not as a full preset-management clone
+
+Boundary note:
+
+- these are orchestration endpoints, not a replacement for Bambuddy canonical archive upload
+- source-only provenance attachment remains distinct from canonical archive creation
+- raw `.gcode` synthesis remains outside this route family
+
+Design reference:
+
+- [Print History Slicer Integration Design](print-history-slicer-integration-design.md)
+
 ## Source of Truth
 
 The live OpenAPI document is the contract source of truth:

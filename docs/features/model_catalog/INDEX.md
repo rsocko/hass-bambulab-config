@@ -20,6 +20,9 @@
 - **[Working File Inventory And Normalization Spec](working-file-spec.md)** ← Issue #1074
 - **[Working Files Workflow Redesign](working-files-workflow-redesign-issue-1169.md)** ← Issue #1169
 - **[Working Files Local Launch And Slicer Integration Design](working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
+- **[Print History Slicer Integration Design](print-history-slicer-integration-design.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
+- **[Print History Slicer UX Mockups](print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
+- **[Print History Slicer Implementation Plan](print-history-slicer-implementation-plan.md)** ← Local worker delivery slices and issue breakdown
 - **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
 
 ### 🧭 Phase 5 Wave 4 UI Design (New)
@@ -49,6 +52,9 @@
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
 - **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Intake, Working, and batch-action UI architecture
 - **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Publish-handoff and future Phase 5/6 UI direction
+- **[Print History Slicer Integration Design](print-history-slicer-integration-design.md)** ← Model Catalog to Print History source-3MF slicing orchestration
+- **[Print History Slicer UX Mockups](print-history-slicer-ux-mockups.md)** ← Low-fi validation, override, progress, and completion surfaces
+- **[Print History Slicer Implementation Plan](print-history-slicer-implementation-plan.md)** ← Concrete local-worker execution slices
 - **[Legacy Manyfold Photo Publication Design](phase-6-manyfold-photo-publication-design.md)** ← Optional post-pivot Manyfold adapter work, now aligned to Phase 9 rather than an active core-path phase
 - **[Phase 3.0 Implementation Guide](phase-3-implementation-guide.md)** ← Completed phase reference
 - **[Print History Features](../print_history/)** ← Related features
