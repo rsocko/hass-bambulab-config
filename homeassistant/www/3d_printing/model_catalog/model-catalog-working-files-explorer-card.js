@@ -216,6 +216,7 @@
       this._summary = {};
       this._groups = [];
       this._files = [];
+      this._hasLoadedExplorer = false;
       this._selectedGroupId = 0;
       this._selectedPaths = {};
       this._boundClick = this._handleClick.bind(this);
@@ -231,7 +232,7 @@
 
     set hass(hass) {
       this._hass = hass;
-      if (this.isConnected && !this._loading && !this._groups.length && !this._files.length) {
+      if (this.isConnected && !this._loading && !this._hasLoadedExplorer) {
         this._loadExplorer();
       }
     }
@@ -240,7 +241,7 @@
       if (this.shadowRoot) {
         this.shadowRoot.addEventListener('click', this._boundClick);
       }
-      if (this._hass && !this._loading && !this._groups.length && !this._files.length) {
+      if (this._hass && !this._loading && !this._hasLoadedExplorer) {
         this._loadExplorer();
       }
     }
@@ -272,6 +273,7 @@
       if (!this._hass || this._loading) {
         return;
       }
+      this._hasLoadedExplorer = true;
       this._loading = true;
       this._error = '';
       this._status = '';
