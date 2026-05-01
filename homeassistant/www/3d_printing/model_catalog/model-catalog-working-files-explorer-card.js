@@ -217,6 +217,7 @@
       this._groups = [];
       this._files = [];
       this._hasLoadedExplorer = false;
+      this._hasAttemptedInitialReindex = false;
       this._selectedGroupId = 0;
       this._selectedPaths = {};
       this._boundClick = this._handleClick.bind(this);
@@ -226,6 +227,7 @@
       this._config = {
         title: config && config.title ? String(config.title) : 'Working Files',
         per_page: config && config.per_page ? Number(config.per_page) : 200,
+        auto_reindex_on_initial_load: !(config && config.auto_reindex_on_initial_load === false),
       };
       this._render();
     }
@@ -269,10 +271,18 @@
       }) || null;
     }
 
-    async _loadExplorer() {
+    async _reindexWorkingFiles() {
+      return callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_reindex_working_files', {
+        recurse: true,
+        compute_hashes: false,
+      });
+    }
+
+    async _loadExplorer(options) {
       if (!this._hass || this._loading) {
         return;
       }
+      var shouldForceReindex = !!(options && options.forceReindex);
       this._hasLoadedExplorer = true;
       this._loading = true;
       this._error = '';
@@ -280,6 +290,18 @@
       this._render();
 
       try {
+        var shouldRunInitialReindex = !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
+        if (shouldForceReindex || shouldRunInitialReindex) {
+          this._hasAttemptedInitialReindex = true;
+          try {
+            await this._reindexWorkingFiles();
+          } catch (_reindexError) {
+            if (shouldForceReindex) {
+              this._status = 'Reindex failed; showing last indexed results.';
+            }
+          }
+        }
+
         var response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_explore_working_files', {
           view: this._view,
           q: this._query || undefined,
@@ -555,7 +577,7 @@
 
       if (action === 'refresh') {
         this._readFilters();
-        this._loadExplorer();
+        this._loadExplorer({ forceReindex: true });
         return;
       }
       if (action === 'apply-filters') {
@@ -625,6 +647,10 @@
         var canonicalPath = String(entry.source_path_canonical || entry.file_path || '');
         var launch = entry.launch || {};
         var windowsPath = String(launch.windows_path || '');
+        var sourcePath = String(entry.file_path || entry.source_path_canonical || entry.source_path_raw || '');
+        if (!windowsPath && /^[a-zA-Z]:[\\/]/.test(sourcePath)) {
+          windowsPath = sourcePath;
+        }
         var canLaunch = !!windowsPath;
         var memberships = Array.isArray(entry.group_memberships) ? entry.group_memberships : [];
         var selected = !!this._selectedPaths[canonicalPath];

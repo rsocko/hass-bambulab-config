@@ -1,0 +1,14 @@
+model_catalog_reindex_working_files:
+  url: >-
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/working-files/reindex
+  method: POST
+  content_type: application/json
+  payload: >-
+    {
+      "recurse": {{ recurse | default(true) | bool | tojson }},
+      "compute_hashes": {{ compute_hashes | default(false) | bool | tojson }}
+    }
