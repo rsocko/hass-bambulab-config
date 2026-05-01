@@ -37,14 +37,25 @@ Reason:
 
 ### Upload And Source Modes
 
-Support both intake source modes under one queue contract:
+Support both intake source modes under one queue contract, but keep each queued batch single-source:
 
 - Browser local upload mode: files selected in client browser are uploaded to sidecar queue via multipart form-data.
 - Server browse mode: files are selected from allowlisted sidecar-mounted roots.
-- Source selection supports explicit files, folders, or mixed file+folder batches.
-- Folder source entries support traversal controls (`recurse` true/false and optional `max_depth`).
+- One batch uses either browser upload or server browse, not a browser+server hybrid submission.
+- Within the chosen mode, source selection can still include explicit files, folders, or mixed file+folder batches.
+- Folder source entries keep traversal controls (`recurse` true/false and optional `max_depth`) inline with the selection flow.
 
-Both modes should converge on the same queue state machine and review/import UX.
+Both modes still converge on the same queue state machine and review/import UX.
+
+### Intake Surface Direction
+
+Issue #1171 shifts the HA intake surface toward a wizard-style layout:
+
+1. Choose the source mode for this batch.
+2. Select files or folders and configure folder-specific options inline.
+3. Choose the cleanup policy for this batch and queue the batch into Inbox.
+
+This keeps the operator focused on one intake path at a time, prevents hidden hybrid selections, and makes the queue handoff explicit.
 
 ### Source Metadata Capture
 
@@ -115,7 +126,8 @@ Selection semantics should be consistent across entry points:
 
 - users may pick one or more files directly
 - users may pick folders with explicit recursion behavior
-- mixed selection in one intake submission is allowed
+- mixed file+folder selection within one chosen source mode is allowed
+- browser-upload and server-browse sources should not be combined in the same queued batch
 
 ## Validation Expectations
 
@@ -150,12 +162,12 @@ This avoids pushing unstable staging semantics into Manyfold tags too early.
 
 After triage, the operator can:
 
-- create a new Working group
-- attach to an existing Working group
+- publish directly into the curated local catalog authority under `/assets/Model Catalog`
+- move the item into `/assets/Model Working Files` by creating a Working group and reorganizing files into the working-files structure
+- attach to an existing Working group when the item belongs to work already in progress
 - keep in Inbox for later review
 - reject as duplicate/noise
-- upload and attach with `keep` source policy (default)
-- upload and attach with optional `delete_on_verified` or `replace_with_stub` source policy
+- apply `keep` (default), `delete_on_verified`, or `replace_with_stub` cleanup semantics to determine whether the source remains after verified handoff
 
 ## Post-Upload Source Cleanup (Optional)
 
@@ -187,7 +199,7 @@ The HA/operator surface should support:
 - inbox list with status chips
 - review of validation results
 - quick rename and note entry
-- approve to new Working group
+- explicit destination actions for curated local publish versus Working Files handoff
 - attach to existing Working group
 - defer/keep in Inbox
 - reject duplicate/noise

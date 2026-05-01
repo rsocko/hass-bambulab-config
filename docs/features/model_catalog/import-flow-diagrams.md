@@ -12,10 +12,17 @@ The short version:
 - Working groups are the first durable handoff target for accepted items.
 - Curated catalog publication happens later and is not part of the intake state machine.
 
+Issue #1171 refines the intake operator surface into a stepwise flow: choose one source mode, configure the batch, then queue it into Inbox.
+
 ## Mental Model
 
 Think of the flow as four layers:
 
+
+UI note:
+
+- Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
+- Cleanup policy belongs to the queueing step for the current batch, near recurse/max-depth/grouping decisions rather than as a detached global control.
 1. Source selection: browser upload, server file selection, folder selection, or bulk discovery.
 2. Intake submission: the sidecar normalizes the source entries and creates an intake item.
 3. Inbox review: the operator validates, defers, rejects, or groups the item.
@@ -139,12 +146,23 @@ The next lifecycle is Working-group lifecycle, not Inbox lifecycle.
 
 - Use `Create Group` when the intake item starts a new piece of work.
 - Use `Attach Existing` when the item is another file, revision, or supporting asset for a group you already have.
+- Use `Publish Curated` when the item is ready to land in the local curated catalog structure.
+- Use `Send To Working Files` when the item should move into the working-files structure first.
 - Use `Defer` when the right answer is not clear yet but the item should stay visible.
 - Use `Reject` when the item is noise, unsupported, accidental duplication, or intentionally excluded.
 - Treat `validated_warning` as a decision point, not as a clean green-light state.
 
 ### Validate
 
+### Send To Working Files
+
+Send To Working Files means:
+
+- create a new `working_group`
+- reorganize the resolved files into the configured `/assets/Model Working Files/<group-slug>/` destination when the move plan is valid
+- keep cleanup policy semantics tied to the original intake source after verification
+
+Use it when the operator wants a concrete working-files destination instead of immediate curated publication.
 Validate re-checks the intake item and classifies it.
 
 Typical outcomes:
@@ -218,7 +236,7 @@ The design docs and the current code are close, but not identical.
 
 - Intake items are stored in `intake_queue_uploads`.
 - Inbox review uses `inbox_state` and `decision_note`.
-- The HA card exposes Validate, Create Group, Attach Existing, Defer, and Reject.
+- The HA card now exposes Validate, Publish Curated, Send To Working Files, Attach Existing Group, Defer, and Reject at the item level.
 - Grouping hands files into `working_groups` and `working_items`.
 
 ### Important Gaps Between Spec And Current Behavior
