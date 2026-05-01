@@ -648,11 +648,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!target) {
       return;
     }
-    event.preventDefault();
     var action = String(target.getAttribute('data-action') || '');
     if (!action) {
       return;
     }
+    if (action === 'browser-files' || action === 'browser-folder') {
+      return;
+    }
+    event.preventDefault();
     if (action === 'refresh-intake') {
       this._refreshAll();
       return;
