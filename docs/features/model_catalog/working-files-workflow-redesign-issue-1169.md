@@ -101,9 +101,9 @@ Contract:
 - preserve audit event with old/new path
 - refresh inventory after move
 
-### 6) Explorer Launch Uses Host-Path Mapping
+### 6) Host-Path Actions Use Host-Path Mapping
 
-`Launch` and `Show In Explorer` actions must resolve indexed container paths to host-visible paths.
+Launch-adjacent actions must resolve indexed container paths to host-visible paths, but the UI should no longer assume a direct browser-launched `file:///` flow.
 
 Primary mapping inputs:
 
@@ -125,13 +125,15 @@ WSL and OneDrive guidance:
 
 Strict action gating:
 
-- if `ASSETS_ROOT_HOST` does not include `/mnt/c`, disable `Launch File` and `Open In Explorer`
+- if `ASSETS_ROOT_HOST` does not include `/mnt/c`, disable host-path-derived local actions
 - do not attempt partial inference for non-`/mnt/c` hosts in this phase
 
 Operator actions:
 
-- `Launch File`: opens mapped host file path directly
-- `Show In Explorer`: opens the containing folder for the mapped file path
+- `Open in Slicer`: preferred primary action for `.3mf` via tokenized download flow
+- `Copy Launch Command`: manual local-file fallback derived from the mapped host path
+- `Copy Explorer Command`: manual local-folder fallback derived from the mapped host path
+- companion-backed `Open Local File` and `Open Folder`: optional future enhancement when a trusted local helper exists
 
 Failure behavior:
 
@@ -153,8 +155,8 @@ flowchart TD
     G --> H[Create Group or Add To Group]
     H --> D
 
-    D --> I[Launch File]
-    D --> J[Show In Explorer]
+   D --> I[Open in Slicer if 3MF]
+   D --> J[Copy Launch or Explorer Command]
     D --> K[Reorganize Into Group Folder]
     K --> A
 ```
@@ -177,12 +179,12 @@ flowchart TD
 │ │  - 3mf: 4  other: 8                   │      │ Gridfinity Holders       │ │
 │ │  - updated: 1h ago                    │      │                          │ │
 │ │ [Open] [Reorganize]                   │      │ .3mf files               │ │
-│ ├────────────────────────────────────────┤      │ - holder_v3.3mf [Launch] │ │
-│ │ Vacuum Adapters (8)                   │      │   [Show in Explorer]      │ │
-│ │  - 3mf: 2  other: 6                   │      │ - holder_v2.3mf [Launch] │ │
+│ ├────────────────────────────────────────┤      │ - holder_v3.3mf          │ │
+│ │ Vacuum Adapters (8)                   │      │   [Open in Slicer]       │ │
+│ │  - 3mf: 2  other: 6                   │      │   [More ▾]               │ │
 │ │ [Open] [Reorganize]                   │      │                          │ │
 │ └────────────────────────────────────────┘      │ Supporting files          │ │
-│                                                 │ - notes.md                │ │
+│                                                 │ - notes.md [More ▾]       │ │
 │ Selection Actions:                              │ - dimensions.svg          │ │
 │ [Create Group] [Add To Group] [Remove From Group]│ [Add Files] [Set Primary]│ │
 │                                                 └──────────────────────────┘ │
@@ -198,9 +200,9 @@ flowchart TD
 │ 23 files are currently ungrouped.                                            │
 │ [Select All] [Create Group From Selection] [Add Selection To Existing Group] │
 │                                                                              │
-│ [ ] benchy_v4.3mf                 12 MB   2026-05-01  [Launch] [Explorer]   │
-│ [ ] benchy_notes.md                3 KB   2026-05-01  [Explorer]             │
-│ [ ] adapter_revB.step              8 MB   2026-04-30  [Launch] [Explorer]    │
+│ [ ] benchy_v4.3mf                 12 MB   2026-05-01  [Open in Slicer] [More]│
+│ [ ] benchy_notes.md                3 KB   2026-05-01  [More]                 │
+│ [ ] adapter_revB.step              8 MB   2026-04-30  [More]                 │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 

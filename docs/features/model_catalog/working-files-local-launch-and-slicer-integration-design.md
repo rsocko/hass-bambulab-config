@@ -138,17 +138,57 @@ Verdict:
 - recommended only as an optional power-user path
 - should be narrowly scoped to trusted local roots and explicit actions
 
-### Option D: Hybrid Baseline + Optional Companion
+### Option D: Manual Command Copy Fallback
+
+Description:
+
+- Home Assistant shows the operator a prebuilt local command string instead of trying to launch anything directly
+- the UI offers quick copy-to-clipboard for commands such as:
+  - open a local file
+  - open a containing folder in Explorer
+  - optionally launch a slicer executable with a local path argument when the operator has configured one
+- the operator pastes the command into a trusted local shell, Run dialog, terminal, shortcut, or automation tool on the client machine
+
+Example command shapes for Windows-first scope:
+
+- `explorer.exe /select,"C:\\Users\\...\\file.3mf"`
+- `explorer.exe "C:\\Users\\...\\folder"`
+- `"C:\\Program Files\\Bambu Studio\\bambu-studio.exe" "C:\\Users\\...\\file.3mf"`
+
+Pros:
+
+- no browser protocol launch required
+- no companion install required
+- can target the true local path when host-path mapping is correct
+- simple operator escape hatch while richer integration remains undecided
+- easier to reason about than a hidden browser hack because the user explicitly runs the command
+
+Cons:
+
+- manual and less polished than a one-click action
+- only works on machines where the copied command is valid as written
+- command shape is OS- and app-install-specific unless the user configures templates
+- clipboard support is only for convenience; the user still has to run the command locally
+- still exposes local paths in the UI, so it should remain an explicit advanced action
+
+Verdict:
+
+- acceptable as an explicit advanced fallback
+- not a replacement for tokenized slicer launch or a companion-backed local workflow
+
+### Option E: Hybrid Baseline + Optional Companion
 
 Description:
 
 - default supported path is Option B for slicer launch
+- optional command-copy fallback gives the operator a manual local-path escape hatch
 - optional local companion augments the UI with true local open and Explorer actions
 - replacement flow differs depending on whether the file was opened as a downloaded copy or opened in place
 
 Pros:
 
 - delivers value without making the whole feature depend on a local install
+- preserves a no-install local-path fallback for power users willing to run commands manually
 - supports richer local workflows when available
 - cleanly separates browser-safe baseline from local-power-user extensions
 
@@ -169,6 +209,7 @@ Support these actions in the Working Files UI:
 
 - `Open in Slicer` for `.3mf` files using tokenized slicer-download URLs
 - `Download Copy` as an explicit fallback when slicer launch fails or is unavailable
+- `Copy Launch Command` and `Copy Explorer Command` as explicit advanced/manual actions when host-path mapping is available
 
 Do not present browser-only `Launch Local File` or `Explorer` actions as supported baseline features.
 
@@ -180,6 +221,115 @@ When a trusted local companion is installed and confirmed available, additionall
 - `Open Folder`
 - `Open Local File in Slicer`
 - `Replace Working File With Edited Result` helper-assisted flows
+
+### Manual Command Fallback Mode
+
+When host-path mapping is available but no companion-backed local open path exists, additionally support:
+
+- `Copy Launch Command`
+- `Copy Explorer Command`
+- optional user-configured `Copy Slicer Command`
+
+Recommended contract:
+
+- commands are generated from server-side-approved path mappings, not from arbitrary client input
+- the UI clearly labels these as manual commands the operator must run locally
+- the UI should provide one-click copy plus short inline usage guidance
+
+## UI Design Proposal
+
+### File Row Action Model
+
+The Working Files card should stop treating launch-related actions as two always-visible peer buttons.
+
+Recommended row layout:
+
+- primary action slot: one context-appropriate action only
+- secondary action slot: `More` or overflow menu for advanced and environment-dependent actions
+- replace or refresh slot: only shown after an edit-oriented action is relevant
+
+Proposed action priority by file type and capability:
+
+1. `.3mf` with tokenized slicer launch available:
+   - primary: `Open in Slicer`
+   - overflow: `Download Copy`, `Copy Launch Command`, `Copy Explorer Command`
+2. non-`.3mf` with mapped local path available:
+   - no launch primary by default
+   - overflow: `Copy Launch Command`, `Copy Explorer Command`
+3. companion available and healthy:
+   - overflow additionally includes `Open Local File`, `Open Folder`, and for `.3mf`, `Open Local File in Slicer`
+
+Rationale:
+
+- keeps the row visually stable
+- avoids presenting broken or misleading local-launch buttons as defaults
+- reserves the most prominent affordance for the most reliable action
+
+### Suggested Row Mockup
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Harbaugh - Hat.3mf                                                       │
+│ /assets/Model Working Files/.../Harbaugh - Hat.3mf                       │
+│ Ext 3mf   Size 24 MB   Groups 1                                          │
+│ [Open in Slicer] [More ▾]                                                │
+└────────────────────────────────────────────────────────────────────────────┘
+
+More menu:
+- Download Copy
+- Copy Launch Command
+- Copy Explorer Command
+- Open Local File                (only if companion healthy)
+- Open Folder                    (only if companion healthy)
+- Open Local File in Slicer      (only if companion healthy and file is .3mf)
+```
+
+### Command Copy Presentation
+
+Manual commands should not be buried as raw text in the row by default.
+
+Recommended interaction:
+
+- user picks `Copy Launch Command` or `Copy Explorer Command` from the overflow menu
+- HA shows a compact confirmation toast and optional inline expander:
+  - copied command label
+  - copy-again affordance
+  - short instruction that the operator must run the command locally
+
+Optional expanded dialog for first version:
+
+```text
+┌───────────────────────────────────────────────────────────────┐
+│ Copy Explorer Command                                         │
+├───────────────────────────────────────────────────────────────┤
+│ explorer.exe /select,"C:\Users\...\Harbaugh - Hat.3mf"    │
+│                                                               │
+│ This command must be run locally on the client machine.       │
+│ [Copy] [Close]                                                │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Replace And Refresh Affordances
+
+The UI should surface edit follow-up actions based on how the file was opened:
+
+- after tokenized `Open in Slicer`:
+  - show `Replace Working File` in the row overflow or details pane
+- after companion-backed local open or a manual local command workflow:
+  - show `Refresh Edited File`
+  - optionally show `Restore Previous Revision` when revision backup exists
+
+The card does not need to prove the edit path with certainty. It only needs to present the most likely next step with clear wording.
+
+### Group Detail And Ungrouped Consistency
+
+The same action model should apply in:
+
+- grouped file rows
+- ungrouped triage rows
+- future group detail or file detail popups
+
+Do not create one surface with direct `Launch` and `Explorer` buttons and another surface with `Open in Slicer` plus overflow. The action language should stay consistent across all Working Files entry points.
 
 ## Protocol Handler Shapes
 
@@ -230,6 +380,35 @@ Why token-first is preferred over path-in-URL:
 - reduces command-line parsing risk in the companion
 - allows server-side expiry, auditing, and per-action scope
 - supports richer future callbacks and replacement workflows
+
+## Manual Command Shapes
+
+This flavor does not rely on browser protocol launch at all.
+
+Recommended first version:
+
+- the sidecar returns pre-escaped Windows command strings derived from approved mapped host paths
+- Home Assistant renders these in a compact popup, details row, or copy widget
+- the operator copies and runs them locally
+
+Suggested commands:
+
+- `explorer.exe /select,"C:\\Users\\...\\file.3mf"`
+- `explorer.exe "C:\\Users\\...\\folder"`
+
+Optional user-configured slicer command template:
+
+- `"{slicer_exe}" "{file_path}"`
+
+Potential settings:
+
+- preferred local shell style: `powershell`, `cmd`, or raw command
+- optional slicer executable path
+- whether advanced manual commands should be shown by default or behind an overflow menu
+
+Design constraint:
+
+- command-copy is a manual operator aid, not a claimed automated launch integration
 
 ## Capability Detection
 
@@ -328,6 +507,8 @@ If the health signal is absent or stale:
 - show the action disabled
 - display concise install guidance
 
+Manual command-copy actions do not need protocol-handler detection because they are not auto-launch features. They only require that host-path mapping is available and trustworthy.
+
 ## Replacement And Edited-File Flows
 
 The design must distinguish two fundamentally different edit models.
@@ -366,6 +547,7 @@ Implication:
 Pros:
 
 - works without a local companion
+- pairs naturally with manual command-copy launch because both flows operate on a downloaded or separately saved result
 - explicit and auditable
 
 Cons:
@@ -413,6 +595,9 @@ The UI should expose a single conceptual action area but with mode-aware behavio
 
 - if the file was opened through tokenized slicer download only:
   - show `Replace Working File`
+- if the file was opened through a manual copied command against a local file path:
+  - show `Refresh Edited File` when the operator likely edited in place
+  - optionally also keep `Replace Working File` for cases where the user saved a new file elsewhere
 - if the file was opened through local companion in-place mode:
   - show `Refresh Edited File`
   - optionally show `Restore Previous Revision`
@@ -466,10 +651,18 @@ Frontend launch shape:
   - `Open Local File`
   - `Open Folder`
   - `Open Local File in Slicer`
+- label manual fallback actions explicitly:
+  - `Copy Launch Command`
+  - `Copy Explorer Command`
+  - `Copy Slicer Command`
 - when disabled, explain why:
   - `Requires local companion`
   - `Companion offline`
   - `Slicer launch supported for .3mf only`
+- when showing manual commands, explain the operator step:
+  - `Copies a command you can run locally on this machine`
+- after copy, show short inline guidance such as:
+  - `Command copied. Run it in PowerShell, Command Prompt, or the Windows Run dialog on the client machine.`
 - after launching an external protocol, show short inline guidance such as:
   - `Your slicer should open now. If nothing happens, verify the slicer is installed and allowed to handle protocol links.`
 
@@ -480,7 +673,8 @@ Frontend launch shape:
 | Browser-only `file:///` | Yes in theory | Yes in theory | Yes | No | No | Reject |
 | Tokenized slicer protocol | No, opens downloaded copy | No | Yes if slicer already installed | Yes | Yes, via explicit replace upload | Baseline |
 | Custom companion | Yes | Yes | No | Yes, via app protocol | Yes, best for in-place edits | Optional enhancement |
-| Hybrid | Yes when companion present | Yes when companion present | Yes for baseline slicer path | Yes | Yes | Recommended |
+| Manual command copy | Yes, if user runs command locally | Yes, if user runs command locally | Yes | Yes | Partial, depends on operator workflow | Advanced fallback |
+| Hybrid | Yes when companion present or command is run manually | Yes when companion present or command is run manually | Yes for baseline slicer path | Yes | Yes | Recommended |
 
 ## Recommended Delivery Sequence
 
@@ -489,6 +683,7 @@ Frontend launch shape:
 - implement tokenized `Open in Slicer` for `.3mf`
 - rename current launch affordance to match actual behavior
 - remove unsupported browser-only local launch claims
+- add manual `Copy Launch Command` and `Copy Explorer Command` advanced actions where host-path mapping is available
 - add explicit `Replace Working File` upload flow for edited copies
 
 ### Phase 2
@@ -515,6 +710,7 @@ Frontend launch shape:
 Adopt the hybrid design.
 
 - baseline: tokenized `Open in Slicer` with explicit replace-upload flow for edited copies
+- fallback: optional manual copied commands for local launch or Explorer actions the operator can run themselves
 - enhancement: optional local companion for true local-path open, Explorer, and in-place edit refresh
 
 This gives the Working Files surface a reliable browser-safe path immediately while leaving room for the richer local workflow you actually want, without pretending the browser alone can cross the local filesystem boundary.
