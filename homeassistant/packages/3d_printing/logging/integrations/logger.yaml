@@ -25,6 +25,9 @@ logs:
   # Bambu Lab Printer Integration
   homeassistant.components.bambulab: info
   custom_components.bambulab: info
+    custom_components.bambu_lab: debug
+    custom_components.bambu_lab.pybambu: debug
+    paho.mqtt.client: debug
   
   # Spoolman Integration
   homeassistant.components.spoolman: info
