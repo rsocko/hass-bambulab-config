@@ -430,17 +430,6 @@ catalog_spool_popup:
         }
       };
 
-      let otherSpoolsMd = '';
-      if (otherSpools.length > 0) {
-        otherSpoolsMd = '<details>\n<summary><strong>\uD83D\uDCE6 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\n\n';
-        otherSpools.forEach(function(s) {
-          const rem = (s.remaining != null) ? s.remaining.toFixed(1) + ' g' : 'N/A';
-          otherSpoolsMd += '\u2022 **' + (s.name || 'Spool') + '** (Spool #' + s.id + ')  \n';
-          otherSpoolsMd += '  \uD83D\uDCCD ' + (s.location || 'N/A') + ' \u2014 ' + rem + '\n\n';
-        });
-        otherSpoolsMd += '</details>';
-      }
-
       return {
         action: 'fire-dom-event',
         browser_mod: {
@@ -650,11 +639,6 @@ catalog_spool_popup:
                     }
                   ]
                 },
-                // --- Other spools (markdown, same pattern as AMS popup) ---
-                ...(otherSpools.length > 0 ? [{
-                  type: 'markdown',
-                  content: otherSpoolsMd
-                }] : []),
                 // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
                   type: 'horizontal-stack',
