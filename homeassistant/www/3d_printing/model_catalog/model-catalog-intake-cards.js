@@ -483,6 +483,7 @@
         filename: fileEntry.name,
         relative_path: fileEntry.relative_path,
         content_base64: btoa(binary),
+        file_last_modified_ms: fileEntry.file.lastModified || null,
       };
     }
 
@@ -530,7 +531,7 @@
                 });
               });
             } catch (_discoverError) {
-              // Fallback: submit the folder as-is if discover fails.
+              // Fallback: queue the folder as-is if discover fails.
               plainSelections.push(sel);
             }
           } else {
@@ -572,14 +573,14 @@
           cleanup_policy: this._cleanupPolicy(),
         };
         this._status = browserFiles.length && finalSelections.length
-          ? 'Browser files and server selections were submitted together and validated.'
-          : (browserFiles.length ? 'Browser files were submitted to intake and validated.' : 'Selection submitted to intake and validated.' + (expandedSelections.length ? ' (' + String(expandedSelections.length) + ' files expanded from grouped folder(s).)' : ''));
+          ? 'Browser files and server selections were queued together and validated.'
+          : (browserFiles.length ? 'Browser files were queued to intake and validated.' : 'Selection queued to intake and validated.' + (expandedSelections.length ? ' (' + String(expandedSelections.length) + ' files expanded from grouped folder(s).)' : ''));
         this._selected = {};
         this._browserFiles = [];
         this._loading = false;
         await this._refreshAll();
       } catch (error) {
-        this._error = error && error.message ? String(error.message) : "Could not submit intake selection.";
+        this._error = error && error.message ? String(error.message) : "Could not queue intake selection.";
         this._loading = false;
         this._render();
       }
@@ -648,14 +649,19 @@
           + '    </div>'
           + '  </div>'
           + '  <div class="entry-actions">'
-          + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+          + (entry.type === 'folder'
+            ? (selected
+              ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open Contents</button>'
+              : '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>')
+            : '')
           + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove Selection' : 'Select') + '</button>'
+          + (selected ? '    <button class="button primary" data-action="submit-server-selection">Queue Selected</button>' : '')
           + '  </div>'
           + (selected && entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (selection.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!selection.recurse ? ' selected' : '') + '>Off</option></select></div>'
               + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(selection.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
-              + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (selection.grouping_strategy === 'none' ? ' selected' : '') + '>None (submit folder as-is)</option><option value="by-folder"' + (selection.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (selection.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (selection.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
+              + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (selection.grouping_strategy === 'none' ? ' selected' : '') + '>None (queue folder as-is)</option><option value="by-folder"' + (selection.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (selection.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (selection.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
               + '</div>'
             : '')
           + '</article>';
@@ -811,7 +817,7 @@
         + '      </div>'
         + '    </section>'
         + (sourceMode !== 'server'
-          ? '<section class="section"><div class="title-row"><div><div class="title">Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. Mixed mode submits them together with selected allowlisted server paths.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(browserFiles.length) + '</div>' + this._renderBrowserEntries() + '</section>'
+          ? '<section class="section"><div class="title-row"><div><div class="title">Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. Mixed mode queues them together with selected allowlisted server paths.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(browserFiles.length) + '</div>' + this._renderBrowserEntries() + '</section>'
           : '')
         + '    <div class="two-column">'
         + '      <section class="section">'
@@ -833,8 +839,8 @@
                 return '<article class="entry-row"><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (entry.type === 'folder' ? '<span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') : '') + '</div></article>';
               }).join('')
             + '</div>'
-          : '<div class="state-row">Select browser files, server-side files, or both to submit a queue-first intake batch.</div>')
-        + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!canSubmit ? ' disabled' : '') + '>Submit To Intake</button></div>'
+          : '<div class="state-row">Select browser files, server-side files, or both to add to the queue-first intake batch.</div>')
+        + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!canSubmit ? ' disabled' : '') + '>Queue To Intake</button></div>'
         + '        <div class="muted">Recent activity</div>'
         + (recentItems.length ? '<div class="entries">' + recentItems.map(function (item) {
             var sourceEntry = item.source_entry || {};

@@ -46,6 +46,22 @@ Support both intake source modes under one queue contract:
 
 Both modes should converge on the same queue state machine and review/import UX.
 
+### Source Metadata Capture
+
+Both intake modes preserve original file modification timestamps for later use (e.g., Print History backfilling):
+
+**Server browse mode** (filesystem):
+- Uses `os.stat()` to capture `st_mtime` (modification time), `st_ctime` (change time), and `st_birthtime` (creation time on Windows/macOS)
+- Timestamps are stored as ISO 8601 UTC strings in `source_entries_json`
+
+**Browser upload mode** (client-provided):
+- Captures `File.lastModified` from the JavaScript File API when the user selects files
+- Converts millisecond epoch to seconds and formats as ISO 8601 UTC (matching Server mode format)
+- Falls back to stat-based timestamps if `lastModified` is unavailable (graceful degradation)
+- Both timestamps (`source_mtime` for original file date, `source_ctime` for staging time) are stored together
+
+This enables downstream consumers (e.g., Print History) to distinguish between when a file was originally created vs. when it was imported into the sidecar, supporting accurate timeline reconstruction.
+
 ### Source Entry Contract
 
 A normalized source list should support:

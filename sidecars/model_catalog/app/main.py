@@ -1701,7 +1701,22 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
 
         try:
             stat_result = resolved_path.stat()
-            entry_source_metadata = _bulk_path_source_metadata(resolved_path, stat_result)
+            
+            # Check if caller provided pre-captured browser timestamp
+            browser_mtime_ms = entry.get("file_last_modified_ms")
+            if browser_mtime_ms is not None and isinstance(browser_mtime_ms, (int, float)):
+                # Use browser-supplied timestamp (convert ms → seconds)
+                entry_source_metadata = {
+                    "source_mtime": _bulk_timestamp_iso(float(browser_mtime_ms) / 1000.0),
+                    "source_ctime": _bulk_timestamp_iso(stat_result.st_ctime),
+                }
+                # Preserve birthtime on Windows/macOS if available
+                birthtime = getattr(stat_result, "st_birthtime", None)
+                if birthtime is not None:
+                    entry_source_metadata["source_birthtime"] = _bulk_timestamp_iso(birthtime)
+            else:
+                # Fallback: use filesystem stat for all timestamps (Server mode, or missing browser timestamp)
+                entry_source_metadata = _bulk_path_source_metadata(resolved_path, stat_result)
         except (OSError, PermissionError) as error:
             raise IntakeSourceValidationError(
                 error="source_stat_error",
@@ -7061,6 +7076,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     "original_filename": filename,
                     "relative_path": str(relative_path).replace("\\", "/"),
                     "upload_id": staged_upload_id,
+                    "file_last_modified_ms": upload.get("file_last_modified_ms"),
                 }
             )
 

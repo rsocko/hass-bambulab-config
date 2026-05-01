@@ -2,6 +2,8 @@ from pathlib import Path
 import base64
 import json
 import sqlite3
+from datetime import datetime, timezone
+import time
 
 from fastapi.testclient import TestClient
 
@@ -384,6 +386,168 @@ def test_delete_browser_upload_removes_staged_directory(tmp_path: Path) -> None:
         delete_response = client.delete(f"/api/intake/uploads/{upload_id}")
         assert delete_response.status_code == 200
         assert stage_dir.exists() is False
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_browser_upload_preserves_file_last_modified_timestamp(tmp_path: Path) -> None:
+    """Test that browser-supplied file_last_modified_ms is preserved in source_entries_json."""
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        # Use a timestamp from 1 day ago (any value, test just verifies it's used)
+        # Unix timestamp for 1 day ago in milliseconds
+        one_day_ago_seconds = int(time.time()) - (24 * 60 * 60)
+        browser_mtime_ms = one_day_ago_seconds * 1000
+        
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "dated_part.3mf",
+                        "relative_path": "browser/dated_part.3mf",
+                        "content_base64": base64.b64encode(b"dated-bytes").decode("ascii"),
+                        "file_last_modified_ms": browser_mtime_ms,
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["success"] is True
+        upload_id = upload_payload["upload_id"]
+
+        # Query the database to verify source_entries_json contains the browser timestamp
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(row[0])
+        assert len(source_entries) == 1
+        entry = source_entries[0]
+        
+        # Verify the browser timestamp was converted to ISO 8601 UTC format
+        assert "source_mtime" in entry
+        assert entry["source_mtime"].endswith("Z")
+        # Parse the timestamp to verify it's valid ISO 8601
+        parsed_mtime = datetime.fromisoformat(entry["source_mtime"].replace("Z", "+00:00"))
+        # Verify it's close to the expected time (within a few seconds of 1 day ago)
+        expected_time = datetime.fromtimestamp(one_day_ago_seconds, tz=timezone.utc)
+        time_diff = abs((parsed_mtime - expected_time).total_seconds())
+        assert time_diff < 2, f"Timestamp difference {time_diff} seconds is too large"
+        
+        assert "source_ctime" in entry
+        # source_ctime comes from stat (staging time), should be recent
+        assert entry["source_ctime"].endswith("Z")
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_browser_upload_falls_back_to_stat_without_file_last_modified(tmp_path: Path) -> None:
+    """Test that browser uploads without file_last_modified_ms fall back to filesystem stat."""
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "no_timestamp_part.3mf",
+                        "relative_path": "browser/no_timestamp_part.3mf",
+                        "content_base64": base64.b64encode(b"no-timestamp-bytes").decode("ascii"),
+                        # No file_last_modified_ms field
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["success"] is True
+        upload_id = upload_payload["upload_id"]
+
+        # Query the database to verify source_entries_json contains stat-based timestamps
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(row[0])
+        assert len(source_entries) == 1
+        entry = source_entries[0]
+        
+        # Verify timestamps are present and in ISO 8601 UTC format
+        assert "source_mtime" in entry
+        assert "source_ctime" in entry
+        # Both should be recent (from staging), not an arbitrary value
+        assert entry["source_mtime"].endswith("Z")
+        assert entry["source_ctime"].endswith("Z")
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_browser_upload_ignores_invalid_file_last_modified_type(tmp_path: Path) -> None:
+    """Test that invalid file_last_modified_ms values are safely ignored."""
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "invalid_timestamp_part.3mf",
+                        "relative_path": "browser/invalid_timestamp_part.3mf",
+                        "content_base64": base64.b64encode(b"invalid-timestamp-bytes").decode("ascii"),
+                        "file_last_modified_ms": "not-a-number",  # Invalid type
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["success"] is True
+        upload_id = upload_payload["upload_id"]
+
+        # Query the database to verify it fell back to stat timestamps
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(row[0])
+        assert len(source_entries) == 1
+        entry = source_entries[0]
+        
+        # Should have used stat-based timestamps (fallback), not the invalid string
+        assert "source_mtime" in entry
+        assert entry["source_mtime"].endswith("Z")
     finally:
         client.__exit__(None, None, None)
 
