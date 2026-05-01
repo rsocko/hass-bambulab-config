@@ -43,6 +43,11 @@ services:
       # stricter allowlist.
       SOURCE_FILESYSTEM_ROOTS: ${SOURCE_FILESYSTEM_ROOTS:-/assets}
       
+      # Path where local model catalog files are stored (within /assets)
+      # All local models store their files here: {root}/{local_model_id}/{files}
+      # Includes model files, uploaded photos, and extracted assets
+      MODEL_CATALOG_ASSETS_ROOT: ${MODEL_CATALOG_ASSETS_ROOT:-/assets/Model Catalog}
+      
       # Local authority is the default for the standalone stack.
       # Keep standalone mode enabled so the sidecar can start without Manyfold.
       MODEL_CATALOG_STANDALONE_MODE: ${MODEL_CATALOG_STANDALONE_MODE:-true}

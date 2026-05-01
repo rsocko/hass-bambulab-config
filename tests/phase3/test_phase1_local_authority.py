@@ -671,24 +671,29 @@ class TestListModelsEndpointMerge:
             )
             create_local_model(db_path=db, local_model_id="local-002", model_name="Local Beta", creator_name="Test Creator")
 
+            # Set catalog assets root to a subdirectory within tmpdir for testing
+            assets_root = Path(tmpdir) / "assets" / "Model Catalog"
+            assets_root.mkdir(parents=True, exist_ok=True)
+            # Create Settings with catalog assets root
             settings = Settings(
-                manyfold_base_url="http://manyfold.test",
-                manyfold_models_path="/models",
-                manyfold_collections_path="/collections",
-                manyfold_creators_path="/creators",
-                manyfold_oauth_token_path="/oauth/token",
-                manyfold_client_id=None,
-                manyfold_client_secret=None,
-                manyfold_oauth_scopes=None,
-                db_path=db,
-                refresh_ttl_seconds=900,
-                host="127.0.0.1",
-                port=8314,
-                image_tag="0.1.0-test",
-                image_version="0.1.0",
-                image_revision="test",
-                image_created="2026-01-01T00:00:00Z",
-                source_filesystem_roots=(Path(tmpdir).resolve(),),
+                    manyfold_base_url="http://manyfold.test",
+                    manyfold_models_path="/models",
+                    manyfold_collections_path="/collections",
+                    manyfold_creators_path="/creators",
+                    manyfold_oauth_token_path="/oauth/token",
+                    manyfold_client_id=None,
+                    manyfold_client_secret=None,
+                    manyfold_oauth_scopes=None,
+                    db_path=db,
+                    refresh_ttl_seconds=900,
+                    host="127.0.0.1",
+                    port=8314,
+                    image_tag="0.1.0-test",
+                    image_version="0.1.0",
+                    image_revision="test",
+                    image_created="2026-01-01T00:00:00Z",
+                    source_filesystem_roots=(Path(tmpdir).resolve(),),
+                    model_catalog_assets_root=assets_root,
             )
             app = create_app(settings=settings)
             # Patch Manyfold cache/refresh so tests don't make real HTTP calls.
@@ -753,10 +758,10 @@ class TestListModelsEndpointMerge:
     def test_list_models_local_entries_prefer_uploaded_preview_photo(self, app_with_local_models):
         """GET /api/models prefers locally uploaded preview photos over asset previews for local models."""
         client, db = app_with_local_models
-        photo_root = db.parent / "model_catalog_photos"
-        model_folder = photo_root / hashlib.sha256(b"local-001").hexdigest()[:16]
-        model_folder.mkdir(parents=True, exist_ok=True)
-        photo_path = model_folder / "photo-preview.png"
+        # Photos are now stored in /assets/Model Catalog/{model_id}/
+        photo_root = db.parent / "assets" / "Model Catalog" / "local-001"
+        photo_root.mkdir(parents=True, exist_ok=True)
+        photo_path = photo_root / "photo-preview.png"
         photo_path.write_bytes(b"\x89PNG\r\n\x1a\nlocal-upload-preview")
 
         set_model_field(
@@ -766,7 +771,7 @@ class TestListModelsEndpointMerge:
             field_value=[
                 {
                     "id": "photo-preview",
-                    "relative_path": str(photo_path.relative_to(photo_root)).replace("\\", "/"),
+                    "relative_path": "local-001/photo-preview.png",
                     "filename": "photo-preview.png",
                     "mime_type": "image/png",
                     "created_at": "2026-04-29T00:00:00Z",
@@ -784,10 +789,10 @@ class TestListModelsEndpointMerge:
     def test_search_local_entries_prefer_uploaded_preview_photo(self, app_with_local_models):
         """GET /api/models/search prefers locally uploaded preview photos over asset previews for local models."""
         client, db = app_with_local_models
-        photo_root = db.parent / "model_catalog_photos"
-        model_folder = photo_root / hashlib.sha256(b"local-001").hexdigest()[:16]
-        model_folder.mkdir(parents=True, exist_ok=True)
-        photo_path = model_folder / "photo-preview.png"
+        # Photos are now stored in /assets/Model Catalog/{model_id}/
+        photo_root = db.parent / "assets" / "Model Catalog" / "local-001"
+        photo_root.mkdir(parents=True, exist_ok=True)
+        photo_path = photo_root / "photo-preview.png"
         photo_path.write_bytes(b"\x89PNG\r\n\x1a\nlocal-upload-preview")
 
         set_model_field(
@@ -797,7 +802,7 @@ class TestListModelsEndpointMerge:
             field_value=[
                 {
                     "id": "photo-preview",
-                    "relative_path": str(photo_path.relative_to(photo_root)).replace("\\", "/"),
+                    "relative_path": "local-001/photo-preview.png",
                     "filename": "photo-preview.png",
                     "mime_type": "image/png",
                     "created_at": "2026-04-29T00:00:00Z",

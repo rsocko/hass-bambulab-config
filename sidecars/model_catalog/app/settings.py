@@ -27,6 +27,7 @@ class Settings:
     manyfold_session_password: str | None = None
     source_filesystem_roots: tuple[Path, ...] = ()
     authority_mode: str = "hybrid"
+    model_catalog_assets_root: Path | None = None
 
 
 def load_settings() -> Settings:
@@ -58,6 +59,11 @@ def load_settings() -> Settings:
         for p in source_filesystem_roots_raw.split(",")
         if p.strip()
     )
+    # Model catalog assets root: defaults to /assets/Model Catalog if not specified
+    assets_root_raw = os.getenv("MODEL_CATALOG_ASSETS_ROOT", "").strip()
+    model_catalog_assets_root: Path | None = None
+    if assets_root_raw:
+        model_catalog_assets_root = Path(assets_root_raw).expanduser().resolve()
     return Settings(
         manyfold_base_url=base_url.rstrip("/"),
         manyfold_models_path=models_path if models_path.startswith("/") else f"/{models_path}",
@@ -79,4 +85,5 @@ def load_settings() -> Settings:
         manyfold_session_password=session_password,
         source_filesystem_roots=source_filesystem_roots,
         authority_mode=authority_mode,
+        model_catalog_assets_root=model_catalog_assets_root,
     )

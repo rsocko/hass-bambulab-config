@@ -164,28 +164,17 @@ In that layout:
 - browser uploads stage in `/data/intake_browser_uploads`
 - server-browse selections resolve from `/assets/...`
 - local publish can copy reviewed files from queue or server roots into sidecar-owned asset storage
-
-### Server Browse Allowed Roots
-
 Server-browse mode is controlled by `SOURCE_FILESYSTEM_ROOTS`.
 
 - This value must use container-visible paths, not host-native paths.
 - The sidecar resolves the variable as a comma-separated allowlist.
 - Browsing, selecting, and destructive cleanup are all constrained to these roots.
-- Keep the allowlist narrow. Only expose folders the sidecar should inspect or mutate.
-
-Examples:
 
 ```text
 SOURCE_FILESYSTEM_ROOTS=/assets
-```
-
 Use this when the whole mounted asset tree is intentionally browseable.
 
 ```text
-SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
-```
-
 Use this when curated catalog storage should stay out of browse and cleanup scope.
 
 ```text
@@ -201,16 +190,11 @@ Host-path mapping reminder:
 - not allowed in `SOURCE_FILESYSTEM_ROOTS`: `D:\Model Library`
 
 **File Organization in `/assets`**:
-```
-/assets/
-├── catalog/         # Catalog models (local authority)
+    - all local model files, assets, and photos are stored in `/assets/Model Catalog` (host-visible)
 ├── working/         # Active projects (Phase 1.5+)
 ├── inbox/           # Temporary staging (Phase 1.5+)
 └── imported/        # External imports (Phase 2+)
 ```
-
-### Network Configuration
-
 ```bash
 # Create traefik network (shared reverse proxy network)
 docker network create traefik
@@ -218,6 +202,48 @@ docker network create traefik
 # Service joins the shared traefik network.
 ```
 
+
+### Local Model Catalog Storage (`/assets/Model Catalog`)
+
+All local model files, assets, and photos are stored in `/assets/Model Catalog` (host-visible and navigable).
+
+**File Organization**:
+```
+/assets/Model Catalog/
+├── model-id-1/
+│   ├── model.3mf                 # Primary model file
+│   ├── preview.jpg               # Preview image
+│   ├── photo-abc123.jpg          # Uploaded photos
+│   ├── photo-def456.jpg
+│   └── extracted/                # Optional: extracted assets from 3MF files
+│       ├── layer-preview.png
+│       └── thumbnail.jpg
+├── model-id-2/
+│   ├── assembly.3mf
+│   ├── preview.png
+│   └── documentation.pdf
+└── ...
+```
+
+**Key characteristics**:
+- Each model's files are isolated in a folder named by `local_model_id`
+- All files are stored at root level in that folder (flattened, not nested by type)
+- Optional `extracted/` subdirectory for assets extracted from 3MF files
+- Metadata (thumbnails, geometry) is still tracked in SQLite
+- Storage paths are relative and stored in `model_catalog_assets` table
+
+**Backup recommendation**:
+- Back up `/assets/Model Catalog` alongside the database for atomic recovery
+- This directory is host-visible, so standard file-based backups work directly
+
+### Other Folder Organization in `/assets`
+```
+/assets/
+├── Model Catalog/       # Local models (all assets, photos, files)
+├── working/             # Active working groups (Phase 1.5+)
+├── inbox/               # Temporary staging for intake (Phase 1.5+)
+└── imported/            # External imports from Manyfold (Phase 2+)
+```
 ### File Storage Architecture
 
 See **detailed documentation**:

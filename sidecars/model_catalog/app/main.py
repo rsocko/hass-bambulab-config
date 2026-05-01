@@ -554,12 +554,16 @@ def _unique_destination_path(directory: Path, filename: str) -> Path:
 
 
 def _copy_local_import_source(*, settings: Settings, local_model_id: str, source_path: Path) -> str:
-    asset_root = settings.db_path.parent / LOCAL_MODEL_ASSET_STORAGE_DIR / local_model_id
+    catalog_root = _model_photo_storage_root(settings)
+    asset_root = catalog_root / local_model_id
     asset_root.mkdir(parents=True, exist_ok=True)
     destination = _unique_destination_path(asset_root, source_path.name)
     shutil.copy2(source_path, destination)
-    relative_path = destination.relative_to(settings.db_path.parent.resolve())
-    return str(relative_path).replace("\\", "/")
+    try:
+        relative_path = destination.relative_to(catalog_root.resolve())
+        return str(relative_path).replace("\\", "/")
+    except ValueError:
+        return str(destination).replace("\\", "/")
 
 
 def _collect_intake_source_files_in_folder(
@@ -732,9 +736,11 @@ def _decode_uploaded_photo(photo_file: str) -> tuple[str, bytes]:
 
 
 def _model_photo_storage_root(settings: Settings) -> Path:
-    if str(settings.db_path) == ":memory:":
-        return Path.cwd() / ".model_catalog_photos"
-    return settings.db_path.parent / "model_catalog_photos"
+    if settings.model_catalog_assets_root:
+        return settings.model_catalog_assets_root.resolve()
+    # Fallback: use /assets/Model Catalog if root not specified
+    data_parent = settings.db_path.parent.resolve()
+    return (data_parent / ".." / "assets" / "Model Catalog").resolve()
 
 
 def _normalize_uploaded_photo_rows(value: object) -> list[dict[str, Any]]:
