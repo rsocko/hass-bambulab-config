@@ -1506,11 +1506,11 @@ def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict
 
 @router.post("/api/working-files/reindex")
 
-def reindex_working_files(app, payload: dict[str, Any] | None = None) -> Any:
+def reindex_working_files(request: Request, payload: dict[str, Any] | None = None) -> Any:
 
     """Reindex working files from configured roots."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     payload = payload or {}
 
@@ -1792,7 +1792,7 @@ def reindex_working_files(app, payload: dict[str, Any] | None = None) -> Any:
 
 @router.get("/api/working-files")
 
-def list_working_files(app,
+def list_working_files(request: Request,
 
     q: str | None = None,
 
@@ -1808,7 +1808,7 @@ def list_working_files(app,
 
     """List working files with filtering and pagination."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     limit_value = max(1, min(int(limit or 100), 1000))
 
@@ -1958,7 +1958,7 @@ def list_working_files(app,
 
 @router.get("/api/working-files/explorer")
 
-def explore_working_files(app,
+def explore_working_files(request: Request,
 
     view: str | None = None,
 
@@ -1976,7 +1976,7 @@ def explore_working_files(app,
 
     """Explore working files grouped or ungrouped."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     view_mode = str(view or "groups").strip().lower() or "groups"
 
@@ -2372,11 +2372,11 @@ def explore_working_files(app,
 
 @router.post("/api/working-groups/memberships/batch-add")
 
-def batch_add_working_group_memberships(app, payload: dict[str, Any]) -> Any:
+def batch_add_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
 
     """Add multiple files to a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     group_id = int(payload.get("group_id") or 0)
 
@@ -2730,11 +2730,11 @@ def batch_add_working_group_memberships(app, payload: dict[str, Any]) -> Any:
 
 @router.post("/api/working-groups/memberships/batch-remove")
 
-def batch_remove_working_group_memberships(app, payload: dict[str, Any]) -> Any:
+def batch_remove_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
 
     """Remove multiple files from a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     group_id = int(payload.get("group_id") or 0)
 
@@ -2872,11 +2872,11 @@ def batch_remove_working_group_memberships(app, payload: dict[str, Any]) -> Any:
 
 @router.post("/api/working-groups/{group_id}/reorganize")
 
-def reorganize_working_group(app, group_id: int, payload: dict[str, Any] | None = None) -> Any:
+def reorganize_working_group(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
 
     """Reorganize working group files to target folder."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     payload = payload or {}
 
@@ -3274,11 +3274,11 @@ def reorganize_working_group(app, group_id: int, payload: dict[str, Any] | None 
 
 @router.post("/api/working-groups")
 
-def create_working_group(app, payload: dict[str, Any]) -> Any:
+def create_working_group(request: Request, payload: dict[str, Any]) -> Any:
 
     """Create a new working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     title = str(payload.get("title") or "").strip()
 
@@ -3392,11 +3392,11 @@ def create_working_group(app, payload: dict[str, Any]) -> Any:
 
 @router.get("/api/working-groups")
 
-def list_working_groups(app, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None) -> Any:
+def list_working_groups(request: Request, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None) -> Any:
 
     """List working groups with filtering."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     limit_value = max(1, min(int(limit or 100), 500))
 
@@ -3486,11 +3486,11 @@ def list_working_groups(app, limit: int | None = None, offset: int | None = None
 
 @router.get("/api/working-groups/{group_id}")
 
-def get_working_group(app, group_id: int) -> Any:
+def get_working_group(request: Request, group_id: int) -> Any:
 
     """Get a single working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -3516,11 +3516,11 @@ def get_working_group(app, group_id: int) -> Any:
 
 @router.patch("/api/working-groups/{group_id}")
 
-def update_working_group(app, group_id: int, payload: dict[str, Any]) -> Any:
+def update_working_group(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
 
     """Update a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     allowed_fields = {
 
@@ -3638,11 +3638,11 @@ def update_working_group(app, group_id: int, payload: dict[str, Any]) -> Any:
 
 @router.delete("/api/working-groups/{group_id}")
 
-def delete_working_group(app, group_id: int) -> Any:
+def delete_working_group(request: Request, group_id: int) -> Any:
 
     """Delete a working group and cascade delete items and links."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -3680,11 +3680,11 @@ def delete_working_group(app, group_id: int) -> Any:
 
 @router.post("/api/working-groups/{group_id}/items")
 
-def add_working_group_item(app, group_id: int, payload: dict[str, Any]) -> Any:
+def add_working_group_item(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
 
     """Add a single item to a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     file_path_raw = str(payload.get("file_path") or "").strip()
 
@@ -3826,11 +3826,11 @@ def add_working_group_item(app, group_id: int, payload: dict[str, Any]) -> Any:
 
 @router.delete("/api/working-groups/{group_id}/items/{item_id}")
 
-def remove_working_group_item(app, group_id: int, item_id: int) -> Any:
+def remove_working_group_item(request: Request, group_id: int, item_id: int) -> Any:
 
     """Remove an item from a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -3898,11 +3898,11 @@ def remove_working_group_item(app, group_id: int, item_id: int) -> Any:
 
 @router.post("/api/working-groups/{group_id}/links")
 
-def create_working_group_link(app, group_id: int, payload: dict[str, Any]) -> Any:
+def create_working_group_link(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
 
     """Create or update a link from working group to model."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     model_ref = str(payload.get("model_ref") or "").strip()
 
@@ -3982,11 +3982,11 @@ def create_working_group_link(app, group_id: int, payload: dict[str, Any]) -> An
 
 @router.get("/api/working-groups/{group_id}/links")
 
-def list_working_group_links(app, group_id: int) -> Any:
+def list_working_group_links(request: Request, group_id: int) -> Any:
 
     """List model links for a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -4048,11 +4048,11 @@ def list_working_group_links(app, group_id: int) -> Any:
 
 @router.delete("/api/working-groups/{group_id}/links/{link_id}")
 
-def delete_working_group_link(app, group_id: int, link_id: int) -> Any:
+def delete_working_group_link(request: Request, group_id: int, link_id: int) -> Any:
 
     """Delete a model link from a working group."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -4102,11 +4102,11 @@ def delete_working_group_link(app, group_id: int, link_id: int) -> Any:
 
 @router.get("/api/models/{model_ref:path}/working-groups")
 
-def list_working_groups_for_model(app, model_ref: str) -> Any:
+def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
 
     """Get all working groups linked to a model."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     normalized_ref = str(model_ref or "").strip()
 
@@ -4170,11 +4170,11 @@ def list_working_groups_for_model(app, model_ref: str) -> Any:
 
 @router.post("/api/working-groups/{group_id}/publish-to-local")
 
-def publish_working_group_to_local(app, group_id: int, payload: dict[str, Any] | None = None) -> Any:
+def publish_working_group_to_local(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
 
     """Publish a working group to a local model."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     payload = payload or {}
 
@@ -4576,11 +4576,11 @@ def publish_working_group_to_local(app, group_id: int, payload: dict[str, Any] |
 
 @router.get("/api/models/{model_ref:path}/lineage")
 
-def get_model_lineage(app, model_ref: str) -> Any:
+def get_model_lineage(request: Request, model_ref: str) -> Any:
 
     """Get model lineage/publish history."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     normalized_ref = str(model_ref or "").strip()
 
@@ -4602,11 +4602,11 @@ def get_model_lineage(app, model_ref: str) -> Any:
 
 @router.post("/api/projects")
 
-def create_model_catalog_project(app, payload: dict[str, Any]) -> Any:
+def create_model_catalog_project(request: Request, payload: dict[str, Any]) -> Any:
 
     """Create a new model catalog project."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     title = str(payload.get("title") or "").strip()
 
@@ -4652,11 +4652,11 @@ def create_model_catalog_project(app, payload: dict[str, Any]) -> Any:
 
 @router.get("/api/projects")
 
-def list_model_catalog_projects(app, limit: int | None = None, offset: int | None = None) -> Any:
+def list_model_catalog_projects(request: Request, limit: int | None = None, offset: int | None = None) -> Any:
 
     """List model catalog projects."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     limit_value = max(1, min(int(limit or 100), 500))
 
@@ -4726,11 +4726,11 @@ def list_model_catalog_projects(app, limit: int | None = None, offset: int | Non
 
 @router.get("/api/projects/{project_id}")
 
-def get_model_catalog_project(app, project_id: int) -> Any:
+def get_model_catalog_project(request: Request, project_id: int) -> Any:
 
     """Get a single project with group and model counts."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     connection = connect(state.settings.db_path)
 
@@ -4804,11 +4804,11 @@ def get_model_catalog_project(app, project_id: int) -> Any:
 
 @router.post("/api/working-groups/bulk-discover")
 
-def bulk_discover_working_groups(app, payload: dict[str, Any]) -> Any:
+def bulk_discover_working_groups(request: Request, payload: dict[str, Any]) -> Any:
 
     """Scan folder and propose working groups."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     root_input = str(payload.get("folder_path") or payload.get("root_path") or "").strip()
 
@@ -5130,11 +5130,11 @@ def bulk_discover_working_groups(app, payload: dict[str, Any]) -> Any:
 
 @router.post("/api/working-groups/bulk-import")
 
-def bulk_import_working_groups(app, payload: dict[str, Any]) -> Any:
+def bulk_import_working_groups(request: Request, payload: dict[str, Any]) -> Any:
 
     """Import bulk discover proposals as working groups."""
 
-    state: AppState = app.state.model_catalog
+    state: AppState = request.request.app.state.model_catalog
 
     proposals_payload = payload.get("proposals")
 
