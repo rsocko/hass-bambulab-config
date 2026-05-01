@@ -13,6 +13,8 @@ Issue #1124 adds an operator need that is adjacent to, but not identical with, b
 - hold those items in a queue while metadata is reviewed
 - mark them as an "Inbox" item until they are classified
 
+For a visual walkthrough of the Intake -> Inbox -> Working-group path, plus a state/action cheat sheet, see [import-flow-diagrams.md](c:\dev\hass-bambulab-config\docs\features\model_catalog\import-flow-diagrams.md).
+
 This should be incorporated into the existing Model Catalog design without collapsing the Working and curated boundaries.
 
 ## Design Position

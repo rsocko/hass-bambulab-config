@@ -9,6 +9,8 @@
 
 Define the state model that governs intake items from submission through triage and conversion to working groups. This contract is used by sidecar API endpoints, queue processing, and HA operator surfaces.
 
+For a visual walkthrough of the same flow, plus a state/action cheat sheet and a separate current-implementation flow, see [import-flow-diagrams.md](c:\dev\hass-bambulab-config\docs\features\model_catalog\import-flow-diagrams.md).
+
 ## Scope Boundary
 
 This state machine covers intake and working handoff only.
@@ -182,6 +184,7 @@ Action availability by state:
 ## Related Docs
 
 - `docs/features/model_catalog/intake-inbox-design.md`
+- `docs/features/model_catalog/import-flow-diagrams.md`
 - `docs/features/model_catalog/phase-1.5-intake-implementation-breakdown.md`
 - `docs/features/model_catalog/working-file-spec.md`
 - `docs/features/model_catalog/phase-delivery-and-validation.md`
