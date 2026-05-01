@@ -110,7 +110,9 @@ ASSETS_ROOT_HOST=/mnt/c/OneDrive/Documents/3D Models
 MODEL_CATALOG_IMAGE_TAG=0.1.0
 MODEL_CATALOG_HOSTNAME=model-catalog.socko.us
 MODEL_CATALOG_AUTHORITY_MODE=local
-SOURCE_FILESYSTEM_ROOTS=/assets/working,/assets/inbox
+MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
+MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
+MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
 MANYFOLD_BASE_URL=http://manyfold:3214
 MANYFOLD_CLIENT_ID=
 MANYFOLD_CLIENT_SECRET=
@@ -164,29 +166,34 @@ In that layout:
 - browser uploads stage in `/data/intake_browser_uploads`
 - server-browse selections resolve from `/assets/...`
 - local publish can copy reviewed files from queue or server roots into sidecar-owned asset storage
-Server-browse mode is controlled by `SOURCE_FILESYSTEM_ROOTS`.
 
-- This value must use container-visible paths, not host-native paths.
-- The sidecar resolves the variable as a comma-separated allowlist.
-- Browsing, selecting, and destructive cleanup are all constrained to these roots.
+Runtime path roles are split deliberately:
 
-```text
-SOURCE_FILESYSTEM_ROOTS=/assets
-Use this when the whole mounted asset tree is intentionally browseable.
+- `MODEL_CATALOG_CURATED_ASSETS_ROOT` controls sidecar-owned published storage.
+- `MODEL_CATALOG_INTAKE_ROOTS` controls intake browse/select and intake cleanup scope.
+- `MODEL_CATALOG_WORKING_FILES_ROOT` controls Working Files explorer, reindex, and reorganize destination.
+- `SOURCE_FILESYSTEM_ROOTS` remains as a legacy compatibility input only.
 
-```text
-Use this when curated catalog storage should stay out of browse and cleanup scope.
+These values must use container-visible paths, not host-native paths.
 
 ```text
-SOURCE_FILESYSTEM_ROOTS=/assets/inbox,/assets/imported/remotes
+MODEL_CATALOG_CURATED_ASSETS_ROOT=/assets/Model Catalog
+MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox
+MODEL_CATALOG_WORKING_FILES_ROOT=/assets/Model Working Files
 ```
 
-Use this when server browse should only target intake-oriented staging areas.
+Use this when curated storage, intake, and working files have distinct folders under the shared `/assets` mount.
+
+```text
+MODEL_CATALOG_INTAKE_ROOTS=/assets/Model Inbox,/assets/imported/remotes
+```
+
+Use this when intake browse should include additional staging areas without widening the working-files root.
 
 Host-path mapping reminder:
 
 - host bind mount: `D:\Model Library:/assets`
-- allowlist value: `/assets` or `/assets/subfolder`
+- intake/working/curated values: `/assets/...`
 - not allowed in `SOURCE_FILESYSTEM_ROOTS`: `D:\Model Library`
 
 **File Organization in `/assets`**:
@@ -302,7 +309,10 @@ If your live environment still has a model catalog service embedded in the Manyf
 - `MODEL_CATALOG_REFRESH_TTL_SECONDS` — cache TTL for Manyfold summary refresh
 - `MODEL_CATALOG_HOST` — local bind host for manual `uvicorn` runs
 - `MODEL_CATALOG_PORT` — local bind port for manual `uvicorn` runs
-- `SOURCE_FILESYSTEM_ROOTS` — comma-separated allowlisted container paths for server-browse intake and verification-gated cleanup actions
+- `MODEL_CATALOG_CURATED_ASSETS_ROOT` — sidecar-controlled published asset root for curated local storage
+- `MODEL_CATALOG_INTAKE_ROOTS` — comma-separated container paths allowed for intake browse/select and intake cleanup
+- `MODEL_CATALOG_WORKING_FILES_ROOT` — container path used by Working Files explorer, reindex, and reorganize destination
+- `SOURCE_FILESYSTEM_ROOTS` — legacy compatibility input for older deployments; superseded by the role-based root settings above
 - `MODEL_CATALOG_IMAGE_TAG` — image tag emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_VERSION` — semantic image version emitted by `/config` and `/diagnostics` (injected at build time)
 - `MODEL_CATALOG_IMAGE_REVISION` — source commit SHA emitted by `/config` and `/diagnostics` (injected at build time)

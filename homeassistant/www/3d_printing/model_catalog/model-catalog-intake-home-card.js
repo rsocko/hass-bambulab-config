@@ -74,9 +74,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _sourceMode() {
-    return this._hass && this._hass.states[this._config.sourceModeEntity]
+    var value = this._hass && this._hass.states[this._config.sourceModeEntity]
       ? String(this._hass.states[this._config.sourceModeEntity].state || "browser")
       : "browser";
+    return value === "server" ? "server" : "browser";
   }
 
   _cleanupPolicy() {
@@ -185,7 +186,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _serverPayloadSelections(sourceMode) {
-    if (sourceMode === "browser") {
+    if (sourceMode !== "server") {
       return [];
     }
     return this._selectedList().map(function (entry) {
@@ -201,7 +202,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _enabledBrowserFiles(sourceMode) {
-    return sourceMode === "server" ? [] : this._browserFiles.slice();
+    return sourceMode === "browser" ? this._browserFiles.slice() : [];
   }
 
   _appendBrowserFiles(fileList) {
@@ -556,7 +557,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="shell">'
       + '    <div class="header">'
       + '      <div class="title-row">'
-      + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Queue-first intake summary, source-mode selection, cleanup policy, and allowlisted server browse.</div></div>'
+      + '        <div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Choose one source type for this batch, configure the selection, then queue it into Inbox.</div></div>'
       + '        <div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Review Inbox</button></div>'
       + '      </div>'
       + '      ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
@@ -566,24 +567,23 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + this._queueSummaryHtml()
       + '    <section class="section">'
       + '      <div class="grid">'
-      + '        <div class="field"><label for="source-mode-select">Source Mode</label><select id="source-mode-select" class="select" data-action="source-mode"><option value="browser"' + (sourceMode === 'browser' ? ' selected' : '') + '>Browser Upload</option><option value="server"' + (sourceMode === 'server' ? ' selected' : '') + '>Server Browse</option><option value="mixed"' + (sourceMode === 'mixed' ? ' selected' : '') + '>Mixed</option></select></div>'
-      + '        <div class="field"><label for="cleanup-policy-select">Cleanup Policy</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
+      + '        <div class="field"><label for="source-mode-select">Step 1: Source For This Batch</label><select id="source-mode-select" class="select" data-action="source-mode"><option value="browser"' + (sourceMode === 'browser' ? ' selected' : '') + '>Browser Upload</option><option value="server"' + (sourceMode === 'server' ? ' selected' : '') + '>Server Browse</option></select></div>'
+      + '        <div class="summary-card"><div class="summary-label">Current Batch Rule</div><div class="summary-value">' + escapeHtml(sourceMode === 'browser' ? 'Browser Upload' : 'Server Browse') + '</div><div class="muted">Both source panels remain visible, but only the selected source type contributes to the queued batch.</div></div>'
       + '      </div>'
       + '    </section>'
-      + (sourceMode !== 'server'
-        ? '<section class="section"><div class="title-row"><div><div class="title">Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. Mixed mode queues them together with selected allowlisted server paths.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(browserFiles.length) + '</div>' + this._renderBrowserEntries() + '</section>'
-        : '')
+      + '<section class="section"><div class="title-row"><div><div class="title">Step 2A: Browser Upload</div><div class="subtitle">Pick local files or a local folder from this browser session. These files queue only when Step 1 is set to Browser Upload.</div></div><div class="button-row"><span class="chip' + (sourceMode === 'browser' ? ' ok' : '') + '">' + escapeHtml(sourceMode === 'browser' ? 'Active Source' : 'Inactive For This Batch') + '</span><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear</button></div></div><input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files"><input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder"><div class="muted">Browser-staged files: ' + String(this._browserFiles.length) + (sourceMode === 'browser' ? ' ready for this batch.' : ' are staged but ignored until Browser Upload is selected.') + '</div>' + this._renderBrowserEntries() + '</section>'
       + '    <div class="two-column">'
       + '      <section class="section">'
-      + '        <div class="title-row"><div><div class="title">Server Browse</div><div class="subtitle">Select files or folders. Selected folders show Recurse, Max Depth, and Grouping controls inline.</div></div><div class="button-row"><button class="button" data-action="browse-root">Roots</button>'
+      + '        <div class="title-row"><div><div class="title">Step 2B: Server Browse</div><div class="subtitle">Select files or folders. Selected folders show Recurse, Max Depth, and Grouping controls inline.</div></div><div class="button-row"><span class="chip' + (sourceMode === 'server' ? ' ok' : '') + '">' + escapeHtml(sourceMode === 'server' ? 'Active Source' : 'Inactive For This Batch') + '</span><button class="button" data-action="browse-root">Roots</button>'
       +          (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
       + '        </div></div>'
       + '        <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '</div>'
       + this._renderBrowseEntries()
       + '      </section>'
       + '      <section class="section">'
-      + '        <div class="title">Submission</div>'
-      + '        <div class="muted">Pending sources: ' + String(pendingSubmissionCount) + ' (' + String(serverSelections.length) + ' server / ' + String(browserFiles.length) + ' browser)</div>'
+      + '        <div class="title">Step 3: Queue Into Inbox</div>'
+      + '        <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
+      + '        <div class="muted">Active source: ' + escapeHtml(sourceMode === 'browser' ? 'Browser Upload' : 'Server Browse') + '. Pending entries for this batch: ' + String(pendingSubmissionCount) + '.</div>'
       + ((serverSelections.length || browserFiles.length)
         ? '<div class="entries">'
           + browserFiles.map(function (entry) {
@@ -593,7 +593,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               return '<article class="entry-row"><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (entry.type === 'folder' ? '<span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') : '') + '</div></article>';
             }).join('')
           + '</div>'
-        : '<div class="state-row">Select browser files, server-side files, or both to add to the queue-first intake batch.</div>')
+        : '<div class="state-row">Select files or folders from the active source type, then queue this batch into Inbox.</div>')
       + '        <div class="button-row"><button class="button primary" data-action="submit-server-selection"' + (!canSubmit ? ' disabled' : '') + '>Queue To Intake</button></div>'
       + '        <div class="muted">Recent activity</div>'
       + (recentItems.length ? '<div class="entries">' + recentItems.map(function (item) {

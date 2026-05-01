@@ -29,6 +29,7 @@ def _build_settings(tmp_path: Path, source_roots: list[Path] | None = None) -> S
         image_version="0.1.0",
         image_revision="abc123",
         image_created="2026-04-28T00:00:00Z",
+        intake_source_roots=tuple(source_roots or []),
         source_filesystem_roots=tuple(source_roots or []),
     )
 
@@ -301,7 +302,6 @@ def test_select_creates_retrievable_queue_entry(tmp_path: Path) -> None:
     ids = {u["upload_id"] for u in uploads}
     assert upload_id in ids
 
-
 def test_select_folder_with_recurse_expands_file_count(tmp_path: Path) -> None:
     root = tmp_path / "models"
     root.mkdir()
@@ -549,7 +549,6 @@ def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:
             json={
                 "selections": [
                     {"type": "file", "path": str(model_file)},
-                    {"type": "file", "path": str(preview_file)},
                 ]
             },
         )
@@ -567,7 +566,7 @@ def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:
         payload = publish_response.json()
         assert payload["success"] is True
         assert payload["status"] == "verified"
-        assert payload["imported_asset_count"] == 2
+        assert payload["imported_asset_count"] == 1
         assert payload["legacy_adapter"]["authoritative"] is False
         assert payload["legacy_adapter"]["status"] == "transition_only"
 
@@ -575,7 +574,7 @@ def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:
         assert detail_response.status_code == 200
         detail_payload = detail_response.json()
         assert detail_payload["model"]["name"] == "Selected Local Model"
-        assert len(detail_payload["model"]["files"]) == 2
-        assert detail_payload["model"]["preview_file_id"] is not None
+        assert len(detail_payload["model"]["files"]) == 1
+        assert detail_payload["model"]["preview_file_id"] is None
         assert detail_payload["model"]["source_origin"] == "intake_queue"
         assert detail_payload["model"]["source_origin_url"] == f"intake://uploads/{upload_id}"

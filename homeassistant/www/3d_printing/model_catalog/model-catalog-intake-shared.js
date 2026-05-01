@@ -80,8 +80,11 @@
     if (action === "validate") {
       return "Validate";
     }
+    if (action === "publish-curated") {
+      return "Publish Curated";
+    }
     if (action === "create-group") {
-      return "Create Groups";
+      return "Send To Working Files";
     }
     if (action === "defer") {
       return "Defer";

@@ -41,6 +41,8 @@ def _make_settings(db_path: Path, source_root: Path) -> Settings:
     )
 
 def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> Settings:
+    resolved_roots = tuple(root.resolve() for root in source_roots)
+    working_root = next((root for root in resolved_roots if root.name.lower() == "model working files"), resolved_roots[-1] if resolved_roots else None)
     return Settings(
         manyfold_base_url="http://manyfold.example",
         manyfold_models_path="/models",
@@ -58,7 +60,9 @@ def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> 
         image_version="test",
         image_revision="test",
         image_created="test",
-        source_filesystem_roots=tuple(root.resolve() for root in source_roots),
+        intake_source_roots=resolved_roots,
+        working_files_root=working_root,
+        source_filesystem_roots=resolved_roots,
     )
 
 
@@ -748,10 +752,10 @@ def test_working_files_explorer_all_and_ungrouped_ignore_inbox_inventory(tmp_pat
     try:
         reindex_response = client.post(
             "/api/working-files/reindex",
-            json={"compute_hashes": True, "recurse": True, "roots": [str(inbox_root), str(working_root)]},
+            json={"compute_hashes": True, "recurse": True, "roots": [str(working_root)]},
         )
         assert reindex_response.status_code == 200
-        assert reindex_response.json()["discovered"] == 3
+        assert reindex_response.json()["discovered"] == 2
 
         create_group = client.post("/api/working-groups", json={"title": "Working Group", "stage": "draft"})
         assert create_group.status_code == 200

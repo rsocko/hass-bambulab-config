@@ -441,37 +441,25 @@ def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path
     if not storage_path_raw:
         return None
 
-    configured_roots = list(settings.source_filesystem_roots)
+    curated_root = _model_photo_storage_root(settings).resolve()
     data_root = settings.db_path.parent.resolve()
     storage_path = Path(storage_path_raw).expanduser()
 
     if storage_path.is_absolute():
         resolved = storage_path.resolve()
-        if configured_roots and _is_path_within_roots(resolved, configured_roots):
+        if resolved == curated_root or resolved.is_relative_to(curated_root):
             return resolved
         if resolved == data_root or resolved.is_relative_to(data_root):
             return resolved
-        if configured_roots:
-            return None
         return resolved
 
-    for root in configured_roots:
-        candidate = (root / storage_path).resolve()
-        try:
-            candidate.relative_to(root.resolve())
-        except ValueError:
-            continue
-        if candidate.exists() and candidate.is_file():
-            return candidate
-
-    if configured_roots:
-        fallback = (configured_roots[0] / storage_path).resolve()
-        try:
-            fallback.relative_to(configured_roots[0].resolve())
-        except ValueError:
-            fallback = None
-        if fallback is not None:
-            return fallback
+    curated_candidate = (curated_root / storage_path).resolve()
+    try:
+        curated_candidate.relative_to(curated_root)
+    except ValueError:
+        curated_candidate = None
+    if curated_candidate is not None:
+        return curated_candidate
 
     data_candidate = (data_root / storage_path).resolve()
     try:
@@ -1942,12 +1930,45 @@ def _preferred_working_files_roots(allowlisted_roots: list[Path]) -> list[Path]:
     return allowlisted_roots
 
 
+def _dedupe_paths(paths: list[Path]) -> list[Path]:
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        normalized = _normalize_path_compare_key(path)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(path)
+    return unique
+
+
+def _legacy_source_filesystem_roots(settings: Settings) -> list[Path]:
+    return [Path(root).resolve() for root in settings.source_filesystem_roots]
+
+
+def _configured_intake_source_roots(settings: Settings) -> list[Path]:
+    explicit_roots = [Path(root).resolve() for root in getattr(settings, "intake_source_roots", ())]
+    if explicit_roots:
+        return _dedupe_paths(explicit_roots)
+    return _dedupe_paths(_legacy_source_filesystem_roots(settings))
+
+
+def _configured_working_files_roots(settings: Settings) -> list[Path]:
+    explicit_root = getattr(settings, "working_files_root", None)
+    if explicit_root is not None:
+        return [Path(explicit_root).resolve()]
+    return _preferred_working_files_roots(_legacy_source_filesystem_roots(settings))
+
+
 def _working_files_destination_root(settings: Settings) -> Path | None:
-    allowlisted_roots = [Path(root).resolve() for root in settings.source_filesystem_roots]
-    preferred_roots = _preferred_working_files_roots(allowlisted_roots)
+    preferred_roots = _configured_working_files_roots(settings)
     if not preferred_roots:
         return None
     return preferred_roots[0]
+
+
+def _working_group_allowed_source_roots(settings: Settings) -> list[Path]:
+    return _dedupe_paths(_configured_intake_source_roots(settings) + _configured_working_files_roots(settings))
 
 
 def _normalize_path_compare_key(path_value: str | Path | None) -> str:
@@ -2621,10 +2642,20 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.get("/config")
     def config() -> dict[str, Any]:
         state: AppState = app.state.model_catalog
+        intake_roots = _configured_intake_source_roots(state.settings)
+        working_roots = _configured_working_files_roots(state.settings)
         return {
             "authority_mode": _normalized_authority_mode(state.settings),
-            "source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
-            "source_filesystem_root_count": len(state.settings.source_filesystem_roots),
+            "source_filesystem_roots": [str(root) for root in intake_roots],
+            "source_filesystem_root_count": len(intake_roots),
+            "legacy_source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
+            "legacy_source_filesystem_root_count": len(state.settings.source_filesystem_roots),
+            "intake_source_roots": [str(root) for root in intake_roots],
+            "intake_source_root_count": len(intake_roots),
+            "working_files_roots": [str(root) for root in working_roots],
+            "working_files_root": str(working_roots[0]) if working_roots else None,
+            "working_files_root_count": len(working_roots),
+            "model_catalog_curated_assets_root": str(_model_photo_storage_root(state.settings)),
             "manyfold_base_url": state.settings.manyfold_base_url,
             "manyfold_models_path": state.settings.manyfold_models_path,
             "manyfold_collections_path": state.settings.manyfold_collections_path,
@@ -2643,6 +2674,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     @app.get("/diagnostics")
     def diagnostics() -> dict[str, Any]:
         state: AppState = app.state.model_catalog
+        intake_roots = _configured_intake_source_roots(state.settings)
+        working_roots = _configured_working_files_roots(state.settings)
         
         # Check what collection names exist in cache
         connection = connect(state.settings.db_path)
@@ -2676,8 +2709,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         return {
             "service": "model-catalog",
             "authority_mode": _normalized_authority_mode(state.settings),
-            "source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
-            "source_filesystem_root_count": len(state.settings.source_filesystem_roots),
+            "source_filesystem_roots": [str(root) for root in intake_roots],
+            "source_filesystem_root_count": len(intake_roots),
+            "legacy_source_filesystem_roots": [str(root) for root in state.settings.source_filesystem_roots],
+            "legacy_source_filesystem_root_count": len(state.settings.source_filesystem_roots),
+            "intake_source_roots": [str(root) for root in intake_roots],
+            "intake_source_root_count": len(intake_roots),
+            "working_files_roots": [str(root) for root in working_roots],
+            "working_files_root": str(working_roots[0]) if working_roots else None,
+            "working_files_root_count": len(working_roots),
+            "model_catalog_curated_assets_root": str(_model_photo_storage_root(state.settings)),
             "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip() or None,
             "windows_launch_enabled": _windows_launch_enabled(state.settings),
             "db_tables": list(state.db_info.tables),
@@ -2722,7 +2763,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     continue
                 requested_roots.append(Path(root_text).expanduser().resolve())
 
-        allowlisted_roots = list(state.settings.source_filesystem_roots)
+        allowlisted_roots = _configured_working_files_roots(state.settings)
         if requested_roots:
             if not allowlisted_roots:
                 return JSONResponse(
@@ -2730,7 +2771,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     content={
                         "success": False,
                         "error": "roots_not_configured",
-                        "message": "SOURCE_FILESYSTEM_ROOTS is empty; cannot validate requested roots.",
+                        "message": "MODEL_CATALOG_WORKING_FILES_ROOT is empty; cannot validate requested roots.",
                     },
                 )
             invalid_roots = [root for root in requested_roots if not _is_path_within_roots(root, allowlisted_roots)]
@@ -2740,13 +2781,13 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                     content={
                         "success": False,
                         "error": "root_not_allowed",
-                        "message": "One or more requested roots are outside allowlisted SOURCE_FILESYSTEM_ROOTS.",
+                        "message": "One or more requested roots are outside the configured working-files root.",
                         "invalid_roots": [str(root) for root in invalid_roots],
                     },
                 )
             roots = requested_roots
         else:
-            roots = _preferred_working_files_roots(allowlisted_roots)
+            roots = allowlisted_roots
 
         if not roots:
             return JSONResponse(
@@ -2754,7 +2795,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 content={
                     "success": False,
                     "error": "no_roots",
-                    "message": "No roots provided and SOURCE_FILESYSTEM_ROOTS is empty.",
+                    "message": "No working-files root is configured.",
                 },
             )
 
@@ -2962,8 +3003,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             params.append(f"%{path_contains.strip().lower()}%")
 
         where_sql = " AND ".join(where_clauses)
-        allowlisted_roots = [Path(root).resolve() for root in state.settings.source_filesystem_roots]
-        preferred_roots = _preferred_working_files_roots(allowlisted_roots)
+        preferred_roots = _configured_working_files_roots(state.settings)
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
         try:
@@ -3147,7 +3187,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             item_role = "supporting"
         allow_multi_group = bool(payload.get("allow_multi_group", True))
 
-        allowlisted_roots = [Path(root).resolve() for root in state.settings.source_filesystem_roots]
+        allowlisted_roots = _working_group_allowed_source_roots(state.settings)
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
         try:
@@ -3196,7 +3236,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "unsupported", "message": "file extension is not supported"})
                         continue
                     if allowlisted_roots and not _is_path_within_roots(candidate_file, allowlisted_roots):
-                        results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "blocked", "message": "path is outside SOURCE_FILESYSTEM_ROOTS"})
+                        results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "blocked", "message": "path is outside the configured intake/working roots"})
                         continue
 
                     existing_in_group = connection.execute(
@@ -3387,7 +3427,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if destination_root is None:
             return JSONResponse(status_code=400, content={"success": False, "error": "no_destination_root", "message": "No allowlisted working-files root is configured"})
 
-        allowlisted_roots = [Path(root).resolve() for root in state.settings.source_filesystem_roots]
+        allowlisted_roots = _working_group_allowed_source_roots(state.settings)
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
         try:
@@ -3439,7 +3479,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                         "item_id": int(row["id"]),
                         "source_path": str(resolved_source),
                         "action": "blocked",
-                        "reason": "outside_source_filesystem_roots",
+                        "reason": "outside_working_or_intake_roots",
                     }
                     plan.append(entry)
                     conflicts.append(entry)
@@ -3865,8 +3905,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         file_path = Path(file_path_raw).expanduser().resolve()
         if not file_path.exists() or not file_path.is_file():
             return JSONResponse(status_code=400, content={"success": False, "error": "missing_source", "message": f"file_path not found: {file_path_raw}"})
-        if state.settings.source_filesystem_roots and not _is_path_within_roots(file_path, list(state.settings.source_filesystem_roots)):
-            return JSONResponse(status_code=403, content={"success": False, "error": "path_not_allowed", "message": "file_path is outside SOURCE_FILESYSTEM_ROOTS"})
+        allowed_roots = _working_group_allowed_source_roots(state.settings)
+        if allowed_roots and not _is_path_within_roots(file_path, allowed_roots):
+            return JSONResponse(status_code=403, content={"success": False, "error": "path_not_allowed", "message": "file_path is outside the configured intake/working roots"})
 
         item_role = str(payload.get("item_role") or "supporting").strip().lower() or "supporting"
         if item_role not in {"primary", "supporting"}:
@@ -7043,7 +7084,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
             cleanup_policy = "keep"
 
-        roots = list(state.settings.source_filesystem_roots)
+        roots = _source_filesystem_roots()
         now_iso = _bulk_utc_now_iso()
         created_items: list[dict[str, Any]] = []
         pending_events: list[dict[str, Any]] = []
@@ -7070,7 +7111,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                             "state": "validated_warning",
                             "validation": {
                                 "validation_state": "missing_source",
-                                "warnings": [{"code": "path_not_allowed", "message": "Path is outside SOURCE_FILESYSTEM_ROOTS"}],
+                                "warnings": [{"code": "path_not_allowed", "message": "Path is outside the configured intake source roots"}],
                             },
                         }
                     )
@@ -8318,9 +8359,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     # ========== SOURCE FILESYSTEM API (#1147) ==========
 
     def _source_filesystem_roots() -> list[Path]:
-        """Return configured allowlisted source filesystem roots from settings."""
+        """Return configured intake source roots from settings."""
         state: AppState = app.state.model_catalog
-        return list(state.settings.source_filesystem_roots)
+        return _configured_intake_source_roots(state.settings)
 
     def _collect_files_in_folder(
         folder: Path,
@@ -8604,7 +8645,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         """
         List configured allowlisted source filesystem roots.
         
-        Roots are configured via SOURCE_FILESYSTEM_ROOTS env var (comma-separated paths).
+        Roots are configured via MODEL_CATALOG_INTAKE_ROOTS (or legacy SOURCE_FILESYSTEM_ROOTS).
         Returns metadata for each root including accessibility and item counts.
         """
         roots = _source_filesystem_roots()
@@ -8772,7 +8813,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 content={
                     "success": False,
                     "error": "no_roots_configured",
-                    "message": "No source filesystem roots are configured (SOURCE_FILESYSTEM_ROOTS env var is empty).",
+                    "message": "No intake source roots are configured (MODEL_CATALOG_INTAKE_ROOTS and SOURCE_FILESYSTEM_ROOTS are empty).",
                 },
             )
 
