@@ -657,7 +657,6 @@
               : '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>')
             : '')
           + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove Selection' : 'Select') + '</button>'
-          + (selected ? '    <button class="button primary" data-action="submit-server-selection">Queue Selected</button>' : '')
           + '  </div>'
           + (selected && entry.type === 'folder'
             ? '<div class="item-grid">'
