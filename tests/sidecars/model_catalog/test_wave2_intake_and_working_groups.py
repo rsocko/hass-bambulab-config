@@ -40,12 +40,42 @@ def _make_settings(db_path: Path, source_root: Path) -> Settings:
         source_filesystem_roots=(source_root.resolve(),),
     )
 
+def _make_settings_with_roots(db_path: Path, source_roots: tuple[Path, ...]) -> Settings:
+    return Settings(
+        manyfold_base_url="http://manyfold.example",
+        manyfold_models_path="/models",
+        manyfold_collections_path="/collections",
+        manyfold_creators_path="/creators",
+        manyfold_oauth_token_path="/oauth/token",
+        manyfold_client_id="test-client",
+        manyfold_client_secret="test-secret",
+        manyfold_oauth_scopes=None,
+        db_path=db_path,
+        refresh_ttl_seconds=900,
+        host="127.0.0.1",
+        port=8314,
+        image_tag="test",
+        image_version="test",
+        image_revision="test",
+        image_created="test",
+        source_filesystem_roots=tuple(root.resolve() for root in source_roots),
+    )
+
 
 def _create_client(tmp_path: Path, source_root: Path) -> TestClient:
     db_path = tmp_path / "model_catalog.db"
     app = create_app(settings=_make_settings(db_path, source_root), manyfold_client=FakeManyfoldClient())
     client = TestClient(app)
     client.__enter__()
+    return client
+
+
+def _create_client_with_roots(tmp_path: Path, source_roots: tuple[Path, ...]) -> TestClient:
+    db_path = tmp_path / "model_catalog.db"
+    app = create_app(settings=_make_settings_with_roots(db_path, source_roots), manyfold_client=FakeManyfoldClient())
+    client = TestClient(app)
+    client.__enter__()
+    return client
     return client
 
 
@@ -698,6 +728,62 @@ def test_working_files_explorer_views_include_group_memberships(tmp_path: Path) 
     groups_payload = groups_response.json()
     assert groups_payload["summary"]["group_count"] == 1
     assert groups_payload["groups"][0]["counts"]["count_3mf"] == 1
+
+
+def test_working_files_explorer_all_and_ungrouped_ignore_inbox_inventory(tmp_path: Path) -> None:
+    assets_root = tmp_path / "assets"
+    inbox_root = assets_root / "Model Inbox"
+    working_root = assets_root / "Model Working Files"
+    inbox_root.mkdir(parents=True, exist_ok=True)
+    working_root.mkdir(parents=True, exist_ok=True)
+
+    inbox_file = inbox_root / "inbox-only.stl"
+    inbox_file.write_bytes(b"inbox-bytes")
+    working_grouped_file = working_root / "grouped-part.3mf"
+    working_grouped_file.write_bytes(b"grouped-bytes")
+    working_ungrouped_file = working_root / "loose-part.stl"
+    working_ungrouped_file.write_bytes(b"loose-bytes")
+
+    client = _create_client_with_roots(tmp_path, (inbox_root, working_root))
+    try:
+        reindex_response = client.post(
+            "/api/working-files/reindex",
+            json={"compute_hashes": True, "recurse": True, "roots": [str(inbox_root), str(working_root)]},
+        )
+        assert reindex_response.status_code == 200
+        assert reindex_response.json()["discovered"] == 3
+
+        create_group = client.post("/api/working-groups", json={"title": "Working Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+
+        add_response = client.post(
+            "/api/working-groups/memberships/batch-add",
+            json={"group_id": group_id, "file_paths": [str(working_grouped_file)], "item_role": "primary", "allow_multi_group": True},
+        )
+        assert add_response.status_code == 200
+        assert add_response.json()["summary"]["added"] == 1
+
+        all_response = client.get("/api/working-files/explorer", params={"view": "all"})
+        assert all_response.status_code == 200
+        all_payload = all_response.json()
+
+        ungrouped_response = client.get("/api/working-files/explorer", params={"view": "ungrouped"})
+        assert ungrouped_response.status_code == 200
+        ungrouped_payload = ungrouped_response.json()
+    finally:
+        client.__exit__(None, None, None)
+
+    all_paths = {file_row["source_path_canonical"] for file_row in all_payload["files"]}
+    assert str(inbox_file.resolve()) not in all_paths
+    assert all_payload["summary"]["all_count"] == 2
+    assert all_payload["pagination"]["total"] == 2
+
+    ungrouped_paths = {file_row["source_path_canonical"] for file_row in ungrouped_payload["files"]}
+    assert str(inbox_file.resolve()) not in ungrouped_paths
+    assert ungrouped_paths == {str(working_ungrouped_file.resolve())}
+    assert ungrouped_payload["summary"]["ungrouped_count"] == 1
+    assert ungrouped_payload["pagination"]["total"] == 1
 
 
 def test_batch_add_memberships_allows_multi_group_with_hash_conflict(tmp_path: Path) -> None:

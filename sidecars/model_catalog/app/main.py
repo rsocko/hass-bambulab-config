@@ -1936,6 +1936,9 @@ def _preferred_working_files_roots(allowlisted_roots: list[Path]) -> list[Path]:
     preferred_root = Path("/assets/Model Working Files").resolve()
     if _is_path_within_roots(preferred_root, allowlisted_roots):
         return [preferred_root]
+    named_roots = [root for root in allowlisted_roots if root.name.strip().lower() == "model working files"]
+    if named_roots:
+        return named_roots
     return allowlisted_roots
 
 
@@ -1971,6 +1974,16 @@ def _working_file_sort_key(*, file_extension: str | None, file_name: str | None,
         str(file_name or "").strip().lower(),
         str(file_path or "").strip().lower(),
     )
+    
+def _working_file_path_within_roots(path_value: str | None, roots: list[Path]) -> bool:
+    path_text = str(path_value or "").strip()
+    if not path_text:
+        return False
+    try:
+        resolved = Path(path_text).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return _is_path_within_roots(resolved, roots)
 
 
 def _file_membership_map(connection: Any, *, path_keys: set[str] | None = None) -> dict[str, list[dict[str, Any]]]:
@@ -2949,6 +2962,8 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             params.append(f"%{path_contains.strip().lower()}%")
 
         where_sql = " AND ".join(where_clauses)
+        allowlisted_roots = [Path(root).resolve() for root in state.settings.source_filesystem_roots]
+        preferred_roots = _preferred_working_files_roots(allowlisted_roots)
         connection = connect(state.settings.db_path)
         connection.row_factory = sqlite3.Row
         try:
@@ -2969,6 +2984,16 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 """,
                 params,
             ).fetchall()
+
+            if preferred_roots:
+                inventory_rows = [
+                    row
+                    for row in inventory_rows
+                    if _working_file_path_within_roots(
+                        str(row["source_path_canonical"] or row["source_path_raw"] or ""),
+                        preferred_roots,
+                    )
+                ]
 
             path_keys = {
                 _normalize_path_compare_key(row["source_path_canonical"] or row["source_path_raw"])
