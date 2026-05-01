@@ -15,6 +15,40 @@
     if (!normalized) {
       return "";
     }
+    var parts = normalized.split("/");
+    return parts[parts.length - 1] || normalized;
+  }
+
+  function dirname(pathValue) {
+    var normalized = String(pathValue || "").replace(/\\/g, "/");
+    if (!normalized || normalized.indexOf("/") < 0) {
+      return normalized;
+    }
+    return normalized.slice(0, normalized.lastIndexOf("/"));
+  }
+
+  function formatBytes(bytes) {
+    var value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+      return "0 B";
+    }
+    var units = ["B", "KB", "MB", "GB", "TB"];
+    var index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+    var scaled = value / Math.pow(1024, index);
+    return scaled.toFixed(scaled >= 10 || index === 0 ? 0 : 1) + " " + units[index];
+  }
+
+  function formatStage(stage) {
+    return String(stage || "draft")
+      .split("_")
+      .map(function (segment) {
+        return segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : "";
+      })
+      .join(" ");
+  }
+
+  function toFileUri(pathValue) {
+    var normalized = String(pathValue || "").replace(/\\/g, "/");
     if (!normalized) {
       return "";
     }

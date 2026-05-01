@@ -101,7 +101,6 @@
       }
     }
     return payload && typeof payload === "object" ? payload : {};
-        this._loading = false;
   }
 
   async function callServiceWithResponse(hass, domain, service, data) {
