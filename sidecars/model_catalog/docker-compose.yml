@@ -35,18 +35,18 @@ services:
       MODEL_CATALOG_HOST: 0.0.0.0
       MODEL_CATALOG_PORT: 8314
       
-      # Allowlisted in-container roots for source browsing and local asset file resolution.
-      # Use container paths, not host paths. Because this stack mounts the asset tree at
-      # /assets, the default standalone example points at /assets so relative storage paths
-      # like catalog/model-a/file.3mf resolve under that bind mount.
-      # Narrow this to subfolders such as /assets/catalog,/assets/working if you want a
-      # stricter allowlist.
-      SOURCE_FILESYSTEM_ROOTS: ${SOURCE_FILESYSTEM_ROOTS:-/assets}
-      
-      # Path where local model catalog files are stored (within /assets)
-      # All local models store their files here: {root}/{local_model_id}/{files}
-      # Includes model files, uploaded photos, and extracted assets
-      MODEL_CATALOG_ASSETS_ROOT: ${MODEL_CATALOG_ASSETS_ROOT:-/assets/Model Catalog}
+      # Curated storage root for service-owned published assets.
+      MODEL_CATALOG_CURATED_ASSETS_ROOT: ${MODEL_CATALOG_CURATED_ASSETS_ROOT:-/assets/Model Catalog}
+
+      # Intake browse/select roots. Keep this limited to staging areas rather than the
+      # full /assets tree so curated catalog storage is not offered as an intake source.
+      MODEL_CATALOG_INTAKE_ROOTS: ${MODEL_CATALOG_INTAKE_ROOTS:-/assets/Model Inbox}
+
+      # Working Files explorer/reindex root.
+      MODEL_CATALOG_WORKING_FILES_ROOT: ${MODEL_CATALOG_WORKING_FILES_ROOT:-/assets/Model Working Files}
+
+      # Legacy compatibility only. Prefer the role-based settings above.
+      SOURCE_FILESYSTEM_ROOTS: ${SOURCE_FILESYSTEM_ROOTS:-}
 
       # Host bind source used for launch/explorer path mapping diagnostics.
       # Required by Working Files actions that translate /assets paths to host paths.

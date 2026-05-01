@@ -19,12 +19,14 @@ services:
       MODEL_CATALOG_PORT: 8314
 
       # Important: container paths, not host paths.
-      SOURCE_FILESYSTEM_ROOTS: /imports/intake,/imports/validation
+      MODEL_CATALOG_CURATED_ASSETS_ROOT: /assets/Model Catalog
+      MODEL_CATALOG_INTAKE_ROOTS: /assets/Model Inbox,/assets/Validation
+      MODEL_CATALOG_WORKING_FILES_ROOT: /assets/Model Working Files
+      SOURCE_FILESYSTEM_ROOTS: ""
 
     volumes:
       - model_catalog_data:/data
-      - /mnt/c/.../3D Printing/Model Inbox:/imports/intake
-      - /mnt/c/.../3D Printing/Validation:/imports/validation
+      - /mnt/c/.../3D Printing:/assets
     ports:
       - "127.0.0.1:8314:8314"
     restart: unless-stopped
