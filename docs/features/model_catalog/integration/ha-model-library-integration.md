@@ -2,6 +2,8 @@
 
 > **Status**: Revised integration direction.
 > **Last updated**: 2026-04-22
+>
+> **Historical note (2026-05-01)**: The shipped Home Assistant UI no longer uses the hidden-subview child-view pattern described below. The current Model Catalog implementation keeps one top-level `Model Catalog` dashboard view and switches between Curated, Working, Intake, Inbox, and the launch surface with helper-backed internal workspace navigation so the global 3D Printing top nav remains visible.
 
 ## Purpose
 

@@ -4,6 +4,8 @@
 > **Created**: 2026-04-30
 > **Scope**: Phase 5 Wave 4 operator surfaces for issues #1077, #1082, and #1145
 > **Authority**: [PHASE-5-EXECUTION-SEQUENCE](PHASE-5-EXECUTION-SEQUENCE.md), [phase-delivery-and-validation](phase-delivery-and-validation.md), [workflow-and-ingestion-guide](workflow-and-ingestion-guide.md)
+>
+> **Historical note (2026-05-01)**: This document describes the earlier hidden-subview plan. The shipped Home Assistant dashboard now keeps one top-level `Model Catalog` view and uses helper-backed internal workspace navigation instead of hidden child views.
 
 ---
 

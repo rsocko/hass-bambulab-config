@@ -1,9 +1,0 @@
-title: Working
-path: model-catalog-working
-icon: mdi:briefcase-outline
-subview: true
-panel: true
-cards:
-  - type: custom:model-catalog-working-files-explorer-card
-    title: Working Files
-    per_page: 200

@@ -1,8 +1,0 @@
-title: Intake
-path: model-catalog-intake
-icon: mdi:upload-outline
-subview: true
-panel: true
-cards:
-  - type: custom:model-catalog-intake-home-card
-    title: Model Catalog Intake

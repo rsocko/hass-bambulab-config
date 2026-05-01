@@ -754,7 +754,7 @@
         return;
       }
       if (action === 'goto-inbox') {
-        this._navigateToSection(this._config.inboxSection, '/3d-printing/model-catalog-inbox');
+        this._navigateToSection(this._config.inboxSection, '/3d-printing/model-catalog');
       }
     }
 

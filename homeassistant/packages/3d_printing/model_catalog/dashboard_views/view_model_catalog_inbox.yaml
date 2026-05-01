@@ -1,8 +1,0 @@
-title: Inbox
-path: model-catalog-inbox
-icon: mdi:inbox-arrow-down-outline
-subview: true
-panel: true
-cards:
-  - type: custom:model-catalog-inbox-review-card
-    title: Inbox Review

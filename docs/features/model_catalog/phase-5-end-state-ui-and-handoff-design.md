@@ -4,6 +4,8 @@
 > **Created**: 2026-04-30
 > **Scope**: End-state UI direction that connects Wave 4 surfaces to later Phase 5 and Phase 6 work
 > **Primary Drivers**: #1163, #1137, #1132, #1133, #1149, #1146, #213
+>
+> **Historical note (2026-05-01)**: The concrete Home Assistant dashboard implementation moved away from the hidden-subview child-view shell assumed here. The shipped UI now uses a single top-level `Model Catalog` view with helper-backed internal workspace navigation to preserve the global dashboard tabs.
 
 ---
 

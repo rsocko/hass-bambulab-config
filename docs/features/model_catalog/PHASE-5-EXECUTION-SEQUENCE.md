@@ -4,6 +4,8 @@
 > **Created**: 2026-04-30
 > **Scope**: Post-Manyfold model-catalog Phase 5 — 20 GitHub issues organized by dependency and delivery order
 > **Authority**: [Post-Manyfold Transition Plan](post-manyfold-transition-plan-2026-04.md) + [Phase Delivery And Validation](phase-delivery-and-validation.md)
+>
+> **Historical note (2026-05-01)**: Any references in this sequencing document to hidden Model Catalog child views should now be read as design history. The shipped Home Assistant dashboard uses a single top-level `Model Catalog` view with internal workspace navigation.
 
 ## Phase 5 Purpose
 

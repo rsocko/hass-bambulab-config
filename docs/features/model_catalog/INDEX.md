@@ -19,6 +19,7 @@
 - **[Working-File Indexing And Grouping Feasibility](working-file-indexing-feasibility.md)** ← Issue #1059
 - **[Working File Inventory And Normalization Spec](working-file-spec.md)** ← Issue #1074
 - **[Working Files Workflow Redesign](working-files-workflow-redesign-issue-1169.md)** ← Issue #1169
+- **[Working Files Local Launch And Slicer Integration Design](working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
 - **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
 
 ### 🧭 Phase 5 Wave 4 UI Design (New)
