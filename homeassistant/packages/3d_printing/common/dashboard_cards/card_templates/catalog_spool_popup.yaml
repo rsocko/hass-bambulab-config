@@ -1,4 +1,4 @@
-﻿# catalog_spool_popup.yaml
+# catalog_spool_popup.yaml
 # Lightweight popup trigger for the Filament Catalog.
 # This template is inherited by catalog_spool_card and evaluated on every
 # card render. To keep the main grid fast, only the entity_id and minimal
@@ -78,8 +78,22 @@ catalog_spool_popup:
       }
       const desIcon = desStatus === 'empty' ? 'mdi:water-off' : 'mdi:water';
       const lastDried = entity?.attributes?.extra_last_dried || '';
+      const dryYellow = 45;
+      const dryOrange = 60;
+      const dryRed = 90;
+      let driedStatus = isSealed ? 'green' : 'empty';
+      let driedDays = null;
       let lastDriedText = 'Never';
-      if (lastDried) { lastDriedText = new Date(lastDried).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+      if (lastDried) {
+        const driedDate = new Date(lastDried);
+        driedDays = Math.floor((Date.now() - driedDate) / 86400000);
+        lastDriedText = driedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (isSealed) driedStatus = 'green';
+        else if (driedDays < dryYellow) driedStatus = 'green';
+        else if (driedDays < dryOrange) driedStatus = 'yellow';
+        else if (driedDays < dryRed) driedStatus = 'orange';
+        else driedStatus = 'red';
+      }
 
       // --- Action button style ---
       const btnS = {
@@ -102,11 +116,13 @@ catalog_spool_popup:
       const costPerG = (price && initialWeight) ? (Number(price) / Number(initialWeight)) : null;
       const costPerGText = costPerG !== null ? '$' + costPerG.toFixed(3) + '/g' : 'N/A';
 
-      // --- Other spools of same filament (standalone markdown card in popup stack) ---
+      // --- Other spools of same filament (for markdown card) ---
       const filamentId = entity?.attributes?.filament_id;
-      const hasFilamentId = filamentId != null;
       const filamentTotals = states['sensor.spoolman_filament_totals']?.attributes?.totals;
       const ft = (filamentId != null && filamentTotals) ? filamentTotals[String(filamentId)] : null;
+      const otherSpools = (ft && ft.spools)
+        ? ft.spools.filter(function(s) { return s.entity_id !== eid; })
+        : [];
       const totalWeightText = ft
         ? ft.weight.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' g'
         : 'N/A';
@@ -138,19 +154,12 @@ catalog_spool_popup:
       const inventoryRuleHelperEntity = 'input_select.spoolman_filament_inventory_rule';
       const filamentEditorFilamentIdEntity = 'input_text.spoolman_filament_editor_filament_id';
       const filamentEditorSpoolEntityIdEntity = 'input_text.spoolman_filament_editor_spool_entity_id';
-      const inventoryRuleOptions = ['Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
+      const inventoryRuleOptions = ['Not Defined', 'Keep In Stock', 'Maintain Backup Spool', 'Max Inventory', 'As Needed', 'Do Not Stock'];
       const normalizeInventoryRule = function(value) {
         const raw = value === undefined || value === null ? '' : String(value).trim().replace(/^"|"$/g, '');
-                ...(hasFilamentId ? [{
-                  type: 'custom:config-template-card',
-                  entities: [eid],
-                  card: {
-                    type: 'markdown',
-                    content: "${(() => { const currentSpoolEntityId = '" + eid + "'; const currentFilamentId = '" + String(filamentId) + "'; const otherSpools = Object.values(states).filter(function(stateObj) { if (!stateObj || typeof stateObj.entity_id !== 'string') return false; if (!/^sensor\\.spoolman_spool_\\d+$/.test(stateObj.entity_id)) return false; if (stateObj.entity_id === currentSpoolEntityId) return false; if (String(stateObj.attributes?.filament_id) !== currentFilamentId) return false; const archivedRaw = stateObj.attributes?.archived; return ![true, 'true', 'True', 1, '1', 'on', 'On'].includes(archivedRaw); }).map(function(stateObj) { const remaining = Number(stateObj.attributes?.remaining_weight); return { id: String(stateObj.entity_id).split('_').pop(), name: stateObj.attributes?.friendly_name || 'Spool', location: stateObj.attributes?.location || 'N/A', remainingText: Number.isFinite(remaining) ? remaining.toFixed(1) + ' g' : 'N/A' }; }); if (!otherSpools.length) return ''; let md = '<details>\\n<summary><strong>📦 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\\n\\n'; otherSpools.forEach(function(s) { md += '• **' + s.name + '** (Spool #' + s.id + ')  \\n'; md += '  📍 ' + s.location + ' — ' + s.remainingText + '\\n\\n'; }); md += '</details>'; return md; })()}"
-                  }
-                }] : []),
         const normalized = raw.toLowerCase();
         const aliases = {
+          'not defined': 'Not Defined',
           'keep in stock': 'Keep In Stock',
           'maintain backup spool': 'Maintain Backup Spool',
           'max inventory': 'Max Inventory',
@@ -158,7 +167,7 @@ catalog_spool_popup:
           'do not stock': 'Do Not Stock'
         };
         const resolved = aliases[normalized] || '';
-        return inventoryRuleOptions.includes(resolved) ? resolved : 'As Needed';
+        return inventoryRuleOptions.includes(resolved) ? resolved : 'Not Defined';
       };
       const currentInventoryRule = normalizeInventoryRule(mergedFilamentExtra.inventory_rule);
 
@@ -436,6 +445,17 @@ catalog_spool_popup:
         }
       };
 
+      let otherSpoolsMd = '';
+      if (otherSpools.length > 0) {
+        otherSpoolsMd = '<details>\n<summary><strong>\uD83D\uDCE6 ' + otherSpools.length + ' other spool' + (otherSpools.length === 1 ? '' : 's') + ' of same filament</strong></summary>\n\n';
+        otherSpools.forEach(function(s) {
+          const rem = (s.remaining != null) ? s.remaining.toFixed(1) + ' g' : 'N/A';
+          otherSpoolsMd += '\u2022 **' + (s.name || 'Spool') + '** (Spool #' + s.id + ')  \n';
+          otherSpoolsMd += '  \uD83D\uDCCD ' + (s.location || 'N/A') + ' \u2014 ' + rem + '\n\n';
+        });
+        otherSpoolsMd += '</details>';
+      }
+
       return {
         action: 'fire-dom-event',
         browser_mod: {
@@ -546,8 +566,8 @@ catalog_spool_popup:
                                 show_name: true,
                                 show_state: true,
                                 show_background: true,
-                                state_background: currentInventoryRule !== 'As Needed',
-                                state_color: currentInventoryRule !== 'As Needed',
+                                state_background: currentInventoryRule !== 'Not Defined',
+                                state_color: currentInventoryRule !== 'Not Defined',
                                 fill_width: true
                               }
                             ]
@@ -645,6 +665,11 @@ catalog_spool_popup:
                     }
                   ]
                 },
+                // --- Other spools (markdown, same pattern as AMS popup) ---
+                ...(otherSpools.length > 0 ? [{
+                  type: 'markdown',
+                  content: otherSpoolsMd
+                }] : []),
                 // --- Desiccant / Dried info + action buttons (bubble card format) ---
                 {
                   type: 'horizontal-stack',
@@ -661,13 +686,22 @@ catalog_spool_popup:
                           show_name: false,
                           show_background: true,
                           tap_action: {
-                            action: 'call-service',
-                            service: 'spoolman.patch_spool',
-                            service_data: { id: spoolIdInt, extra: { last_dried: nowISO } }
+                              action: 'fire-dom-event',
+                              browser_mod: {
+                                service: 'browser_mod.sequence',
+                                data: {
+                                  sequence: [
+                                    { service: 'script.mark_spool_as_dried_in_spoolman', data: { spool_id: String(spoolIdInt) } },
+                                    { service: 'homeassistant.update_entity', data: { entity_id: eid } },
+                                    { service: 'browser_mod.delay', data: { time: 1000 } },
+                                    { service: 'browser_mod.close_popup' }
+                                  ]
+                                }
+                              }
                           }
                         }
                       ],
-                      styles: '.bubble-icon-container { color: #FF5722 !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
+                      styles: '.bubble-icon-container { color: ' + ({ green: '#4CAF50', yellow: '#ffcc00', orange: '#ff9900', red: '#cc0000' }[driedStatus] || '#9e9e9e') + ' !important; } .bubble-sub-button-1 { background-color: var(--primary-color) !important; cursor: pointer; transition: filter 0.2s; } .bubble-sub-button-1:hover { filter: brightness(1.3) !important; } .bubble-sub-button-1:active { filter: brightness(0.8) !important; } .bubble-sub-button-1 ha-icon { color: white !important; }'
                     },
                     {
                       type: 'custom:bubble-card',
@@ -760,7 +794,7 @@ catalog_spool_popup:
                             { service: 'browser_mod.close_popup' },
                             { service: 'browser_mod.delay', data: { time: 500 } },
                             { service: 'browser_mod.popup', data: {
-                              title: '≡ƒôª Unseal & Use',
+                              title: '📦 Unseal & Use',
                               size: 'normal',
                               content: {
                                 type: 'custom:button-card',
@@ -792,7 +826,7 @@ catalog_spool_popup:
                             { service: 'browser_mod.close_popup' },
                             { service: 'browser_mod.delay', data: { time: 500 } },
                             { service: 'browser_mod.popup', data: {
-                              title: 'ΓÖ╗ Replace Spool',
+                              title: '♻ Replace Spool',
                               size: 'normal',
                               content: {
                                 type: 'custom:button-card',
@@ -818,4 +852,3 @@ catalog_spool_popup:
         }
       };
     ]]]
-

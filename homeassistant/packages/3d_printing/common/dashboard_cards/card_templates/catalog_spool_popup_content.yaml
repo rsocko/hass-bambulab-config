@@ -127,6 +127,7 @@ catalog_spool_popup_content:
         const activeSpoolCount = Number(ft?.count || 0);
         const ruleShortage = ((inventoryRule === 'Keep In Stock' || inventoryRule === 'Not Defined') && (activeSpoolCount < 1 || aggregateWeight < stockThreshold)) || (inventoryRule === 'Maintain Backup Spool' && (activeSpoolCount < 2 || aggregateWeight < stockThreshold));
         const purchaseNeed = purchaseQty > 0 || ruleShortage;
+
         // Purchase info
         const purchasedFrom = entity?.attributes?.extra_purchased_from || '';
         const purchaseDate = entity?.attributes?.extra_purchase_date || '';
@@ -140,6 +141,8 @@ catalog_spool_popup_content:
           const priceHTML = price
                 ? '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(128,128,128,0.1);border-radius:20px;padding:5px 10px;font-size:12px;"><ha-icon icon="mdi:currency-usd" style="--mdc-icon-size:16px;color:#4CAF50;"></ha-icon>' + Number(price).toFixed(2) + '</span>'
             : '';
+
+        // Print settings
         const extTemp = entity?.attributes?.filament_settings_extruder_temp;
         const bedTemp = entity?.attributes?.filament_settings_bed_temp;
         let settingsHTML = '';
