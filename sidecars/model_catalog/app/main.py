@@ -62,6 +62,25 @@ from .local_models import (
 )
 from .manyfold import CachedManyfoldModel, ManyfoldClient, _model_ref_from_payload, canonicalize_model_url, read_cached_manyfold_models, read_cached_manyfold_summaries, refresh_manyfold_cache, refresh_manyfold_cache_with_status
 from .models import ManyfoldModelSummary, LocalModelEntry
+from ._helpers import (
+    SUPPORTED_WORKING_FILE_EXTENSIONS,
+    _bulk_path_source_metadata,
+    _bulk_timestamp_iso,
+    _bulk_utc_now_iso,
+    _coerce_bool,
+    _coerce_int,
+    _collect_intake_source_files_in_folder,
+    _configured_intake_source_roots,
+    _configured_working_files_roots,
+    _dedupe_paths,
+    _export_sqlite_schema_ddl,
+    _image_metadata,
+    _is_path_within_roots,
+    _model_photo_storage_root,
+    _normalize_path_compare_key,
+    _normalized_authority_mode,
+    _windows_launch_enabled,
+)
 from .routers.archive_links import router as archive_links_router
 from .routers.intake import router as intake_router
 from .routers.models import router as models_router
@@ -69,6 +88,7 @@ from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
 from .routers.working import router as working_router
 from .settings import Settings, load_settings
+from .state import AppState
 from .services import (
     get_all_indexed_file_hashes,
     get_all_intake_queue_hashes,
@@ -94,12 +114,6 @@ LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcod
 LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
 
 
-class AppState:
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-        self.db_info = bootstrap_database(settings.db_path)
-
-
 @dataclass(frozen=True)
 class CandidateMatch:
     summary: ManyfoldModelSummary
@@ -108,44 +122,6 @@ class CandidateMatch:
     rationale: tuple[str, ...]
     match_method: str
     match_confidence: str
-
-
-def _image_metadata(settings: Settings) -> dict[str, str]:
-    return {
-        "image_tag": settings.image_tag,
-        "image_version": settings.image_version,
-        "image_revision": settings.image_revision,
-        "image_created": settings.image_created,
-    }
-
-
-def _export_sqlite_schema_ddl(db_path: Path) -> str:
-    connection = sqlite3.connect(db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        rows = connection.execute(
-                        """
-                        SELECT type, name, sql
-                        FROM sqlite_master
-                        WHERE name NOT LIKE 'sqlite_%'
-                            AND sql IS NOT NULL
-                            AND type IN ('table', 'index', 'view', 'trigger')
-                        ORDER BY
-                            CASE type
-                                WHEN 'table' THEN 0
-                                WHEN 'index' THEN 1
-                                WHEN 'view' THEN 2
-                                WHEN 'trigger' THEN 3
-                                ELSE 4
-                            END,
-                            name
-                        """
-        ).fetchall()
-    finally:
-        connection.close()
-
-    statements = [str(row["sql"]).strip().rstrip(";") + ";" for row in rows]
-    return "\n\n".join(statement for statement in statements if statement)
 
 
 def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None = None) -> str | None:
@@ -198,13 +174,6 @@ def _local_entry_to_summary(entry: LocalModelEntry, *, db_path: Path | None = No
         collection_names=entry.collection_names,
         keyword_names=tuple(compatibility_keywords),
     )
-
-
-def _normalized_authority_mode(settings: Settings) -> str:
-    normalized = str(getattr(settings, "authority_mode", "hybrid") or "hybrid").strip().lower()
-    if normalized not in {"local", "hybrid", "manyfold"}:
-        return "hybrid"
-    return normalized
 
 
 def _is_local_summary(summary: ManyfoldModelSummary) -> bool:
@@ -382,13 +351,6 @@ def _select_local_preview_asset_id(*, assets: list[Any]) -> str | None:
     )[0]
     asset_id = str(getattr(selected, "asset_id", "") or getattr(selected, "id", ""))
     return asset_id or None
-
-
-def _is_path_within_roots(resolved: Path, roots: list[Path]) -> bool:
-    return any(
-        resolved == root or resolved.is_relative_to(root)
-        for root in roots
-    )
 
 
 def _normalize_queue_status(value: object | None) -> str | None:
@@ -569,39 +531,6 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
         return str(destination).replace("\\", "/")
 
 
-def _collect_intake_source_files_in_folder(
-    folder: Path,
-    *,
-    recurse: bool,
-    max_depth: int | None,
-    current_depth: int = 0,
-) -> list[Path]:
-    results: list[Path] = []
-    try:
-        for item in sorted(folder.iterdir()):
-            if item.name.startswith("."):
-                continue
-            try:
-                if item.is_file():
-                    if item.suffix.lower() in SUPPORTED_WORKING_FILE_EXTENSIONS:
-                        results.append(item)
-                elif item.is_dir() and recurse:
-                    if max_depth is None or current_depth < max_depth:
-                        results.extend(
-                            _collect_intake_source_files_in_folder(
-                                item,
-                                recurse=True,
-                                max_depth=max_depth,
-                                current_depth=current_depth + 1,
-                            )
-                        )
-            except (OSError, PermissionError):
-                pass
-    except (OSError, PermissionError):
-        pass
-    return results
-
-
 def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     expanded: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
@@ -683,15 +612,6 @@ def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict
     return trimmed
 
 
-def _coerce_int(value: object | None) -> int | None:
-    if value is None or value == "":
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _detect_upload_photo_mime(photo_bytes: bytes) -> str | None:
     if photo_bytes.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -736,14 +656,6 @@ def _decode_uploaded_photo(photo_file: str) -> tuple[str, bytes]:
         raise ValueError("Invalid file type (must be JPG, PNG, or WebP)")
 
     return normalized_type, photo_bytes
-
-
-def _model_photo_storage_root(settings: Settings) -> Path:
-    if settings.model_catalog_assets_root:
-        return settings.model_catalog_assets_root.resolve()
-    # Fallback: use /assets/Model Catalog if root not specified
-    data_parent = settings.db_path.parent.resolve()
-    return (data_parent / ".." / "assets" / "Model Catalog").resolve()
 
 
 def _normalize_uploaded_photo_rows(value: object) -> list[dict[str, Any]]:
@@ -1436,20 +1348,6 @@ def _confidence_for_score(score: float) -> str:
     return "low"
 
 
-def _coerce_bool(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"1", "true", "yes", "on"}:
-            return True
-        if normalized in {"0", "false", "no", "off", ""}:
-            return False
-    return bool(value)
-
-
 def _normalized_model_url(settings: Settings, model_url: str | None) -> str | None:
     normalized = str(model_url or "").strip()
     if not normalized:
@@ -1610,28 +1508,7 @@ def _collection_filter_diagnostics(
 
 
 SUPPORTED_BULK_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj"}
-SUPPORTED_WORKING_FILE_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".zip"}
 
-
-def _bulk_utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _bulk_timestamp_iso(timestamp: float | int) -> str:
-    return datetime.fromtimestamp(float(timestamp), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _bulk_path_source_metadata(path: Path, stat_result: Any | None = None) -> dict[str, Any]:
-    stat_value = stat_result or path.stat()
-    metadata: dict[str, Any] = {
-        "source_path": str(path),
-        "source_mtime": _bulk_timestamp_iso(stat_value.st_mtime),
-        "source_ctime": _bulk_timestamp_iso(stat_value.st_ctime),
-    }
-    birthtime = getattr(stat_value, "st_birthtime", None)
-    if birthtime is not None:
-        metadata["source_birthtime"] = _bulk_timestamp_iso(birthtime)
-    return metadata
 
 
 class IntakeSourceValidationError(ValueError):
@@ -1852,11 +1729,6 @@ def _normalize_compare_key(path_value: Path) -> str:
     return str(path_value).replace("\\", "/").lower()
 
 
-def _windows_launch_enabled(settings: Settings) -> bool:
-    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip().replace("\\", "/").lower()
-    return "/mnt/c" in assets_root_host
-
-
 def _windows_root_from_assets_host(settings: Settings) -> str | None:
     assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip().replace("\\", "/")
     if not assets_root_host:
@@ -1936,29 +1808,6 @@ def _preferred_working_files_roots(allowlisted_roots: list[Path]) -> list[Path]:
     return allowlisted_roots
 
 
-def _dedupe_paths(paths: list[Path]) -> list[Path]:
-    unique: list[Path] = []
-    seen: set[str] = set()
-    for path in paths:
-        normalized = _normalize_path_compare_key(path)
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        unique.append(path)
-    return unique
-
-
-def _configured_intake_source_roots(settings: Settings) -> list[Path]:
-    return _dedupe_paths([Path(root).resolve() for root in getattr(settings, "intake_source_roots", ())])
-
-
-def _configured_working_files_roots(settings: Settings) -> list[Path]:
-    explicit_root = getattr(settings, "working_files_root", None)
-    if explicit_root is not None:
-        return [Path(explicit_root).resolve()]
-    return []
-
-
 def _working_files_destination_root(settings: Settings) -> Path | None:
     preferred_roots = _configured_working_files_roots(settings)
     if not preferred_roots:
@@ -1968,13 +1817,6 @@ def _working_files_destination_root(settings: Settings) -> Path | None:
 
 def _working_group_allowed_source_roots(settings: Settings) -> list[Path]:
     return _dedupe_paths(_configured_intake_source_roots(settings) + _configured_working_files_roots(settings))
-
-
-def _normalize_path_compare_key(path_value: str | Path | None) -> str:
-    normalized = str(path_value or "").strip()
-    if not normalized:
-        return ""
-    return normalized.replace("\\", "/").lower()
 
 
 def _working_file_extension_rank(file_extension: str | None) -> int:
@@ -2592,159 +2434,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     app.include_router(working_router)
     app.include_router(intake_router)
     app.include_router(models_router)
-
-    @app.get("/", response_class=HTMLResponse)
-    def api_landing() -> str:
-        return """<!doctype html>
-<html lang=\"en\">
-<head>
-    <meta charset=\"utf-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-    <title>Model Catalog API Docs</title>
-    <style>
-        body { font-family: Segoe UI, Arial, sans-serif; margin: 0; background: #f5f7fb; color: #0f172a; }
-        .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
-        .card { background: #ffffff; border: 1px solid #dbe4f0; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
-        h1, h2 { margin: 0 0 10px; }
-        ul { margin: 0; padding-left: 18px; }
-        li { margin: 6px 0; }
-        a { color: #0b5ed7; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        code { background: #eef3fb; border-radius: 6px; padding: 2px 6px; }
-    </style>
-</head>
-<body>
-    <div class=\"wrap\">
-        <div class=\"card\">
-            <h1>Model Catalog Sidecar API</h1>
-            <p>Use these links to explore the live API contract and endpoint documentation.</p>
-            <ul>
-                <li><a href=\"/docs\">Swagger UI</a></li>
-                <li><a href=\"/redoc\">ReDoc</a></li>
-                <li><a href=\"/openapi.json\">OpenAPI JSON</a></li>
-            </ul>
-        </div>
-        <div class=\"card\">
-            <h2>Repository API References</h2>
-            <ul>
-                <li><code>docs/features/model_catalog/api-reference.md</code> (model catalog sidecar)</li>
-                <li><code>docs/features/print_history/api-reference.md</code> (print history + Bambuddy integration)</li>
-            </ul>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    @app.get("/healthz")
-    def healthz() -> dict[str, Any]:
-        state: AppState = app.state.model_catalog
-        return {
-            "ok": True,
-            "db_path": state.db_info.path,
-            "table_count": len(state.db_info.tables),
-            "schema_version": state.db_info.schema_version,
-        }
-
-    @app.get("/config")
-    def config() -> dict[str, Any]:
-        state: AppState = app.state.model_catalog
-        intake_roots = _configured_intake_source_roots(state.settings)
-        working_roots = _configured_working_files_roots(state.settings)
-        return {
-            "authority_mode": _normalized_authority_mode(state.settings),
-            "intake_source_roots": [str(root) for root in intake_roots],
-            "intake_source_root_count": len(intake_roots),
-            "working_files_roots": [str(root) for root in working_roots],
-            "working_files_root": str(working_roots[0]) if working_roots else None,
-            "working_files_root_count": len(working_roots),
-            "model_catalog_curated_assets_root": str(_model_photo_storage_root(state.settings)),
-            "manyfold_base_url": state.settings.manyfold_base_url,
-            "manyfold_models_path": state.settings.manyfold_models_path,
-            "manyfold_collections_path": state.settings.manyfold_collections_path,
-            "manyfold_creators_path": state.settings.manyfold_creators_path,
-            "manyfold_oauth_token_path": state.settings.manyfold_oauth_token_path,
-            "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
-            "manyfold_oauth_scopes": state.settings.manyfold_oauth_scopes,
-            "manyfold_session_auth_enabled": bool(state.settings.manyfold_session_email and state.settings.manyfold_session_password),
-            "db_path": str(state.settings.db_path),
-            "refresh_ttl_seconds": state.settings.refresh_ttl_seconds,
-            "host": state.settings.host,
-            "port": state.settings.port,
-            **_image_metadata(state.settings),
-        }
-
-    @app.get("/diagnostics")
-    def diagnostics() -> dict[str, Any]:
-        state: AppState = app.state.model_catalog
-        intake_roots = _configured_intake_source_roots(state.settings)
-        working_roots = _configured_working_files_roots(state.settings)
-        
-        # Check what collection names exist in cache
-        connection = connect(state.settings.db_path)
-        try:
-            collection_stats = connection.execute("""
-                SELECT 
-                    COUNT(DISTINCT collection_names_json) as unique_collections_json,
-                    COUNT(*) as total_models
-                FROM manyfold_model_summary_cache
-            """).fetchone()
-            
-            # Get sample collection names
-            sample_collections = connection.execute("""
-                SELECT DISTINCT collection_names_json
-                FROM manyfold_model_summary_cache
-                WHERE collection_names_json != '[]'
-                LIMIT 5
-            """).fetchall()
-            
-            collection_sample = []
-            for (json_str,) in sample_collections:
-                try:
-                    names = json.loads(json_str or "[]")
-                    if names:
-                        collection_sample.extend(names)
-                except:
-                    pass
-        finally:
-            connection.close()
-        
-        return {
-            "service": "model-catalog",
-            "authority_mode": _normalized_authority_mode(state.settings),
-            "intake_source_roots": [str(root) for root in intake_roots],
-            "intake_source_root_count": len(intake_roots),
-            "working_files_roots": [str(root) for root in working_roots],
-            "working_files_root": str(working_roots[0]) if working_roots else None,
-            "working_files_root_count": len(working_roots),
-            "model_catalog_curated_assets_root": str(_model_photo_storage_root(state.settings)),
-            "assets_root_host": str(getattr(state.settings, "assets_root_host", "") or "").strip() or None,
-            "windows_launch_enabled": _windows_launch_enabled(state.settings),
-            "db_tables": list(state.db_info.tables),
-            "schema_version": state.db_info.schema_version,
-            "manyfold_base_url": state.settings.manyfold_base_url,
-            "manyfold_models_path": state.settings.manyfold_models_path,
-            "manyfold_collections_path": state.settings.manyfold_collections_path,
-            "manyfold_creators_path": state.settings.manyfold_creators_path,
-            "manyfold_oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
-            "cache_stats": {
-                "total_models": collection_stats[1] if collection_stats else 0,
-                "models_with_collections": None,
-                "sample_collection_names": list(set(collection_sample)),
-            },
-            **_image_metadata(state.settings),
-        }
-
-    @app.get("/api/admin/schema/chartdb", response_class=PlainTextResponse)
-    def export_chartdb_schema() -> PlainTextResponse:
-        state: AppState = app.state.model_catalog
-        schema_ddl = _export_sqlite_schema_ddl(state.settings.db_path)
-        return PlainTextResponse(
-            schema_ddl,
-            headers={
-                "Content-Disposition": 'inline; filename="model_catalog_chartdb_schema.sql"',
-            },
-        )
 
     @app.post("/api/working-files/reindex")
     def reindex_working_files(payload: dict[str, Any] | None = None) -> Any:
@@ -4773,136 +4462,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "import_timestamp": import_timestamp,
             },
         }
-
-    @app.get("/debug/manyfold-collections")
-    def debug_manyfold_collections() -> dict[str, Any]:
-        """Debug endpoint to test Manyfold collection API access and population."""
-        state: AppState = app.state.model_catalog
-        client: ManyfoldClient = app.state.manyfold_client
-        
-        result: dict[str, Any] = {
-            "manyfold_base_url": state.settings.manyfold_base_url,
-            "collections_endpoint": state.settings.manyfold_collections_path,
-            "oauth_enabled": bool(state.settings.manyfold_client_id and state.settings.manyfold_client_secret),
-            "steps": [],
-        }
-        
-        try:
-            step1 = {"action": "list_models", "status": "pending"}
-            result["steps"].append(step1)
-            models = client.list_model_payloads()
-            step1["status"] = "ok"
-            step1["count"] = len(models)
-            if models:
-                step1["sample_model"] = {
-                    "name": models[0].get("name"),
-                    "has_collections_key": "collections" in models[0],
-                    "has_collection_ids_key": "collection_ids" in models[0],
-                    "collections_value": models[0].get("collections"),
-                    "has_isPartOf_key": "isPartOf" in models[0],
-                    "isPartOf_value": models[0].get("isPartOf"),
-                }
-                # Also show all top-level keys in first model for discovery
-                step1["first_model_keys"] = list(models[0].keys())
-                # Store first 3 models for detailed inspection
-                step1["first_models_preview"] = models[:3]
-        except Exception as e:
-            step1["status"] = "failed"
-            step1["error"] = str(e)
-        
-        try:
-            step2 = {"action": "list_collections", "status": "pending"}
-            result["steps"].append(step2)
-            collections = client.list_collections()
-            step2["status"] = "ok"
-            step2["count"] = len(collections)
-            if collections:
-                sample_col = collections[0]
-                step2["sample_collection"] = {
-                    "name": sample_col.get("name"),
-                    "@id": sample_col.get("@id"),
-                    "id": sample_col.get("id"),
-                    "has_models_key": "models" in sample_col,
-                    "has_items_key": "items" in sample_col,
-                    "has_member_key": "member" in sample_col,
-                }
-                if "models" in sample_col and isinstance(sample_col["models"], list):
-                    step2["sample_collection"]["models_count"] = len(sample_col["models"])
-                if "items" in sample_col and isinstance(sample_col["items"], list):
-                    step2["sample_collection"]["items_count"] = len(sample_col["items"])
-        except Exception as e:
-            step2["status"] = "failed"
-            step2["error"] = str(e)
-        
-        try:
-            if models and models[0].get("@id"):
-                step3 = {"action": "get_model_detail", "status": "pending", "model_ref": models[0].get("@id")}
-                result["steps"].append(step3)
-                detail = client.get_model_detail(models[0].get("@id"))
-                step3["status"] = "ok"
-                step3["has_collections_in_detail"] = "collections" in detail
-                step3["collections_in_detail"] = detail.get("collections", [])[:2]
-        except Exception as e:
-            step3["status"] = "failed"
-            step3["error"] = str(e)
-        
-        return result
-
-    @app.post("/admin/refresh-cache")
-    def admin_refresh_cache() -> dict[str, Any]:
-        """Admin endpoint to manually trigger cache refresh for diagnostics."""
-        state: AppState = app.state.model_catalog
-        client: ManyfoldClient = app.state.manyfold_client
-        
-        try:
-            summaries, refresh_status = refresh_manyfold_cache_with_status(db_path=state.settings.db_path, client=client)
-            
-            # Check result
-            models_with_collections = sum(1 for s in summaries if s.collection_names)
-            
-            return {
-                "success": True,
-                "refreshed_count": len(summaries),
-                "models_with_collections": models_with_collections,
-                "refresh_status": refresh_status,
-                "sample": [
-                    {
-                        "name": s.name,
-                        "collection_names": s.collection_names,
-                    }
-                    for s in summaries[:3]
-                ],
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "error_type": type(e).__name__,
-            }
-
-    @app.get("/debug/model-detail")
-    def debug_model_detail() -> dict[str, Any]:
-        """Return the raw detail payload for the first model, plus all collections."""
-        client: ManyfoldClient = app.state.manyfold_client
-        try:
-            models = client.list_model_payloads()
-            if not models:
-                return {"error": "No models found"}
-            
-            ref = models[0].get("@id") or models[0].get("public_id")
-            detail = client.get_model_detail(ref)
-            collections = client.list_collections()
-            
-            return {
-                "model_ref": ref,
-                "list_payload": models[0],
-                "detail_payload": detail,
-                "detail_keys": sorted(detail.keys()),
-                "isPartOf_in_detail": detail.get("isPartOf"),
-                "collections": collections,
-            }
-        except Exception as e:
-            return {"error": str(e), "error_type": type(e).__name__}
 
     @app.get("/api/models")
     def list_models(
@@ -7082,7 +6641,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
             cleanup_policy = "keep"
 
-        roots = _intake_source_roots()
+        roots = _configured_intake_source_roots(app.state.model_catalog.settings)
         now_iso = _bulk_utc_now_iso()
         created_items: list[dict[str, Any]] = []
         pending_events: list[dict[str, Any]] = []
@@ -8355,43 +7914,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         }
 
     # ========== SOURCE FILESYSTEM API (#1147) ==========
-
-    def _intake_source_roots() -> list[Path]:
-        """Return configured intake source roots from settings."""
-        state: AppState = app.state.model_catalog
-        return _configured_intake_source_roots(state.settings)
-
-    def _collect_files_in_folder(
-        folder: Path,
-        *,
-        recurse: bool,
-        max_depth: int | None,
-        current_depth: int = 0,
-    ) -> list[Path]:
-        """Walk a folder and return file paths, respecting recurse/max_depth."""
-        results: list[Path] = []
-        try:
-            for item in sorted(folder.iterdir()):
-                if item.name.startswith("."):
-                    continue
-                try:
-                    if item.is_file():
-                        results.append(item)
-                    elif item.is_dir() and recurse:
-                        if max_depth is None or current_depth < max_depth:
-                            results.extend(
-                                _collect_files_in_folder(
-                                    item,
-                                    recurse=True,
-                                    max_depth=max_depth,
-                                    current_depth=current_depth + 1,
-                                )
-                            )
-                except (OSError, PermissionError):
-                    pass
-        except (OSError, PermissionError):
-            pass
-        return results
+    # (Handlers moved to routers/source_filesystems.py)
 
     def _expand_source_entries_to_files(source_entries: list[dict[str, Any]]) -> list[Path]:
         files: list[Path] = []
@@ -8527,7 +8050,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
                 "message": "Upload queue entry did not resolve to any files for cleanup.",
             }
 
-        roots = _intake_source_roots()
+        roots = _configured_intake_source_roots(app.state.model_catalog.settings)
         managed_roots = roots + [_browser_intake_upload_storage_root(state.settings)]
         browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
 
@@ -8636,386 +8159,6 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
             "upload_id": upload_id,
             "status": final_status,
             "cleanup": summary,
-        }
-
-    @app.get("/api/source-filesystems")
-    def list_source_filesystems() -> Any:
-        """
-        List configured allowlisted source filesystem roots.
-        
-        Roots are configured via MODEL_CATALOG_INTAKE_ROOTS.
-        Returns metadata for each root including accessibility and item counts.
-        """
-        roots = _intake_source_roots()
-        root_entries = []
-        for root in roots:
-            accessible = root.exists() and root.is_dir()
-            child_count: int | None = None
-            if accessible:
-                try:
-                    child_count = sum(
-                        1 for item in root.iterdir() if not item.name.startswith(".")
-                    )
-                except (OSError, PermissionError):
-                    child_count = None
-            root_entries.append(
-                {
-                    "path": str(root),
-                    "name": root.name or str(root),
-                    "accessible": accessible,
-                    "child_count": child_count,
-                }
-            )
-        return {
-            "success": True,
-            "roots": root_entries,
-            "root_count": len(root_entries),
-        }
-
-    @app.get("/api/source-filesystems/browse")
-    def browse_source_filesystem(path: str | None = None) -> Any:
-        """
-        Browse an allowlisted source filesystem path.
-        
-        - Omit path (or pass path=/) to list the configured roots as top-level entries.
-        - Provide path to list folder contents.
-        - Enforces allowlist; rejects traversal outside configured roots.
-        """
-        roots = _intake_source_roots()
-
-        if not path or path.strip() in {"", "/"}:
-            # Virtual root: show configured roots
-            return {
-                "success": True,
-                "path": "/",
-                "is_root": True,
-                "type": "virtual_root",
-                "entries": [
-                    {
-                        "path": str(root),
-                        "name": root.name or str(root),
-                        "type": "folder",
-                        "accessible": root.exists() and root.is_dir(),
-                        "has_children": root.is_dir() if root.exists() else False,
-                    }
-                    for root in roots
-                ],
-            }
-
-        browse_path = Path(path).expanduser().resolve()
-
-        if not _is_path_within_roots(browse_path, roots):
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "error": "path_not_allowed",
-                    "message": (
-                        f"Path '{path}' is not within any configured source filesystem root. "
-                        f"Allowed: {', '.join(str(r) for r in roots)}"
-                    ),
-                },
-            )
-
-        if not browse_path.exists():
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "success": False,
-                    "error": "path_not_found",
-                    "message": f"Path does not exist: {path}",
-                },
-            )
-
-        if not browse_path.is_dir():
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "not_a_directory",
-                    "message": f"Path is not a directory: {path}",
-                },
-            )
-
-        entries: list[dict[str, Any]] = []
-        try:
-            for item in sorted(browse_path.iterdir()):
-                if item.name.startswith("."):
-                    continue
-                try:
-                    is_dir = item.is_dir()
-                    entry: dict[str, Any] = {
-                        "path": str(item),
-                        "name": item.name,
-                        "type": "folder" if is_dir else "file",
-                        "has_children": is_dir,
-                    }
-                    if not is_dir:
-                        try:
-                            entry["size_bytes"] = item.stat().st_size
-                        except (OSError, PermissionError):
-                            entry["size_bytes"] = None
-                        entry["extension"] = item.suffix.lower()
-                    entries.append(entry)
-                except (OSError, PermissionError):
-                    pass
-        except (OSError, PermissionError) as exc:
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "success": False,
-                    "error": "permission_denied",
-                    "message": f"Cannot access directory: {exc}",
-                },
-            )
-
-        # Compute parent path if still within allowlist
-        parent_path: str | None = None
-        parent_candidate = browse_path.parent
-        if parent_candidate != browse_path and _is_path_within_roots(parent_candidate, roots):
-            parent_path = str(parent_candidate)
-
-        return {
-            "success": True,
-            "path": str(browse_path),
-            "name": browse_path.name or str(browse_path),
-            "type": "folder",
-            "parent_path": parent_path,
-            "is_root": False,
-            "entry_count": len(entries),
-            "entries": entries,
-        }
-
-    @app.post("/api/source-filesystems/select")
-    def select_source_filesystem_entries(payload: dict[str, Any]) -> Any:
-        """
-        Select files/folders from allowlisted source filesystem roots and create an intake queue item.
-        
-        Payload:
-          selections: list of
-            { type: "file", path: "/abs/path/to/file.3mf" }
-            { type: "folder", path: "/abs/path/to/folder", recurse: bool, max_depth?: int }
-          cleanup_policy: "keep" | "delete_on_verified" | "replace_with_stub"  (default "keep")
-        
-        - Enforces allowlist on every path.
-        - Folder selections expand to file lists for source_metadata but are stored as-is in the queue contract.
-        - Creates one intake_queue_uploads record.
-        - Returns upload_id for tracking.
-        """
-        import uuid as _uuid
-
-        roots = _intake_source_roots()
-        if not roots:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "no_roots_configured",
-                    "message": "No intake source roots are configured. Set MODEL_CATALOG_INTAKE_ROOTS.",
-                },
-            )
-
-        selections = payload.get("selections")
-        if not isinstance(selections, list) or len(selections) == 0:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "invalid_payload",
-                    "message": "selections must be a non-empty list of {type, path, recurse?, max_depth?}",
-                },
-            )
-
-        cleanup_policy = str(payload.get("cleanup_policy") or "keep").strip().lower()
-        if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
-            cleanup_policy = "keep"
-
-        validated_entries: list[dict[str, Any]] = []
-        expanded_file_count = 0
-
-        for idx, selection in enumerate(selections):
-            if not isinstance(selection, dict):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "invalid_selection",
-                        "message": f"selections[{idx}] must be an object",
-                    },
-                )
-
-            entry_type = str(selection.get("type") or "").strip().lower()
-            entry_path_raw = str(selection.get("path") or "").strip()
-
-            if entry_type not in {"file", "folder"}:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "invalid_selection_type",
-                        "message": f"selections[{idx}].type must be 'file' or 'folder', got '{entry_type}'",
-                    },
-                )
-
-            if not entry_path_raw:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "invalid_selection_path",
-                        "message": f"selections[{idx}].path is required",
-                    },
-                )
-
-            resolved = Path(entry_path_raw).expanduser().resolve()
-
-            # Traversal guard: must be within an allowlisted root
-            if not _is_path_within_roots(resolved, roots):
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "success": False,
-                        "error": "path_not_allowed",
-                        "message": (
-                            f"selections[{idx}].path '{entry_path_raw}' is not within any "
-                            f"configured source filesystem root."
-                        ),
-                    },
-                )
-
-            if not resolved.exists():
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "source_not_found",
-                        "message": f"selections[{idx}].path does not exist: {entry_path_raw}",
-                    },
-                )
-
-            if entry_type == "file":
-                if not resolved.is_file():
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "source_is_not_file",
-                            "message": f"selections[{idx}] type is 'file' but path is not a file: {entry_path_raw}",
-                        },
-                    )
-                try:
-                    stat_result = resolved.stat()
-                except (OSError, PermissionError) as exc:
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "source_stat_error",
-                            "message": f"selections[{idx}].path could not be read: {exc}",
-                        },
-                    )
-                if resolved.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "unsupported_type",
-                            "message": f"selections[{idx}].path has unsupported extension: {resolved.suffix.lower() or '<none>'}",
-                        },
-                    )
-                entry_meta = _bulk_path_source_metadata(resolved, stat_result)
-                validated_entries.append(
-                    {
-                        "type": "file",
-                        "path": str(resolved),
-                        "source_mtime": entry_meta["source_mtime"],
-                        "source_ctime": entry_meta["source_ctime"],
-                        "source_birthtime": entry_meta.get("source_birthtime"),
-                        "source_size_bytes": int(stat_result.st_size),
-                    }
-                )
-                expanded_file_count += 1
-
-            else:  # folder
-                if not resolved.is_dir():
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "source_is_not_folder",
-                            "message": f"selections[{idx}] type is 'folder' but path is not a directory: {entry_path_raw}",
-                        },
-                    )
-                recurse = _coerce_bool(selection.get("recurse", True))
-                max_depth = _coerce_int(selection.get("max_depth"))
-                try:
-                    folder_stat = resolved.stat()
-                except (OSError, PermissionError) as exc:
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "success": False,
-                            "error": "source_stat_error",
-                            "message": f"selections[{idx}].path could not be read: {exc}",
-                        },
-                    )
-                folder_meta = _bulk_path_source_metadata(resolved, folder_stat)
-                # Expand to count contained files (for metadata); the queue entry stores the folder
-                contained_files = _collect_intake_source_files_in_folder(
-                    resolved, recurse=recurse, max_depth=max_depth
-                )
-                validated_entries.append(
-                    {
-                        "type": "folder",
-                        "path": str(resolved),
-                        "recurse": recurse,
-                        "max_depth": max_depth,
-                        "source_mtime": folder_meta["source_mtime"],
-                        "source_ctime": folder_meta["source_ctime"],
-                        "source_birthtime": folder_meta.get("source_birthtime"),
-                        "contained_file_count": len(contained_files),
-                    }
-                )
-                expanded_file_count += len(contained_files)
-
-        # Create intake queue record
-        upload_id = str(_uuid.uuid4())
-        now_iso = _bulk_utc_now_iso()
-        source_entries_json = json.dumps(validated_entries)
-
-        state: AppState = app.state.model_catalog
-        connection = connect(state.settings.db_path)
-        try:
-            connection.execute(
-                """
-                INSERT INTO intake_queue_uploads (
-                    upload_id, status, source_entries_json, verification_status,
-                    cleanup_policy, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    upload_id,
-                    "queued",
-                    source_entries_json,
-                    "unverified",
-                    cleanup_policy,
-                    now_iso,
-                    now_iso,
-                ),
-            )
-            connection.commit()
-        finally:
-            connection.close()
-
-        return {
-            "success": True,
-            "upload_id": upload_id,
-            "status": "queued",
-            "verification_status": "unverified",
-            "cleanup_policy": cleanup_policy,
-            "selection_count": len(validated_entries),
-            "expanded_file_count": expanded_file_count,
-            "created_at": now_iso,
         }
 
     # ========== MANYFOLD UPLOAD ADAPTER (Phase 1.5 #1148) ==========
