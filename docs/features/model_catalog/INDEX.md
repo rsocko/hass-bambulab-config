@@ -19,6 +19,8 @@
 - **[Working-File Indexing And Grouping Feasibility](working-file-indexing-feasibility.md)** ← Issue #1059
 - **[Working File Inventory And Normalization Spec](working-file-spec.md)** ← Issue #1074
 - **[Working Files Workflow Redesign](working-files-workflow-redesign-issue-1169.md)** ← Issue #1169
+- **[Main.py Modularization Low-Risk Plan](planning/main-py-modularization-low-risk-plan.md)** ← Deterministic decomposition plan for sidecar backend
+- **[Main.py Modularization Issue Map](planning/main-py-modularization-issue-map.md)** ← Epic + child issue sequence and acceptance gates
 - **[Working Files Local Launch And Slicer Integration Design](working-files-local-launch-and-slicer-integration-design.md)** ← Local file, slicer protocol, companion, and replace-flow design
 - **[Print History Slicer Integration Design](print-history-slicer-integration-design.md)** ← Source `.3mf` validation, filament substitution, and canonical archive creation
 - **[Print History Slicer UX Mockups](print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
