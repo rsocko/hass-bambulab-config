@@ -17,7 +17,7 @@ import time
 import uuid
 from typing import Any
 from sqlite3 import connect
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import FastAPI, Request
