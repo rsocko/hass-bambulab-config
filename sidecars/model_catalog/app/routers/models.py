@@ -3233,156 +3233,164 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
 @router.get("/api/models/{model_ref:path}/geometry/{file_id}")
-def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> dict[str, Any]:
+def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> Response | dict[str, Any]:
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
-    state: AppState = request.app.state.model_catalog
-    client: ManyfoldClient = request.app.state.manyfold_client
-    debug_info: dict[str, Any] = {
-        "model_ref": model_ref,
-        "file_id": file_id,
-        "detail_attempts": [],
-    }
-    
-    # Resolve model reference - wrap in try/except to catch database errors
     try:
-        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-    except Exception as e:
-        error_msg = f"Failed to resolve model: {str(e)}"
-        payload: dict[str, Any] = {"error": error_msg}
-        if include_debug:
-            debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
-            payload["_debug"] = debug_info
-        return JSONResponse(status_code=500, content=payload)
-    
-    if summary is None:
-        return JSONResponse(status_code=404, content={"error": "Model not found"})
-
-    if str(summary.model_url or "").startswith("local://"):
-        local_model_id = str(summary.public_id or model_ref).strip()
+        state: AppState = request.app.state.model_catalog
+        client: ManyfoldClient = request.app.state.manyfold_client
+        debug_info: dict[str, Any] = {
+            "model_ref": model_ref,
+            "file_id": file_id,
+            "detail_attempts": [],
+        }
+        
+        # Resolve model reference - wrap in try/except to catch database errors
         try:
-            asset = read_model_asset(
-                db_path=state.settings.db_path,
-                local_model_id=local_model_id,
-                asset_id=file_id,
-            )
+            summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
         except Exception as e:
-            error_msg = f"Failed to read model asset: {str(e)}"
+            error_msg = f"Failed to resolve model: {str(e)}"
             payload: dict[str, Any] = {"error": error_msg}
             if include_debug:
-                debug_info["asset_read_error"] = {"error_type": type(e).__name__, "error": str(e)}
+                debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
                 payload["_debug"] = debug_info
             return JSONResponse(status_code=500, content=payload)
         
-        if asset is None:
-            payload: dict[str, Any] = {"error": "File not found"}
-            if include_debug:
-                payload["_debug"] = debug_info
-            return JSONResponse(status_code=404, content=payload)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
 
-        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
-        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
-            payload = {"error": "Local model file source not found"}
-            if include_debug:
-                debug_info["local_storage_path"] = str(storage_path) if storage_path is not None else None
-                payload["_debug"] = debug_info
-            return JSONResponse(status_code=404, content=payload)
-
-        file_name = str(asset.asset_filename or storage_path.name)
-        file_type = str(asset.asset_type or "")
-        download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
-        response_payload: dict[str, Any] = {
-            "success": True,
-            "file_id": file_id,
-            "filename": file_name,
-            "download_url": download_url,
-            "file_type": file_type,
-        }
-
-        is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
-        if is_3mf:
-            package_bytes = storage_path.read_bytes()
-            if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
-                payload: dict[str, Any] = {
-                    "error": "3MF package too large for server-side geometry extraction",
-                    "package_size_bytes": len(package_bytes),
-                    "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
-                }
+        if str(summary.model_url or "").startswith("local://"):
+            local_model_id = str(summary.public_id or model_ref).strip()
+            try:
+                asset = read_model_asset(
+                    db_path=state.settings.db_path,
+                    local_model_id=local_model_id,
+                    asset_id=file_id,
+                )
+            except Exception as e:
+                error_msg = f"Failed to read model asset: {str(e)}"
+                payload: dict[str, Any] = {"error": error_msg}
                 if include_debug:
-                    debug_info["local_storage_path"] = str(storage_path)
+                    debug_info["asset_read_error"] = {"error_type": type(e).__name__, "error": str(e)}
                     payload["_debug"] = debug_info
-                return JSONResponse(status_code=422, content=payload)
-            response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+                return JSONResponse(status_code=500, content=payload)
+            
+            if asset is None:
+                payload: dict[str, Any] = {"error": "File not found"}
+                if include_debug:
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
 
-        if include_debug:
-            debug_info["local_storage_path"] = str(storage_path)
-            response_payload["_debug"] = debug_info
-        return response_payload
+            storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+            if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+                payload = {"error": "Local model file source not found"}
+                if include_debug:
+                    debug_info["local_storage_path"] = str(storage_path) if storage_path is not None else None
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
 
-    def _normalize_candidate_url(value: Any) -> str | None:
-        text = str(value or "").strip()
-        if not text:
-            return None
-        return canonicalize_model_url(client.base_url, text)
-    
-    # Fetch model files using documented Manyfold route.
-    try:
-        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
-        files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
-        debug_info["files_count"] = len(files)
-        file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
-        
-        if not file_obj:
-            payload: dict[str, Any] = {"error": "File not found"}
+            file_name = str(asset.asset_filename or storage_path.name)
+            file_type = str(asset.asset_type or "")
+            download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
+            response_payload: dict[str, Any] = {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_name,
+                "download_url": download_url,
+                "file_type": file_type,
+            }
+
+            is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
+            if is_3mf:
+                package_bytes = storage_path.read_bytes()
+                if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
+                    payload: dict[str, Any] = {
+                        "error": "3MF package too large for server-side geometry extraction",
+                        "package_size_bytes": len(package_bytes),
+                        "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
+                    }
+                    if include_debug:
+                        debug_info["local_storage_path"] = str(storage_path)
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
+                response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+
             if include_debug:
-                payload["_debug"] = debug_info
-            return JSONResponse(status_code=404, content=payload)
+                debug_info["local_storage_path"] = str(storage_path)
+                response_payload["_debug"] = debug_info
+            return response_payload
 
-        file_name = str(file_obj.get("filename") or "")
-        file_type = str(file_obj.get("file_type") or "")
-        source_url: str | None = None
-        try:
-            detail_payload = client.get_model_file_detail(file_id, model_ref=resolved_ref)
-            source_url = (
-                _normalize_candidate_url(detail_payload.get("contentUrl"))
-                or _normalize_candidate_url(detail_payload.get("download_url"))
-                or _normalize_candidate_url(detail_payload.get("url"))
-                or _normalize_candidate_url(detail_payload.get("@id"))
-            )
-        except Exception as exc:
-            debug_info["file_detail_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
-
-        if not source_url:
-            source_url = (
-                _normalize_candidate_url(file_obj.get("contentUrl"))
-                or _normalize_candidate_url(file_obj.get("download_url"))
-                or _normalize_candidate_url(file_obj.get("url"))
-            )
-
-        download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
+        def _normalize_candidate_url(value: Any) -> str | None:
+            text = str(value or "").strip()
+            if not text:
+                return None
+            return canonicalize_model_url(client.base_url, text)
         
-        # Return geometry download URL
-        response_payload: dict[str, Any] = {
-            "success": True,
-            "file_id": file_id,
-            "filename": file_name,
-            "download_url": download_url,
-            "file_type": file_type,
-        }
+        # Fetch model files using documented Manyfold route.
+        try:
+            resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+            files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
+            debug_info["files_count"] = len(files)
+            file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
+            
+            if not file_obj:
+                payload: dict[str, Any] = {"error": "File not found"}
+                if include_debug:
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
 
-        is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
-        if is_3mf and source_url:
-            binary_response = client.fetch_binary(source_url)
-            response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+            file_name = str(file_obj.get("filename") or "")
+            file_type = str(file_obj.get("file_type") or "")
+            source_url: str | None = None
+            try:
+                detail_payload = client.get_model_file_detail(file_id, model_ref=resolved_ref)
+                source_url = (
+                    _normalize_candidate_url(detail_payload.get("contentUrl"))
+                    or _normalize_candidate_url(detail_payload.get("download_url"))
+                    or _normalize_candidate_url(detail_payload.get("url"))
+                    or _normalize_candidate_url(detail_payload.get("@id"))
+                )
+            except Exception as exc:
+                debug_info["file_detail_error"] = {"error_type": type(exc).__name__, "error": str(exc)}
 
-        if include_debug:
-            response_payload["_debug"] = debug_info
-        return response_payload
+            if not source_url:
+                source_url = (
+                    _normalize_candidate_url(file_obj.get("contentUrl"))
+                    or _normalize_candidate_url(file_obj.get("download_url"))
+                    or _normalize_candidate_url(file_obj.get("url"))
+                )
+
+            download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
+            
+            # Return geometry download URL
+            response_payload: dict[str, Any] = {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_name,
+                "download_url": download_url,
+                "file_type": file_type,
+            }
+
+            is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
+            if is_3mf and source_url:
+                binary_response = client.fetch_binary(source_url)
+                response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+
+            if include_debug:
+                response_payload["_debug"] = debug_info
+            return response_payload
+        except Exception as e:
+            payload = {"error": str(e)}
+            if include_debug:
+                debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
+                payload["_debug"] = debug_info
+            return JSONResponse(status_code=500, content=payload)
     except Exception as e:
-        payload = {"error": str(e)}
+        # Outer catch-all for any uncaught exceptions
+        error_msg = f"Geometry endpoint internal error: {str(e)}"
+        payload: dict[str, Any] = {"error": error_msg}
         if include_debug:
-            debug_info["endpoint_error"] = {"error_type": type(e).__name__, "error": str(e)}
-            payload["_debug"] = debug_info
-        return JSONResponse(status_code=500, content=payload)
+            payload["_debug"] = {"error_type": type(e).__name__, "error": str(e)}
+
 
 @router.get("/api/models/{model_ref:path}/files/{file_id}/download")
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str) -> Response:
