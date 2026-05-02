@@ -1,0 +1,98 @@
+# template_sensor_filament_shortage_status.yaml
+# 
+# Phase 2 Optimization: Pre-computed shortage detection helper
+# 
+# This sensor computes and caches shortage status for each filament
+# to reduce recalculation churn in the main filter template.
+# 
+# Depends on: sensor.spoolman_filament_totals (counts/weights per filament)
+# Outputs: 
+#   - state: count of filaments with shortage
+#   - attributes.shortage_json: map of filament_id -> {has_shortage, reason, count, weight}
+# 
+# The main filter template reads this instead of recalculating shortage
+# status on every spool entity loop iteration.
+
+- sensor:
+    - name: Filament Shortage Status
+      unique_id: filament_shortage_status
+      icon: mdi:warehouse-alert
+      unit_of_measurement: filaments
+      state: >
+        {%- set shortage_map = namespace(items={}) -%}
+        {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+        {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+        {%- if totals_raw is mapping -%}
+          {%- set totals = totals_raw -%}
+        {%- else -%}
+          {%- set totals = {} -%}
+        {%- endif -%}
+        {%- for filament_id, fil_data in totals.items() -%}
+          {%- if fil_data is mapping -%}
+            {%- set count = fil_data.get('count', 0) | int(0) -%}
+            {%- set weight = fil_data.get('weight', 0) | float(0) -%}
+            {%- set filament_inventory_rules = namespace(data={}) -%}
+            {%- set filament_entity_id = 'sensor.spoolman_filament_' + (filament_id | string) -%}
+            {%- set filament_entity = states[filament_entity_id] -%}
+            {%- if filament_entity is not none -%}
+              {%- set inventory_rule_source = filament_entity.attributes.get('filament_extra_inventory_rule', '') | string | trim -%}
+              {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+              {%- set inventory_rule_aliases = {
+                'not defined': 'Not Defined',
+                'keep in stock': 'Keep In Stock',
+                'maintain backup spool': 'Maintain Backup Spool',
+                'max inventory': 'Max Inventory',
+                'as needed': 'As Needed',
+                'do not stock': 'Do Not Stock'
+              } -%}
+              {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+                {%- set inventory_rule = 'Not Defined' -%}
+              {%- else -%}
+                {%- set inventory_rule = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+              {%- endif -%}
+              {%- set is_shortage = ((inventory_rule in ['Keep In Stock', 'Not Defined']) and (count < 1 or weight < stock_threshold)) or (inventory_rule == 'Maintain Backup Spool' and (count < 2 or weight < stock_threshold)) -%}
+              {%- if is_shortage -%}
+                {%- set shortage_map.items = shortage_map.items | combine({(filament_id | string): true}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ shortage_map.items.values() | list | count }}
+      attributes:
+        totals_and_shortage_json: >
+          {%- set result_map = namespace(items={}) -%}
+          {%- set stock_threshold = states('input_number.filament_catalog_stock_threshold') | float(150) -%}
+          {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
+          {%- if totals_raw is mapping -%}
+            {%- set totals = totals_raw -%}
+          {%- else -%}
+            {%- set totals = {} -%}
+          {%- endif -%}
+          {%- for filament_id, fil_data in totals.items() -%}
+            {%- if fil_data is mapping -%}
+              {%- set count = fil_data.get('count', 0) | int(0) -%}
+              {%- set weight = fil_data.get('weight', 0) | float(0) -%}
+              {%- set filament_entity_id = 'sensor.spoolman_filament_' + (filament_id | string) -%}
+              {%- set filament_entity = states[filament_entity_id] -%}
+              {%- if filament_entity is not none -%}
+                {%- set inventory_rule_source = filament_entity.attributes.get('filament_extra_inventory_rule', '') | string | trim -%}
+                {%- set inventory_rule_clean = inventory_rule_source | regex_replace('^"|"$', '') | lower -%}
+                {%- set inventory_rule_aliases = {
+                  'not defined': 'Not Defined',
+                  'keep in stock': 'Keep In Stock',
+                  'maintain backup spool': 'Maintain Backup Spool',
+                  'max inventory': 'Max Inventory',
+                  'as needed': 'As Needed',
+                  'do not stock': 'Do Not Stock'
+                } -%}
+                {%- if inventory_rule_clean in ['', 'none', 'null', 'unknown', 'unavailable'] -%}
+                  {%- set inventory_rule = 'Not Defined' -%}
+                {%- else -%}
+                  {%- set inventory_rule = inventory_rule_aliases.get(inventory_rule_clean, inventory_rule_source | regex_replace('^"|"$', '')) -%}
+                {%- endif -%}
+                {%- set is_shortage = ((inventory_rule in ['Keep In Stock', 'Not Defined']) and (count < 1 or weight < stock_threshold)) or (inventory_rule == 'Maintain Backup Spool' and (count < 2 or weight < stock_threshold)) -%}
+                {%- set result_map.items = result_map.items | combine({(filament_id | string): {'count': count, 'weight': weight, 'shortage': is_shortage}}) -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ result_map.items | tojson }}

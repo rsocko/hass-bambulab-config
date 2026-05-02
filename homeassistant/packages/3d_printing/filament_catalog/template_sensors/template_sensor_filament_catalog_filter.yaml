@@ -64,11 +64,14 @@
           {%- set filter_missing_desiccant = is_state('input_boolean.filament_catalog_filter_missing_desiccant', 'on') -%}
           {%- set tab = states('input_select.filament_catalog_tab') | default('By Location', true) -%}
           {%- set sort_option = states('input_select.filament_catalog_sort') | default('Name (A-Z)', true) -%}
-          {%- set totals_raw = state_attr('sensor.spoolman_filament_totals', 'totals') | default({}, true) -%}
-          {%- if totals_raw is mapping -%}
-            {%- set totals = totals_raw -%}
+          {# Phase 2 Optimization: Load pre-computed totals and shortage from helper sensor #}
+          {%- set totals_and_shortage_raw = state_attr('sensor.filament_shortage_status', 'totals_and_shortage_json') | default('{}', true) -%}
+          {%- if totals_and_shortage_raw is string -%}
+            {%- set totals_and_shortage = totals_and_shortage_raw | from_json -%}
+          {%- elif totals_and_shortage_raw is mapping -%}
+            {%- set totals_and_shortage = totals_and_shortage_raw -%}
           {%- else -%}
-            {%- set totals = {} -%}
+            {%- set totals_and_shortage = {} -%}
           {%- endif -%}
           {%- set dq_unsealed_ids = namespace(items=[]) -%}
           {%- set dq_hexes = namespace(items=[]) -%}
@@ -186,18 +189,9 @@
               {%- set has_qty_to_purchase = purchase_qty > 0 -%}
               {%- set is_low_stock = remaining_weight < stock_threshold -%}
               {%- set is_nearly_empty = remaining_weight < 50 -%}
-              {%- if totals is mapping and filament_id not in [none, '', 'unknown', 'unavailable'] -%}
-                {%- set fil_total = totals.get(filament_id) -%}
-                {%- if fil_total in [none, ''] -%}
-                  {%- set fil_total = totals.get(filament_id | string) -%}
-                {%- endif -%}
-                {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
-              {%- set filament_agg_weight = fil_total.get('weight', 0) | float(0) if fil_total is mapping else remaining_weight -%}
-              {%- else -%}
-                {%- set filament_count = 0 -%}
-                {%- set filament_agg_weight = remaining_weight -%}
-              {%- endif -%}
-              {%- set is_rule_shortage = ((inventory_rule in ['Keep In Stock', 'Not Defined']) and (filament_count < 1 or filament_agg_weight < stock_threshold)) or (inventory_rule == 'Maintain Backup Spool' and (filament_count < 2 or filament_agg_weight < stock_threshold)) -%}
+              {# Phase 2: Look up pre-computed shortage status from helper #}
+              {%- set ts_entry = totals_and_shortage.get(filament_id | string, {}) -%}
+              {%- set is_rule_shortage = ts_entry.get('shortage', false) if ts_entry is mapping else false -%}
               {%- set is_needs_repurchase = has_qty_to_purchase or is_rule_shortage -%}
               {%- if spool_filled not in [none, '', 'unknown', 'unavailable'] -%}
                 {%- set spool_filled_ts = as_timestamp(spool_filled, 0) | float(0) -%}
@@ -353,11 +347,8 @@
           {%- for filament in filament_entities -%}
             {%- set attrs = filament.attributes -%}
             {%- set filament_id = attrs.get('id') -%}
-            {%- set fil_total = totals.get(filament_id) if filament_id is not none else none -%}
-            {%- if fil_total in [none, ''] and filament_id is not none -%}
-              {%- set fil_total = totals.get(filament_id | string) -%}
-            {%- endif -%}
-            {%- set filament_count = fil_total.get('count', 0) | int(0) if fil_total is mapping else 0 -%}
+            {%- set ts_entry = totals_and_shortage.get(filament_id | string, {}) if filament_id is not none else {} -%}
+            {%- set filament_count = ts_entry.get('count', 0) | int(0) if ts_entry is mapping else 0 -%}
             {%- set current_weight = states(filament.entity_id) | float(0) -%}
             {%- if filament_summary_mode or (filament_count == 0 and current_weight <= 0) -%}
               {%- set material = attrs.get('material', '') | string -%}

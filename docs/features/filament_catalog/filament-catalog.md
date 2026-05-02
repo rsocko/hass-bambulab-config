@@ -51,7 +51,7 @@ The current `view_filament_catalog.yaml` renders every Spoolman spool using a `c
 The filament catalog has outgrown `common/`. It needs:
 - **Helpers**: `input_select` filter helpers (including scope and inventory-rule filters), `input_text` search, `input_number` stock threshold
 - **Template sensors**: Filtered spool list, alert computations, catalog metadata
-- **Dashboard cards**: `catalog_spool_card`, `catalog_spool_popup`, `catalog_location_header`, filter bar
+- **Dashboard cards**: `catalog_spool_card`, `catalog_spool_popup`, filter bar
 - **Dashboard view**: The view YAML itself
 - **A loader**: To register helpers and template sensors with HA
 
@@ -109,7 +109,7 @@ homeassistant/packages/3d_printing/
 │           ├── catalog_spool_popup_content.yaml ← Heavy popup display (~221 lines, on-demand)
 │           ├── catalog_filament_popup.yaml    ← Lightweight filament-summary popup trigger
 │           ├── catalog_filament_popup_content.yaml ← Heavy filament-summary popup display
-│           ├── catalog_location_header.yaml   ← Location section header (available for Phase 4)
+
 │           └── (ams_* templates stay here — shared by both printer view and catalog)
 ```
 
@@ -123,7 +123,7 @@ homeassistant/packages/3d_printing/
    # After:
    - !include ../../filament_catalog/dashboard_views/view_filament_catalog.yaml
    ```
-3. **`common/dashboard_cards/card_templates/`** — Both shared `ams_*` templates and catalog-specific templates (`catalog_spool_card`, `catalog_spool_popup`, `catalog_spool_popup_content`, `catalog_location_header`) live here, registered via the `button_card_templates` merge in the dashboard YAML.
+3. **`common/dashboard_cards/card_templates/`** — Both shared `ams_*` templates and catalog-specific templates (`catalog_spool_card`, `catalog_spool_popup`, `catalog_spool_popup_content`) live here, registered via the `button_card_templates` merge in the dashboard YAML.
 
 ### Migration Path
 
@@ -344,7 +344,7 @@ The view type was irrelevant — the issue was purely the number of `auto-entiti
 
 1. **`catalog_spool_card`** — Standalone compact spool card. Reads attributes directly from `sensor.spoolman_spool_{id}` (no `spoolman_tray_map` dependency).
 2. **`catalog_spool_popup`** — Adapted version of `ams_tray_popup` for catalog context. Same visual structure, adds cost info, removes print-weight comparison.
-3. **`catalog_location_header`** — Location section header showing name and spool count.
+
 
 ### Key Design Principle: Direct Entity Access
 
@@ -548,7 +548,7 @@ Computed from the server-side `sensor.filament_catalog_metrics` summary attribut
 | `common/dashboard_cards/card_templates/catalog_spool_card.yaml` | **Created** | Compact button-card template with location label row |
 | `common/dashboard_cards/card_templates/catalog_spool_popup.yaml` | **Created** | Lightweight popup trigger (110 lines) — only chart config + action buttons |
 | `common/dashboard_cards/card_templates/catalog_spool_popup_content.yaml` | **Created** | Heavy popup display content (221 lines) — rendered on-demand in popup |
-| `common/dashboard_cards/card_templates/catalog_location_header.yaml` | **Created** | Location section header (self-hiding). Not currently used in view but available for future phases |
+
 | `filament_catalog/dashboard_cards/catalog_inventory_kpi.yaml` | **Created** | Top-of-view KPI summary with `triggers_update` |
 | `filament_catalog/dashboard_views/view_filament_catalog.yaml` | **Created** | 48-line view: `panel: true` + `vertical-stack` + single `auto-entities` |
 | `common/dashboards/3d_printing.yaml` | **Modified** | Updated `!include` path + `button_card_templates` merge |

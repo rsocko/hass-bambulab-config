@@ -64,7 +64,6 @@ Phase 1-3 should focus on these backend contracts:
 | `catalog_spool_popup.yaml` | popup trigger references totals-backed context | **Aggregate context** | aggregate context only | Validate after backend ownership switch | 2 |
 | `catalog_spool_popup_content.yaml` | shows total weight / count for same filament | **Aggregate context** | `count`, `weight` only | No material change if ID preserved | 2 |
 | `ams_tray_popup.yaml` | shows total filament weight/count and sibling spools | **Detail** | aggregate + sibling spool detail | May need new detail path if `spools[]` is moved/shrunk | 2 |
-| `catalog_location_header.yaml` | only uses entity as a stable trigger target | **Aggregate context** | trigger target only | Could be repointed later to smaller summary entity, but not required | 2 or later |
 | `catalog_group_header.yaml` | only uses entity as a stable trigger target | **Aggregate context** | trigger target only | Could be repointed later to smaller summary entity, but not required | 2 or later |
 | `view_filament_catalog.yaml` | uses entity for group header trigger/update stability | **Aggregate context** | trigger target only | No functional rewrite if ID preserved | 2 |
 

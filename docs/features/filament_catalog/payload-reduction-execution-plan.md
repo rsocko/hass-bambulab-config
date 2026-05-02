@@ -86,17 +86,37 @@ Reduce each `totals[*]` entry to:
 
 Reduce downstream rerender fan-out after the aggregate payload is slimmed.
 
-### Planned focus
+### Planned Optimization
 
-- Identify cards using `sensor.spoolman_filament_totals` only as a trigger anchor
-- Reduce unnecessary `Object.values(states)` scans where a smaller scoped input can be used
-- Repoint trigger-only consumers to smaller summary entities if that can be done without reopening the single-grid catalog architecture
+Separate **shortage detection logic** from the main filter computation by creating a dedicated helper sensor (`sensor.filament_shortage_status`).
 
-### Examples already identified
+### What Changed
 
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_location_header.yaml`
-- `homeassistant/packages/3d_printing/common/dashboard_cards/card_templates/catalog_group_header.yaml`
-- `homeassistant/packages/3d_printing/filament_catalog/dashboard_views/view_filament_catalog.yaml`
+**Before Phase 2:**
+- `sensor.filament_catalog_filtered_spools` recalculated the entire filter on every upstream change:
+  - All `sensor.spoolman_spool_*` updates
+  - All `sensor.spoolman_filament_*` updates  
+  - All input_select/input_boolean filter changes
+  - **AND** every `sensor.spoolman_filament_totals` update
+- Within the filter loop, each spool recalculated its own shortage status by reading totals and inventory rules
+
+**After Phase 2:**
+- New helper `sensor.filament_shortage_status` pre-computes shortage mapping once per totals change
+  - State: count of filaments with shortage
+  - Attribute `totals_and_shortage_json`: {filament_id → {count, weight, shortage_flag}}
+- Filter template no longer recalculates shortage; instead looks up pre-computed flag
+- Filter template uses `totals_and_shortage` from helper instead of scanning totals directly
+
+### Removed
+
+- ~~`catalog_location_header.yaml`~~ — Template was deferred for Phase 4 and not used in current view. Removed to reduce template clutter.
+
+### Validation target
+
+- Home Assistant configuration still loads cleanly
+- Filament catalog grouping and filtering unchanged
+- No regression in popup or spool-detail flows
+- WebSocket pressure reduced on `sensor.spoolman_filament_totals` updates
 
 ### Constraint
 
