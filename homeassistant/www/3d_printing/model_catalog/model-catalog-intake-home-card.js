@@ -1167,7 +1167,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         group_title_source: 'custom',
         group_title: String(target.value || '').trim(),
       });
-      this._render();
       return;
     }
     if (action === 'selection-group-title-files') {
@@ -1175,7 +1174,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         group_title_source: 'custom',
         group_title: String(target.value || '').trim(),
       });
-      this._render();
       return;
     }
     if (action === 'selection-group-title') {
@@ -1189,7 +1187,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           group_title: String(target.value || '').trim(),
         }),
       });
-      this._render();
     }
   }
 
