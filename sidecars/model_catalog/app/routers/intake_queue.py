@@ -218,7 +218,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
             "source_birthtime": entry_source_metadata.get("source_birthtime"),
             "source_size_bytes": int(stat_result.st_size) if entry_type == "file" else None,
         }
-        for extra_key in ("source_type", "original_filename", "relative_path", "upload_id"):
+        for extra_key in ("source_type", "original_filename", "relative_path", "upload_id", "group_title_source", "group_title"):
             extra_value = entry.get(extra_key)
             if extra_value not in {None, ""}:
                 validated_entry[extra_key] = extra_value
@@ -574,6 +574,8 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
                 "relative_path": str(relative_path).replace("\\", "/"),
                 "upload_id": staged_upload_id,
                 "file_last_modified_ms": upload.get("file_last_modified_ms"),
+                "group_title_source": upload.get("group_title_source"),
+                "group_title": upload.get("group_title"),
             }
         )
 

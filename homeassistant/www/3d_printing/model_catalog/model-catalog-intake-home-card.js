@@ -184,6 +184,63 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._selected = nextSelected;
   }
 
+  _browserTopLevelFolders() {
+    var folderMap = {};
+    this._browserFiles.forEach(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      if (pathParts.length > 1) {
+        folderMap[pathParts[0]] = true;
+      }
+    });
+    return Object.keys(folderMap);
+  }
+
+  _browserBatchTitleSource() {
+    if (!this._browserFiles.length) {
+      return 'first-file';
+    }
+    var firstEntry = this._browserFiles[0];
+    var normalized = String(firstEntry && firstEntry.group_title_source || '').trim().toLowerCase();
+    if (normalized === 'folder' || normalized === 'first-file' || normalized === 'custom') {
+      return normalized;
+    }
+    return this._browserTopLevelFolders().length === 1 ? 'folder' : 'first-file';
+  }
+
+  _defaultBrowserBatchTitle() {
+    if (!this._browserFiles.length) {
+      return 'Working Group';
+    }
+    var titleSource = this._browserBatchTitleSource();
+    var topFolders = this._browserTopLevelFolders();
+    if (titleSource === 'custom') {
+      return String(this._browserFiles[0] && this._browserFiles[0].group_title || '').trim() || 'Working Group';
+    }
+    if (titleSource === 'folder' && topFolders.length === 1) {
+      return topFolders[0];
+    }
+    var firstEntry = this._browserFiles[0];
+    return pathStem(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || basename(firstEntry && (firstEntry.relative_path || firstEntry.name) || '') || 'Working Group';
+  }
+
+  _browserBatchResolvedTitle() {
+    if (!this._browserFiles.length) {
+      return 'Working Group';
+    }
+    var explicitTitle = String(this._browserFiles[0] && this._browserFiles[0].group_title || '').trim();
+    if (explicitTitle) {
+      return explicitTitle;
+    }
+    return this._defaultBrowserBatchTitle();
+  }
+
+  _updateBrowserBatchMeta(updates) {
+    this._browserFiles = this._browserFiles.map(function (entry) {
+      return Object.assign({}, entry, updates);
+    });
+  }
+
   _selectionTitleSource(entry) {
     var normalized = String(entry && entry.group_title_source || '').trim().toLowerCase();
     if (normalized === 'folder' || normalized === 'first-file' || normalized === 'custom') {
@@ -396,6 +453,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _appendBrowserFiles(fileList) {
+    var currentBrowserTitleSource = this._browserBatchTitleSource();
+    var currentBrowserTitle = this._browserBatchResolvedTitle();
     var nextByKey = {};
     this._browserFiles.forEach(function (entry) {
       nextByKey[this._browserFileKey(entry)] = entry;
@@ -410,6 +469,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         name: String(file.name || relativePath || "upload.bin"),
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
+        group_title_source: currentBrowserTitleSource,
+        group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
       };
       nextByKey[this._browserFileKey(nextEntry)] = nextEntry;
     }, this);
@@ -438,6 +499,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       filename: fileEntry.name,
       relative_path: fileEntry.relative_path,
       content_base64: btoa(binary),
+      group_title_source: fileEntry.group_title_source,
+      group_title: fileEntry.group_title,
     };
   }
 
@@ -613,21 +676,22 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _renderBrowserSelectionSummary() {
-    var folderMap = {};
-    this._browserFiles.forEach(function (entry) {
-      var relativePath = String(entry.relative_path || entry.name || "").replace(/\\/g, '/');
-      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
-      if (pathParts.length > 1) {
-        folderMap[pathParts[0]] = true;
-      }
-    });
-    var folderCount = Object.keys(folderMap).length;
+    var topFolders = this._browserTopLevelFolders();
+    var folderCount = topFolders.length;
+    var titleSource = this._browserBatchTitleSource();
+    var resolvedTitle = this._browserBatchResolvedTitle();
     return ''
       + '<div class="result-summary">'
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
       + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div>'
       + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
       + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
+      + (this._browserFiles.length
+        ? '  <div class="item-grid">'
+          + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+          + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.</div>'
+        : '')
       + '</div>';
   }
 
@@ -951,6 +1015,22 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'cleanup-policy') {
       this._setCleanupPolicy(target.value);
+      return;
+    }
+    if (action === 'browser-title-source') {
+      this._updateBrowserBatchMeta({
+        group_title_source: String(target.value || 'first-file').trim(),
+        group_title: '',
+      });
+      this._render();
+      return;
+    }
+    if (action === 'browser-group-title') {
+      this._updateBrowserBatchMeta({
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
+      });
+      this._render();
       return;
     }
     if (action === 'set-commit-mode') {

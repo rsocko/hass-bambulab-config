@@ -466,6 +466,52 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
         client.__exit__(None, None, None)
 
 
+def test_browser_upload_group_uses_queued_title_hint_when_title_omitted(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "router_mount_plate.3mf",
+                        "relative_path": "Router Mount/router_mount_plate.3mf",
+                        "content_base64": base64.b64encode(b"plate-bytes").decode("ascii"),
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Browser Batch",
+                    },
+                    {
+                        "filename": "router_mount_brace.stl",
+                        "relative_path": "Router Mount/router_mount_brace.stl",
+                        "content_base64": base64.b64encode(b"brace-bytes").decode("ascii"),
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Browser Batch",
+                    },
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        item_id = upload_response.json()["upload_id"]
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group"},
+        )
+        assert group_response.status_code == 200
+        working_group_id = group_response.json()["working_group_id"]
+
+        groups_response = client.get("/api/working-groups")
+        assert groups_response.status_code == 200
+        created_group = next(group for group in groups_response.json()["groups"] if group["id"] == working_group_id)
+        assert created_group["title"] == "Router Mount Browser Batch"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_browser_upload_defaults_cleanup_policy_to_delete_on_verified(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)
