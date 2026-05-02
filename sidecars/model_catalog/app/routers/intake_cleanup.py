@@ -34,6 +34,10 @@ router = APIRouter(tags=["intake"])
 
 # ==================== HELPER FUNCTIONS ====================
 
+def _cleanup_stub_path(file_path: Path) -> Path:
+    """Return the sibling text file path used for cleanup stubs."""
+    return file_path.with_name(f"{file_path.name}.stub.txt")
+
 def _build_cleanup_stub(*, upload_id: str, file_path: Path, uploaded_row: dict[str, Any] | None) -> str:
     """Build a cleanup stub file that replaces the original source."""
     lines = [
@@ -189,13 +193,21 @@ def _run_source_cleanup(
                 resolved.unlink()
                 result.update({"success": True, "action": "deleted"})
             else:
+                stub_path = _cleanup_stub_path(resolved)
                 stub_text = _build_cleanup_stub(
                     upload_id=upload_id,
                     file_path=resolved,
                     uploaded_row=uploaded_by_path.get(str(resolved)),
                 )
-                resolved.write_text(stub_text, encoding="utf-8")
-                result.update({"success": True, "action": "replaced_with_stub"})
+                stub_path.write_text(stub_text, encoding="utf-8")
+                resolved.unlink()
+                result.update(
+                    {
+                        "success": True,
+                        "action": "replaced_with_stub",
+                        "stub_path": str(stub_path),
+                    }
+                )
             processed_count += 1
         except OSError as exc:
             result.update({"success": False, "reason": "write_error", "detail": str(exc)})

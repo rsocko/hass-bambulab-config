@@ -5497,8 +5497,12 @@ def test_intake_queue_publish_to_local_replace_policy_writes_stub(tmp_path: Path
     assert payload["status"] == "cleanup_done"
     assert payload["cleanup"]["status"] == "cleanup_done"
     assert payload["cleanup"]["results"][0]["action"] == "replaced_with_stub"
+    stub_path = model_file.with_name(f"{model_file.name}.stub.txt")
+    assert payload["cleanup"]["results"][0]["stub_path"] == str(stub_path)
+    assert model_file.exists() is False
+    assert stub_path.exists() is True
 
-    stub_text = model_file.read_text(encoding="utf-8")
+    stub_text = stub_path.read_text(encoding="utf-8")
     assert "[MODEL_CATALOG_UPLOAD_STUB_V1]" in stub_text
     assert "status=source_replaced_after_verified_publish" in stub_text
     assert f"upload_id={upload_id}" in stub_text

@@ -686,11 +686,22 @@ def test_manyfold_upload_adapter_replace_policy_writes_stub(tmp_path: Path) -> N
         response = test_client.post("/api/intake/uploads/upload-006/upload-to-manyfold")
         assert response.status_code == 200
         payload = response.json()
-        assert payload["status"] == "cleanup_done"
-        assert payload["cleanup"]["results"][0]["action"] == "replaced_with_stub"
+        assert payload["status"] == "verified"
+        cleanup = test_client.post(
+            "/api/intake/uploads/upload-006/cleanup",
+            json={"uploaded_rows": payload["files_uploaded"]},
+        )
+        assert cleanup.status_code == 200
+        cleanup_payload = cleanup.json()
+        assert cleanup_payload["status"] == "cleanup_done"
+        assert cleanup_payload["cleanup"]["results"][0]["action"] == "replaced_with_stub"
+        stub_path = source_file.with_name(f"{source_file.name}.stub.txt")
+        assert cleanup_payload["cleanup"]["results"][0]["stub_path"] == str(stub_path)
         mock_client.close()
 
-    stub_text = source_file.read_text(encoding="utf-8")
+    assert source_file.exists() is False
+    assert stub_path.exists() is True
+    stub_text = stub_path.read_text(encoding="utf-8")
     assert "[MODEL_CATALOG_UPLOAD_STUB_V1]" in stub_text
     assert "manyfold_model_ref=model-900" in stub_text
     assert "manyfold_file_ref=file-900" in stub_text
