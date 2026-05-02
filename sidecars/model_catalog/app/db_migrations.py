@@ -314,6 +314,17 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+    (
+        12,
+        (
+    """
+    -- Add terminal state tracking columns to intake_queue_uploads for state machine
+    -- terminal_action: what terminal action was performed (grouped_new, grouped_existing, published_to_catalog, rejected)
+    -- terminal_at: timestamp when item reached terminal state
+    -- terminal_result_id: reference to result entity (e.g., working_group_id or local_model_id)
+    """,  # Comment-only SQL
+        ),
+    ),
 )
 
 
@@ -377,6 +388,11 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
             ensure_column(connection, "intake_queue_uploads", "decision_note", "TEXT")
         if version == 11:
             ensure_column(connection, "working_groups", "project_id", "INTEGER")
+        if version == 12:
+            # Terminal state tracking for intake workflow state machine
+            ensure_column(connection, "intake_queue_uploads", "terminal_action", "TEXT")
+            ensure_column(connection, "intake_queue_uploads", "terminal_at", "TEXT")
+            ensure_column(connection, "intake_queue_uploads", "terminal_result_id", "TEXT")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),

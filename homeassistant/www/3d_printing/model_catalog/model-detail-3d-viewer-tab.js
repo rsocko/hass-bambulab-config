@@ -44,6 +44,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentColorInfo = null;
     this._currentGeometryGroups = [];
     this._usePackageColors = true;
+    this._geometryLod = 'auto';
+    this._currentLodInfo = null;
   }
 
   set hass(hass) {
@@ -402,6 +404,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
             <span class="info-label">Rendering</span>
             <span class="info-value" id="info-rendering">Waiting for Three.js...</span>
           </div>
+          <div class="info-item">
+            <span class="info-label">Detail</span>
+            <span class="info-value" id="info-detail">—</span>
+          </div>
         </div>
       </div>
     `;
@@ -573,6 +579,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     
     if (isStl) {
+      this._currentLodInfo = {
+        requested: 'full',
+        applied: 'full',
+        simplified: false,
+      };
+      this._updateLodInfoDisplay();
       const sourceUrl = this._buildFileDownloadUrl(file);
       this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
       try {
@@ -708,6 +720,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
       return `Unable to render ${safeFilename}: this 3MF is over the server parse limit and browser fallback parsing also failed. Try exporting a smaller 3MF or STL, or split the model into parts. Technical details: ${geometryDetail}. ${downloadDetail}`;
     }
 
+    if (combined.includes('too complex for interactive viewer rendering')) {
+      return `Unable to render ${safeFilename}: this model has too many triangles for the interactive viewer. Try loading a simplified/decimated mesh, re-exporting with lower detail, or using an STL with reduced polygon count. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
     if (combined.includes("cannot read properties of null (reading 'model')")) {
       return `Unable to render ${safeFilename}: this 3MF variant is not compatible with the browser fallback parser. Try re-exporting the 3MF from Bambu Studio or loading an STL version. Technical details: ${geometryDetail}. ${downloadDetail}`;
     }
@@ -735,6 +751,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentColorInfo = geometry.color_info && typeof geometry.color_info === 'object'
       ? geometry.color_info
       : null;
+    this._currentLodInfo = geometry.lod && typeof geometry.lod === 'object'
+      ? geometry.lod
+      : {
+          requested: 'full',
+          applied: 'full',
+          simplified: false,
+        };
+    this._updateLodInfoDisplay();
     this._syncPlateSelector();
 
     const triangleCount = Number(geometry.triangle_count);
@@ -1086,6 +1110,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const payload = {
       model_ref: modelRef,
       file_id: fileId,
+      lod: this._geometryLod,
     };
     if (this._selectedPlateId) {
       payload.plate_id = this._selectedPlateId;
@@ -1210,8 +1235,37 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
-    const plateQuery = this._selectedPlateId ? `?plate_id=${encodeURIComponent(this._selectedPlateId)}` : '';
-    return `${base}/api/models/${modelRef}/geometry/${fileId}${plateQuery}`;
+    const params = [];
+    if (this._geometryLod) {
+      params.push(`lod=${encodeURIComponent(this._geometryLod)}`);
+    }
+    if (this._selectedPlateId) {
+      params.push(`plate_id=${encodeURIComponent(this._selectedPlateId)}`);
+    }
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    return `${base}/api/models/${modelRef}/geometry/${fileId}${query}`;
+  }
+
+  _updateLodInfoDisplay() {
+    const node = this.querySelector('#info-detail');
+    if (!node) {
+      return;
+    }
+    const lod = this._currentLodInfo;
+    if (!lod || typeof lod !== 'object') {
+      node.textContent = '—';
+      return;
+    }
+    const requested = String(lod.requested || '').trim().toLowerCase();
+    const applied = String(lod.applied || '').trim().toLowerCase();
+    const simplified = !!lod.simplified;
+
+    if (simplified || applied === 'low' || applied === 'medium') {
+      node.textContent = `Simplified Preview (${applied || requested || 'lod'})`;
+      return;
+    }
+
+    node.textContent = 'Full Geometry';
   }
 
   _setRenderingStatus(message) {

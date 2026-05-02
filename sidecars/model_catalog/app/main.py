@@ -11,6 +11,8 @@ from .routers import working as working_module
 from .routers.archive_links import router as archive_links_router
 from .routers.intake import router as intake_router
 from .routers.intake import _browser_intake_upload_storage_root
+from .routers.models import router as models_router
+from .routers.models import _local_entry_to_summary as _models_local_entry_to_summary
 from .routers.models_detail import router as models_detail_router
 from .routers.models_media import router as models_media_router
 from .routers.models_search import router as models_search_router
@@ -19,11 +21,14 @@ from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
 from .routers.working import router as working_router
 from .services.shared_helpers import _sha256_file as _shared_sha256_file
+from .services.shared_helpers import _resolve_local_asset_storage_path as _shared_resolve_local_asset_storage_path
 from .settings import Settings, load_settings
 from .state import AppState
 
 # Backward-compatible helper exports used by tests and monkeypatches.
 _sha256_file = _shared_sha256_file
+_resolve_local_asset_storage_path = _shared_resolve_local_asset_storage_path
+_local_entry_to_summary = _models_local_entry_to_summary
 
 
 def _sha256_file_proxy(path):

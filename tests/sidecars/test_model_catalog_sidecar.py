@@ -542,6 +542,99 @@ def test_geometry_endpoint_returns_parsed_3mf_mesh(tmp_path: Path) -> None:
     assert payload["geometry"]["vertices"] == [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0]
 
 
+def test_apply_geometry_lod_auto_simplifies_triangle_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    monkeypatch.setattr(models_router, "GEOMETRY_LOD_TRIANGLE_LIMITS", {"low": 3, "medium": 6})
+    vertices: list[float] = []
+    for index in range(12):
+        base = float(index)
+        vertices.extend([
+            base, 0.0, 0.0,
+            base + 1.0, 0.0, 0.0,
+            base, 1.0, 0.0,
+        ])
+
+    geometry_payload: dict[str, object] = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 12,
+        "vertices": vertices,
+        "groups": [],
+        "dimensions_mm": {"x": 12.0, "y": 1.0, "z": 0.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": False, "mode": "unavailable", "palette": []},
+    }
+
+    output_geometry, requested_lod, applied_lod, simplified = models_router._apply_geometry_lod(
+        geometry_payload,
+        "auto",
+    )
+
+    assert requested_lod == "auto"
+    assert applied_lod == "low"
+    assert simplified is True
+    assert output_geometry["triangle_count"] == 3
+    assert output_geometry["lod"]["requested"] == "auto"
+    assert output_geometry["lod"]["applied"] == "low"
+    assert output_geometry["lod"]["simplified"] is True
+    assert output_geometry["lod"]["source_triangle_count"] == 12
+    assert output_geometry["lod"]["rendered_triangle_count"] == 3
+
+
+def test_geometry_endpoint_rejects_overly_complex_3mf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(settings, public_id="abc123", model_url="http://manyfold.test/models/abc123")
+    package_bytes = _build_simple_3mf()
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    def _fake_extract_3mf_geometry(_package_bytes: bytes, plate_id: str | None = None) -> dict[str, object]:
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": models_router.MAX_SERVER_SIDE_3MF_TRIANGLES + 1,
+            "vertices": [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 10.0, "y": 20.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": None,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, model_ref: str) -> list[dict[str, object]]:
+            return [{"id": "file123", "filename": "sample.3mf", "file_type": "model/3mf"}]
+
+        def get_model_file_detail(self, file_id: str, model_ref: str | None = None) -> dict[str, object]:
+            return {"contentUrl": "http://manyfold.test/models/abc123/model_files/file123.3mf"}
+
+        def fetch_binary(self, url: str) -> httpx.Response:
+            return httpx.Response(200, headers={"content-type": "model/3mf"}, content=package_bytes)
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/abc123/geometry/file123")
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["error"] == "3MF geometry is too complex for interactive viewer rendering"
+    assert payload["triangle_count"] == models_router.MAX_SERVER_SIDE_3MF_TRIANGLES + 1
+    assert payload["max_server_side_triangles"] == models_router.MAX_SERVER_SIDE_3MF_TRIANGLES
+
+
 def test_geometry_endpoint_applies_3mf_build_transform(tmp_path: Path) -> None:
     settings = _build_settings(tmp_path)
     bootstrap_database(settings.db_path)

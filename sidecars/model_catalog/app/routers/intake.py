@@ -47,6 +47,7 @@ from ..db import (
     set_model_field,
 )
 from ..services.model_detail_service import build_model_detail_response
+from ..services.intake_eligibility_service import ActionEligibility
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
     _serialize_project_row,
@@ -347,6 +348,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     """
     Publish a queued or reviewed intake upload into the local-authority curated catalog.
     
+    Transitions from validated_ready → published_to_catalog (terminal state).
     This is the authoritative post-Manyfold sink for reviewed queue/source inputs.
     """
     payload = payload or {}
@@ -372,7 +374,26 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             },
         )
 
+    # Get current state (prioritize inbox_state for new state machine)
+    current_state = str(upload_row["inbox_state"] or "").strip().lower() or "submitted"
     current_status = str(upload_row["status"] or "").strip().lower()
+    
+    # Check eligibility: can publish from submitted, validated_ready, or deferred states
+    is_eligible, reason_code = ActionEligibility.validate_action_eligibility(current_state, ActionEligibility.PUBLISH_CATALOG)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot publish item in state '{current_state}': {reason_code}",
+                "upload_id": upload_id,
+                "current_state": current_state,
+                "allowed_actions": ActionEligibility.build_allowed_actions_payload(current_state).get("allowed_actions", []),
+            },
+        )
+
+    # Also check backward compat with old status field (for transition functions)
     if current_status != "queued":
         return JSONResponse(
             status_code=409,
@@ -627,16 +648,22 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     if imported_assets:
         success_connection = connect(state.settings.db_path)
         try:
+            now_iso = _bulk_utc_now_iso()
             success_connection.execute(
                 """
                 UPDATE intake_queue_uploads
-                SET file_hashes_json = ?, verification_status = ?, updated_at = ?
+                SET file_hashes_json = ?, verification_status = ?, updated_at = ?,
+                    terminal_action = ?, terminal_at = ?,
+                    terminal_result_id = ?
                 WHERE upload_id = ?
                 """,
                 (
                     json.dumps([item["file_hash"] for item in imported_assets]),
                     "pass",
-                    _bulk_utc_now_iso(),
+                    now_iso,
+                    "published_to_catalog",
+                    now_iso,
+                    local_model_id,
                     upload_id,
                 ),
             )
@@ -747,6 +774,11 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         "failed_files": failed_files,
         "warnings": expansion_warnings,
         "cleanup": cleanup_result,
+        # Terminal state metadata
+        "terminal": True,
+        "state": "published_to_catalog",
+        "is_terminal": True,
+        "allowed_actions": [],
         "legacy_adapter": {
             "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
             "authoritative": False,

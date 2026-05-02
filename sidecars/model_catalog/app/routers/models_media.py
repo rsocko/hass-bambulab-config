@@ -46,6 +46,7 @@ def get_geometry_endpoint(
     file_id: str,
     include_debug: bool = False,
     plate_id: str | None = None,
+    lod: str | None = None,
 ):
     return get_geometry_service(
         request,
@@ -53,6 +54,7 @@ def get_geometry_endpoint(
         file_id=file_id,
         include_debug=include_debug,
         plate_id=plate_id,
+        lod=lod,
     )
 
 

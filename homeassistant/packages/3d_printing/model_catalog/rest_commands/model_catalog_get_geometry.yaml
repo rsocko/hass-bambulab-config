@@ -3,6 +3,9 @@
 model_catalog_get_geometry:
   url: >-
     {%- set ns = namespace(params=['include_debug=true']) -%}
+    {%- if lod is defined and (lod | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['lod=' ~ ((lod | string) | urlencode)] -%}
+    {%- endif -%}
     {%- if plate_id is defined and (plate_id | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['plate_id=' ~ ((plate_id | string) | urlencode)] -%}
     {%- endif -%}

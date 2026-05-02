@@ -37,6 +37,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardMode = "";
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
+    this._commitMode = "queue"; // "queue" or "execute_now"
+    this._previewData = null;
   }
 
   setConfig(config) {
@@ -64,12 +66,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (this.shadowRoot) {
       this.shadowRoot.addEventListener("click", this._boundHandleClick);
+      this.shadowRoot.addEventListener("change", this._boundHandleChange);
     }
   }
 
   disconnectedCallback() {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundHandleClick);
+      this.shadowRoot.removeEventListener("change", this._boundHandleChange);
     }
   }
 
@@ -106,14 +110,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _wizardStepCount() {
-    return 2;
+    return 3;
   }
 
   _wizardStepLabel(stepNumber) {
     if (stepNumber === 1) {
       return this._wizardMode === "server" ? "Select" : "Choose";
     }
-    return "Review";
+    if (stepNumber === 2) {
+      return "Preview";
+    }
+    return "Commit";
   }
 
   _wizardTitle() {
@@ -611,11 +618,21 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(true) + '</div>'
           + '</div>';
       }
+      if (this._wizardStep === 2) {
+        return ''
+          + '<div class="wizard-panel">'
+          + '  <div class="title-row"><div><div class="title">Preview And Grouping</div><div class="subtitle">Review what will be imported and choose your grouping strategy.</div></div></div>'
+          + '  <div class="result-summary"><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div><div class="result-line"><span>Estimated files</span><strong>' + String(this._selectedList().length) + ' or more</strong></div></div>'
+          + '  <div class="field"><label for="grouping-strategy">Grouping Strategy</label><select id="grouping-strategy" class="select" data-action="grouping-strategy"><option value="none">No grouping</option><option value="by_root" selected>Group by root</option><option value="by_folder">Group by folder</option><option value="flat">All in one group</option></select></div>'
+          + '  <div class="muted">Selected entries will be organized based on your chosen strategy before committing.</div>'
+          + '</div>';
+      }
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Review And Commit</div><div class="subtitle">Confirm the server selections that will be normalized into the intake queue.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' pending</span></div>'
-        + '  <div class="result-summary"><div class="result-line"><span>Source path</span><strong>Server Inbox</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div></div>'
-        + '  <div class="wizard-review-scroll">' + this._renderServerSelectionRows(false) + '</div>'
+        + '  <div class="title-row"><div><div class="title">Choose Commit Mode</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
+        + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
+        + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
+        + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
         + '</div>';
     }
 
@@ -626,18 +643,31 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + this._renderBrowserFileRows(true)
         + '</div>';
     }
+    if (this._wizardStep === 2) {
+      return ''
+        + '<div class="wizard-panel">'
+        + '  <div class="title-row"><div><div class="title">Preview And Grouping</div><div class="subtitle">Review what will be imported and choose your grouping strategy.</div></div></div>'
+        + '  <div class="result-summary"><div class="result-line"><span>Browser files</span><strong>' + String(this._browserFiles.length) + '</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div></div>'
+        + '  <div class="field"><label for="grouping-strategy">Grouping Strategy</label><select id="grouping-strategy" class="select" data-action="grouping-strategy"><option value="none">No grouping</option><option value="by_root" selected>Group by root</option><option value="by_folder">Group by folder</option><option value="flat">All in one group</option></select></div>'
+        + '  <div class="muted">Browser files will be organized based on your chosen strategy before committing.</div>'
+        + '</div>';
+    }
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Review And Commit</div><div class="subtitle">Confirm the staged browser uploads before they are pushed into the shared intake queue.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
-      + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
-      + '  <div class="result-summary"><div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div><div class="result-line"><span>Selected entries</span><strong>' + String(this._browserFiles.length) + '</strong></div></div>'
-      + this._renderBrowserFileRows(true)
+      + '  <div class="title-row"><div><div class="title">Choose Commit Mode</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
+      + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
+      + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
+      + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
       + '</div>';
   }
 
   _renderWizardFooter() {
     var atFirstStep = this._wizardStep === 1;
     var atLastStep = this._wizardStep === this._wizardStepCount();
+    var commitButtonLabel = "Commit To Inbox";
+    if (atLastStep && this._commitMode === 'execute_now') {
+      commitButtonLabel = "Validate & Publish";
+    }
     return ''
       + '<div class="wizard-footer">'
       + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button>'
@@ -646,7 +676,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="button-row">'
       + (!atLastStep
         ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
-        : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Commit To Inbox</button>')
+        : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>' + commitButtonLabel + '</button>')
       + '  </div>'
       + '</div>';
   }
@@ -770,6 +800,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'cleanup-policy') {
       this._setCleanupPolicy(target.value);
+      return;
+    }
+    if (action === 'set-commit-mode') {
+      this._commitMode = String(target.value || 'queue');
+      this._render();
       return;
     }
     var path = String(target.getAttribute('data-path') || '');
