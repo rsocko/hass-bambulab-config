@@ -221,6 +221,7 @@
       this._selectedGroupId = 0;
       this._selectedPaths = {};
       this._boundClick = this._handleClick.bind(this);
+      this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     }
 
     setConfig(config) {
@@ -243,6 +244,7 @@
       if (this.shadowRoot) {
         this.shadowRoot.addEventListener('click', this._boundClick);
       }
+      window.addEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
       if (this._hass && !this._loading && !this._hasLoadedExplorer) {
         this._loadExplorer();
       }
@@ -252,6 +254,7 @@
       if (this.shadowRoot) {
         this.shadowRoot.removeEventListener('click', this._boundClick);
       }
+      window.removeEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
     }
 
     getCardSize() {
@@ -583,6 +586,15 @@
       var extensionNode = root.querySelector('#working-files-extension');
       this._query = queryNode ? String(queryNode.value || '').trim() : '';
       this._extension = extensionNode ? String(extensionNode.value || '').trim() : '';
+    }
+
+    _handleCatalogDataChanged(event) {
+      var detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+      var scopes = Array.isArray(detail.scopes) ? detail.scopes : [];
+      if (scopes.length && scopes.indexOf('working') < 0 && scopes.indexOf('all') < 0) {
+        return;
+      }
+      this._loadExplorer();
     }
 
     _handleClick(event) {

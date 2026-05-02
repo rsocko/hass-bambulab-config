@@ -11,6 +11,7 @@ var warningMessages = inboxShared.warningMessages;
 var duplicateWarnings = inboxShared.duplicateWarnings;
 var batchActionLabel = inboxShared.batchActionLabel;
 var callServiceWithResponse = inboxShared.callServiceWithResponse;
+var fireModelCatalogDataChanged = inboxShared.fireModelCatalogDataChanged;
 var sharedStyles = inboxShared.sharedStyles;
 
 function pathStem(path) {
@@ -92,6 +93,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     try {
       var itemsResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_intake_items', {
         limit: 100,
+      fireModelCatalogDataChanged(['curated'], { reason: 'publish-curated', itemId: itemId });
         offset: 0,
         state_filter: this._stateFilter || undefined,
       });
@@ -236,6 +238,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
         stage: 'draft',
       });
       this._status = 'Item sent to working files.';
+      fireModelCatalogDataChanged(['working'], { reason: 'create-group', itemId: itemId });
       this._loading = false;
       await this._refresh();
     } catch (error) {
@@ -270,6 +273,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
         working_group_id: groupId,
       });
       this._status = 'Intake item attached to existing working group.';
+      fireModelCatalogDataChanged(['working'], { reason: 'attach-existing', itemId: itemId, groupId: groupId });
       this._loading = false;
       await this._refresh();
     } catch (error) {
@@ -363,6 +367,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     this._render();
 
     var results = [];
+        var changedScopes = {};
     for (var index = 0; index < selectedItems.length; index += 1) {
       var item = selectedItems[index];
       var sourceEntry = item.source_entry || {};
@@ -384,6 +389,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
 
         if (action === 'publish-curated') {
           await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_publish_to_local', { upload_id: item.item_id });
+              changedScopes.curated = true;
           results.push({
             item_id: item.item_id,
             label: basename(sourceEntry.path || item.item_id),
@@ -401,6 +407,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
             title: title,
             stage: 'draft',
           });
+              changedScopes.working = true;
           results.push({
             item_id: item.item_id,
             label: basename(sourceEntry.path || item.item_id),
@@ -472,6 +479,9 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     this._selectedIds = {};
     this._selectMode = false;
     this._loading = false;
+        if (changedScopes.curated || changedScopes.working) {
+          fireModelCatalogDataChanged(Object.keys(changedScopes), { reason: 'batch-' + action, total: results.length });
+        }
     await this._refresh();
   }
 

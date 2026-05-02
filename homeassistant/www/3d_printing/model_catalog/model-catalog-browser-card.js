@@ -236,6 +236,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (this._loading) {
       this._pendingLoad = { page: targetPage, refresh: !!refresh };
+      return;
+    }
+    this._loadPage(targetPage, refresh);
+  }
 
   _handleCatalogDataChanged(event) {
     var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
@@ -244,10 +248,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
     this._requestLoad(1, false);
-  }
-      return;
-    }
-    this._loadPage(targetPage, refresh);
   }
 
   async _loadPage(page, refresh) {
