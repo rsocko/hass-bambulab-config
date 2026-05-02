@@ -196,6 +196,21 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return Object.keys(folderMap);
   }
 
+  _browserHasFolderUpload() {
+    return this._browserTopLevelFolders().length > 0;
+  }
+
+  _browserGroupingStrategy() {
+    if (!this._browserFiles.length) {
+      return 'none';
+    }
+    var normalized = String(this._browserFiles[0] && this._browserFiles[0].grouping_strategy || '').trim().toLowerCase();
+    if (normalized === 'by-folder' || normalized === 'by-root' || normalized === 'flat') {
+      return normalized;
+    }
+    return 'none';
+  }
+
   _browserBatchTitleSource() {
     if (!this._browserFiles.length) {
       return 'first-file';
@@ -211,6 +226,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _defaultBrowserBatchTitle() {
     if (!this._browserFiles.length) {
       return 'Working Group';
+    }
+    if (this._browserGroupingStrategy() === 'flat') {
+      var flatFirstEntry = this._browserFiles[0];
+      return pathStem(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || basename(flatFirstEntry && (flatFirstEntry.relative_path || flatFirstEntry.name) || '') || 'Working Group';
     }
     var titleSource = this._browserBatchTitleSource();
     var topFolders = this._browserTopLevelFolders();
@@ -239,6 +258,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._browserFiles = this._browserFiles.map(function (entry) {
       return Object.assign({}, entry, updates);
     });
+  }
+
+  _browserGroupingTitleSource(groupingStrategy) {
+    return groupingStrategy === 'flat' ? 'first-file' : 'folder';
   }
 
   _selectionTitleSource(entry) {
@@ -469,6 +492,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         name: String(file.name || relativePath || "upload.bin"),
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
+        grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
         group_title_source: currentBrowserTitleSource,
         group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
       };
@@ -697,6 +721,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _renderBrowserSelectionSummary() {
     var topFolders = this._browserTopLevelFolders();
     var folderCount = topFolders.length;
+    var groupingStrategy = this._browserGroupingStrategy();
     var titleSource = this._browserBatchTitleSource();
     var resolvedTitle = this._browserBatchResolvedTitle();
     return ''
@@ -705,11 +730,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div>'
       + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
       + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
+      + (folderCount
+        ? '  <div class="result-line"><span>Grouping</span><strong>' + escapeHtml(groupingStrategy) + '</strong></div>'
+        : '')
       + (this._browserFiles.length
         ? '  <div class="item-grid">'
+          + (folderCount
+            ? '    <div class="field"><label>Grouping</label><select class="select" data-action="browser-grouping"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
+            : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same grouping control as the server picker.' : '') + '</div>'
         : '')
       + '</div>';
   }
@@ -878,7 +909,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="title-row"><div><div class="title">Preview Browser Uploads</div><div class="subtitle">Review the staged files and folders before choosing how to commit this batch.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
         + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
         + this._renderBrowserSelectionSummary()
-        + '  <div class="muted">Grouping strategy does not apply to browser uploads. Files stay as uploaded and can be reviewed after queueing.</div>'
+        + '  <div class="muted">Folder uploads can use the same grouping selector as the server picker. Files still upload from this browser session and can be reviewed after queueing.</div>'
         + '  <div class="wizard-review-scroll">' + this._renderBrowserFileRows(false) + '</div>'
         + '</div>';
     }
@@ -1039,6 +1070,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (action === 'browser-title-source') {
       this._updateBrowserBatchMeta({
         group_title_source: String(target.value || 'first-file').trim(),
+        group_title: '',
+      });
+      this._render();
+      return;
+    }
+    if (action === 'browser-grouping') {
+      var groupingStrategy = String(target.value || 'none').trim();
+      var titleSource = this._browserGroupingTitleSource(groupingStrategy);
+      this._updateBrowserBatchMeta({
+        grouping_strategy: groupingStrategy,
+        group_title_source: groupingStrategy === 'none' ? this._browserBatchTitleSource() : titleSource,
         group_title: '',
       });
       this._render();
