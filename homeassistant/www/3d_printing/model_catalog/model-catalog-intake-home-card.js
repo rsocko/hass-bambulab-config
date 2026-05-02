@@ -595,18 +595,37 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var validation = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_validate_intake_item", {
         item_id: response.upload_id,
       });
+      var validationState = validation.validation ? validation.validation.validation_state : "unknown";
+      var publishResponse = null;
+      if (this._commitMode === 'execute_now' && validationState === 'ready') {
+        publishResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_publish_to_local', {
+          upload_id: response.upload_id,
+        });
+      }
       this._result = {
         upload_id: response.upload_id,
-        upload_status: response.status,
+        upload_status: publishResponse && publishResponse.status ? publishResponse.status : response.status,
         selection_count: finalSelections.length + browserFiles.length,
         expanded_file_count: response.expanded_file_count != null ? response.expanded_file_count : response.source_entry_count,
-        validation_state: validation.validation ? validation.validation.validation_state : "unknown",
+        validation_state: validationState,
         warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
         cleanup_policy: cleanupPolicy,
+        publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
+        local_model_id: publishResponse && publishResponse.local_model_id ? publishResponse.local_model_id : null,
       };
-      this._status = browserFiles.length
-        ? "Browser batch queued to intake and validated."
-        : "Server selection queued to intake and validated." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
+      if (this._commitMode === 'execute_now') {
+        if (publishResponse) {
+          this._status = browserFiles.length
+            ? "Browser batch validated and published to the curated catalog."
+            : "Server selection validated and published to the curated catalog." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
+        } else {
+          this._status = "Validation produced warnings, so the batch remains in Inbox for review.";
+        }
+      } else {
+        this._status = browserFiles.length
+          ? "Browser batch queued to intake and validated."
+          : "Server selection queued to intake and validated." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
+      }
       this._selected = {};
       this._browserFiles = [];
       this._wizardOpen = false;
@@ -1117,7 +1136,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     var resultHtml = this._result
-      ? '<section class="banner"><div class="title">Latest Result</div><div class="status">Upload ' + escapeHtml(this._result.upload_status) + ' / Validation ' + escapeHtml(this._result.validation_state) + ' / Cleanup ' + escapeHtml(this._result.cleanup_policy === 'keep' ? 'deferred (keep)' : 'pending policy') + '</div><div class="muted">Selection count ' + String(this._result.selection_count || 0) + ', expanded files ' + String(this._result.expanded_file_count || 0) + ', upload ' + escapeHtml(this._result.upload_id || '') + '</div>' + ((this._result.warnings || []).length ? '<div class="muted">Warnings: ' + escapeHtml((this._result.warnings || []).map(function (warning) { return warning.message || warning.code; }).join('; ')) + '</div>' : '') + '</section>'
+      ? '<section class="banner"><div class="title">Latest Result</div><div class="status">Upload ' + escapeHtml(this._result.upload_status) + ' / Validation ' + escapeHtml(this._result.validation_state) + ' / Cleanup ' + escapeHtml(this._result.cleanup_policy === 'keep' ? 'deferred (keep)' : 'pending policy') + (this._result.publish_status ? ' / Publish ' + escapeHtml(this._result.publish_status) : '') + '</div><div class="muted">Selection count ' + String(this._result.selection_count || 0) + ', expanded files ' + String(this._result.expanded_file_count || 0) + ', upload ' + escapeHtml(this._result.upload_id || '') + (this._result.local_model_id ? ', local model ' + escapeHtml(this._result.local_model_id) : '') + '</div>' + ((this._result.warnings || []).length ? '<div class="muted">Warnings: ' + escapeHtml((this._result.warnings || []).map(function (warning) { return warning.message || warning.code; }).join('; ')) + '</div>' : '') + '</section>'
       : '';
     var extraStyles = ''
       + '.wizard-launch-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}'
