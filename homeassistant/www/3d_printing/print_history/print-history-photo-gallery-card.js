@@ -17,6 +17,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
     this._uploadInProgress = false;
     this._uploadStatus = "";
     this._uploadStatusTone = "info";
+    this._operationType = null;
     this._preloadedSources = {};
     this._lastRenderSignature = "";
     this._overlayRoot = null;
@@ -495,7 +496,7 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return;
     }
 
-    this._setUploadStatus("Deleting photo...", "info", true);
+    this._setUploadStatus("Deleting photo...", "info", true, "delete");
     try {
       var responseEnvelope = await this._hass.callService(
         "bambuddy",
@@ -518,17 +519,18 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       var images = this._buildImages(nextArchive);
       this._activeIndex = Math.max(0, Math.min(this._activeIndex, images.length - 1));
       this._emitArchiveStateChanged(nextArchive);
-      this._setUploadStatus("Photo deleted.", "success", false);
+      this._setUploadStatus("Photo deleted.", "success", false, "delete");
     } catch (error) {
       var message = error && error.message ? error.message : "Photo delete failed";
-      this._setUploadStatus(message, "error", false);
+      this._setUploadStatus(message, "error", false, "delete");
     }
   }
 
-  _setUploadStatus(message, tone, inProgress) {
+  _setUploadStatus(message, tone, inProgress, operationType) {
     this._uploadStatus = String(message || "").trim();
     this._uploadStatusTone = tone === "error" ? "error" : tone === "success" ? "success" : "info";
     this._uploadInProgress = !!inProgress;
+    this._operationType = operationType || null;
     this._render();
   }
 
@@ -566,14 +568,15 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
 
     var uploadedCount = 0;
     try {
-      this._setUploadStatus("Preparing " + String(files.length) + (files.length === 1 ? " photo..." : " photos..."), "info", true);
+      this._setUploadStatus("Preparing " + String(files.length) + (files.length === 1 ? " photo..." : " photos..."), "info", true, "upload");
       for (var index = 0; index < files.length; index += 1) {
         var file = files[index];
         var prepared = await this._prepareUploadPayload(file, archiveId, index);
         this._setUploadStatus(
           "Uploading " + String(index + 1) + " of " + String(files.length) + "...",
           "info",
-          true
+          true,
+          "upload"
         );
         var response = await this._hass.callWS({
           type: "bambuddy/print_history_upload_photo",
@@ -596,11 +599,12 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       this._setUploadStatus(
         uploadedCount === 1 ? "Added 1 photo." : "Added " + String(uploadedCount) + " photos.",
         "success",
-        false
+        false,
+        "upload"
       );
     } catch (error) {
       var message = error && error.message ? error.message : "Photo upload failed";
-      this._setUploadStatus(message, "error", false);
+      this._setUploadStatus(message, "error", false, "upload");
     }
   }
 
@@ -1119,14 +1123,19 @@ class PrintHistoryPhotoGalleryCard extends HTMLElement {
       return "";
     }
     var className = buttonClass || "action-button";
-    var label = this._uploadInProgress ? "Uploading..." : "Add Photo";
+    var label;
+    if (this._uploadInProgress) {
+      label = this._operationType === "delete" ? "Deleting..." : "Uploading...";
+    } else {
+      label = "Add Photo";
+    }
     return this._buildActionButtonHtml({
       className: className,
       action: "upload-photo",
       disabled: this._uploadInProgress,
       icon: this._uploadInProgress ? "mdi:loading" : "mdi:plus",
       label: label,
-      title: label,
+      title: this._uploadInProgress ? label : "Add Photo",
     });
   }
 
