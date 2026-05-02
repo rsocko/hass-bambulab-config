@@ -20,7 +20,9 @@ Unified endpoint authority modes:
 
 ## Module Architecture
 
-After the #1190 modularization epic, `main.py` is a thin composition root. All endpoint logic lives in feature routers under `app/routers/`, supported by shared domain modules and a services layer.
+After Phase 2 refactoring (#1207-#1211), the architecture follows a clean layered design with clear bounded contexts and minimal cross-module dependencies.
+
+**Phase 2 Status**: ✅ COMPLETE (intake, models, db contexts split; working context in progress)
 
 ### App Factory (`main.py` — 65 lines)
 
@@ -28,27 +30,44 @@ Responsibilities: FastAPI app creation, lifespan (AppState + ManyfoldClient init
 
 ### Routers (`app/routers/`)
 
-| Router | Endpoints | Lines | Scope |
-|--------|-----------|-------|-------|
-| `system.py` | 8 | 320 | Health, config, diagnostics, OpenAPI, schema export |
-| `source_filesystems.py` | 3 | 417 | Server-side filesystem browse for intake/working roots |
-| `archive_links.py` | 8 | 534 | Archive↔model linking CRUD, candidate discovery, review |
-| `working.py` | 26 | 2,845 | Working files explorer, groups, reindex, reorganize |
-| `intake.py` | 16 | 3,399 | Intake queue, browser/server upload, publish, cleanup |
-| `models.py` | 31 | 3,547 | Model list/search/detail, local CRUD, fields, ranking, photos, geometry, file download, related models |
+| Router | Endpoints | Purpose |
+|--------|-----------|---------|
+| `system.py` | 8 | Health, config, diagnostics, OpenAPI, schema export |
+| `source_filesystems.py` | 3 | Server-side filesystem browse for intake/working roots |
+| `archive_links.py` | 8 | Archive↔model linking CRUD, candidate discovery, review |
+| `intake.py` | 4 | **Publishing & adapters** (Queue/Verification/Cleanup moved to Phase 2.1) |
+| `intake_queue.py` | 6 | **[NEW]** Queue CRUD, status transitions, audit logging |
+| `intake_verification.py` | 4 | **[NEW]** Entry validation, source verification, dedup detection |
+| `intake_cleanup.py` | 2 | **[NEW]** Post-upload source cleanup, staging management |
+| `models.py` | 4 | **Local model authority CRUD** (Search/Detail/Media moved to Phase 2.2) |
+| `models_search.py` | 3 | **[NEW]** Search, filtering, ranking, related models |
+| `moatabase Layer (`app/db*.py`) — Organized by Bounded Context
 
-All routers access shared state via `request.app.state.model_catalog` (AppState) and `request.app.state.manyfold_client` (ManyfoldClient).
+| Module | Purpose |
+|--------|---------|
+| `db.py` | **Connection factory + common utilities** (rewritten as part of Phase 2.3) |
+| `db_migrations.py` | **Schema initialization and versioning** (centralized) |
+| `db_intake.py` | **Intake context**: Upload queue, validation state |
+| `db_models.py` | **Models context**: Catalog entries, assets, custom fields |
+| `db_working.py` | **Working context**: Groups, items, model links |
+| `db_archive_links.py` | **Archive context**: Model↔archive relationships |
+| `db_common.py` | **Shared patterns**: Common schema, queries |
 
 ### Domain Modules (`app/`)
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `db.py` | 1,638 | SQLite schema, migrations, all DB read/write functions |
-| `manyfold.py` | 1,455 | Manyfold API client, OAuth, cache, session bridge |
-| `local_models.py` | 604 | Local model + asset CRUD (filesystem + SQLite) |
-| `model_statistics.py` | 586 | Print statistics aggregation and ranking |
-| `geometry_3mf.py` | 572 | 3MF geometry extraction for 3D viewer |
-| `archive_linking.py` | 563 | Archive-link candidate matching and scoring |
+| Module | Purpose |
+|--------|---------|
+| `manyfold.py` | Manyfold API client, OAuth, cache, session bridge |
+| `local_models.py` | Local model + asset CRUD (filesystem + SQLite) |
+| `model_statistics.py` | Print statistics aggregation and ranking |
+| `geometry_3mf.py` | 3MF geometry extraction for 3D viewer |
+| `archive_linking.py` | Archive-link candidate matching and scoring |
+| `model_export.py` | Model data export and serialization |
+| `build_volume_helper.py` | Build volume detection and plate layout |
+| `_helpers.py` | Shared path, timestamp, and validation utilities |
+| `settings.py` | Pydantic settings from environment variables |
+| `models.py` | Pydantic data models (ManyfoldModelSummary, LocalModelEntry) |
+| `state.py`g.py` | 563 | Archive-link candidate matching and scoring |
 | `model_export.py` | 551 | Model data export and serialization |
 | `build_volume_helper.py` | 453 | Build volume detection and plate layout |
 | `_helpers.py` | 228 | Shared path, timestamp, and validation utilities |
@@ -56,11 +75,16 @@ All routers access shared state via `request.app.state.model_catalog` (AppState)
 | `models.py` | 55 | Pydantic data models (ManyfoldModelSummary, LocalModelEntry) |
 | `state.py` | 15 | AppState dataclass |
 
-### Services (`app/services/`)
+### Services (`app/services/`) — Business Logic & Workflows
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `intake_service.py` | 169 | Intake dedup detection, hash collection |
+| Module | Purpose |
+|--------|---------|
+| `intake_service.py` | Intake dedup detection, hash collection |
+| `model_detail_service.py` | Detail enrichment logic, field management |
+| `shared_helpers.py` | Shared utilities (slugify, hash, serialize) |
+| **Planned Phase 2.1**: `intake_queue_service.py`, `intake_verification_service.py`, `intake_cleanup_service.py` |
+| **Planned Phase 2.2**: `model_search_service.py`, `model_media_service.py` |
+| **Planned Phase 2.4**: `working_groups_service.py`, `working_discovery_service.py` |
 
 ## Quick Start
 
