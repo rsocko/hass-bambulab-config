@@ -98,10 +98,54 @@ Contract:
 
 - dry-run preview before move
 - destination pattern: `/assets/Model Working Files/{group_slug}/`
+- destination filename collisions auto-rename with append semantics for variants: `name.ext`, `name-2.ext`, `name-3.ext`
+- duplicate-content detection via SHA256 skips move when target already contains identical file content
 - preserve audit event with old/new path
 - refresh inventory after move
 
+Current endpoint behavior (`POST /api/working-groups/{group_id}/reorganize`):
+
+- dry-run response includes:
+   - `operation_plan` (alias: `plan`)
+   - `collisions_detected`
+   - `collision_renames` (per-file rename details)
+   - `duplicate_hash_skips`
+   - `duplicate_hash_skipped_count`
+   - `conflicts` (blocking issues only, such as missing/blocked source paths)
+- execute response includes:
+   - `moved_count`
+   - `operation_plan` (alias: `plan`)
+   - `collisions_detected`
+   - `collision_renames`
+   - `duplicate_hash_skips`
+   - `duplicate_hash_skipped_count`
+   - `audit_events`
+   - `inventory_refresh`
+
+### 5a) Working Group Slug Naming & Collision Avoidance
+
 ### 6) Host-Path Actions Use Host-Path Mapping
+
+**Working group folder names** are derived from group titles and use a simple collision-detection scheme.
+
+**Naming convention**:
+- Group slug: URL-safe lowercased version of group title (e.g., "Gridfinity Holders" → `gridfinity-holders`)
+- Collision handling: If a slug already exists, append counter: `{slug}-2`, `{slug}-3`, etc.
+
+**Example**:
+```
+Gridfinity Holders       → gridfinity-holders
+Gridfinity Holders (v2)  → gridfinity-holders-2  (collision on slug)
+Gridfinity Holders (v3)  → gridfinity-holders-3
+```
+
+**Status**: Collision detection is **implemented** in the sidecar ([sidecars/model_catalog/app/routers/working.py](sidecars/model_catalog/app/routers/working.py#L425), `_unique_slug()` function). All working group slugs are guaranteed unique via this mechanism.
+
+**File reorganization collision handling** (implemented in reorganize endpoint):
+- When moving files into a group folder, use `_unique_destination_path()` semantics (already used for asset file placement)
+- If a file with the same name already exists in the destination group folder, append counter: `filename-2.3mf`, `filename-3.stl`, etc.
+- This differs from group slug collision (which is at the group level) and applies at the individual file level within a group
+
 
 Launch-adjacent actions must resolve indexed container paths to host-visible paths, but the UI should no longer assume a direct browser-launched `file:///` flow.
 

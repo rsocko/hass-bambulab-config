@@ -494,6 +494,30 @@ def _working_file_sort_key(*, file_extension: str | None, file_name: str | None,
     )
 
 
+def _unique_destination_path(
+    directory: Path,
+    filename: str,
+    *,
+    reserved_paths: set[str] | None = None,
+) -> Path:
+    """Return a collision-safe destination path using -2/-3 suffix semantics."""
+    reserved = reserved_paths if reserved_paths is not None else set()
+    candidate = directory / filename
+    candidate_key = _normalize_path_compare_key(str(candidate.resolve()))
+    if not candidate.exists() and candidate_key not in reserved:
+        return candidate
+
+    stem = candidate.stem
+    suffix = candidate.suffix
+    counter = 2
+    while True:
+        next_candidate = directory / f"{stem}-{counter}{suffix}"
+        next_key = _normalize_path_compare_key(str(next_candidate.resolve()))
+        if not next_candidate.exists() and next_key not in reserved:
+            return next_candidate
+        counter += 1
+
+
 def _file_membership_map(connection: Any, *, path_keys: set[str] | None = None) -> dict[str, list[dict[str, Any]]]:
     """Build map of files to their group memberships."""
     query = """
@@ -1476,6 +1500,23 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
         target_folder = (destination_root / group_slug).resolve()
         plan: list[dict[str, Any]] = []
         conflicts: list[dict[str, Any]] = []
+        collision_renames: list[dict[str, Any]] = []
+        duplicate_hash_skips: list[dict[str, Any]] = []
+        existing_target_hashes: dict[str, str] = {}
+        planned_destination_hashes: dict[str, str] = {}
+
+        if target_folder.exists() and target_folder.is_dir():
+            for existing_candidate in sorted(target_folder.iterdir()):
+                if not existing_candidate.is_file():
+                    continue
+                try:
+                    existing_hash = _sha256_file(existing_candidate).lower()
+                except (OSError, PermissionError):
+                    continue
+                if existing_hash and existing_hash not in existing_target_hashes:
+                    existing_target_hashes[existing_hash] = str(existing_candidate.resolve())
+
+        reserved_destination_keys: set[str] = set()
         for row in target_items:
             source_path = Path(str(row["file_path"] or "")).expanduser()
             if not source_path.exists() or not source_path.is_file():
@@ -1500,39 +1541,84 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
                 conflicts.append(entry)
                 continue
 
-            destination_path = (target_folder / resolved_source.name).resolve()
-            if _normalize_path_compare_key(resolved_source) == _normalize_path_compare_key(destination_path):
+            base_destination = (target_folder / resolved_source.name).resolve()
+            if _normalize_path_compare_key(resolved_source) == _normalize_path_compare_key(base_destination):
                 plan.append(
                     {
                         "item_id": int(row["id"]),
                         "source_path": str(resolved_source),
-                        "destination_path": str(destination_path),
+                        "destination_path": str(base_destination),
                         "action": "noop",
                         "reason": "already_in_target_folder",
                     }
                 )
                 continue
-            if destination_path.exists():
+
+            try:
+                source_hash = _sha256_file(resolved_source).lower()
+            except (OSError, PermissionError):
                 entry = {
                     "item_id": int(row["id"]),
                     "source_path": str(resolved_source),
-                    "destination_path": str(destination_path),
-                    "action": "conflict",
-                    "reason": "destination_exists",
+                    "action": "blocked",
+                    "reason": "source_hash_unavailable",
                 }
                 plan.append(entry)
                 conflicts.append(entry)
                 continue
 
-            plan.append(
-                {
+            duplicate_target_path = existing_target_hashes.get(source_hash)
+            duplicate_planned_path = planned_destination_hashes.get(source_hash)
+            if duplicate_target_path or duplicate_planned_path:
+                duplicate_of = duplicate_target_path or duplicate_planned_path
+                entry = {
                     "item_id": int(row["id"]),
                     "source_path": str(resolved_source),
-                    "destination_path": str(destination_path),
-                    "action": "move",
-                    "reason": "ok",
+                    "action": "duplicate",
+                    "reason": "duplicate_hash",
+                    "source_sha256": source_hash,
+                    "duplicate_of_path": duplicate_of,
                 }
-            )
+                plan.append(entry)
+                duplicate_hash_skips.append(entry)
+                continue
+
+            destination_path = _unique_destination_path(
+                target_folder,
+                resolved_source.name,
+                reserved_paths=reserved_destination_keys,
+            ).resolve()
+
+            source_name = resolved_source.name
+            destination_name = destination_path.name
+            was_renamed = destination_name != source_name
+            destination_key = _normalize_path_compare_key(str(destination_path))
+            if destination_key:
+                reserved_destination_keys.add(destination_key)
+
+            entry = {
+                "item_id": int(row["id"]),
+                "source_path": str(resolved_source),
+                "destination_path": str(destination_path),
+                "action": "move",
+                "reason": "renamed_for_collision" if was_renamed else "ok",
+                "collision_renamed": was_renamed,
+                "source_name": source_name,
+                "destination_name": destination_name,
+                "source_sha256": source_hash,
+            }
+            if was_renamed:
+                collision_renames.append(
+                    {
+                        "item_id": int(row["id"]),
+                        "source_path": str(resolved_source),
+                        "destination_path": str(destination_path),
+                        "source_name": source_name,
+                        "destination_name": destination_name,
+                    }
+                )
+            plan.append(entry)
+            planned_destination_hashes[source_hash] = str(destination_path)
 
         if not execute:
             return {
@@ -1541,7 +1627,12 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
                 "dry_run": True,
                 "can_execute": len(conflicts) == 0,
                 "target_folder": str(target_folder),
+                "operation_plan": plan,
                 "plan": plan,
+                "collisions_detected": len(collision_renames),
+                "collision_renames": collision_renames,
+                "duplicate_hash_skips": duplicate_hash_skips,
+                "duplicate_hash_skipped_count": len(duplicate_hash_skips),
                 "conflicts": conflicts,
             }
 
@@ -1553,7 +1644,12 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
                     "error": "reorganize_conflicts",
                     "message": "Reorganize plan has conflicts; run dry-run and resolve conflicts first",
                     "target_folder": str(target_folder),
+                    "operation_plan": plan,
                     "plan": plan,
+                    "collisions_detected": len(collision_renames),
+                    "collision_renames": collision_renames,
+                    "duplicate_hash_skips": duplicate_hash_skips,
+                    "duplicate_hash_skipped_count": len(duplicate_hash_skips),
                     "conflicts": conflicts,
                 },
             )
@@ -1600,6 +1696,10 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
                         "group_id": group_id,
                         "target_folder": str(target_folder),
                         "moved_count": len(moved_map),
+                        "collision_rename_count": len(collision_renames),
+                        "collision_renames": collision_renames,
+                        "duplicate_hash_skipped_count": len(duplicate_hash_skips),
+                        "duplicate_hash_skips": duplicate_hash_skips,
                         "moves": [
                             {"item_id": item_id, "old_path": old_path, "new_path": new_path}
                             for item_id, (old_path, new_path) in moved_map.items()
@@ -1613,7 +1713,7 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
         connection.commit()
         refreshed = _refresh_working_file_inventory(
             db_path=state.settings.db_path,
-            roots=[destination_root],
+            roots=_configured_working_files_roots(state.settings),
             compute_hashes=False,
         )
         group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
@@ -1623,7 +1723,21 @@ def reorganize_working_group(request: Request, group_id: int, payload: dict[str,
             "dry_run": False,
             "target_folder": str(target_folder),
             "moved_count": len(moved_map),
+            "operation_plan": plan,
             "plan": plan,
+            "collisions_detected": len(collision_renames),
+            "collision_renames": collision_renames,
+            "duplicate_hash_skips": duplicate_hash_skips,
+            "duplicate_hash_skipped_count": len(duplicate_hash_skips),
+            "audit_events": [
+                {
+                    "type": "working_group_reorganized",
+                    "group_id": group_id,
+                    "moved_count": len(moved_map),
+                    "collision_rename_count": len(collision_renames),
+                    "duplicate_hash_skipped_count": len(duplicate_hash_skips),
+                }
+            ],
             "inventory_refresh": refreshed,
             "group": _serialize_working_group(connection, group_row, state.settings),
         }

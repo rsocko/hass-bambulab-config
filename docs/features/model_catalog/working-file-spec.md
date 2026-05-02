@@ -161,6 +161,49 @@ Required behavior:
 - adding an already-grouped file should warn, not block
 - `Ungrouped` view means no current group memberships
 
+## Working Group Slug Naming & Collision Handling
+
+**Group slug generation**:
+- Derived from group title via URL-safe lowercasing
+- Example: "Gridfinity Holders" → `gridfinity-holders`
+
+**Collision avoidance** (implemented):
+- Simple append strategy: `{slug}`, `{slug}-2`, `{slug}-3`, etc.
+- Example:
+  - First "Gridfinity Holders" group → `gridfinity-holders`
+  - Second "Gridfinity Holders" group → `gridfinity-holders-2`
+  - Third → `gridfinity-holders-3`
+- Implementation: [sidecars/model_catalog/app/routers/working.py](sidecars/model_catalog/app/routers/working.py#L425) `_unique_slug()` function
+
+**File-level collision handling** (implemented in reorganize operation):
+- When moving files into a group folder, apply `_unique_destination_path()` semantics
+- If destination file already exists: `filename-2.ext`, `filename-3.ext`
+- Example: moving `benchy.3mf` to a group folder that already contains `benchy.3mf` → creates `benchy-2.3mf`
+- This applies at the individual file level, separate from group slug uniqueness
+
+**Duplicate-content protection** (implemented in reorganize operation):
+- Reorganize computes a SHA256 hash for each source file before move
+- If target folder already contains a file with the same hash, reorganize skips that source file instead of renaming or moving it
+- Same-name but different-hash files are treated as variants and still use rename semantics (`-2`, `-3`, ...)
+
+**Reorganize API response signals**:
+- Dry-run (`POST /api/working-groups/{group_id}/reorganize` with `execute=false`) returns:
+  - `operation_plan` (alias: `plan`)
+  - `collisions_detected`
+  - `collision_renames`
+  - `duplicate_hash_skips`
+  - `duplicate_hash_skipped_count`
+  - `conflicts` (only blocking issues)
+- Execute (`execute=true`) returns:
+  - `moved_count`
+  - `operation_plan` (alias: `plan`)
+  - `collisions_detected`
+  - `collision_renames`
+  - `duplicate_hash_skips`
+  - `duplicate_hash_skipped_count`
+  - `audit_events`
+  - `inventory_refresh`
+
 ## Validation States
 
 Working-file validation outcomes:

@@ -855,6 +855,8 @@ def test_reorganize_working_group_dry_run_and_execute(tmp_path: Path) -> None:
         dry_payload = dry_run.json()
         assert dry_payload["dry_run"] is True
         assert dry_payload["can_execute"] is True
+        assert "operation_plan" in dry_payload
+        assert dry_payload["collisions_detected"] == 0
         assert any(entry["action"] == "move" for entry in dry_payload["plan"])
 
         execute = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": True})
@@ -862,10 +864,108 @@ def test_reorganize_working_group_dry_run_and_execute(tmp_path: Path) -> None:
         execute_payload = execute.json()
         assert execute_payload["dry_run"] is False
         assert execute_payload["moved_count"] == 1
+        assert execute_payload["collisions_detected"] == 0
+        assert isinstance(execute_payload["audit_events"], list)
 
         expected_path = source_root / slug / source_file.name
         assert expected_path.exists() is True
         assert source_file.exists() is False
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reorganize_working_group_renames_when_destination_file_exists(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    source_folder = source_root / "incoming"
+    source_folder.mkdir(parents=True, exist_ok=True)
+    source_file = source_folder / "duplicate.3mf"
+    source_file.write_bytes(b"new-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "Collision Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+        slug = str(create_group.json()["group"]["slug"])
+
+        target_folder = source_root / slug
+        target_folder.mkdir(parents=True, exist_ok=True)
+        existing_destination = target_folder / source_file.name
+        existing_destination.write_bytes(b"existing-bytes")
+
+        add_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert add_item.status_code == 200
+
+        dry_run = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": False})
+        assert dry_run.status_code == 200
+        dry_payload = dry_run.json()
+        assert dry_payload["dry_run"] is True
+        assert dry_payload["can_execute"] is True
+        assert dry_payload["collisions_detected"] == 1
+        assert len(dry_payload["collision_renames"]) == 1
+        assert any(entry.get("collision_renamed") is True for entry in dry_payload["operation_plan"])
+
+        execute = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": True})
+        assert execute.status_code == 200
+        execute_payload = execute.json()
+        assert execute_payload["dry_run"] is False
+        assert execute_payload["moved_count"] == 1
+        assert execute_payload["collisions_detected"] == 1
+        assert execute_payload["duplicate_hash_skipped_count"] == 0
+        renamed_path = target_folder / "duplicate-2.3mf"
+        assert renamed_path.exists() is True
+        assert source_file.exists() is False
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_reorganize_working_group_skips_duplicate_hash_in_target_folder(tmp_path: Path) -> None:
+    source_root = tmp_path / "working"
+    source_root.mkdir(parents=True, exist_ok=True)
+    source_folder = source_root / "incoming"
+    source_folder.mkdir(parents=True, exist_ok=True)
+    source_file = source_folder / "same_content.3mf"
+    source_bytes = b"identical-bytes"
+    source_file.write_bytes(source_bytes)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        create_group = client.post("/api/working-groups", json={"title": "Dupes Group", "stage": "draft"})
+        assert create_group.status_code == 200
+        group_id = int(create_group.json()["group"]["id"])
+        slug = str(create_group.json()["group"]["slug"])
+
+        target_folder = source_root / slug
+        target_folder.mkdir(parents=True, exist_ok=True)
+        existing_destination = target_folder / "existing_copy.3mf"
+        existing_destination.write_bytes(source_bytes)
+
+        add_item = client.post(
+            f"/api/working-groups/{group_id}/items",
+            json={"file_path": str(source_file), "item_role": "primary"},
+        )
+        assert add_item.status_code == 200
+
+        dry_run = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": False})
+        assert dry_run.status_code == 200
+        dry_payload = dry_run.json()
+        assert dry_payload["dry_run"] is True
+        assert dry_payload["can_execute"] is True
+        assert dry_payload["duplicate_hash_skipped_count"] == 1
+        assert len(dry_payload["duplicate_hash_skips"]) == 1
+        assert any(entry.get("action") == "duplicate" for entry in dry_payload["operation_plan"])
+
+        execute = client.post(f"/api/working-groups/{group_id}/reorganize", json={"execute": True})
+        assert execute.status_code == 200
+        execute_payload = execute.json()
+        assert execute_payload["moved_count"] == 0
+        assert execute_payload["duplicate_hash_skipped_count"] == 1
+        assert source_file.exists() is True
+        assert existing_destination.exists() is True
     finally:
         client.__exit__(None, None, None)
 
