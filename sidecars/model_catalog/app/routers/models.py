@@ -3259,11 +3259,20 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
 
     if str(summary.model_url or "").startswith("local://"):
         local_model_id = str(summary.public_id or model_ref).strip()
-        asset = read_model_asset(
-            db_path=state.settings.db_path,
-            local_model_id=local_model_id,
-            asset_id=file_id,
-        )
+        try:
+            asset = read_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=file_id,
+            )
+        except Exception as e:
+            error_msg = f"Failed to read model asset: {str(e)}"
+            payload: dict[str, Any] = {"error": error_msg}
+            if include_debug:
+                debug_info["asset_read_error"] = {"error_type": type(e).__name__, "error": str(e)}
+                payload["_debug"] = debug_info
+            return JSONResponse(status_code=500, content=payload)
+        
         if asset is None:
             payload: dict[str, Any] = {"error": "File not found"}
             if include_debug:
