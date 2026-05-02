@@ -1,6 +1,10 @@
 """
 Phase 3.4 Task 1: Export & Migration
 
+INTENTIONAL FUTURE PHASE: This module is not currently used by any active application paths.
+It is reserved for future feature implementation of model catalog data export and migration.
+Do not import outside of planned future work.
+
 Module for exporting model catalog data in multiple formats and
 migrating model metadata between schema versions.
 

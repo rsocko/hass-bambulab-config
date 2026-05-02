@@ -1,6 +1,10 @@
 """
 Archive-to-model linking engine for Phase 3.3.
 
+INTENTIONAL FUTURE PHASE: This module is not currently used by any active application paths.
+It is reserved for future feature implementation of linking print archives to model catalog entries.
+Do not import outside of planned future work.
+
 Implements multiple linking strategies:
 1. Exact filename match
 2. Fuzzy filename matching
