@@ -974,16 +974,19 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   async _callServiceWithResponse(domain, service, data) {
-    const endpoint = `/api/services/${encodeURIComponent(String(domain || ''))}/${encodeURIComponent(String(service || ''))}?return_response`;
+    const encodedDomain = encodeURIComponent(String(domain || ''));
+    const encodedService = encodeURIComponent(String(service || ''));
+    const endpoint = `/api/services/${encodedDomain}/${encodedService}?return_response`;
+    const callApiPath = `services/${encodedDomain}/${encodedService}?return_response`;
     const payloadData = data && typeof data === 'object' ? data : {};
 
     // Prefer Home Assistant's authenticated API helper when available.
     if (this._hass && typeof this._hass.callApi === 'function') {
       let payload = {};
       try {
-        payload = await this._hass.callApi('POST', endpoint, payloadData);
+        payload = await this._hass.callApi('POST', callApiPath, payloadData);
       } catch (error) {
-        const message = String(error && error.message ? error.message : error || 'Service call failed.');
+        const message = this._errorMessage(error, 'Service call failed.');
         throw new Error(message);
       }
 
@@ -1058,9 +1061,49 @@ class ModelDetail3DViewerTab extends HTMLElement {
     return this._callServiceWithResponse('rest_command', 'model_catalog_get_geometry', payload);
   }
 
+  _errorMessage(error, fallbackMessage) {
+    if (error == null) {
+      return String(fallbackMessage || 'Unknown error');
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    if (error && typeof error.message === 'string' && error.message.trim()) {
+      return error.message;
+    }
+
+    if (error && typeof error === 'object') {
+      const parts = [];
+      if (error.error && typeof error.error === 'string') {
+        parts.push(error.error);
+      }
+      if (error.message && typeof error.message === 'string') {
+        parts.push(error.message);
+      }
+      if (error.status_code != null) {
+        parts.push(`status_code=${error.status_code}`);
+      }
+      if (error.status != null) {
+        parts.push(`status=${error.status}`);
+      }
+      if (parts.length) {
+        return parts.join('; ');
+      }
+      try {
+        return JSON.stringify(error);
+      } catch (_jsonError) {
+        return String(fallbackMessage || 'Unknown error');
+      }
+    }
+
+    return String(fallbackMessage || 'Unknown error');
+  }
+
   _formatFetchError(url, error, contextLabel) {
     const context = String(contextLabel || 'request').trim();
-    const message = String(error && error.message ? error.message : error || 'Unknown fetch error');
+    const message = this._errorMessage(error, 'Unknown fetch error');
     let detail = `${context} failed: ${message}`;
 
     if (url) {
