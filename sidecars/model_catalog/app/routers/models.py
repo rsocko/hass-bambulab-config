@@ -3232,8 +3232,8 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
-@router.get("/api/models/{model_ref:path}/geometry/{file_id}")
-def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> Response | dict[str, Any]:
+@router.get("/api/models/{model_ref:path}/geometry/{file_id}", response_model=None)
+def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None):
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
     try:
         state: AppState = request.app.state.model_catalog
@@ -3390,6 +3390,7 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
         payload: dict[str, Any] = {"error": error_msg}
         if include_debug:
             payload["_debug"] = {"error_type": type(e).__name__, "error": str(e)}
+        return JSONResponse(status_code=500, content=payload)
 
 
 @router.get("/api/models/{model_ref:path}/files/{file_id}/download")
