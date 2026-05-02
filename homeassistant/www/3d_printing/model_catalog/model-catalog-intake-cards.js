@@ -1,3 +1,3 @@
 import './model-catalog-intake-shared.js?v=17';
-import './model-catalog-intake-home-card.js?v=31';
+import './model-catalog-intake-home-card.js?v=32';
 import './model-catalog-inbox-review-card.js?v=17';

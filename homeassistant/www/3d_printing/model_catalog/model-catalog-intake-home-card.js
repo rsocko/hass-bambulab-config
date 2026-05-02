@@ -1164,7 +1164,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var inputs = this.shadowRoot.querySelectorAll('select[data-action], input[data-action]');
     for (var index = 0; index < inputs.length; index += 1) {
       inputs[index].onchange = this._boundHandleChange;
-      inputs[index].oninput = this._boundHandleChange;
     }
   }
 }
