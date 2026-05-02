@@ -10,6 +10,10 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._pagination = { page: 1, per_page: 12, total: 0, total_pages: 0 };
     this._filters = this._defaultFilters();
     this._viewMode = "compact";
+    this._activeActionMenu = "";
+    this._mediaGalleryIndices = {};
+    this._modelDetailCache = {};
+    this._loadingModelMedia = {};
     this._pendingLoad = null;
     this._debounceHandle = null;
 
@@ -17,6 +21,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundInput = this._handleInput.bind(this);
     this._boundChange = this._handleChange.bind(this);
     this._boundKeyDown = this._handleKeyDown.bind(this);
+    this._boundWheel = this._handleWheel.bind(this);
+    this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     this._didInitialRender = false;
     this._hasAttemptedLoad = false;
   }
@@ -66,7 +72,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.addEventListener("input", this._boundInput);
       this.shadowRoot.addEventListener("change", this._boundChange);
       this.shadowRoot.addEventListener("keydown", this._boundKeyDown);
+      this.shadowRoot.addEventListener("wheel", this._boundWheel);
     }
+    window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
   }
 
   disconnectedCallback() {
@@ -75,7 +83,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.removeEventListener("input", this._boundInput);
       this.shadowRoot.removeEventListener("change", this._boundChange);
       this.shadowRoot.removeEventListener("keydown", this._boundKeyDown);
+      this.shadowRoot.removeEventListener("wheel", this._boundWheel);
     }
+    window.removeEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     this._cancelScheduledApply();
   }
 
@@ -226,6 +236,15 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     if (this._loading) {
       this._pendingLoad = { page: targetPage, refresh: !!refresh };
+
+  _handleCatalogDataChanged(event) {
+    var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+    var scopes = Array.isArray(detail.scopes) ? detail.scopes : [];
+    if (scopes.length && scopes.indexOf("curated") < 0 && scopes.indexOf("all") < 0) {
+      return;
+    }
+    this._requestLoad(1, false);
+  }
       return;
     }
     this._loadPage(targetPage, refresh);
@@ -314,7 +333,17 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   _handleKeyDown(event) {
-    if (!event || event.key !== "Enter") {
+    if (!event) {
+      return;
+    }
+    var rawTarget = event.target;
+    var cardTarget = rawTarget && rawTarget.closest ? rawTarget.closest(".model-card[data-action='open-model-viewer']") : null;
+    if (cardTarget && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      cardTarget.click();
+      return;
+    }
+    if (event.key !== "Enter") {
       return;
     }
     var target = event.target;
@@ -327,16 +356,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
   }
 
   async _handleClick(event) {
-    var target = event && event.target && event.target.closest ? event.target.closest("[data-action]") : null;
+    var rawTarget = event && event.target;
+    var target = rawTarget && rawTarget.closest ? rawTarget.closest("[data-action]") : null;
+    var menuHost = rawTarget && rawTarget.closest ? rawTarget.closest(".advanced-menu-shell") : null;
+    var closeMenu = !!this._activeActionMenu && !menuHost;
     if (!target) {
+      if (closeMenu) {
+        this._activeActionMenu = "";
+        this._render();
+      }
       return;
     }
     var action = String(target.getAttribute("data-action") || "");
+
+    if (closeMenu && action !== "toggle-actions") {
+      this._activeActionMenu = "";
+    }
 
     if (action === "clear-filters") {
       this._cancelScheduledApply();
       this._filters = this._defaultFilters();
       this._error = "";
+      this._activeActionMenu = "";
       this._requestLoad(1, false);
       this._render();
       return;
@@ -346,7 +387,26 @@ class ModelCatalogBrowserCard extends HTMLElement {
       var nextViewMode = this._normalizedViewMode(target.getAttribute("data-view-mode"));
       if (nextViewMode !== this._viewMode) {
         this._viewMode = nextViewMode;
+        this._activeActionMenu = "";
         this._render();
+      }
+      return;
+    }
+
+    if (action === "toggle-actions") {
+      event.preventDefault();
+      event.stopPropagation();
+      var actionMenuRef = String(target.getAttribute("data-model-ref") || "").trim();
+      this._activeActionMenu = this._activeActionMenu === actionMenuRef ? "" : actionMenuRef;
+      this._render();
+      return;
+    }
+
+    if (action === "open-model-viewer") {
+      var viewerModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var viewerModelName = String(target.getAttribute("data-model-name") || "Model").trim();
+      if (viewerModelRef) {
+        this._openModelViewerPopup(viewerModelRef, viewerModelName);
       }
       return;
     }
@@ -376,6 +436,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (action === "open-model") {
+      event.preventDefault();
+      event.stopPropagation();
       var url = String(target.getAttribute("data-url") || "").trim();
       if (url) {
         window.open(url, "_blank", "noopener,noreferrer");
@@ -384,6 +446,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     if (action === "view-model-detail") {
+      event.preventDefault();
+      event.stopPropagation();
       var modelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var modelName = String(target.getAttribute("data-model-name") || "Model").trim();
       if (!modelRef || !this._hass) {
@@ -393,7 +457,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return;
     }
 
+    if (action === "media-prev" || action === "media-next") {
+      event.preventDefault();
+      event.stopPropagation();
+      var mediaModelRef = String(target.getAttribute("data-model-ref") || "").trim();
+      var galleryCount = Math.max(0, Number(target.getAttribute("data-gallery-count") || 0));
+      if (mediaModelRef && galleryCount > 1) {
+        this._setModelMediaIndex(mediaModelRef, this._currentModelMediaIndex(mediaModelRef, galleryCount) + (action === "media-next" ? 1 : -1), galleryCount);
+      }
+      return;
+    }
+
     if (action.indexOf("queue-") === 0) {
+      event.preventDefault();
+      event.stopPropagation();
       var queueModelRef = String(target.getAttribute("data-model-ref") || "").trim();
       var queueStatus = String(target.getAttribute("data-queue-status") || "").trim().toLowerCase();
       if (!queueModelRef || this._loading) {
@@ -402,6 +479,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
       try {
         this._error = "";
+        this._activeActionMenu = "";
 
         if (action === "queue-priority-up") {
           var priorityUpPayload = {
@@ -446,6 +524,28 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
   }
 
+  _handleWheel(event) {
+    var target = event && event.target;
+    var surface = target && target.closest ? target.closest(".media-surface[data-model-ref]") : null;
+    if (!surface) {
+      return;
+    }
+    var galleryCount = Math.max(0, Number(surface.getAttribute("data-gallery-count") || 0));
+    if (galleryCount <= 1) {
+      return;
+    }
+    var delta = Number(event.deltaY || 0);
+    if (!delta) {
+      return;
+    }
+    event.preventDefault();
+    var modelRef = String(surface.getAttribute("data-model-ref") || "").trim();
+    if (!modelRef) {
+      return;
+    }
+    this._setModelMediaIndex(modelRef, this._currentModelMediaIndex(modelRef, galleryCount) + (delta > 0 ? 1 : -1), galleryCount);
+  }
+
   _currentPage() {
     return Math.max(1, Number(this._pagination.page || 1));
   }
@@ -463,6 +563,110 @@ class ModelCatalogBrowserCard extends HTMLElement {
       return "No tags";
     }
     return values.slice(0, 4).join(" · ");
+  }
+
+  _modelRef(model) {
+    return String((model && (model.public_id || model.model_id || model.model_url)) || "").trim();
+  }
+
+  _currentModelMediaIndex(modelRef, imageCount) {
+    var key = String(modelRef || "").trim();
+    var count = Math.max(0, Number(imageCount || 0));
+    if (!key || count <= 0) {
+      return 0;
+    }
+    var current = Number(this._mediaGalleryIndices[key] || 0);
+    if (!Number.isFinite(current) || current < 0) {
+      current = 0;
+    }
+    if (current >= count) {
+      current = count - 1;
+    }
+    this._mediaGalleryIndices[key] = current;
+    return current;
+  }
+
+  _setModelMediaIndex(modelRef, nextIndex, imageCount) {
+    var key = String(modelRef || "").trim();
+    var count = Math.max(0, Number(imageCount || 0));
+    if (!key || count <= 0) {
+      return;
+    }
+    var normalized = Number(nextIndex || 0);
+    if (!Number.isFinite(normalized)) {
+      normalized = 0;
+    }
+    while (normalized < 0) {
+      normalized += count;
+    }
+    this._mediaGalleryIndices[key] = normalized % count;
+    this._render();
+  }
+
+  _modelMediaUrls(model) {
+    var modelRef = this._modelRef(model);
+    var detail = modelRef ? this._modelDetailCache[modelRef] : null;
+    var urls = [];
+    var seen = {};
+    var addUrl = function (value) {
+      var url = String(value || "").trim();
+      if (!url || seen[url]) {
+        return;
+      }
+      seen[url] = true;
+      urls.push(url);
+    };
+
+    if (detail && detail.model && detail.model.preview_url) {
+      addUrl(detail.model.preview_url);
+    }
+    if (detail && Array.isArray(detail.photos)) {
+      detail.photos.forEach(function (photo) {
+        if (photo && typeof photo === "object") {
+          addUrl(photo.image_url || photo.thumbnail_url || photo.preview_url || photo.url);
+        }
+      });
+    }
+    addUrl(model && model.preview_url);
+    return urls;
+  }
+
+  _loadModelMedia(model) {
+    var modelRef = this._modelRef(model);
+    if (!modelRef || this._modelDetailCache[modelRef] || this._loadingModelMedia[modelRef] || !this._hass) {
+      return;
+    }
+    this._loadingModelMedia[modelRef] = true;
+    this._callServiceWithResponse("rest_command", "get_model_detail", { model_ref: modelRef })
+      .then(function (detail) {
+        this._modelDetailCache[modelRef] = detail && typeof detail === "object" ? detail : {};
+      }.bind(this))
+      .catch(function () {
+        this._modelDetailCache[modelRef] = {
+          model: { preview_url: model && model.preview_url ? String(model.preview_url) : "" },
+          photos: model && model.preview_url ? [{ image_url: String(model.preview_url), thumbnail_url: String(model.preview_url) }] : [],
+        };
+      }.bind(this))
+      .finally(function () {
+        delete this._loadingModelMedia[modelRef];
+        this._render();
+      }.bind(this));
+  }
+
+  _renderModelTagChip(label, className) {
+    var safeLabel = String(label || "").trim();
+    if (!safeLabel) {
+      return "";
+    }
+    return '<span class="chip' + (className ? (' ' + className) : '') + '">' + this._escapeHtml(safeLabel) + '</span>';
+  }
+
+  _renderModelMetric(label, value) {
+    return ''
+      + '<div class="metric">'
+      + '  <div class="metric-label">' + this._escapeHtml(label) + '</div>'
+      + '  <div class="metric-value">' + this._escapeHtml(String(value || "-")) + '</div>'
+      + '</div>';
   }
 
   _escapeHtml(value) {
@@ -522,6 +726,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var collections = Array.isArray(model.collection_names) ? model.collection_names : [];
     var tags = Array.isArray(model.keyword_names) ? model.keyword_names : [];
     var linkedCount = Number(model.linked_archive_count || 0) || 0;
+    var modelRef = this._modelRef(model);
+    var actionMenuOpen = this._activeActionMenu === modelRef;
 
     var ranking = model && model.ranking && typeof model.ranking === "object" ? model.ranking : {};
     var recent = Number(ranking.recent_score || 0);
@@ -531,75 +737,133 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var fields = model && model.custom_fields && typeof model.custom_fields === "object" ? model.custom_fields : {};
     var queueStatus = String(fields.to_print_status || "").trim();
     var queuePriority = String(fields.to_print_priority || "").trim();
-    var modelRef = String(model.public_id || model.model_id || model.model_url || "");
     var queueLabel = queueStatus ? queueStatus + (queuePriority ? " (P" + queuePriority + ")" : "") : "none";
+    var queueChipClass = queueStatus === "queued" ? "queue" : (queueStatus === "done" ? "complete" : "neutral");
+    var queueChip = this._renderModelTagChip("Queue: " + queueLabel, queueChipClass);
+    var creatorChip = this._renderModelTagChip("By " + creator, "subtle-chip");
+    var collectionLimit = this._viewMode === "compact" ? 2 : 3;
+    var collectionChips = collections.slice(0, collectionLimit).map(function (collection) {
+      return this._renderModelTagChip(collection, "subtle-chip");
+    }.bind(this)).join("");
+    var hiddenCollectionCount = Math.max(0, collections.length - collectionLimit);
+    var tagLimit = this._viewMode === "compact" ? 5 : 4;
+    var visibleTags = tags.slice(0, tagLimit);
+    var hiddenTagCount = Math.max(0, tags.length - visibleTags.length);
+    var tagMarkup = visibleTags.map(function (tag) {
+      return this._renderModelTagChip(tag, "tag-chip");
+    }.bind(this)).join("") + (hiddenTagCount ? this._renderModelTagChip("… +" + String(hiddenTagCount), "tag-chip") : "");
+    var mediaUrls = this._modelMediaUrls(model);
+    var mediaCount = mediaUrls.length;
+    var mediaIndex = this._currentModelMediaIndex(modelRef, mediaCount || 1);
+    var mediaUrl = mediaCount > 0 ? mediaUrls[mediaIndex] : "";
+    var queuePriorityLabel = queuePriority ? ("P" + queuePriority) : "-";
+    var previewLabel = mediaCount > 1 ? (String(mediaIndex + 1) + " / " + String(mediaCount)) : (this._loadingModelMedia[modelRef] ? "Loading media" : "Preview");
 
-    var queueChip = queueStatus
-      ? '<span class="chip queue">Queue: ' + this._escapeHtml(queueLabel) + '</span>'
-      : '<span class="chip neutral">Queue: none</span>';
+    if (this._viewMode === "media") {
+      this._loadModelMedia(model);
+    }
 
-    var rankingChips = [
-      '<span class="chip">Recent ' + this._escapeHtml(recent.toFixed(2)) + '</span>',
-      '<span class="chip">Frequent ' + this._escapeHtml(frequent.toFixed(2)) + '</span>',
-      '<span class="chip">Common ' + this._escapeHtml(common.toFixed(2)) + '</span>',
-    ].join("");
-
-    var previewHtml = model.preview_url
-      ? '<img src="' + this._escapeHtml(String(model.preview_url)) + '" alt="' + this._escapeHtml(name) + ' preview">'
+    var previewHtml = mediaUrl
+      ? '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview">'
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
-    var titleActions = ''
-      + '<div class="title-actions">'
-      + '  <button class="open-btn" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '">Details</button>'
-      + '  <button class="open-btn" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '">Open</button>'
+    var advancedActions = ''
+      + '<div class="advanced-menu-shell">'
+      + '  <button class="icon-action" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
+      + (actionMenuOpen
+        ? '<div class="advanced-menu">'
+          + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
+          + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
+          + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
+          + '  <div class="advanced-group-label">Queue actions</div>'
+          + '  <div class="advanced-inline-grid">'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">-P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">+P</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
+          + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
+          + '  </div>'
+          + '</div>'
+        : '')
       + '</div>';
 
-    var metaHtml = ''
-      + '<div class="meta">' + this._escapeHtml(creator) + ' / ' + this._escapeHtml(collections.join(", ") || "No collection") + '</div>'
-      + '<div class="meta">Tags: ' + this._escapeHtml(this._formatTagList(tags)) + '</div>'
-      + '<div class="meta">Linked archives: ' + String(linkedCount) + '</div>';
+    var titleCluster = ''
+      + '<div class="title-cluster">'
+      + '  <h3 class="title">' + this._escapeHtml(name) + '</h3>'
+      + '  <div class="subtle-line">' + creatorChip + collectionChips + (hiddenCollectionCount ? this._renderModelTagChip("+" + String(hiddenCollectionCount) + " more", "subtle-chip") : "") + '</div>'
+      + '</div>';
 
-    var queueActions = ''
-      + '<div class="queue-actions">'
-      + '  <button class="mini-btn" type="button" data-action="queue-priority-down" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">-P</button>'
-      + '  <button class="mini-btn" type="button" data-action="queue-priority-up" data-model-ref="' + this._escapeHtml(modelRef) + '" data-queue-status="' + this._escapeHtml(queueStatus) + '">+P</button>'
-      + '  <button class="mini-btn" type="button" data-action="queue-mark-queued" data-model-ref="' + this._escapeHtml(modelRef) + '">Queued</button>'
-      + '  <button class="mini-btn" type="button" data-action="queue-mark-done" data-model-ref="' + this._escapeHtml(modelRef) + '">Done</button>'
-      + '  <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
+    var metaLine = ''
+      + '<div class="chip-row status-line">'
+      + queueChip
+      + this._renderModelTagChip("Priority: " + queuePriorityLabel, "subtle-chip")
+      + this._renderModelTagChip("Linked prints: " + String(linkedCount), "subtle-chip")
+      + '</div>';
+
+    var metrics = ''
+      + '<div class="metrics">'
+      + this._renderModelMetric("Recent", recent.toFixed(2))
+      + this._renderModelMetric("Frequent", frequent.toFixed(2))
+      + this._renderModelMetric("Common", common.toFixed(2))
+      + '</div>';
+
+    var detailFooter = ''
+      + '<div class="tag-project-row">'
+      + '  <div class="tags">' + tagMarkup + '</div>'
+      + '  <div class="media-status-chip">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? "queue" : "neutral") + '</div>'
       + '</div>';
 
     var bodyHtml = ''
       + '<div class="body">'
-      + '  <div class="title-row">'
-      + '    <h3 class="title">' + this._escapeHtml(name) + '</h3>'
-      + titleActions
+      + '  <div class="header-row">'
+      + titleCluster
+      + '    <div class="header-actions">' + advancedActions + '</div>'
       + '  </div>'
-      + metaHtml
-      + '  <div class="chips">' + queueChip + rankingChips + '</div>'
-      + queueActions
+      + metaLine
+      + metrics
+      + detailFooter
       + '</div>';
 
     if (this._viewMode === "media") {
       return ''
-        + '<article class="model-card view-media">'
-        + '  <div class="media-preview">' + previewHtml + '</div>'
+        + '<article class="model-card view-media" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+        + '  <div class="thumb-wrap media-wrap">'
+        + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
+        + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
+        + (mediaCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" type="button" data-action="media-prev" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Previous model image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" type="button" data-action="media-next" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Next model image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' : '')
+        + '  </div>'
         + bodyHtml
         + '</article>';
     }
 
     if (this._viewMode === "list") {
       return ''
-        + '<article class="model-card view-list">'
-        + '  <div class="thumb list-thumb">' + previewHtml + '</div>'
+        + '<article class="model-card view-list" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+        + '  <div class="thumb-wrap list-wrap"><div class="thumb list-thumb">' + previewHtml + '</div><span class="card-mode-pill list-mode">List</span></div>'
         + bodyHtml
         + '</article>';
     }
 
     return ''
-      + '<article class="model-card view-compact">'
-      + '  <div class="thumb">' + previewHtml + '</div>'
+      + '<article class="model-card view-compact" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
+      + '  <div class="thumb-wrap compact-wrap"><div class="thumb">' + previewHtml + '</div><span class="card-mode-pill">Compact</span></div>'
       + bodyHtml
       + '</article>';
+  }
+
+  _openModelViewerPopup(modelRef, modelName) {
+    if (!modelRef) {
+      return;
+    }
+    this._fireBrowserModEvent("browser_mod.popup", {
+      title: (modelName || "Model") + " - 3D Viewer",
+      size: "wide",
+      content: {
+        type: "custom:model-detail-3d-viewer-tab",
+        model_ref: modelRef,
+        model_name: modelName || "Model",
+      },
+    });
   }
 
   _openModelDetailPopup(modelRef, modelName) {
@@ -657,18 +921,19 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = ''
       + '<style>'
-      + 'ha-card{border-radius:20px;border:1px solid rgba(148,163,184,0.18);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}'
+      + ':host{--surface-1:rgba(15,23,42,0.12);--surface-2:rgba(15,23,42,0.22);--line:rgba(148,163,184,0.18);--line-strong:rgba(148,163,184,0.28);--accent:rgba(96,165,250,0.22);--accent-strong:rgba(96,165,250,0.38);--chip-bg:rgba(148,163,184,0.12);--chip-line:rgba(148,163,184,0.24);}'
+      + 'ha-card{border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}'
       + '.shell{display:grid;gap:14px;padding:16px;}'
       + '.shell-header{display:grid;gap:10px;}'
       + '.title-row-main{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;}'
       + '.card-title{font-size:18px;font-weight:800;line-height:1.2;}'
       + '.card-subtitle{font-size:12px;color:var(--secondary-text-color);}'
-      + '.browser-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.12);}'
+      + '.browser-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;border:1px solid var(--line);background:var(--surface-1);}'
       + '.toolbar-cluster{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}'
       + '.pager-cluster{flex:1 1 320px;}'
       + '.view-cluster{justify-content:flex-end;}'
-      + '.toolbar-btn{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(148,163,184,0.12);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
-      + '.toolbar-btn.toggle.active{background:rgba(30,64,175,0.24);border-color:rgba(96,165,250,0.42);}'
+      + '.toolbar-btn{min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--chip-line);background:var(--chip-bg);color:var(--primary-text-color);font-size:12px;font-weight:700;cursor:pointer;}'
+      + '.toolbar-btn.toggle.active{background:var(--accent);border-color:var(--accent-strong);}'
       + '.toolbar-btn:disabled{opacity:.55;cursor:not-allowed;}'
       + '.page-status{font-size:12px;font-weight:700;color:var(--secondary-text-color);padding:0 4px;}'
       + '.results-summary{font-size:12px;font-weight:700;color:var(--secondary-text-color);}'
@@ -681,38 +946,68 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.control-input option,.control-input optgroup{background:var(--card-background-color);color:var(--primary-text-color);}'
       + '.filter-actions{display:flex;justify-content:flex-start;}'
       + '.results{display:grid;gap:12px;}'
-      + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));}'
+      + '.results.view-compact{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
       + '.results.view-media{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}'
       + '.results.view-list{grid-template-columns:1fr;}'
-      + '.model-card{min-width:0;border-radius:18px;border:1px solid rgba(148,163,184,0.22);background:rgba(15,23,42,0.14);overflow:hidden;}'
-      + '.model-card.view-compact{display:grid;grid-template-columns:112px minmax(0,1fr);gap:0;}'
-      + '.model-card.view-media{display:grid;grid-template-rows:auto 1fr;}'
-      + '.model-card.view-list{display:grid;grid-template-columns:96px minmax(0,1fr);}'
+      + '.model-card{position:relative;min-width:0;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.14));overflow:visible;display:grid;cursor:pointer;transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;}'
+      + '.model-card:hover{border-color:var(--accent-strong);transform:translateY(-1px);box-shadow:0 14px 32px rgba(15,23,42,0.18);}'
+      + '.model-card:focus-visible{outline:none;box-shadow:0 0 0 2px rgba(96,165,250,0.34);border-color:var(--accent-strong);}'
+      + '.model-card.view-compact{grid-template-columns:minmax(148px,188px) minmax(0,1fr);column-gap:18px;padding:14px;align-items:start;}'
+      + '.model-card.view-media{grid-template-rows:auto 1fr;}'
+      + '.model-card.view-list{grid-template-columns:96px minmax(0,1fr);column-gap:12px;padding:14px;align-items:start;}'
+      + '.thumb-wrap{position:relative;overflow:hidden;border-radius:16px;background:var(--surface-2);}'
+      + '.compact-wrap{min-height:156px;}'
+      + '.list-wrap{min-height:96px;}'
+      + '.media-wrap{border-radius:18px 18px 0 0;}'
       + '.thumb,.media-preview{display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.24);overflow:hidden;}'
-      + '.thumb{width:112px;height:100%;min-height:120px;}'
-      + '.list-thumb{width:96px;min-height:96px;}'
+      + '.thumb{width:100%;height:156px;}'
+      + '.list-thumb{min-height:96px;height:96px;}'
       + '.media-preview{width:100%;aspect-ratio:16/9;min-height:220px;}'
       + '.thumb img,.media-preview img{width:100%;height:100%;object-fit:cover;display:block;}'
       + '.thumb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.72;}'
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'
-      + '.body{display:grid;gap:8px;padding:12px 14px;min-width:0;}'
-      + '.title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;}'
-      + '.title{margin:0;font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;}'
-      + '.title-actions{display:flex;gap:6px;flex-wrap:wrap;}'
-      + '.open-btn,.mini-btn{min-height:30px;padding:0 10px;border-radius:999px;border:1px solid rgba(96,165,250,0.30);background:rgba(30,64,175,0.16);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;}'
-      + '.mini-btn{border-color:rgba(148,163,184,0.28);background:rgba(148,163,184,0.12);}'
-      + '.meta{font-size:12px;line-height:1.45;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
-      + '.chips{display:flex;flex-wrap:wrap;gap:6px;}'
-      + '.chip{font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.24);}'
+      + '.body{display:grid;gap:10px;min-width:0;padding:14px 16px 16px;}'
+      + '.view-compact .body,.view-list .body{padding:0;}'
+      + '.header-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:12px;row-gap:8px;}'
+      + '.title-cluster{display:grid;gap:6px;min-width:0;}'
+      + '.title{margin:0;font-size:15px;font-weight:800;line-height:1.35;overflow-wrap:anywhere;}'
+      + '.subtle-line,.status-line,.tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;}'
+      + '.header-actions{display:flex;align-items:flex-start;justify-content:flex-end;gap:8px;}'
+      + '.chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;background:var(--chip-bg);border:1px solid var(--chip-line);color:var(--primary-text-color);}'
       + '.chip.neutral{background:rgba(148,163,184,0.14);border-color:rgba(148,163,184,0.26);}'
-      + '.chip.queue{background:rgba(16,185,129,0.16);border-color:rgba(16,185,129,0.28);}'
-      + '.queue-actions{display:flex;flex-wrap:wrap;gap:6px;}'
+      + '.chip.queue{background:rgba(16,185,129,0.16);border-color:rgba(16,185,129,0.32);}'
+      + '.chip.complete{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.30);}'
+      + '.chip.subtle-chip{background:rgba(15,23,42,0.08);border-color:rgba(148,163,184,0.16);color:var(--secondary-text-color);}'
+      + '.chip.tag-chip{background:rgba(96,165,250,0.10);border-color:rgba(96,165,250,0.20);}'
+      + '.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}'
+      + '.metric{display:grid;gap:3px;padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,0.16);background:rgba(15,23,42,0.08);}'
+      + '.metric-label{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.metric-value{font-size:14px;font-weight:800;line-height:1.2;}'
+      + '.tag-project-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px;}'
+      + '.media-status-chip{display:flex;justify-content:flex-end;}'
+      + '.card-mode-pill,.media-counter{position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.24);background:rgba(15,23,42,0.58);backdrop-filter:blur(8px);font-size:10px;font-weight:800;color:#fff;}'
+      + '.card-mode-pill{left:10px;}'
+      + '.card-mode-pill.list-mode{top:8px;left:8px;}'
+      + '.media-counter{right:10px;}'
+      + '.media-overlay{position:absolute;inset:0;pointer-events:none;}'
+      + '.media-gallery-nav{position:absolute;left:10px;right:10px;bottom:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}'
+      + '.media-gallery-nav .icon-action{pointer-events:auto;}'
+      + '.advanced-menu-shell{position:relative;display:flex;justify-content:flex-end;}'
+      + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;}'
+      + '.icon-action{width:34px;padding:0;}'
+      + '.icon-action ha-icon{--mdc-icon-size:18px;}'
+      + '.advanced-menu{position:absolute;top:40px;right:0;z-index:4;display:grid;gap:8px;min-width:220px;padding:10px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
+      + '.advanced-action{justify-content:flex-start;width:100%;padding:0 12px;border-radius:12px;background:rgba(148,163,184,0.10);}'
+      + '.advanced-action.primary{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.26);}'
+      + '.advanced-action ha-icon{--mdc-icon-size:16px;}'
+      + '.advanced-group-label{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--secondary-text-color);padding:2px 2px 0;}'
+      + '.advanced-inline-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}'
       + '.state-row{padding:20px;border-radius:16px;border:1px dashed rgba(148,163,184,0.24);background:rgba(148,163,184,0.10);font-size:13px;color:var(--secondary-text-color);}'
       + '.state-row.error{background:rgba(185,28,28,0.16);color:var(--primary-text-color);}'
       + '@media (max-width: 1100px){.controls{grid-template-columns:repeat(3,minmax(0,1fr));}}'
-      + '@media (max-width: 820px){.controls{grid-template-columns:repeat(2,minmax(0,1fr));}.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.thumb,.list-thumb{width:100%;height:180px;}}'
-      + '@media (max-width: 560px){.shell{padding:14px;}.controls{grid-template-columns:1fr;}.browser-toolbar{align-items:stretch;}.toolbar-cluster{width:100%;}.pager-cluster,.view-cluster{justify-content:flex-start;}.toolbar-btn{flex:1 1 auto;}.page-status{width:100%;padding-left:0;}.media-preview{min-height:180px;}}'
+      + '@media (max-width: 820px){.controls{grid-template-columns:repeat(2,minmax(0,1fr));}.model-card.view-compact,.model-card.view-list{grid-template-columns:1fr;}.compact-wrap,.list-wrap{min-height:180px;}.thumb,.list-thumb{height:180px;}.tag-project-row,.header-row{grid-template-columns:minmax(0,1fr);}.media-status-chip,.header-actions{justify-content:flex-start;}}'
+      + '@media (max-width: 560px){.shell{padding:14px;}.controls{grid-template-columns:1fr;}.browser-toolbar{align-items:stretch;}.toolbar-cluster{width:100%;}.pager-cluster,.view-cluster{justify-content:flex-start;}.toolbar-btn{flex:1 1 auto;}.page-status{width:100%;padding-left:0;}.media-preview{min-height:180px;}.metrics{grid-template-columns:1fr;}.advanced-menu{left:0;right:auto;min-width:min(260px,calc(100vw - 56px));}}'
       + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'
