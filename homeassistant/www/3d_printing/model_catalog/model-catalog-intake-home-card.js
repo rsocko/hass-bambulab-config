@@ -640,13 +640,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Off</option></select></div>'
             + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(entry.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
             + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
-            + (entry.grouping_strategy && entry.grouping_strategy !== 'none'
-              ? '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-                + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-              : '')
+            + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+            + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files.</div>'
             + '</div>'
           : (entry.type === 'folder'
-            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span>' + ((entry.grouping_strategy && entry.grouping_strategy !== 'none') ? '<span class="chip">title ' + escapeHtml(resolvedTitle) + '</span>' : '') + '</div>'
+            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
             : ''))
         + '</article>';
     }, this).join('') + '</div>';
@@ -716,10 +715,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._wizardStep === 2) {
         return ''
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Preview And Grouping</div><div class="subtitle">Review what will be imported and choose your grouping strategy.</div></div></div>'
+          + '  <div class="title-row"><div><div class="title">Preview And Group Defaults</div><div class="subtitle">Review the queued entries and edit the default Working Group title before committing to Inbox.</div></div></div>'
           + '  <div class="result-summary"><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div><div class="result-line"><span>Estimated files</span><strong>' + String(this._selectedList().length) + ' or more</strong></div></div>'
-          + '  <div class="field"><label for="grouping-strategy">Grouping Strategy</label><select id="grouping-strategy" class="select" data-action="grouping-strategy"><option value="none">No grouping</option><option value="by_root" selected>Group by root</option><option value="by_folder">Group by folder</option><option value="flat">All in one group</option></select></div>'
-          + '  <div class="muted">Selected entries will be organized based on your chosen strategy before committing.</div>'
+          + '  <div class="muted">Folder imports keep the title basis and custom title you set here. You can still override the title later from Inbox.</div>'
+          + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(true) + '</div>'
           + '</div>';
       }
       return ''
