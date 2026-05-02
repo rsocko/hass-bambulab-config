@@ -6,7 +6,7 @@ All other files should import from this module rather than duplicating implement
 
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from sqlite3 import connect
 from typing import Any
 
@@ -81,10 +81,81 @@ def _serialize_project_row(project_row: Any) -> dict[str, Any]:
     }
 
 
+def _windows_root_from_assets_host(settings: Settings) -> str | None:
+    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip().replace("\\", "/")
+    if not assets_root_host:
+        return None
+    normalized = assets_root_host
+    marker_index = normalized.lower().find("/mnt/c")
+    if marker_index < 0:
+        return None
+    normalized = normalized[marker_index:]
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) < 2:
+        return None
+    drive_letter = str(parts[1] or "").strip().upper()
+    if drive_letter != "C":
+        return None
+    tail = parts[2:]
+    if not tail:
+        return "C:\\"
+    return "C:\\" + "\\".join(tail)
+
+
+def _container_assets_path_to_windows(path_value: str | None, settings: Settings) -> str | None:
+    from .._helpers import _windows_launch_enabled
+
+    if not _windows_launch_enabled(settings):
+        return None
+
+    windows_root = _windows_root_from_assets_host(settings)
+    if not windows_root:
+        return None
+
+    normalized = str(path_value or "").strip().replace("\\", "/")
+    if not normalized:
+        return None
+    if normalized != "/assets" and not normalized.startswith("/assets/"):
+        return None
+
+    relative = normalized[len("/assets"):].lstrip("/")
+    target = PureWindowsPath(windows_root)
+    if not relative:
+        return str(target)
+    for segment in [item for item in relative.split("/") if item]:
+        target = target / segment
+    return str(target)
+
+
+def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict[str, Any]:
+    from .._helpers import _windows_launch_enabled
+
+    container_path = str(path_value or "").strip()
+    assets_root_host = str(getattr(settings, "assets_root_host", "") or "").strip()
+    launch_enabled = _windows_launch_enabled(settings)
+    windows_path = _container_assets_path_to_windows(container_path, settings)
+
+    reason: str | None = None
+    if not launch_enabled:
+        reason = "assets_root_host_not_mnt_c"
+    elif not windows_path:
+        reason = "path_outside_assets_mount"
+
+    return {
+        "container_path": container_path,
+        "assets_root_host": assets_root_host,
+        "windows_launch_enabled": launch_enabled,
+        "can_launch_file": bool(windows_path),
+        "can_open_in_explorer": bool(windows_path),
+        "windows_path": windows_path,
+        "reason": reason,
+    }
+
+
 def _serialize_working_group(connection: Any, group_row: Any, settings: Settings) -> dict[str, Any]:
     """Serialize a working_groups database row with related items and links to API response format."""
-    from .._helpers import _launch_context_for_path, _windows_launch_enabled
-    
+    from .._helpers import _windows_launch_enabled
+
     group_id = int(group_row["id"])
     group_keys = set(group_row.keys())
     project_id_value = group_row["project_id"] if "project_id" in group_keys else None

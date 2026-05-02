@@ -6,14 +6,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .manyfold import ManyfoldClient
+from .routers import intake as intake_module
+from .routers import working as working_module
 from .routers.archive_links import router as archive_links_router
 from .routers.intake import router as intake_router
+from .routers.intake import _browser_intake_upload_storage_root
 from .routers.models import router as models_router
 from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
 from .routers.working import router as working_router
+from .services.shared_helpers import _sha256_file as _shared_sha256_file
 from .settings import Settings, load_settings
 from .state import AppState
+
+# Backward-compatible helper exports used by tests and monkeypatches.
+_sha256_file = _shared_sha256_file
+
+
+def _sha256_file_proxy(path):
+    return _sha256_file(path)
+
+
+intake_module._sha256_file = _sha256_file_proxy
+working_module._sha256_file = _sha256_file_proxy
 
 
 def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldClient | None = None) -> FastAPI:

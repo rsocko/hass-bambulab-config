@@ -68,6 +68,13 @@ from ..db import (
 from ..services import (
     get_all_indexed_file_hashes,
 )
+from ..services.shared_helpers import (
+    _resolve_local_asset_storage_path,
+    _serialize_project_row,
+    _serialize_working_group,
+    _sha256_file,
+    _slugify_title,
+)
 
 from ..manyfold import (
     ManyfoldClient,
@@ -151,38 +158,6 @@ def _browser_upload_stage_directories(settings: Settings, source_entries: list[d
             directories.add((storage_root / relative_path.parts[0]).resolve())
 
     return sorted(directories)
-
-def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path | None:
-    storage_path_raw = str(getattr(asset, "storage_path", "") or "").strip()
-    if not storage_path_raw:
-        return None
-
-    curated_root = _model_photo_storage_root(settings).resolve()
-    data_root = settings.db_path.parent.resolve()
-    storage_path = Path(storage_path_raw).expanduser()
-
-    if storage_path.is_absolute():
-        resolved = storage_path.resolve()
-        if resolved == curated_root or resolved.is_relative_to(curated_root):
-            return resolved
-        if resolved == data_root or resolved.is_relative_to(data_root):
-            return resolved
-        return resolved
-
-    curated_candidate = (curated_root / storage_path).resolve()
-    try:
-        curated_candidate.relative_to(curated_root)
-    except ValueError:
-        curated_candidate = None
-    if curated_candidate is not None:
-        return curated_candidate
-
-    data_candidate = (data_root / storage_path).resolve()
-    try:
-        data_candidate.relative_to(data_root)
-    except ValueError:
-        return None
-    return data_candidate
 
 def _local_model_id_exists(*, db_path: Path, local_model_id: str) -> bool:
     connection = connect(db_path)
@@ -644,20 +619,7 @@ def _transition_queue_status(
 
 
 
-# ==================== SHARED HELPER FUNCTIONS (copies) ====================
-
-
-def _slugify_title(value: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower())
-    collapsed = re.sub(r"-+", "-", normalized).strip("-")
-    return collapsed or "working-group"
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+# ==================== ROUTER HELPER FUNCTIONS ====================
 
 def _existing_working_slugs(connection: Any) -> set[str]:
     rows = connection.execute("SELECT slug FROM working_groups").fetchall()
@@ -737,103 +699,6 @@ def _launch_context_for_path(path_value: str | None, settings: Settings) -> dict
         "can_open_in_explorer": bool(windows_path),
         "windows_path": windows_path,
         "reason": reason,
-    }
-
-def _serialize_project_row(project_row: Any) -> dict[str, Any]:
-    return {
-        "id": int(project_row["id"]),
-        "slug": project_row["slug"],
-        "title": project_row["title"],
-        "description": project_row["description"],
-        "notes": project_row["notes"],
-        "bambuddy_project_id": int(project_row["bambuddy_project_id"]) if project_row["bambuddy_project_id"] is not None else None,
-        "created_at": project_row["created_at"],
-        "updated_at": project_row["updated_at"],
-        "archived_at": project_row["archived_at"],
-    }
-
-def _serialize_working_group(connection: Any, group_row: Any, settings: Settings) -> dict[str, Any]:
-    group_id = int(group_row["id"])
-    group_keys = set(group_row.keys())
-    project_id_value = group_row["project_id"] if "project_id" in group_keys else None
-    project_row = None
-    if project_id_value is not None:
-        project_row = connection.execute(
-            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-            (project_id_value,),
-        ).fetchone()
-    item_rows = connection.execute(
-        """
-        SELECT id, file_path, item_role, file_hash, file_size, source_metadata_json, created_at, updated_at
-        FROM working_items
-        WHERE working_group_id = ?
-        ORDER BY id ASC
-        """,
-        (group_id,),
-    ).fetchall()
-    link_rows = connection.execute(
-        """
-        SELECT id, model_ref, link_role, link_metadata_json, created_at, updated_at
-        FROM working_group_model_links
-        WHERE working_group_id = ?
-        ORDER BY id ASC
-        """,
-        (group_id,),
-    ).fetchall()
-    primary_file_path = str(group_row["primary_file_path"] or "").strip()
-    folder_hint = str(group_row["folder_hint"] or "").strip()
-    discovery_source_folder = str(group_row["discovery_source_folder"] or "").strip()
-    effective_folder_path = folder_hint or (str(Path(primary_file_path).parent) if primary_file_path else "") or discovery_source_folder
-    return {
-        "id": group_id,
-        "slug": group_row["slug"],
-        "title": group_row["title"],
-        "stage": group_row["stage"],
-        "project_id": int(project_id_value) if project_id_value is not None else None,
-        "project": _serialize_project_row(project_row) if project_row is not None else None,
-        "notes": group_row["notes"],
-        "primary_file_path": group_row["primary_file_path"],
-        "folder_hint": group_row["folder_hint"],
-        "launch": {
-            "assets_root_host": str(getattr(settings, "assets_root_host", "") or "").strip(),
-            "windows_launch_enabled": _windows_launch_enabled(settings),
-            "primary": _launch_context_for_path(primary_file_path, settings),
-            "folder": _launch_context_for_path(effective_folder_path, settings),
-        },
-        "related_manyfold_model_id": group_row["related_manyfold_model_id"],
-        "discovery": {
-            "source_folder": group_row["discovery_source_folder"],
-            "strategy": group_row["discovery_strategy"],
-            "timestamp": group_row["discovery_timestamp"],
-            "metadata": json.loads(str(group_row["discovery_metadata_json"] or "{}")),
-        },
-        "items": [
-            {
-                "id": int(item_row["id"]),
-                "file_path": item_row["file_path"],
-                "item_role": item_row["item_role"],
-                "file_hash": item_row["file_hash"],
-                "file_size": item_row["file_size"],
-                "launch": _launch_context_for_path(str(item_row["file_path"] or ""), settings),
-                "source_metadata": json.loads(str(item_row["source_metadata_json"] or "{}")),
-                "created_at": item_row["created_at"],
-                "updated_at": item_row["updated_at"],
-            }
-            for item_row in item_rows
-        ],
-        "links": [
-            {
-                "id": int(link_row["id"]),
-                "model_ref": link_row["model_ref"],
-                "link_role": link_row["link_role"],
-                "metadata": json.loads(str(link_row["link_metadata_json"] or "{}")),
-                "created_at": link_row["created_at"],
-                "updated_at": link_row["updated_at"],
-            }
-            for link_row in link_rows
-        ],
-        "created_at": group_row["created_at"],
-        "updated_at": group_row["updated_at"],
     }
 
 def _normalized_filename_stem(value: str | None) -> str:
