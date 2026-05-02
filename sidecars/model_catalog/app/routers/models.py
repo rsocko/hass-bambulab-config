@@ -35,7 +35,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from sqlite3 import connect
-from typing import Any
+from typing import Any, Union
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Request
@@ -3233,7 +3233,7 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
 @router.get("/api/models/{model_ref:path}/geometry/{file_id}")
-def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> dict[str, Any]:
+def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None) -> Union[dict[str, Any], Response]:
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
     state: AppState = request.app.state.model_catalog
     client: ManyfoldClient = request.app.state.manyfold_client
@@ -3243,71 +3243,71 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
         "detail_attempts": [],
     }
     
-    # Resolve model reference
-    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
-    if summary is None:
-        return JSONResponse(status_code=404, content={"error": "Model not found"})
-
-    if str(summary.model_url or "").startswith("local://"):
-        local_model_id = str(summary.public_id or model_ref).strip()
-        asset = read_model_asset(
-            db_path=state.settings.db_path,
-            local_model_id=local_model_id,
-            asset_id=file_id,
-        )
-        if asset is None:
-            payload: dict[str, Any] = {"error": "File not found"}
-            if include_debug:
-                payload["_debug"] = debug_info
-            return JSONResponse(status_code=404, content=payload)
-
-        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
-        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
-            payload = {"error": "Local model file source not found"}
-            if include_debug:
-                debug_info["local_storage_path"] = str(storage_path) if storage_path is not None else None
-                payload["_debug"] = debug_info
-            return JSONResponse(status_code=404, content=payload)
-
-        file_name = str(asset.asset_filename or storage_path.name)
-        file_type = str(asset.asset_type or "")
-        download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
-        response_payload: dict[str, Any] = {
-            "success": True,
-            "file_id": file_id,
-            "filename": file_name,
-            "download_url": download_url,
-            "file_type": file_type,
-        }
-
-        is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
-        if is_3mf:
-            package_bytes = storage_path.read_bytes()
-            if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
-                payload: dict[str, Any] = {
-                    "error": "3MF package too large for server-side geometry extraction",
-                    "package_size_bytes": len(package_bytes),
-                    "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
-                }
-                if include_debug:
-                    debug_info["local_storage_path"] = str(storage_path)
-                    payload["_debug"] = debug_info
-                return JSONResponse(status_code=422, content=payload)
-            response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
-
-        if include_debug:
-            debug_info["local_storage_path"] = str(storage_path)
-            response_payload["_debug"] = debug_info
-        return response_payload
-
-    def _normalize_candidate_url(value: Any) -> str | None:
-        text = str(value or "").strip()
-        if not text:
-            return None
-        return canonicalize_model_url(client.base_url, text)
-    
-    # Fetch model files using documented Manyfold route.
     try:
+        # Resolve model reference
+        summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+        if summary is None:
+            return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+        if str(summary.model_url or "").startswith("local://"):
+            local_model_id = str(summary.public_id or model_ref).strip()
+            asset = read_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=file_id,
+            )
+            if asset is None:
+                payload: dict[str, Any] = {"error": "File not found"}
+                if include_debug:
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
+
+            storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+            if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+                payload = {"error": "Local model file source not found"}
+                if include_debug:
+                    debug_info["local_storage_path"] = str(storage_path) if storage_path is not None else None
+                    payload["_debug"] = debug_info
+                return JSONResponse(status_code=404, content=payload)
+
+            file_name = str(asset.asset_filename or storage_path.name)
+            file_type = str(asset.asset_type or "")
+            download_url = f"/api/models/{quote(model_ref, safe='')}/files/{quote(str(file_id), safe='')}/download"
+            response_payload: dict[str, Any] = {
+                "success": True,
+                "file_id": file_id,
+                "filename": file_name,
+                "download_url": download_url,
+                "file_type": file_type,
+            }
+
+            is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
+            if is_3mf:
+                package_bytes = storage_path.read_bytes()
+                if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
+                    payload: dict[str, Any] = {
+                        "error": "3MF package too large for server-side geometry extraction",
+                        "package_size_bytes": len(package_bytes),
+                        "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
+                    }
+                    if include_debug:
+                        debug_info["local_storage_path"] = str(storage_path)
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
+                response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+
+            if include_debug:
+                debug_info["local_storage_path"] = str(storage_path)
+                response_payload["_debug"] = debug_info
+            return response_payload
+
+        def _normalize_candidate_url(value: Any) -> str | None:
+            text = str(value or "").strip()
+            if not text:
+                return None
+            return canonicalize_model_url(client.base_url, text)
+        
+        # Fetch model files using documented Manyfold route.
         resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
         files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
         debug_info["files_count"] = len(files)

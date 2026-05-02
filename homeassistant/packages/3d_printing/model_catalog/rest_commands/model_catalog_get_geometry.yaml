@@ -2,7 +2,7 @@
 # Called from model-detail-3d-viewer-tab through HA service proxy.
 model_catalog_get_geometry:
   url: >-
-    {%- set ns = namespace(params=[]) -%}
+    {%- set ns = namespace(params=['include_debug=true']) -%}
     {%- if plate_id is defined and (plate_id | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['plate_id=' ~ ((plate_id | string) | urlencode)] -%}
     {%- endif -%}

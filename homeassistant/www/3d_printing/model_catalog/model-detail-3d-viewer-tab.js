@@ -997,6 +997,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
       if (normalized && typeof normalized.status === 'number' && normalized.status >= 400) {
         throw new Error(normalized.message || `Request failed (HTTP ${normalized.status}).`);
       }
+      // Extract detailed error info from debug payload if present
+      if (normalized && normalized.error) {
+        const debugError = normalized._debug && normalized._debug.endpoint_error
+          ? ` [${normalized._debug.endpoint_error.error_type}]: ${normalized._debug.endpoint_error.error}`
+          : '';
+        throw new Error(`${normalized.error}${debugError}`);
+      }
       return normalized;
     }
 
