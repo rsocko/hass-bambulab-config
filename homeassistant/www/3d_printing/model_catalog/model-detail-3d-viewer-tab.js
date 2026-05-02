@@ -570,15 +570,19 @@ class ModelDetail3DViewerTab extends HTMLElement {
     if (isStl) {
       const sourceUrl = this._buildFileDownloadUrl(file);
       this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
-      const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
-      if (!response.ok) {
-        throw new Error(`Download failed (${response.status})`);
-      }
+      try {
+        const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
+        if (!response.ok) {
+          throw new Error(`Download failed (${response.status})`);
+        }
 
-      const arrayBuffer = await response.arrayBuffer();
-      const parsed = this._parseStl(arrayBuffer);
-      this._loadGeometry(parsed);
-      this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
+        const arrayBuffer = await response.arrayBuffer();
+        const parsed = this._parseStl(arrayBuffer);
+        this._loadGeometry(parsed);
+        this._setRenderingStatus(`Rendering ${file.filename || 'model'} (${parsed.triangleCount} triangles)`);
+      } catch (error) {
+        throw new Error(this._formatFetchError(sourceUrl, error, 'STL download'));
+      }
     } else if (is3mf) {
       await this._load3mf(file);
     }
@@ -607,7 +611,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
       geometryError = new Error(String(payload && payload.error ? payload.error : '3MF geometry payload did not include mesh data.'));
     } catch (error) {
-      geometryError = error;
+      geometryError = new Error(this._formatFetchError(geometryUrl, error, '3MF parsed geometry'));
     }
 
     if (!this._has3mfLoader()) {
@@ -653,7 +657,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
       );
     } catch (error) {
       const detail = geometryError && geometryError.message ? ` Parsed geometry failed: ${geometryError.message}.` : '';
-      this._setError(`3MF loading failed:${detail} ${error.message}`.trim());
+      const fetchDetail = this._formatFetchError(sourceUrl, error, '3MF download');
+      this._setError(`3MF loading failed:${detail} ${fetchDetail}`.trim());
     }
   }
 
@@ -898,6 +903,49 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
   }
 
+  _formatFetchError(url, error, contextLabel) {
+    const context = String(contextLabel || 'request').trim();
+    const message = String(error && error.message ? error.message : error || 'Unknown fetch error');
+    let detail = `${context} failed: ${message}`;
+
+    if (url) {
+      detail += ` [url: ${url}]`;
+    }
+
+    if (this._isLikelyBrowserUnreachableSidecarUrl(url)) {
+      detail += ' (Sidecar host appears browser-unreachable. Set input_text.model_catalog_sidecar_base_url to a browser-reachable URL.)';
+    }
+
+    return detail;
+  }
+
+  _isLikelyBrowserUnreachableSidecarUrl(url) {
+    try {
+      const parsed = new URL(String(url || ''), window.location.href);
+      const host = String(parsed.hostname || '').trim().toLowerCase();
+      if (!host) {
+        return false;
+      }
+
+      if (host === 'model-catalog-sidecar' || host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+        return true;
+      }
+
+      // Docker/service short names are often only resolvable from within HA/container networks.
+      return host.indexOf('.') < 0;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  _requireSidecarBaseUrl() {
+    const base = String(this._config.model_sidecar_url || '').trim().replace(/\/+$/, '');
+    if (!base) {
+      throw new Error('Model sidecar URL is empty. Set input_text.model_catalog_sidecar_base_url to a browser-reachable URL.');
+    }
+    return base;
+  }
+
   _normalizeFileId(fileId) {
     const raw = String(fileId || '').trim();
     if (!raw) {
@@ -919,7 +967,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _buildFileDownloadUrl(file) {
-    const base = String(this._config.model_sidecar_url || '').trim().replace(/\/+$/, '');
+    const base = this._requireSidecarBaseUrl();
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
@@ -927,7 +975,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
   }
 
   _buildGeometryUrl(file) {
-    const base = String(this._config.model_sidecar_url || '').trim().replace(/\/+$/, '');
+    const base = this._requireSidecarBaseUrl();
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
