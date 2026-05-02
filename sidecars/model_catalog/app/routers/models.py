@@ -88,9 +88,13 @@ from ..manyfold import (
 from ..models import ManyfoldModelSummary, LocalModelEntry
 
 from .._helpers import (
+    SUPPORTED_WORKING_FILE_EXTENSIONS,
+    _bulk_path_source_metadata,
     _bulk_utc_now_iso,
     _coerce_bool,
     _coerce_int,
+    _configured_intake_source_roots,
+    _dedupe_paths,
     _image_metadata,
     _is_path_within_roots,
     _model_photo_storage_root,
@@ -472,6 +476,39 @@ def _resolve_uploaded_photo_storage_path(*, settings: Settings, photo_row: dict[
     except ValueError:
         return None
     return storage_path
+
+
+def _resolve_local_asset_storage_path(*, settings: Settings, asset: Any) -> Path | None:
+    storage_path_raw = str(getattr(asset, "storage_path", "") or "").strip()
+    if not storage_path_raw:
+        return None
+
+    curated_root = _model_photo_storage_root(settings).resolve()
+    data_root = settings.db_path.parent.resolve()
+    storage_path = Path(storage_path_raw).expanduser()
+
+    if storage_path.is_absolute():
+        resolved = storage_path.resolve()
+        if resolved == curated_root or resolved.is_relative_to(curated_root):
+            return resolved
+        if resolved == data_root or resolved.is_relative_to(data_root):
+            return resolved
+        return resolved
+
+    curated_candidate = (curated_root / storage_path).resolve()
+    try:
+        curated_candidate.relative_to(curated_root)
+    except ValueError:
+        curated_candidate = None
+    if curated_candidate is not None:
+        return curated_candidate
+
+    data_candidate = (data_root / storage_path).resolve()
+    try:
+        data_candidate.relative_to(data_root)
+    except ValueError:
+        return None
+    return data_candidate
 
 
 def _serialize_uploaded_photo_rows(
