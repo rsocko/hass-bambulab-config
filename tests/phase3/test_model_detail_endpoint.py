@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test suite for Phase 3.0 Model Detail View implementation.
 
 Tests the sidecar endpoint GET /api/models/{model_ref}/detail and
@@ -79,10 +79,10 @@ class TestModelDetailEndpoint:
 
     def test_model_detail_endpoint_success(self, client, sample_model_summary):
         """Test successful model detail retrieval."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             # Mock cached summaries
@@ -130,7 +130,7 @@ class TestModelDetailEndpoint:
     
     def test_model_detail_endpoint_not_found(self, client):
         """Test model detail retrieval for non-existent model."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries:
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries:
             mock_summaries.return_value = []
             
             response = client.get("/api/models/nonexistent-model/detail")
@@ -142,10 +142,10 @@ class TestModelDetailEndpoint:
     
     def test_model_detail_resolves_by_public_id(self, client, sample_model_summary):
         """Test that model ref can be resolved by public_id."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -163,10 +163,10 @@ class TestModelDetailEndpoint:
     
     def test_model_detail_resolves_by_model_id(self, client, sample_model_summary):
         """Test that model ref can be resolved by model_id."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -203,10 +203,10 @@ class TestModelDetailEndpoint:
             "model_rating": 5,
         }
         
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -242,10 +242,10 @@ class TestModelDetailEndpoint:
             "model_rating": 99,
         }
 
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
              patch.object(client.app.state, "manyfold_client") as mock_client:
 
             mock_summaries.return_value = [sample_model_summary]
@@ -287,10 +287,10 @@ class TestModelDetailEndpoint:
             updated_at="2026-04-25T14:00:00Z",
         )
         
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
              patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -309,10 +309,10 @@ class TestModelDetailEndpoint:
     
     def test_model_detail_handles_missing_files(self, client, sample_model_summary):
         """Test graceful handling of models with no files."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -330,10 +330,10 @@ class TestModelDetailEndpoint:
     
     def test_model_detail_response_structure(self, client, sample_model_summary):
         """Test that response has correct structure."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_model_fields") as mock_fields, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_model_fields") as mock_fields, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
                patch.object(client.app.state, "manyfold_client") as mock_client:
             
             mock_summaries.return_value = [sample_model_summary]
@@ -382,10 +382,10 @@ class TestModelDetailEndpoint:
 
     def test_update_model_endpoint_persists_structured_metadata(self, client, sample_model_summary):
         """PATCH /api/models/{model_ref} round-trips nested structured metadata for Manyfold-backed models."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
-             patch("app.main.refresh_manyfold_cache") as mock_refresh_cache, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
+             patch("app.routers.models.refresh_manyfold_cache") as mock_refresh_cache, \
              patch.object(client.app.state, "manyfold_client") as mock_client:
 
             mock_summaries.return_value = [sample_model_summary]
@@ -431,10 +431,10 @@ class TestModelDetailEndpoint:
 
     def test_update_model_endpoint_clears_structured_metadata(self, client, sample_model_summary):
         """PATCH /api/models/{model_ref} clears sidecar-owned structured metadata when null is provided."""
-        with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
-             patch("app.main.read_archive_links") as mock_links, \
-             patch("app.main.read_model_ranking") as mock_ranking, \
-             patch("app.main.refresh_manyfold_cache") as mock_refresh_cache, \
+        with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
+             patch("app.routers.models.read_archive_links") as mock_links, \
+             patch("app.routers.models.read_model_ranking") as mock_ranking, \
+             patch("app.routers.models.refresh_manyfold_cache") as mock_refresh_cache, \
              patch.object(client.app.state, "manyfold_client") as mock_client:
 
             mock_summaries.return_value = [sample_model_summary]
@@ -511,7 +511,7 @@ class TestModelDetailEndpoint:
 
             app = create_app(settings=settings)
             with TestClient(app) as client:
-                with patch("app.main.read_cached_manyfold_summaries") as mock_summaries, \
+                with patch("app.routers.models.read_cached_manyfold_summaries") as mock_summaries, \
                      patch.object(client.app.state, "manyfold_client") as mock_client:
 
                     mock_summaries.return_value = [sample_model_summary]
@@ -526,3 +526,4 @@ class TestModelDetailEndpoint:
                     assert payload["error"] == "model_not_writable_in_local_authority"
                     assert payload["authority_mode"] == "local"
                     mock_client.update_model.assert_not_called()
+

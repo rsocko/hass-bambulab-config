@@ -68,6 +68,7 @@ from ..db import (
 from ..services import (
     get_all_indexed_file_hashes,
 )
+from ..services.model_detail_service import build_model_detail_response
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
     _serialize_project_row,
@@ -81,6 +82,7 @@ from ..manyfold import (
     _model_ref_from_payload,
     canonicalize_model_url,
 )
+from . import models as models_router
 
 
 router = APIRouter(tags=["intake"])
@@ -2560,9 +2562,16 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         cleanup_result = cleanup_payload["cleanup"]
         effective_status = str(cleanup_payload["status"])
 
-    # TODO: Extract model detail generation logic into a service function to avoid TestClient anti-pattern
-    # For now, detail retrieval is deferred - can be populated when detail endpoint logic is refactored
-    detail_payload = None
+    detail_payload = build_model_detail_response(
+        state,
+        request.app.state.manyfold_client,
+        local_model_id,
+        include_debug=False,
+        request=request,
+        helpers=models_router._model_detail_service_helpers(),
+    )
+    if detail_payload.get("success") is False:
+        detail_payload = None
 
     return {
         "success": True,
