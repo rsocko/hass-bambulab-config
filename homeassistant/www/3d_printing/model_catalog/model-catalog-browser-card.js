@@ -75,6 +75,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.addEventListener("wheel", this._boundWheel);
     }
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    if (this._hass && this._hasAttemptedLoad && !this._loading) {
+      this._requestLoad(this._currentPage(), false);
+    }
   }
 
   disconnectedCallback() {
@@ -247,7 +250,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (scopes.length && scopes.indexOf("curated") < 0 && scopes.indexOf("all") < 0) {
       return;
     }
-    this._requestLoad(1, false);
+    this._requestLoad(1, true);
   }
 
   async _loadPage(page, refresh) {

@@ -9,6 +9,7 @@ var formatBytes = intakeShared.formatBytes;
 var formatLabel = intakeShared.formatLabel;
 var summarizeStates = intakeShared.summarizeStates;
 var callServiceWithResponse = intakeShared.callServiceWithResponse;
+var fireModelCatalogDataChanged = intakeShared.fireModelCatalogDataChanged;
 var selectInputOption = intakeShared.selectInputOption;
 var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
@@ -645,6 +646,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           this._status = browserFiles.length
             ? "Browser batch validated and published to the curated catalog."
             : "Server selection validated and published to the curated catalog." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
+          fireModelCatalogDataChanged(['curated'], {
+            reason: 'execute-now-publish',
+            uploadId: response.upload_id,
+            localModelId: publishResponse.local_model_id || null,
+          });
         } else {
           this._status = "Validation produced warnings, so the batch remains in Inbox for review.";
         }
