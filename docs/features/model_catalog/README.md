@@ -93,6 +93,11 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Model Library Strategy](model-library-strategy.md) — Historical strategy document; useful for background but superseded by the docs above
 - [External Services Design Review](external-services-design-review-2026-04.md) — Earlier broader services evaluation
 
+### Maintenance & Operations
+
+- [Cleanup And Reset](MAINTENANCE-CLEANUP-AND-RESET.md) — Safe database and filesystem reset utilities for testing and development; includes dry-run, selective zone cleanup, and confirmation workflows
+- [Model Folder Normalization](MAINTENANCE-NORMALIZE-MODEL-FOLDERS.md) — One-time maintenance utility for normalizing model folder names to the current naming convention
+
 ## Component Map
 
 | Component | Role | Authority |

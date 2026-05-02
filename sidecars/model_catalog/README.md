@@ -83,6 +83,29 @@ curl http://localhost:8314/healthz
 
 See **Deployment** section below for detailed options.
 
+## CLI Commands
+
+The sidecar includes a Click CLI for maintenance operations. Run these from the host via `docker exec` or directly inside the container:
+
+```bash
+# Show available commands
+docker exec model-catalog python -m sidecars.model_catalog cleanup --help
+
+# Dry-run: see what would be reset
+docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all
+
+# Reset database only
+docker exec model-catalog python -m sidecars.model_catalog cleanup reset-db --execute
+
+# Reset database and filesystem zones
+docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
+
+# Advanced granular cleanup (specific tables/zones)
+docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db --tables model_catalog_entries
+```
+
+See [MAINTENANCE-CLEANUP-AND-RESET.md](../../docs/features/model_catalog/MAINTENANCE-CLEANUP-AND-RESET.md) for complete documentation.
+
 ## Build An Image Locally
 
 Build from the repository root:
