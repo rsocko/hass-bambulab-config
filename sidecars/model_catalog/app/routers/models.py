@@ -3316,15 +3316,11 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
                     response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
-                    if include_debug:
-                        response_payload["_debug"] = debug_info
-                    # Include partial response even if geometry extraction fails
-                    return JSONResponse(content=response_payload)
 
             if include_debug:
                 debug_info["local_storage_path"] = str(storage_path)
                 response_payload["_debug"] = debug_info
-            return JSONResponse(content=response_payload)
+            return response_payload
 
         def _normalize_candidate_url(value: Any) -> str | None:
             text = str(value or "").strip()
@@ -3384,11 +3380,10 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
                     response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
-                    # Include partial response even if geometry extraction fails
 
             if include_debug:
                 response_payload["_debug"] = debug_info
-            return JSONResponse(content=response_payload)
+            return response_payload
         except Exception as e:
             payload = {"error": str(e)}
             if include_debug:
