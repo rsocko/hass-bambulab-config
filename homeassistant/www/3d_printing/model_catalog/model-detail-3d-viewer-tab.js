@@ -15,6 +15,7 @@
 class ModelDetail3DViewerTab extends HTMLElement {
   constructor() {
     super();
+    this._hass = null;
     this._defaultModelColor = '#5fa8d3';
     this._buildPlateSizeMm = 256;
     this._config = {};
@@ -43,6 +44,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentColorInfo = null;
     this._currentGeometryGroups = [];
     this._usePackageColors = true;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
   }
 
   setConfig(config) {
@@ -970,7 +975,29 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
   async _callServiceWithResponse(domain, service, data) {
     const endpoint = `/api/services/${encodeURIComponent(String(domain || ''))}/${encodeURIComponent(String(service || ''))}?return_response`;
-    const body = JSON.stringify(data && typeof data === 'object' ? data : {});
+    const payloadData = data && typeof data === 'object' ? data : {};
+
+    // Prefer Home Assistant's authenticated API helper when available.
+    if (this._hass && typeof this._hass.callApi === 'function') {
+      let payload = {};
+      try {
+        payload = await this._hass.callApi('POST', endpoint, payloadData);
+      } catch (error) {
+        const message = String(error && error.message ? error.message : error || 'Service call failed.');
+        throw new Error(message);
+      }
+
+      const normalized = this._normalizeServiceResponse(payload);
+      if (normalized && normalized.success === false) {
+        throw new Error(normalized.message || normalized.error || 'Request failed.');
+      }
+      if (normalized && typeof normalized.status === 'number' && normalized.status >= 400) {
+        throw new Error(normalized.message || `Request failed (HTTP ${normalized.status}).`);
+      }
+      return normalized;
+    }
+
+    const body = JSON.stringify(payloadData);
 
     let response = await fetch(endpoint, {
       method: 'POST',
