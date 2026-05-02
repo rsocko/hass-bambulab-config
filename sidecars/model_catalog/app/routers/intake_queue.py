@@ -45,7 +45,7 @@ router = APIRouter(tags=["intake"])
 
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 
-LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcode"}
 LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
 
@@ -510,7 +510,7 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
             str(upload.get("relative_path") or ""),
             filename,
         )
-        if relative_path.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+        if relative_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
             warnings.append(
                 {
                     "code": "unsupported_file_type",

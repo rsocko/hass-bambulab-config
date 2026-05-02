@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import replace
 import logging
 import hashlib
@@ -5406,6 +5407,79 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
 
     assert model_file.exists() is True
     assert preview_file.exists() is True
+
+
+def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "cleanup_policy": "keep",
+                "browser_files": [
+                    {
+                        "filename": "browser-model.3mf",
+                        "relative_path": "Browser Batch/browser-model.3mf",
+                        "content_base64": base64.b64encode(b"browser model bytes").decode("ascii"),
+                    },
+                    {
+                        "filename": "preview-image.jpg",
+                        "relative_path": "Browser Batch/preview-image.jpg",
+                        "content_base64": base64.b64encode(b"\xff\xd8\xffbrowser preview").decode("ascii"),
+                    },
+                    {
+                        "filename": "badge.svg",
+                        "relative_path": "Browser Batch/badge.svg",
+                        "content_base64": base64.b64encode(b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>").decode("ascii"),
+                    },
+                ],
+            },
+        )
+        assert post.status_code == 200
+        upload_payload = post.json()
+        assert upload_payload["success"] is True
+        assert upload_payload["source_entry_count"] == 3
+        assert upload_payload["browser_file_count"] == 3
+        assert upload_payload["warnings"] == []
+        upload_id = upload_payload["upload_id"]
+
+        validate = test_client.post(f"/api/intake/items/{upload_id}/validate")
+        assert validate.status_code == 200
+        validate_payload = validate.json()
+        assert validate_payload["validation"]["validation_state"] == "ready"
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={"model_name": "Browser Upload Gallery Model"},
+        )
+        assert publish.status_code == 200
+        publish_payload = publish.json()
+        assert publish_payload["success"] is True
+        assert publish_payload["imported_asset_count"] == 3
+
+        detail = test_client.get(f"/api/models/{publish_payload['local_model_id']}/detail")
+        assert detail.status_code == 200
+        detail_payload = detail.json()
+        assert detail_payload["authority"] == "local"
+        assert detail_payload["model"]["name"] == "Browser Upload Gallery Model"
+        assert len(detail_payload["model"]["files"]) == 3
+
+        preview_file_id = detail_payload["model"]["preview_file_id"]
+        assert preview_file_id is not None
+        preview_asset = next(file for file in detail_payload["model"]["files"] if file["id"] == preview_file_id)
+        assert preview_asset["asset_type"] == "image"
+        assert preview_asset["asset_role"] == "preview"
+        assert any(file["asset_type"] == "3mf" and file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
+        assert any(file["asset_type"] == "image" and file["filename"] == "badge.svg" for file in detail_payload["model"]["files"])
 
 
 def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:

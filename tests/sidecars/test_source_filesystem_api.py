@@ -619,6 +619,105 @@ def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:
         assert detail_payload["model"]["source_origin_url"] == f"intake://uploads/{upload_id}"
 
 
+def test_select_single_image_file_publishes_as_preview_asset(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    image_file = root / "selected-preview.png"
+    image_file.write_bytes(b"\x89PNG\r\n\x1a\nselected preview")
+
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {"type": "file", "path": str(image_file)},
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        upload_id = select_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={"model_name": "Selected Image Model"},
+        )
+        assert publish_response.status_code == 200
+        payload = publish_response.json()
+        assert payload["success"] is True
+        assert payload["imported_asset_count"] == 1
+
+        detail_response = client.get(f"/api/models/{payload['local_model_id']}/detail")
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+        assert len(detail_payload["model"]["files"]) == 1
+        preview_file_id = detail_payload["model"]["preview_file_id"]
+        assert preview_file_id is not None
+        preview_asset = next(file for file in detail_payload["model"]["files"] if file["id"] == preview_file_id)
+        assert preview_asset["asset_type"] == "image"
+        assert preview_asset["asset_role"] == "preview"
+
+
+def test_select_folder_includes_images_in_local_publish_batch(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    folder = root / "Router Mount"
+    folder.mkdir(parents=True)
+    model_file = folder / "router_mount_plate.3mf"
+    model_file.write_bytes(b"selected model")
+    image_file = folder / "router_mount_preview.jpg"
+    image_file.write_bytes(b"\xff\xd8\xffselected preview")
+    svg_file = folder / "router_mount_badge.svg"
+    svg_file.write_bytes(b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>")
+
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Family",
+                    }
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        payload = select_response.json()
+        upload_id = payload["upload_id"]
+        assert payload["expanded_file_count"] == 3
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={},
+        )
+        assert publish_response.status_code == 200
+        publish_payload = publish_response.json()
+        assert publish_payload["success"] is True
+        assert publish_payload["imported_asset_count"] == 3
+
+        detail_response = client.get(f"/api/models/{publish_payload['local_model_id']}/detail")
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+        assert detail_payload["model"]["name"] == "Router Mount Family"
+        assert len(detail_payload["model"]["files"]) == 3
+        preview_file_id = detail_payload["model"]["preview_file_id"]
+        assert preview_file_id is not None
+        preview_asset = next(file for file in detail_payload["model"]["files"] if file["id"] == preview_file_id)
+        assert preview_asset["asset_type"] == "image"
+        assert any(file["asset_type"] == "3mf" and file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
+        assert any(file["asset_type"] == "image" and file["filename"] == "router_mount_badge.svg" for file in detail_payload["model"]["files"])
+
+
 def test_select_publish_to_local_uses_queued_group_title_when_model_name_omitted(tmp_path: Path) -> None:
     root = tmp_path / "models"
     root.mkdir()

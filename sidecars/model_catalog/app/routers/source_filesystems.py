@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 
 from ..state import AppState
 from .._helpers import (
+    LOCAL_IMPORT_IMAGE_EXTENSIONS,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_path_source_metadata,
     _bulk_utc_now_iso,
@@ -317,7 +318,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                         "message": f"selections[{idx}].path could not be read: {exc}",
                     },
                 )
-            if resolved.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if resolved.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
                 return JSONResponse(
                     status_code=400,
                     content={

@@ -144,7 +144,7 @@ ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/webp": ".webp",
 }
 LOCAL_MODEL_ASSET_STORAGE_DIR = "model_catalog_assets"
-LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcode"}
 LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
 

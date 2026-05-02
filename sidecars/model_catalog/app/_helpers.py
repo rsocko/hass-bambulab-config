@@ -19,6 +19,7 @@ from .settings import Settings
 # ---------------------------------------------------------------------------
 
 SUPPORTED_WORKING_FILE_EXTENSIONS: set[str] = {".3mf", ".stl", ".obj", ".step", ".stp", ".zip"}
+LOCAL_IMPORT_IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +210,7 @@ def _collect_intake_source_files_in_folder(
                 continue
             try:
                 if item.is_file():
-                    if item.suffix.lower() in SUPPORTED_WORKING_FILE_EXTENSIONS:
+                    if item.suffix.lower() in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
                         results.append(item)
                 elif item.is_dir() and recurse:
                     if max_depth is None or current_depth < max_depth:

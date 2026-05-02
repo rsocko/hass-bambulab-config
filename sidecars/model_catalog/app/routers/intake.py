@@ -124,7 +124,7 @@ def _ensure_unique_local_model_id(*, db_path: Path, preferred: str) -> str:
 
 
 def _normalize_local_asset_type(path: Path) -> str:
-    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
     LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcode"}
     LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
     suffix = path.suffix.lower()
@@ -199,7 +199,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
     seen_paths: set[str] = set()
 
     SUPPORTED_WORKING_FILE_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".gcode"}
-    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
 
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
