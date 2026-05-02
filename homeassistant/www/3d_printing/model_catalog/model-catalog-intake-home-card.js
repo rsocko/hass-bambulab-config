@@ -150,6 +150,40 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
   }
 
+  _fileSelectionEntries() {
+    return this._selectedList().filter(function (entry) {
+      return entry && entry.type === 'file';
+    });
+  }
+
+  _fileBatchTitleSource() {
+    var fileEntries = this._fileSelectionEntries();
+    if (!fileEntries.length) {
+      return 'first-file';
+    }
+    return this._selectionTitleSource(fileEntries[0]);
+  }
+
+  _fileBatchResolvedTitle() {
+    var fileEntries = this._fileSelectionEntries();
+    if (!fileEntries.length) {
+      return 'Working Group';
+    }
+    return this._resolvedGroupTitle(fileEntries[0]);
+  }
+
+  _updateSelectedFileBatchMeta(updates) {
+    var nextSelected = Object.assign({}, this._selected);
+    Object.keys(nextSelected).forEach(function (key) {
+      var entry = nextSelected[key];
+      if (!entry || entry.type !== 'file') {
+        return;
+      }
+      nextSelected[key] = Object.assign({}, entry, updates);
+    });
+    this._selected = nextSelected;
+  }
+
   _selectionTitleSource(entry) {
     var normalized = String(entry && entry.group_title_source || '').trim().toLowerCase();
     if (normalized === 'folder' || normalized === 'first-file' || normalized === 'custom') {
@@ -196,14 +230,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return this._selectedList().map(function (entry) {
       var next = { type: entry.type, path: entry.path };
+      if (entry.group_title_source) {
+        next.group_title_source = this._selectionTitleSource(entry);
+      }
+      if (entry.group_title || entry.group_title_source) {
+        next.group_title = this._resolvedGroupTitle(entry);
+      }
       if (entry.type === "folder") {
         next.recurse = !!entry.recurse;
         if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
           next.max_depth = Number(entry.max_depth);
-        }
-        if (entry.grouping_strategy && entry.grouping_strategy !== 'none') {
-          next.group_title_source = this._selectionTitleSource(entry);
-          next.group_title = this._resolvedGroupTitle(entry);
         }
       }
       return next;
@@ -344,7 +380,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         recurse: true,
         max_depth: "",
         grouping_strategy: "none",
-        group_title_source: entryType === 'folder' ? 'folder' : 'first-file',
+        group_title_source: entryType === 'folder' ? 'folder' : this._fileBatchTitleSource(),
         group_title: '',
       };
     }
@@ -626,10 +662,24 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _renderServerSelectionRows(showSettings) {
     var selections = this._selectedList();
+    var fileEntries = this._fileSelectionEntries();
+    var fileBatchTitleSource = this._fileBatchTitleSource();
+    var fileBatchResolvedTitle = this._fileBatchResolvedTitle();
     if (!selections.length) {
       return '<div class="state-row">No server files or folders selected yet.</div>';
     }
-    return '<div class="entries">' + selections.map(function (entry) {
+    return '<div class="entries">'
+      + ((showSettings && fileEntries.length)
+        ? '<article class="entry-row">'
+          + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">Applies to all individually selected files in this queue batch.</div></div><div class="button-row"><span class="chip">' + String(fileEntries.length) + ' files</span></div></div>'
+          + '<div class="item-grid">'
+          + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source-files"><option value="first-file"' + (fileBatchTitleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (fileBatchTitleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+          + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(fileBatchResolvedTitle) + '" data-action="selection-group-title-files" placeholder="Working Group"></div>'
+          + '<div class="muted">This title is copied to the queued file entries and becomes the default group title in Inbox.</div>'
+          + '</div>'
+          + '</article>'
+        : '')
+      + selections.map(function (entry) {
       var titleSource = this._selectionTitleSource(entry);
       var resolvedTitle = this._resolvedGroupTitle(entry);
       return ''
@@ -646,7 +696,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             + '</div>'
           : (entry.type === 'folder'
             ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
-            : ''))
+            : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'))
         + '</article>';
     }, this).join('') + '</div>';
   }
@@ -937,6 +987,22 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           grouping_strategy: groupingValue,
           group_title_source: groupingValue === 'flat' ? 'first-file' : this._selectionTitleSource(this._selected[path]),
         }),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-title-source-files') {
+      this._updateSelectedFileBatchMeta({
+        group_title_source: String(target.value || 'first-file').trim(),
+        group_title: '',
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-group-title-files') {
+      this._updateSelectedFileBatchMeta({
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
       });
       this._render();
       return;

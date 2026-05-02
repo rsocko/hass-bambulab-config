@@ -329,6 +329,53 @@ def test_folder_selection_group_uses_queued_title_hint_when_title_omitted(tmp_pa
         client.__exit__(None, None, None)
 
 
+def test_file_selection_group_uses_queued_title_hint_when_title_omitted(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    first_file = source_root / "router_mount_plate.3mf"
+    second_file = source_root / "router_mount_brace.stl"
+    first_file.write_bytes(b"plate-bytes")
+    second_file.write_bytes(b"brace-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "file",
+                        "path": str(first_file),
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Batch",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(second_file),
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Batch",
+                    },
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        item_id = select_response.json()["upload_id"]
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group"},
+        )
+        assert group_response.status_code == 200
+        working_group_id = group_response.json()["working_group_id"]
+
+        groups_response = client.get("/api/working-groups")
+        assert groups_response.status_code == 200
+        created_group = next(group for group in groups_response.json()["groups"] if group["id"] == working_group_id)
+        assert created_group["title"] == "Router Mount Batch"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_folder_selection_with_unreadable_file_returns_warning_instead_of_500(tmp_path: Path, monkeypatch) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)
