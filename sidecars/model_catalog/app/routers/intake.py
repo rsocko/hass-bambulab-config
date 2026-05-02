@@ -31,7 +31,6 @@ from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from starlette.testclient import TestClient
 
 from ..settings import Settings
 
@@ -94,9 +93,9 @@ VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "uploading": {"uploaded_unverified", "failed"},
     "uploaded_unverified": {"verified", "failed"},
     "verified": {"cleanup_pending", "failed"},
-    "cleanup_pending": {"cleanup_done", "cleanup_failed"},
-    "cleanup_done": set(),  # terminal state
-    "cleanup_failed": {"cleanup_pending"},  # can retry
+    "cleanup_pending": {"cleanup_done", "cleanup_failed", "failed"},
+    "cleanup_done": {"failed"},  # can fail even after cleanup
+    "cleanup_failed": {"cleanup_pending", "failed"},  # can retry or fail
     "failed": set(),  # terminal state
 }
 
@@ -196,13 +195,37 @@ def _local_model_id_exists(*, db_path: Path, local_model_id: str) -> bool:
     finally:
         connection.close()
 
+def _generate_short_stable_id() -> str:
+    """Generate a short stable suffix for model IDs (first 8 chars of UUID4)."""
+    return str(uuid.uuid4()).replace("-", "")[:8]
+
 def _ensure_unique_local_model_id(*, db_path: Path, preferred: str) -> str:
-    base = _slugify_title(preferred) or "model"
-    candidate = base
+    """Generate a unique local model ID using format: <name-slug>--<shortid>.
+    
+    The local_model_id is immutable and used as the folder name for model assets.
+    Format: {slug}--{shortid}, e.g., 'gridfinity-bin--a1b2c3d4'.
+    
+    Args:
+        db_path: Path to the model catalog database
+        preferred: Preferred model name/title to derive slug from
+    
+    Returns:
+        Unique local model ID in format name-slug--shortid
+    """
+    slug = _slugify_title(preferred) or "model"
+    short_id = _generate_short_stable_id()
+    candidate = f"{slug}--{short_id}"
+    
+    # Safety check for collisions (extremely unlikely with UUID-based suffix)
     counter = 2
     while _local_model_id_exists(db_path=db_path, local_model_id=candidate):
-        candidate = f"{base}-{counter}"
+        short_id = _generate_short_stable_id()
+        candidate = f"{slug}--{short_id}"
         counter += 1
+        if counter > 100:
+            # Fallback: use counter suffix if somehow we hit many collisions
+            candidate = f"{slug}--{short_id}-{counter}"
+    
     return candidate
 
 def _normalize_local_asset_type(path: Path) -> str:
@@ -1455,122 +1478,11 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     state: AppState = request.app.state.model_catalog
     
     source_entries = payload.get("source_entries") or []
-    if not isinstance(source_entries, list) or len(source_entries) == 0:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "invalid_payload",
-                "message": "source_entries must be a non-empty list of {type, path, recurse?, max_depth?}",
-            },
-        )
-    
-    cleanup_policy = str(payload.get("cleanup_policy") or "keep").strip().lower()
-    if cleanup_policy not in {"keep", "delete_on_verified", "replace_with_stub"}:
-        cleanup_policy = "keep"
-    
-    # Validate source entries
-    validated_entries = []
-    for entry in source_entries:
-        if not isinstance(entry, dict):
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "invalid_source_entry",
-                    "message": "Each source_entry must be an object",
-                },
-            )
-        
-        entry_type = str(entry.get("type") or "").strip().lower()
-        entry_path = str(entry.get("path") or "").strip()
-        
-        if entry_type not in {"file", "folder"}:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "invalid_source_type",
-                    "message": f"source_entry.type must be 'file' or 'folder', got '{entry_type}'",
-                },
-            )
-        
-        if not entry_path:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "invalid_source_path",
-                    "message": "source_entry.path is required",
-                },
-            )
-        
-        resolved_path = Path(entry_path).expanduser().resolve()
-        if not resolved_path.exists():
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "source_not_found",
-                    "message": f"source_entry.path does not exist: {entry_path}",
-                },
-            )
-        
-        if entry_type == "file" and not resolved_path.is_file():
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "source_is_not_file",
-                    "message": f"source_entry marked as 'file' but path is not a file: {entry_path}",
-                },
-            )
-        
-        if entry_type == "folder" and not resolved_path.is_dir():
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "source_is_not_folder",
-                    "message": f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
-                },
-            )
-
-        try:
-            stat_result = resolved_path.stat()
-            entry_source_metadata = _bulk_path_source_metadata(resolved_path, stat_result)
-        except (OSError, PermissionError) as error:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "success": False,
-                    "error": "source_stat_error",
-                    "message": f"source_entry.path metadata could not be read: {entry_path}",
-                    "detail": str(error),
-                },
-            )
-        
-        validated_entry = {
-            "type": entry_type,
-            "path": str(resolved_path),
-            "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
-            "max_depth": _coerce_int(entry.get("max_depth")) if entry_type == "folder" else None,
-            "source_mtime": entry_source_metadata["source_mtime"],
-            "source_ctime": entry_source_metadata["source_ctime"],
-            "source_birthtime": entry_source_metadata.get("source_birthtime"),
-            "source_size_bytes": int(stat_result.st_size) if entry_type == "file" else None,
-        }
-        validated_entries.append(validated_entry)
-    
-    # Generate upload_id and persist to queue
-    upload_id = str(uuid.uuid4())
-    now_iso = _bulk_utc_now_iso()
-    source_entries_json = json.dumps(validated_entries)
     
     cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
 
     try:
-        validated_entries = _validate_intake_source_entries(payload.get("source_entries") or [])
+        validated_entries = _validate_intake_source_entries(source_entries)
     except IntakeSourceValidationError as error:
         return JSONResponse(
             status_code=400,
@@ -2783,10 +2695,9 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         cleanup_result = cleanup_payload["cleanup"]
         effective_status = str(cleanup_payload["status"])
 
-    _detail_client = TestClient(request.app, raise_server_exceptions=False)
-    _detail_resp = _detail_client.get(f"/api/models/{quote(local_model_id, safe='')}")
-    detail_response = _detail_resp.json() if _detail_resp.status_code == 200 else None
-    detail_payload = detail_response if isinstance(detail_response, dict) else None
+    # TODO: Extract model detail generation logic into a service function to avoid TestClient anti-pattern
+    # For now, detail retrieval is deferred - can be populated when detail endpoint logic is refactored
+    detail_payload = None
 
     return {
         "success": True,
@@ -3385,7 +3296,7 @@ async def intake_upload_to_manyfold(
     }
 
 @router.post("/api/intake/uploads/{upload_id}/cleanup")
-def intake_cleanup_upload(upload_id: str) -> Any:
+def intake_cleanup_upload(request: Request, upload_id: str) -> Any:
     """Run or retry post-upload source cleanup for a verified upload."""
     cleanup_ok, payload = _run_source_cleanup(request=request, upload_id=upload_id)
     if not cleanup_ok:

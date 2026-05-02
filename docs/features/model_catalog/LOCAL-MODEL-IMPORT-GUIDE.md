@@ -4,6 +4,8 @@
 
 The import system allows you to populate the local model catalog with test models by placing files in the server inbox directory (`/assets/model inbox`) or using the local import script.
 
+> **Note on Model IDs**: Each imported model is automatically assigned a unique `local_model_id` in the format `{name-slug}--{shortid}` (e.g., `gridfinity-bin--a1b2c3d4`). This ID is immutable and used as the folder name for model assets. See [LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md](LOCAL-MODEL-STORAGE-AND-NAMING-DESIGN.md) for details on the naming convention and why model folder names don't change when you edit a model's display name.
+
 ## Two Import Methods
 
 ### Method 1: Direct Server Import (Recommended)
@@ -112,12 +114,16 @@ python tools/model_catalog/import_test_models.py --api-url http://model-catalog.
 
 ### Metadata Format
 
-If no `.yaml` file is found, the importer auto-generates metadata from the filename.
+If no `.yaml` file is found, the importer auto-generates metadata from the filename. You can also create metadata files to override defaults.
 
 #### Example: gridfinity-bin.3mf.yaml
 
 ```yaml
-local_model_id: "gridfinity-bin"
+# local_model_id is auto-generated if omitted (format: slug--shortid)
+# Example: gridfinity-bin--a1b2c3d4
+# You can specify it here, but it's not required:
+# local_model_id: "gridfinity-bin--a1b2c3d4"
+
 model_name: "Gridfinity Bin"
 model_description: "Modular storage container compatible with Gridfinity standard"
 creator_name: "Your Name"
@@ -136,7 +142,10 @@ tags:
 #### Example: benchy.stl.yaml
 
 ```yaml
-local_model_id: "benchy-calibration"
+# local_model_id is auto-generated if omitted
+# Uncomment below to override (must follow slug--shortid format):
+# local_model_id: "benchy-calibration--f7e8c9d0"
+
 model_name: "Benchy - 3D Calibration Test"
 model_description: "Standard 3D printer calibration model for testing print quality"
 creator_name: "Test Import"
@@ -154,11 +163,11 @@ tags:
 
 If you don't provide a `.yaml` file, the script generates defaults based on the filename:
 
-| Filename | Auto-Generated Name | Tags |
-|----------|---------------------|------|
-| `gridfinity-bin.3mf` | Gridfinity Bin | `test`, `imported` |
-| `benchy.stl` | Benchy | `test`, `imported` |
-| `storage_organizer.3mf` | Storage Organizer | `test`, `imported` |
+| Filename | Auto-Generated Name | Local Model ID (Example) | Tags |
+|----------|---------------------|--------------------------|------|
+| `gridfinity-bin.3mf` | Gridfinity Bin | `gridfinity-bin--a1b2c3d4` | `test`, `imported` |
+| `benchy.stl` | Benchy | `benchy--f7e8c9d0` | `test`, `imported` |
+| `storage_organizer.3mf` | Storage Organizer | `storage-organizer--2b3a4c5d` | `test`, `imported` |
 
 ### Import Process (Local)
 
@@ -176,16 +185,16 @@ If you don't provide a `.yaml` file, the script generates defaults based on the 
 
 Processing: gridfinity-bin.3mf
   → Creating model 'Gridfinity Bin'...
-  ✓ Model created (ID: 42)
+  ✓ Model created (ID: gridfinity-bin--a1b2c3d4)
   → Attaching 3MF geometry...
-  ✓ Asset attached (ID: 1)
+  ✓ Asset attached
   ✓ Moved to validated/
 
 Processing: benchy.stl
   → Creating model 'Benchy'...
-  ✓ Model created (ID: 43)
+  ✓ Model created (ID: benchy--f7e8c9d0)
   → Attaching STL geometry...
-  ✓ Asset attached (ID: 2)
+  ✓ Asset attached
   ✓ Moved to validated/
 
 ============================================================
@@ -197,7 +206,7 @@ IMPORT SUMMARY
 
 ✓ Successfully imported:
   - Gridfinity Bin (gridfinity-bin.3mf)
-    Model ID: 42, Asset ID: 1
+    Model ID: gridfinity-bin--a1b2c3d4, Folder: gridfinity-bin--a1b2c3d4/
   - Benchy (benchy.stl)
     Model ID: 43, Asset ID: 2
 
