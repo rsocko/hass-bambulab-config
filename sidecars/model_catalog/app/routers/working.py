@@ -58,10 +58,31 @@ from ..db import (
     set_model_field,
 )
 from ..services import (
+    add_working_group_item_service,
+    batch_add_working_group_memberships_service,
+    batch_remove_working_group_memberships_service,
+    bulk_discover_working_groups_service,
+    bulk_import_working_groups_service,
     build_dedup_collision_warning,
+    create_model_catalog_project_service,
+    create_working_group_link_service,
+    create_working_group_service,
+    delete_working_group_link_service,
+    delete_working_group_service,
     detect_duplicate_files,
+    get_model_catalog_project_service,
+    get_model_lineage_service,
+    get_working_group_service,
     get_all_indexed_file_hashes,
     get_working_items_hashes,
+    list_model_catalog_projects_service,
+    list_working_group_links_service,
+    list_working_groups_for_model_service,
+    list_working_groups_service,
+    publish_working_group_to_local_service,
+    remove_working_group_item_service,
+    reorganize_working_group_service,
+    update_working_group_service,
 )
 from ..services.shared_helpers import (
     _resolve_local_asset_storage_path,
@@ -1149,247 +1170,14 @@ def explore_working_files(request: Request,
 def batch_add_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
     """Add multiple files to a working group."""
     state: AppState = request.app.state.model_catalog
-    group_id = int(payload.get("group_id") or 0)
-    if group_id <= 0:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "group_id is required"})
-
-    raw_paths = payload.get("file_paths")
-    if not isinstance(raw_paths, list) or not raw_paths:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "file_paths must be a non-empty array"})
-
-    item_role = str(payload.get("item_role") or "supporting").strip().lower() or "supporting"
-    if item_role not in {"primary", "supporting"}:
-        item_role = "supporting"
-    allow_multi_group = bool(payload.get("allow_multi_group", True))
-
-    allowlisted_roots = _working_group_allowed_source_roots(state.settings)
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-
-        now_iso = _bulk_utc_now_iso()
-        results: list[dict[str, Any]] = []
-        inserted_count = 0
-        seen_request_keys: set[str] = set()
-        for raw_path in raw_paths:
-            source_input = str(raw_path or "").strip()
-            if not source_input:
-                results.append({"path": source_input, "outcome": "invalid", "message": "empty path"})
-                continue
-            resolved_path = Path(source_input).expanduser().resolve()
-            if not resolved_path.exists():
-                results.append({"path": source_input, "canonical_path": str(resolved_path), "outcome": "missing", "message": "path does not exist"})
-                continue
-
-            candidate_files: list[Path] = []
-            if resolved_path.is_file():
-                candidate_files = [resolved_path]
-            elif resolved_path.is_dir():
-                candidate_files = [
-                    candidate.resolve()
-                    for candidate in sorted(resolved_path.rglob("*"))
-                    if candidate.is_file() and candidate.suffix.lower() in SUPPORTED_WORKING_FILE_EXTENSIONS
-                ]
-                if not candidate_files:
-                    results.append({"path": source_input, "canonical_path": str(resolved_path), "outcome": "unsupported", "message": "folder has no supported files"})
-                    continue
-            else:
-                results.append({"path": source_input, "canonical_path": str(resolved_path), "outcome": "unsupported", "message": "path must be a file or folder"})
-                continue
-
-            for candidate_file in candidate_files:
-                canonical_path = str(candidate_file)
-                compare_key = _normalize_path_compare_key(canonical_path)
-                if not compare_key or compare_key in seen_request_keys:
-                    continue
-                seen_request_keys.add(compare_key)
-
-                if candidate_file.suffix.lower() not in SUPPORTED_WORKING_FILE_EXTENSIONS:
-                    results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "unsupported", "message": "file extension is not supported"})
-                    continue
-                if allowlisted_roots and not _is_path_within_roots(candidate_file, allowlisted_roots):
-                    results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "blocked", "message": "path is outside the configured intake/working roots"})
-                    continue
-
-                existing_in_group = connection.execute(
-                    "SELECT id FROM working_items WHERE working_group_id = ? AND LOWER(REPLACE(file_path, '\\\\', '/')) = ?",
-                    (group_id, compare_key),
-                ).fetchone()
-                if existing_in_group is not None:
-                    results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "skipped", "message": "already attached to target group"})
-                    continue
-
-                existing_groups = connection.execute(
-                    """
-                    SELECT wi.working_group_id, wg.title
-                    FROM working_items wi
-                    JOIN working_groups wg ON wg.id = wi.working_group_id
-                    WHERE LOWER(REPLACE(wi.file_path, '\\\\', '/')) = ?
-                    ORDER BY wg.updated_at DESC, wg.id DESC
-                    """,
-                    (compare_key,),
-                ).fetchall()
-                if existing_groups and not allow_multi_group:
-                    labels = [f"{int(row['working_group_id'])}:{row['title']}" for row in existing_groups]
-                    results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "skipped", "message": "already attached to another group", "existing_groups": labels})
-                    continue
-
-                try:
-                    file_hash = _sha256_file(candidate_file).lower()
-                except (OSError, PermissionError):
-                    file_hash = ""
-
-                file_hash_to_store: str | None = file_hash or None
-                hash_warning: str | None = None
-                if file_hash_to_store and allow_multi_group:
-                    existing_hash_match = connection.execute(
-                        "SELECT id FROM working_items WHERE file_hash = ?",
-                        (file_hash_to_store,),
-                    ).fetchone()
-                    if existing_hash_match is not None:
-                        file_hash_to_store = None
-                        hash_warning = "hash_conflict_in_existing_group"
-
-                try:
-                    stat_result = candidate_file.stat()
-                    source_metadata = _bulk_path_source_metadata(candidate_file, stat_result)
-                    file_size = int(stat_result.st_size)
-                except (OSError, PermissionError):
-                    source_metadata = {"source_path": canonical_path}
-                    file_size = None
-
-                try:
-                    connection.execute(
-                        """
-                        INSERT INTO working_items (
-                            working_group_id, file_path, item_role, created_at, updated_at,
-                            file_hash, file_size, source_metadata_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            group_id,
-                            canonical_path,
-                            item_role,
-                            now_iso,
-                            now_iso,
-                            file_hash_to_store,
-                            file_size,
-                            json.dumps(source_metadata),
-                        ),
-                    )
-                except sqlite3.IntegrityError as exc:
-                    results.append({"path": source_input, "canonical_path": canonical_path, "outcome": "failed", "message": str(exc)})
-                    continue
-
-                inserted_count += 1
-                results.append(
-                    {
-                        "path": source_input,
-                        "canonical_path": canonical_path,
-                        "outcome": "added",
-                        "item_role": item_role,
-                        "warning": hash_warning,
-                    }
-                )
-
-        if item_role == "primary" and inserted_count:
-            primary_row = connection.execute(
-                "SELECT file_path FROM working_items WHERE working_group_id = ? ORDER BY id ASC LIMIT 1",
-                (group_id,),
-            ).fetchone()
-            connection.execute(
-                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-                ((primary_row["file_path"] if primary_row else None), now_iso, group_id),
-            )
-        elif inserted_count:
-            connection.execute("UPDATE working_groups SET updated_at = ? WHERE id = ?", (now_iso, group_id))
-
-        refreshed_group = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        connection.commit()
-        return {
-            "success": True,
-            "group_id": group_id,
-            "summary": {
-                "requested": len(raw_paths),
-                "added": inserted_count,
-                "skipped_or_failed": max(0, len(raw_paths) - inserted_count),
-            },
-            "results": results,
-            "group": _serialize_working_group(connection, refreshed_group, state.settings),
-        }
-    finally:
-        connection.close()
+    return batch_add_working_group_memberships_service(settings=state.settings, payload=payload)
 
 
 @router.post("/api/working-groups/memberships/batch-remove")
 def batch_remove_working_group_memberships(request: Request, payload: dict[str, Any]) -> Any:
     """Remove multiple files from a working group."""
     state: AppState = request.app.state.model_catalog
-    group_id = int(payload.get("group_id") or 0)
-    if group_id <= 0:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "group_id is required"})
-
-    raw_paths = payload.get("file_paths")
-    if not isinstance(raw_paths, list) or not raw_paths:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "file_paths must be a non-empty array"})
-
-    normalized_keys = {_normalize_path_compare_key(path) for path in raw_paths if str(path or "").strip()}
-    if not normalized_keys:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "file_paths must include at least one non-empty value"})
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-
-        item_rows = connection.execute(
-            "SELECT id, file_path FROM working_items WHERE working_group_id = ?",
-            (group_id,),
-        ).fetchall()
-        removable_ids: list[int] = []
-        results: list[dict[str, Any]] = []
-        for row in item_rows:
-            normalized = _normalize_path_compare_key(row["file_path"])
-            if normalized in normalized_keys:
-                removable_ids.append(int(row["id"]))
-                results.append({"path": row["file_path"], "outcome": "removed"})
-
-        if removable_ids:
-            placeholders = ",".join("?" for _ in removable_ids)
-            connection.execute(
-                f"DELETE FROM working_items WHERE working_group_id = ? AND id IN ({placeholders})",
-                (group_id, *removable_ids),
-            )
-
-        replacement = connection.execute(
-            "SELECT file_path FROM working_items WHERE working_group_id = ? ORDER BY id ASC LIMIT 1",
-            (group_id,),
-        ).fetchone()
-        connection.execute(
-            "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-            ((replacement["file_path"] if replacement else None), _bulk_utc_now_iso(), group_id),
-        )
-
-        refreshed_group = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        connection.commit()
-        return {
-            "success": True,
-            "group_id": group_id,
-            "summary": {
-                "requested": len(normalized_keys),
-                "removed": len(removable_ids),
-                "not_found": max(0, len(normalized_keys) - len(removable_ids)),
-            },
-            "results": results,
-            "group": _serialize_working_group(connection, refreshed_group, state.settings),
-        }
-    finally:
-        connection.close()
+    return batch_remove_working_group_memberships_service(settings=state.settings, payload=payload)
 
 
 # ==================== ENDPOINTS: WORKING GROUP MANAGEMENT ====================
@@ -1399,491 +1187,57 @@ def batch_remove_working_group_memberships(request: Request, payload: dict[str, 
 def reorganize_working_group(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
     """Reorganize working group files to target folder."""
     state: AppState = request.app.state.model_catalog
-    payload = payload or {}
-    execute = bool(payload.get("execute", False))
-    selected_paths = payload.get("file_paths") if isinstance(payload.get("file_paths"), list) else None
-
-    destination_root = _working_files_destination_root(state.settings)
-    if destination_root is None:
-        return JSONResponse(status_code=400, content={"success": False, "error": "no_destination_root", "message": "No allowlisted working-files root is configured"})
-
-    allowlisted_roots = _working_group_allowed_source_roots(state.settings)
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-
-        item_rows = connection.execute(
-            "SELECT id, file_path FROM working_items WHERE working_group_id = ? ORDER BY id ASC",
-            (group_id,),
-        ).fetchall()
-        if not item_rows:
-            return JSONResponse(status_code=400, content={"success": False, "error": "no_items", "message": "Working group has no files"})
-
-        selected_keys = {
-            _normalize_path_compare_key(path)
-            for path in (selected_paths or [])
-            if str(path or "").strip()
-        }
-        target_items = []
-        for row in item_rows:
-            normalized = _normalize_path_compare_key(row["file_path"])
-            if selected_keys and normalized not in selected_keys:
-                continue
-            target_items.append(row)
-
-        if not target_items:
-            return JSONResponse(status_code=400, content={"success": False, "error": "no_matching_items", "message": "No matching files found for reorganize"})
-
-        group_slug = str(group_row["slug"] or f"group-{group_id}")
-        target_folder = (destination_root / group_slug).resolve()
-        plan: list[dict[str, Any]] = []
-        conflicts: list[dict[str, Any]] = []
-        collision_renames: list[dict[str, Any]] = []
-        duplicate_hash_skips: list[dict[str, Any]] = []
-        existing_target_hashes: dict[str, str] = {}
-        planned_destination_hashes: dict[str, str] = {}
-
-        if target_folder.exists() and target_folder.is_dir():
-            for existing_candidate in sorted(target_folder.iterdir()):
-                if not existing_candidate.is_file():
-                    continue
-                try:
-                    existing_hash = _sha256_file(existing_candidate).lower()
-                except (OSError, PermissionError):
-                    continue
-                if existing_hash and existing_hash not in existing_target_hashes:
-                    existing_target_hashes[existing_hash] = str(existing_candidate.resolve())
-
-        reserved_destination_keys: set[str] = set()
-        for row in target_items:
-            source_path = Path(str(row["file_path"] or "")).expanduser()
-            if not source_path.exists() or not source_path.is_file():
-                entry = {
-                    "item_id": int(row["id"]),
-                    "source_path": str(source_path),
-                    "action": "missing",
-                    "reason": "source_missing",
-                }
-                plan.append(entry)
-                conflicts.append(entry)
-                continue
-            resolved_source = source_path.resolve()
-            if allowlisted_roots and not _is_path_within_roots(resolved_source, allowlisted_roots):
-                entry = {
-                    "item_id": int(row["id"]),
-                    "source_path": str(resolved_source),
-                    "action": "blocked",
-                    "reason": "outside_working_or_intake_roots",
-                }
-                plan.append(entry)
-                conflicts.append(entry)
-                continue
-
-            base_destination = (target_folder / resolved_source.name).resolve()
-            if _normalize_path_compare_key(resolved_source) == _normalize_path_compare_key(base_destination):
-                plan.append(
-                    {
-                        "item_id": int(row["id"]),
-                        "source_path": str(resolved_source),
-                        "destination_path": str(base_destination),
-                        "action": "noop",
-                        "reason": "already_in_target_folder",
-                    }
-                )
-                continue
-
-            try:
-                source_hash = _sha256_file(resolved_source).lower()
-            except (OSError, PermissionError):
-                entry = {
-                    "item_id": int(row["id"]),
-                    "source_path": str(resolved_source),
-                    "action": "blocked",
-                    "reason": "source_hash_unavailable",
-                }
-                plan.append(entry)
-                conflicts.append(entry)
-                continue
-
-            duplicate_target_path = existing_target_hashes.get(source_hash)
-            duplicate_planned_path = planned_destination_hashes.get(source_hash)
-            if duplicate_target_path or duplicate_planned_path:
-                duplicate_of = duplicate_target_path or duplicate_planned_path
-                entry = {
-                    "item_id": int(row["id"]),
-                    "source_path": str(resolved_source),
-                    "action": "duplicate",
-                    "reason": "duplicate_hash",
-                    "source_sha256": source_hash,
-                    "duplicate_of_path": duplicate_of,
-                }
-                plan.append(entry)
-                duplicate_hash_skips.append(entry)
-                continue
-
-            destination_path = _unique_destination_path(
-                target_folder,
-                resolved_source.name,
-                reserved_paths=reserved_destination_keys,
-            ).resolve()
-
-            source_name = resolved_source.name
-            destination_name = destination_path.name
-            was_renamed = destination_name != source_name
-            destination_key = _normalize_path_compare_key(str(destination_path))
-            if destination_key:
-                reserved_destination_keys.add(destination_key)
-
-            entry = {
-                "item_id": int(row["id"]),
-                "source_path": str(resolved_source),
-                "destination_path": str(destination_path),
-                "action": "move",
-                "reason": "renamed_for_collision" if was_renamed else "ok",
-                "collision_renamed": was_renamed,
-                "source_name": source_name,
-                "destination_name": destination_name,
-                "source_sha256": source_hash,
-            }
-            if was_renamed:
-                collision_renames.append(
-                    {
-                        "item_id": int(row["id"]),
-                        "source_path": str(resolved_source),
-                        "destination_path": str(destination_path),
-                        "source_name": source_name,
-                        "destination_name": destination_name,
-                    }
-                )
-            plan.append(entry)
-            planned_destination_hashes[source_hash] = str(destination_path)
-
-        if not execute:
-            return {
-                "success": True,
-                "working_group_id": group_id,
-                "dry_run": True,
-                "can_execute": len(conflicts) == 0,
-                "target_folder": str(target_folder),
-                "operation_plan": plan,
-                "plan": plan,
-                "collisions_detected": len(collision_renames),
-                "collision_renames": collision_renames,
-                "duplicate_hash_skips": duplicate_hash_skips,
-                "duplicate_hash_skipped_count": len(duplicate_hash_skips),
-                "conflicts": conflicts,
-            }
-
-        if conflicts:
-            return JSONResponse(
-                status_code=409,
-                content={
-                    "success": False,
-                    "error": "reorganize_conflicts",
-                    "message": "Reorganize plan has conflicts; run dry-run and resolve conflicts first",
-                    "target_folder": str(target_folder),
-                    "operation_plan": plan,
-                    "plan": plan,
-                    "collisions_detected": len(collision_renames),
-                    "collision_renames": collision_renames,
-                    "duplicate_hash_skips": duplicate_hash_skips,
-                    "duplicate_hash_skipped_count": len(duplicate_hash_skips),
-                    "conflicts": conflicts,
-                },
-            )
-
-        target_folder.mkdir(parents=True, exist_ok=True)
-        moved_map: dict[int, tuple[str, str]] = {}
-        for entry in plan:
-            if entry["action"] != "move":
-                continue
-            item_id = int(entry["item_id"])
-            source_path = Path(str(entry["source_path"]))
-            destination_path = Path(str(entry["destination_path"]))
-            shutil.move(str(source_path), str(destination_path))
-            moved_map[item_id] = (str(source_path), str(destination_path))
-
-        now_iso = _bulk_utc_now_iso()
-        for item_id, move_pair in moved_map.items():
-            old_path, new_path = move_pair
-            connection.execute(
-                "UPDATE working_items SET file_path = ?, updated_at = ? WHERE id = ?",
-                (new_path, now_iso, item_id),
-            )
-            if str(group_row["primary_file_path"] or "") == old_path:
-                connection.execute(
-                    "UPDATE working_groups SET primary_file_path = ? WHERE id = ?",
-                    (new_path, group_id),
-                )
-
-        connection.execute(
-            "UPDATE working_groups SET folder_hint = ?, updated_at = ? WHERE id = ?",
-            (str(target_folder), now_iso, group_id),
-        )
-        connection.execute(
-            """
-            INSERT INTO model_catalog_events (event_type, entity_type, entity_id, payload_json, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                "working_group_reorganized",
-                "working_group",
-                str(group_id),
-                json.dumps(
-                    {
-                        "group_id": group_id,
-                        "target_folder": str(target_folder),
-                        "moved_count": len(moved_map),
-                        "collision_rename_count": len(collision_renames),
-                        "collision_renames": collision_renames,
-                        "duplicate_hash_skipped_count": len(duplicate_hash_skips),
-                        "duplicate_hash_skips": duplicate_hash_skips,
-                        "moves": [
-                            {"item_id": item_id, "old_path": old_path, "new_path": new_path}
-                            for item_id, (old_path, new_path) in moved_map.items()
-                        ],
-                    }
-                ),
-                now_iso,
-            ),
-        )
-
-        connection.commit()
-        refreshed = _refresh_working_file_inventory(
+    return reorganize_working_group_service(
+        settings=state.settings,
+        group_id=group_id,
+        payload=payload,
+        refresh_inventory=lambda: _refresh_working_file_inventory(
             db_path=state.settings.db_path,
             roots=_configured_working_files_roots(state.settings),
             compute_hashes=False,
-        )
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        return {
-            "success": True,
-            "working_group_id": group_id,
-            "dry_run": False,
-            "target_folder": str(target_folder),
-            "moved_count": len(moved_map),
-            "operation_plan": plan,
-            "plan": plan,
-            "collisions_detected": len(collision_renames),
-            "collision_renames": collision_renames,
-            "duplicate_hash_skips": duplicate_hash_skips,
-            "duplicate_hash_skipped_count": len(duplicate_hash_skips),
-            "audit_events": [
-                {
-                    "type": "working_group_reorganized",
-                    "group_id": group_id,
-                    "moved_count": len(moved_map),
-                    "collision_rename_count": len(collision_renames),
-                    "duplicate_hash_skipped_count": len(duplicate_hash_skips),
-                }
-            ],
-            "inventory_refresh": refreshed,
-            "group": _serialize_working_group(connection, group_row, state.settings),
-        }
-    finally:
-        connection.close()
+        ),
+    )
 
 
 @router.post("/api/working-groups")
 def create_working_group(request: Request, payload: dict[str, Any]) -> Any:
     """Create a new working group."""
     state: AppState = request.app.state.model_catalog
-    title = str(payload.get("title") or "").strip()
-    if not title:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title is required"})
-
-    stage = str(payload.get("stage") or "draft").strip() or "draft"
-    notes = str(payload.get("notes") or "").strip() or None
-    folder_hint = str(payload.get("folder_hint") or "").strip() or None
-    primary_file_path = str(payload.get("primary_file_path") or "").strip() or None
-    project_id = _resolve_project_id_value(payload.get("project_id"))
-    now_iso = _bulk_utc_now_iso()
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        if project_id is not None:
-            project_row = connection.execute(
-                "SELECT id FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-                (project_id,),
-            ).fetchone()
-            if project_row is None:
-                return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": f"Project not found: {project_id}"})
-        slug = _unique_slug(connection, title)
-        connection.execute(
-            """
-            INSERT INTO working_groups (
-                slug, title, stage, project_id, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at,
-                discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                slug,
-                title,
-                stage,
-                project_id,
-                notes,
-                primary_file_path,
-                folder_hint,
-                str(payload.get("related_manyfold_model_id") or "").strip() or None,
-                now_iso,
-                now_iso,
-                None,
-                None,
-                None,
-                "{}",
-            ),
-        )
-        group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-        row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        connection.commit()
-        return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
-    finally:
-        connection.close()
+    return create_working_group_service(settings=state.settings, payload=payload)
 
 
 @router.get("/api/working-groups")
 def list_working_groups(request: Request, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None) -> Any:
     """List working groups with filtering."""
     state: AppState = request.app.state.model_catalog
-    limit_value = max(1, min(int(limit or 100), 500))
-    offset_value = max(0, int(offset or 0))
-
-    where_sql = "1=1"
-    params: list[Any] = []
-    if stage and stage.strip():
-        where_sql += " AND stage = ?"
-        params.append(stage.strip())
-    if project_id is not None:
-        where_sql += " AND project_id = ?"
-        params.append(int(project_id))
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        total_row = connection.execute(
-            f"SELECT COUNT(*) AS cnt FROM working_groups WHERE {where_sql}",
-            params,
-        ).fetchone()
-        rows = connection.execute(
-            f"""
-            SELECT * FROM working_groups
-            WHERE {where_sql}
-            ORDER BY updated_at DESC, id DESC
-            LIMIT ? OFFSET ?
-            """,
-            [*params, limit_value, offset_value],
-        ).fetchall()
-        groups = [_serialize_working_group(connection, row, state.settings) for row in rows]
-    finally:
-        connection.close()
-
-    return {
-        "success": True,
-        "pagination": {
-            "limit": limit_value,
-            "offset": offset_value,
-            "total": int(total_row["cnt"] if total_row else 0),
-        },
-        "groups": groups,
-    }
+    return list_working_groups_service(
+        settings=state.settings,
+        limit=limit,
+        offset=offset,
+        stage=stage,
+        project_id=project_id,
+    )
 
 
 @router.get("/api/working-groups/{group_id}")
 def get_working_group(request: Request, group_id: int) -> Any:
     """Get a single working group."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
-    finally:
-        connection.close()
+    return get_working_group_service(settings=state.settings, group_id=group_id)
 
 
 @router.patch("/api/working-groups/{group_id}")
 def update_working_group(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
     """Update a working group."""
     state: AppState = request.app.state.model_catalog
-    allowed_fields = {
-        "title": "title",
-        "stage": "stage",
-        "notes": "notes",
-        "primary_file_path": "primary_file_path",
-        "folder_hint": "folder_hint",
-        "related_manyfold_model_id": "related_manyfold_model_id",
-    }
-    updates: list[str] = []
-    params: list[Any] = []
-    for field_name, column_name in allowed_fields.items():
-        if field_name not in payload:
-            continue
-        updates.append(f"{column_name} = ?")
-        value = payload.get(field_name)
-        if value is None:
-            params.append(None)
-        else:
-            text_value = str(value).strip()
-            params.append(text_value or None)
-    if not updates:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "No mutable fields provided"})
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        if "project_id" in payload:
-            requested_project_id = payload.get("project_id")
-            project_id_value = _resolve_project_id_value(requested_project_id)
-            if requested_project_id not in {None, "", 0, "0"} and project_id_value is None:
-                return JSONResponse(status_code=400, content={"success": False, "error": "invalid_project_id", "message": "project_id must be a positive integer or null"})
-            if project_id_value is not None:
-                project_row = connection.execute(
-                    "SELECT id FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-                    (project_id_value,),
-                ).fetchone()
-                if project_row is None:
-                    return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": f"Project not found: {project_id_value}"})
-            updates.append("project_id = ?")
-            params.append(project_id_value)
-        updates.append("updated_at = ?")
-        params.append(_bulk_utc_now_iso())
-        params.append(group_id)
-        connection.execute(
-            f"UPDATE working_groups SET {', '.join(updates)} WHERE id = ?",
-            params,
-        )
-        row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        connection.commit()
-        return {"success": True, "group": _serialize_working_group(connection, row, state.settings)}
-    finally:
-        connection.close()
+    return update_working_group_service(settings=state.settings, group_id=group_id, payload=payload)
 
 
 @router.delete("/api/working-groups/{group_id}")
 def delete_working_group(request: Request, group_id: int) -> Any:
     """Delete a working group and cascade delete items and links."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    try:
-        row = connection.execute("SELECT id FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        connection.execute("DELETE FROM working_group_model_links WHERE working_group_id = ?", (group_id,))
-        connection.execute("DELETE FROM working_items WHERE working_group_id = ?", (group_id,))
-        connection.execute("DELETE FROM working_groups WHERE id = ?", (group_id,))
-        connection.commit()
-        return {"success": True, "deleted": True, "working_group_id": group_id}
-    finally:
-        connection.close()
+    return delete_working_group_service(settings=state.settings, group_id=group_id)
 
 
 # ==================== ENDPOINTS: WORKING GROUP ITEMS ====================
@@ -1893,106 +1247,14 @@ def delete_working_group(request: Request, group_id: int) -> Any:
 def add_working_group_item(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
     """Add a single item to a working group."""
     state: AppState = request.app.state.model_catalog
-    file_path_raw = str(payload.get("file_path") or "").strip()
-    if not file_path_raw:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "file_path is required"})
-    file_path = Path(file_path_raw).expanduser().resolve()
-    if not file_path.exists() or not file_path.is_file():
-        return JSONResponse(status_code=400, content={"success": False, "error": "missing_source", "message": f"file_path not found: {file_path_raw}"})
-    allowed_roots = _working_group_allowed_source_roots(state.settings)
-    if allowed_roots and not _is_path_within_roots(file_path, allowed_roots):
-        return JSONResponse(status_code=403, content={"success": False, "error": "path_not_allowed", "message": "file_path is outside the configured intake/working roots"})
-
-    item_role = str(payload.get("item_role") or "supporting").strip().lower() or "supporting"
-    if item_role not in {"primary", "supporting"}:
-        item_role = "supporting"
-    file_hash = str(payload.get("file_hash") or "").strip().lower()
-    if not file_hash:
-        try:
-            file_hash = _sha256_file(file_path).lower()
-        except (OSError, PermissionError):
-            file_hash = ""
-    try:
-        stat_result = file_path.stat()
-        source_metadata = _bulk_path_source_metadata(file_path, stat_result)
-        file_size = int(stat_result.st_size)
-    except (OSError, PermissionError):
-        source_metadata = {"source_path": str(file_path)}
-        file_size = None
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-
-        now_iso = _bulk_utc_now_iso()
-        try:
-            connection.execute(
-                """
-                INSERT INTO working_items (
-                    working_group_id, file_path, item_role, created_at, updated_at,
-                    file_hash, file_size, source_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    group_id,
-                    str(file_path),
-                    item_role,
-                    now_iso,
-                    now_iso,
-                    file_hash or None,
-                    file_size,
-                    json.dumps(source_metadata),
-                ),
-            )
-        except sqlite3.IntegrityError as exc:
-            return JSONResponse(status_code=409, content={"success": False, "error": "duplicate_or_conflict", "message": str(exc)})
-
-        if item_role == "primary":
-            connection.execute(
-                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-                (str(file_path), now_iso, group_id),
-            )
-        connection.commit()
-        refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
-    finally:
-        connection.close()
+    return add_working_group_item_service(settings=state.settings, group_id=group_id, payload=payload)
 
 
 @router.delete("/api/working-groups/{group_id}/items/{item_id}")
 def remove_working_group_item(request: Request, group_id: int, item_id: int) -> Any:
     """Remove an item from a working group."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        item_row = connection.execute(
-            "SELECT id, file_path FROM working_items WHERE id = ? AND working_group_id = ?",
-            (item_id, group_id),
-        ).fetchone()
-        if item_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working item not found"})
-        connection.execute("DELETE FROM working_items WHERE id = ?", (item_id,))
-        if str(group_row["primary_file_path"] or "") == str(item_row["file_path"] or ""):
-            replacement = connection.execute(
-                "SELECT file_path FROM working_items WHERE working_group_id = ? ORDER BY id ASC LIMIT 1",
-                (group_id,),
-            ).fetchone()
-            connection.execute(
-                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-                ((replacement["file_path"] if replacement else None), _bulk_utc_now_iso(), group_id),
-            )
-        connection.commit()
-        refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
-    finally:
-        connection.close()
+    return remove_working_group_item_service(settings=state.settings, group_id=group_id, item_id=item_id)
 
 
 # ==================== ENDPOINTS: MODEL LINKS ====================
@@ -2002,99 +1264,21 @@ def remove_working_group_item(request: Request, group_id: int, item_id: int) -> 
 def create_working_group_link(request: Request, group_id: int, payload: dict[str, Any]) -> Any:
     """Create or update a link from working group to model."""
     state: AppState = request.app.state.model_catalog
-    model_ref = str(payload.get("model_ref") or "").strip()
-    if not model_ref:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "model_ref is required"})
-    link_role = str(payload.get("link_role") or "related").strip().lower() or "related"
-    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-    now_iso = _bulk_utc_now_iso()
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        try:
-            connection.execute(
-                """
-                INSERT INTO working_group_model_links (
-                    working_group_id, model_ref, link_role, link_metadata_json, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (group_id, model_ref, link_role, json.dumps(metadata), now_iso, now_iso),
-            )
-        except sqlite3.IntegrityError:
-            connection.execute(
-                """
-                UPDATE working_group_model_links
-                SET link_role = ?, link_metadata_json = ?, updated_at = ?
-                WHERE working_group_id = ? AND model_ref = ?
-                """,
-                (link_role, json.dumps(metadata), now_iso, group_id, model_ref),
-            )
-        connection.commit()
-        refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
-    finally:
-        connection.close()
+    return create_working_group_link_service(settings=state.settings, group_id=group_id, payload=payload)
 
 
 @router.get("/api/working-groups/{group_id}/links")
 def list_working_group_links(request: Request, group_id: int) -> Any:
     """List model links for a working group."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        link_rows = connection.execute(
-            "SELECT * FROM working_group_model_links WHERE working_group_id = ? ORDER BY id ASC",
-            (group_id,),
-        ).fetchall()
-        return {
-            "success": True,
-            "working_group_id": group_id,
-            "links": [
-                {
-                    "id": int(row["id"]),
-                    "model_ref": row["model_ref"],
-                    "link_role": row["link_role"],
-                    "metadata": json.loads(str(row["link_metadata_json"] or "{}")),
-                    "created_at": row["created_at"],
-                    "updated_at": row["updated_at"],
-                }
-                for row in link_rows
-            ],
-        }
-    finally:
-        connection.close()
+    return list_working_group_links_service(settings=state.settings, group_id=group_id)
 
 
 @router.delete("/api/working-groups/{group_id}/links/{link_id}")
 def delete_working_group_link(request: Request, group_id: int, link_id: int) -> Any:
     """Delete a model link from a working group."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        link_row = connection.execute(
-            "SELECT id FROM working_group_model_links WHERE id = ? AND working_group_id = ?",
-            (link_id, group_id),
-        ).fetchone()
-        if link_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working-group link not found"})
-        connection.execute("DELETE FROM working_group_model_links WHERE id = ?", (link_id,))
-        connection.commit()
-        refreshed = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        return {"success": True, "group": _serialize_working_group(connection, refreshed, state.settings)}
-    finally:
-        connection.close()
+    return delete_working_group_link_service(settings=state.settings, group_id=group_id, link_id=link_id)
 
 
 # ==================== ENDPOINTS: MODEL QUERIES ====================
@@ -2104,31 +1288,7 @@ def delete_working_group_link(request: Request, group_id: int, link_id: int) -> 
 def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
     """Get all working groups linked to a model."""
     state: AppState = request.app.state.model_catalog
-    normalized_ref = str(model_ref or "").strip()
-    if not normalized_ref:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_model_ref", "message": "model_ref is required"})
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_rows = connection.execute(
-            """
-            SELECT g.*
-            FROM working_groups g
-            JOIN working_group_model_links l ON l.working_group_id = g.id
-            WHERE l.model_ref = ?
-            ORDER BY g.updated_at DESC, g.id DESC
-            """,
-            (normalized_ref,),
-        ).fetchall()
-        groups = [_serialize_working_group(connection, row, state.settings) for row in group_rows]
-        return {
-            "success": True,
-            "model_ref": normalized_ref,
-            "group_count": len(groups),
-            "groups": groups,
-        }
-    finally:
-        connection.close()
+    return list_working_groups_for_model_service(settings=state.settings, model_ref=model_ref)
 
 
 # ==================== ENDPOINTS: PUBLISHING ====================
@@ -2138,213 +1298,14 @@ def list_working_groups_for_model(request: Request, model_ref: str) -> Any:
 def publish_working_group_to_local(request: Request, group_id: int, payload: dict[str, Any] | None = None) -> Any:
     """Publish a working group to a local model."""
     state: AppState = request.app.state.model_catalog
-    payload = payload or {}
-    publish_outcome = str(payload.get("publish_outcome") or "").strip().lower()
-    valid_outcomes = {
-        "new_canonical_revision",
-        "add_as_additional_file_or_variant",
-        "keep_separate_curated_model",
-        "cancel_for_cleanup",
-    }
-    if publish_outcome not in valid_outcomes:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_publish_outcome", "message": "publish_outcome is required and must be a supported value"})
-    if publish_outcome == "cancel_for_cleanup":
-        return {"success": True, "cancelled": True, "publish_outcome": publish_outcome, "working_group_id": group_id}
-
-    lineage_type = str(payload.get("lineage_type") or "").strip().lower() or None
-    if lineage_type and lineage_type not in {"canonical_revision", "supersedes", "superseded_by", "additional_variant", "separate_related"}:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_lineage_type", "message": "Unsupported lineage_type"})
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-        if group_row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Working group not found"})
-        item_rows = connection.execute(
-            "SELECT * FROM working_items WHERE working_group_id = ? ORDER BY id ASC",
-            (group_id,),
-        ).fetchall()
-        if not item_rows:
-            return JSONResponse(status_code=400, content={"success": False, "error": "no_items", "message": "Working group has no files to publish"})
-
-        now_iso = _bulk_utc_now_iso()
-        try:
-            resolved_project_id, created_project = _resolve_publish_project(connection, payload=payload, group_row=group_row, now_iso=now_iso)
-        except ValueError as exc:
-            return JSONResponse(status_code=400, content={"success": False, "error": "invalid_project", "message": str(exc)})
-        except LookupError as exc:
-            return JSONResponse(status_code=404, content={"success": False, "error": "project_not_found", "message": str(exc)})
-
-        target_model_ref = str(payload.get("target_model_ref") or payload.get("local_model_id") or "").strip() or None
-        model_name = str(payload.get("model_name") or "").strip() or str(group_row["title"] or f"group-{group_id}")
-        if not target_model_ref or publish_outcome == "keep_separate_curated_model":
-            target_model_ref = _ensure_unique_local_model_id(db_path=state.settings.db_path, preferred=model_name)
-
-        requested_description = str(payload.get("description") or "").strip() or None
-        requested_tags = payload.get("tags") if isinstance(payload.get("tags"), list) else None
-        requested_collection_names = payload.get("collection_names") if isinstance(payload.get("collection_names"), list) else None
-
-        target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=target_model_ref)
-        created_model = False
-        if target_entry is None:
-            target_entry = create_local_model(
-                db_path=state.settings.db_path,
-                local_model_id=target_model_ref,
-                model_name=model_name,
-                model_description=requested_description,
-                created_by="working_group_publish",
-                collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
-                tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
-                keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
-                source_origin="working_group_publish",
-                source_origin_url=f"working-group://{group_id}",
-            )
-            created_model = True
-        else:
-            target_entry = update_local_model(
-                db_path=state.settings.db_path,
-                local_model_id=target_model_ref,
-                model_name=(model_name if payload.get("model_name") is not None else None),
-                model_description=requested_description,
-                collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
-                tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
-                keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
-            )
-
-        if target_entry is None:
-            return JSONResponse(status_code=500, content={"success": False, "error": "publish_failed", "message": "Could not create or update local model"})
-
-        if resolved_project_id is not None and group_row["project_id"] != resolved_project_id:
-            connection.execute(
-                "UPDATE working_groups SET project_id = ?, updated_at = ? WHERE id = ?",
-                (resolved_project_id, now_iso, group_id),
-            )
-        connection.commit()
-    finally:
-        connection.close()
-
-    existing_assets = list_model_assets(db_path=state.settings.db_path, local_model_id=target_model_ref)
-    existing_hashes = {
-        str(getattr(asset, "file_hash", "") or "").strip().lower()
-        for asset in existing_assets
-        if str(getattr(asset, "file_hash", "") or "").strip()
-    }
-    existing_asset_ids = {
-        str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
-        for asset in existing_assets
-        if str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
-    }
-    has_preview = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview" for asset in existing_assets)
-    has_primary = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "primary" for asset in existing_assets)
-
-    imported_assets: list[dict[str, Any]] = []
-    duplicate_skipped: list[dict[str, Any]] = []
-    failed_files: list[dict[str, Any]] = []
-
-    for item_row in item_rows:
-        source_path = Path(str(item_row["file_path"])).expanduser().resolve()
-        if not source_path.exists() or not source_path.is_file():
-            failed_files.append({"source_path": str(source_path), "message": "Source file not found"})
-            continue
-        file_hash = str(item_row["file_hash"] or "").strip().lower()
-        if file_hash and file_hash in existing_hashes:
-            duplicate_skipped.append({"source_path": str(source_path), "filename": source_path.name, "sha256": file_hash, "reason": "duplicate_hash"})
-            continue
-        try:
-            storage_path = _copy_local_import_source(settings=state.settings, local_model_id=target_model_ref, source_path=source_path)
-            asset_type = _normalize_local_asset_type(source_path)
-            normalized_asset_role = _normalize_local_asset_role(
-                asset_type=asset_type,
-                has_preview=has_preview,
-                has_primary=has_primary,
-                preview_selected=False,
-            )
-            if str(item_row["item_role"] or "") == "primary" and not has_primary:
-                normalized_asset_role = "primary"
-            asset_id = _unique_asset_id(filename=source_path.name, file_hash=file_hash, existing_ids=existing_asset_ids)
-            asset = create_model_asset(
-                db_path=state.settings.db_path,
-                local_model_id=target_model_ref,
-                asset_id=asset_id,
-                asset_filename=source_path.name,
-                asset_type=asset_type,
-                storage_path=storage_path,
-                asset_role=normalized_asset_role,
-                file_size_bytes=int(item_row["file_size"] or 0) or None,
-                file_hash=file_hash or None,
-                preview_url=None,
-                geometry_bounds=None,
-            )
-            if file_hash:
-                existing_hashes.add(file_hash)
-            existing_asset_ids.add(asset.asset_id)
-            has_preview = has_preview or asset.asset_role == "preview"
-            has_primary = has_primary or asset.asset_role == "primary"
-            imported_assets.append(
-                {
-                    "asset_id": asset.asset_id,
-                    "filename": asset.asset_filename,
-                    "asset_type": asset.asset_type,
-                    "asset_role": asset.asset_role,
-                    "storage_path": asset.storage_path,
-                    "file_hash": asset.file_hash,
-                    "source_path": str(source_path),
-                }
-            )
-        except Exception as exc:
-            failed_files.append({"source_path": str(source_path), "filename": source_path.name, "message": str(exc)})
-
-    lineage_payload = {
-        "lineage_type": lineage_type,
-        "target_model_ref": str(payload.get("target_model_ref") or "").strip() or None,
-        "reconciliation_notes": str(payload.get("reconciliation_notes") or "").strip() or None,
-    }
-    set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="project_id", field_value=resolved_project_id)
-    set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="published_from_group_id", field_value=group_id)
-    set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="publish_outcome", field_value=publish_outcome)
-    set_model_field(db_path=state.settings.db_path, model_ref=target_model_ref, field_key="lineage", field_value=lineage_payload)
-    publish_history = _append_intake_publish_history(
-        db_path=state.settings.db_path,
-        model_ref=target_model_ref,
-        entry={
-            "published_at": _bulk_utc_now_iso(),
-            "source": "working_group_publish",
-            "working_group_id": group_id,
-            "publish_outcome": publish_outcome,
-            "project_id": resolved_project_id,
-            "created_model": created_model,
-            "imported_asset_count": len(imported_assets),
-            "duplicate_skipped_count": len(duplicate_skipped),
-            "failed_file_count": len(failed_files),
-        },
-    )
-
-    return {
-        "success": True,
-        "working_group_id": group_id,
-        "model_ref": target_model_ref,
-        "publish_outcome": publish_outcome,
-        "project_id": resolved_project_id,
-        "created_project": created_project,
-        "created_model": created_model,
-        "published_from_group_id": group_id,
-        "lineage": lineage_payload,
-        "imported_assets": imported_assets,
-        "duplicate_skipped": duplicate_skipped,
-        "failed_files": failed_files,
-        "publish_history": publish_history,
-    }
+    return publish_working_group_to_local_service(settings=state.settings, group_id=group_id, payload=payload)
 
 
 @router.get("/api/models/{model_ref:path}/lineage")
 def get_model_lineage(request: Request, model_ref: str) -> Any:
     """Get model lineage/publish history."""
     state: AppState = request.app.state.model_catalog
-    normalized_ref = str(model_ref or "").strip()
-    if not normalized_ref:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_model_ref", "message": "model_ref is required"})
-    return {"success": True, **_lineage_payload_for_model(db_path=state.settings.db_path, model_ref=normalized_ref)}
+    return get_model_lineage_service(settings=state.settings, model_ref=model_ref)
 
 
 # ==================== ENDPOINTS: PROJECTS ====================
@@ -2354,97 +1315,21 @@ def get_model_lineage(request: Request, model_ref: str) -> Any:
 def create_model_catalog_project(request: Request, payload: dict[str, Any]) -> Any:
     """Create a new model catalog project."""
     state: AppState = request.app.state.model_catalog
-    title = str(payload.get("title") or "").strip()
-    if not title:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "title is required"})
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        project = _create_project_record(
-            connection,
-            title=title,
-            description=str(payload.get("description") or "").strip() or None,
-            notes=str(payload.get("notes") or "").strip() or None,
-            bambuddy_project_id=_resolve_project_id_value(payload.get("bambuddy_project_id")),
-            now_iso=_bulk_utc_now_iso(),
-        )
-        connection.commit()
-        return {"success": True, "project": project}
-    finally:
-        connection.close()
+    return create_model_catalog_project_service(settings=state.settings, payload=payload)
 
 
 @router.get("/api/projects")
 def list_model_catalog_projects(request: Request, limit: int | None = None, offset: int | None = None) -> Any:
     """List model catalog projects."""
     state: AppState = request.app.state.model_catalog
-    limit_value = max(1, min(int(limit or 100), 500))
-    offset_value = max(0, int(offset or 0))
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        total_row = connection.execute(
-            "SELECT COUNT(*) AS cnt FROM model_catalog_projects WHERE archived_at IS NULL"
-        ).fetchone()
-        rows = connection.execute(
-            """
-            SELECT * FROM model_catalog_projects
-            WHERE archived_at IS NULL
-            ORDER BY updated_at DESC, id DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit_value, offset_value),
-        ).fetchall()
-        projects = [_serialize_project_row(row) for row in rows]
-    finally:
-        connection.close()
-
-    return {
-        "success": True,
-        "pagination": {
-            "limit": limit_value,
-            "offset": offset_value,
-            "total": int(total_row["cnt"] if total_row else 0),
-        },
-        "projects": projects,
-    }
+    return list_model_catalog_projects_service(settings=state.settings, limit=limit, offset=offset)
 
 
 @router.get("/api/projects/{project_id}")
 def get_model_catalog_project(request: Request, project_id: int) -> Any:
     """Get a single project with group and model counts."""
     state: AppState = request.app.state.model_catalog
-    connection = connect(state.settings.db_path)
-    connection.row_factory = sqlite3.Row
-    try:
-        row = connection.execute(
-            "SELECT * FROM model_catalog_projects WHERE id = ? AND archived_at IS NULL",
-            (project_id,),
-        ).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "not_found", "message": "Project not found"})
-        group_count_row = connection.execute(
-            "SELECT COUNT(*) AS cnt FROM working_groups WHERE project_id = ?",
-            (project_id,),
-        ).fetchone()
-        model_count_row = connection.execute(
-            """
-            SELECT COUNT(*) AS cnt
-            FROM model_catalog_custom_fields
-            WHERE entity_type = 'model'
-              AND field_key = 'project_id'
-              AND json_extract(field_value_json, '$') = ?
-            """,
-            (project_id,),
-        ).fetchone()
-        project = _serialize_project_row(row)
-        project["working_group_count"] = int(group_count_row["cnt"] if group_count_row else 0)
-        project["curated_model_count"] = int(model_count_row["cnt"] if model_count_row else 0)
-        return {"success": True, "project": project}
-    finally:
-        connection.close()
+    return get_model_catalog_project_service(settings=state.settings, project_id=project_id)
 
 
 # ==================== ENDPOINTS: BULK OPERATIONS ====================
@@ -2455,162 +1340,7 @@ def get_model_catalog_project(request: Request, project_id: int) -> Any:
 def bulk_discover_working_groups(request: Request, payload: dict[str, Any]) -> Any:
     """Scan folder and propose working groups."""
     state: AppState = request.app.state.model_catalog
-    root_input = str(payload.get("folder_path") or payload.get("root_path") or "").strip()
-    if not root_input:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "invalid_payload",
-                "message": "folder_path is required",
-            },
-        )
-
-    grouping_strategy = _normalize_grouping_strategy(payload.get("grouping_strategy"))
-    max_depth = _coerce_int(payload.get("max_depth"))
-    if max_depth is not None and max_depth < 0:
-        max_depth = 0
-
-    root_path = Path(root_input).expanduser().resolve()
-    if not root_path.exists() or not root_path.is_dir():
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "invalid_folder_path",
-                "message": "folder_path must be an existing directory",
-                "folder_path": root_input,
-            },
-        )
-
-    existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
-    now_iso = _bulk_utc_now_iso()
-
-    proposals_by_key: dict[str, dict[str, Any]] = {}
-    warnings: list[dict[str, Any]] = []
-    scanned_file_count = 0
-    supported_file_count = 0
-    duplicate_warning_count = 0
-
-    def _on_walk_error(error: OSError) -> None:
-        warning = {
-            "type": "walk_error",
-            "path": str(getattr(error, "filename", root_path)),
-            "message": str(error),
-        }
-        warnings.append(warning)
-
-    for current_root, dirnames, filenames in os.walk(root_path, topdown=True, onerror=_on_walk_error):
-        dirnames.sort()
-        filenames.sort()
-        current_dir = Path(current_root)
-
-        if max_depth is not None:
-            try:
-                current_depth = len(current_dir.relative_to(root_path).parts)
-            except ValueError:
-                current_depth = 0
-            if current_depth >= max_depth:
-                dirnames[:] = []
-
-        for filename in filenames:
-            file_path = current_dir / filename
-            scanned_file_count += 1
-
-            if max_depth is not None:
-                relative_parts = file_path.relative_to(root_path).parts
-                if len(relative_parts) - 1 > max_depth:
-                    continue
-
-            suffix = file_path.suffix.lower()
-            if suffix not in SUPPORTED_BULK_MODEL_EXTENSIONS:
-                continue
-
-            supported_file_count += 1
-            group_key = _bulk_group_key(root_path, file_path, grouping_strategy)
-            title = _bulk_group_title(root_path, group_key, file_path, grouping_strategy)
-            proposal = proposals_by_key.get(group_key)
-            if proposal is None:
-                proposal = {
-                    "proposal_id": _slugify_title(group_key if grouping_strategy == "flat" else title),
-                    "group_key": group_key,
-                    "title": title,
-                    "action": "import",
-                    "files": [],
-                    "warnings": [],
-                }
-                proposals_by_key[group_key] = proposal
-
-            try:
-                stat_result = file_path.stat()
-                source_metadata = _bulk_path_source_metadata(file_path, stat_result)
-                file_hash = _sha256_file(file_path)
-                file_size = int(stat_result.st_size)
-            except (OSError, PermissionError) as error:
-                warning = {
-                    "type": "read_error",
-                    "path": str(file_path),
-                    "message": str(error),
-                }
-                proposal["warnings"].append(warning)
-                warnings.append(warning)
-                continue
-
-            hash_exists = file_hash.lower() in existing_hashes
-            if hash_exists:
-                duplicate_warning_count += 1
-                warning = {
-                    "type": "duplicate_hash",
-                    "path": str(file_path),
-                    "sha256": file_hash,
-                    "message": "Hash already exists in working items",
-                }
-                proposal["warnings"].append(warning)
-                warnings.append(warning)
-
-            proposal["files"].append(
-                {
-                    "path": str(file_path),
-                    "relative_path": str(file_path.relative_to(root_path)),
-                    "filename": file_path.name,
-                    "size_bytes": file_size,
-                    "sha256": file_hash,
-                    "duplicate_hash": hash_exists,
-                    "source_mtime": source_metadata["source_mtime"],
-                    "source_ctime": source_metadata["source_ctime"],
-                    "source_birthtime": source_metadata.get("source_birthtime"),
-                }
-            )
-
-    proposals = sorted(
-        proposals_by_key.values(),
-        key=lambda item: str(item.get("title") or "").lower(),
-    )
-    for proposal in proposals:
-        proposal["file_count"] = len(proposal["files"])
-        proposal["duplicate_count"] = sum(1 for file in proposal["files"] if file.get("duplicate_hash"))
-        proposal["discovery"] = {
-            "source_folder": str(root_path),
-            "strategy": grouping_strategy,
-            "timestamp": now_iso,
-        }
-
-    return {
-        "success": True,
-        "contract": "working-group-bulk-discover.v1alpha1",
-        "source_folder": str(root_path),
-        "grouping_strategy": grouping_strategy,
-        "discovered_at": now_iso,
-        "summary": {
-            "scanned_file_count": scanned_file_count,
-            "supported_file_count": supported_file_count,
-            "proposal_count": len(proposals),
-            "duplicate_warning_count": duplicate_warning_count,
-            "warning_count": len(warnings),
-        },
-        "proposals": proposals,
-        "warnings": warnings,
-    }
+    return bulk_discover_working_groups_service(db_path=state.settings.db_path, payload=payload)
 
 
 @router.post("/working-groups/bulk-import")
@@ -2618,283 +1348,4 @@ def bulk_discover_working_groups(request: Request, payload: dict[str, Any]) -> A
 def bulk_import_working_groups(request: Request, payload: dict[str, Any]) -> Any:
     """Import bulk discover proposals as working groups."""
     state: AppState = request.app.state.model_catalog
-    proposals_payload = payload.get("proposals")
-    if not isinstance(proposals_payload, list) or not proposals_payload:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success": False,
-                "error": "invalid_payload",
-                "message": "proposals must be a non-empty list",
-            },
-        )
-
-    source_folder = str(payload.get("source_folder") or payload.get("folder_path") or payload.get("root_path") or "").strip()
-    grouping_strategy = _normalize_grouping_strategy(payload.get("grouping_strategy"))
-    discovery_timestamp = str(payload.get("discovered_at") or payload.get("discovery_timestamp") or "").strip() or _bulk_utc_now_iso()
-    import_timestamp = _bulk_utc_now_iso()
-    default_stage = str(payload.get("stage") or "draft").strip() or "draft"
-
-    grouped_imports: dict[str, dict[str, Any]] = {}
-    skipped_groups: list[dict[str, Any]] = []
-    for proposal in proposals_payload:
-        if not isinstance(proposal, dict):
-            continue
-        action = str(proposal.get("action") or "import").strip().lower()
-        title = str(proposal.get("title") or "").strip()
-        proposal_id = str(proposal.get("proposal_id") or "").strip() or _slugify_title(title or "proposal")
-        files = proposal.get("files") if isinstance(proposal.get("files"), list) else []
-        if action == "skip":
-            skipped_groups.append(
-                {
-                    "proposal_id": proposal_id,
-                    "title": title,
-                    "reason": "skipped_by_operator",
-                }
-            )
-            continue
-
-        target_group_key = str(proposal.get("merge_target") or proposal_id).strip() if action == "merge" else proposal_id
-        if not target_group_key:
-            target_group_key = proposal_id
-        aggregate = grouped_imports.get(target_group_key)
-        if aggregate is None:
-            aggregate = {
-                "title": title or target_group_key,
-                "stage": str(proposal.get("stage") or default_stage).strip() or default_stage,
-                "notes": str(proposal.get("notes") or "").strip() or None,
-                "proposal_ids": [],
-                "files": [],
-            }
-            grouped_imports[target_group_key] = aggregate
-        aggregate["proposal_ids"].append(proposal_id)
-        if title and not aggregate.get("title"):
-            aggregate["title"] = title
-        aggregate["files"].extend(files)
-
-    if not grouped_imports:
-        return {
-            "success": True,
-            "contract": "working-group-bulk-import.v1alpha1",
-            "created_group_count": 0,
-            "created_item_count": 0,
-            "duplicate_skipped_count": 0,
-            "skipped_groups": skipped_groups,
-            "created_groups": [],
-        }
-
-    connection = connect(state.settings.db_path)
-    connection.row_factory = None
-    existing_hashes = get_all_indexed_file_hashes(state.settings.db_path)
-    batch_hashes: set[str] = set()
-    created_groups: list[dict[str, Any]] = []
-    duplicate_skipped: list[dict[str, Any]] = []
-    failed_files: list[dict[str, Any]] = []
-    created_item_count = 0
-
-    try:
-        for group_key, grouped in grouped_imports.items():
-            unique_files: list[dict[str, Any]] = []
-            for file_payload in grouped["files"]:
-                file_path_raw = str((file_payload or {}).get("path") or "").strip()
-                if not file_path_raw:
-                    continue
-                file_path = Path(file_path_raw).expanduser().resolve()
-                if not file_path.exists() or not file_path.is_file():
-                    failed_files.append(
-                        {
-                            "group": grouped.get("title") or group_key,
-                            "path": str(file_path),
-                            "reason": "missing_source",
-                        }
-                    )
-                    continue
-
-                try:
-                    stat_result = file_path.stat()
-                    source_metadata = _bulk_path_source_metadata(file_path, stat_result)
-                except (OSError, PermissionError) as error:
-                    failed_files.append(
-                        {
-                            "group": grouped.get("title") or group_key,
-                            "path": str(file_path),
-                            "reason": "stat_error",
-                            "message": str(error),
-                        }
-                    )
-                    continue
-
-                file_hash = str((file_payload or {}).get("sha256") or "").strip().lower()
-                if not file_hash:
-                    try:
-                        file_hash = _sha256_file(file_path).lower()
-                    except (OSError, PermissionError) as error:
-                        failed_files.append(
-                            {
-                                "group": grouped.get("title") or group_key,
-                                "path": str(file_path),
-                                "reason": "read_error",
-                                "message": str(error),
-                            }
-                        )
-                        continue
-
-                if file_hash in existing_hashes or file_hash in batch_hashes:
-                    duplicate_skipped.append(
-                        {
-                            "group": grouped.get("title") or group_key,
-                            "path": str(file_path),
-                            "sha256": file_hash,
-                            "reason": "duplicate_hash",
-                        }
-                    )
-                    continue
-
-                unique_files.append(
-                    {
-                        "path": str(file_path),
-                        "sha256": file_hash,
-                        "size_bytes": int(file_payload.get("size_bytes") or stat_result.st_size),
-                        "relative_path": str(file_payload.get("relative_path") or file_path.name),
-                        "source_mtime": str(file_payload.get("source_mtime") or source_metadata["source_mtime"]),
-                        "source_ctime": str(file_payload.get("source_ctime") or source_metadata["source_ctime"]),
-                        "source_birthtime": str(file_payload.get("source_birthtime") or source_metadata.get("source_birthtime") or "") or None,
-                    }
-                )
-                batch_hashes.add(file_hash)
-
-            if not unique_files:
-                skipped_groups.append(
-                    {
-                        "proposal_id": group_key,
-                        "title": grouped.get("title") or group_key,
-                        "reason": "all_files_skipped_or_duplicate",
-                    }
-                )
-                continue
-
-            group_title = str(grouped.get("title") or group_key).strip() or group_key
-            slug = _unique_slug(connection, group_title)
-            now_iso = _bulk_utc_now_iso()
-            metadata_json = json.dumps(
-                {
-                    "proposal_ids": grouped.get("proposal_ids") or [],
-                    "imported_at": import_timestamp,
-                }
-            )
-
-            connection.execute(
-                """
-                INSERT INTO working_groups (
-                    slug,
-                    title,
-                    stage,
-                    notes,
-                    primary_file_path,
-                    folder_hint,
-                    related_manyfold_model_id,
-                    created_at,
-                    updated_at,
-                    discovery_source_folder,
-                    discovery_strategy,
-                    discovery_timestamp,
-                    discovery_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    slug,
-                    group_title,
-                    grouped.get("stage") or default_stage,
-                    grouped.get("notes"),
-                    unique_files[0]["path"],
-                    source_folder or None,
-                    None,
-                    now_iso,
-                    now_iso,
-                    source_folder or None,
-                    grouping_strategy,
-                    discovery_timestamp,
-                    metadata_json,
-                ),
-            )
-            group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-
-            created_files: list[dict[str, Any]] = []
-            for index, file_item in enumerate(unique_files):
-                role = "primary" if index == 0 else "supporting"
-                connection.execute(
-                    """
-                    INSERT INTO working_items (
-                        working_group_id,
-                        file_path,
-                        item_role,
-                        created_at,
-                        updated_at,
-                        file_hash,
-                        file_size,
-                        source_metadata_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        group_id,
-                        file_item["path"],
-                        role,
-                        now_iso,
-                        now_iso,
-                        file_item["sha256"],
-                        file_item["size_bytes"],
-                        json.dumps(
-                            {
-                                "relative_path": file_item["relative_path"],
-                                "source_path": file_item["path"],
-                                "source_size_bytes": file_item["size_bytes"],
-                                "source_mtime": file_item["source_mtime"],
-                                "source_ctime": file_item["source_ctime"],
-                                "source_birthtime": file_item.get("source_birthtime"),
-                            }
-                        ),
-                    ),
-                )
-                existing_hashes.add(file_item["sha256"])
-                batch_hashes.add(file_item["sha256"])
-                created_item_count += 1
-                created_files.append(file_item)
-
-            created_groups.append(
-                {
-                    "working_group_id": group_id,
-                    "slug": slug,
-                    "title": group_title,
-                    "stage": grouped.get("stage") or default_stage,
-                    "file_count": len(created_files),
-                    "files": created_files,
-                    "discovery": {
-                        "source_folder": source_folder or None,
-                        "strategy": grouping_strategy,
-                        "timestamp": discovery_timestamp,
-                    },
-                }
-            )
-
-        connection.commit()
-    finally:
-        connection.close()
-
-    return {
-        "success": True,
-        "contract": "working-group-bulk-import.v1alpha1",
-        "created_group_count": len(created_groups),
-        "created_item_count": created_item_count,
-        "duplicate_skipped_count": len(duplicate_skipped),
-        "failed_file_count": len(failed_files),
-        "created_groups": created_groups,
-        "duplicate_skipped": duplicate_skipped,
-        "failed_files": failed_files,
-        "skipped_groups": skipped_groups,
-        "meta": {
-            "source_folder": source_folder or None,
-            "grouping_strategy": grouping_strategy,
-            "discovery_timestamp": discovery_timestamp,
-            "import_timestamp": import_timestamp,
-        },
-    }
+    return bulk_import_working_groups_service(db_path=state.settings.db_path, payload=payload)

@@ -22,6 +22,33 @@ from .model_search_service import (
     list_models_service,
     search_models_service,
 )
+from .working_discovery_service import (
+    bulk_discover_working_groups_service,
+    bulk_import_working_groups_service,
+)
+from .working_catalog_service import (
+    add_working_group_item_service,
+    create_model_catalog_project_service,
+    create_working_group_link_service,
+    create_working_group_service,
+    delete_working_group_link_service,
+    delete_working_group_service,
+    get_model_catalog_project_service,
+    get_model_lineage_service,
+    get_working_group_service,
+    list_model_catalog_projects_service,
+    list_working_group_links_service,
+    list_working_groups_for_model_service,
+    list_working_groups_service,
+    publish_working_group_to_local_service,
+    remove_working_group_item_service,
+    update_working_group_service,
+)
+from .working_groups_service import (
+    batch_add_working_group_memberships_service,
+    batch_remove_working_group_memberships_service,
+    reorganize_working_group_service,
+)
 
 __all__ = [
     "get_all_indexed_file_hashes",
@@ -40,4 +67,25 @@ __all__ = [
     "set_uploaded_model_photo_preview_service",
     "get_geometry_service",
     "download_model_file_service",
+    "bulk_discover_working_groups_service",
+    "bulk_import_working_groups_service",
+    "batch_add_working_group_memberships_service",
+    "batch_remove_working_group_memberships_service",
+    "reorganize_working_group_service",
+    "create_working_group_service",
+    "list_working_groups_service",
+    "get_working_group_service",
+    "update_working_group_service",
+    "delete_working_group_service",
+    "add_working_group_item_service",
+    "remove_working_group_item_service",
+    "create_working_group_link_service",
+    "list_working_group_links_service",
+    "delete_working_group_link_service",
+    "list_working_groups_for_model_service",
+    "publish_working_group_to_local_service",
+    "get_model_lineage_service",
+    "create_model_catalog_project_service",
+    "list_model_catalog_projects_service",
+    "get_model_catalog_project_service",
 ]
