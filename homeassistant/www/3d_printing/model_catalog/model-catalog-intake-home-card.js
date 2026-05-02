@@ -740,6 +740,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!action) {
       return;
     }
+    if (action === 'set-commit-mode') {
+      return;
+    }
     if (action === 'browser-files' || action === 'browser-folder') {
       return;
     }
