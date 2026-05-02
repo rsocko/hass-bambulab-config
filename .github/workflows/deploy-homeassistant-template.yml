@@ -1484,6 +1484,7 @@ jobs:
             exit 0
           fi
 
+          set +e
           OWNERSHIP_RESULT="$(printf '%s' "$WORKFLOW_RUNS_JSON" | python3 - "$CURRENT_RUN_ID" <<'PY'
           import json
           import sys
@@ -1514,6 +1515,18 @@ jobs:
               print(f"SKIP\t{run_id}\t{status}\t{html_url}")
           PY
           )"
+          OWNERSHIP_EXIT=$?
+          set -e
+
+          if [ "$OWNERSHIP_EXIT" -ne 0 ]; then
+            echo "Post-deploy ownership parsing failed; proceeding with requested action."
+            echo "Raw workflow runs payload:"
+            echo "$WORKFLOW_RUNS_JSON"
+            echo "should_execute=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+            echo "superseding_run_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if [ "$OWNERSHIP_RESULT" = "EXECUTE" ]; then
             echo "This run owns the post-deploy action."
