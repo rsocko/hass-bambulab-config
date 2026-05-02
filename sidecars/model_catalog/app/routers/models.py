@@ -1660,7 +1660,6 @@ def _create_project_record(
 
 # ==================== ENDPOINTS ====================
 
-@router.get("/api/models")
 def list_models(
     request: Request,
     refresh: bool = False,
@@ -1714,7 +1713,6 @@ def list_models(
         "refresh_status": refresh_status,
     }
 
-@router.get("/api/models/search")
 def search_models(
     request: Request,
     q: str | None = None,
@@ -2142,7 +2140,6 @@ def delete_model_asset_endpoint(request: Request, local_model_id: str, asset_id:
         "deleted": True,
     }
 
-@router.get("/api/models/preview", name="proxy_model_preview")
 def proxy_model_preview(request: Request, source: str) -> Response:
     client: ManyfoldClient = request.app.state.manyfold_client
     for candidate in _preview_source_candidates(source):
@@ -2156,7 +2153,6 @@ def proxy_model_preview(request: Request, source: str) -> Response:
             )
     return Response(status_code=502, content=b"Preview fetch failed", media_type="text/plain")
 
-@router.get("/api/models/{model_ref:path}/fields")
 def get_model_fields(request: Request, model_ref: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2170,7 +2166,6 @@ def get_model_fields(request: Request, model_ref: str) -> dict[str, Any]:
         "fields": read_model_fields(db_path=state.settings.db_path, model_ref=str(resolved_ref)),
     }
 
-@router.get("/api/models/{model_ref:path}/fields/{field_key}")
 def get_model_field(request: Request, model_ref: str, field_key: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2188,7 +2183,6 @@ def get_model_field(request: Request, model_ref: str, field_key: str) -> dict[st
         "field_value": value,
     }
 
-@router.put("/api/models/{model_ref:path}/fields/{field_key}")
 def put_model_field(request: Request, model_ref: str, field_key: str, payload: dict[str, Any]) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2206,7 +2200,6 @@ def put_model_field(request: Request, model_ref: str, field_key: str, payload: d
         "field_value": value,
     }
 
-@router.delete("/api/models/{model_ref:path}/fields/{field_key}")
 def remove_model_field(request: Request, model_ref: str, field_key: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2283,7 +2276,6 @@ def update_model_queue(request: Request, model_ref: str, payload: dict[str, Any]
         },
     }
 
-@router.get("/api/models/{model_ref:path}/ranking")
 def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     state: AppState = request.app.state.model_catalog
     summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
@@ -2661,7 +2653,6 @@ async def update_model_endpoint(request: Request, model_ref: str) -> dict[str, A
     return get_model_detail_endpoint(request, model_ref)
 
 
-@router.post("/api/models/{model_ref:path}/photos")
 async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
     """Upload a photo to a model (Phase 3.1)."""
     state: AppState = request.app.state.model_catalog
@@ -2750,7 +2741,6 @@ async def upload_photo_endpoint(request: Request, model_ref: str) -> dict[str, A
         },
     }
 
-@router.get("/api/models/{model_ref:path}/photos/{photo_id}/content", name="get_uploaded_model_photo_endpoint")
 def get_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo_id: str) -> Response:
     """Serve locally stored uploaded model photos."""
     state: AppState = request.app.state.model_catalog
@@ -2769,7 +2759,6 @@ def get_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo_id
     headers = {"Content-Disposition": f'inline; filename="{storage_path.name}"'}
     return Response(content=storage_path.read_bytes(), media_type=media_type, headers=headers)
 
-@router.delete("/api/models/{model_ref:path}/photos/{photo_id}")
 def delete_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo_id: str) -> dict[str, Any]:
     """Delete a locally uploaded model photo."""
     state: AppState = request.app.state.model_catalog
@@ -2810,7 +2799,6 @@ def delete_uploaded_model_photo_endpoint(request: Request, model_ref: str, photo
 
     return {"success": True, "photo_id": photo_id, "deleted": True}
 
-@router.post("/api/models/{model_ref:path}/photos/{photo_id}/preview")
 def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, photo_id: str) -> dict[str, Any]:
     """Mark a locally uploaded model photo as the preferred preview."""
     state: AppState = request.app.state.model_catalog
@@ -2834,7 +2822,6 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
-@router.get("/api/models/{model_ref:path}/geometry/{file_id}", response_model=None)
 def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None):
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
     try:
@@ -3001,7 +2988,6 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
         return JSONResponse(status_code=500, content=payload)
 
 
-@router.get("/api/models/{model_ref:path}/files/{file_id}/download")
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str) -> Response:
     """Proxy model file bytes from Manyfold so HA frontend can fetch geometry directly."""
     state: AppState = request.app.state.model_catalog
@@ -3101,7 +3087,6 @@ def download_model_file_endpoint(request: Request, model_ref: str, file_id: str)
 
 # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
-@router.get("/api/models/{model_ref:path}/related")
 def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
     """Get related models by similarity score (Phase 3.3)."""
     state: AppState = request.app.state.model_catalog

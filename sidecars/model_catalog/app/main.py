@@ -11,6 +11,9 @@ from .routers import working as working_module
 from .routers.archive_links import router as archive_links_router
 from .routers.intake import router as intake_router
 from .routers.intake import _browser_intake_upload_storage_root
+from .routers.models_detail import router as models_detail_router
+from .routers.models_media import router as models_media_router
+from .routers.models_search import router as models_search_router
 from .routers.models import router as models_router
 from .routers.source_filesystems import router as source_filesystems_router
 from .routers.system import router as system_router
@@ -71,6 +74,9 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
     app.include_router(archive_links_router)
     app.include_router(working_router)
     app.include_router(intake_router)
+    app.include_router(models_search_router)
+    app.include_router(models_detail_router)
+    app.include_router(models_media_router)
     app.include_router(models_router)
 
     return app

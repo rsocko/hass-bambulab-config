@@ -1,0 +1,89 @@
+"""Model listing and search route registration."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter, Request
+
+from ..services.model_search_service import (
+    get_model_ranking_service,
+    get_related_models_service,
+    list_models_service,
+    search_models_service,
+)
+from . import models as models_router
+
+
+router = APIRouter(tags=["models"])
+
+
+@router.get("/api/models")
+def list_models(
+    request: Request,
+    refresh: bool = False,
+    to_print_status: str | None = None,
+    to_print_priority: int | None = None,
+    to_print_priority_min: int | None = None,
+    to_print_priority_max: int | None = None,
+    sort: str = "name",
+) -> dict[str, Any]:
+    return list_models_service(
+        request,
+        refresh=refresh,
+        to_print_status=to_print_status,
+        to_print_priority=to_print_priority,
+        to_print_priority_min=to_print_priority_min,
+        to_print_priority_max=to_print_priority_max,
+        sort=sort,
+    )
+
+
+@router.get("/api/models/search")
+def search_models(
+    request: Request,
+    q: str | None = None,
+    collection: str | None = None,
+    creator: str | None = None,
+    tag: str | None = None,
+    to_print_status: str | None = None,
+    to_print_priority: int | None = None,
+    to_print_priority_min: int | None = None,
+    to_print_priority_max: int | None = None,
+    sort: str = "best",
+    refresh: bool = False,
+    page: int = 1,
+    per_page: int = 10,
+    debug_collection_lookup: bool = False,
+) -> dict[str, Any]:
+    return search_models_service(
+        request,
+        q=q,
+        collection=collection,
+        creator=creator,
+        tag=tag,
+        to_print_status=to_print_status,
+        to_print_priority=to_print_priority,
+        to_print_priority_min=to_print_priority_min,
+        to_print_priority_max=to_print_priority_max,
+        sort=sort,
+        refresh=refresh,
+        page=page,
+        per_page=per_page,
+        debug_collection_lookup=debug_collection_lookup,
+    )
+
+
+@router.get("/api/models/preview", name="proxy_model_preview")
+def proxy_model_preview(request: Request, source: str):
+    return models_router.proxy_model_preview(request, source=source)
+
+
+@router.get("/api/models/{model_ref:path}/related")
+def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:
+    return get_related_models_service(request, model_ref=model_ref, limit=limit)
+
+
+@router.get("/api/models/{model_ref:path}/ranking")
+def get_model_ranking_endpoint(request: Request, model_ref: str) -> dict[str, Any]:
+    return get_model_ranking_service(request, model_ref=model_ref)
