@@ -3312,12 +3312,19 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
                         debug_info["local_storage_path"] = str(storage_path)
                         payload["_debug"] = debug_info
                     return JSONResponse(status_code=422, content=payload)
-                response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+                try:
+                    response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+                except Exception as geom_err:
+                    debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
+                    if include_debug:
+                        response_payload["_debug"] = debug_info
+                    # Include partial response even if geometry extraction fails
+                    return JSONResponse(content=response_payload)
 
             if include_debug:
                 debug_info["local_storage_path"] = str(storage_path)
                 response_payload["_debug"] = debug_info
-            return response_payload
+            return JSONResponse(content=response_payload)
 
         def _normalize_candidate_url(value: Any) -> str | None:
             text = str(value or "").strip()
@@ -3372,12 +3379,16 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
 
             is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
             if is_3mf and source_url:
-                binary_response = client.fetch_binary(source_url)
-                response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+                try:
+                    binary_response = client.fetch_binary(source_url)
+                    response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+                except Exception as geom_err:
+                    debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
+                    # Include partial response even if geometry extraction fails
 
             if include_debug:
                 response_payload["_debug"] = debug_info
-            return response_payload
+            return JSONResponse(content=response_payload)
         except Exception as e:
             payload = {"error": str(e)}
             if include_debug:
