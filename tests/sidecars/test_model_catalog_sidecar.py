@@ -5373,15 +5373,22 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
         assert detail_payload["model"]["source_origin_url"] == f"intake://uploads/{upload_id}"
         assert detail_payload["enrichment"]["structured_metadata"]["provenance"]["internal_notes"] == f"Imported from intake upload {upload_id}"
 
+        items_response = test_client.get("/api/intake/items")
+        assert items_response.status_code == 200
+        items_payload = items_response.json()
+        published_item = next(item for item in items_payload["items"] if item["item_id"] == upload_id)
+        assert published_item["state"] == "published_to_catalog"
+
     connection = sqlite3.connect(settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
         upload_row = connection.execute(
-            "SELECT status, verification_status, file_hashes_json FROM intake_queue_uploads WHERE upload_id = ?",
+            "SELECT status, inbox_state, verification_status, file_hashes_json FROM intake_queue_uploads WHERE upload_id = ?",
             (upload_id,),
         ).fetchone()
         assert upload_row is not None
         assert upload_row["status"] == "verified"
+        assert upload_row["inbox_state"] == "published_to_catalog"
         assert upload_row["verification_status"] == "pass"
         assert len(json.loads(str(upload_row["file_hashes_json"]))) == 2
 

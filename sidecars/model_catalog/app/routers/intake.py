@@ -653,7 +653,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             success_connection.execute(
                 """
                 UPDATE intake_queue_uploads
-                SET file_hashes_json = ?, verification_status = ?, updated_at = ?,
+                SET file_hashes_json = ?, verification_status = ?, inbox_state = ?, updated_at = ?,
                     terminal_action = ?, terminal_at = ?,
                     terminal_result_id = ?
                 WHERE upload_id = ?
@@ -661,6 +661,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 (
                     json.dumps([item["file_hash"] for item in imported_assets]),
                     "pass",
+                    "published_to_catalog",
                     now_iso,
                     "published_to_catalog",
                     now_iso,
