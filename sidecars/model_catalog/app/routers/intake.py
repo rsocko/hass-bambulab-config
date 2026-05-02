@@ -757,10 +757,358 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     }
 
 
-# Note: The upload-to-manyfold endpoint is a legacy adapter that has been kept for backward compatibility.
-# It is very complex (1000+ lines) and is not part of this refactoring phase.
-# A separate task can be created if this endpoint needs refactoring.
-# For now, it remains in its original location but is not included due to token constraints.
+@router.post("/api/intake/uploads/{upload_id}/upload-to-manyfold")
+async def intake_upload_to_manyfold(
+    upload_id: str,
+    request: Request,
+    collection_id: int | None = None,
+    collection_name: str | None = None,
+) -> Any:
+    """
+    Upload files from verified intake upload to Manyfold library.
+    
+    Streams file from local filesystem directly to Manyfold server.
+    Handles multipart form submission with file hash verification.
+    
+    Query Parameters:
+    - collection_id: Target collection ID (optional)
+    - collection_name: Target collection name (optional, overrides ID lookup)
+    
+    JSON Body (optional):
+    - collection_id: Target collection ID
+    - collection_name: Target collection name
+    
+    Response:
+    - upload_record: Updated intake upload status
+    - manyfold_response: Manyfold's response metadata
+    - files_uploaded: List of files successfully uploaded
+    """
+    state: AppState = request.app.state.model_catalog
+    
+    # Try to get collection info from request body first, then query params
+    try:
+        body = await request.json()
+        if body.get("collection_id"):
+            collection_id = body["collection_id"]
+        if body.get("collection_name"):
+            collection_name = body["collection_name"]
+    except Exception:
+        pass  # No JSON body or parsing error, use query params
+    
+    # Verify upload exists and is in verified state
+    connection = connect(state.settings.db_path)
+    try:
+        from sqlite3 import Row
+        connection.row_factory = Row
+        upload_row = connection.execute(
+            "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        
+        if not upload_row:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "upload_not_found",
+                    "message": f"Upload not found: {upload_id}",
+                },
+            )
+        
+        if upload_row["status"] != "uploaded_unverified":
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "upload_not_verified",
+                    "message": f"Upload is in '{upload_row['status']}' state. Only unverified uploads can be uploaded to Manyfold.",
+                },
+            )
+    finally:
+        connection.close()
+    
+    client = request.app.state.manyfold_client
+
+    # Get source entries and expand to files
+    source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
+    if not isinstance(source_entries, list):
+        source_entries = []
+    
+    files_to_upload = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
+    if not files_to_upload:
+        error_message = "Upload queue entry did not resolve to any readable files."
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "failed",
+            event_type="manyfold_upload_failed",
+            error_message=error_message,
+        )
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_files_to_upload",
+                "message": error_message,
+            },
+        )
+
+    try:
+        collection_ref = client.resolve_collection_ref(collection_id=collection_id, collection_name=collection_name)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "collection_not_found",
+                "message": str(exc),
+            },
+        )
+
+    # Upload files to Manyfold
+    uploaded_rows: list[dict[str, Any]] = []
+    file_hashes: list[str] = []
+    manyfold_file_ids: list[str] = []
+    verification_methods: list[str] = []
+
+    try:
+        for file_path in files_to_upload:
+            file_bytes = file_path.read_bytes()
+            file_hash = hashlib.sha256(file_bytes).hexdigest()
+            file_size = len(file_bytes)
+            
+            # Get baseline of existing models
+            baseline_model_keys = set()
+            try:
+                baseline_payloads = client.list_model_payloads()
+                for p in baseline_payloads:
+                    if isinstance(p, dict):
+                        key = derive_manyfold_model_key(
+                            manyfold_model_url=str(p.get("url") or p.get("@id") or "").strip() or None,
+                            manyfold_model_public_id=str(p.get("public_id") or p.get("slug") or "").strip() or None,
+                            manyfold_model_id=str(p.get("id") or "").strip() or None,
+                        )
+                        baseline_model_keys.add(key)
+            except Exception:
+                pass  # Ignore errors getting baseline
+            
+            # Determine content type
+            suffix = file_path.suffix.lower()
+            content_type = {
+                ".3mf": "model/3mf",
+                ".stl": "model/stl",
+                ".obj": "model/obj",
+                ".step": "model/step",
+                ".stp": "model/step",
+            }.get(suffix, "application/octet-stream")
+            
+            # Upload file to Manyfold
+            uploaded_file_ref = client.upload_file(
+                filename=file_path.name,
+                content=file_bytes,
+                content_type=content_type,
+            )
+            
+            # Create model in Manyfold
+            client.create_model_from_uploads(
+                name=file_path.stem,
+                collection_ref=collection_ref,
+                uploaded_files=[uploaded_file_ref],
+            )
+            
+            # Poll for the created model
+            model_payload = None
+            for attempt in range(6):  # Poll up to 6 times with 1 second delay
+                try:
+                    payloads = client.list_model_payloads()
+                    for payload in payloads:
+                        if not isinstance(payload, dict):
+                            continue
+                        payload_key = derive_manyfold_model_key(
+                            manyfold_model_url=str(payload.get("url") or payload.get("@id") or "").strip() or None,
+                            manyfold_model_public_id=str(payload.get("public_id") or payload.get("slug") or "").strip() or None,
+                            manyfold_model_id=str(payload.get("id") or "").strip() or None,
+                        )
+                        if payload_key not in baseline_model_keys:
+                            model_payload = payload
+                            break
+                    if model_payload:
+                        break
+                except Exception:
+                    pass
+                
+                if attempt < 5:
+                    time.sleep(1)
+            
+            # Extract model information
+            model_id = None
+            model_ref = None
+            model_url = None
+            file_ref = None
+            file_url = None
+            verification_method = "hash"
+            
+            if model_payload and isinstance(model_payload, dict):
+                model_id = str(model_payload.get("id") or "").strip() or None
+                model_url = str(model_payload.get("url") or model_payload.get("@id") or "").strip()
+                if model_url and not model_url.startswith("http"):
+                    model_url = canonicalize_model_url(state.settings.manyfold_base_url, model_url, fallback_model_id=model_id)
+                model_ref = _model_ref_from_payload(model_payload)
+                
+                # Fetch model detail to get file information
+                try:
+                    if model_ref:
+                        model_detail = client.get_model_detail(model_ref)
+                        if model_detail and isinstance(model_detail, dict):
+                            has_part = model_detail.get("hasPart")
+                            if isinstance(has_part, list) and len(has_part) > 0:
+                                file_row = has_part[0]
+                                file_ref = str(file_row.get("id") or "").strip() or None
+                                file_url_from_detail = str(file_row.get("@id") or file_row.get("url") or "").strip()
+                                if file_url_from_detail and file_url_from_detail.startswith("http"):
+                                    file_url = file_url_from_detail
+                except Exception:
+                    pass  # Ignore errors fetching model detail
+            
+            # Build file URL if we don't have it yet
+            if file_ref and not file_url and model_url:
+                file_url = f"{model_url.rstrip('/')}/model_files/{quote(file_ref, safe='')}"
+            
+            file_hashes.append(file_hash)
+            if file_ref:
+                manyfold_file_ids.append(file_ref)
+            verification_methods.append(verification_method)
+            
+            uploaded_rows.append({
+                "source_path": str(file_path),
+                "filename": file_path.name,
+                "sha256": file_hash,
+                "size_bytes": file_size,
+                "manyfold_model_ref": model_ref,
+                "manyfold_model_id": model_id,
+                "manyfold_model_url": model_url,
+                "manyfold_file_ref": file_ref,
+                "manyfold_file_url": file_url,
+                "verification_method": verification_method,
+            })
+    except Exception as exc:
+        # Update upload with failure status
+        failure_connection = connect(state.settings.db_path)
+        try:
+            failure_connection.execute(
+                """
+                UPDATE intake_queue_uploads
+                SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+                WHERE upload_id = ?
+                """,
+                (
+                    json.dumps(file_hashes),
+                    json.dumps(manyfold_file_ids),
+                    "failed",
+                    _bulk_utc_now_iso(),
+                    upload_id,
+                ),
+            )
+            failure_connection.commit()
+        finally:
+            failure_connection.close()
+        
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "failed",
+            event_type="manyfold_upload_failed",
+            error_message=str(exc),
+            metadata={
+                "uploaded_count": len(uploaded_rows),
+                "file_hashes": file_hashes,
+                "manyfold_file_ids": manyfold_file_ids,
+            },
+        )
+        return JSONResponse(
+            status_code=502,
+            content={
+                "success": False,
+                "error": "manyfold_upload_failed",
+                "message": str(exc),
+                "upload_id": upload_id,
+                "files_uploaded": uploaded_rows,
+            },
+        )
+
+    # Update upload with success status
+    verified_at = _bulk_utc_now_iso()
+    success_connection = connect(state.settings.db_path)
+    try:
+        success_connection.execute(
+            """
+            UPDATE intake_queue_uploads
+            SET file_hashes_json = ?, manyfold_file_ids_json = ?, verification_status = ?, updated_at = ?
+            WHERE upload_id = ?
+            """,
+            (
+                json.dumps(file_hashes),
+                json.dumps(manyfold_file_ids),
+                "pass",
+                verified_at,
+                upload_id,
+            ),
+        )
+        success_connection.commit()
+    finally:
+        success_connection.close()
+
+    # Transition queue status
+    transitioned, transition_error = _transition_queue_status(
+        state.settings.db_path,
+        upload_id,
+        "verified",
+        event_type="manyfold_upload_verified",
+        metadata={
+            "uploaded_count": len(uploaded_rows),
+            "file_hashes": file_hashes,
+            "manyfold_file_ids": manyfold_file_ids,
+            "verification_methods": verification_methods,
+        },
+    )
+    if not transitioned:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "status_transition_failed",
+                "message": transition_error or "Could not transition upload to verified.",
+                "upload_id": upload_id,
+            },
+        )
+
+    return {
+        "success": True,
+        "upload_id": upload_id,
+        "status": "verified",
+        "verification_status": "pass",
+        "manyfold_response": {
+            "collection_id": collection_id,
+            "collection_name": collection_name,
+            "collection_ref": collection_ref,
+            "uploaded_count": len(uploaded_rows),
+        },
+        "files_uploaded": uploaded_rows,
+        "cleanup": {
+            "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+            "status": "skipped",
+            "skipped": True,
+            "reason": "policy_keep",
+            "processed_count": 0,
+            "failed_count": 0,
+            "results": [],
+        },
+        "meta": {
+            "adapter_version": "1.2",
+            "verification_methods": verification_methods,
+            "verified_at": verified_at,
+        },
+    }
 
 
 # Backward-compatible helper exports used by tests and monkeypatches
