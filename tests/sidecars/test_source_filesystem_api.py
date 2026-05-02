@@ -617,3 +617,44 @@ def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:
         assert detail_payload["model"]["preview_file_id"] is None
         assert detail_payload["model"]["source_origin"] == "intake_queue"
         assert detail_payload["model"]["source_origin_url"] == f"intake://uploads/{upload_id}"
+
+
+def test_select_publish_to_local_uses_queued_group_title_when_model_name_omitted(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    model_file = root / "router_mount_plate.3mf"
+    model_file.write_bytes(b"selected model")
+
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as client:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "file",
+                        "path": str(model_file),
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Family",
+                    }
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        upload_id = select_response.json()["upload_id"]
+
+        publish_response = client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={},
+        )
+        assert publish_response.status_code == 200
+        payload = publish_response.json()
+        assert payload["success"] is True
+
+        detail_response = client.get(f"/api/models/{payload['local_model_id']}/detail")
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+        assert detail_payload["model"]["name"] == "Router Mount Family"

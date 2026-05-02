@@ -75,6 +75,7 @@ from .intake_queue import (
     VALID_STATUS_TRANSITIONS,
 )
 from .intake_cleanup import _build_cleanup_stub, _run_source_cleanup
+from .intake_verification import _default_group_title
 
 # Create combined router
 router = APIRouter(tags=["intake"])
@@ -469,7 +470,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     requested_source_origin_url = str(payload.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
 
-    default_title = requested_model_name or Path(expanded_files[0]["filename"]).stem or upload_id
+    default_title = requested_model_name or _default_group_title(source_entries, expanded_files) or upload_id
     local_model_id = requested_model_ref
     target_entry = read_local_model(db_path=state.settings.db_path, local_model_id=local_model_id) if local_model_id else None
     created_model = False
