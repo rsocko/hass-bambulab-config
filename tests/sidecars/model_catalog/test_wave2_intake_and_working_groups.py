@@ -380,6 +380,36 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
         client.__exit__(None, None, None)
 
 
+def test_browser_upload_defaults_cleanup_policy_to_delete_on_verified(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "browser_files": [
+                    {
+                        "filename": "fresh_part.3mf",
+                        "relative_path": "browser/fresh_part.3mf",
+                        "content_base64": base64.b64encode(b"browser-bytes").decode("ascii"),
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        upload_payload = upload_response.json()
+        assert upload_payload["cleanup_policy"] == "delete_on_verified"
+
+        list_response = client.get("/api/intake/uploads")
+        assert list_response.status_code == 200
+        uploads = {upload["upload_id"]: upload for upload in list_response.json()["uploads"]}
+        assert uploads[upload_payload["upload_id"]]["cleanup_policy"] == "delete_on_verified"
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_delete_browser_upload_removes_staged_directory(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)

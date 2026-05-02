@@ -98,6 +98,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       : "keep";
   }
 
+  _defaultCleanupPolicy(mode) {
+    return mode === "browser" ? "delete_on_verified" : this._helperCleanupPolicy();
+  }
+
   _cleanupPolicy() {
     if (this._cleanupPolicyValue) {
       return this._cleanupPolicyValue;
@@ -219,6 +223,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardOpen = true;
     this._wizardMode = nextMode;
     this._wizardStep = 1;
+    this._cleanupPolicyValue = this._defaultCleanupPolicy(nextMode);
     this._error = "";
     this._status = "";
     this._result = null;
@@ -236,6 +241,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
+    this._cleanupPolicyValue = null;
     this._selected = {};
     this._browserFiles = [];
     this._render();
@@ -490,13 +496,36 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
     return '<div class="entries">' + this._browserFiles.map(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || "").replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      var displayName = basename(relativePath || entry.name || "") || entry.name || relativePath || "upload.bin";
+      var folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(entry.name || basename(entry.relative_path)) + '</div><div class="entry-path">' + escapeHtml(entry.relative_path || entry.name || "") + '</div></div><div class="button-row"><span class="chip">browser</span><span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(displayName) + '</div><div class="entry-path">' + escapeHtml(relativePath || entry.name || "") + '</div>' + (folderPath ? '<div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '') + '</div><div class="button-row"><span class="chip">browser</span>' + (folderPath ? '<span class="chip">folder upload</span>' : '<span class="chip">single file</span>') + '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
         + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(this._browserFileKey(entry)) + '">Remove</button>' : '')
         + '  </div></div>'
         + '</article>';
     }, this).join('') + '</div>';
+  }
+
+  _renderBrowserSelectionSummary() {
+    var folderMap = {};
+    this._browserFiles.forEach(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || "").replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      if (pathParts.length > 1) {
+        folderMap[pathParts[0]] = true;
+      }
+    });
+    var folderCount = Object.keys(folderMap).length;
+    return ''
+      + '<div class="result-summary">'
+      + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
+      + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div>'
+      + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
+      + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
+      + '</div>';
   }
 
   _renderBrowseEntries() {
@@ -623,15 +652,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
-        + this._renderBrowserFileRows(true)
+        + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
+        + this._renderBrowserSelectionSummary()
+        + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
         + '</div>';
     }
     return ''
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Review And Commit</div><div class="subtitle">Confirm the staged browser uploads before they are pushed into the shared intake queue.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
       + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
-      + '  <div class="result-summary"><div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div><div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div><div class="result-line"><span>Selected entries</span><strong>' + String(this._browserFiles.length) + '</strong></div></div>'
-      + this._renderBrowserFileRows(true)
+      + this._renderBrowserSelectionSummary()
+      + '  <div class="wizard-review-scroll">' + this._renderBrowserFileRows(false) + '</div>'
       + '</div>';
   }
 

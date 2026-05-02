@@ -122,6 +122,12 @@ def _normalize_intake_cleanup_policy(value: object | None) -> str:
     return cleanup_policy
 
 
+def _normalize_browser_intake_cleanup_policy(value: object | None) -> str:
+    if value is None or str(value).strip() == "":
+        return "delete_on_verified"
+    return _normalize_intake_cleanup_policy(value)
+
+
 class IntakeSourceValidationError(ValueError):
     def __init__(self, *, error: str, message: str, detail: str | None = None) -> None:
         super().__init__(message)
@@ -459,7 +465,7 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
         )
 
     browser_files = payload.get("browser_files") or []
-    cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
+    cleanup_policy = _normalize_browser_intake_cleanup_policy(payload.get("cleanup_policy"))
     warnings: list[dict[str, Any]] = []
     source_entries: list[dict[str, Any]] = []
 
