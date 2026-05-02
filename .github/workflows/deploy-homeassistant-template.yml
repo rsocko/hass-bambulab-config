@@ -142,6 +142,10 @@ on:
           - strict
           - off
 
+permissions:
+  actions: read
+  contents: read
+
 concurrency:
   group: deploy-homeassistant-${{ github.ref_name || github.run_id }}
   cancel-in-progress: false
@@ -325,7 +329,6 @@ jobs:
 
           RESOLVED_PACKAGES="${{ steps.selection.outputs.selected_packages }}"
           EFFECTIVE_ALLOWLIST="${{ steps.selection.outputs.effective_allowlist }}"
-
           echo "Deploy input summary:"
           echo "  dry_run=${{ github.event.inputs.dry_run }}"
           echo "  delete_mode=${{ github.event.inputs.delete_mode }}"
@@ -1442,9 +1445,116 @@ jobs:
           export SSH_OPTS
           bash .github/scripts/sync_lovelace_resources.sh --dry-run
 
+      - name: Determine post-deploy action ownership
+        id: post_action_gate
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          REQUESTED_POST_ACTION="${{ github.event.inputs.post_deploy_action }}"
+
+          echo "requested_action=$REQUESTED_POST_ACTION" >> "$GITHUB_OUTPUT"
+
+          if [ "$REQUESTED_POST_ACTION" = "none" ]; then
+            echo "should_execute=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+            echo "superseding_run_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          API_URL="https://api.github.com/repos/$REPOSITORY/actions/workflows/deploy-homeassistant-template.yml/runs?branch=$CURRENT_REF_NAME&event=workflow_dispatch&per_page=20"
+
+          set +e
+          WORKFLOW_RUNS_JSON="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API_URL" 2>&1)"
+          CURL_EXIT=$?
+          set -e
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "Post-deploy ownership check unavailable; proceeding with requested action."
+            echo "$WORKFLOW_RUNS_JSON"
+            echo "should_execute=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+            echo "superseding_run_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OWNERSHIP_RESULT="$(printf '%s' "$WORKFLOW_RUNS_JSON" | python3 - "$CURRENT_RUN_ID" <<'PY'
+          import json
+          import sys
+
+          current_run_id = int(sys.argv[1])
+          payload = json.load(sys.stdin)
+
+          candidate = None
+          for run in payload.get("workflow_runs", []):
+              try:
+                  run_id = int(run.get("id", 0))
+              except (TypeError, ValueError):
+                  continue
+              status = (run.get("status") or "").lower()
+              if run_id <= current_run_id:
+                  continue
+              if status not in {"queued", "in_progress", "requested", "waiting", "pending"}:
+                  continue
+              candidate = run
+              break
+
+          if candidate is None:
+              print("EXECUTE")
+          else:
+              html_url = candidate.get("html_url") or ""
+              run_id = candidate.get("id") or ""
+              status = candidate.get("status") or "unknown"
+              print(f"SKIP\t{run_id}\t{status}\t{html_url}")
+          PY
+          )"
+
+          if [ "$OWNERSHIP_RESULT" = "EXECUTE" ]; then
+            echo "This run owns the post-deploy action."
+            echo "should_execute=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=" >> "$GITHUB_OUTPUT"
+            echo "superseding_run_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          IFS=$'\t' read -r DECISION SUPERSEDING_RUN_ID SUPERSEDING_RUN_STATUS SUPERSEDING_RUN_URL <<< "$OWNERSHIP_RESULT"
+          if [ "$DECISION" = "SKIP" ]; then
+            SKIP_REASON="superseded by newer deploy run $SUPERSEDING_RUN_ID ($SUPERSEDING_RUN_STATUS)"
+            echo "$SKIP_REASON"
+            if [ -n "$SUPERSEDING_RUN_URL" ]; then
+              echo "Superseding run URL: $SUPERSEDING_RUN_URL"
+            fi
+            echo "should_execute=false" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=$SKIP_REASON" >> "$GITHUB_OUTPUT"
+            echo "superseding_run_url=$SUPERSEDING_RUN_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Unexpected ownership result '$OWNERSHIP_RESULT'; proceeding with requested action."
+          echo "should_execute=true" >> "$GITHUB_OUTPUT"
+          echo "skip_reason=" >> "$GITHUB_OUTPUT"
+          echo "superseding_run_url=" >> "$GITHUB_OUTPUT"
+
+      - name: Explain skipped post-deploy action
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action != 'none' && steps.post_action_gate.outputs.should_execute != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Skipping post-deploy action for this run: ${{ steps.post_action_gate.outputs.skip_reason }}"
+          if [ -n "${{ steps.post_action_gate.outputs.superseding_run_url }}" ]; then
+            echo "Superseding run: ${{ steps.post_action_gate.outputs.superseding_run_url }}"
+          fi
+
       - name: Execute post-deploy action
         id: post_action
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && steps.post_action_gate.outputs.should_execute == 'true' }}
         run: |
           set -euo pipefail
 
@@ -1779,7 +1889,7 @@ jobs:
           exit $ACTION_EXIT
 
       - name: Wait for Home Assistant after Core restart
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && steps.post_action_gate.outputs.should_execute == 'true' }}
         shell: bash
         env:
           HA_SUPERVISOR_TOKEN: ${{ secrets.HA_SUPERVISOR_TOKEN }}
@@ -1832,7 +1942,7 @@ jobs:
 
       - name: Verify Lovelace resources after Core restart
         id: verify_resources_post_restart
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && steps.post_action_gate.outputs.should_execute == 'true' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
         continue-on-error: true
         shell: bash
         env:
@@ -1851,7 +1961,7 @@ jobs:
           bash .github/scripts/sync_lovelace_resources.sh --dry-run --strict
 
       - name: Re-sync Lovelace resources after restart drift
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') && steps.verify_resources_post_restart.outcome != 'success' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && steps.post_action_gate.outputs.should_execute == 'true' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') && steps.verify_resources_post_restart.outcome != 'success' }}
         shell: bash
         env:
           RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
@@ -1869,7 +1979,7 @@ jobs:
           bash .github/scripts/sync_lovelace_resources.sh
 
       - name: Final Lovelace resource verification after restart
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.post_deploy_action == 'restart_core' && steps.post_action_gate.outputs.should_execute == 'true' && (github.event.inputs.allowlist_profile == 'packages_www' || github.event.inputs.include_www_for_selected == 'true') }}
         shell: bash
         env:
           RESOURCES_MANIFEST: ./homeassistant/packages/3d_printing/common/dashboards/_resources.yaml
@@ -1988,6 +2098,9 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             EXECUTED_POST_ACTION="not executed (dry run)"
             POST_ACTION_RESULT="skipped"
+          elif [ "$SHOULD_EXECUTE_POST_ACTION" != "true" ]; then
+            EXECUTED_POST_ACTION="skipped (superseded by newer run)"
+            POST_ACTION_RESULT="skipped"
           else
             EXECUTED_POST_ACTION="$REQUESTED_POST_ACTION"
             case "$POST_ACTION_OUTCOME" in
@@ -2030,6 +2143,12 @@ jobs:
           echo "  requested_post_action=$REQUESTED_POST_ACTION"
           echo "  executed_post_action=$EXECUTED_POST_ACTION"
           echo "  post_action_result=$POST_ACTION_RESULT"
+          if [ -n "$POST_ACTION_SKIP_REASON" ]; then
+            echo "  post_action_skip_reason=$POST_ACTION_SKIP_REASON"
+          fi
+          if [ -n "$SUPERSEDING_RUN_URL" ]; then
+            echo "  superseding_run_url=$SUPERSEDING_RUN_URL"
+          fi
           echo "  restart_resource_check=$RESOURCE_RESTART_NOTE"
           echo "  deploy_file_changes=add:$DEPLOY_CHANGED_ADD_COUNT update:$DEPLOY_CHANGED_UPDATE_COUNT delete:$DEPLOY_CHANGED_DELETE_COUNT total:$DEPLOY_CHANGED_FILE_COUNT"
           echo "  in_scope_git_diff_files=$IN_SCOPE_DIFF_COUNT"
@@ -2054,10 +2173,14 @@ jobs:
             echo "| Requested post action | $REQUESTED_POST_ACTION |"
             echo "| Executed post action | $EXECUTED_POST_ACTION |"
             echo "| Post action result | $POST_ACTION_RESULT |"
+            echo "| Post action skip reason | ${POST_ACTION_SKIP_REASON:-none} |"
             echo "| Restart resource verification | $RESOURCE_RESTART_NOTE |"
             echo "| Files changed in deploy | $DEPLOY_CHANGED_FILE_COUNT |"
             echo "| Added / Updated / Deleted | $DEPLOY_CHANGED_ADD_COUNT / $DEPLOY_CHANGED_UPDATE_COUNT / $DEPLOY_CHANGED_DELETE_COUNT |"
             echo "| In-scope git diff files | $IN_SCOPE_DIFF_COUNT |"
+            if [ -n "$SUPERSEDING_RUN_URL" ]; then
+              echo "| Superseding run | $SUPERSEDING_RUN_URL |"
+            fi
             echo ""
             echo "### Actual Files Changed In Deploy"
             echo ""
