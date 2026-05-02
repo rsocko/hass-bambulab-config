@@ -126,7 +126,17 @@ router = APIRouter(tags=["models"])
 MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
 MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
-MAX_SERVER_SIDE_3MF_BYTES = 10 * 1024 * 1024
+# Keep this above common Bambu Studio 3MF sizes so viewer rendering prefers
+# server-side parsed geometry over fragile browser-side 3MF parsing.
+MAX_SERVER_SIDE_3MF_BYTES = 50 * 1024 * 1024
+# Guard against returning extremely large JSON geometry payloads that can fail
+# in HA service proxying or browser parsing.
+MAX_SERVER_SIDE_3MF_TRIANGLES = 1_000_000
+GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
+    "low": 150_000,
+    "medium": 400_000,
+}
+GEOMETRY_LOD_VALUES = {"auto", "full", "medium", "low"}
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
@@ -147,6 +157,129 @@ class CandidateMatch:
     rationale: tuple[str, ...]
     match_method: str
     match_confidence: str
+
+
+def _build_geometry_complexity_error_payload(geometry: dict[str, Any]) -> dict[str, Any] | None:
+    triangle_count_raw = geometry.get("triangle_count")
+    try:
+        triangle_count = int(triangle_count_raw)
+    except (TypeError, ValueError):
+        return None
+
+    if triangle_count <= MAX_SERVER_SIDE_3MF_TRIANGLES:
+        return None
+
+    return {
+        "error": "3MF geometry is too complex for interactive viewer rendering",
+        "triangle_count": triangle_count,
+        "max_server_side_triangles": MAX_SERVER_SIDE_3MF_TRIANGLES,
+    }
+
+
+def _normalize_geometry_lod(lod: str | None) -> str:
+    candidate = str(lod or "").strip().lower()
+    return candidate if candidate in GEOMETRY_LOD_VALUES else "full"
+
+
+def _resolve_auto_geometry_lod(source_triangle_count: int) -> str:
+    if source_triangle_count > GEOMETRY_LOD_TRIANGLE_LIMITS["medium"]:
+        return "low"
+    if source_triangle_count > GEOMETRY_LOD_TRIANGLE_LIMITS["low"]:
+        return "medium"
+    return "full"
+
+
+def _decimate_triangle_vertices(vertices: list[float], keep_triangles: int) -> list[float]:
+    if keep_triangles <= 0:
+        return []
+    total_triangles = max(0, len(vertices) // 9)
+    if total_triangles <= keep_triangles:
+        return list(vertices)
+
+    output: list[float] = []
+    step = total_triangles / keep_triangles
+    cursor = 0.0
+    for _ in range(keep_triangles):
+        triangle_index = min(total_triangles - 1, int(cursor))
+        start = triangle_index * 9
+        output.extend(vertices[start:start + 9])
+        cursor += step
+    return output
+
+
+def _apply_geometry_lod(geometry: dict[str, Any], lod: str | None) -> tuple[dict[str, Any], str, str, bool]:
+    requested_lod = _normalize_geometry_lod(lod)
+    source_triangle_count_raw = geometry.get("triangle_count")
+    try:
+        source_triangle_count = int(source_triangle_count_raw)
+    except (TypeError, ValueError):
+        source_triangle_count = max(0, len(list(geometry.get("vertices") or [])) // 9)
+
+    applied_lod = requested_lod
+    if requested_lod == "auto":
+        applied_lod = _resolve_auto_geometry_lod(source_triangle_count)
+
+    if applied_lod == "full":
+        output_geometry = dict(geometry)
+        output_geometry["lod"] = {
+            "requested": requested_lod,
+            "applied": applied_lod,
+            "simplified": False,
+            "source_triangle_count": source_triangle_count,
+            "rendered_triangle_count": source_triangle_count,
+        }
+        return output_geometry, requested_lod, applied_lod, False
+
+    target_triangles = GEOMETRY_LOD_TRIANGLE_LIMITS[applied_lod]
+    if source_triangle_count <= target_triangles:
+        output_geometry = dict(geometry)
+        output_geometry["lod"] = {
+            "requested": requested_lod,
+            "applied": applied_lod,
+            "simplified": False,
+            "source_triangle_count": source_triangle_count,
+            "rendered_triangle_count": source_triangle_count,
+        }
+        return output_geometry, requested_lod, applied_lod, False
+
+    ratio = target_triangles / float(source_triangle_count)
+    groups = list(geometry.get("groups") or [])
+    decimated_groups: list[dict[str, Any]] = []
+    flattened_vertices: list[float] = []
+
+    if groups:
+        for group in groups:
+            group_vertices = list(group.get("vertices") or [])
+            group_triangle_count = max(0, len(group_vertices) // 9)
+            if group_triangle_count <= 0:
+                continue
+            keep_triangles = max(1, int(group_triangle_count * ratio))
+            decimated_group_vertices = _decimate_triangle_vertices(group_vertices, keep_triangles)
+            if not decimated_group_vertices:
+                continue
+            next_group = dict(group)
+            next_group["vertices"] = decimated_group_vertices
+            next_group["triangle_count"] = max(0, len(decimated_group_vertices) // 9)
+            decimated_groups.append(next_group)
+            flattened_vertices.extend(decimated_group_vertices)
+    else:
+        flattened_vertices = _decimate_triangle_vertices(list(geometry.get("vertices") or []), target_triangles)
+
+    rendered_triangle_count = max(0, len(flattened_vertices) // 9)
+    output_geometry = dict(geometry)
+    output_geometry["vertices"] = flattened_vertices
+    output_geometry["triangle_count"] = rendered_triangle_count
+    output_geometry["dimensions_mm"] = _compute_dimensions_mm(flattened_vertices)
+    if groups:
+        output_geometry["groups"] = decimated_groups
+    output_geometry["lod"] = {
+        "requested": requested_lod,
+        "applied": applied_lod,
+        "simplified": rendered_triangle_count < source_triangle_count,
+        "source_triangle_count": source_triangle_count,
+        "rendered_triangle_count": rendered_triangle_count,
+    }
+    return output_geometry, requested_lod, applied_lod, rendered_triangle_count < source_triangle_count
 
 
 def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None = None) -> str | None:
@@ -2822,7 +2955,14 @@ def set_uploaded_model_photo_preview_endpoint(request: Request, model_ref: str, 
 
 # ==================== Phase 3.2 Endpoints: 3D Viewer ====================
 
-def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, include_debug: bool = False, plate_id: str | None = None):
+def get_geometry_endpoint(
+    request: Request,
+    model_ref: str,
+    file_id: str,
+    include_debug: bool = False,
+    plate_id: str | None = None,
+    lod: str | None = None,
+):
     """Fetch 3D geometry file for 3D viewer (Phase 3.2)."""
     try:
         state: AppState = request.app.state.model_catalog
@@ -2832,6 +2972,8 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
             "file_id": file_id,
             "detail_attempts": [],
         }
+        requested_lod = _normalize_geometry_lod(lod)
+        debug_info["lod"] = requested_lod
         
         # Resolve model reference - wrap in try/except to catch database errors
         try:
@@ -2902,7 +3044,20 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
                         payload["_debug"] = debug_info
                     return JSONResponse(status_code=422, content=payload)
                 try:
-                    response_payload["geometry"] = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+                    geometry_payload = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+                    geometry_payload, _requested_lod, _applied_lod, simplified = _apply_geometry_lod(
+                        geometry_payload,
+                        requested_lod,
+                    )
+                    if simplified:
+                        response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
+                    complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
+                    if complexity_payload is not None:
+                        if include_debug:
+                            debug_info["local_storage_path"] = str(storage_path)
+                            complexity_payload["_debug"] = debug_info
+                        return JSONResponse(status_code=422, content=complexity_payload)
+                    response_payload["geometry"] = geometry_payload
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
 
@@ -2966,7 +3121,19 @@ def get_geometry_endpoint(request: Request, model_ref: str, file_id: str, includ
             if is_3mf and source_url:
                 try:
                     binary_response = client.fetch_binary(source_url)
-                    response_payload["geometry"] = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+                    geometry_payload = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
+                    geometry_payload, _requested_lod, _applied_lod, simplified = _apply_geometry_lod(
+                        geometry_payload,
+                        requested_lod,
+                    )
+                    if simplified:
+                        response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
+                    complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
+                    if complexity_payload is not None:
+                        if include_debug:
+                            complexity_payload["_debug"] = debug_info
+                        return JSONResponse(status_code=422, content=complexity_payload)
+                    response_payload["geometry"] = geometry_payload
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
 

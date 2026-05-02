@@ -13,7 +13,7 @@ from sidecars.model_catalog.app.archive_linking import (
     ArchiveLinkingEngine, ArchiveMetadata, LinkCandidate
 )
 from sidecars.model_catalog.app.model_statistics import (
-    ModelStatistics, FilamentSummary
+    PrintStatistics, FilamentSummary
 )
 from sidecars.model_catalog.app.model_export import (
     ModelCatalogExporter, ModelSchemaMigrator, ModelCatalogImporter, ExportFilter

@@ -1,232 +1,309 @@
 # Model Catalog Import Flow Diagrams
 
-> Status: Working interpretation of current design plus current implementation behavior.
-> Last reviewed: 2026-04-30
+> Status: Updated with clear Queue vs History split and Execute Now decision point (May 2026)
+> Last reviewed: 2026-05-02
 
-This document explains the import path from Intake to Inbox review to Working groups.
+This document explains the import path from Intake through the Queue (Active Queue and Job History) to Working groups.
 
 The short version:
 
-- Intake is the sidecar-owned staging mechanism.
-- Inbox is the operator-facing review queue over intake items.
+- Intake is the sidecar-owned staging mechanism (user selects files and submits batch).
+- Active Queue is the operator-facing review area where decisions are made (submitted, validated, deferred).
+- Job History is the immutable record of completed workflows (grouped, published, rejected).
 - Working groups are the first durable handoff target for accepted items.
 - Curated catalog publication happens later and is not part of the intake state machine.
 
-Issue #1171 refines the intake operator surface into a stepwise flow: choose one source mode, configure the batch, then queue it into Inbox.
+Issue #1171 refines the intake operator surface into a stepwise flow: choose one source mode, configure the batch, then choose to Queue for Review or Execute Now.
 
 ## Mental Model
 
 Think of the flow as four layers:
 
+1. Source selection: browser upload, server file selection, folder selection, or bulk discovery.
+2. Intake submission: the sidecar normalizes the source entries and creates an intake item.
+3. Queue decision (in wizard final step): operator chooses Queue for Review (staged to Active Queue) or Execute Now (direct to terminal action).
+4. Active Queue review (if queued): operator validates, defers, rejects, or groups the item.
+5. Working handoff or terminal action: the item becomes a new working group, attaches to existing, publishes directly, or is rejected.
+6. Job History: record of completed workflows immutable and audit-safe.
 
 UI note:
 
 - Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
-- Cleanup policy belongs to the queueing step for the current batch, near recurse/max-depth/grouping decisions rather than as a detached global control.
-1. Source selection: browser upload, server file selection, folder selection, or bulk discovery.
-2. Intake submission: the sidecar normalizes the source entries and creates an intake item.
-3. Inbox review: the operator validates, defers, rejects, or groups the item.
-4. Working handoff: the item becomes a new working group or attaches to an existing one.
+- Cleanup policy belongs to the queueing step for the current batch, near recurse/max-depth/grouping decisions.
+- Mixed file+folder selections are allowed in one batch, but the wizard review step must show expansion preview so the operator understands what will be imported.
 
-## High-Level Flow
+## High-Level Flow: Wizard to Execution
 
 ```mermaid
 flowchart TD
-    A[External source\nBrowser upload\nServer file selection\nFolder selection\nBulk discover proposal] --> B[Intake submit\nsidecar creates intake item]
-    B --> C{Validation result}
-    C -->|ready| D[Inbox: Validated Ready]
-    C -->|warnings or blockers| E[Inbox: Validated Warning]
-    B -->|operator parks without validating| F[Inbox: Deferred]
-    B -->|operator discards| G[Rejected]
-
-    D -->|Create Group| H[Grouped New\nnew working_group]
-    D -->|Attach Existing| I[Grouped Existing\nexisting working_group]
-    D -->|Defer| F
-    D -->|Reject| G
-
-    E -->|Revalidate and clear warnings| D
-    E -->|Create Group anyway| H
-    E -->|Attach Existing anyway| I
-    E -->|Defer| F
-    E -->|Reject| G
-
-    F -->|Reopen or validate later| C
-    G -->|Explicit reopen only| C
-
-    H --> J[Working phase\nedit, print, iterate]
-    I --> J
-    J --> K[Later: publish to curated catalog]
+    A[Wizard Step 1: Choose source mode\nBrowser upload OR Server browse] --> B[Wizard Step 2: Select files/folders\nconfigure recurse/max-depth/grouping]
+    B --> C[Wizard Step 3: Review batch\nshow expansion preview\nconfirm cleanup policy]
+    C --> D{Commit Mode\nin final step}
+    
+    D -->|Queue for Review| E[Stage to Active Queue\nitem enters submitted state\nwaits for operator triage]
+    D -->|Execute Now| F{Validation check\nall files resolvable?}
+    
+    F -->|✓ Valid| G{Choose action\nGroup New\nGroup Existing\nPublish Catalog}
+    F -->|✗ Invalid| H[Fallback to Queue\noperator reviews blocking issues]
+    
+    G -->|Group New| I[Create working_group\nmove files\nset to grouped_new\nEND - Job History]
+    G -->|Group Existing| J[Attach to working_group\nmove files\nset to grouped_existing\nEND - Job History]
+    G -->|Publish Catalog| K[Direct publish to catalog\nset to published_to_catalog\nEND - Job History]
+    
+    H --> E
+    
+    E --> L[Active Queue:\nitem waiting for operator]
+    L --> M{Operator action}
+    
+    M -->|Validate| N{Result}
+    N -->|ready| O[Validated Ready]
+    N -->|warnings| P[Validated Warning]
+    
+    M -->|Defer| Q[Deferred state]
+    M -->|Reject| R[Rejected terminal\nEND - Job History]
+    
+    O --> S{Group or Publish}
+    P --> T{Revalidate\nor Override}
+    Q --> U{Later:\nRevalidate}
+    
+    S -->|Group New| I
+    S -->|Group Existing| J
+    S -->|Publish| K
+    
+    T -->|Revalidate| N
+    T -->|Override Group| I
+    T -->|Override Group| J
+    
+    U --> N
+    
+    I --> V[Working phase]
+    J --> V
+    K --> V[Later: publish to curated catalog]
 ```
 
-## Canonical Intake State Machine
+## Canonical Intake State Machine (Intake to Terminal)
 
-This matches the explicit design contract in the intake state-machine document.
+This matches the explicit design contract in [intake-state-machine.md](intake-state-machine.md).
+
+**Active Queue States** (operator decisions in progress):
 
 ```mermaid
 stateDiagram-v2
     [*] --> Submitted
 
     Submitted --> ValidatedReady: validate / ready
-    Submitted --> ValidatedWarning: validate / duplicate_candidate\nneeds_manual_grouping\nunsupported_type\nmissing_source
+    Submitted --> ValidatedWarning: validate / warnings
     Submitted --> Deferred: defer
-    Submitted --> Rejected: reject
+    Submitted --> Rejected: ✓ TERMINAL
 
-    ValidatedReady --> GroupedNew: group:create_new
-    ValidatedReady --> GroupedExisting: group:attach_existing
+    ValidatedReady --> ValidatedReady: validate (idempotent)
+    ValidatedReady --> GroupedNew: group:create_new ✓ TERMINAL
+    ValidatedReady --> GroupedExisting: group:attach_existing ✓ TERMINAL
+    ValidatedReady --> PublishedCatalog: publish:direct ✓ TERMINAL
     ValidatedReady --> Deferred: defer
-    ValidatedReady --> Rejected: reject
+    ValidatedReady --> Rejected: reject ✓ TERMINAL
 
-    ValidatedWarning --> ValidatedReady: revalidate clears warnings
-    ValidatedWarning --> GroupedNew: override create_new
-    ValidatedWarning --> GroupedExisting: override attach_existing
+    ValidatedWarning --> ValidatedReady: validate_override / warnings clear
+    ValidatedWarning --> GroupedNew: override group:create_new ✓ TERMINAL
+    ValidatedWarning --> GroupedExisting: override group:attach_existing ✓ TERMINAL
     ValidatedWarning --> Deferred: defer
-    ValidatedWarning --> Rejected: reject
+    ValidatedWarning --> Rejected: reject ✓ TERMINAL
 
-    Deferred --> Submitted: reopen
+    Deferred --> Submitted: reopen / Wizard Step 3
     Deferred --> ValidatedReady: validate / ready
     Deferred --> ValidatedWarning: validate / warnings
+    Deferred --> Rejected: reject ✓ TERMINAL
 
-    Rejected --> Submitted: reopen
-
+    Rejected --> [*]
     GroupedNew --> [*]
     GroupedExisting --> [*]
+    PublishedCatalog --> [*]
+
+    note right of Rejected
+        Terminal state
+        Job History
+        Admin reopen only
+    end note
+    
+    note right of GroupedNew
+        Terminal state
+        Job History
+        Admin reopen only
+    end note
 ```
 
-## What Intake, Inbox, And Groups Mean
+**Terminal State Enforcement:**
 
-### Intake
+Once in any terminal state (marked with ✓), only these operations are allowed:
 
-Intake is the ingestion mechanism and staging record.
+- View item details
+- Delete from Job History log
+- **Admin Reopen** (requires admin role + confirmation token)
 
-It is where the sidecar:
+All intake workflow operations (validate, group, publish, defer, reject) return `HTTP 409 Conflict` with code `item_terminal_*`.
 
-- accepts source files or folders
-- normalizes paths and source metadata
+## What Intake, Queue, History, And Groups Mean
+
+### Intake (Submission)
+
+Intake is the ingestion and staging mechanism.
+
+During Intake, the sidecar:
+
+- accepts source files or folders from browser or server roots
+- normalizes paths and validates source metadata
 - computes hashes when possible
 - runs lightweight duplicate and readability checks
-- stores cleanup policy and review notes
+- stores cleanup policy and folder traversal options (`recurse`, `max_depth`)
+- optionally auto-validates (if enabled) or stages as `submitted`
 
-### Inbox
+Intake is **transient staging**, not durable storage.
 
-Inbox is not a separate storage system.
+### Active Queue (Review)
 
-Inbox is the operator review queue over intake items, expressed by `inbox_state` values such as:
+Active Queue is the operator-facing review surface for items awaiting decisions.
 
-- `submitted`
-- `validated_ready`
-- `validated_warning`
-- `deferred`
-- `rejected`
-- `grouped_new`
-- `grouped_existing`
+Active Queue contains intake items in non-terminal states:
 
-### Groups
+- `submitted` — just arrived, not yet validated
+- `validated_ready` — clean validation, ready for action
+- `validated_warning` — validation found issues, operator review required
+- `deferred` — intentionally parked by operator
 
-A group means a `working_group` record has been created or selected and the resolved files have been linked into Working.
+Operators interact with Active Queue to:
 
-After grouping, the intake flow is effectively done.
+- Validate items
+- Defer items for later
+- Reject items as noise
+- Group items into working groups or publish directly to catalog
 
-The next lifecycle is Working-group lifecycle, not Inbox lifecycle.
+**Active Queue is transient** — items exit when they reach a terminal state (grouped, published, rejected).
 
-## Meaning Of The Operator Actions
+### Job History (Audit Log)
+
+Job History is the immutable audit record of completed intake workflows.
+
+Job History contains intake items in terminal states:
+
+- `grouped_new` — created new working group
+- `grouped_existing` — attached to existing working group
+- `published_to_catalog` — published directly to curated catalog
+- `rejected` — rejected as noise/invalid
+
+Operators interact with Job History to:
+
+- View details of completed workflows
+- Review which group/model was created
+- Audit trail (who did what, when)
+- Delete log row (soft archive or hard delete) to clean history
+- **Admin Reopen** (with confirmation) to return item to Active Queue if needed
+
+**Job History is durable** — items are kept for audit and can only be deleted by explicit operator action with confirmation.
+
+### Groups and Working Files
+
+A group (working_group record) is the first durable handoff after intake.
+
+After an intake item is grouped, the item is **no longer part of intake workflow**. The item's files are linked into working group, and the lifecycle continues in the Working flow (edit, print, iterate), not the Intake flow.
+
+From the operator's perspective:
+
+- Grouped items appear in the Job History with a link to the resulting working group.
+- Further work happens in Working flow, not Intake flow.
+- Publishing to curated catalog is a later decision in Working or Curated flow.
 
 ## Operator Cheat Sheet
 
-| State | What it means | What you can do next | Typical operator intent |
+| State | What it means | Available Actions | Typical Intent |
 |---|---|---|---|
-| `submitted` | Intake item exists, but review is not finished yet | Validate, defer, reject | A new file or selection just arrived and still needs triage |
-| `validated_ready` | Files resolved cleanly and are safe to hand off into Working | Create group, attach existing, defer, reject | The item looks good and is ready to become active work |
-| `validated_warning` | Validation found duplicate signals, missing files, or grouping ambiguity | Revalidate, create group carefully, attach existing carefully, defer, reject | Stop and make a decision before treating this as a clean new work item |
-| `deferred` | The item is intentionally parked in the Inbox queue | Reopen later, validate later | Keep it visible without committing to a group yet |
-| `rejected` | The item should not continue through intake right now | Reopen only if the earlier decision was wrong | Preserve the record, but remove it from normal intake progression |
-| `grouped_new` | The intake item created a brand new `working_group` | Open the working group and continue in Working flow | This is a new workstream |
-| `grouped_existing` | The intake item attached to an existing `working_group` | Open the working group and continue in Working flow | This belongs to work already in progress |
+| `submitted` | Item in Active Queue, awaiting triage | Validate, Defer, Reject | New file arrived, needs initial review |
+| `validated_ready` | Item in Active Queue, passed validation cleanly | Validate, Group New, Group Existing, Publish Catalog, Defer, Reject | Item is clean and ready for operator decision |
+| `validated_warning` | Item in Active Queue, validation found issues | Validate (recheck), Group New (override), Group Existing (override), Defer, Reject | Stop and resolve issues before proceeding |
+| `deferred` | Item in Active Queue, intentionally parked | Validate (recheck), Reject | Keep visible but don't commit yet |
+| `grouped_new` | Item in Job History, created new working group | View Details, Delete Log Row, Admin Reopen | Workflow complete; new group created |
+| `grouped_existing` | Item in Job History, attached to existing group | View Details, Delete Log Row, Admin Reopen | Workflow complete; files added to group |
+| `published_to_catalog` | Item in Job History, published to curated catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
+| `rejected` | Item in Job History, rejected as noise/invalid | View Details, Delete Log Row, Admin Reopen | Workflow complete; intentionally excluded |
 
-### Quick Decision Rules
+### Quick Decision Rules (Active Queue)
 
-- Use `Create Group` when the intake item starts a new piece of work.
-- Use `Attach Existing` when the item is another file, revision, or supporting asset for a group you already have.
-- Use `Publish Curated` when the item is ready to land in the local curated catalog structure.
-- Use `Send To Working Files` when the item should move into the working-files structure first.
-- Use `Defer` when the right answer is not clear yet but the item should stay visible.
-- Use `Reject` when the item is noise, unsupported, accidental duplication, or intentionally excluded.
-- Treat `validated_warning` as a decision point, not as a clean green-light state.
+- **Validate** when you want to check or re-check file readiness and duplicate status.
+- **Group New** when the item represents a new piece of work (start a new working group).
+- **Group Existing** when the item belongs to work already in progress (attach to an existing working group).
+- **Publish Catalog** (when available) to skip working and publish directly to curated catalog.
+- **Defer** when the right answer is not clear yet but the item should stay visible in Active Queue.
+- **Reject** when the item is noise, unsupported, accidental duplication, or intentionally excluded.
+- **Treat `validated_warning` as a decision point**, not as a green-light state. Review the warnings before proceeding with group or publish.
 
-### Validate
+### Quick Decision Rules (Job History)
 
-### Send To Working Files
+- **View Details** to inspect what the intake action created (working group, published model, etc.).
+- **Delete Log Row** to clean up completed items from the audit log (soft archive or hard delete).
+- **Admin Reopen** (admin users only) if the action was wrong and needs to be redone; requires confirmation.
 
-Send To Working Files means:
+## Wizard Step-by-Step Behavior
 
-- create a new `working_group`
-- reorganize the resolved files into the configured `/assets/Model Working Files/<group-slug>/` destination when the move plan is valid
-- keep cleanup policy semantics tied to the original intake source after verification
+### Step 1: Choose Source Mode
+- **Browser Upload**: Files selected and uploaded directly from the operator's computer
+- **Server Browse**: Files or folders selected from configured server-side roots
 
-Use it when the operator wants a concrete working-files destination instead of immediate curated publication.
-Validate re-checks the intake item and classifies it.
+Choose **one mode** for the entire batch (not a mix).
 
-Typical outcomes:
+### Step 2: Select Files and Folders, Configure Traversal
 
-- `ready`: file set is usable for grouping
-- `duplicate_candidate`: at least one file hash matched an existing working item
-- `missing_source`: source file is gone or unreadable
-- `unsupported_type`: source did not resolve to supported working files
-- `needs_manual_grouping`: nothing usable resolved from the selected source entries
+- **Individual Files**: Click to select. Each adds one file to the batch.
+- **Folders**: Click folder to add. Configure:
+  - `recurse`: Whether to include subfolders (default: yes)
+  - `max_depth`: How many levels deep to search (optional, constrains recurse)
+  - `grouping_strategy`: How to organize files when expanding (see below)
 
-### Defer
+**Mixed Selections**: You can select individual files AND folders in one batch. All go into a single intake item.
 
-Defer means "keep this in the queue, but stop acting on it for now."
+**Grouping Strategy** (per-folder configuration):
 
-Operationally it means:
+- `none` — don't pre-group; operator will decide grouping later
+- `by-folder` — group expanded files by their source folder structure
+- `by-root` — group expanded files by the root selected folder
+- `flat` — put all expanded files into a single group
 
-- the item stays visible in Inbox
-- no working group is created yet
-- the item is not deleted
-- the operator can come back later to validate or reopen it
+### Step 3: Review Batch, Confirm Cleanup Policy
 
-Use defer when:
+Before queuing or executing, you see a preview:
 
-- you need a naming decision later
-- you want to compare duplicates first
-- the item belongs to a future batch of work
-- the source needs more inspection before grouping
+- **Source Path**: Browser Upload or Server path(s)
+- **Selected Entries**: Number of files and folders you selected
+- **Expanded File Count** (preview): How many actual files will be imported if folders are expanded
+- **Grouping Summary**: What will happen when files are grouped (e.g., "by-folder: 3 groups")
+- **Warnings**: Any unsupported files, missing files, or duplicates detected
+- **Cleanup Policy**: What happens to source files after import (keep, delete_on_verified, replace_with_stub)
 
-### Reject
+**Expand preview** to see exactly which files will be imported and any warnings.
 
-Reject means "this should not continue through intake right now."
+### Step 4 (Final): Choose Commit Mode
 
-Operationally it means:
+- **Queue for Review**: Item enters Active Queue as `submitted` (or auto-validated to `validated_ready`). You review and decide what to do next.
+- **Execute Now**: Item bypasses Active Queue and goes directly to the final action you choose:
+  - Group New (create working group)
+  - Group Existing (attach to working group)
+  - Publish Catalog (direct publish)
 
-- the item stays in the database for audit/history
-- the item should no longer be considered eligible for normal grouping
-- the operator note explains why it was rejected
+If **Execute Now** is blocked (e.g., due to validation warnings), you are informed and fallback to Queue for Review.
 
-Use reject when:
+## Wizard Final Step: Execute Now vs Queue for Review
 
-- the file is noise
-- it is an accidental duplicate
-- it is invalid or unsupported
-- it should be intentionally excluded from Working
+### Execute Now
+- **Best for**: Power users who know exactly what they want to do
+- **Requires**: Clean validation (no warnings) or explicit override
+- **Action**: Immediate grouping or publish, item goes to Job History
+- **Result**: Skip Active Queue entirely, workflow complete in seconds
 
-### Create Group
+### Queue for Review
+- **Best for**: Normal operation, careful decisions
+- **Process**: Item enters Active Queue, you review and decide later
+- **Flexibility**: Can defer, defer and come back, change your mind
+- **Result**: Item stays in Active Queue until you take action
 
-Create Group means:
 
-- make a new `working_group`
-- add the resolved intake files into that group
-- mark the intake item as `grouped_new`
-
-Use it when the item represents a new piece of work.
-
-### Attach Existing
-
-Attach Existing means:
-
-- pick an existing `working_group`
-- add the resolved intake files into that group when they are not already present
-- mark the intake item as `grouped_existing`
-
-Use it when the intake item is another file, revision, or supporting asset for work already in progress.
 
 ## Current Implementation Notes
 

@@ -44,6 +44,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentColorInfo = null;
     this._currentGeometryGroups = [];
     this._usePackageColors = true;
+    this._geometryLod = 'auto';
+    this._currentLodInfo = null;
   }
 
   set hass(hass) {
@@ -402,6 +404,10 @@ class ModelDetail3DViewerTab extends HTMLElement {
             <span class="info-label">Rendering</span>
             <span class="info-value" id="info-rendering">Waiting for Three.js...</span>
           </div>
+          <div class="info-item">
+            <span class="info-label">Detail</span>
+            <span class="info-value" id="info-detail">—</span>
+          </div>
         </div>
       </div>
     `;
@@ -573,6 +579,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     
     if (isStl) {
+      this._currentLodInfo = {
+        requested: 'full',
+        applied: 'full',
+        simplified: false,
+      };
+      this._updateLodInfoDisplay();
       const sourceUrl = this._buildFileDownloadUrl(file);
       this._setRenderingStatus(`Downloading ${file.filename || 'geometry file'}...`);
       try {
@@ -679,14 +691,44 @@ class ModelDetail3DViewerTab extends HTMLElement {
         },
         (error) => {
           URL.revokeObjectURL(url);
-          this._setError(`3MF parsing failed: ${error.message}`);
+          const userMessage = this._build3mfFailureMessage({
+            filename,
+            geometryError,
+            downloadError: error,
+          });
+          this._setError(userMessage);
         },
       );
     } catch (error) {
-      const detail = geometryError && geometryError.message ? ` Parsed geometry failed: ${geometryError.message}.` : '';
       const fetchDetail = this._formatFetchError(sourceUrl, error, '3MF download');
-      this._setError(`3MF loading failed:${detail} ${fetchDetail}`.trim());
+      const userMessage = this._build3mfFailureMessage({
+        filename,
+        geometryError,
+        downloadError: fetchDetail,
+      });
+      this._setError(userMessage);
     }
+  }
+
+  _build3mfFailureMessage({ filename, geometryError, downloadError }) {
+    const safeFilename = String(filename || 'this file');
+    const geometryDetail = this._errorMessage(geometryError, 'Parsed geometry failed.');
+    const downloadDetail = this._errorMessage(downloadError, '3MF download failed.');
+    const combined = `${geometryDetail} ${downloadDetail}`.toLowerCase();
+
+    if (combined.includes('too large for server-side geometry extraction')) {
+      return `Unable to render ${safeFilename}: this 3MF is over the server parse limit and browser fallback parsing also failed. Try exporting a smaller 3MF or STL, or split the model into parts. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
+    if (combined.includes('too complex for interactive viewer rendering')) {
+      return `Unable to render ${safeFilename}: this model has too many triangles for the interactive viewer. Try loading a simplified/decimated mesh, re-exporting with lower detail, or using an STL with reduced polygon count. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
+    if (combined.includes("cannot read properties of null (reading 'model')")) {
+      return `Unable to render ${safeFilename}: this 3MF variant is not compatible with the browser fallback parser. Try re-exporting the 3MF from Bambu Studio or loading an STL version. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
+    return `Unable to render ${safeFilename}: the model could not be parsed by either server-side or browser-side 3MF loaders. Try re-exporting the file or using STL. Technical details: ${geometryDetail}. ${downloadDetail}`;
   }
 
   _normalizeParsedGeometryPayload(payload) {
@@ -709,6 +751,14 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._currentColorInfo = geometry.color_info && typeof geometry.color_info === 'object'
       ? geometry.color_info
       : null;
+    this._currentLodInfo = geometry.lod && typeof geometry.lod === 'object'
+      ? geometry.lod
+      : {
+          requested: 'full',
+          applied: 'full',
+          simplified: false,
+        };
+    this._updateLodInfoDisplay();
     this._syncPlateSelector();
 
     const triangleCount = Number(geometry.triangle_count);
@@ -1060,6 +1110,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const payload = {
       model_ref: modelRef,
       file_id: fileId,
+      lod: this._geometryLod,
     };
     if (this._selectedPlateId) {
       payload.plate_id = this._selectedPlateId;
@@ -1184,8 +1235,37 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const modelRef = encodeURIComponent(String(this._config.model_ref || '').trim());
     const normalizedFileId = this._normalizeFileId(file && file.id || '');
     const fileId = encodeURIComponent(normalizedFileId);
-    const plateQuery = this._selectedPlateId ? `?plate_id=${encodeURIComponent(this._selectedPlateId)}` : '';
-    return `${base}/api/models/${modelRef}/geometry/${fileId}${plateQuery}`;
+    const params = [];
+    if (this._geometryLod) {
+      params.push(`lod=${encodeURIComponent(this._geometryLod)}`);
+    }
+    if (this._selectedPlateId) {
+      params.push(`plate_id=${encodeURIComponent(this._selectedPlateId)}`);
+    }
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
+    return `${base}/api/models/${modelRef}/geometry/${fileId}${query}`;
+  }
+
+  _updateLodInfoDisplay() {
+    const node = this.querySelector('#info-detail');
+    if (!node) {
+      return;
+    }
+    const lod = this._currentLodInfo;
+    if (!lod || typeof lod !== 'object') {
+      node.textContent = '—';
+      return;
+    }
+    const requested = String(lod.requested || '').trim().toLowerCase();
+    const applied = String(lod.applied || '').trim().toLowerCase();
+    const simplified = !!lod.simplified;
+
+    if (simplified || applied === 'low' || applied === 'medium') {
+      node.textContent = `Simplified Preview (${applied || requested || 'lod'})`;
+      return;
+    }
+
+    node.textContent = 'Full Geometry';
   }
 
   _setRenderingStatus(message) {

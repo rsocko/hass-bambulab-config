@@ -5,6 +5,7 @@ Handles:
 - Intake item submission and workflow (submit, validate, defer, reject, group)
 - Item lifecycle in working groups
 - Validation state tracking
+- Action eligibility enforcement
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from ..state import AppState
 from .._helpers import _bulk_utc_now_iso, _coerce_bool, _coerce_int, _collect_intake_source_files_in_folder
 from ..services import get_all_indexed_file_hashes
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
+from ..services.intake_eligibility_service import ActionEligibility
 
 from .intake_queue import (
     _expand_source_entries_to_files,
@@ -35,6 +37,71 @@ router = APIRouter(tags=["intake"])
 
 
 # ==================== HELPER FUNCTIONS ====================
+
+def _get_intake_item_row(db_path: Path, item_id: str) -> dict[str, Any] | None:
+    """Fetch a single intake item row from database."""
+    connection = connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            """
+            SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
+                   source_entries_json, file_hashes_json, error_json,
+                   created_at, updated_at
+            FROM intake_queue_uploads
+            WHERE upload_id = ?
+            """,
+            (item_id,),
+        ).fetchone()
+        if row:
+            return dict(row)
+        return None
+    finally:
+        connection.close()
+
+
+def _build_intake_item_response(item_row: dict[str, Any]) -> dict[str, Any]:
+    """Build a response payload for an intake item with eligibility information."""
+    current_state = str(item_row.get("inbox_state") or "submitted").strip().lower()
+    eligibility = ActionEligibility.build_allowed_actions_payload(current_state)
+
+    return {
+        "item_id": item_row["upload_id"],
+        "status": item_row["status"],
+        "state": current_state,
+        "verification_status": item_row["verification_status"],
+        "cleanup_policy": item_row["cleanup_policy"],
+        "is_terminal": eligibility["is_terminal"],
+        "is_active_queue": eligibility["is_active_queue"],
+        "allowed_actions": eligibility["allowed_actions"],
+        "state_display_name": eligibility["state_display_name"],
+        "created_at": item_row["created_at"],
+        "updated_at": item_row["updated_at"],
+    }
+
+
+def _check_action_eligibility(item_row: dict[str, Any], action: str, override: bool = False) -> tuple[bool, str | None]:
+    """
+    Check if an action is eligible for the current item state.
+    
+    Returns (is_eligible: bool, reason_code: str | None).
+    """
+    current_state = str(item_row.get("inbox_state") or "submitted").strip().lower()
+    
+    # Check basic eligibility
+    is_eligible, reason = ActionEligibility.validate_action_eligibility(current_state, action)
+    if not is_eligible:
+        return False, reason
+    
+    # Check override requirement for warning state
+    if action in {ActionEligibility.GROUP_NEW, ActionEligibility.GROUP_EXISTING}:
+        is_valid_override, override_reason = ActionEligibility.validate_override_for_warning_state(
+            current_state, action, override
+        )
+        if not is_valid_override:
+            return False, override_reason
+    
+    return True, None
 
 def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Expand source entries into individual files with validation."""
@@ -392,8 +459,102 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
     }
 
 
+@router.post("/api/intake/preview-batch")
+def preview_intake_batch(request: Request, payload: dict[str, Any] | None = None) -> Any:
+    """
+    Preview what will happen if source entries are expanded and grouped.
+    
+    Shows:
+    - Total files that will be imported
+    - Warnings about missing sources, duplicates, etc.
+    - Impact of grouping strategy
+    - Whether files are already in working groups (duplicates)
+    """
+    payload = payload or {}
+    source_entries = payload.get("source_entries") or []
+    if not isinstance(source_entries, list):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_payload",
+                "message": "source_entries must be a list",
+            },
+        )
+
+    state: AppState = request.app.state.model_catalog
+    
+    # Expand files from source entries (same logic as validate)
+    expanded_files, expansion_warnings = _expand_intake_source_entries(
+        source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+    )
+
+    # Check for duplicates in existing working groups
+    existing_hashes = _read_existing_working_hashes(state.settings.db_path)
+    duplicate_hashes: list[dict[str, Any]] = []
+    unique_hashes: list[str] = []
+    
+    for file_item in expanded_files:
+        file_hash = str(file_item.get("file_hash") or "").strip().lower()
+        if not file_hash:
+            continue
+        if file_hash in existing_hashes:
+            duplicate_hashes.append({
+                "filename": str(file_item.get("filename", "")).strip(),
+                "file_path": str(file_item.get("path", "")).strip(),
+                "file_hash": file_hash,
+                "status": "already_in_working_group",
+            })
+        else:
+            unique_hashes.append(file_hash)
+
+    # Analyze grouping impact
+    source_entry_count = len([e for e in source_entries if isinstance(e, dict)])
+    folder_entries = sum(1 for e in source_entries if isinstance(e, dict) and e.get("type") == "folder")
+    file_entries = source_entry_count - folder_entries
+
+    return {
+        "success": True,
+        "contract": "intake-preview-batch.v1alpha1",
+        "source_entries": {
+            "total": source_entry_count,
+            "files": file_entries,
+            "folders": folder_entries,
+        },
+        "files": {
+            "expanded_total": len(expanded_files),
+            "unique_hashes": len(unique_hashes),
+            "duplicate_hashes": len(duplicate_hashes),
+            "duplicate_details": duplicate_hashes,
+        },
+        "warnings": expansion_warnings,
+        "grouping_impact": {
+            "recommended_strategy": "group_by_root" if folder_entries > 0 else "single_group",
+            "strategy_explanation": (
+                "Group by root: Creates one working group per top-level source path. "
+                "Single group: All files in one working group."
+            ),
+            "file_count_by_strategy": {
+                "single_group": len(expanded_files),
+                "group_by_root": source_entry_count,
+                "group_by_folder": len(set(str(Path(f["path"]).parent) for f in expanded_files)),
+            },
+        },
+        "can_publish_directly": (
+            len(expanded_files) > 0 and 
+            len(duplicate_hashes) == 0 and 
+            len([w for w in expansion_warnings if w.get("code") in {"missing_source", "source_unreadable"}]) == 0
+        ),
+        "next_actions": [
+            "queue" if not expanded_files else "preview_or_queue",
+            "execute_now" if len(expanded_files) > 0 and len(duplicate_hashes) == 0 else None,
+        ],
+    }
+
+
 @router.get("/api/intake/items/{item_id}")
 def get_intake_item(request: Request, item_id: str) -> Any:
+    """Get a single intake item with full details and action eligibility."""
     state: AppState = request.app.state.model_catalog
     connection = connect(state.settings.db_path)
     connection.row_factory = sqlite3.Row
@@ -412,15 +573,21 @@ def get_intake_item(request: Request, item_id: str) -> Any:
         connection.close()
 
     if row is None:
-        return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
 
+    current_state = str(row["inbox_state"] or "").strip() or _intake_item_state_from_upload_status(str(row["status"] or ""))
+    eligibility = ActionEligibility.build_allowed_actions_payload(current_state)
     source_entries = json.loads(str(row["source_entries_json"] or "[]"))
+
     return {
         "success": True,
         "item": {
             "item_id": row["upload_id"],
             "status": row["status"],
-            "state": str(row["inbox_state"] or "").strip() or _intake_item_state_from_upload_status(str(row["status"] or "")),
+            "state": current_state,
             "verification_status": row["verification_status"],
             "cleanup_policy": row["cleanup_policy"],
             "source_entries": source_entries,
@@ -433,25 +600,54 @@ def get_intake_item(request: Request, item_id: str) -> Any:
             "uploaded_at": row["uploaded_at"],
             "verified_at": row["verified_at"],
             "cleanup_done_at": row["cleanup_done_at"],
+            # Action eligibility
+            "is_terminal": eligibility["is_terminal"],
+            "is_active_queue": eligibility["is_active_queue"],
+            "allowed_actions": eligibility["allowed_actions"],
+            "state_display_name": eligibility["state_display_name"],
         },
     }
 
 
 @router.post("/api/intake/items/{item_id}/validate")
 def validate_intake_item(request: Request, item_id: str) -> Any:
+    """
+    Validate an intake item (run quality checks and resolve files).
+    
+    Allowed states: submitted, validated_ready, validated_warning, deferred.
+    Returns HTTP 409 if state is terminal.
+    """
     state: AppState = request.app.state.model_catalog
     connection = connect(state.settings.db_path)
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(
-            "SELECT upload_id, source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+            "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
             (item_id,),
         ).fetchone()
     finally:
         connection.close()
 
     if row is None:
-        return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
+
+    # Check action eligibility
+    is_eligible, reason_code = _check_action_eligibility(row, ActionEligibility.VALIDATE)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot validate item in state '{row.get('inbox_state')}': {reason_code}",
+                "item_id": item_id,
+                "current_state": row.get("inbox_state"),
+                **_build_intake_item_response(row),
+            },
+        )
 
     source_entries = json.loads(str(row["source_entries_json"] or "[]"))
     warnings: list[dict[str, Any]] = []
@@ -527,6 +723,9 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         },
     )
 
+    # Fetch updated row to build response with eligibility
+    updated_row = _get_intake_item_row(state.settings.db_path, item_id)
+
     return {
         "success": True,
         "item_id": item_id,
@@ -536,72 +735,198 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             "warnings": warnings,
             "file_hash_count": len(file_hashes),
         },
+        **_build_intake_item_response(updated_row),
     }
 
 
 @router.post("/api/intake/items/{item_id}/defer")
 def defer_intake_item(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
+    """
+    Defer an intake item (park for later review).
+    
+    Allowed states: submitted, validated_ready, validated_warning.
+    Terminal states: returns 409 Conflict.
+    """
     payload = payload or {}
     note = str(payload.get("note") or "Deferred by operator").strip() or "Deferred by operator"
     state: AppState = request.app.state.model_catalog
+
+    # Fetch current item
+    item_row = _get_intake_item_row(state.settings.db_path, item_id)
+    if item_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
+
+    # Check action eligibility
+    is_eligible, reason_code = _check_action_eligibility(item_row, ActionEligibility.DEFER)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot defer item in state '{item_row.get('inbox_state')}': {reason_code}",
+                "item_id": item_id,
+                "current_state": item_row.get("inbox_state"),
+                **_build_intake_item_response(item_row),
+            },
+        )
+
+    # Update database
     connection = connect(state.settings.db_path)
     try:
-        row = connection.execute("SELECT upload_id FROM intake_queue_uploads WHERE upload_id = ?", (item_id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
+        now_iso = _bulk_utc_now_iso()
         connection.execute(
             "UPDATE intake_queue_uploads SET inbox_state = ?, decision_note = ?, updated_at = ? WHERE upload_id = ?",
-            ("deferred", note, _bulk_utc_now_iso(), item_id),
+            ("deferred", note, now_iso, item_id),
         )
         connection.commit()
     finally:
         connection.close()
-    _record_queue_event(request=request, upload_id=item_id, event_type="intake_item_deferred", payload={"note": note})
-    return {"success": True, "item_id": item_id, "state": "deferred", "note": note}
+
+    # Log event
+    _record_queue_event(
+        request=request,
+        upload_id=item_id,
+        event_type="intake_item_deferred",
+        payload={"note": note},
+    )
+
+    # Refresh and return updated item
+    updated_row = _get_intake_item_row(state.settings.db_path, item_id)
+    return {
+        "success": True,
+        **_build_intake_item_response(updated_row),
+        "decision_note": note,
+    }
 
 
 @router.post("/api/intake/items/{item_id}/reject")
 def reject_intake_item(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
+    """
+    Reject an intake item (terminal state).
+    
+    Allowed states: submitted, validated_ready, validated_warning, deferred.
+    Creates a terminal state; no further intake actions allowed.
+    """
     payload = payload or {}
     note = str(payload.get("note") or "Rejected by operator").strip() or "Rejected by operator"
     state: AppState = request.app.state.model_catalog
+
+    # Fetch current item
+    item_row = _get_intake_item_row(state.settings.db_path, item_id)
+    if item_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
+
+    # Check action eligibility
+    is_eligible, reason_code = _check_action_eligibility(item_row, ActionEligibility.REJECT)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot reject item in state '{item_row.get('inbox_state')}': {reason_code}",
+                "item_id": item_id,
+                "current_state": item_row.get("inbox_state"),
+                **_build_intake_item_response(item_row),
+            },
+        )
+
+    # Update database (set to terminal state)
     connection = connect(state.settings.db_path)
     try:
-        row = connection.execute("SELECT upload_id FROM intake_queue_uploads WHERE upload_id = ?", (item_id,)).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
+        now_iso = _bulk_utc_now_iso()
         connection.execute(
-            "UPDATE intake_queue_uploads SET inbox_state = ?, decision_note = ?, updated_at = ? WHERE upload_id = ?",
-            ("rejected", note, _bulk_utc_now_iso(), item_id),
+            """
+            UPDATE intake_queue_uploads 
+            SET inbox_state = ?, decision_note = ?, updated_at = ?,
+                terminal_action = 'rejected', terminal_at = ?
+            WHERE upload_id = ?
+            """,
+            ("rejected", note, now_iso, now_iso, item_id),
         )
         connection.commit()
     finally:
         connection.close()
-    _record_queue_event(request=request, upload_id=item_id, event_type="intake_item_rejected", payload={"note": note})
-    return {"success": True, "item_id": item_id, "state": "rejected", "note": note}
+
+    # Log event
+    _record_queue_event(
+        request=request,
+        upload_id=item_id,
+        event_type="intake_item_rejected",
+        payload={"note": note},
+    )
+
+    # Refresh and return updated item
+    updated_row = _get_intake_item_row(state.settings.db_path, item_id)
+    return {
+        "success": True,
+        **_build_intake_item_response(updated_row),
+        "decision_note": note,
+        "terminal": True,
+    }
 
 
 @router.post("/api/intake/items/{item_id}/group")
 def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
+    """
+    Group an intake item into a working group (terminal state).
+    
+    Allowed states: validated_ready (always), validated_warning (with override=true).
+    Terminal states: returns 409 Conflict.
+    """
     state: AppState = request.app.state.model_catalog
     payload = payload or {}
     action = str(payload.get("action") or "create_working_group").strip().lower()
     if action not in {"create_working_group", "attach_existing_working_group"}:
-        return JSONResponse(status_code=400, content={"success": False, "error": "invalid_action", "message": "action must be create_working_group or attach_existing_working_group"})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_action",
+                "message": "action must be create_working_group or attach_existing_working_group",
+            },
+        )
+
+    # Fetch current item
+    item_row = _get_intake_item_row(state.settings.db_path, item_id)
+    if item_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
+        )
+
+    # Map action to eligibility constant
+    eligibility_action = ActionEligibility.GROUP_NEW if action == "create_working_group" else ActionEligibility.GROUP_EXISTING
+    
+    # Check action eligibility (includes override requirement for warning states)
+    override = _coerce_bool(payload.get("override", False))
+    is_eligible, reason_code = _check_action_eligibility(item_row, eligibility_action, override=override)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot group item in state '{item_row.get('inbox_state')}': {reason_code}",
+                "item_id": item_id,
+                "current_state": item_row.get("inbox_state"),
+                **_build_intake_item_response(item_row),
+            },
+        )
 
     connection = connect(state.settings.db_path)
     connection.row_factory = sqlite3.Row
     response_payload: dict[str, Any] | None = None
     event_payload: dict[str, Any] | None = None
     try:
-        row = connection.execute(
-            "SELECT upload_id, source_entries_json, inbox_state FROM intake_queue_uploads WHERE upload_id = ?",
-            (item_id,),
-        ).fetchone()
-        if row is None:
-            return JSONResponse(status_code=404, content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"})
-
-        source_entries = json.loads(str(row["source_entries_json"] or "[]"))
+        source_entries = json.loads(str(item_row.get("source_entries_json") or "[]"))
         expanded_files, expansion_warnings = _expand_intake_source_entries(
             source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
         )
@@ -651,10 +976,24 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
         else:
             group_id = int(payload.get("working_group_id") or 0)
             if group_id <= 0:
-                return JSONResponse(status_code=400, content={"success": False, "error": "invalid_payload", "message": "working_group_id is required for attach_existing_working_group"})
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "invalid_payload",
+                        "message": "working_group_id is required for attach_existing_working_group",
+                    },
+                )
             existing_group = connection.execute("SELECT id FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             if existing_group is None:
-                return JSONResponse(status_code=404, content={"success": False, "error": "working_group_not_found", "message": f"Working group not found: {group_id}"})
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "success": False,
+                        "error": "working_group_not_found",
+                        "message": f"Working group not found: {group_id}",
+                    },
+                )
 
         added_items = 0
         duplicate_items = 0
@@ -697,16 +1036,32 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             )
             added_items += 1
 
+        # Set to terminal state with metadata
+        terminal_action = "grouped_new" if action == "create_working_group" else "grouped_existing"
         connection.execute(
-            "UPDATE intake_queue_uploads SET inbox_state = ?, decision_note = ?, updated_at = ? WHERE upload_id = ?",
-            ("grouped_new" if action == "create_working_group" else "grouped_existing", f"Grouped to working_group_id={group_id}", now_iso, item_id),
+            """
+            UPDATE intake_queue_uploads 
+            SET inbox_state = ?, decision_note = ?, updated_at = ?,
+                terminal_action = ?, terminal_at = ?,
+                terminal_result_id = ?
+            WHERE upload_id = ?
+            """,
+            (
+                terminal_action,
+                f"Grouped to working_group_id={group_id}",
+                now_iso,
+                terminal_action,
+                now_iso,
+                str(group_id),
+                item_id,
+            ),
         )
 
         group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
-        
+
         serialized_group = _serialize_working_group(connection, group_row, state.settings)
-        
+
         event_payload = {
             "upload_id": item_id,
             "action": action,
@@ -718,7 +1073,8 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
         response_payload = {
             "success": True,
             "item_id": item_id,
-            "state": "grouped_new" if action == "create_working_group" else "grouped_existing",
+            "state": terminal_action,
+            "terminal": True,
             "working_group_id": group_id,
             "added_items": added_items,
             "duplicate_items": duplicate_items,
