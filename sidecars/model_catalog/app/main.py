@@ -50,7 +50,7 @@ def create_app(*, settings: Settings | None = None, manyfold_client: ManyfoldCli
         allow_headers=["*"],
     )
 
-    # Issue #1191 scaffolding: register feature routers before extracting handlers.
+    # Feature routers (see routers/ for endpoint ownership)
     app.include_router(system_router)
     app.include_router(source_filesystems_router)
     app.include_router(archive_links_router)

@@ -18,6 +18,50 @@ Unified endpoint authority modes:
 - `hybrid` - merge frozen Manyfold cache with local models for compatibility
 - `manyfold` - legacy compatibility mode backed by Manyfold cache
 
+## Module Architecture
+
+After the #1190 modularization epic, `main.py` is a thin composition root. All endpoint logic lives in feature routers under `app/routers/`, supported by shared domain modules and a services layer.
+
+### App Factory (`main.py` — 65 lines)
+
+Responsibilities: FastAPI app creation, lifespan (AppState + ManyfoldClient init/teardown), CORS middleware, router registration. Contains **zero** endpoint handlers.
+
+### Routers (`app/routers/`)
+
+| Router | Endpoints | Lines | Scope |
+|--------|-----------|-------|-------|
+| `system.py` | 8 | 320 | Health, config, diagnostics, OpenAPI, schema export |
+| `source_filesystems.py` | 3 | 417 | Server-side filesystem browse for intake/working roots |
+| `archive_links.py` | 8 | 534 | Archive↔model linking CRUD, candidate discovery, review |
+| `working.py` | 26 | 2,845 | Working files explorer, groups, reindex, reorganize |
+| `intake.py` | 16 | 3,399 | Intake queue, browser/server upload, publish, cleanup |
+| `models.py` | 31 | 3,547 | Model list/search/detail, local CRUD, fields, ranking, photos, geometry, file download, related models |
+
+All routers access shared state via `request.app.state.model_catalog` (AppState) and `request.app.state.manyfold_client` (ManyfoldClient).
+
+### Domain Modules (`app/`)
+
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `db.py` | 1,638 | SQLite schema, migrations, all DB read/write functions |
+| `manyfold.py` | 1,455 | Manyfold API client, OAuth, cache, session bridge |
+| `local_models.py` | 604 | Local model + asset CRUD (filesystem + SQLite) |
+| `model_statistics.py` | 586 | Print statistics aggregation and ranking |
+| `geometry_3mf.py` | 572 | 3MF geometry extraction for 3D viewer |
+| `archive_linking.py` | 563 | Archive-link candidate matching and scoring |
+| `model_export.py` | 551 | Model data export and serialization |
+| `build_volume_helper.py` | 453 | Build volume detection and plate layout |
+| `_helpers.py` | 228 | Shared path, timestamp, and validation utilities |
+| `settings.py` | 98 | Pydantic settings from environment variables |
+| `models.py` | 55 | Pydantic data models (ManyfoldModelSummary, LocalModelEntry) |
+| `state.py` | 15 | AppState dataclass |
+
+### Services (`app/services/`)
+
+| Module | Lines | Purpose |
+|--------|-------|---------|
+| `intake_service.py` | 169 | Intake dedup detection, hash collection |
+
 ## Quick Start
 
 ```bash
