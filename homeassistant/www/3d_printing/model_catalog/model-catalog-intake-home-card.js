@@ -14,6 +14,15 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
 
+function pathStem(path) {
+  var name = basename(path || '');
+  if (!name) {
+    return '';
+  }
+  var dotIndex = name.lastIndexOf('.');
+  return dotIndex > 0 ? name.slice(0, dotIndex) : name;
+}
+
 class ModelCatalogIntakeHomeCard extends HTMLElement {
   constructor() {
     super();
@@ -141,6 +150,46 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
   }
 
+  _selectionTitleSource(entry) {
+    var normalized = String(entry && entry.group_title_source || '').trim().toLowerCase();
+    if (normalized === 'folder' || normalized === 'first-file' || normalized === 'custom') {
+      return normalized;
+    }
+    if (entry && entry.grouping_strategy === 'flat') {
+      return 'first-file';
+    }
+    return 'folder';
+  }
+
+  _defaultGroupTitle(entry, proposals) {
+    var titleSource = this._selectionTitleSource(entry);
+    if (titleSource === 'custom') {
+      return String(entry && entry.group_title || '').trim() || basename(entry && entry.path || '') || 'Working Group';
+    }
+    if (titleSource === 'first-file') {
+      if (Array.isArray(proposals) && proposals.length) {
+        var firstProposal = proposals[0] || {};
+        if (firstProposal.title) {
+          return String(firstProposal.title).trim();
+        }
+        var firstFile = Array.isArray(firstProposal.files) && firstProposal.files.length ? firstProposal.files[0] : null;
+        if (firstFile && firstFile.filename) {
+          return pathStem(firstFile.filename) || String(firstFile.filename);
+        }
+      }
+      return pathStem(entry && entry.path || '') || basename(entry && entry.path || '') || 'Working Group';
+    }
+    return basename(entry && entry.path || '') || 'Working Group';
+  }
+
+  _resolvedGroupTitle(entry, proposals) {
+    var explicitTitle = String(entry && entry.group_title || '').trim();
+    if (explicitTitle) {
+      return explicitTitle;
+    }
+    return this._defaultGroupTitle(entry, proposals);
+  }
+
   _serverPayloadSelections(sourceMode) {
     if (sourceMode !== "server") {
       return [];
@@ -151,6 +200,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         next.recurse = !!entry.recurse;
         if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
           next.max_depth = Number(entry.max_depth);
+        }
+        if (entry.grouping_strategy && entry.grouping_strategy !== 'none') {
+          next.group_title_source = this._selectionTitleSource(entry);
+          next.group_title = this._resolvedGroupTitle(entry);
         }
       }
       return next;
@@ -291,6 +344,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         recurse: true,
         max_depth: "",
         grouping_strategy: "none",
+        group_title_source: entryType === 'folder' ? 'folder' : 'first-file',
+        group_title: '',
       };
     }
     this._selected = nextSelected;
@@ -400,10 +455,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             proposals.forEach(function (proposal) {
               (proposal.files || []).forEach(function (fileEntry) {
                 if (fileEntry.path) {
-                  expandedSelections.push({ type: "file", path: String(fileEntry.path) });
+                  expandedSelections.push({
+                    type: "file",
+                    path: String(fileEntry.path),
+                    group_title_source: this._selectionTitleSource(selState),
+                    group_title: this._resolvedGroupTitle(selState, proposals),
+                  });
                 }
-              });
-            });
+              }, this);
+            }, this);
           } catch (_discoverError) {
             plainSelections.push(sel);
           }
@@ -570,6 +630,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return '<div class="state-row">No server files or folders selected yet.</div>';
     }
     return '<div class="entries">' + selections.map(function (entry) {
+      var titleSource = this._selectionTitleSource(entry);
+      var resolvedTitle = this._resolvedGroupTitle(entry);
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
@@ -578,12 +640,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Off</option></select></div>'
             + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(entry.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
             + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
+            + (entry.grouping_strategy && entry.grouping_strategy !== 'none'
+              ? '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+                + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+              : '')
             + '</div>'
           : (entry.type === 'folder'
-            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span></div>'
+            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span>' + ((entry.grouping_strategy && entry.grouping_strategy !== 'none') ? '<span class="chip">title ' + escapeHtml(resolvedTitle) + '</span>' : '') + '</div>'
             : ''))
         + '</article>';
-    }).join('') + '</div>';
+    }, this).join('') + '</div>';
   }
 
   _renderLaunchPad() {
@@ -866,9 +932,31 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'selection-grouping') {
+      var groupingValue = String(target.value || 'none').trim();
       this._selected = Object.assign({}, this._selected, {
         [path]: Object.assign({}, this._selected[path], {
-          grouping_strategy: String(target.value || 'none').trim(),
+          grouping_strategy: groupingValue,
+          group_title_source: groupingValue === 'flat' ? 'first-file' : this._selectionTitleSource(this._selected[path]),
+        }),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-title-source') {
+      this._selected = Object.assign({}, this._selected, {
+        [path]: Object.assign({}, this._selected[path], {
+          group_title_source: String(target.value || 'folder').trim(),
+          group_title: '',
+        }),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-group-title') {
+      this._selected = Object.assign({}, this._selected, {
+        [path]: Object.assign({}, this._selected[path], {
+          group_title_source: 'custom',
+          group_title: String(target.value || '').trim(),
         }),
       });
       this._render();

@@ -525,6 +525,49 @@ def test_select_source_metadata_stored_in_queue(tmp_path: Path) -> None:
     assert entry["path"] == str(f)
     assert "source_mtime" in entry
     assert "source_ctime" in entry
+def test_select_preserves_group_title_metadata_in_queue(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    folder = root / "router-mount"
+    folder.mkdir()
+    (folder / "part.3mf").write_bytes(b"content")
+
+    settings = _build_settings(tmp_path, [root])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+    with TestClient(app) as client:
+        select_resp = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Family",
+                    }
+                ]
+            },
+        )
+        upload_id = select_resp.json()["upload_id"]
+
+    from sqlite3 import connect as _connect
+    conn = _connect(settings.db_path)
+    try:
+        row = conn.execute(
+            "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None
+    import json as _json
+
+    entries = _json.loads(row[0])
+    assert entries[0]["group_title_source"] == "custom"
+    assert entries[0]["group_title"] == "Router Mount Family"
 
 
 def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:

@@ -13,6 +13,26 @@ var batchActionLabel = inboxShared.batchActionLabel;
 var callServiceWithResponse = inboxShared.callServiceWithResponse;
 var sharedStyles = inboxShared.sharedStyles;
 
+function pathStem(path) {
+  var name = basename(path || '');
+  if (!name) {
+    return '';
+  }
+  var dotIndex = name.lastIndexOf('.');
+  return dotIndex > 0 ? name.slice(0, dotIndex) : name;
+}
+
+function suggestedGroupTitle(sourceEntry) {
+  var hintedTitle = String(sourceEntry && sourceEntry.group_title || '').trim();
+  if (hintedTitle) {
+    return hintedTitle;
+  }
+  if (String(sourceEntry && sourceEntry.type || '').toLowerCase() === 'folder') {
+    return basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
+  }
+  return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
+}
+
 class ModelCatalogInboxReviewCard extends HTMLElement {
   constructor() {
     super();
@@ -199,8 +219,8 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     }
   }
 
-  async _createGroup(itemId, sourcePath) {
-    var title = window.prompt('Working group title', basename(sourcePath || '') || 'Working Group');
+  async _createGroup(itemId, sourceEntry) {
+    var title = window.prompt('Working group title', suggestedGroupTitle(sourceEntry));
     if (!title) {
       return;
     }
@@ -374,7 +394,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
         }
 
         if (action === 'create-group') {
-          var title = basename(sourceEntry.path || '') || 'Working Group';
+          var title = suggestedGroupTitle(sourceEntry);
           await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_group_intake_item', {
             item_id: item.item_id,
             action: 'create_working_group',
@@ -532,7 +552,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       return;
     }
     if (action === 'create-group') {
-      this._createGroup(itemId, sourcePath);
+      this._createGroup(itemId, { path: sourcePath, type: String(target.getAttribute('data-source-type') || '') || 'file', group_title: String(target.getAttribute('data-group-title') || '') });
       return;
     }
     if (action === 'attach-existing') {
@@ -575,6 +595,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       + '    ' + (!this._loading && !visibleItems.length ? '<div class="state-row">No intake items match the current view.</div>' : '')
       + '    ' + (visibleItems.length ? '<div class="items">' + visibleItems.map(function (item) {
           var sourceEntry = item.source_entry || {};
+          var proposedTitle = suggestedGroupTitle(sourceEntry);
           var warnings = parseDecisionWarnings(item);
           var warningsText = warningMessages(warnings).join('; ');
           if (!warningsText) {
@@ -586,11 +607,11 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
           var isTerminal = this._currentView === 'job_history';
           var actionButtons = isTerminal 
             ? '<button class="button" data-action="view-item" data-item-id="' + escapeHtml(item.item_id) + '">View</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>'
-            : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '">Send To Working Files</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
+            : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '" data-source-type="' + escapeHtml(sourceEntry.type || '') + '" data-group-title="' + escapeHtml(sourceEntry.group_title || '') + '">Send To Working Files</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
           return ''
             + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
             + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel(item.state || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
-            + '  <div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div></div>'
+            + '  <div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>'
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')
             + (this._selectMode ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>' : '<div class="entry-actions">' + actionButtons + '</div>')

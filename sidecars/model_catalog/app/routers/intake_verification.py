@@ -224,6 +224,28 @@ def _unique_slug(connection: Any, title: str) -> str:
         if candidate not in existing:
             return candidate
         counter += 1
+def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: list[dict[str, Any]]) -> str:
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        hinted_title = str(entry.get("group_title") or "").strip()
+        if hinted_title:
+            return hinted_title
+
+    first_entry = source_entries[0] if source_entries else {}
+    first_entry_path = Path(str(first_entry.get("path") or "")) if isinstance(first_entry, dict) else Path()
+    title_source = str(first_entry.get("group_title_source") or "").strip().lower().replace("_", "-") if isinstance(first_entry, dict) else ""
+
+    if title_source == "folder" and str(first_entry.get("type") or "") == "folder":
+        return first_entry_path.name or str(first_entry_path) or "Working Group"
+
+    if title_source == "first-file":
+        return Path(expanded_files[0]["filename"]).stem or "Working Group"
+
+    if str(first_entry.get("type") or "") == "folder":
+        return first_entry_path.name or str(first_entry_path) or "Working Group"
+
+    return Path(expanded_files[0]["filename"]).stem or "Working Group"
 
 
 # ==================== ENDPOINTS ====================
@@ -634,6 +656,8 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             content={"success": False, "error": "item_not_found", "message": f"No intake item found: {item_id}"},
         )
 
+    row = dict(row)
+
     # Check action eligibility
     is_eligible, reason_code = _check_action_eligibility(row, ActionEligibility.VALIDATE)
     if not is_eligible:
@@ -943,7 +967,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
 
         now_iso = _bulk_utc_now_iso()
         if action == "create_working_group":
-            title = str(payload.get("title") or "").strip() or Path(expanded_files[0]["filename"]).stem or "Working Group"
+            title = str(payload.get("title") or "").strip() or _default_group_title(source_entries, expanded_files)
             stage = str(payload.get("stage") or "draft").strip() or "draft"
             folder_hint = str(payload.get("folder_hint") or Path(str(expanded_files[0]["path"])).parent).strip() or None
             notes = str(payload.get("notes") or "Imported from intake workflow").strip() or None

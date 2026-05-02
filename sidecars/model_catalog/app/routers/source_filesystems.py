@@ -31,6 +31,11 @@ from .._helpers import (
 )
 
 router = APIRouter(tags=["source-filesystems"])
+def _normalize_group_title_source(value: object | None) -> str | None:
+    normalized = str(value or "").strip().lower().replace("_", "-")
+    if normalized in {"folder", "first-file", "custom"}:
+        return normalized
+    return None
 
 
 @router.get("/api/source-filesystems")
@@ -332,6 +337,12 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                     "source_size_bytes": int(stat_result.st_size),
                 }
             )
+            normalized_title_source = _normalize_group_title_source(selection.get("group_title_source"))
+            group_title = str(selection.get("group_title") or "").strip()
+            if normalized_title_source:
+                validated_entries[-1]["group_title_source"] = normalized_title_source
+            if group_title:
+                validated_entries[-1]["group_title"] = group_title
             expanded_file_count += 1
 
         else:  # folder
@@ -374,6 +385,12 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                     "contained_file_count": len(contained_files),
                 }
             )
+            normalized_title_source = _normalize_group_title_source(selection.get("group_title_source"))
+            group_title = str(selection.get("group_title") or "").strip()
+            if normalized_title_source:
+                validated_entries[-1]["group_title_source"] = normalized_title_source
+            if group_title:
+                validated_entries[-1]["group_title"] = group_title
             expanded_file_count += len(contained_files)
 
     # Create intake queue record
