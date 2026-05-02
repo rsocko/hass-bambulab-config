@@ -36,6 +36,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
+    this._cleanupPolicyValue = null;
   }
 
   setConfig(config) {
@@ -83,10 +84,25 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return value === "server" ? "server" : "browser";
   }
 
-  _cleanupPolicy() {
+  _normalizeCleanupPolicy(value) {
+    var normalized = String(value || "keep").trim().toLowerCase();
+    if (normalized === "delete_on_verified" || normalized === "replace_with_stub") {
+      return normalized;
+    }
+    return "keep";
+  }
+
+  _helperCleanupPolicy() {
     return this._hass && this._hass.states[this._config.cleanupPolicyEntity]
-      ? String(this._hass.states[this._config.cleanupPolicyEntity].state || "keep")
+      ? this._normalizeCleanupPolicy(this._hass.states[this._config.cleanupPolicyEntity].state)
       : "keep";
+  }
+
+  _cleanupPolicy() {
+    if (this._cleanupPolicyValue) {
+      return this._cleanupPolicyValue;
+    }
+    return this._helperCleanupPolicy();
   }
 
   _wizardStepCount() {
@@ -336,6 +352,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     var sourceMode = this._sourceMode();
+    var cleanupPolicy = this._cleanupPolicy();
     var payloadSelections = this._serverPayloadSelections(sourceMode);
     var browserFiles = this._enabledBrowserFiles(sourceMode);
     if (!payloadSelections.length && !browserFiles.length) {
@@ -393,14 +410,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           encodedBrowserFiles.push(await this._encodeBrowserFile(browserFiles[browserIndex]));
         }
         response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, "") + "/api/intake/uploads/browser", {
-          cleanup_policy: this._cleanupPolicy(),
+          cleanup_policy: cleanupPolicy,
           browser_files: encodedBrowserFiles,
           server_selections: finalSelections,
         });
       } else {
         response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_select_source_filesystem_entries", {
           selections: finalSelections,
-          cleanup_policy: this._cleanupPolicy(),
+          cleanup_policy: cleanupPolicy,
         });
       }
       var validation = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_validate_intake_item", {
@@ -413,7 +430,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         expanded_file_count: response.expanded_file_count != null ? response.expanded_file_count : response.source_entry_count,
         validation_state: validation.validation ? validation.validation.validation_state : "unknown",
         warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
-        cleanup_policy: this._cleanupPolicy(),
+        cleanup_policy: cleanupPolicy,
       };
       this._status = browserFiles.length
         ? "Browser batch queued to intake and validated."
@@ -441,11 +458,19 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   async _setCleanupPolicy(value) {
+    var nextValue = this._normalizeCleanupPolicy(value);
+    this._cleanupPolicyValue = nextValue;
+    this._render();
     if (!this._hass) {
       return;
     }
-    await setHelperValue(this._hass, "input_select", this._config.cleanupPolicyEntity, value);
-    this._render();
+    try {
+      await setHelperValue(this._hass, "input_select", this._config.cleanupPolicyEntity, nextValue);
+    } catch (error) {
+      this._cleanupPolicyValue = this._helperCleanupPolicy();
+      this._error = error && error.message ? String(error.message) : "Could not update cleanup policy.";
+      this._render();
+    }
   }
 
   _queueSummaryHtml() {
