@@ -126,7 +126,9 @@ router = APIRouter(tags=["models"])
 MODEL_UPLOAD_PHOTOS_FIELD = "uploaded_photos"
 MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
-MAX_SERVER_SIDE_3MF_BYTES = 10 * 1024 * 1024
+# Keep this above common Bambu Studio 3MF sizes so viewer rendering prefers
+# server-side parsed geometry over fragile browser-side 3MF parsing.
+MAX_SERVER_SIDE_3MF_BYTES = 50 * 1024 * 1024
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",

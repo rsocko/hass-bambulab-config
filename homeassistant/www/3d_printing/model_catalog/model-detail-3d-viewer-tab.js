@@ -679,14 +679,40 @@ class ModelDetail3DViewerTab extends HTMLElement {
         },
         (error) => {
           URL.revokeObjectURL(url);
-          this._setError(`3MF parsing failed: ${error.message}`);
+          const userMessage = this._build3mfFailureMessage({
+            filename,
+            geometryError,
+            downloadError: error,
+          });
+          this._setError(userMessage);
         },
       );
     } catch (error) {
-      const detail = geometryError && geometryError.message ? ` Parsed geometry failed: ${geometryError.message}.` : '';
       const fetchDetail = this._formatFetchError(sourceUrl, error, '3MF download');
-      this._setError(`3MF loading failed:${detail} ${fetchDetail}`.trim());
+      const userMessage = this._build3mfFailureMessage({
+        filename,
+        geometryError,
+        downloadError: fetchDetail,
+      });
+      this._setError(userMessage);
     }
+  }
+
+  _build3mfFailureMessage({ filename, geometryError, downloadError }) {
+    const safeFilename = String(filename || 'this file');
+    const geometryDetail = this._errorMessage(geometryError, 'Parsed geometry failed.');
+    const downloadDetail = this._errorMessage(downloadError, '3MF download failed.');
+    const combined = `${geometryDetail} ${downloadDetail}`.toLowerCase();
+
+    if (combined.includes('too large for server-side geometry extraction')) {
+      return `Unable to render ${safeFilename}: this 3MF is over the server parse limit and browser fallback parsing also failed. Try exporting a smaller 3MF or STL, or split the model into parts. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
+    if (combined.includes("cannot read properties of null (reading 'model')")) {
+      return `Unable to render ${safeFilename}: this 3MF variant is not compatible with the browser fallback parser. Try re-exporting the 3MF from Bambu Studio or loading an STL version. Technical details: ${geometryDetail}. ${downloadDetail}`;
+    }
+
+    return `Unable to render ${safeFilename}: the model could not be parsed by either server-side or browser-side 3MF loaders. Try re-exporting the file or using STL. Technical details: ${geometryDetail}. ${downloadDetail}`;
   }
 
   _normalizeParsedGeometryPayload(payload) {

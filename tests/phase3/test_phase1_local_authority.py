@@ -553,13 +553,14 @@ class TestBackwardCompatibility:
         """Large local 3MF files should return a fast non-200 so the frontend can fall back to raw download parsing."""
         from fastapi.testclient import TestClient
         from sidecars.model_catalog.app.main import create_app
+        from sidecars.model_catalog.app.routers.models import MAX_SERVER_SIDE_3MF_BYTES
 
         db = tmp_path / "test.db"
         assets_root = tmp_path / "assets"
         inbox_dir = assets_root / "Model Inbox"
         inbox_dir.mkdir(parents=True, exist_ok=True)
         large_file = inbox_dir / "oversized.3mf"
-        large_file.write_bytes(b"0" * ((10 * 1024 * 1024) + 1))
+        large_file.write_bytes(b"0" * (MAX_SERVER_SIDE_3MF_BYTES + 1))
         bootstrap_database(db_path=db)
 
         create_local_model(
@@ -594,7 +595,7 @@ class TestBackwardCompatibility:
             image_version="0.1.0",
             image_revision="test",
             image_created="2026-01-01T00:00:00Z",
-                    intake_source_roots=(Path(tmpdir).resolve(),),
+                intake_source_roots=(assets_root.resolve(),),
         )
 
         app = create_app(settings=settings)
@@ -604,7 +605,7 @@ class TestBackwardCompatibility:
         assert response.status_code == 422
         payload = response.json()
         assert payload["error"] == "3MF package too large for server-side geometry extraction"
-        assert payload["package_size_bytes"] == (10 * 1024 * 1024) + 1
+        assert payload["package_size_bytes"] == MAX_SERVER_SIDE_3MF_BYTES + 1
 
 
 class TestListModelsEndpointMerge:
