@@ -94,7 +94,14 @@ jobs:
           RESTART_REQUIRED_PUSH=false
           RESTART_REQUIRED_REASONS=""
           DEPLOY_RELEVANT_PUSH=false
+          MODEL_CATALOG_RELEVANT_PUSH=false
+          BAMBUDDY_RUNTIME_REPAIR_RELEVANT_PUSH=false
           BEFORE_SHA="${{ github.event.before }}"
+
+          emit_sidecar_outputs() {
+            echo "dispatch_model_catalog=$MODEL_CATALOG_RELEVANT_PUSH" >> "$GITHUB_OUTPUT"
+            echo "dispatch_bambuddy_runtime_repair=$BAMBUDDY_RUNTIME_REPAIR_RELEVANT_PUSH" >> "$GITHUB_OUTPUT"
+          }
 
           package_is_selected() {
             local pkg="$1"
@@ -120,6 +127,12 @@ jobs:
             case "$f" in
               homeassistant/*)
                 DEPLOY_RELEVANT_PUSH=true
+                ;;
+              sidecars/model_catalog/*)
+                MODEL_CATALOG_RELEVANT_PUSH=true
+                ;;
+              sidecars/bambuddy-runtime-repair/*)
+                BAMBUDDY_RUNTIME_REPAIR_RELEVANT_PUSH=true
                 ;;
               homeassistant/packages/3d_printing/common/common_loader.yaml|\
               homeassistant/packages/3d_printing/common/dashboards/_resources.yaml|\
@@ -149,21 +162,29 @@ jobs:
             AUTO_DEPLOY_POST_DEPLOY_ACTION_RESOLVED="restart_core"
           fi
 
+          if [ -n "$AUTO_DEPLOY_BRANCHES" ] && ! matches_branch "$BRANCH_NAME" "$AUTO_DEPLOY_BRANCHES"; then
+            MODEL_CATALOG_RELEVANT_PUSH=false
+            BAMBUDDY_RUNTIME_REPAIR_RELEVANT_PUSH=false
+          fi
+
           if [ "$AUTO_DEPLOY_ENABLED" != "true" ]; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
             echo "skip_reason=auto deploy disabled" >> "$GITHUB_OUTPUT"
+            emit_sidecar_outputs
             exit 0
           fi
 
           if [ "$DEPLOY_RELEVANT_PUSH" != "true" ]; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
             echo "skip_reason=push did not modify homeassistant/ content" >> "$GITHUB_OUTPUT"
+            emit_sidecar_outputs
             exit 0
           fi
 
           if [ -n "$AUTO_DEPLOY_BRANCHES" ] && ! matches_branch "$BRANCH_NAME" "$AUTO_DEPLOY_BRANCHES"; then
             echo "should_dispatch=false" >> "$GITHUB_OUTPUT"
             echo "skip_reason=branch '$BRANCH_NAME' does not match AUTO_DEPLOY_BRANCHES=$AUTO_DEPLOY_BRANCHES" >> "$GITHUB_OUTPUT"
+            emit_sidecar_outputs
             exit 0
           fi
 
@@ -191,11 +212,92 @@ jobs:
           echo "deploy_relevant_push=$DEPLOY_RELEVANT_PUSH" >> "$GITHUB_OUTPUT"
           echo "restart_required_push=$RESTART_REQUIRED_PUSH" >> "$GITHUB_OUTPUT"
           echo "restart_required_reasons=${RESTART_REQUIRED_REASONS# }" >> "$GITHUB_OUTPUT"
+          emit_sidecar_outputs
 
       - name: Explain skip
         if: ${{ steps.config.outputs.should_dispatch != 'true' }}
         run: |
           echo "Auto-dispatch skipped: ${{ steps.config.outputs.skip_reason }}"
+
+      - name: Show model catalog sidecar dispatch inputs
+        if: ${{ steps.config.outputs.dispatch_model_catalog == 'true' }}
+        run: |
+          echo "Dispatching build-model-catalog-image.yml for ref ${{ github.ref_name }}"
+          echo "  version_mode=next_patch"
+          echo "  push_image=true"
+          echo "  push_latest=true"
+
+          {
+            echo "## Model Catalog Sidecar Auto-Dispatch"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Version mode | next_patch |"
+            echo "| Push image | true |"
+            echo "| Push latest | true |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch model catalog sidecar build workflow
+        if: ${{ steps.config.outputs.dispatch_model_catalog == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method POST \
+            "/repos/$REPOSITORY/actions/workflows/build-model-catalog-image.yml/dispatches" \
+            -f ref="$REF_NAME" \
+            -f inputs[version_mode]="next_patch" \
+            -f inputs[push_image]="true" \
+            -f inputs[push_latest]="true"
+
+          echo "Model catalog sidecar workflow dispatch requested successfully."
+
+      - name: Show bambuddy runtime repair sidecar dispatch inputs
+        if: ${{ steps.config.outputs.dispatch_bambuddy_runtime_repair == 'true' }}
+        run: |
+          echo "Dispatching build-bambuddy-runtime-repair.yml for ref ${{ github.ref_name }}"
+          echo "  version_mode=next_patch"
+          echo "  push_image=true"
+          echo "  push_latest=true"
+
+          {
+            echo "## Bambuddy Runtime Repair Sidecar Auto-Dispatch"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Version mode | next_patch |"
+            echo "| Push image | true |"
+            echo "| Push latest | true |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch bambuddy runtime repair sidecar build workflow
+        if: ${{ steps.config.outputs.dispatch_bambuddy_runtime_repair == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method POST \
+            "/repos/$REPOSITORY/actions/workflows/build-bambuddy-runtime-repair.yml/dispatches" \
+            -f ref="$REF_NAME" \
+            -f inputs[version_mode]="next_patch" \
+            -f inputs[push_image]="true" \
+            -f inputs[push_latest]="true"
+
+          echo "Bambuddy runtime repair sidecar workflow dispatch requested successfully."
 
       - name: Show dispatch inputs
         if: ${{ steps.config.outputs.should_dispatch == 'true' }}
