@@ -29,6 +29,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._boundHandleClick = this._handleClick.bind(this);
     this._boundHandleChange = this._handleChange.bind(this);
+    this._boundHandleInput = this._handleInput.bind(this);
     this._hass = null;
     this._config = null;
     this._loading = false;
@@ -76,6 +77,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (this.shadowRoot) {
       this.shadowRoot.addEventListener("click", this._boundHandleClick);
       this.shadowRoot.addEventListener("change", this._boundHandleChange);
+      this.shadowRoot.addEventListener("input", this._boundHandleInput);
     }
   }
 
@@ -83,6 +85,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (this.shadowRoot) {
       this.shadowRoot.removeEventListener("click", this._boundHandleClick);
       this.shadowRoot.removeEventListener("change", this._boundHandleChange);
+      this.shadowRoot.removeEventListener("input", this._boundHandleInput);
     }
   }
 
@@ -1087,11 +1090,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'browser-group-title') {
-      this._updateBrowserBatchMeta({
-        group_title_source: 'custom',
-        group_title: String(target.value || '').trim(),
-      });
-      this._render();
       return;
     }
     if (action === 'set-commit-mode') {
@@ -1141,11 +1139,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'selection-group-title-files') {
-      this._updateSelectedFileBatchMeta({
-        group_title_source: 'custom',
-        group_title: String(target.value || '').trim(),
-      });
-      this._render();
       return;
     }
     if (action === 'selection-title-source') {
@@ -1159,6 +1152,37 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'selection-group-title') {
+      return;
+    }
+  }
+
+  _handleInput(event) {
+    var target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+    var action = String(target.getAttribute('data-action') || '');
+    if (action === 'browser-group-title') {
+      this._updateBrowserBatchMeta({
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-group-title-files') {
+      this._updateSelectedFileBatchMeta({
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-group-title') {
+      var path = String(target.getAttribute('data-path') || '');
+      if (!path || !this._selected[path]) {
+        return;
+      }
       this._selected = Object.assign({}, this._selected, {
         [path]: Object.assign({}, this._selected[path], {
           group_title_source: 'custom',
@@ -1221,11 +1245,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  </div>'
       + '</ha-card>'
       + (this._wizardOpen ? this._renderWizard() : '');
-
-    var inputs = this.shadowRoot.querySelectorAll('select[data-action], input[data-action]');
-    for (var index = 0; index < inputs.length; index += 1) {
-      inputs[index].onchange = this._boundHandleChange;
-    }
   }
 }
 
