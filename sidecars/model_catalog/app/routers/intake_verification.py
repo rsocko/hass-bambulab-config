@@ -20,9 +20,9 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..state import AppState
-from .._helpers import _bulk_utc_now_iso, _coerce_bool, _coerce_int, _collect_intake_source_files_in_folder, _sha256_file
+from .._helpers import _bulk_utc_now_iso, _coerce_bool, _coerce_int, _collect_intake_source_files_in_folder
 from ..services import get_all_indexed_file_hashes
-from ..services.shared_helpers import _serialize_working_group, _slugify_title
+from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
 
 from .intake_queue import (
     _expand_source_entries_to_files,
