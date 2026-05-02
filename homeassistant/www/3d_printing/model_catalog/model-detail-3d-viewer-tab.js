@@ -594,6 +594,22 @@ class ModelDetail3DViewerTab extends HTMLElement {
     let geometryError = null;
 
     try {
+      this._setRenderingStatus(`Fetching ${filename} geometry via Home Assistant...`);
+      const payload = await this._fetchGeometryViaHaService(file);
+      const parsed = this._normalizeParsedGeometryPayload(payload);
+      if (parsed) {
+        this._loadGeometry(parsed);
+        const plateLabel = this._selectedPlateLabel();
+        this._setRenderingStatus(`Rendering ${filename}${plateLabel ? ` (${plateLabel})` : ''} (${parsed.triangleCount} triangles)`);
+        return;
+      }
+
+      geometryError = new Error(String(payload && payload.error ? payload.error : '3MF geometry payload did not include mesh data.'));
+    } catch (error) {
+      geometryError = new Error(this._formatFetchError('HA rest_command:model_catalog_get_geometry', error, '3MF parsed geometry via HA'));
+    }
+
+    try {
       this._setRenderingStatus(`Fetching ${filename} geometry...`);
       const response = await fetch(geometryUrl, this._buildFetchOptions(geometryUrl));
       if (!response.ok) {
@@ -609,9 +625,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
         return;
       }
 
-      geometryError = new Error(String(payload && payload.error ? payload.error : '3MF geometry payload did not include mesh data.'));
+      const payloadError = new Error(String(payload && payload.error ? payload.error : '3MF geometry payload did not include mesh data.'));
+      geometryError = geometryError
+        ? new Error(`${geometryError.message}. ${payloadError.message}`)
+        : payloadError;
     } catch (error) {
-      geometryError = new Error(this._formatFetchError(geometryUrl, error, '3MF parsed geometry'));
+      const directError = new Error(this._formatFetchError(geometryUrl, error, '3MF parsed geometry direct'));
+      geometryError = geometryError
+        ? new Error(`${geometryError.message}. ${directError.message}`)
+        : directError;
     }
 
     if (!this._has3mfLoader()) {
@@ -901,6 +923,112 @@ class ModelDetail3DViewerTab extends HTMLElement {
     } catch (_error) {
       return { credentials: 'omit' };
     }
+  }
+
+  async _authHeaders(forceRefresh) {
+    const auth = this._hass && this._hass.auth ? this._hass.auth : null;
+    if (!auth) {
+      return {};
+    }
+
+    if (forceRefresh && typeof auth.refreshAccessToken === 'function') {
+      try {
+        await auth.refreshAccessToken();
+      } catch (_error) {
+        // Keep current token if refresh fails.
+      }
+    }
+
+    const token = auth.accessToken || (auth.data ? auth.data.accessToken : '');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  _normalizeServiceResponse(payload) {
+    if (Array.isArray(payload) && payload.length) {
+      return this._normalizeServiceResponse(payload[0]);
+    }
+    if (payload && typeof payload === 'object') {
+      if (payload.service_response && typeof payload.service_response === 'object') {
+        return this._normalizeServiceResponse(payload.service_response);
+      }
+      if (payload.response && typeof payload.response === 'object') {
+        return this._normalizeServiceResponse(payload.response);
+      }
+      if (
+        payload.content
+        && typeof payload.content === 'object'
+        && (Object.prototype.hasOwnProperty.call(payload, 'status') || Object.prototype.hasOwnProperty.call(payload, 'headers'))
+      ) {
+        return Object.assign({}, payload.content, {
+          status: payload.status,
+          headers: payload.headers,
+        });
+      }
+    }
+    return payload && typeof payload === 'object' ? payload : {};
+  }
+
+  async _callServiceWithResponse(domain, service, data) {
+    const endpoint = `/api/services/${encodeURIComponent(String(domain || ''))}/${encodeURIComponent(String(service || ''))}?return_response`;
+    const body = JSON.stringify(data && typeof data === 'object' ? data : {});
+
+    let response = await fetch(endpoint, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, await this._authHeaders(false)),
+      credentials: 'same-origin',
+      body,
+    });
+
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, await this._authHeaders(true)),
+        credentials: 'same-origin',
+        body,
+      });
+    }
+
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      const message = payload && payload.message ? String(payload.message) : `Service call failed (HTTP ${response.status})`;
+      throw new Error(message);
+    }
+
+    const normalized = this._normalizeServiceResponse(payload);
+    if (normalized && normalized.success === false) {
+      throw new Error(normalized.message || normalized.error || 'Request failed.');
+    }
+    if (normalized && typeof normalized.status === 'number' && normalized.status >= 400) {
+      throw new Error(normalized.message || `Request failed (HTTP ${normalized.status}).`);
+    }
+    return normalized;
+  }
+
+  async _fetchGeometryViaHaService(file) {
+    const modelRef = String(this._config.model_ref || '').trim();
+    const fileId = this._normalizeFileId(file && file.id || '');
+    if (!modelRef) {
+      throw new Error('Model reference is missing.');
+    }
+    if (!fileId) {
+      throw new Error('File id is missing.');
+    }
+
+    const payload = {
+      model_ref: modelRef,
+      file_id: fileId,
+    };
+    if (this._selectedPlateId) {
+      payload.plate_id = this._selectedPlateId;
+    }
+
+    return this._callServiceWithResponse('rest_command', 'model_catalog_get_geometry', payload);
   }
 
   _formatFetchError(url, error, contextLabel) {

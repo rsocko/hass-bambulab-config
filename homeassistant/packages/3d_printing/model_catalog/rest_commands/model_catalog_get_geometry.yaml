@@ -1,0 +1,14 @@
+# Fetch model geometry for the 3D viewer via sidecar.
+# Called from model-detail-3d-viewer-tab through HA service proxy.
+model_catalog_get_geometry:
+  url: >-
+    {%- set ns = namespace(params=[]) -%}
+    {%- if plate_id is defined and (plate_id | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['plate_id=' ~ ((plate_id | string) | urlencode)] -%}
+    {%- endif -%}
+    {{- (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      ) -}}/api/models/{{ (model_ref | string) | urlencode }}/geometry/{{ (file_id | string) | urlencode }}{%- if ns.params | count > 0 %}?{{ ns.params | join('&') }}{%- endif -%}
+  method: GET
