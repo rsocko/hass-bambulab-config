@@ -93,7 +93,6 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     try {
       var itemsResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_intake_items', {
         limit: 100,
-      fireModelCatalogDataChanged(['curated'], { reason: 'publish-curated', itemId: itemId });
         offset: 0,
         state_filter: this._stateFilter || undefined,
       });
@@ -136,6 +135,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     try {
       await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_publish_to_local', { upload_id: itemId });
       this._status = 'Item published to curated local catalog.';
+      fireModelCatalogDataChanged(['curated'], { reason: 'publish-curated', itemId: itemId });
       this._loading = false;
       await this._refresh();
     } catch (error) {
