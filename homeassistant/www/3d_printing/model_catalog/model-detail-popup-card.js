@@ -139,20 +139,6 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handleClick(event) {
-    // Mark as interacting to prevent DOM re-renders during click handling
-    this._isInteracting = true;
-    
-    // Use requestAnimationFrame to safely exit interaction mode after click completes
-    requestAnimationFrame(() => {
-      this._isInteracting = false;
-      
-      // If a render was scheduled during interaction, do it now
-      if (this._renderScheduled) {
-        this._renderScheduled = false;
-        this._render();
-      }
-    });
-
     let target = null;
     if (event.target instanceof Element) {
       target = event.target;
@@ -163,6 +149,28 @@ class ModelDetailPopupCard extends HTMLElement {
     if (!target) {
       return;
     }
+
+    // Fast path: open the file picker immediately for upload clicks.
+    // Keep this before other delegated selector checks to minimize click latency.
+    if (this._isEditMode && this._activeTab === 'gallery' && this._getPhotoUploadArea(target)) {
+      event.preventDefault();
+      this._openPhotoFilePicker();
+      return;
+    }
+
+    // Mark as interacting to prevent DOM re-renders during click handling
+    this._isInteracting = true;
+
+    // Use requestAnimationFrame to safely exit interaction mode after click completes
+    requestAnimationFrame(() => {
+      this._isInteracting = false;
+
+      // If a render was scheduled during interaction, do it now
+      if (this._renderScheduled) {
+        this._renderScheduled = false;
+        this._render();
+      }
+    });
     
     // Tab navigation
     const tabButton = target.closest('.tab-button');
@@ -270,14 +278,14 @@ class ModelDetailPopupCard extends HTMLElement {
     }
 
     // Gallery photo actions
-    const photoBtn = target.closest('.gallery-thumbnail [data-action]');
+    const photoBtn = target.closest('[data-action]');
     if (photoBtn && this._activeTab === 'gallery') {
-      event.preventDefault();
-      const action = photoBtn.dataset.action;
       const photoTile = photoBtn.closest('.gallery-thumbnail');
       if (!photoTile) {
         return;
       }
+      event.preventDefault();
+      const action = photoBtn.dataset.action;
       const photoId = photoTile.dataset.photoId;
       const photoIdx = parseInt(photoTile.dataset.photoIndex, 10);
       
@@ -291,16 +299,24 @@ class ModelDetailPopupCard extends HTMLElement {
       return;
     }
 
-    // Photo upload area
-    if (target.closest('#photo-upload-area')) {
-      event.preventDefault();
-      const fileInput = this.shadowRoot.getElementById('photo-file-input');
-      if (fileInput) {
-        fileInput.click();
-      }
+  }
+
+  _openPhotoFilePicker() {
+    const fileInput = this.shadowRoot.getElementById('photo-file-input');
+    if (!fileInput) {
       return;
     }
 
+    if (typeof fileInput.showPicker === 'function') {
+      try {
+        fileInput.showPicker();
+        return;
+      } catch (_error) {
+        // Fall through to click() for browsers that block showPicker here.
+      }
+    }
+
+    fileInput.click();
   }
 
   _handleChange(event) {
