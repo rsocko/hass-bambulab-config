@@ -137,7 +137,6 @@ Folder sources should expose traversal controls:
 
 - `recurse=false`: folder only
 - `recurse=true`: include subfolders
-- optional `max_depth` when recurse is enabled
 
 ### Scanning Strategy
 
@@ -149,7 +148,7 @@ Folder sources should expose traversal controls:
 
 1. Choose source mode: browser local upload queue or sidecar server-browse roots.
 2. Choose source entries: explicit files, folders, or mixed.
-3. For folder entries, set recursion behavior (`recurse` and optional `max_depth`).
+3. For folder entries, set recursion behavior (`recurse`).
 4. For folder scans, run `model_catalog_bulk_discover_working_groups` using your target folder.
 5. Review duplicate hash warnings before import commit.
 6. In the bulk review card, rename groups, mark noise as `skip`, and merge related folders where needed.

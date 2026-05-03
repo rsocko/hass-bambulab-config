@@ -25,7 +25,6 @@ from ..state import AppState
 from .._helpers import (
     _bulk_utc_now_iso,
     _coerce_bool,
-    _coerce_int,
     _collect_intake_source_files_in_folder,
     _configured_working_files_roots,
     _normalize_path_compare_key,
@@ -129,8 +128,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             candidate_paths = [source_path]
         else:
             recurse = _coerce_bool(entry.get("recurse", True))
-            max_depth = _coerce_int(entry.get("max_depth"))
-            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse, max_depth=max_depth)
+            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse)
 
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())

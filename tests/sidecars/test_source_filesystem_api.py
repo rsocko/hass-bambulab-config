@@ -341,7 +341,7 @@ def test_select_folder_without_recurse_counts_top_level_only(tmp_path: Path) -> 
     assert payload["expanded_file_count"] == 1  # only a.3mf, sub not expanded
 
 
-def test_select_folder_with_max_depth(tmp_path: Path) -> None:
+def test_select_folder_recurse_includes_nested_levels(tmp_path: Path) -> None:
     root = tmp_path / "models"
     root.mkdir()
     (root / "top.3mf").write_bytes(b"t")
@@ -356,12 +356,12 @@ def test_select_folder_with_max_depth(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post(
             "/api/source-filesystems/select",
-            json={"selections": [{"type": "folder", "path": str(root), "recurse": True, "max_depth": 1}]},
+            json={"selections": [{"type": "folder", "path": str(root), "recurse": True}]},
         )
     payload = response.json()
 
-    # top.3mf + d1/l1.stl; d2/l2.stl is at depth 2, excluded
-    assert payload["expanded_file_count"] == 2
+    # top.3mf + d1/l1.stl + d2/l2.stl
+    assert payload["expanded_file_count"] == 3
 
 
 def test_select_mixed_batch(tmp_path: Path) -> None:

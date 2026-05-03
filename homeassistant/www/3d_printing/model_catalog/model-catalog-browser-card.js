@@ -648,7 +648,92 @@ class ModelCatalogBrowserCard extends HTMLElement {
       normalized += count;
     }
     this._mediaGalleryIndices[key] = normalized % count;
+    if (this._updateModelMediaPreview(key)) {
+      return;
+    }
     this._render();
+  }
+
+  _updateModelMediaPreview(modelRef) {
+    if (!this.shadowRoot || this._viewMode !== "media") {
+      return false;
+    }
+    var key = String(modelRef || "").trim();
+    if (!key) {
+      return false;
+    }
+    var model = null;
+    for (var i = 0; i < this._results.length; i++) {
+      if (this._modelRef(this._results[i]) === key) {
+        model = this._results[i];
+        break;
+      }
+    }
+    if (!model) {
+      return false;
+    }
+
+    var mediaUrls = this._modelMediaUrls(model);
+    var mediaCount = mediaUrls.length;
+    if (mediaCount <= 0) {
+      return false;
+    }
+    var mediaIndex = this._currentModelMediaIndex(key, mediaCount);
+    var mediaUrl = mediaUrls[mediaIndex];
+    var card = null;
+    var cards = this.shadowRoot.querySelectorAll('.model-card.view-media[data-model-ref]');
+    for (var c = 0; c < cards.length; c++) {
+      if (String(cards[c].getAttribute("data-model-ref") || "").trim() === key) {
+        card = cards[c];
+        break;
+      }
+    }
+    if (!card || !mediaUrl) {
+      return false;
+    }
+
+    var preview = card.querySelector('.media-preview.media-surface[data-model-ref]');
+    if (preview) {
+      var img = preview.querySelector("img");
+      if (!img) {
+        preview.innerHTML = '<img alt="Model preview" loading="lazy">';
+        img = preview.querySelector("img");
+      }
+      if (img) {
+        img.alt = String(model.name || "Model") + " preview";
+        if (this._isThumbnailLazyEndpoint(mediaUrl)) {
+          img.removeAttribute("src");
+          img.setAttribute("data-thumbnail-lazy-url", String(mediaUrl));
+          setupThumbnailLazyObserver({
+            rootElement: card,
+            root: null,
+            timeout: 5000,
+            retries: 2,
+            useIntersectionObserver: true,
+            rootMargin: "50px",
+            threshold: 0.1,
+          });
+        } else {
+          img.removeAttribute("data-thumbnail-lazy-url");
+          img.src = String(mediaUrl);
+        }
+      }
+    }
+
+    var counters = card.querySelectorAll('.media-counter[data-model-ref]');
+    for (var j = 0; j < counters.length; j++) {
+      counters[j].textContent = String(mediaIndex + 1) + " / " + String(mediaCount);
+    }
+    var navButtons = card.querySelectorAll('[data-action="media-prev"],[data-action="media-next"]');
+    for (var n = 0; n < navButtons.length; n++) {
+      navButtons[n].setAttribute("data-gallery-count", String(mediaCount));
+    }
+    var previewLabels = card.querySelectorAll('.media-status-chip[data-model-ref] .chip');
+    for (var p = 0; p < previewLabels.length; p++) {
+      previewLabels[p].textContent = String(mediaIndex + 1) + " / " + String(mediaCount);
+    }
+
+    return true;
   }
 
   _modelMediaUrls(model) {
@@ -906,7 +991,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var detailFooter = ''
       + '<div class="tag-project-row">'
       + '  <div class="tags">' + tagMarkup + '</div>'
-      + '  <div class="media-status-chip">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? "queue" : "neutral") + '</div>'
+      + '  <div class="media-status-chip" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._renderModelTagChip(previewLabel, mediaCount > 1 ? "queue" : "neutral") + '</div>'
       + '</div>';
 
     var bodyHtml = ''
@@ -925,7 +1010,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         + '<article class="model-card view-media" tabindex="0" role="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '" aria-label="Open 3D viewer for ' + this._escapeHtml(name) + '">'
         + '  <div class="thumb-wrap media-wrap">'
         + '    <div class="media-preview media-surface" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '">' + previewHtml + '</div>'
-        + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
+        + '    <div class="media-overlay"><span class="card-mode-pill">Media</span>' + (mediaCount > 1 ? '<span class="media-counter" data-model-ref="' + this._escapeHtml(modelRef) + '">' + this._escapeHtml(String(mediaIndex + 1) + ' / ' + String(mediaCount)) + '</span>' : '') + '</div>'
         + (mediaCount > 1 ? '<div class="media-gallery-nav"><button class="icon-action" type="button" data-action="media-prev" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Previous model image"><ha-icon icon="mdi:chevron-left"></ha-icon></button><button class="icon-action" type="button" data-action="media-next" data-model-ref="' + this._escapeHtml(modelRef) + '" data-gallery-count="' + this._escapeHtml(String(mediaCount)) + '" aria-label="Next model image"><ha-icon icon="mdi:chevron-right"></ha-icon></button></div>' : '')
         + '  </div>'
         + bodyHtml

@@ -25,7 +25,6 @@ from .._helpers import (
     _bulk_path_source_metadata,
     _bulk_utc_now_iso,
     _coerce_bool,
-    _coerce_int,
     _collect_intake_source_files_in_folder,
     _configured_intake_source_roots,
     _is_path_within_roots,
@@ -199,7 +198,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
     Payload:
       selections: list of
         { type: "file", path: "/abs/path/to/file.3mf" }
-        { type: "folder", path: "/abs/path/to/folder", recurse: bool, max_depth?: int }
+                { type: "folder", path: "/abs/path/to/folder", recurse: bool }
       cleanup_policy: "keep" | "delete_on_verified" | "replace_with_stub"  (default "keep")
 
     - Enforces allowlist on every path.
@@ -226,7 +225,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             content={
                 "success": False,
                 "error": "invalid_payload",
-                "message": "selections must be a non-empty list of {type, path, recurse?, max_depth?}",
+                "message": "selections must be a non-empty list of {type, path, recurse?}",
             },
         )
 
@@ -357,7 +356,6 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                     },
                 )
             recurse = _coerce_bool(selection.get("recurse", True))
-            max_depth = _coerce_int(selection.get("max_depth"))
             try:
                 folder_stat = resolved.stat()
             except (OSError, PermissionError) as exc:
@@ -372,14 +370,13 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             folder_meta = _bulk_path_source_metadata(resolved, folder_stat)
             # Expand to count contained files (for metadata); the queue entry stores the folder
             contained_files = _collect_intake_source_files_in_folder(
-                resolved, recurse=recurse, max_depth=max_depth
+                resolved, recurse=recurse
             )
             validated_entries.append(
                 {
                     "type": "folder",
                     "path": str(resolved),
                     "recurse": recurse,
-                    "max_depth": max_depth,
                     "source_mtime": folder_meta["source_mtime"],
                     "source_ctime": folder_meta["source_ctime"],
                     "source_birthtime": folder_meta.get("source_birthtime"),

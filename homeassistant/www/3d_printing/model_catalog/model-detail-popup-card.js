@@ -47,7 +47,6 @@ class ModelDetailPopupCard extends HTMLElement {
     this._showConflictDialog = false;
     this._photoGallery = [];
     this._activePhotoIndex = null;
-    this._thumbnailObserverSetup = false;
     
     // Render stability: prevent re-rendering during interactions
     this._isInteracting = false;
@@ -121,11 +120,6 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
-  }
-
-  _resetObserverOnNewModel() {
-    // Reset observer flag when loading a new model so it gets set up fresh
-    this._thumbnailObserverSetup = false;
   }
 
   _resolveModelSidecarUrl() {
@@ -405,7 +399,6 @@ class ModelDetailPopupCard extends HTMLElement {
     
     this._loading = true;
     this._error = "";
-    this._resetObserverOnNewModel();
     this._render();
     
     try {
@@ -442,11 +435,10 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.innerHTML = html;
 
     addShimmerAnimation();
-    // Setup observer once after lazy thumbnail nodes exist.
-    // The first render can be loading/error content with no <img data-thumbnail-lazy-url>.
+    // Re-run observer wiring on each render when lazy nodes are present.
+    // The popup DOM is rebuilt often; one-time setup can leave new nodes unloaded.
     const hasLazyThumbnailNode = !!(this.shadowRoot && this.shadowRoot.querySelector('img[data-thumbnail-lazy-url]'));
-    if (hasLazyThumbnailNode && !this._thumbnailObserverSetup && this.shadowRoot) {
-      this._thumbnailObserverSetup = true;
+    if (hasLazyThumbnailNode && this.shadowRoot) {
       setupThumbnailLazyObserver({
         rootElement: this.shadowRoot,
         root: null,
@@ -1116,7 +1108,7 @@ class ModelDetailPopupCard extends HTMLElement {
             <div class="detail-section-title">Quick Stats</div>
             <ul class="stat-list">
               <li>📦 Files: ${files.length}</li>
-              <li>⚙️ File types: ${files.map(f => f.file_type || 'unknown').join(', ') || 'N/A'}</li>
+              <li>⚙️ File types: ${files.map(f => f.asset_type || 'unknown').join(', ') || 'N/A'}</li>
               <li>🖨️ Linked archives: ${linkedCount}</li>
               ${model.created_at ? `<li>📅 Created: ${new Date(model.created_at).toLocaleDateString()}</li>` : ''}
               ${model.updated_at ? `<li>🔄 Updated: ${new Date(model.updated_at).toLocaleDateString()}</li>` : ''}
@@ -1157,6 +1149,29 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _renderGalleryTab() {
     const photos = this._modelDetail.photos || [];
+    const files = (this._modelDetail.model && this._modelDetail.model.files) || [];
+    
+    // Combine photos from uploads AND images imported as model assets
+    const galleryItems = [
+      ...photos.map(p => ({
+        id: p.id,
+        url: p.image_url || p.thumbnail_url,
+        thumbnail_url: p.thumbnail_url,
+        filename: p.filename || `Photo ${photos.indexOf(p) + 1}`,
+        type: 'photo',
+        is_preview: p.is_preview
+      })),
+      ...files.filter(f => f.asset_type === 'image').map(f => ({
+        id: f.id,
+        url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
+        thumbnail_url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
+        filename: f.filename || f.asset_filename || f.id,
+        type: 'asset',
+        asset_id: f.id,
+        is_preview: files.some(x => x.asset_role === 'preview' && x.id === f.id)
+      }))
+    ];
+    
     const previewPhotoId = this._modelDetail.preview_photo_id;
     const galleryModeHint = !this._isEditMode ? `
       <div style="
@@ -1171,13 +1186,13 @@ class ModelDetailPopupCard extends HTMLElement {
       </div>
     ` : '';
     
-    if (!photos || photos.length === 0) {
+    if (!galleryItems || galleryItems.length === 0) {
       return `
         <div class="tab-content">
           ${galleryModeHint}
           <div class="empty-state">
-            <p>📸 No Photos</p>
-            <p>No photos uploaded yet.</p>
+            <p>📸 No Images</p>
+            <p>No photos or images available.</p>
             ${this._isEditMode ? `<p><strong>Use the upload section below to add photos.</strong></p>` : ''}
           </div>
           ${this._isEditMode ? `
@@ -1275,24 +1290,39 @@ class ModelDetailPopupCard extends HTMLElement {
             font-size: 11px;
             font-weight: 600;
           }
+
+          .asset-badge {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            background: #2196F3;
+            color: white;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 600;
+          }
         </style>
         
         <div class="gallery-grid">
-          ${photos.map((photo, idx) => `
-            <div class="gallery-thumbnail" data-photo-id="${photo.id}" data-photo-index="${idx}">
-              ${photo.thumbnail_url ? `
-                <img src="${photo.thumbnail_url}" alt="Photo ${idx + 1}">
+          ${galleryItems.map((item, idx) => `
+            <div class="gallery-thumbnail" data-photo-id="${item.id}" data-photo-index="${idx}" data-item-type="${item.type}">
+              ${item.thumbnail_url ? `
+                <img src="${item.thumbnail_url}" alt="${this._escapeHtml(item.filename)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2212%22%3ENo image%3C/text%3E%3C/svg%3E'">
               ` : `
                 <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color);">
                   📷
                 </div>
               `}
-              ${previewPhotoId === photo.id ? `
+              ${item.is_preview ? `
                 <div class="preview-badge">PREVIEW</div>
+              ` : ''}
+              ${item.type === 'asset' ? `
+                <div class="asset-badge">📂 Asset</div>
               ` : ''}
               <div class="thumbnail-overlay">
                 <button class="thumbnail-btn" title="View" data-action="preview">👁</button>
-                ${this._isEditMode ? `
+                ${this._isEditMode && item.type === 'photo' ? `
                   <button class="thumbnail-btn" title="Set as preview" data-action="set-preview" style="background: #FF9800;">⭐</button>
                   <button class="thumbnail-btn" title="Delete" data-action="delete" style="background: #f44336;">🗑</button>
                 ` : ''}
@@ -1719,30 +1749,56 @@ class ModelDetailPopupCard extends HTMLElement {
 
   _stepPhotoPreview(direction) {
     const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
-    if (!photos.length || this._activePhotoIndex == null) {
+    const files = (this._modelDetail && this._modelDetail.model && this._modelDetail.model.files) ? this._modelDetail.model.files : [];
+    
+    // Combine photos and image assets
+    const galleryItems = [
+      ...photos,
+      ...files.filter(f => f.asset_type === 'image')
+    ];
+    
+    if (!galleryItems.length || this._activePhotoIndex == null) {
       return;
     }
 
-    const nextIndex = (this._activePhotoIndex + direction + photos.length) % photos.length;
+    const nextIndex = (this._activePhotoIndex + direction + galleryItems.length) % galleryItems.length;
     this._activePhotoIndex = nextIndex;
     this._render();
   }
 
   _renderPhotoLightbox() {
-    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
-    if (!photos.length || this._activePhotoIndex == null) {
+    const photos = this._modelDetail.photos || [];
+    const files = (this._modelDetail.model && this._modelDetail.model.files) || [];
+    
+    // Combine photos and image assets
+    const galleryItems = [
+      ...photos.map(p => ({
+        id: p.id,
+        url: p.image_url || p.thumbnail_url,
+        filename: p.filename || `Photo ${photos.indexOf(p) + 1}`,
+        type: 'photo'
+      })),
+      ...files.filter(f => f.asset_type === 'image').map(f => ({
+        id: f.id,
+        url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
+        filename: f.filename || f.asset_filename || f.id,
+        type: 'asset'
+      }))
+    ];
+    
+    if (!galleryItems.length || this._activePhotoIndex == null) {
       return '';
     }
 
-    const index = Math.max(0, Math.min(this._activePhotoIndex, photos.length - 1));
-    const photo = photos[index] || {};
-    const imageUrl = String(photo.image_url || photo.thumbnail_url || '').trim();
+    const index = Math.max(0, Math.min(this._activePhotoIndex, galleryItems.length - 1));
+    const item = galleryItems[index] || {};
+    const imageUrl = String(item.url || '').trim();
     if (!imageUrl) {
       return '';
     }
 
-    const photoName = String(photo.filename || `Photo ${index + 1}`).trim() || `Photo ${index + 1}`;
-    const escapedName = this._escapeHtml(photoName);
+    const itemName = String(item.filename || `Item ${index + 1}`).trim() || `Item ${index + 1}`;
+    const escapedName = this._escapeHtml(itemName);
     const escapedImageUrl = this._escapeHtml(imageUrl);
 
     return `
@@ -1750,7 +1806,7 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="photo-lightbox-content">
           <div class="photo-lightbox-stage">
             <button class="photo-lightbox-close" id="btn-photo-lightbox-close" type="button" aria-label="Close photo preview">✕</button>
-            ${photos.length > 1 ? `
+            ${galleryItems.length > 1 ? `
               <button class="photo-lightbox-nav prev" id="btn-photo-lightbox-prev" type="button" aria-label="Previous photo">‹</button>
               <button class="photo-lightbox-nav next" id="btn-photo-lightbox-next" type="button" aria-label="Next photo">›</button>
             ` : ''}
@@ -1758,7 +1814,7 @@ class ModelDetailPopupCard extends HTMLElement {
           </div>
           <div class="photo-lightbox-meta">
             <div class="photo-lightbox-title">${escapedName}</div>
-            <div class="photo-lightbox-counter">${index + 1} / ${photos.length}</div>
+            <div class="photo-lightbox-counter">${index + 1} / ${galleryItems.length}</div>
           </div>
         </div>
       </div>

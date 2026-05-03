@@ -12,7 +12,6 @@ from fastapi.responses import JSONResponse
 from .._helpers import (
     _bulk_path_source_metadata,
     _bulk_utc_now_iso,
-    _coerce_int,
     _normalize_path_compare_key,
 )
 from .intake_service import get_all_indexed_file_hashes
@@ -79,9 +78,6 @@ def bulk_discover_working_groups_service(*, db_path: Path, payload: dict[str, An
         )
 
     grouping_strategy = _normalize_grouping_strategy(payload.get("grouping_strategy"))
-    max_depth = _coerce_int(payload.get("max_depth"))
-    if max_depth is not None and max_depth < 0:
-        max_depth = 0
 
     root_path = Path(root_input).expanduser().resolve()
     if not root_path.exists() or not root_path.is_dir():
@@ -117,22 +113,9 @@ def bulk_discover_working_groups_service(*, db_path: Path, payload: dict[str, An
         filenames.sort()
         current_dir = Path(current_root)
 
-        if max_depth is not None:
-            try:
-                current_depth = len(current_dir.relative_to(root_path).parts)
-            except ValueError:
-                current_depth = 0
-            if current_depth >= max_depth:
-                dirnames[:] = []
-
         for filename in filenames:
             file_path = current_dir / filename
             scanned_file_count += 1
-
-            if max_depth is not None:
-                relative_parts = file_path.relative_to(root_path).parts
-                if len(relative_parts) - 1 > max_depth:
-                    continue
 
             suffix = file_path.suffix.lower()
             if suffix not in SUPPORTED_BULK_MODEL_EXTENSIONS:

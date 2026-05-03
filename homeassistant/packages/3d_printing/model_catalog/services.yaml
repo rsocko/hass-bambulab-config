@@ -101,10 +101,6 @@ homeassistant:
           name: Grouping Strategy
           description: Grouping mode (by-folder, by-root, flat)
           example: "by-folder"
-        max_depth:
-          name: Max Depth
-          description: Optional maximum folder depth to scan
-          example: 3
 
     model_catalog.bulk_import_working_groups:
       name: Bulk Import Working Groups

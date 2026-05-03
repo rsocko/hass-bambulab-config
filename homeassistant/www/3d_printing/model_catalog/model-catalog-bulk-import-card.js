@@ -12,7 +12,6 @@ class ModelCatalogBulkImportCard extends HTMLElement {
     this._discoverMeta = {
       folder_path: "",
       grouping_strategy: "by-folder",
-      max_depth: "",
       discovered_at: "",
     };
     this._proposals = [];
@@ -147,11 +146,9 @@ class ModelCatalogBulkImportCard extends HTMLElement {
     }
     var folderNode = root.querySelector("#bulk-folder-path");
     var strategyNode = root.querySelector("#bulk-grouping-strategy");
-    var depthNode = root.querySelector("#bulk-max-depth");
 
     this._discoverMeta.folder_path = folderNode ? String(folderNode.value || "").trim() : "";
     this._discoverMeta.grouping_strategy = strategyNode ? String(strategyNode.value || "by-folder").trim() : "by-folder";
-    this._discoverMeta.max_depth = depthNode ? String(depthNode.value || "").trim() : "";
   }
 
   _proposalPayloadForImport() {
@@ -188,9 +185,6 @@ class ModelCatalogBulkImportCard extends HTMLElement {
         folder_path: this._discoverMeta.folder_path,
         grouping_strategy: this._discoverMeta.grouping_strategy || "by-folder",
       };
-      if (this._discoverMeta.max_depth !== "") {
-        request.max_depth = Number(this._discoverMeta.max_depth);
-      }
 
       var response = await this._callServiceWithResponse(
         "rest_command",
@@ -398,7 +392,6 @@ class ModelCatalogBulkImportCard extends HTMLElement {
       + "<option value=\"by-root\"" + (this._discoverMeta.grouping_strategy === "by-root" ? " selected" : "") + ">by-root</option>"
       + "<option value=\"flat\"" + (this._discoverMeta.grouping_strategy === "flat" ? " selected" : "") + ">flat</option>"
       + "</select>"
-      + "<input id=\"bulk-max-depth\" class=\"field\" placeholder=\"max depth (optional)\" value=\"" + String(this._discoverMeta.max_depth || "") + "\" />"
       + "<button class=\"btn\" data-action=\"discover\"" + (this._loadingDiscover || this._loadingImport ? " disabled" : "") + ">"
       + (this._loadingDiscover ? "Discovering..." : "Discover")
       + "</button>"

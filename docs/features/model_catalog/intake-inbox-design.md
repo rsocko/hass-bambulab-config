@@ -43,7 +43,7 @@ Support both intake source modes under one queue contract, but keep each queued 
 - Server browse mode: files are selected from allowlisted sidecar-mounted roots.
 - One batch uses either browser upload or server browse, not a browser+server hybrid submission.
 - Within the chosen mode, source selection can still include explicit files, folders, or mixed file+folder batches.
-- Folder source entries keep traversal controls (`recurse` true/false and optional `max_depth`) inline with the selection flow.
+- Folder source entries keep traversal control (`recurse` true/false) inline with the selection flow.
 
 Both modes still converge on the same queue state machine and review/import UX.
 
@@ -83,7 +83,6 @@ A normalized source list should support:
 Suggested folder fields:
 
 - `recurse` boolean (default false for targeted selection)
-- `max_depth` integer (optional, valid when recurse is true)
 
 ## Core Concept: Intake Inbox Item
 

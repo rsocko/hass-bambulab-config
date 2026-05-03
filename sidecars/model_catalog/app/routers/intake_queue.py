@@ -33,7 +33,6 @@ from .._helpers import (
     _bulk_timestamp_iso,
     _bulk_utc_now_iso,
     _coerce_bool,
-    _coerce_int,
     _collect_intake_source_files_in_folder,
     _configured_intake_source_roots,
     _is_path_within_roots,
@@ -162,7 +161,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
     if not isinstance(source_entries, list) or len(source_entries) == 0:
         raise IntakeSourceValidationError(
             error="invalid_payload",
-            message="source_entries must be a non-empty list of {type, path, recurse?, max_depth?}",
+            message="source_entries must be a non-empty list of {type, path, recurse?}",
         )
 
     validated_entries: list[dict[str, Any]] = []
@@ -234,7 +233,6 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
             "type": entry_type,
             "path": str(resolved_path),
             "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
-            "max_depth": _coerce_int(entry.get("max_depth")) if entry_type == "folder" else None,
             "source_mtime": entry_source_metadata["source_mtime"],
             "source_ctime": entry_source_metadata["source_ctime"],
             "source_birthtime": entry_source_metadata.get("source_birthtime"),
@@ -396,8 +394,7 @@ def _expand_source_entries_to_files(source_entries: list[dict[str, Any]]) -> lis
         if entry_type != "folder" or not resolved.exists() or not resolved.is_dir():
             continue
         recurse = _coerce_bool(entry.get("recurse", True))
-        max_depth = _coerce_int(entry.get("max_depth"))
-        files.extend(_collect_intake_source_files_in_folder(resolved, recurse=recurse, max_depth=max_depth))
+        files.extend(_collect_intake_source_files_in_folder(resolved, recurse=recurse))
     return files
 
 
@@ -431,7 +428,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     
     Source contract supports:
     - explicit file uploads: { type: "file", path: "/path/to/file.3mf" }
-    - folder entries: { type: "folder", path: "/path/to/folder", recurse: true, max_depth: 3 }
+    - folder entries: { type: "folder", path: "/path/to/folder", recurse: true }
     - mixed batches: array of above mixed together
     
     Returns upload_id for tracking, plus queue status lifecycle.
@@ -874,13 +871,12 @@ def intake_queue_update_status(request: Request, upload_id: str, payload: dict[s
 
 
 @router.get("/api/intake/browse")
-def intake_browse_folder(request: Request, path: str | None = None, max_depth: int | None = None) -> Any:
+def intake_browse_folder(request: Request, path: str | None = None) -> Any:
     """
     Browse server filesystem for file/folder selection with allowlist validation.
     
     Returns folder structure for UI-based source selection. Respects:
     - Allowlist paths from settings (BAMBULAB_INTAKE_ALLOWLIST env var)
-    - max_depth to limit recursion
     - Returns file/folder metadata for UI tree rendering
     """
     state: AppState = request.app.state.model_catalog
@@ -948,7 +944,6 @@ def intake_browse_folder(request: Request, path: str | None = None, max_depth: i
             },
         )
     
-    max_depth_int = max(0, max_depth or 0)
     entries = []
     
     try:
@@ -1008,5 +1003,4 @@ def intake_browse_folder(request: Request, path: str | None = None, max_depth: i
         "is_root": False,
         "entry_count": len(entries),
         "entries": entries,
-        "max_depth": max_depth_int,
     }

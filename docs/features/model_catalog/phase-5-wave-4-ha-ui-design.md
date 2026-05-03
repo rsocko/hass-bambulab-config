@@ -484,7 +484,7 @@ Collect submission inputs for both source modes without splitting the UX into tw
 │ │ Browser mode                                                            │ │
 │ │ [Drop files here]  or  [Choose Files] [Choose Folder]                  │ │
 │ │ Selected: 7 files, 1 folder                                             │ │
-│ │ Folder options: recurse [x]   max depth [ 2 ]                           │ │
+│ │ Folder options: recurse [x]                                              │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
 │ Cleanup Policy                                                               │
@@ -531,7 +531,7 @@ Give operators a controlled, allowlisted filesystem picker that feels like part 
 │ └──────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
 │ Selection Options                                                            │
-│ recurse folders [x]   max depth [ 2 ]   include mixed file+folder batch [x] │
+│ recurse folders [x]   include mixed file+folder batch [x]                   │
 │                                                                              │
 │ [Add Selection To Intake] [Cancel]                                           │
 └──────────────────────────────────────────────────────────────────────────────┘

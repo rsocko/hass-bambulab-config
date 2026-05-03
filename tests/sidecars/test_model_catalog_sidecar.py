@@ -5148,7 +5148,6 @@ def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -
                         "type": "folder",
                         "path": str(test_folder),
                         "recurse": True,
-                        "max_depth": 3,
                     }
                 ],
             },
@@ -6247,7 +6246,6 @@ def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -
                         "type": "folder",
                         "path": str(test_folder),
                         "recurse": True,
-                        "max_depth": 3,
                     }
                 ],
             },

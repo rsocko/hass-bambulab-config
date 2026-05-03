@@ -18,7 +18,4 @@ model_catalog_bulk_discover_working_groups:
     {% if grouping_strategy is defined and (grouping_strategy | string | trim) != '' %}
       {% set ns.body = dict(ns.body, grouping_strategy=(grouping_strategy | string)) %}
     {% endif %}
-    {% if max_depth is defined and (max_depth | string | trim) != '' %}
-      {% set ns.body = dict(ns.body, max_depth=(max_depth | int(0))) %}
-    {% endif %}
     {{ ns.body | to_json }}

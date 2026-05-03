@@ -200,8 +200,6 @@ def _collect_intake_source_files_in_folder(
     folder: Path,
     *,
     recurse: bool,
-    max_depth: int | None,
-    current_depth: int = 0,
 ) -> list[Path]:
     results: list[Path] = []
     try:
@@ -213,15 +211,12 @@ def _collect_intake_source_files_in_folder(
                     if item.suffix.lower() in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
                         results.append(item)
                 elif item.is_dir() and recurse:
-                    if max_depth is None or current_depth < max_depth:
-                        results.extend(
-                            _collect_intake_source_files_in_folder(
-                                item,
-                                recurse=True,
-                                max_depth=max_depth,
-                                current_depth=current_depth + 1,
-                            )
+                    results.extend(
+                        _collect_intake_source_files_in_folder(
+                            item,
+                            recurse=True,
                         )
+                    )
             except (OSError, PermissionError):
                 pass
     except (OSError, PermissionError):

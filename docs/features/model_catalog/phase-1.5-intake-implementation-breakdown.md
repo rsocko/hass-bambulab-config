@@ -352,7 +352,6 @@ Recommended request:
 {
   "root_path": "D:/3D Printing",
   "grouping_strategy": "by-folder",
-  "max_depth": 3,
   "auto_stage_to_inbox": true
 }
 ```

@@ -170,7 +170,6 @@ Previously, all files from a single intake batch were placed into a **single wor
 ```
 ┌─ Server Selection: /path/to/models ──────────────┐
 │ [Recurse:           On ▼]                        │
-│ [Max Depth:         ___ ]                        │
 │ [Grouping:          by-folder ▼]                 │
 │ [Folder Structure:  Preserve ▼]                  │
 │ [Title Basis:       Folder name ▼]               │
@@ -213,7 +212,6 @@ Selection metadata sent in payload:
   "type": "folder",
   "path": "/mnt/models/gridfinity",
   "recurse": true,
-  "max_depth": null,
   "grouping_strategy": "by-folder",
   "preserve_folder_structure": true,
   "group_title_source": "folder",

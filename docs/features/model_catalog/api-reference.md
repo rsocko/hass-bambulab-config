@@ -85,7 +85,6 @@ Compatibility aliases:
 
 - `folder_path` (required)
 - `grouping_strategy` (`by-folder`, `by-root`, `flat`)
-- `max_depth` (optional)
 
 `bulk-discover` behavior:
 
@@ -133,7 +132,7 @@ Current behavior:
 - browser local files are accepted via multipart upload into a temporary sidecar queue
 - sidecar-mounted server roots are browsed and selected through explicit allowlisted roots
 - source selection supports explicit files, folders, or mixed file+folder batches
-- folder source entries support traversal controls: `recurse` (bool) and optional `max_depth`
+- folder source entries support traversal control: `recurse` (bool)
 - `POST /api/intake/uploads/{upload_id}/publish-to-local` is the active authoritative sink for reviewed queue/source inputs and creates or updates sidecar-owned local curated models plus typed local assets
 - `POST /api/intake/uploads/{upload_id}/upload-to-manyfold` remains available only for legacy/transition workflows that still exercise the historical Manyfold adapter
 - local publish persists queue provenance on the resulting local model through source-origin fields plus sidecar custom-field history (`intake_queue_upload_id`, `intake_source_entries`, `intake_publish_history`)
@@ -151,7 +150,7 @@ Source entry shape:
 
 - `sources[]` where each item is either:
 	- `{ "type": "file", ... }`
-	- `{ "type": "folder", "path": "...", "recurse": true|false, "max_depth": <int optional> }`
+	- `{ "type": "folder", "path": "...", "recurse": true|false }`
 
 Source cleanup policies:
 

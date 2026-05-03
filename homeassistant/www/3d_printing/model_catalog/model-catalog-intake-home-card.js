@@ -205,6 +205,29 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return this._browserTopLevelFolders().length > 0;
   }
 
+  _browserRecurse() {
+    if (!this._browserFiles.length) {
+      return true;
+    }
+    return this._browserFiles[0].recurse !== false;
+  }
+
+  _filterBrowserFilesForSubmit(files) {
+    var entries = Array.isArray(files) ? files : [];
+    if (!entries.length) {
+      return [];
+    }
+    if (!this._browserHasFolderUpload() || this._browserRecurse()) {
+      return entries.slice();
+    }
+    return entries.filter(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      // Non-recursive folder mode keeps only direct children of selected roots.
+      return pathParts.length <= 2;
+    });
+  }
+
   _browserGroupingStrategy() {
     if (!this._browserFiles.length) {
       return 'none';
@@ -329,16 +352,13 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       }
       if (entry.type === "folder") {
         next.recurse = !!entry.recurse;
-        if (entry.recurse && entry.max_depth !== "" && entry.max_depth != null) {
-          next.max_depth = Number(entry.max_depth);
-        }
       }
       return next;
     }, this);
   }
 
   _enabledBrowserFiles(sourceMode) {
-    return sourceMode === "browser" ? this._browserFiles.slice() : [];
+    return sourceMode === "browser" ? this._filterBrowserFilesForSubmit(this._browserFiles) : [];
   }
 
   async _navigateToSection(option, fallbackPath) {
@@ -473,8 +493,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         type: entryType,
         path: normalizedPath,
         recurse: true,
-        max_depth: "",
         grouping_strategy: "none",
+        preserve_folder_structure: true,
         group_title_source: entryType === 'folder' ? 'folder' : this._fileBatchTitleSource(),
         group_title: '',
       };
@@ -508,6 +528,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
         grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
+        recurse: this._browserRecurse(),
         preserve_folder_structure: true,
         group_title_source: currentBrowserTitleSource,
         group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
@@ -588,9 +609,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               folder_path: sel.path,
               grouping_strategy: selState.grouping_strategy,
             };
-            if (sel.max_depth != null) {
-              discoverRequest.max_depth = sel.max_depth;
-            }
             var discoverResponse = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_bulk_discover_working_groups", discoverRequest);
             var proposals = Array.isArray(discoverResponse && discoverResponse.proposals) ? discoverResponse.proposals : [];
             proposals.forEach(function (proposal) {
@@ -754,6 +772,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var topFolders = this._browserTopLevelFolders();
     var folderCount = topFolders.length;
     var groupingStrategy = this._browserGroupingStrategy();
+    var recurse = this._browserRecurse();
+    var filteredFileCount = this._filterBrowserFilesForSubmit(this._browserFiles).length;
     var titleSource = this._browserBatchTitleSource();
     var resolvedTitle = this._browserBatchResolvedTitle();
     return ''
@@ -761,19 +781,28 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
       + '  <div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div>'
       + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
+      + (folderCount ? '  <div class="result-line"><span>Files queued now</span><strong>' + String(filteredFileCount) + '</strong></div>' : '')
       + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
+      + (folderCount
+        ? '  <div class="result-line"><span>Folder scope</span><strong>' + escapeHtml(recurse ? 'Include subfolders (recursive)' : 'Just this folder') + '</strong></div>'
+        : '')
       + (folderCount
         ? '  <div class="result-line"><span>Grouping</span><strong>' + escapeHtml(groupingStrategy) + '</strong></div>'
         : '')
       + (this._browserFiles.length
         ? '  <div class="item-grid">'
           + (folderCount
+            ? '    <div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
+            : '')
+          + (folderCount
             ? '    <div class="field"><label>Grouping</label><select class="select" data-action="browser-grouping"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
             : '')
-          + '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+          + (folderCount && recurse
+            ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+            : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same grouping control as the server picker.' : '') + ' Preserve folder structure is supported in Curated catalog.</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Curated catalog.' : '') + '</div>'
         : '')
       + '</div>';
   }
@@ -834,16 +863,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
         + (entry.type === 'folder' && showSettings
           ? '<div class="item-grid">'
-            + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Off</option></select></div>'
-            + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(entry.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
+            + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
             + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
-            + '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+            + (entry.recurse
+              ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+              : '')
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
             + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files. Folder structure is preserved in Curated catalog.</div>'
+            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated catalog.' : '') + '</div>'
             + '</div>'
           : (entry.type === 'folder'
-            ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
+            ? '<div class="button-row"><span class="chip">scope ' + escapeHtml(entry.recurse ? 'recursive' : 'just this folder') + '</span><span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'))
         + '</article>';
     }, this).join('') + '</div>';
@@ -1124,6 +1154,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'browser-recurse') {
+      var browserRecurse = String(target.value || 'true').toLowerCase() === 'true';
+      this._updateBrowserBatchMeta({
+        recurse: browserRecurse,
+      });
+      this._render();
+      return;
+    }
     if (action === 'browser-group-title') {
       return;
     }
@@ -1142,18 +1180,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'selection-recurse') {
+      var recurseValue = String(target.value) === 'true';
       this._selected = Object.assign({}, this._selected, {
         [path]: Object.assign({}, this._selected[path], {
-          recurse: String(target.value) === 'true',
-        }),
-      });
-      this._render();
-      return;
-    }
-    if (action === 'selection-depth') {
-      this._selected = Object.assign({}, this._selected, {
-        [path]: Object.assign({}, this._selected[path], {
-          max_depth: String(target.value || '').trim(),
+          recurse: recurseValue,
+          preserve_folder_structure: recurseValue ? this._selected[path].preserve_folder_structure !== false : true,
         }),
       });
       this._render();

@@ -50,7 +50,7 @@ Completed with input: {
 **#1130: Phase 1.5: Bulk Discovery & Import** — Closed as completed (April 26)
 
 All 6 acceptance criteria validated:
-- [x] Bulk discover returns proposals for nested folder trees (`by-folder`, `by-root`, `flat` strategies with optional `max_depth`)
+- [x] Bulk discover returns proposals for nested folder trees (`by-folder`, `by-root`, `flat` strategies)
 - [x] Bulk import supports deduplication via SHA256 hash (tested with 3-file scenario)
 - [x] Duplicate warnings surfaced in both discover and import responses
 - [x] Discovery metadata persisted (`discovery_source_folder`, `discovery_strategy`, `discovery_timestamp`)

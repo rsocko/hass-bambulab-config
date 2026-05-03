@@ -154,7 +154,7 @@ During Intake, the sidecar:
 - normalizes paths and validates source metadata
 - computes hashes when possible
 - runs lightweight duplicate and readability checks
-- stores cleanup policy and folder traversal options (`recurse`, `max_depth`)
+- stores cleanup policy and folder traversal option (`recurse`)
 - optionally auto-validates (if enabled) or stages as `submitted`
 
 Intake is **transient staging**, not durable storage.
@@ -254,7 +254,6 @@ Choose **one mode** for the entire batch (not a mix).
 - **Individual Files**: Click to select. Each adds one file to the batch.
 - **Folders**: Click folder to add. Configure:
   - `recurse`: Whether to include subfolders (default: yes)
-  - `max_depth`: How many levels deep to search (optional, constrains recurse)
   - `grouping_strategy`: How to organize files when expanding (see below)
 
 **Mixed Selections**: You can select individual files AND folders in one batch. All go into a single intake item.

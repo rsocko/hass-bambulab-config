@@ -228,7 +228,7 @@ Work items:
   - Browser local files: multipart upload endpoint for queue staging
   - Server sidecar mounts: browse/select endpoints constrained to allowlisted roots
   - Source list supports explicit files, folders, or mixed file+folder batches
-  - Folder sources support `recurse` true/false and optional `max_depth`
+  - Folder sources support `recurse` true/false
   - One normalized queue status model for both sources
 
 2. Add sidecar endpoint: `POST /working-groups/bulk-discover`

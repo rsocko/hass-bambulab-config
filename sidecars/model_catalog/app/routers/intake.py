@@ -30,7 +30,6 @@ from ..state import AppState
 from .._helpers import (
     _bulk_utc_now_iso,
     _coerce_bool,
-    _coerce_int,
     _model_photo_storage_root,
     _windows_launch_enabled,
 )
@@ -307,8 +306,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
         else:
             from .._helpers import _collect_intake_source_files_in_folder
             recurse = _coerce_bool(entry.get("recurse", True))
-            max_depth = _coerce_int(entry.get("max_depth"))
-            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse, max_depth=max_depth)
+            candidate_paths = _collect_intake_source_files_in_folder(source_path, recurse=recurse)
 
         for file_path in sorted(candidate_paths):
             normalized_path = str(file_path.resolve())
@@ -1929,7 +1927,6 @@ async def intake_upload_to_manyfold(
                     "failed",
                     _bulk_utc_now_iso(),
                     upload_id,
-                ),
             )
             failure_connection.commit()
         finally:

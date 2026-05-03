@@ -193,7 +193,7 @@ Outcomes:
 - Small-batch or single-file uploads share the same intake contract as bulk discovery
 - Browser local-file uploads and server-side filesystem selections feed a common sidecar queue
 - Intake supports explicit file selection, folder selection, or mixed source batches
-- Folder sources support recursion control (`recurse` true/false) and optional `max_depth`
+- Folder sources support recursion control (`recurse` true/false)
 - Queue processing uploads selected files into Manyfold using API-managed storage (not sidecar-managed final file storage)
 - Folder-to-group mapping can be configured or inferred
 - Bulk grouping workflow exists in HA and sidecar
@@ -212,7 +212,7 @@ Work items:
    - Add queue entry endpoint for browser-selected local files (multipart upload)
    - Add server-root browse endpoints so operators can choose files from sidecar-mounted roots
    - Support both explicit file picks and folder picks in a single normalized source contract
-   - Add folder traversal controls (`recurse`, optional `max_depth`) per folder source
+   - Add folder traversal control (`recurse`) per folder source
    - Normalize both paths into one queue contract used by review/import
    - Track queue states (`queued`, `uploading`, `uploaded_unverified`, `verified`, `cleanup_pending`, `cleanup_done`, `cleanup_failed`, `failed`)
 
