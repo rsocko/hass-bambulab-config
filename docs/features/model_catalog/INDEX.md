@@ -57,8 +57,10 @@
 
 ### 🎨 Design & Reference
 - **[Phase 3 Design Document](phase-3-detail-view-design.md)** ← UI/UX specifications
-- **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Intake, Working, and batch-action UI architecture
-- **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Publish-handoff and future Phase 5/6 UI direction
+- **[3MF Embedded Thumbnail Display Design](3mf-embedded-thumbnail-display-design.md)** ← Automatic `.3mf` thumbnail behavior for cards and popup media
+- **[Cache Roadmap And Invalidation Design](planning/cache-roadmap-and-invalidation-design.md)** ← Incremental cache plan (no-Redis first, Redis decision gates)
+- **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
+- **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 - **[Print History Slicer Integration Design](print-history-slicer-integration-design.md)** ← Model Catalog to Print History source-3MF slicing orchestration
 - **[Print History Slicer UX Mockups](print-history-slicer-ux-mockups.md)** ← Low-fi validation, override, progress, and completion surfaces
 - **[Print History Slicer Implementation Plan](print-history-slicer-implementation-plan.md)** ← Concrete local-worker execution slices
