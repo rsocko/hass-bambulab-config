@@ -334,7 +334,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         }
       }
       return next;
-    });
+    }, this);
   }
 
   _enabledBrowserFiles(sourceMode) {
