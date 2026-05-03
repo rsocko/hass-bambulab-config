@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import mimetypes
 import os
 import re
 import shutil
@@ -23,7 +24,7 @@ from sqlite3 import connect
 from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from ..settings import Settings
 from ..state import AppState
@@ -66,6 +67,9 @@ _WINDOWS_RESERVED_NAMES = {
     "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
     "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 }
+
+_INTAKE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024  # 5 MB for direct image previews
+_INTAKE_PREVIEW_MAX_3MF_BYTES = 200 * 1024 * 1024  # cap package reads for thumbnail extraction
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -133,6 +137,34 @@ def _browser_upload_stage_directories(settings: Settings, source_entries: list[d
             directories.add((storage_root / relative_path.parts[0]).resolve())
 
     return sorted(directories)
+
+
+def _intake_browse_allowlist_roots(settings: Settings) -> list[Path]:
+    allowlist_raw = os.environ.get("BAMBULAB_INTAKE_ALLOWLIST", "/models,/storage")
+    env_roots = [
+        Path(p.strip()).expanduser().resolve()
+        for p in allowlist_raw.split(",")
+        if p.strip()
+    ]
+    return sorted({*env_roots, *_configured_intake_source_roots(settings)})
+
+
+def _image_mime_for_suffix(path: Path) -> str:
+    guessed, _encoding = mimetypes.guess_type(str(path))
+    if guessed and guessed.startswith("image/"):
+        return guessed
+    suffix = str(path.suffix or "").lower()
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".gif":
+        return "image/gif"
+    if suffix == ".webp":
+        return "image/webp"
+    if suffix == ".svg":
+        return "image/svg+xml"
+    return "application/octet-stream"
 
 
 def _normalize_intake_cleanup_policy(value: object | None) -> str:
@@ -880,13 +912,8 @@ def intake_browse_folder(request: Request, path: str | None = None) -> Any:
     - Returns file/folder metadata for UI tree rendering
     """
     state: AppState = request.app.state.model_catalog
-    
-    allowlist_raw = os.environ.get("BAMBULAB_INTAKE_ALLOWLIST", "/models,/storage")
-    allowlist_paths = [
-        Path(p.strip()).expanduser().resolve()
-        for p in allowlist_raw.split(",")
-        if p.strip()
-    ]
+
+    allowlist_paths = _intake_browse_allowlist_roots(state.settings)
     
     browse_path = None
     if not path or path.strip() == "/":
@@ -1004,3 +1031,140 @@ def intake_browse_folder(request: Request, path: str | None = None) -> Any:
         "entry_count": len(entries),
         "entries": entries,
     }
+
+
+@router.get("/api/intake/preview")
+def intake_preview_file(request: Request, path: str | None = None) -> Any:
+    """Return a preview image for allowlisted intake source files."""
+    state: AppState = request.app.state.model_catalog
+
+    path_value = str(path or "").strip()
+    if not path_value:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "missing_path",
+                "message": "Query parameter 'path' is required.",
+            },
+        )
+
+    try:
+        resolved_path = Path(path_value).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_path",
+                "message": "Could not resolve preview path.",
+            },
+        )
+
+    allowlisted_roots = _intake_browse_allowlist_roots(state.settings)
+    if not _is_path_within_roots(resolved_path, allowlisted_roots):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "success": False,
+                "error": "path_not_allowed",
+                "message": "Preview path is outside allowed intake roots.",
+            },
+        )
+
+    if not resolved_path.exists() or not resolved_path.is_file():
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "path_not_found",
+                "message": "Preview file not found.",
+            },
+        )
+
+    suffix = str(resolved_path.suffix or "").lower()
+
+    if suffix in LOCAL_IMPORT_IMAGE_EXTENSIONS:
+        file_size = resolved_path.stat().st_size
+        if file_size > _INTAKE_PREVIEW_MAX_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "success": False,
+                    "error": "preview_too_large",
+                    "message": "Image preview exceeds max size (5 MB).",
+                },
+            )
+
+        try:
+            content = resolved_path.read_bytes()
+        except (OSError, PermissionError):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "preview_read_failed",
+                    "message": "Could not read preview file.",
+                },
+            )
+
+        return Response(
+            content=content,
+            media_type=_image_mime_for_suffix(resolved_path),
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    if suffix == ".3mf":
+        from ..geometry_3mf import extract_3mf_thumbnail
+
+        file_size = resolved_path.stat().st_size
+        if file_size > _INTAKE_PREVIEW_MAX_3MF_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "success": False,
+                    "error": "model_file_too_large",
+                    "message": "3MF file exceeds max size for preview extraction.",
+                },
+            )
+
+        try:
+            thumbnail_bytes = extract_3mf_thumbnail(resolved_path.read_bytes())
+        except (OSError, PermissionError):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "preview_read_failed",
+                    "message": "Could not read model file for preview extraction.",
+                },
+            )
+
+        if thumbnail_bytes is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "thumbnail_not_found",
+                    "message": "No embedded thumbnail found in 3MF file.",
+                },
+            )
+
+        mime_type = "image/png"
+        if thumbnail_bytes[:3] == b"\xff\xd8\xff":
+            mime_type = "image/jpeg"
+
+        return Response(
+            content=thumbnail_bytes,
+            media_type=mime_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    return JSONResponse(
+        status_code=415,
+        content={
+            "success": False,
+            "error": "preview_unsupported_type",
+            "message": "Preview is supported for images and .3mf files only.",
+        },
+    )

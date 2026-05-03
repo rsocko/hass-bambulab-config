@@ -15,6 +15,17 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
 
+var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
+  ".png": true,
+  ".jpg": true,
+  ".jpeg": true,
+  ".webp": true,
+  ".gif": true,
+  ".bmp": true,
+  ".svg": true,
+  ".avif": true,
+};
+
 function pathStem(path) {
   var name = basename(path || '');
   if (!name) {
@@ -89,6 +100,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this.shadowRoot.removeEventListener("change", this._boundHandleChange);
       this.shadowRoot.removeEventListener("input", this._boundHandleInput);
     }
+    this._revokeBrowserPreviewUrls(this._browserFiles);
   }
 
   getCardSize() {
@@ -149,6 +161,52 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _browserFileKey(entry) {
     return String(entry.relative_path || entry.name || "").toLowerCase() + "::" + String(entry.size_bytes || 0);
+  }
+
+  _isBrowserImageFile(file) {
+    if (!file) {
+      return false;
+    }
+    var mimeType = String(file.type || "").toLowerCase();
+    if (mimeType.indexOf("image/") === 0) {
+      return true;
+    }
+    var fileName = String(file.name || "");
+    var extension = fileName.lastIndexOf(".") >= 0 ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase() : "";
+    return !!BROWSER_PREVIEW_IMAGE_EXTENSIONS[extension];
+  }
+
+  _createBrowserPreviewUrl(file) {
+    if (!this._isBrowserImageFile(file) || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      return "";
+    }
+    try {
+      return URL.createObjectURL(file);
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  _revokeBrowserPreviewUrl(previewUrl) {
+    if (!previewUrl || typeof URL === "undefined" || typeof URL.revokeObjectURL !== "function") {
+      return;
+    }
+    try {
+      URL.revokeObjectURL(previewUrl);
+    } catch (_error) {
+      // Ignore revoke errors.
+    }
+  }
+
+  _revokeBrowserPreviewUrls(entries) {
+    (entries || []).forEach(function (entry) {
+      this._revokeBrowserPreviewUrl(entry && entry.preview_url ? String(entry.preview_url) : "");
+    }, this);
+  }
+
+  _clearBrowserFiles() {
+    this._revokeBrowserPreviewUrls(this._browserFiles);
+    this._browserFiles = [];
   }
 
   _selectedList() {
@@ -437,7 +495,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._status = "";
     this._result = null;
     this._selected = {};
-    this._browserFiles = [];
+    this._clearBrowserFiles();
     await this._setSourceMode(nextMode);
     if (nextMode === "server") {
       await this._loadBrowse('/');
@@ -454,7 +512,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._commitMode = 'queue';
     this._destinationChoice = 'curated';
     this._selected = {};
-    this._browserFiles = [];
+    this._clearBrowserFiles();
     this._render();
   }
 
@@ -527,13 +585,19 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         name: String(file.name || relativePath || "upload.bin"),
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
+        preview_url: this._createBrowserPreviewUrl(file),
         grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
         recurse: this._browserRecurse(),
         preserve_folder_structure: true,
         group_title_source: currentBrowserTitleSource,
         group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
       };
-      nextByKey[this._browserFileKey(nextEntry)] = nextEntry;
+      var nextKey = this._browserFileKey(nextEntry);
+      var existingEntry = nextByKey[nextKey];
+      if (existingEntry && existingEntry.preview_url && existingEntry.preview_url !== nextEntry.preview_url) {
+        this._revokeBrowserPreviewUrl(existingEntry.preview_url);
+      }
+      nextByKey[nextKey] = nextEntry;
     }, this);
     this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
       return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
@@ -542,9 +606,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _removeBrowserFile(key) {
-    this._browserFiles = this._browserFiles.filter(function (entry) {
-      return this._browserFileKey(entry) !== key;
+    var nextFiles = [];
+    this._browserFiles.forEach(function (entry) {
+      if (this._browserFileKey(entry) === key) {
+        this._revokeBrowserPreviewUrl(entry.preview_url);
+        return;
+      }
+      nextFiles.push(entry);
     }, this);
+    this._browserFiles = nextFiles;
     this._render();
   }
 
@@ -575,6 +645,32 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       }
     }
     return String(this._config && this._config.model_sidecar_url || "").trim();
+  }
+
+  _supportsServerPreview(pathValue) {
+    var normalized = String(pathValue || "").toLowerCase();
+    return /\.(3mf|png|jpg|jpeg|webp|gif|svg)$/.test(normalized);
+  }
+
+  _serverPreviewUrl(pathValue) {
+    var normalizedPath = String(pathValue || "").trim();
+    if (!normalizedPath || !this._supportsServerPreview(normalizedPath)) {
+      return "";
+    }
+    var endpoint = "/api/intake/preview?path=" + encodeURIComponent(normalizedPath);
+    var sidecarBaseUrl = this._resolveSidecarUrl();
+    if (!sidecarBaseUrl) {
+      return endpoint;
+    }
+    return sidecarBaseUrl.replace(/\/$/, "") + endpoint;
+  }
+
+  _serverPreviewMarkup(pathValue, displayName) {
+    var previewUrl = this._serverPreviewUrl(pathValue);
+    if (!previewUrl) {
+      return '<div class="entry-thumb placeholder">No preview</div>';
+    }
+    return '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>';
   }
 
   async _submitServerSelections() {
@@ -698,7 +794,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           : "Server selection queued to intake and validated." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
       }
       this._selected = {};
-      this._browserFiles = [];
+      this._clearBrowserFiles();
       this._wizardOpen = false;
       this._wizardMode = "";
       this._wizardStep = 1;
@@ -759,9 +855,15 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
       var displayName = basename(relativePath || entry.name || "") || entry.name || relativePath || "upload.bin";
       var folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+      var previewUrl = String(entry.preview_url || "");
+      var previewMarkup = previewUrl
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+        : '<div class="entry-thumb placeholder">No preview</div>';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(displayName) + '</div><div class="entry-path">' + escapeHtml(relativePath || entry.name || "") + '</div>' + (folderPath ? '<div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '') + '</div><div class="button-row"><span class="chip">browser</span>' + (folderPath ? '<span class="chip">folder upload</span>' : '<span class="chip">single file</span>') + '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
+        + '  <div class="entry-top">'
+        + previewMarkup
+        + '<div><div class="entry-name">' + escapeHtml(displayName) + '</div><div class="entry-path">' + escapeHtml(relativePath || entry.name || "") + '</div>' + (folderPath ? '<div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '') + '</div><div class="button-row"><span class="chip">browser</span>' + (folderPath ? '<span class="chip">folder upload</span>' : '<span class="chip">single file</span>') + '<span class="chip">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</span>'
         + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(this._browserFileKey(entry)) + '">Remove</button>' : '')
         + '  </div></div>'
         + '</article>';
@@ -802,7 +904,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Curated catalog.' : '') + '</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Curated catalog.' : '') + '</div>'
         : '')
       + '</div>';
   }
@@ -816,11 +918,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return '<div class="entries">' + this._browse.entries.map(function (entry) {
       var selected = !!this._selected[entry.path];
+      var displayName = String(entry.name || basename(entry.path) || "");
+      var previewMarkup = entry.type === 'file'
+        ? this._serverPreviewMarkup(entry.path, displayName)
+        : '<div class="entry-thumb placeholder">Folder</div>';
       return ''
         + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
         + '  <div class="entry-top">'
+        + previewMarkup
         + '    <div>'
-        + '      <div class="entry-name">' + escapeHtml(entry.name || basename(entry.path)) + '</div>'
+        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(entry.path || '') + '</div>'
         + '    </div>'
         + '    <div class="button-row">'
@@ -858,9 +965,13 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + selections.map(function (entry) {
       var titleSource = this._selectionTitleSource(entry);
       var resolvedTitle = this._resolvedGroupTitle(entry);
+      var entryName = String(basename(entry.path) || entry.path);
+      var previewMarkup = entry.type === 'file'
+        ? this._serverPreviewMarkup(entry.path, entryName)
+        : '<div class="entry-thumb placeholder">Folder</div>';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(entry.path) || entry.path) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
+        + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
         + (entry.type === 'folder' && showSettings
           ? '<div class="item-grid">'
             + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
@@ -945,7 +1056,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Preview And Group Defaults</div><div class="subtitle">Review the queued entries and edit the default Working Group title before committing to Inbox.</div></div></div>'
           + '  <div class="result-summary"><div class="result-line"><span>Selected entries</span><strong>' + String(this._selectedList().length) + '</strong></div><div class="result-line"><span>Estimated files</span><strong>' + String(this._selectedList().length) + ' or more</strong></div></div>'
-          + '  <div class="muted">Folder imports keep the title basis and custom title you set here. You can still override the title later from Inbox.</div>'
+          + '  <div class="muted">Folder imports keep the title basis and custom title you set here. You can still override the title later from Inbox. File rows now request server-side previews for image and 3MF paths when available.</div>'
           + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(true) + '</div>'
           + '</div>';
       }
@@ -1099,7 +1210,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     if (action === 'clear-browser-files') {
-      this._browserFiles = [];
+      this._clearBrowserFiles();
       this._render();
       return;
     }
@@ -1299,6 +1410,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-step-label{font-size:14px;font-weight:800;}'
       + '.wizard-body{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;}'
       + '.wizard-panel{display:grid;gap:12px;align-content:start;min-height:0;padding:14px;border-radius:18px;border:1px solid rgba(148,163,184,0.18);background:rgba(15,23,42,0.22);}'
+      + '.entry-thumb{width:56px;height:56px;flex:0 0 56px;border-radius:10px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.24);display:grid;place-items:center;overflow:hidden;color:var(--secondary-text-color);font-size:10px;font-weight:700;text-transform:uppercase;}'
+      + '.entry-thumb.placeholder{letter-spacing:.04em;padding:4px;text-align:center;line-height:1.2;}'
+      + '.entry-thumb-image{display:block;width:100%;height:100%;object-fit:cover;}'
       + '.wizard-scroll-region{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
       + '.wizard-selection-scroll{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
       + '.wizard-review-scroll{min-height:0;max-height:420px;overflow:auto;padding-right:4px;}'
