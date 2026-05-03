@@ -168,9 +168,18 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                 )
                 continue
 
+            # Compute relative path for folder structure preservation
+            relative_path: str = file_path.name
+            if entry_type == "folder":
+                try:
+                    relative_path = str(file_path.relative_to(source_path))
+                except ValueError:
+                    relative_path = file_path.name
+            
             expanded.append(
                 {
                     "path": normalized_path,
+                    "relative_path": relative_path,
                     "filename": file_path.name,
                     "entry_type": entry_type,
                     "source_entry": entry,
@@ -257,15 +266,152 @@ def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: l
     return Path(expanded_files[0]["filename"]).stem or "Working Group"
 
 
+def _normalize_grouping_strategy(value: object | None) -> str:
+    """Normalize grouping strategy value."""
+    normalized = str(value or "").strip().lower()
+    if normalized in {"by-folder", "by-root", "flat", "none"}:
+        return normalized
+    return "none"
+
+
+def _compute_group_key(
+    *, 
+    file_path: Path,
+    root_path: Path,
+    strategy: str,
+    source_entry: dict[str, Any]
+) -> str:
+    """
+    Compute the group key for a file based on grouping strategy.
+    
+    by-folder: file's parent folder relative to root
+    by-root: "__root__" (all files from this root → same group)
+    flat: unique per file
+    none: "__single__" (all files → same group)
+    """
+    if strategy == "by-root":
+        return "__root__"
+    if strategy == "flat":
+        return str(file_path.resolve())
+    if strategy == "by-folder":
+        try:
+            relative_parent = file_path.parent.relative_to(root_path)
+            return str(relative_parent) if str(relative_parent) != "." else "__root_folder__"
+        except ValueError:
+            return "__root_folder__"
+    # "none" or unknown
+    return "__single__"
+
+
+def _compute_group_title(
+    *,
+    group_key: str,
+    root_path: Path,
+    file_path: Path,
+    strategy: str,
+    source_entry: dict[str, Any]
+) -> str:
+    """
+    Compute group title based on grouping strategy and group key.
+    """
+    # Explicit override from UI
+    explicit_title = str(source_entry.get("group_title") or "").strip()
+    if explicit_title:
+        return explicit_title
+    
+    if strategy == "by-root":
+        return root_path.name or str(root_path)
+    if strategy == "flat":
+        return file_path.stem or file_path.name
+    if strategy == "by-folder":
+        if group_key == "__root_folder__":
+            return f"{root_path.name} Root"
+        parent = Path(group_key)
+        return parent.name or group_key
+    # "none"
+    return "Working Group"
+
+
+def _group_files_by_strategy(
+    *,
+    expanded_files: list[dict[str, Any]],
+    source_entries: list[dict[str, Any]],
+    strategy: str
+) -> dict[str, dict[str, Any]]:
+    """
+    Group expanded files into proposals based on strategy.
+    
+    Returns dict[group_key] = {
+        "title": str,
+        "files": [expanded_file_items],
+        "strategy": str,
+        "source_entry": dict
+    }
+    """
+    groups_by_key: dict[str, dict[str, Any]] = {}
+    
+    # For each source entry, compute its root path
+    source_roots: dict[str, Path] = {}
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_path_raw = str(entry.get("path") or "").strip()
+        if entry_path_raw:
+            source_roots[entry_path_raw] = Path(entry_path_raw).expanduser().resolve()
+    
+    # Group files
+    for file_item in expanded_files:
+        source_entry = file_item.get("source_entry", {})
+        source_path_raw = str(source_entry.get("path") or "").strip()
+        root_path = source_roots.get(source_path_raw, Path(file_item["path"]).parent)
+        
+        file_path = Path(file_item["path"]).resolve()
+        group_key = _compute_group_key(
+            file_path=file_path,
+            root_path=root_path,
+            strategy=strategy,
+            source_entry=source_entry
+        )
+        group_title = _compute_group_title(
+            group_key=group_key,
+            root_path=root_path,
+            file_path=file_path,
+            strategy=strategy,
+            source_entry=source_entry
+        )
+        
+        if group_key not in groups_by_key:
+            groups_by_key[group_key] = {
+                "title": group_title,
+                "files": [],
+                "strategy": strategy,
+                "source_entry": source_entry,
+                "root_path": str(root_path),
+            }
+        
+        groups_by_key[group_key]["files"].append(file_item)
+    
+    return groups_by_key
+
+
 def _move_files_to_working_group(
     *, 
     expanded_files: list[dict[str, Any]], 
     working_group_id: int,
     working_group_slug: str | None,
-    settings: Any
+    settings: Any,
+    preserve_folder_structure: bool = True
 ) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
     """
     Move files from their source locations to the working files folder.
+    
+    Args:
+        expanded_files: List of file items from _expand_intake_source_entries
+        working_group_id: Working group database ID
+        working_group_slug: Working group slug for folder naming
+        settings: Application settings
+        preserve_folder_structure: If True, recreate folder hierarchy using relative_path.
+                                   If False, flatten all files into group_folder.
     
     Returns:
         (moved_files, errors) where:
@@ -316,9 +462,30 @@ def _move_files_to_working_group(
             })
             continue
         
-        # Generate unique destination path (avoid conflicts)
-        dest_name = source_path.name
-        dest_path = group_folder / dest_name
+        # Determine destination path based on preserve_folder_structure
+        if preserve_folder_structure:
+            # Use relative_path if available (from by-folder grouping metadata)
+            relative_path_raw = file_item.get("relative_path")
+            if relative_path_raw:
+                dest_rel = Path(relative_path_raw)
+                dest_path = group_folder / dest_rel
+                # Create parent directories as needed
+                try:
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                except (OSError, PermissionError) as exc:
+                    errors.append({
+                        "code": "mkdir_failed",
+                        "path": source_path_str,
+                        "message": f"Failed to create folder structure: {exc}"
+                    })
+                    continue
+            else:
+                # Fallback: use filename only
+                dest_path = group_folder / source_path.name
+        else:
+            # Flatten: use filename only
+            dest_path = group_folder / source_path.name
+        
         dest_key = _normalize_path_compare_key(str(dest_path.resolve()))
         
         # If file already exists, append a counter
@@ -328,7 +495,7 @@ def _move_files_to_working_group(
             counter = 2
             while True:
                 next_dest_name = f"{stem}-{counter}{suffix}"
-                next_dest_path = group_folder / next_dest_name
+                next_dest_path = dest_path.parent / next_dest_name
                 next_key = _normalize_path_compare_key(str(next_dest_path.resolve()))
                 if not next_dest_path.exists() and next_key not in reserved_paths:
                     dest_path = next_dest_path
@@ -1003,7 +1170,15 @@ def reject_intake_item(request: Request, item_id: str, payload: dict[str, Any] |
 @router.post("/api/intake/items/{item_id}/group")
 def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | None = None) -> Any:
     """
-    Group an intake item into a working group (terminal state).
+    Group an intake item into working group(s) (terminal state).
+    
+    Supports multi-group decomposition based on grouping_strategy:
+    - none: all files in one group
+    - by-folder: one group per unique folder (respects folder hierarchy)
+    - by-root: one group per root selection
+    - flat: one group per file (not recommended)
+    
+    Also supports folder structure preservation via preserve_folder_structure flag.
     
     Allowed states: validated_ready (always), validated_warning (with override=true).
     Terminal states: returns 409 Conflict.
@@ -1068,131 +1243,187 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 },
             )
 
-        now_iso = _bulk_utc_now_iso()
-        if action == "create_working_group":
-            title = str(payload.get("title") or "").strip() or _default_group_title(source_entries, expanded_files)
-            stage = str(payload.get("stage") or "draft").strip() or "draft"
-            folder_hint = str(payload.get("folder_hint") or Path(str(expanded_files[0]["path"])).parent).strip() or None
-            notes = str(payload.get("notes") or "Imported from intake workflow").strip() or None
-            slug = _unique_slug(connection, title)
-            connection.execute(
-                """
-                INSERT INTO working_groups (
-                    slug, title, stage, notes, primary_file_path, folder_hint,
-                    related_manyfold_model_id, created_at, updated_at,
-                    discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    slug,
-                    title,
-                    stage,
-                    notes,
-                    None,
-                    folder_hint,
-                    None,
-                    now_iso,
-                    now_iso,
-                    folder_hint,
-                    "intake",
-                    now_iso,
-                    json.dumps({"source": "intake", "upload_id": item_id}),
-                ),
+        # Extract grouping strategy and folder preservation settings
+        grouping_strategy = _normalize_grouping_strategy(
+            next(
+                (str(e.get("grouping_strategy") or "").strip() 
+                 for e in source_entries if isinstance(e, dict) and e.get("grouping_strategy")),
+                "none"
             )
-            group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-            group_slug = slug
-        else:
-            group_id = int(payload.get("working_group_id") or 0)
-            if group_id <= 0:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "invalid_payload",
-                        "message": "working_group_id is required for attach_existing_working_group",
-                    },
-                )
-            existing_group = connection.execute("SELECT id, slug FROM working_groups WHERE id = ?", (group_id,)).fetchone()
-            if existing_group is None:
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "success": False,
-                        "error": "working_group_not_found",
-                        "message": f"Working group not found: {group_id}",
-                    },
-                )
-            group_slug = str(existing_group["slug"] or "").strip() or None
-
-        # Move files to working files folder
-        moved_files, move_errors = _move_files_to_working_group(
-            expanded_files=expanded_files,
-            working_group_id=group_id,
-            working_group_slug=group_slug,
-            settings=state.settings
         )
-        
-        # Build a map of source -> destination paths
-        source_to_dest = dict(moved_files)
-        
-        # Record move errors in expansion_warnings
-        for error in move_errors:
-            expansion_warnings.append(error)
+        preserve_folder_structure = _coerce_bool(
+            next(
+                (e.get("preserve_folder_structure", True) 
+                 for e in source_entries if isinstance(e, dict) and e.get("preserve_folder_structure") is not None),
+                True
+            )
+        )
 
-        added_items = 0
-        duplicate_items = 0
-        primary_file_path: str | None = None
-        for index, file_item in enumerate(expanded_files):
-            original_path = str(file_item["path"])
-            # Use the moved path if available, otherwise use original path
-            file_path = source_to_dest.get(original_path, original_path)
-            file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
-            existing_item = connection.execute(
-                "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
-                (group_id, file_path),
-            ).fetchone()
-            if existing_item is not None:
-                duplicate_items += 1
+        # Group files by strategy if create_working_group, otherwise attach to single existing group
+        if action == "create_working_group":
+            file_groups = _group_files_by_strategy(
+                expanded_files=expanded_files,
+                source_entries=source_entries,
+                strategy=grouping_strategy
+            )
+        else:
+            # For attach_existing, treat all files as one group
+            file_groups = {"__all__": {"title": "Existing", "files": expanded_files, "strategy": "none"}}
+
+        now_iso = _bulk_utc_now_iso()
+        created_groups: list[dict[str, Any]] = []
+        total_added_items = 0
+        total_duplicate_items = 0
+        
+        for group_key, group_info in file_groups.items():
+            group_files = group_info.get("files", [])
+            if not group_files:
                 continue
-            if file_hash:
-                existing_hash_match = connection.execute(
-                    "SELECT id FROM working_items WHERE file_hash = ?",
-                    (file_hash,),
+            
+            if action == "create_working_group":
+                # Create new working group
+                title = str(payload.get("title") or "").strip() or group_info.get("title") or _default_group_title(source_entries, group_files)
+                stage = str(payload.get("stage") or "draft").strip() or "draft"
+                folder_hint = str(payload.get("folder_hint") or Path(str(group_files[0]["path"])).parent).strip() or None
+                notes = str(payload.get("notes") or "Imported from intake workflow").strip() or None
+                slug = _unique_slug(connection, title)
+                connection.execute(
+                    """
+                    INSERT INTO working_groups (
+                        slug, title, stage, notes, primary_file_path, folder_hint,
+                        related_manyfold_model_id, created_at, updated_at,
+                        discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        slug,
+                        title,
+                        stage,
+                        notes,
+                        None,
+                        folder_hint,
+                        None,
+                        now_iso,
+                        now_iso,
+                        folder_hint,
+                        grouping_strategy,
+                        now_iso,
+                        json.dumps({
+                            "source": "intake",
+                            "upload_id": item_id,
+                            "grouping_strategy": grouping_strategy,
+                            "preserve_folder_structure": preserve_folder_structure,
+                        }),
+                    ),
+                )
+                group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+                group_slug = slug
+            else:
+                # Attach to existing group
+                group_id = int(payload.get("working_group_id") or 0)
+                if group_id <= 0:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "success": False,
+                            "error": "invalid_payload",
+                            "message": "working_group_id is required for attach_existing_working_group",
+                        },
+                    )
+                existing_group = connection.execute("SELECT id, slug FROM working_groups WHERE id = ?", (group_id,)).fetchone()
+                if existing_group is None:
+                    return JSONResponse(
+                        status_code=404,
+                        content={
+                            "success": False,
+                            "error": "working_group_not_found",
+                            "message": f"Working group not found: {group_id}",
+                        },
+                    )
+                group_slug = str(existing_group["slug"] or "").strip() or None
+
+            # Move files to working files folder
+            moved_files, move_errors = _move_files_to_working_group(
+                expanded_files=group_files,
+                working_group_id=group_id,
+                working_group_slug=group_slug,
+                settings=state.settings,
+                preserve_folder_structure=preserve_folder_structure
+            )
+            
+            # Build a map of source -> destination paths
+            source_to_dest = dict(moved_files)
+            
+            # Record move errors in expansion_warnings
+            for error in move_errors:
+                expansion_warnings.append(error)
+
+            added_items = 0
+            duplicate_items = 0
+            primary_file_path: str | None = None
+            for index, file_item in enumerate(group_files):
+                original_path = str(file_item["path"])
+                # Use the moved path if available, otherwise use original path
+                file_path = source_to_dest.get(original_path, original_path)
+                file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
+                existing_item = connection.execute(
+                    "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
+                    (group_id, file_path),
                 ).fetchone()
-                if existing_hash_match is not None:
+                if existing_item is not None:
                     duplicate_items += 1
                     continue
-            item_role = "primary" if index == 0 and action == "create_working_group" else "supporting"
-            if item_role == "primary" and primary_file_path is None:
-                primary_file_path = file_path
-            connection.execute(
-                """
-                INSERT INTO working_items (
-                    working_group_id, file_path, item_role, created_at, updated_at,
-                    file_hash, file_size, source_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    group_id,
-                    file_path,
-                    item_role,
-                    now_iso,
-                    now_iso,
-                    file_hash,
-                    int(file_item.get("size_bytes") or 0) or None,
-                    json.dumps({}),
-                ),
-            )
-            added_items += 1
+                if file_hash:
+                    existing_hash_match = connection.execute(
+                        "SELECT id FROM working_items WHERE file_hash = ?",
+                        (file_hash,),
+                    ).fetchone()
+                    if existing_hash_match is not None:
+                        duplicate_items += 1
+                        continue
+                item_role = "primary" if index == 0 and action == "create_working_group" else "supporting"
+                if item_role == "primary" and primary_file_path is None:
+                    primary_file_path = file_path
+                connection.execute(
+                    """
+                    INSERT INTO working_items (
+                        working_group_id, file_path, item_role, created_at, updated_at,
+                        file_hash, file_size, source_metadata_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        group_id,
+                        file_path,
+                        item_role,
+                        now_iso,
+                        now_iso,
+                        file_hash,
+                        int(file_item.get("size_bytes") or 0) or None,
+                        json.dumps({}),
+                    ),
+                )
+                added_items += 1
 
-        if action == "create_working_group" and primary_file_path:
-            connection.execute(
-                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
-                (primary_file_path, now_iso, group_id),
-            )
+            if action == "create_working_group" and primary_file_path:
+                connection.execute(
+                    "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
+                    (primary_file_path, now_iso, group_id),
+                )
+
+            group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
+            serialized_group = _serialize_working_group(connection, group_row, state.settings)
+            created_groups.append({
+                "working_group_id": group_id,
+                "group": serialized_group,
+                "added_items": added_items,
+                "duplicate_items": duplicate_items,
+            })
+            total_added_items += added_items
+            total_duplicate_items += duplicate_items
 
         # Set to terminal state with metadata
         terminal_action = "grouped_new" if action == "create_working_group" else "grouped_existing"
+        group_ids_str = ",".join(str(g["working_group_id"]) for g in created_groups)
         connection.execute(
             """
             UPDATE intake_queue_uploads 
@@ -1203,26 +1434,30 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             """,
             (
                 terminal_action,
-                f"Grouped to working_group_id={group_id}",
+                f"Grouped to working_group_id(s)={group_ids_str}",
                 now_iso,
                 terminal_action,
                 now_iso,
-                str(group_id),
+                group_ids_str,
                 item_id,
             ),
         )
-
-        group_row = connection.execute("SELECT * FROM working_groups WHERE id = ?", (group_id,)).fetchone()
         connection.commit()
-
-        serialized_group = _serialize_working_group(connection, group_row, state.settings)
 
         event_payload = {
             "upload_id": item_id,
             "action": action,
-            "working_group_id": group_id,
-            "added_items": added_items,
-            "duplicate_items": duplicate_items,
+            "grouping_strategy": grouping_strategy,
+            "preserve_folder_structure": preserve_folder_structure,
+            "created_groups": [
+                {
+                    "working_group_id": g["working_group_id"],
+                    "added_items": g["added_items"],
+                    "duplicate_items": g["duplicate_items"],
+                } for g in created_groups
+            ],
+            "total_added_items": total_added_items,
+            "total_duplicate_items": total_duplicate_items,
             "warnings": expansion_warnings,
         }
         response_payload = {
@@ -1230,11 +1465,12 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             "item_id": item_id,
             "state": terminal_action,
             "terminal": True,
-            "working_group_id": group_id,
-            "added_items": added_items,
-            "duplicate_items": duplicate_items,
+            "grouping_strategy": grouping_strategy,
+            "preserve_folder_structure": preserve_folder_structure,
+            "created_groups": created_groups,
+            "total_added_items": total_added_items,
+            "total_duplicate_items": total_duplicate_items,
             "warnings": expansion_warnings,
-            "group": serialized_group,
         }
 
         # Browser uploads stage into GUID directories; remove staging after files

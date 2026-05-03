@@ -219,3 +219,81 @@ This featureset belongs in:
 - **Phase 1.5: Intake Inbox, Bulk Discovery & Import**
 
 It is a pre-curation intake concern and should be implemented before archive linkage, browse ranking, or publish-time lineage work.
+
+## Grouping Strategies & Folder Structure Preservation (Phase 1.5.1)
+
+When importing hierarchical folders, the intake workflow supports **multi-model decomposition** and **folder structure preservation**:
+
+### Grouping Strategies
+
+Four strategies control how many working groups are created from a single batch:
+
+- **`none`** — Single working group (all files together)
+- **`by-folder`** — One group per unique folder path (respects hierarchy)
+- **`by-root`** — One group per top-level selection (explicit roots)
+- **`flat`** — One group per file (not recommended)
+
+### Folder Preservation
+
+A boolean flag determines how files are stored:
+
+- **Preserve** (default) — Recreates folder hierarchy in working group storage
+- **Flatten** — All files stored in group root
+
+### Behavior Example
+
+**Input**: 33 files in hierarchical structure
+
+```
+models/
+├── gridfinity/
+│   ├── bin-4x4.3mf
+│   ├── tray-3x2.3mf
+│   └── variants/
+│       ├── tall.3mf
+│       └── short.3mf
+├── benchmarks/
+│   └── test-1.3mf
+└── lithophanes/
+    └── photo.3mf
+```
+
+**Strategy**: `by-folder`, **Preserve**: `true`
+
+**Result**: 4 working groups, each with hierarchical storage
+
+```
+gridfinity/
+├── bin-4x4.3mf
+├── tray-3x2.3mf
+└── variants/
+    ├── tall.3mf
+    └── short.3mf
+
+gridfinity-variants/
+├── tall.3mf
+└── short.3mf
+
+benchmarks/
+└── test-1.3mf
+
+lithophanes/
+└── photo.3mf
+```
+
+For detailed implementation, API contracts, and testing guidance, see [INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md](INTAKE-GROUPING-AND-FOLDER-PRESERVATION-DESIGN.md).
+
+### Metadata Storage
+
+Grouping decisions are stored in `discovery_metadata_json` for audit trail and reproducibility:
+
+```json
+{
+  "source": "intake",
+  "upload_id": "...",
+  "grouping_strategy": "by-folder",
+  "preserve_folder_structure": true
+}
+```
+
+This enables downstream consumers to understand how a model was decomposed and recreate it if needed.

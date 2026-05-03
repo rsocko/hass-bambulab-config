@@ -315,6 +315,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return this._selectedList().map(function (entry) {
       var next = { type: entry.type, path: entry.path };
+      if (entry.grouping_strategy) {
+        next.grouping_strategy = String(entry.grouping_strategy || 'none').trim();
+      }
+      if (entry.preserve_folder_structure !== undefined && entry.preserve_folder_structure !== null) {
+        next.preserve_folder_structure = entry.preserve_folder_structure !== false;
+      }
       if (entry.group_title_source) {
         next.group_title_source = this._selectionTitleSource(entry);
       }
@@ -502,6 +508,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
         grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
+        preserve_folder_structure: true,
         group_title_source: currentBrowserTitleSource,
         group_title: currentBrowserTitleSource === 'custom' ? currentBrowserTitle : '',
       };
@@ -761,9 +768,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + (folderCount
             ? '    <div class="field"><label>Grouping</label><select class="select" data-action="browser-grouping"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
             : '')
+          + '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same grouping control as the server picker.' : '') + '</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders.' + (folderCount ? ' Folder uploads now expose the same grouping control as the server picker.' : '') + ' Preserve folder structure is supported in Curated catalog.</div>'
         : '')
       + '</div>';
   }
@@ -827,9 +835,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             + '<div class="field"><label>Recurse</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>On</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Off</option></select></div>'
             + '<div class="field"><label>Max Depth</label><input class="input" type="number" min="1" placeholder="Optional" value="' + escapeHtml(entry.max_depth) + '" data-action="selection-depth" data-path="' + escapeHtml(entry.path) + '"></div>'
             + '<div class="field"><label>Grouping</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>None</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>by-folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>by-root</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>flat</option></select></div>'
+            + '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
             + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files.</div>'
+            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files. Folder structure is preserved in Curated catalog.</div>'
             + '</div>'
           : (entry.type === 'folder'
             ? '<div class="button-row"><span class="chip">recurse ' + escapeHtml(entry.recurse ? 'on' : 'off') + '</span>' + (entry.max_depth ? '<span class="chip">max depth ' + escapeHtml(entry.max_depth) + '</span>' : '') + '<span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
@@ -1105,6 +1114,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'browser-preserve-structure') {
+      var preserveStructure = String(target.value || 'true').toLowerCase() === 'true';
+      this._updateBrowserBatchMeta({
+        preserve_folder_structure: preserveStructure,
+      });
+      this._render();
+      return;
+    }
     if (action === 'browser-group-title') {
       return;
     }
@@ -1146,6 +1163,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         [path]: Object.assign({}, this._selected[path], {
           grouping_strategy: groupingValue,
           group_title_source: groupingValue === 'flat' ? 'first-file' : this._selectionTitleSource(this._selected[path]),
+        }),
+      });
+      this._render();
+      return;
+    }
+    if (action === 'selection-preserve-structure') {
+      var preserveValue = String(target.value || 'true').toLowerCase() === 'true';
+      this._selected = Object.assign({}, this._selected, {
+        [path]: Object.assign({}, this._selected[path], {
+          preserve_folder_structure: preserveValue,
         }),
       });
       this._render();
