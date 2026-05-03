@@ -128,14 +128,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _wizardStepCount() {
-    return 3;
+    return this._wizardMode === "browser" ? 2 : 3;
   }
 
   _wizardStepLabel(stepNumber) {
     if (stepNumber === 1) {
       return this._wizardMode === "server" ? "Select" : "Choose";
     }
-    if (stepNumber === 2) {
+    if (this._wizardMode === "server" && stepNumber === 2) {
       return "Preview";
     }
     return "Commit";
@@ -926,15 +926,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
         + this._renderBrowserSelectionSummary()
         + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
-        + '</div>';
-    }
-    if (this._wizardStep === 2) {
-      return ''
-        + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Preview Browser Uploads</div><div class="subtitle">Review the staged files and folders before choosing how to commit this batch.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
-        + this._renderBrowserSelectionSummary()
-        + '  <div class="muted">Folder uploads can use the same grouping selector as the server picker. Files still upload from this browser session and can be reviewed after queueing.</div>'
-        + '  <div class="wizard-review-scroll">' + this._renderBrowserFileRows(false) + '</div>'
         + '</div>';
     }
     return ''
