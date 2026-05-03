@@ -786,7 +786,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             workingGroupId: publishResponse.working_group_id || null,
           });
         } else {
-          this._status = "Validation produced warnings, so the batch remains in Inbox for review.";
+          this._status = "Validation produced warnings, so the batch remains in the background queue for follow-up review.";
         }
       } else {
         this._status = browserFiles.length
@@ -840,7 +840,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return ""
       + '<div class="grid">'
       + '  <div class="summary-card"><div class="summary-label">Queue Health</div><div class="summary-value">Queued ' + String(uploadCounts.queued || 0) + ' / Verified ' + String(uploadCounts.verified || 0) + '</div><div class="muted">Failed ' + String(uploadCounts.failed || 0) + ' / Cleanup pending ' + String(uploadCounts.cleanup_pending || 0) + '</div></div>'
-      + '  <div class="summary-card"><div class="summary-label">Inbox Snapshot</div><div class="summary-value">Ready ' + String(itemCounts.validated_ready || 0) + ' / Warning ' + String(itemCounts.validated_warning || 0) + '</div><div class="muted">Deferred ' + String(itemCounts.deferred || 0) + ' / Grouped ' + String((itemCounts.grouped_new || 0) + (itemCounts.grouped_existing || 0)) + '</div></div>'
+      + '  <div class="summary-card"><div class="summary-label">Queue Snapshot</div><div class="summary-value">Ready ' + String(itemCounts.validated_ready || 0) + ' / Warning ' + String(itemCounts.validated_warning || 0) + '</div><div class="muted">Deferred ' + String(itemCounts.deferred || 0) + ' / Completed ' + String((itemCounts.grouped_new || 0) + (itemCounts.grouped_existing || 0) + (itemCounts.published_to_catalog || 0)) + '</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Intake Roots</div><div class="summary-value">' + String(this._roots.length) + ' configured</div><div class="muted">Server browse is constrained to allowlisted sidecar roots.</div></div>'
       + '  <div class="summary-card"><div class="summary-label">Batch Policy</div><div class="summary-value">' + escapeHtml(this._cleanupPolicy()) + '</div><div class="muted">Applied when the wizard commits a new intake batch.</div></div>'
       + '</div>';
@@ -882,7 +882,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '<div class="result-summary">'
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
       + '  <div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div>'
-      + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
+        + '  <div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div>'
       + (folderCount ? '  <div class="result-line"><span>Files queued now</span><strong>' + String(filteredFileCount) + '</strong></div>' : '')
       + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
       + (folderCount
@@ -958,7 +958,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           + '<div class="item-grid">'
           + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source-files"><option value="first-file"' + (fileBatchTitleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (fileBatchTitleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(fileBatchResolvedTitle) + '" data-action="selection-group-title-files" placeholder="Working Group"></div>'
-          + '<div class="muted">This title is copied to the queued file entries and becomes the default group title in Inbox.</div>'
+          + '<div class="muted">This title is copied to the queued file entries and becomes the default group title for follow-up working actions.</div>'
           + '</div>'
           + '</article>'
         : '')
@@ -981,7 +981,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               : '')
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
             + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-            + '<div class="muted">This title is preserved into Inbox and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated catalog.' : '') + '</div>'
+            + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated catalog.' : '') + '</div>'
             + '</div>'
           : (entry.type === 'folder'
             ? '<div class="button-row"><span class="chip">scope ' + escapeHtml(entry.recurse ? 'recursive' : 'just this folder') + '</span><span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
@@ -996,7 +996,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }).filter(Boolean).slice(0, 3);
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into Inbox.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Review Inbox</button></div></div>'
+      + '  <div class="title-row"><div><div class="title">New Intake Batch</div><div class="subtitle">Start one path at a time, review the batch, then commit it into the shared intake queue.</div></div><div class="button-row"><button class="button" data-action="refresh-intake">Refresh</button><button class="button primary" data-action="goto-inbox">Open Job History</button></div></div>'
       + '  <div class="wizard-launch-grid">'
       + '    <article class="launch-card">'
       + '      <div class="launch-kicker">Path 1</div><div class="launch-title">Upload Files / Folder</div><div class="muted">Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.</div><div class="button-row"><button class="button primary" data-action="open-browser-wizard">Start Upload Wizard</button></div>'
@@ -1012,7 +1012,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var recentItems = this._intakeItems.slice(0, 5);
     return ''
       + '<section class="section">'
-      + '  <div class="title-row"><div><div class="title">Recent Intake Activity</div><div class="subtitle">Latest queue handoffs and validation state from the shared Inbox contract.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Recent Intake Activity</div><div class="subtitle">Latest queue handoffs and validation state from the shared intake contract.</div></div></div>'
       + (recentItems.length
         ? '<div class="entries">' + recentItems.map(function (item) {
             var sourceEntry = item.source_entry || {};
@@ -1039,9 +1039,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._wizardStep === 1) {
         return ''
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Select Server Files Or Folders</div><div class="subtitle">Browse the allowlisted server directory and build the selection list for this batch.</div></div><div class="button-row"><button class="button" data-action="browse-root">Roots</button>'
+          + '  <div class="title-row"><div><div class="title">Preview And Group Defaults</div><div class="subtitle">Review the queued entries and edit the default Working Group title before committing the batch.</div></div></div>'
           + (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
-          + '  </div></div>'
+          + '  <div class="muted">Folder imports keep the title basis and custom title you set here. File rows now request server-side previews for image and 3MF paths when available.</div>'
           + '  <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '.</div>'
           + '  <div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div>'
           + '</div>'
@@ -1096,7 +1096,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _renderWizardFooter() {
     var atFirstStep = this._wizardStep === 1;
     var atLastStep = this._wizardStep === this._wizardStepCount();
-    var commitButtonLabel = "Commit To Inbox";
+    var commitButtonLabel = "Commit Intake Batch";
     if (atLastStep && this._commitMode === 'execute_now') {
       var destination = this._destinationChoice === 'working' ? 'Working Files' : 'Catalog';
       commitButtonLabel = "Validate & Publish to " + destination;
@@ -1119,7 +1119,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
       + '  <div class="wizard-backdrop" data-action="close-wizard"></div>'
       + '  <div class="wizard-dialog">'
-      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into Inbox.</div></div><button class="button" data-action="close-wizard">Close</button></div>'
+      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into the intake queue.</div></div><button class="button" data-action="close-wizard">Close</button></div>'
       + this._renderWizardProgress()
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')

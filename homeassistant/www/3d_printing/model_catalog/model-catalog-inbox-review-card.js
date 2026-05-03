@@ -13,6 +13,7 @@ var batchActionLabel = inboxShared.batchActionLabel;
 var callServiceWithResponse = inboxShared.callServiceWithResponse;
 var fireModelCatalogDataChanged = inboxShared.fireModelCatalogDataChanged;
 var sharedStyles = inboxShared.sharedStyles;
+var selectInputOption = inboxShared.selectInputOption;
 
 function pathStem(path) {
   var name = basename(path || '');
@@ -34,6 +35,25 @@ function suggestedGroupTitle(sourceEntry) {
   return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
 }
 
+function splitTerminalResultIds(item) {
+  return String(item && item.terminal_result_id || '')
+    .split(',')
+    .map(function (value) { return String(value || '').trim(); })
+    .filter(Boolean);
+}
+
+function formatTimestamp(value) {
+  var raw = String(value || '').trim();
+  if (!raw) {
+    return 'Not recorded';
+  }
+  var parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return raw;
+  }
+  return parsed.toLocaleString();
+}
+
 class ModelCatalogInboxReviewCard extends HTMLElement {
   constructor() {
     super();
@@ -53,7 +73,19 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = Object.assign({ title: 'Inbox Review' }, config || {});
+    this._config = Object.assign({
+      title: 'Inbox Review',
+      defaultView: 'active_queue',
+      historyOnly: false,
+      sectionEntity: '',
+      workingSection: 'working',
+      curatedSection: 'curated',
+      modelEntity: 'input_text.model_catalog_sidecar_base_url',
+      modelSidecarUrl: '',
+    }, config || {});
+    this._currentView = this._historyOnly()
+      ? 'job_history'
+      : (String(this._config.defaultView || '').trim() === 'job_history' ? 'job_history' : 'active_queue');
     this._render();
   }
 
@@ -81,6 +113,91 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
 
   getCardSize() {
     return 16;
+  }
+
+  _historyOnly() {
+    return !!(this._config && this._config.historyOnly);
+  }
+
+  _showActiveQueue() {
+    return !this._historyOnly();
+  }
+
+  async _navigateToSection(option, statusMessage) {
+    if (!option || !this._config || !this._config.sectionEntity) {
+      return;
+    }
+    await selectInputOption(this._hass, this._config.sectionEntity, option);
+    if (statusMessage) {
+      this._status = statusMessage;
+      this._render();
+    }
+  }
+
+  _fireBrowserModEvent(service, data) {
+    var event = new CustomEvent('ll-custom', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        browser_mod: {
+          service: service,
+          data: data,
+          target: {},
+        },
+      },
+    });
+
+    if (document && document.body) {
+      document.body.dispatchEvent(event);
+      return;
+    }
+
+    this.dispatchEvent(event);
+  }
+
+  _openModelDetailPopup(modelRef, modelName) {
+    if (!modelRef) {
+      return;
+    }
+    this._fireBrowserModEvent('browser_mod.popup', {
+      title: modelName || 'Model Details',
+      size: 'wide',
+      content: {
+        type: 'custom:model-detail-popup-card',
+        model_ref: modelRef,
+        model_entity: this._config.modelEntity,
+        model_sidecar_url: this._config.modelSidecarUrl || '',
+      },
+    });
+  }
+
+  _terminalSummaryMarkup(item, proposedTitle) {
+    var terminalAction = String(item.terminal_action || item.state || '');
+    var terminalResultIds = splitTerminalResultIds(item);
+    var resultLabel = terminalAction === 'published_to_catalog'
+      ? 'Local Model'
+      : (terminalAction === 'rejected' ? 'Outcome' : 'Working Group');
+    var resultValue = terminalResultIds.length ? terminalResultIds.join(', ') : 'Not recorded';
+
+    return ''
+      + '<div class="item-grid"><div class="summary-card"><div class="summary-label">Outcome</div><div class="summary-value">' + escapeHtml(formatLabel(terminalAction || item.state || 'completed')) + '</div></div><div class="summary-card"><div class="summary-label">Completed</div><div class="summary-value">' + escapeHtml(formatTimestamp(item.terminal_at || item.updated_at || item.cleanup_done_at || item.verified_at || item.created_at)) + '</div></div><div class="summary-card"><div class="summary-label">' + escapeHtml(resultLabel) + '</div><div class="summary-value">' + escapeHtml(resultValue) + '</div></div></div>'
+      + (proposedTitle ? '<div class="muted">Planned title: ' + escapeHtml(proposedTitle) + '</div>' : '');
+  }
+
+  _historyActionButtons(item, deleteDisabled, proposedTitle) {
+    var terminalAction = String(item.terminal_action || item.state || '');
+    var terminalResultIds = splitTerminalResultIds(item);
+    var buttons = [];
+
+    if (terminalAction === 'published_to_catalog' && terminalResultIds.length) {
+      buttons.push('<button class="button primary" data-action="view-local-model" data-local-model-id="' + escapeHtml(terminalResultIds[0]) + '" data-model-name="' + escapeHtml(proposedTitle || terminalResultIds[0]) + '">View Model</button>');
+      buttons.push('<button class="button" data-action="open-curated-section" data-local-model-id="' + escapeHtml(terminalResultIds[0]) + '">Open Curated</button>');
+    }
+    if ((terminalAction === 'grouped_new' || terminalAction === 'grouped_existing') && terminalResultIds.length) {
+      buttons.push('<button class="button primary" data-action="open-working-section" data-working-group-ids="' + escapeHtml(terminalResultIds.join(',')) + '">Open Working</button>');
+    }
+    buttons.push('<button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>');
+    return buttons.join('');
   }
 
   async _refresh() {
@@ -498,6 +615,9 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       return;
     }
     if (action === 'switch-view') {
+      if (!this._showActiveQueue()) {
+        return;
+      }
       this._currentView = String(target.getAttribute('data-view') || 'active_queue');
       this._stateFilter = '';
       this._selectedIds = {};
@@ -561,6 +681,27 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       this._deleteItem(itemId, String(target.getAttribute('data-item-status') || ''));
       return;
     }
+    if (action === 'view-local-model') {
+      this._openModelDetailPopup(
+        String(target.getAttribute('data-local-model-id') || ''),
+        String(target.getAttribute('data-model-name') || '')
+      );
+      return;
+    }
+    if (action === 'open-working-section') {
+      this._navigateToSection(
+        this._config.workingSection,
+        'Opened Working for result ' + String(target.getAttribute('data-working-group-ids') || '') + '.'
+      );
+      return;
+    }
+    if (action === 'open-curated-section') {
+      this._navigateToSection(
+        this._config.curatedSection,
+        'Opened Curated for model ' + String(target.getAttribute('data-local-model-id') || '') + '.'
+      );
+      return;
+    }
     if (action === 'create-group') {
       this._createGroup(itemId, { path: sourcePath, type: String(target.getAttribute('data-source-type') || '') || 'file', group_title: String(target.getAttribute('data-group-title') || '') });
       return;
@@ -587,21 +728,29 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     var selectedCount = this._selectedItems().length;
     var activeQueueCount = this._getActiveQueueItems().length;
     var jobHistoryCount = this._getJobHistoryItems().length;
+    var isActiveQueueView = this._currentView === 'active_queue' && this._showActiveQueue();
+    var canSelect = isActiveQueueView;
+    var subtitle = this._historyOnly() || this._currentView === 'job_history'
+      ? 'Completed intake outcomes from wizard-direct and queued execution paths.'
+      : 'Review queued intake items, with Job History kept as the primary completed-work surface.';
+    var viewToolbar = this._showActiveQueue()
+      ? '<section class="section"><div class="toolbar-row"><div class="button-row"><button class="button' + (isActiveQueueView ? ' primary' : '') + '" data-action="switch-view" data-view="active_queue">Active Queue (' + String(activeQueueCount) + ')</button><button class="button' + (this._currentView === 'job_history' ? ' primary' : '') + '" data-action="switch-view" data-view="job_history">Job History (' + String(jobHistoryCount) + ')</button></div></div></section>'
+      : '<section class="section"><div class="toolbar-row"><div class="status">Showing completed Job History only. Active Queue remains available through background/admin paths.</div></div></section>';
 
     this.shadowRoot.innerHTML = ''
       + '<style>' + sharedStyles + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'
-      + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">Review intake items, then publish curated, send to working files, or attach them to existing work.</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button><button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button></div></div>'
+      + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">' + escapeHtml(subtitle) + '</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button>' + (canSelect ? '<button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button>' : '') + '</div></div>'
       + '    ' + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + '    ' + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
       + '    </div>'
-      + '    <section class="section"><div class="toolbar-row"><div class="button-row"><button class="button' + (this._currentView === 'active_queue' ? ' primary' : '') + '" data-action="switch-view" data-view="active_queue">Active Queue (' + String(activeQueueCount) + ')</button><button class="button' + (this._currentView === 'job_history' ? ' primary' : '') + '" data-action="switch-view" data-view="job_history">Job History (' + String(jobHistoryCount) + ')</button></div></div></section>'
-      + '    ' + (this._currentView === 'active_queue' ? '<section class="toolbar-row"><div class="field"><label for="inbox-state-filter">State Filter</label><select id="inbox-state-filter" class="select"><option value="">All</option><option value="submitted"' + (this._stateFilter === 'submitted' ? ' selected' : '') + '>Submitted</option><option value="validated_ready"' + (this._stateFilter === 'validated_ready' ? ' selected' : '') + '>Validated Ready</option><option value="validated_warning"' + (this._stateFilter === 'validated_warning' ? ' selected' : '') + '>Validated Warning</option><option value="deferred"' + (this._stateFilter === 'deferred' ? ' selected' : '') + '>Deferred</option></select></div></div></section>' : '')
-      + '    <section class="toolbar-row"><div class="status">Items: ' + String(visibleItems.length) + (this._selectMode ? ' / Selected: ' + String(selectedCount) : '') + '</div></section>'
-      + '    ' + (this._selectMode ? '<section class="batch-toolbar"><div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch review keeps curated publish and working-file handoff as distinct destination actions.</div></div></div><div class="button-row"><button class="button primary" data-action="batch-validate"' + (!selectedCount ? ' disabled' : '') + '>Validate</button><button class="button primary" data-action="batch-publish-curated"' + (!selectedCount ? ' disabled' : '') + '>Publish Curated</button><button class="button primary" data-action="batch-create-group"' + (!selectedCount ? ' disabled' : '') + '>Send To Working Files</button><button class="button warn" data-action="batch-defer"' + (!selectedCount ? ' disabled' : '') + '>Defer</button><button class="button danger" data-action="batch-reject"' + (!selectedCount ? ' disabled' : '') + '>Reject</button><button class="button danger" data-action="batch-delete"' + (!selectedCount ? ' disabled' : '') + '>Delete</button><button class="button" data-action="toggle-select-mode">Cancel</button></div></section>' : '')
+      + '    ' + viewToolbar
+      + '    ' + (isActiveQueueView ? '<section class="toolbar-row"><div class="field"><label for="inbox-state-filter">State Filter</label><select id="inbox-state-filter" class="select"><option value="">All</option><option value="submitted"' + (this._stateFilter === 'submitted' ? ' selected' : '') + '>Submitted</option><option value="validated_ready"' + (this._stateFilter === 'validated_ready' ? ' selected' : '') + '>Validated Ready</option><option value="validated_warning"' + (this._stateFilter === 'validated_warning' ? ' selected' : '') + '>Validated Warning</option><option value="deferred"' + (this._stateFilter === 'deferred' ? ' selected' : '') + '>Deferred</option></select></div></div></section>' : '')
+      + '    <section class="toolbar-row"><div class="status">Items: ' + String(visibleItems.length) + (this._selectMode && canSelect ? ' / Selected: ' + String(selectedCount) : '') + '</div></section>'
+      + '    ' + (this._selectMode && canSelect ? '<section class="batch-toolbar"><div class="title-row"><div><div class="title">' + String(selectedCount) + ' selected</div><div class="subtitle">Batch review keeps curated publish and working-file handoff as distinct destination actions.</div></div></div><div class="button-row"><button class="button primary" data-action="batch-validate"' + (!selectedCount ? ' disabled' : '') + '>Validate</button><button class="button primary" data-action="batch-publish-curated"' + (!selectedCount ? ' disabled' : '') + '>Publish Curated</button><button class="button primary" data-action="batch-create-group"' + (!selectedCount ? ' disabled' : '') + '>Send To Working Files</button><button class="button warn" data-action="batch-defer"' + (!selectedCount ? ' disabled' : '') + '>Defer</button><button class="button danger" data-action="batch-reject"' + (!selectedCount ? ' disabled' : '') + '>Reject</button><button class="button danger" data-action="batch-delete"' + (!selectedCount ? ' disabled' : '') + '>Delete</button><button class="button" data-action="toggle-select-mode">Cancel</button></div></section>' : '')
       + '    ' + (this._batchResult ? '<section class="result-summary"><div class="title-row"><div><div class="title">Batch Result Summary</div><div class="subtitle">' + escapeHtml(batchActionLabel(this._batchResult.action)) + ' across ' + String(this._batchResult.total) + ' item(s).</div></div><button class="button" data-action="clear-batch-result">Dismiss</button></div><div class="button-row"><span class="chip ok">Succeeded ' + String(this._batchResult.succeeded) + '</span><span class="chip warn">Partial ' + String(this._batchResult.partial) + '</span><span class="chip error">Failed ' + String(this._batchResult.failed) + '</span></div><div class="entries">' + this._batchResult.results.map(function (result) { return '<div class="result-line"><span>' + escapeHtml(result.label || result.item_id) + '</span><span>' + escapeHtml(result.message || result.outcome) + '</span></div>'; }).join('') + '</div></section>' : '')
-      + '    ' + (this._loading && !visibleItems.length ? '<div class="state-row">Loading inbox items...</div>' : '')
+      + '    ' + (this._loading && !visibleItems.length ? '<div class="state-row">Loading intake items...</div>' : '')
       + '    ' + (!this._loading && !visibleItems.length ? '<div class="state-row">No intake items match the current view.</div>' : '')
       + '    ' + (visibleItems.length ? '<div class="items">' + visibleItems.map(function (item) {
           var sourceEntry = item.source_entry || {};
@@ -616,15 +765,15 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
           var deleteDisabled = this._canDeleteItem(item) ? '' : ' disabled title="Only queued/failed items can be deleted"';
           var isTerminal = this._currentView === 'job_history';
           var actionButtons = isTerminal 
-            ? '<button class="button" data-action="view-item" data-item-id="' + escapeHtml(item.item_id) + '">View</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>'
+            ? this._historyActionButtons(item, deleteDisabled, proposedTitle)
             : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '" data-source-type="' + escapeHtml(sourceEntry.type || '') + '" data-group-title="' + escapeHtml(sourceEntry.group_title || '') + '">Send To Working Files</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
           return ''
             + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
-            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel(item.state || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
-            + '  <div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>'
+            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel(item.terminal_action || item.state || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
+            + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')
-            + (this._selectMode ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>' : '<div class="entry-actions">' + actionButtons + '</div>')
+            + (this._selectMode && canSelect ? '<div class="muted">Row actions are replaced by the shared batch toolbar while selection mode is active.</div>' : '<div class="entry-actions">' + actionButtons + '</div>')
             + '</article>';
         }, this).join('') + '</div>' : '')
       + '  </div>'

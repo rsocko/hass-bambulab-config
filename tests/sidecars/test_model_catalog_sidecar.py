@@ -5377,6 +5377,9 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
         items_payload = items_response.json()
         published_item = next(item for item in items_payload["items"] if item["item_id"] == upload_id)
         assert published_item["state"] == "published_to_catalog"
+        assert published_item["terminal_action"] == "published_to_catalog"
+        assert published_item["terminal_result_id"] == local_model_id
+        assert published_item["terminal_at"]
 
     connection = sqlite3.connect(settings.db_path)
     connection.row_factory = sqlite3.Row

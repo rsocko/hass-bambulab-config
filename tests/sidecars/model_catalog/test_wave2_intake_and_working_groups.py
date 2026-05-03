@@ -191,8 +191,16 @@ def test_intake_submit_validate_and_group(tmp_path: Path) -> None:
         group_payload = group_response.json()
         assert group_payload["success"] is True
         assert group_payload["state"] == "grouped_new"
-        assert group_payload["working_group_id"] > 0
-        assert group_payload["added_items"] >= 1
+        created_group = group_payload["created_groups"][0]
+        assert created_group["working_group_id"] > 0
+        assert group_payload["total_added_items"] >= 1
+
+        items_response = client.get("/api/intake/items")
+        assert items_response.status_code == 200
+        listed_item = next(item for item in items_response.json()["items"] if item["item_id"] == item_id)
+        assert listed_item["terminal_action"] == "grouped_new"
+        assert listed_item["terminal_result_id"] == str(created_group["working_group_id"])
+        assert listed_item["terminal_at"]
 
         detail_response = client.get(f"/api/intake/items/{item_id}")
     finally:

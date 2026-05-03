@@ -9,7 +9,7 @@ cards:
         content: |
           # Model Catalog
 
-          Top-level dashboard tabs stay visible here. Use the local workspace nav below to move between Curated, Working, Intake, Inbox, and the launch pad.
+          Top-level dashboard tabs stay visible here. Use the local workspace nav below to move between Curated, Working, Intake, Job History, and the launch pad.
       - type: grid
         columns: 5
         square: false
@@ -108,8 +108,8 @@ cards:
                     - border: 1px solid rgba(96, 165, 250, 0.42)
           - type: custom:button-card
             entity: input_select.model_catalog_workspace_view
-            name: Inbox
-            icon: mdi:inbox-arrow-down-outline
+            name: Job History
+            icon: mdi:history
             tap_action:
               action: call-service
               service: input_select.select_option
@@ -218,10 +218,10 @@ cards:
                       - white-space: normal
                       - color: var(--secondary-text-color)
                 - type: custom:button-card
-                  name: Inbox
-                  icon: mdi:inbox-arrow-down-outline
+                  name: Job History
+                  icon: mdi:history
                   show_label: true
-                  label: Review queued intake items and inbox work without dropping into a Lovelace subview.
+                  label: Review completed intake outcomes and jump back into Working or Curated from the shared workspace shell.
                   tap_action:
                     action: call-service
                     service: input_select.select_option
@@ -289,7 +289,7 @@ cards:
               content: |
                 ## Intake
 
-                Queue intake work here, then jump to Inbox from the local workspace controls.
+                Queue intake work here, then jump to Job History from the local workspace controls.
             - type: custom:model-catalog-intake-home-card
               title: Model Catalog Intake
               sectionEntity: input_select.model_catalog_workspace_view
@@ -303,8 +303,13 @@ cards:
           cards:
             - type: markdown
               content: |
-                ## Inbox
+                ## Job History
 
-                Review intake queue items here and jump back to other workspace sections from the nav row above.
+                Review completed intake outcomes here. Active Queue remains a background/admin path, while this view is the primary operator outcome surface.
             - type: custom:model-catalog-inbox-review-card
-              title: Inbox Review
+              title: Job History
+              defaultView: job_history
+              historyOnly: true
+              sectionEntity: input_select.model_catalog_workspace_view
+              workingSection: working
+              curatedSection: curated

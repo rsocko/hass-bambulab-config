@@ -738,7 +738,8 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
             f"""
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
                    source_entries_json, file_hashes_json, error_json,
-                   created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note
+                 created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note,
+                 terminal_action, terminal_result_id, terminal_at
             FROM intake_queue_uploads
             WHERE {where_sql}
             ORDER BY created_at DESC
@@ -765,6 +766,9 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
                 "file_hashes": json.loads(str(row["file_hashes_json"] or "[]")),
                 "error": json.loads(str(row["error_json"] or "null")),
                 "decision_note": row["decision_note"],
+                "terminal_action": row["terminal_action"],
+                "terminal_result_id": row["terminal_result_id"],
+                "terminal_at": row["terminal_at"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
                 "uploaded_at": row["uploaded_at"],
