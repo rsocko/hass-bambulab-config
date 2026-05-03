@@ -117,7 +117,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   }
 
   _defaultCleanupPolicy(mode) {
-    return mode === "browser" ? "delete_on_verified" : this._helperCleanupPolicy();
+    return mode === "browser" ? "delete_on_verified" : "keep";
   }
 
   _cleanupPolicy() {
@@ -405,14 +405,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardMode = nextMode;
     this._wizardStep = 1;
     this._cleanupPolicyValue = this._defaultCleanupPolicy(nextMode);
+    this._commitMode = 'queue';
+    this._destinationChoice = 'curated';
     this._error = "";
     this._status = "";
     this._result = null;
     this._selected = {};
     this._browserFiles = [];
     await this._setSourceMode(nextMode);
-    if (nextMode === "server" && (!this._browse.entries || !this._browse.entries.length)) {
-      await this._loadBrowse(this._browse.path || "/");
+    if (nextMode === "server") {
+      await this._loadBrowse('/');
       return;
     }
     this._render();
@@ -423,6 +425,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardMode = "";
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
+    this._commitMode = 'queue';
+    this._destinationChoice = 'curated';
     this._selected = {};
     this._browserFiles = [];
     this._render();
@@ -671,6 +675,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._wizardOpen = false;
       this._wizardMode = "";
       this._wizardStep = 1;
+      this._cleanupPolicyValue = null;
+      this._commitMode = 'queue';
+      this._destinationChoice = 'curated';
       this._loading = false;
       await this._refreshAll();
     } catch (error) {
