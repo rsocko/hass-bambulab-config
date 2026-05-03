@@ -10,6 +10,7 @@ from ..services.model_media_service import (
     delete_uploaded_model_photo_service,
     download_model_file_service,
     get_geometry_service,
+    get_model_file_thumbnail_service,
     get_uploaded_model_photo_service,
     set_uploaded_model_photo_preview_service,
     upload_photo_service,
@@ -61,3 +62,9 @@ def get_geometry_endpoint(
 @router.get("/api/models/{model_ref:path}/files/{file_id}/download")
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str):
     return download_model_file_service(request, model_ref=model_ref, file_id=file_id)
+
+
+@router.get("/api/models/{model_ref:path}/files/{file_id}/thumbnail")
+def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id: str):
+    """Extract and return embedded thumbnail from a 3MF model file."""
+    return get_model_file_thumbnail_service(request, model_ref=model_ref, file_id=file_id)

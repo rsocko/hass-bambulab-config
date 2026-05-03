@@ -3252,6 +3252,73 @@ def download_model_file_endpoint(request: Request, model_ref: str, file_id: str)
 
     return Response(content=binary_response.content, media_type=media_type, headers=headers)
 
+
+def get_model_file_thumbnail_endpoint(request: Request, model_ref: str, file_id: str) -> Response:
+    """
+    Extract and return a thumbnail image from a 3MF model file.
+    
+    For local models: extracts embedded thumbnail from 3MF file at known paths
+    (Metadata/thumbnail.*, Thumbnails/*, 3D/Thumbnail.*, etc.)
+    
+    For Manyfold models: returns 404 (thumbnails not embedded in Manyfold-sourced files)
+    
+    Returns:
+        Response: PNG or JPEG image bytes with cache headers (public, max-age=300)
+        404: If model/file not found or no thumbnail available
+        413: If thumbnail file exceeds 2MB
+        415: If thumbnail MIME type not supported (PNG/JPEG only)
+    """
+    from ..geometry_3mf import extract_3mf_thumbnail
+    
+    state: AppState = request.app.state.model_catalog
+    
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+    if str(summary.model_url or "").startswith("local://"):
+        local_model_id = str(summary.public_id or model_ref).strip()
+        asset = read_model_asset(
+            db_path=state.settings.db_path,
+            local_model_id=local_model_id,
+            asset_id=file_id,
+        )
+        if asset is None:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+
+        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+            return JSONResponse(status_code=404, content={"error": "Local model file source not found"})
+
+        # Only 3MF files have embedded thumbnails
+        if not str(storage_path).lower().endswith(".3mf"):
+            return JSONResponse(status_code=404, content={"error": "Thumbnail not available for this file type"})
+
+        try:
+            thumbnail_bytes = extract_3mf_thumbnail(storage_path.read_bytes())
+        except Exception as exc:
+            return JSONResponse(status_code=500, content={"error": f"Failed to extract thumbnail: {exc}"})
+
+        if thumbnail_bytes is None:
+            return JSONResponse(status_code=404, content={"error": "No embedded thumbnail found in 3MF file"})
+
+        # Determine MIME type
+        mime_type = "image/png"  # Default to PNG since we prefer PNG in extraction
+        if b"\xff\xd8\xff\xe0" in thumbnail_bytes[:4]:  # JPEG JFIF header
+            mime_type = "image/jpeg"
+
+        headers = {
+            "Cache-Control": "public, max-age=300",
+            "Content-Disposition": f'inline; filename="thumbnail.png"',
+        }
+        return Response(content=thumbnail_bytes, media_type=mime_type, headers=headers)
+
+    # Manyfold models don't have embedded thumbnails; use preview_url instead
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Manyfold-sourced models do not have embedded thumbnails; use preview_url"},
+    )
+
 # ==================== Phase 3.3 Endpoints: Cross-System Integration ====================
 
 def get_related_models_endpoint(request: Request, model_ref: str, limit: int = 5) -> dict[str, Any]:

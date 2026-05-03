@@ -570,3 +570,123 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
         "selected_plate_id": selected_plate.get("id") if selected_plate is not None else None,
         "color_info": color_info,
     }
+
+
+# Thumbnail extraction with safety guards (path normalization, file size, MIME type, compression ratio check)
+# Design: https://docs.bambulab.local/3mf-embedded-thumbnail-display-design.md
+_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024  # 2 MB max for extracted thumbnail
+_THUMBNAIL_ALLOWED_TYPES = {"image/png", "image/jpeg"}
+_THUMBNAIL_COMPRESSION_RATIO_MAX = 10.0  # Warn/skip if >10x compression (ZIP bomb indicator)
+_THUMBNAIL_KNOWN_PATHS_PREFIXES = [
+    "Metadata/thumbnail",
+    "Thumbnails/thumbnail",
+    "3D/Thumbnail",
+    "Auxiliaries/Model Pictures/thumbnail",
+]
+
+
+def _get_mime_type_for_filename(filename: str) -> str | None:
+    """Infer MIME type from filename extension."""
+    normalized = str(filename or "").strip().lower()
+    if normalized.endswith(".png"):
+        return "image/png"
+    if normalized.endswith(".jpg") or normalized.endswith(".jpeg"):
+        return "image/jpeg"
+    if normalized.endswith(".gif"):
+        return "image/gif"
+    return None
+
+
+def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:
+    """
+    Extract a thumbnail image from a 3MF package (ZIP container).
+
+    Implements deterministic candidate selection with safety guardrails:
+    1. Try known path prefixes in priority order (Metadata/thumbnail.*, etc.)
+    2. Fall back to any image in Auxiliaries/Model Pictures/*
+    3. Apply ZIP member safety (path normalization, size, MIME type, compression ratio)
+
+    Returns:
+        bytes: PNG or JPEG image data if found and valid, or None if no thumbnail available.
+
+    Raises:
+        ValueError: If package_bytes is empty or not a valid ZIP.
+    """
+    if not package_bytes:
+        return None
+
+    try:
+        with zipfile.ZipFile(BytesIO(package_bytes)) as package:
+            part_name_map = {_normalize_part_path(name): name for name in package.namelist()}
+
+            # Try known path prefixes first (order matters)
+            for prefix in _THUMBNAIL_KNOWN_PATHS_PREFIXES:
+                normalized_prefix = _normalize_part_path(prefix)
+                for normalized, original_name in part_name_map.items():
+                    if normalized.startswith(normalized_prefix):
+                        mime_type = _get_mime_type_for_filename(original_name)
+                        if mime_type and mime_type in _THUMBNAIL_ALLOWED_TYPES:
+                            image_data = _safely_read_package_member(package, original_name)
+                            if image_data:
+                                return image_data
+
+            # Fall back to any image in Auxiliaries/Model Pictures
+            auxiliaries_prefix = _normalize_part_path("Auxiliaries/Model Pictures/")
+            for normalized, original_name in part_name_map.items():
+                if not normalized.startswith(auxiliaries_prefix):
+                    continue
+                mime_type = _get_mime_type_for_filename(original_name)
+                if mime_type and mime_type in _THUMBNAIL_ALLOWED_TYPES:
+                    image_data = _safely_read_package_member(package, original_name)
+                    if image_data:
+                        return image_data
+
+            # No thumbnail found
+            return None
+
+    except (zipfile.BadZipFile, OSError, RuntimeError):
+        return None
+
+
+def _safely_read_package_member(package: zipfile.ZipFile, member_name: str) -> bytes | None:
+    """
+    Safely read a ZIP member with guardrails against ZIP bombs and oversized files.
+
+    Checks:
+    - File size <= 2 MB
+    - Uncompressed size <= compressed size * 10 (compression ratio guard)
+    - MIME type is whitelisted
+    - Path is normalized (no traversal)
+
+    Returns:
+        bytes: Member data if safe to read, or None if safety checks fail.
+    """
+    try:
+        member_name_normalized = _normalize_part_path(member_name)
+        if not member_name_normalized or member_name_normalized == ".":
+            return None
+
+        info = package.getinfo(member_name)
+
+        # Check file size
+        if info.file_size > _THUMBNAIL_MAX_BYTES:
+            return None
+        if info.compress_size > _THUMBNAIL_MAX_BYTES:
+            return None
+
+        # Check compression ratio to detect ZIP bombs
+        if info.compress_size > 0:
+            ratio = info.file_size / info.compress_size
+            if ratio > _THUMBNAIL_COMPRESSION_RATIO_MAX:
+                return None
+
+        # Verify MIME type
+        mime_type = _get_mime_type_for_filename(member_name)
+        if not mime_type or mime_type not in _THUMBNAIL_ALLOWED_TYPES:
+            return None
+
+        # Read and return
+        return package.read(member_name)
+
+    except (KeyError, zipfile.BadZipFile, RuntimeError, OSError):
+        return None
