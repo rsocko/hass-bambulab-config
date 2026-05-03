@@ -95,6 +95,39 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Resolved Bambuddy sidecar image::$RESOLVED_IMAGE"
 
+      - name: Validate sidecar Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAILED=()
+          while IFS= read -r -d '' f; do
+            if ! python3 -m py_compile "$f" 2>/tmp/py_err; then
+              echo "::error file=$f::$(cat /tmp/py_err)"
+              FAILED+=("$f")
+            fi
+          done < <(find sidecars/bambuddy-runtime-repair/app -name '*.py' -print0 | sort -z)
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo ""
+            echo "=========================================="
+            echo "  Copilot Debug Prompt (copy/paste)"
+            echo "=========================================="
+            echo "The following Python files in sidecars/bambuddy-runtime-repair/app/ have syntax errors. Please fix them:"
+            for f in "${FAILED[@]}"; do echo "  - $f"; done
+            echo ""
+            echo "Run locally: python3 -m py_compile <file>"
+            echo "=========================================="
+            {
+              echo "## Syntax Gate Failed"
+              echo ""
+              echo "The following files have Python syntax errors:"
+              for f in "${FAILED[@]}"; do echo "- \`$f\`"; done
+              echo ""
+              echo "Fix locally with: \`python3 -m py_compile <file>\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "syntax_ok"
+
       - name: Build image
         shell: bash
         run: |

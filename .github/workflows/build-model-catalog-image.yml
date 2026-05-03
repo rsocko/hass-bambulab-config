@@ -95,6 +95,74 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=Resolved model-catalog image::$RESOLVED_IMAGE"
 
+      - name: Validate sidecar Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import py_compile
+          import re
+          import sys
+          from pathlib import Path
+
+          root = Path("sidecars/model_catalog/app")
+          python_files = sorted(root.rglob("*.py"))
+          failures: list[tuple[Path, str]] = []
+
+          for py_file in python_files:
+            try:
+              py_compile.compile(str(py_file), doraise=True)
+            except py_compile.PyCompileError as exc:
+              failures.append((py_file, str(exc.msg)))
+
+          if not failures:
+            print(f"Syntax check passed for {len(python_files)} files under {root}.")
+            sys.exit(0)
+
+          log_lines: list[str] = []
+          for idx, (py_file, message) in enumerate(failures, start=1):
+            log_lines.append(f"[{idx}] {py_file}")
+            log_lines.append(message.rstrip())
+            log_lines.append("")
+
+            line_match = re.search(r"line\s+(\d+)", message)
+            if line_match:
+              print(
+                f"::error file={py_file},line={line_match.group(1)}::Python syntax error. See Copilot Debug Prompt in step summary."
+              )
+            else:
+              print(f"::error file={py_file}::Python syntax error. See Copilot Debug Prompt in step summary.")
+
+          error_text = "\n".join(log_lines).strip()
+
+          copilot_prompt = "\n".join(
+            [
+              "I need help fixing Python syntax errors in this repo.",
+              "Please propose a minimal patch.",
+              "Compiler output:",
+              "```text",
+              error_text,
+              "```",
+            ]
+          )
+
+          print("Python syntax validation failed for model-catalog sidecar files.", file=sys.stderr)
+          print(error_text, file=sys.stderr)
+          print("\nCopilot Debug Prompt (copy/paste):\n", file=sys.stderr)
+          print(copilot_prompt, file=sys.stderr)
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+            with open(summary_path, "a", encoding="utf-8") as summary:
+              summary.write("## Model Catalog Syntax Validation Failed\n\n")
+              summary.write("### Copilot Debug Prompt (Copy/Paste)\n\n")
+              summary.write(copilot_prompt)
+              summary.write("\n")
+
+          sys.exit(1)
+          PY
+
       - name: Build image
         shell: bash
         run: |
