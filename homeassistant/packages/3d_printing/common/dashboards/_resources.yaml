@@ -4,7 +4,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=47
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=19
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=21
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=1
   type: module
@@ -44,7 +44,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=9
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=26
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=27
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=28
   type: module

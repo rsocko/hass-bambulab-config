@@ -388,7 +388,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (!target) {
       if (closeMenu) {
         this._activeActionMenu = "";
-        this._render();
+        this._updateActionMenus();
       }
       return;
     }
@@ -423,7 +423,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       event.stopPropagation();
       var actionMenuRef = String(target.getAttribute("data-model-ref") || "").trim();
       this._activeActionMenu = this._activeActionMenu === actionMenuRef ? "" : actionMenuRef;
-      this._render();
+      this._updateActionMenus();
       return;
     }
 
@@ -546,6 +546,29 @@ class ModelCatalogBrowserCard extends HTMLElement {
         this._error = error && error.message ? String(error.message) : "Could not update queue state.";
         this._render();
       }
+    }
+  }
+
+  _updateActionMenus() {
+    if (!this.shadowRoot) {
+      return;
+    }
+    var buttons = this.shadowRoot.querySelectorAll('.advanced-menu-shell .icon-action[data-action="toggle-actions"]');
+    for (var i = 0; i < buttons.length; i++) {
+      var button = buttons[i];
+      var modelRef = String(button.getAttribute("data-model-ref") || "").trim();
+      var open = !!this._activeActionMenu && this._activeActionMenu === modelRef;
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+      var shell = button.closest(".advanced-menu-shell");
+      if (!shell) {
+        continue;
+      }
+      var menu = shell.querySelector(".advanced-menu");
+      if (!menu) {
+        continue;
+      }
+      menu.classList.toggle("is-open", open);
+      menu.setAttribute("aria-hidden", open ? "false" : "true");
     }
   }
 
@@ -831,9 +854,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var queuePriorityLabel = queuePriority ? ("P" + queuePriority) : "-";
     var previewLabel = mediaCount > 1 ? (String(mediaIndex + 1) + " / " + String(mediaCount)) : (this._loadingModelMedia[modelRef] ? "Loading media" : "Preview");
 
-    if (this._viewMode === "media") {
-      this._loadModelMedia(model);
-    }
+    // Load model detail in all view modes to fetch preview/media URLs
+    this._loadModelMedia(model);
 
     var previewHtml = mediaUrl
       ? (
@@ -846,8 +868,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     var advancedActions = ''
       + '<div class="advanced-menu-shell">'
       + '  <button class="icon-action" type="button" data-action="toggle-actions" data-model-ref="' + this._escapeHtml(modelRef) + '" aria-label="Open advanced actions" aria-expanded="' + (actionMenuOpen ? 'true' : 'false') + '"><ha-icon icon="mdi:dots-horizontal"></ha-icon></button>'
-      + (actionMenuOpen
-        ? '<div class="advanced-menu">'
+      + '<div class="advanced-menu' + (actionMenuOpen ? ' is-open' : '') + '" aria-hidden="' + (actionMenuOpen ? 'false' : 'true') + '">'
           + '  <button class="advanced-action primary" type="button" data-action="view-model-detail" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:text-box-search-outline"></ha-icon><span>View details</span></button>'
           + '  <button class="advanced-action primary" type="button" data-action="open-model-viewer" data-model-ref="' + this._escapeHtml(modelRef) + '" data-model-name="' + this._escapeHtml(name) + '"><ha-icon icon="mdi:cube-scan"></ha-icon><span>Open 3D viewer</span></button>'
           + (modelUrl ? '  <button class="advanced-action" type="button" data-action="open-model" data-url="' + this._escapeHtml(modelUrl) + '"><ha-icon icon="mdi:open-in-new"></ha-icon><span>Open source page</span></button>' : '')
@@ -860,7 +881,6 @@ class ModelCatalogBrowserCard extends HTMLElement {
           + '    <button class="mini-btn" type="button" data-action="queue-clear" data-model-ref="' + this._escapeHtml(modelRef) + '">Clear</button>'
           + '  </div>'
           + '</div>'
-        : '')
       + '</div>';
 
     var titleCluster = ''
@@ -954,6 +974,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
         type: "custom:model-detail-popup-card",
         model_ref: modelRef,
         model_entity: "input_text.model_catalog_sidecar_base_url",
+        model_sidecar_url: this._modelSidecarUrl || (this._config && this._config.model_sidecar_url ? String(this._config.model_sidecar_url) : ""),
       },
     });
   }
@@ -1073,7 +1094,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.icon-action,.mini-btn,.advanced-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid rgba(148,163,184,0.24);background:rgba(15,23,42,0.14);color:var(--primary-text-color);font-size:11px;font-weight:700;cursor:pointer;}'
       + '.icon-action{width:34px;padding:0;}'
       + '.icon-action ha-icon{--mdc-icon-size:18px;}'
-      + '.advanced-menu{position:absolute;top:40px;right:0;z-index:4;display:grid;gap:8px;min-width:220px;padding:10px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
+      + '.advanced-menu{position:absolute;top:40px;right:0;z-index:4;display:none;gap:8px;min-width:220px;padding:10px;border-radius:16px;border:1px solid var(--line-strong);background:rgba(15,23,42,0.96);box-shadow:0 18px 34px rgba(15,23,42,0.28);}'
+      + '.advanced-menu.is-open{display:grid;}'
       + '.advanced-action{justify-content:flex-start;width:100%;padding:0 12px;border-radius:12px;background:rgba(148,163,184,0.10);}'
       + '.advanced-action.primary{background:rgba(96,165,250,0.14);border-color:rgba(96,165,250,0.26);}'
       + '.advanced-action ha-icon{--mdc-icon-size:16px;}'

@@ -442,8 +442,10 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.innerHTML = html;
 
     addShimmerAnimation();
-    // Only setup observer once per popup lifecycle to avoid flashing
-    if (!this._thumbnailObserverSetup && this.shadowRoot) {
+    // Setup observer once after lazy thumbnail nodes exist.
+    // The first render can be loading/error content with no <img data-thumbnail-lazy-url>.
+    const hasLazyThumbnailNode = !!(this.shadowRoot && this.shadowRoot.querySelector('img[data-thumbnail-lazy-url]'));
+    if (hasLazyThumbnailNode && !this._thumbnailObserverSetup && this.shadowRoot) {
       this._thumbnailObserverSetup = true;
       setupThumbnailLazyObserver({
         rootElement: this.shadowRoot,
