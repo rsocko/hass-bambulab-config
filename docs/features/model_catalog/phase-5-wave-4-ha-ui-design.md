@@ -6,6 +6,8 @@
 > **Authority**: [PHASE-5-EXECUTION-SEQUENCE](PHASE-5-EXECUTION-SEQUENCE.md), [phase-delivery-and-validation](phase-delivery-and-validation.md), [workflow-and-ingestion-guide](workflow-and-ingestion-guide.md)
 >
 > **Historical note (2026-05-01)**: This document describes the earlier hidden-subview plan. The shipped Home Assistant dashboard now keeps one top-level `Model Catalog` view and uses helper-backed internal workspace navigation instead of hidden child views.
+>
+> **Canonical intake note (2026-05-03)**: The intake-specific popup concepts below are superseded where they conflict with [intake-inbox-design.md](intake-inbox-design.md) and [intake-wizard-ux-mockups.md](intake-wizard-ux-mockups.md). Intake now follows one wizard-first `Source -> Organize -> Validate -> Commit` flow for both Browser Upload and Server Inbox, with a consistent left-actions/right-results layout.
 
 ---
 
@@ -462,11 +464,14 @@ It is **not** intended to be only a popup, and it is **not** intended to be a cu
 
 Collect submission inputs for both source modes without splitting the UX into two unrelated tools.
 
+This section is retained for Wave 4 history, but the canonical implementation target is now the wizard documented in [intake-inbox-design.md](intake-inbox-design.md) and [intake-wizard-ux-mockups.md](intake-wizard-ux-mockups.md).
+
 ### Key Decisions
 
 - Source mode is a top-of-popup segmented control.
-- Browser upload and server browse share the same footer controls and cleanup-policy summary.
+- Browser upload and server browse share the same four-step wizard shell, footer controls, and result-panel structure.
 - Folder recursion options appear only when folder selection exists.
+- The left half of every wizard step is the action surface; the right half is the resulting selection/model output preview.
 
 ### Mid-Fidelity Mockup
 
@@ -502,8 +507,8 @@ Collect submission inputs for both source modes without splitting the UX into tw
 
 ### Server Browse Variant
 
-- Replace the browser file-drop area with a summary of current root, selected paths, and a button to open the browse picker.
-- Preserve the same cleanup and footer sections.
+- Replace the browser file-drop area with root/path browsing controls on the left pane.
+- Preserve the same right-side result preview, footer sections, and later Organize/Validate/Commit structure.
 
 ---
 

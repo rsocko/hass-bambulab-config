@@ -11,6 +11,7 @@ The short version:
 - Queue persists execution/staging state but is demoted from primary UI for now.
 - Job History is the visible audit surface for completed jobs regardless of execution path.
 - Working and Curated destinations are chosen during wizard Organize step.
+- Browser Upload and Server Inbox share one consistent wizard layout: left = actions, right = results.
 
 Issue direction now emphasizes: Source -> Organize -> Validate -> Commit as the canonical wizard sequence.
 
@@ -30,12 +31,13 @@ UI note:
 - Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
 - Cleanup policy belongs to wizard planning and is validated before commit.
 - Mixed file+folder selections are allowed in one batch, but the wizard review step must show expansion preview so the operator understands what will be imported.
+- The Organize, Validate, and Commit steps must keep showing the resolved logical-model outputs, not revert to raw source-entry lists.
 
 ## High-Level Flow: Wizard to Execution
 
 ```mermaid
 flowchart TD
-    A[Step 1: Source\nBrowser upload OR Server browse] --> B[Step 2: Organize\nDefine logical models\nSet grouping and destination per model]
+    A[Step 1: Source\nBrowser upload OR Server browse\nLeft: pick inputs\nRight: selected files and folders] --> B[Step 2: Organize\nGroup or split into logical models\nSet naming and destination per model\nLeft: configure\nRight: resulting model outputs]
     B --> C[Step 3: Validate (Pre-Commit)\nRun destination-aware checks\nShow blocking issues and override-eligible warnings]
     C --> D{Validation outcome}
 
@@ -228,11 +230,20 @@ Organize step applies to both browser and server sources.
 
 For each logical model:
 
-- set grouping strategy
+- set Group / Split strategy
 - set destination
     - Working (new or existing)
     - Curated (new or existing)
 - set title behavior and structure-preservation settings
+
+Canonical Group / Split choices:
+
+- Keep Together In Same Model
+- Separate Models By Folder
+- Separate Models By File
+- Each Root Folder Becomes A Model
+
+The right side of Organize should show the resolved models, included files/folders, and resulting destination plan for each model.
 
 ### Step 3: Validate (Before Commit)
 
@@ -244,10 +255,14 @@ Validation runs before commit and returns:
 
 Operator must resolve blockers before commit.
 
+Validate should preserve the same right-side output structure shown in Organize so the operator is validating the exact model plan that will commit.
+
 ### Step 4: Commit
 
 - Commit executes the validated plan.
 - Outcome is recorded in Job History for all execution paths.
+
+Commit should continue to show the resolved model/group results, with expandable file detail when needed.
 
 
 

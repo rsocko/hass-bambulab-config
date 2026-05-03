@@ -26,6 +26,7 @@
 - **[Print History Slicer UX Mockups](print-history-slicer-ux-mockups.md)** ← Low-fi operator flow for model-catalog to print-history slicing
 - **[Print History Slicer Implementation Plan](print-history-slicer-implementation-plan.md)** ← Local worker delivery slices and issue breakdown
 - **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
+- **[Intake Wizard UX Mockups](intake-wizard-ux-mockups.md)** ← Canonical split-pane intake layouts for #1282, #1288, and #1292
 
 ### 🧭 Phase 5 Wave 4 UI Design (New)
 - **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145

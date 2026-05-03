@@ -4,6 +4,8 @@
 **Status**: IMPLEMENTED ✅  
 **Scope**: Phase 1.5 — Intake Inbox & Bulk Ingestion  
 
+**2026-05-03 note**: The backend/storage behavior in this document remains valid, but the canonical operator-facing Organize semantics are now further constrained by issues #1288 and #1292. Use the Group / Split labels and wizard layout defined in [intake-inbox-design.md](intake-inbox-design.md) and [intake-wizard-ux-mockups.md](intake-wizard-ux-mockups.md) when implementing or revising the UI.
+
 ## Overview
 
 This document describes the intake grouping strategies and folder structure preservation feature that enables multi-model decomposition and hierarchical file organization when importing files from browser upload or server filesystem into Home Assistant.
@@ -19,6 +21,23 @@ Previously, all files from a single intake batch were placed into a **single wor
 
 ## Solution: Multi-Group Decomposition + Folder Preservation
 
+## Canonical Operator Terminology (2026-05)
+
+The backend/storage contract in this document remains valid, but the canonical operator-facing Organize UI now uses the labels from issue #1292:
+
+- **Keep Together In Same Model** -> `none`
+- **Separate Models By Folder** -> `by-folder`
+- **Separate Models By File** -> `flat`
+- **Each Root Folder Becomes A Model** -> `by-root`
+
+Additional Organize rules now required by the canonical wizard design:
+
+- individually selected files form one shared file batch by default
+- file-only batches should not expose recursion controls
+- `Separate Models By Folder` is not a primary standalone choice for a pure file batch; disable it or normalize it to `Keep Together In Same Model`
+- images/supporting files never create standalone models in `Separate Models By File`; they attach to the resolved model created from printable files
+- Organize, Validate, and Commit must all show the resolved output models on the right side of the wizard, not just source-entry counts
+
 ### Core Concepts
 
 **Grouping Strategies** control **how many models are created** from a single batch:
@@ -26,7 +45,7 @@ Previously, all files from a single intake batch were placed into a **single wor
 - **`none`** — All files → 1 model (flat organization, user sorts manually later)
 - **`by-folder`** — Each unique folder path → separate model (respects hierarchy)
 - **`by-root`** — Each top-level selection → 1 model (explicit roots stay together)
-- **`flat`** — Each file → separate model (not recommended)
+- **`flat`** — Each printable file → separate model; supporting/media files attach to the nearest resolved model rather than creating new models
 
 **Folder Structure Preservation** controls **how files are stored** within each model:
 
