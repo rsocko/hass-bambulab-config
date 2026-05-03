@@ -31,6 +31,11 @@
 - **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145
 - **[Phase 5 End-State UI And Handoff Design](phase-5-end-state-ui-and-handoff-design.md)** ← Future-facing extension design for #1163, #1137, #1132, #1133, #1149, #1146, #213
 
+### 🧩 Upload Transport + Desktop Automation (New)
+- **[Intake Browser Upload V2 Contract Design](integration/intake-browser-upload-v2-contract-design.md)** ← Multipart/resumable contract, idempotency, migration, and rollout plan
+- **[StreamDeck Upload Functionality Design](integration/streamdeck-upload-functionality-design.md)** ← Desktop quick-action architecture, workflow modes, retries, and operator feedback
+- **[GitHub Work Items: Upload V2 + StreamDeck Integration](integration/github-work-items-v2-upload-and-streamdeck.md)** ← Issue-ready implementation backlog with acceptance criteria
+
 ### 📖 Implementation Guides (For Developers)
 - **[Phase 3.1: Edit Mode & Photo Management](phase-3.1-implementation-guide.md)** (30-35 hrs)
   - Tasks: Edit form, conflict detection, photo gallery, services, endpoints
