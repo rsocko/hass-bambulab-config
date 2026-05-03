@@ -3,6 +3,7 @@
 
 # Local scratch and one-off generated run outputs
 tmp/
+.tmp/bambuddy-source/
 
 # Node modules (if Playwright MCP is installed locally)
 node_modules/
