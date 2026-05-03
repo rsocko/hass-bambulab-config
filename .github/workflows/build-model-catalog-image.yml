@@ -46,8 +46,18 @@ jobs:
       resolved_image: ${{ steps.version.outputs.resolved_image }}
       latest_tag: ${{ steps.version.outputs.latest_tag }}
     steps:
+      - name: Pre-clean workspace (self-hosted)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "$GITHUB_WORKSPACE" ]; then
+            find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          fi
+
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Resolve image tag
         id: version
