@@ -5950,6 +5950,106 @@ def test_server_queue_publish_to_local_flattens_when_preserve_false(tmp_path: Pa
     assert not any("/TopA/" in path or "/TopB/" in path or "/variants/" in path for path in storage_paths)
 
 
+def test_queue_publish_to_working_custom_group_title_is_suffixed_per_folder(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / "custom-working"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                        "group_title": "My Custom",
+                        "group_title_source": "custom",
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-working")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_group_count") == 3
+        created_groups = payload.get("created_groups") or []
+        created_titles = sorted(str((item.get("group") or {}).get("title") or "") for item in created_groups)
+        assert "My Custom - TopA" in created_titles
+        assert "My Custom - TopA/variants" in created_titles
+        assert "My Custom - TopB" in created_titles
+
+
+def test_queue_publish_to_local_custom_group_title_is_suffixed_per_folder(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / "custom-local"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                        "group_title": "My Custom",
+                        "group_title_source": "custom",
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_model_count") == 3
+        created_models = payload.get("created_models") or []
+        model_names = sorted(str(item.get("model_name") or "") for item in created_models)
+        assert "My Custom - TopA" in model_names
+        assert "My Custom - TopA/variants" in model_names
+        assert "My Custom - TopB" in model_names
+
+
 def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()

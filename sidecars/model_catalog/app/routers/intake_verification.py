@@ -314,10 +314,28 @@ def _compute_group_title(
     """
     Compute group title based on grouping strategy and group key.
     """
-    # Explicit override from UI
+    # Explicit override from UI: keep exact title for single-group strategy,
+    # and suffix grouped strategies so each model/group remains distinct.
     explicit_title = str(source_entry.get("group_title") or "").strip()
+
+    def _strategy_suffix() -> str:
+        if strategy == "by-root":
+            if group_key.startswith("__root__::"):
+                return Path(group_key.split("::", 1)[1]).name or root_path.name or "Root"
+            return root_path.name or str(root_path)
+        if strategy == "flat":
+            return file_path.stem or file_path.name
+        if strategy == "by-folder":
+            if group_key == "__root_folder__":
+                return root_path.name or "Root"
+            return str(group_key).replace("\\", "/")
+        return ""
+
     if explicit_title:
-        return explicit_title
+        if strategy == "none":
+            return explicit_title
+        suffix = _strategy_suffix()
+        return f"{explicit_title} - {suffix}" if suffix else explicit_title
     
     if strategy == "by-root":
         return root_path.name or str(root_path)
