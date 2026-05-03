@@ -109,6 +109,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 --version
           python3 - <<'PY'
           import os
           import py_compile
@@ -118,7 +119,7 @@ jobs:
 
           root = Path("sidecars/model_catalog/app")
           python_files = sorted(root.rglob("*.py"))
-          failures: list[tuple[Path, str]] = []
+          failures = []
 
           for py_file in python_files:
             try:
@@ -130,7 +131,7 @@ jobs:
             print(f"Syntax check passed for {len(python_files)} files under {root}.")
             sys.exit(0)
 
-          log_lines: list[str] = []
+          log_lines = []
           for idx, (py_file, message) in enumerate(failures, start=1):
             log_lines.append(f"[{idx}] {py_file}")
             log_lines.append(message.rstrip())
