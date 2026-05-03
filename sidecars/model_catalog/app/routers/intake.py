@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import time
 import uuid
 from pathlib import Path
@@ -181,12 +182,38 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
             counter += 1
     
     destination = _unique_destination_path(asset_root, source_path.name)
-    shutil.copy2(source_path, destination)
+    shutil.move(str(source_path), str(destination))  # MOVE instead of copy
     try:
         relative_path = destination.relative_to(catalog_root.resolve())
         return str(relative_path).replace("\\", "/")
     except ValueError:
         return str(destination).replace("\\", "/")
+
+
+def _move_file_to_working_directory(*, settings: Settings, working_group_slug: str, source_path: Path) -> str:
+    """Move a file from intake staging to the Working Files directory structure.
+    
+    Returns the ABSOLUTE path to the moved file so it can be found by the inventory system.
+    """
+    import shutil
+    from ..services.working_groups_service import _working_files_destination_root, _unique_destination_path
+    
+    working_root = _working_files_destination_root(settings)
+    if not working_root:
+        raise ValueError("No working files root configured")
+    
+    # Create directory for this working group
+    group_dir = working_root / working_group_slug
+    group_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Find unique destination path
+    destination = _unique_destination_path(group_dir, source_path.name)
+    
+    # Move file to destination
+    shutil.move(str(source_path), str(destination))
+    
+    # Return ABSOLUTE path so the inventory system can find it
+    return str(destination.resolve())
 
 
 def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -915,6 +942,27 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     default_title = requested_title or _default_group_title(source_entries, expanded_files) or f"Import from {upload_id}"
     folder_hint = str(Path(expanded_files[0]["path"]).parent) if expanded_files else None
 
+    # Check if working files root is configured BEFORE trying to move files
+    from ..services.working_groups_service import _working_files_destination_root
+    working_root = _working_files_destination_root(state.settings)
+    if not working_root:
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "failed",
+            event_type="working_group_publish_failed",
+            error_message="No working files root configured. Cannot publish to working files.",
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "working_files_root_not_configured",
+                "message": "Server is not configured with a working files root directory. Contact administrator.",
+                "upload_id": upload_id,
+            },
+        )
+
     # Create working group and add items
     working_group_id = None
     added_items = 0
@@ -938,7 +986,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
             counter += 1
             candidate_slug = f"{slug}-{counter}"
         
-        # Create working group
+        # Create working group (primary_file_path will be set after first file is moved)
         wg_connection.execute(
             """
             INSERT INTO working_groups (
@@ -952,7 +1000,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 default_title,
                 requested_stage,
                 requested_notes or f"Created from intake upload {upload_id}",
-                str(expanded_files[0]["path"]),
+                None,  # Will update after first file is moved
                 folder_hint,
                 None,
                 now_iso,
@@ -965,16 +1013,17 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         )
         working_group_id = int(wg_connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
         
-        # Add all expanded files as working items
+        # Add all expanded files as working items (move them to working directory)
+        primary_file_path = None
         for index, file_item in enumerate(expanded_files):
-            file_path = str(file_item["path"])
+            source_file_path = Path(str(file_item["path"])).resolve()
             file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
             
             # Check for duplicate
             existing_item = wg_connection.execute(
-                "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
-                (working_group_id, file_path),
-            ).fetchone()
+                "SELECT id FROM working_items WHERE working_group_id = ? AND file_hash = ?",
+                (working_group_id, file_hash),
+            ).fetchone() if file_hash else None
             if existing_item is not None:
                 duplicate_items += 1
                 continue
@@ -989,7 +1038,20 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                     duplicate_items += 1
                     continue
             
+            # Move file to working directory (this will raise if working root is not configured)
+            relative_path = _move_file_to_working_directory(
+                settings=state.settings,
+                working_group_slug=candidate_slug,
+                source_path=source_file_path,
+            )
+            file_path = str(relative_path)
+            
             item_role = "primary" if index == 0 else "supporting"
+            
+            # Capture primary file path on first successful add
+            if item_role == "primary" and not primary_file_path:
+                primary_file_path = file_path
+            
             wg_connection.execute(
                 """
                 INSERT INTO working_items (
@@ -1009,6 +1071,13 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 ),
             )
             added_items += 1
+        
+        # Update working group with primary file path
+        if primary_file_path:
+            wg_connection.execute(
+                "UPDATE working_groups SET primary_file_path = ? WHERE id = ?",
+                (primary_file_path, working_group_id),
+            )
         
         # Update upload status
         wg_connection.execute(

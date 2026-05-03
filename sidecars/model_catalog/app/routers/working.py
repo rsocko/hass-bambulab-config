@@ -573,7 +573,7 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
     asset_root = catalog_root / local_model_id
     asset_root.mkdir(parents=True, exist_ok=True)
     destination = _unique_destination_path(asset_root, source_path.name)
-    shutil.copy2(source_path, destination)
+    shutil.move(str(source_path), str(destination))  # MOVE instead of copy
     try:
         relative_path = destination.relative_to(catalog_root.resolve())
         return str(relative_path).replace("\\", "/")
