@@ -459,6 +459,16 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
         asset_id = str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
         filename = str(getattr(asset, "asset_filename", "") or "").strip()
         preview_url = str(getattr(asset, "preview_url", "") or "").strip() or None
+        
+        # Lazy-load thumbnail URL for 3MF files (no extraction during serialization)
+        # Frontend will fetch on-demand to avoid blocking page load
+        is_3mf = filename.lower().endswith(".3mf")
+        thumbnail_lazy_url = (
+            f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/thumbnail"
+            if model_ref and is_3mf
+            else None
+        )
+        
         serialized.append(
             {
                 "id": asset_id,
@@ -476,6 +486,7 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
                 "image_url": preview_url,
                 "thumbnail_url": preview_url,
                 "preview_url": preview_url,
+                "thumbnail_lazy_url": thumbnail_lazy_url,
                 "created_at": getattr(asset, "created_at", None),
                 "updated_at": getattr(asset, "updated_at", None),
                 "sort_order": getattr(asset, "sort_order", None),

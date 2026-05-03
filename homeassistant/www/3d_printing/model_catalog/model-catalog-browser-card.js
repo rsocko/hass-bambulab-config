@@ -1,3 +1,5 @@
+import { setupThumbnailLazyObserver, addShimmerAnimation } from './thumbnail-lazy-loader.js';
+
 class ModelCatalogBrowserCard extends HTMLElement {
   constructor() {
     super();
@@ -75,9 +77,25 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this.shadowRoot.addEventListener("wheel", this._boundWheel);
     }
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
+    addShimmerAnimation();
     if (this._hass && this._hasAttemptedLoad && !this._loading) {
       this._requestLoad(this._currentPage(), false);
     }
+  }
+
+  _setupThumbnailLazyLoading() {
+    if (!this.shadowRoot) {
+      return;
+    }
+    setupThumbnailLazyObserver({
+      rootElement: this.shadowRoot,
+      root: null,
+      timeout: 5000,
+      retries: 2,
+      useIntersectionObserver: true,
+      rootMargin: "50px",
+      threshold: 0.1,
+    });
   }
 
   disconnectedCallback() {
@@ -623,6 +641,13 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (detail && detail.model && detail.model.preview_url) {
       addUrl(detail.model.preview_url);
     }
+    if (detail && Array.isArray(detail.files)) {
+      detail.files.forEach(function (file) {
+        if (file && typeof file === "object") {
+          addUrl(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url);
+        }
+      });
+    }
     if (detail && Array.isArray(detail.photos)) {
       detail.photos.forEach(function (photo) {
         if (photo && typeof photo === "object") {
@@ -632,6 +657,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     addUrl(model && model.preview_url);
     return urls;
+  }
+
+  _isThumbnailLazyEndpoint(url) {
+    var value = String(url || "").trim();
+    return value.indexOf("/api/models/") >= 0 && value.indexOf("/thumbnail") >= 0;
   }
 
   _loadModelMedia(model) {
@@ -767,7 +797,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
 
     var previewHtml = mediaUrl
-      ? '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview">'
+      ? (
+        this._isThumbnailLazyEndpoint(mediaUrl)
+          ? '<img data-thumbnail-lazy-url="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview" loading="lazy">'
+          : '<img src="' + this._escapeHtml(String(mediaUrl)) + '" alt="' + this._escapeHtml(name) + ' preview">'
+      )
       : '<div class="thumb-empty"><ha-icon icon="mdi:cube-outline"></ha-icon><div class="thumb-empty-text">No preview</div></div>';
 
     var advancedActions = ''
@@ -1054,7 +1088,12 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + this._renderBottomToolbar()
       + '  </div>'
       + '</ha-card>';
+
+    setTimeout(function () {
+      this._setupThumbnailLazyLoading();
+    }.bind(this), 0);
   }
 }
 
 customElements.define("model-catalog-browser-card", ModelCatalogBrowserCard);
+

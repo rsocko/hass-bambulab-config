@@ -23,6 +23,8 @@
  * ```
  */
 
+import { setupThumbnailLazyObserver, addShimmerAnimation } from './thumbnail-lazy-loader.js';
+
 class ModelDetailPopupCard extends HTMLElement {
   constructor() {
     super();
@@ -432,10 +434,41 @@ class ModelDetailPopupCard extends HTMLElement {
     
     this.shadowRoot.innerHTML = html;
 
+    addShimmerAnimation();
+    setupThumbnailLazyObserver({
+      rootElement: this.shadowRoot,
+      root: null,
+      rootMargin: '50px',
+      threshold: 0.1,
+    });
+
     // Initialize in-tab edit form after rendering.
     if (this._isEditMode && this._modelDetail && this._modelDetail.model) {
       this._initializeEditForm();
     }
+  }
+
+  _isThumbnailLazyEndpoint(url) {
+    const value = String(url || '').trim();
+    return value.includes('/api/models/') && value.endsWith('/thumbnail');
+  }
+
+  _headerThumbnailUrl(model) {
+    const previewUrl = String(model && model.preview_url ? model.preview_url : '').trim();
+    if (previewUrl) {
+      return previewUrl;
+    }
+    const files = Array.isArray(this._modelDetail && this._modelDetail.files) ? this._modelDetail.files : [];
+    for (const file of files) {
+      if (!file || typeof file !== 'object') {
+        continue;
+      }
+      const candidate = String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim();
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return '';
   }
 
   _renderLoading() {
@@ -521,7 +554,15 @@ class ModelDetailPopupCard extends HTMLElement {
           border-radius: 8px;
           flex-shrink: 0;
           overflow: hidden;
-          ${model.preview_url ? `background-image: url("${model.preview_url}"); background-size: cover; background-position: center;` : ''}
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .header-thumbnail img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
         
         .header-content {
@@ -940,10 +981,18 @@ class ModelDetailPopupCard extends HTMLElement {
       ? model.collection_names.join(" / ") 
       : "Uncategorized";
     const keywords = model.keywords || [];
+    const headerThumbnailUrl = this._headerThumbnailUrl(model);
+    const thumbnailHtml = headerThumbnailUrl
+      ? (
+        this._isThumbnailLazyEndpoint(headerThumbnailUrl)
+          ? `<img data-thumbnail-lazy-url="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`
+          : `<img src="${this._escapeHtml(headerThumbnailUrl)}" alt="Model preview" loading="lazy">`
+      )
+      : '<ha-icon icon="mdi:cube-outline"></ha-icon>';
     
     return `
       <div class="popup-header">
-        <div class="header-thumbnail"></div>
+        <div class="header-thumbnail">${thumbnailHtml}</div>
         <div class="header-content">
           <div class="header-title">${this._escapeHtml(model.name || "Untitled Model")}</div>
           <div class="header-subtitle">by ${this._escapeHtml(creator)}</div>

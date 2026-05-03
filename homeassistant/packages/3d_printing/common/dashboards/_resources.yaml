@@ -4,7 +4,9 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=47
   type: module
-- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=15
+- url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=16
+  type: module
+- url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=1
   type: module
 - url: /hacsfiles/apexcharts-card/apexcharts-card.js?hacstag=331701152223
   type: module
@@ -42,7 +44,7 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-edit-form.js?v=9
   type: module
-- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=23
+- url: /local/3d_printing/model_catalog/model-detail-popup-card.js?v=24
   type: module
 - url: /local/3d_printing/model_catalog/model-detail-3d-viewer-tab.js?v=28
   type: module
@@ -50,3 +52,4 @@
   type: module
 - url: /local/3d_printing/model_catalog/intake-browser-card.js?v=1
   type: module
+
