@@ -52,17 +52,7 @@ def build_model_detail_response(
             assets = models_router.list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
             preview_file_id = models_router._select_local_preview_asset_id(assets=assets)
             preview_photo_id = str(custom_fields.get(models_router.MODEL_PREVIEW_PHOTO_FIELD) or "").strip() or None
-            request_base_url = None
-            if request is not None:
-                try:
-                    request_base_url = str(request.base_url)
-                except Exception:
-                    request_base_url = None
-            serialized_assets = models_router._serialize_local_model_assets(
-                assets=assets,
-                model_ref=local_model_id,
-                base_url=request_base_url,
-            )
+            serialized_assets = models_router._serialize_local_model_assets(assets=assets, model_ref=local_model_id)
             response: dict[str, Any] = {
                 "success": True,
                 "model_ref": model_ref,
