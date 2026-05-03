@@ -428,7 +428,18 @@ def _resolve_model_summary(summary_by_url: dict[str, ManyfoldModelSummary], mode
     return None
 
 
-def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = None) -> list[dict[str, Any]]:
+def _serialize_local_model_assets(
+    *,
+    assets: list[Any],
+    model_ref: str | None = None,
+    base_url: str | None = None,
+) -> list[dict[str, Any]]:
+    def _asset_url(path: str) -> str:
+        base = str(base_url or "").strip().rstrip("/")
+        if not base:
+            return path
+        return f"{base}{path}"
+
     def _asset_rank(value: object | None) -> int:
         normalized = str(value or "").strip().lower()
         if normalized == "preview":
@@ -464,7 +475,7 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
         # Frontend will fetch on-demand to avoid blocking page load
         is_3mf = filename.lower().endswith(".3mf")
         thumbnail_lazy_url = (
-            f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/thumbnail"
+            _asset_url(f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/thumbnail")
             if model_ref and is_3mf
             else None
         )
@@ -477,7 +488,7 @@ def _serialize_local_model_assets(*, assets: list[Any], model_ref: str | None = 
                 "filename": filename,
                 "name": filename,
                 "download_url": (
-                    f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/download"
+                    _asset_url(f"/api/models/{quote(model_ref, safe='')}/files/{quote(asset_id, safe='')}/download")
                     if model_ref
                     else None
                 ),

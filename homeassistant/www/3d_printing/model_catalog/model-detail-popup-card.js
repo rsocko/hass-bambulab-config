@@ -47,6 +47,7 @@ class ModelDetailPopupCard extends HTMLElement {
     this._showConflictDialog = false;
     this._photoGallery = [];
     this._activePhotoIndex = null;
+    this._thumbnailObserverSetup = false;
     
     // Render stability: prevent re-rendering during interactions
     this._isInteracting = false;
@@ -120,6 +121,11 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.removeEventListener("dragover", this._boundDragOverHandler);
     this.shadowRoot.removeEventListener("dragleave", this._boundDragLeaveHandler);
     this.shadowRoot.removeEventListener("drop", this._boundDropHandler);
+  }
+
+  _resetObserverOnNewModel() {
+    // Reset observer flag when loading a new model so it gets set up fresh
+    this._thumbnailObserverSetup = false;
   }
 
   _resolveModelSidecarUrl() {
@@ -399,6 +405,7 @@ class ModelDetailPopupCard extends HTMLElement {
     
     this._loading = true;
     this._error = "";
+    this._resetObserverOnNewModel();
     this._render();
     
     try {
@@ -435,12 +442,16 @@ class ModelDetailPopupCard extends HTMLElement {
     this.shadowRoot.innerHTML = html;
 
     addShimmerAnimation();
-    setupThumbnailLazyObserver({
-      rootElement: this.shadowRoot,
-      root: null,
-      rootMargin: '50px',
-      threshold: 0.1,
-    });
+    // Only setup observer once per popup lifecycle to avoid flashing
+    if (!this._thumbnailObserverSetup && this.shadowRoot) {
+      this._thumbnailObserverSetup = true;
+      setupThumbnailLazyObserver({
+        rootElement: this.shadowRoot,
+        root: null,
+        rootMargin: '50px',
+        threshold: 0.1,
+      });
+    }
 
     // Initialize in-tab edit form after rendering.
     if (this._isEditMode && this._modelDetail && this._modelDetail.model) {

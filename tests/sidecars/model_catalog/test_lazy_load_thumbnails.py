@@ -146,3 +146,19 @@ class TestLazyLoadThumbnailSerialization:
         assert "/files/" in url
         assert "/thumbnail" in url
         assert url.endswith("/thumbnail")
+
+    def test_base_url_builds_absolute_file_urls(self):
+        """When base_url is provided, serializer should emit absolute API URLs."""
+        assets = [
+            MockAsset("asset-123", "model.3mf", "model"),
+        ]
+
+        result = _serialize_local_model_assets(
+            assets=assets,
+            model_ref="ref-456",
+            base_url="http://model-catalog.socko.us/",
+        )
+
+        assert len(result) == 1
+        assert result[0]["download_url"] == "http://model-catalog.socko.us/api/models/ref-456/files/asset-123/download"
+        assert result[0]["thumbnail_lazy_url"] == "http://model-catalog.socko.us/api/models/ref-456/files/asset-123/thumbnail"
