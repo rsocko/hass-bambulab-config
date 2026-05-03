@@ -18,6 +18,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._loadingModelMedia = {};
     this._pendingLoad = null;
     this._debounceHandle = null;
+    this._modelSidecarUrl = "";
 
     this._boundClick = this._handleClick.bind(this);
     this._boundInput = this._handleInput.bind(this);
@@ -48,6 +49,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
       per_page: config && Number.isFinite(Number(config.per_page))
         ? Math.max(1, Math.min(50, Number(config.per_page)))
         : 12,
+      model_entity: config && config.model_entity ? String(config.model_entity) : "",
+      model_sidecar_url: config && config.model_sidecar_url ? String(config.model_sidecar_url) : "",
     };
     this._pagination.per_page = this._config.per_page;
     this._render();
@@ -56,6 +59,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
   set hass(hass) {
     var hadHass = !!this._hass;
     this._hass = hass;
+    this._modelSidecarUrl = this._resolveModelSidecarUrl();
 
     if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
       this._hasAttemptedLoad = true;
@@ -627,22 +631,24 @@ class ModelCatalogBrowserCard extends HTMLElement {
   _modelMediaUrls(model) {
     var modelRef = this._modelRef(model);
     var detail = modelRef ? this._modelDetailCache[modelRef] : null;
+    var detailModel = detail && detail.model && typeof detail.model === "object" ? detail.model : {};
     var urls = [];
     var seen = {};
     var addUrl = function (value) {
-      var url = String(value || "").trim();
+      var url = this._normalizeModelApiUrl(String(value || "").trim());
       if (!url || seen[url]) {
         return;
       }
       seen[url] = true;
       urls.push(url);
-    };
+    }.bind(this);
 
-    if (detail && detail.model && detail.model.preview_url) {
-      addUrl(detail.model.preview_url);
+    if (detailModel.preview_url) {
+      addUrl(detailModel.preview_url);
     }
-    if (detail && Array.isArray(detail.files)) {
-      detail.files.forEach(function (file) {
+    var files = Array.isArray(detailModel.files) ? detailModel.files : (Array.isArray(detail && detail.files) ? detail.files : []);
+    if (files.length) {
+      files.forEach(function (file) {
         if (file && typeof file === "object") {
           addUrl(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url);
         }
@@ -657,6 +663,39 @@ class ModelCatalogBrowserCard extends HTMLElement {
     }
     addUrl(model && model.preview_url);
     return urls;
+  }
+
+  _resolveModelSidecarUrl() {
+    if (this._config && this._config.model_entity && this._hass && this._hass.states) {
+      var configuredEntity = this._hass.states[this._config.model_entity];
+      if (configuredEntity && configuredEntity.state) {
+        return String(configuredEntity.state).trim();
+      }
+    }
+
+    if (this._hass && this._hass.states) {
+      var baseUrlEntity = this._hass.states["input_text.model_catalog_sidecar_base_url"];
+      if (baseUrlEntity && baseUrlEntity.state) {
+        return String(baseUrlEntity.state).trim();
+      }
+    }
+
+    return String(this._config && this._config.model_sidecar_url || "").trim();
+  }
+
+  _normalizeModelApiUrl(url) {
+    var value = String(url || "").trim();
+    if (!value) {
+      return "";
+    }
+    if (value.indexOf("/api/models/") !== 0) {
+      return value;
+    }
+    var base = String(this._modelSidecarUrl || "").trim().replace(/\/$/, "");
+    if (!base) {
+      return value;
+    }
+    return base + value;
   }
 
   _isThumbnailLazyEndpoint(url) {

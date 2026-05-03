@@ -453,17 +453,34 @@ class ModelDetailPopupCard extends HTMLElement {
     return value.includes('/api/models/') && value.endsWith('/thumbnail');
   }
 
+  _normalizeModelApiUrl(url) {
+    const value = String(url || '').trim();
+    if (!value) {
+      return '';
+    }
+    if (!value.startsWith('/api/models/')) {
+      return value;
+    }
+    const base = String(this._modelSidecarUrl || '').trim().replace(/\/$/, '');
+    if (!base) {
+      return value;
+    }
+    return `${base}${value}`;
+  }
+
   _headerThumbnailUrl(model) {
-    const previewUrl = String(model && model.preview_url ? model.preview_url : '').trim();
+    const previewUrl = this._normalizeModelApiUrl(String(model && model.preview_url ? model.preview_url : '').trim());
     if (previewUrl) {
       return previewUrl;
     }
-    const files = Array.isArray(this._modelDetail && this._modelDetail.files) ? this._modelDetail.files : [];
+    const files = Array.isArray(model && model.files)
+      ? model.files
+      : (Array.isArray(this._modelDetail && this._modelDetail.files) ? this._modelDetail.files : []);
     for (const file of files) {
       if (!file || typeof file !== 'object') {
         continue;
       }
-      const candidate = String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim();
+      const candidate = this._normalizeModelApiUrl(String(file.thumbnail_lazy_url || file.thumbnail_url || file.preview_url || '').trim());
       if (candidate) {
         return candidate;
       }
