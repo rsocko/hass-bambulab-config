@@ -260,6 +260,7 @@ def _move_files_to_working_group(
     *, 
     expanded_files: list[dict[str, Any]], 
     working_group_id: int,
+    working_group_slug: str | None,
     settings: Any
 ) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
     """
@@ -283,7 +284,8 @@ def _move_files_to_working_group(
         return moved_files, errors
     
     working_files_root = working_files_roots[0]
-    group_folder = working_files_root / str(working_group_id)
+    folder_name = str(working_group_slug or "").strip() or str(working_group_id)
+    group_folder = working_files_root / folder_name
     
     # Create group folder if it doesn't exist
     try:
@@ -1085,7 +1087,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                     title,
                     stage,
                     notes,
-                    str(expanded_files[0]["path"]),
+                    None,
                     folder_hint,
                     None,
                     now_iso,
@@ -1097,6 +1099,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 ),
             )
             group_id = int(connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+            group_slug = slug
         else:
             group_id = int(payload.get("working_group_id") or 0)
             if group_id <= 0:
@@ -1108,7 +1111,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                         "message": "working_group_id is required for attach_existing_working_group",
                     },
                 )
-            existing_group = connection.execute("SELECT id FROM working_groups WHERE id = ?", (group_id,)).fetchone()
+            existing_group = connection.execute("SELECT id, slug FROM working_groups WHERE id = ?", (group_id,)).fetchone()
             if existing_group is None:
                 return JSONResponse(
                     status_code=404,
@@ -1118,11 +1121,13 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                         "message": f"Working group not found: {group_id}",
                     },
                 )
+            group_slug = str(existing_group["slug"] or "").strip() or None
 
         # Move files to working files folder
         moved_files, move_errors = _move_files_to_working_group(
             expanded_files=expanded_files,
             working_group_id=group_id,
+            working_group_slug=group_slug,
             settings=state.settings
         )
         
@@ -1135,6 +1140,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
 
         added_items = 0
         duplicate_items = 0
+        primary_file_path: str | None = None
         for index, file_item in enumerate(expanded_files):
             original_path = str(file_item["path"])
             # Use the moved path if available, otherwise use original path
@@ -1156,6 +1162,8 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                     duplicate_items += 1
                     continue
             item_role = "primary" if index == 0 and action == "create_working_group" else "supporting"
+            if item_role == "primary" and primary_file_path is None:
+                primary_file_path = file_path
             connection.execute(
                 """
                 INSERT INTO working_items (
@@ -1175,6 +1183,12 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 ),
             )
             added_items += 1
+
+        if action == "create_working_group" and primary_file_path:
+            connection.execute(
+                "UPDATE working_groups SET primary_file_path = ?, updated_at = ? WHERE id = ?",
+                (primary_file_path, now_iso, group_id),
+            )
 
         # Set to terminal state with metadata
         terminal_action = "grouped_new" if action == "create_working_group" else "grouped_existing"
