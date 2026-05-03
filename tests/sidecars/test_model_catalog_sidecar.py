@@ -5507,6 +5507,449 @@ def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: 
         assert any(file["asset_type"] == "image" and file["filename"] == "badge.svg" for file in detail_payload["model"]["files"])
 
 
+def test_browser_upload_sanitizes_invalid_relative_path_segments(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "browser_files": [
+                    {
+                        "filename": "con?.3mf",
+                        "relative_path": "TopA/CON?.3mf",
+                        "content_base64": base64.b64encode(b"model-bytes").decode("ascii"),
+                    }
+                ]
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        row = connection.execute(
+            "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row is not None
+    source_entries = json.loads(str(row["source_entries_json"] or "[]"))
+    assert len(source_entries) == 1
+    relative_path = str(source_entries[0].get("relative_path") or "")
+    assert relative_path.startswith("TopA/")
+    assert "?" not in relative_path
+
+
+def test_browser_folder_grouping_and_preserve_structure_publish_to_local(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "browser_files": [
+                    {
+                        "filename": "base.3mf",
+                        "relative_path": "TopA/base.3mf",
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                        "content_base64": base64.b64encode(b"base").decode("ascii"),
+                    },
+                    {
+                        "filename": "tall.3mf",
+                        "relative_path": "TopA/variants/tall.3mf",
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                        "content_base64": base64.b64encode(b"tall").decode("ascii"),
+                    },
+                    {
+                        "filename": "bench.3mf",
+                        "relative_path": "TopB/bench.3mf",
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                        "content_base64": base64.b64encode(b"bench").decode("ascii"),
+                    },
+                ],
+            },
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("grouping_strategy") == "by-folder"
+        assert payload.get("preserve_folder_structure") is True
+        assert payload.get("created_model_count") == 3
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        asset_rows = connection.execute(
+            "SELECT storage_path FROM model_catalog_assets ORDER BY storage_path"
+        ).fetchall()
+        storage_paths = [str(row["storage_path"]) for row in asset_rows]
+    finally:
+        connection.close()
+
+    assert any("TopA/base.3mf" in path for path in storage_paths)
+    assert any("TopA/variants/tall.3mf" in path for path in storage_paths)
+    assert any("TopB/bench.3mf" in path for path in storage_paths)
+
+
+def test_queue_publish_to_working_honors_grouping_and_preserve_structure(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    grouped_root = source_root / "batch"
+    (grouped_root / "TopA" / "variants").mkdir(parents=True)
+    (grouped_root / "TopB").mkdir(parents=True)
+    (grouped_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (grouped_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (grouped_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(grouped_root),
+                        "recurse": True,
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-working")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("grouping_strategy") == "by-folder"
+        assert payload.get("preserve_folder_structure") is True
+        assert payload.get("created_group_count") == 3
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            "SELECT file_path FROM working_items ORDER BY file_path"
+        ).fetchall()
+        moved_paths = [str(row["file_path"]).replace("\\", "/") for row in rows]
+    finally:
+        connection.close()
+
+    assert any(path.endswith("/TopA/base.3mf") for path in moved_paths)
+    assert any(path.endswith("/TopA/variants/tall.3mf") for path in moved_paths)
+    assert any(path.endswith("/TopB/bench.3mf") for path in moved_paths)
+
+
+@pytest.mark.parametrize(
+    ("grouping_strategy", "expected_group_count"),
+    [
+        ("none", 1),
+        ("by-folder", 3),
+        ("flat", 3),
+        ("by-root", 2),
+    ],
+)
+def test_queue_publish_to_working_respects_all_grouping_strategies(
+    tmp_path: Path,
+    grouping_strategy: str,
+    expected_group_count: int,
+) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / f"case-{grouping_strategy}"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    if grouping_strategy == "by-root":
+        source_entries = [
+            {
+                "type": "folder",
+                "path": str(case_root / "TopA"),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            },
+            {
+                "type": "folder",
+                "path": str(case_root / "TopB"),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            },
+        ]
+    else:
+        source_entries = [
+            {
+                "type": "folder",
+                "path": str(case_root),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            }
+        ]
+
+    with TestClient(app) as test_client:
+        queued = test_client.post("/api/intake/uploads", json={"source_entries": source_entries})
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-working")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("grouping_strategy") == grouping_strategy
+        assert payload.get("created_group_count") == expected_group_count
+
+
+@pytest.mark.parametrize(
+    ("grouping_strategy", "expected_model_count"),
+    [
+        ("none", 1),
+        ("by-folder", 3),
+        ("flat", 3),
+        ("by-root", 2),
+    ],
+)
+def test_queue_publish_to_local_respects_all_grouping_strategies(
+    tmp_path: Path,
+    grouping_strategy: str,
+    expected_model_count: int,
+) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / f"local-{grouping_strategy}"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    if grouping_strategy == "by-root":
+        source_entries = [
+            {
+                "type": "folder",
+                "path": str(case_root / "TopA"),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            },
+            {
+                "type": "folder",
+                "path": str(case_root / "TopB"),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            },
+        ]
+    else:
+        source_entries = [
+            {
+                "type": "folder",
+                "path": str(case_root),
+                "recurse": True,
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": True,
+            }
+        ]
+
+    with TestClient(app) as test_client:
+        queued = test_client.post("/api/intake/uploads", json={"source_entries": source_entries})
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        if grouping_strategy == "none":
+            assert payload.get("created_model") is True
+            assert payload.get("local_model_id")
+        else:
+            assert payload.get("grouping_strategy") == grouping_strategy
+            assert payload.get("created_model_count") == expected_model_count
+
+
+def test_server_queue_publish_to_working_flattens_when_preserve_false(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / "flatten-working"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "none",
+                        "preserve_folder_structure": False,
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-working")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("grouping_strategy") == "none"
+        assert payload.get("preserve_folder_structure") is False
+        assert payload.get("created_group_count") == 1
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            "SELECT file_path FROM working_items ORDER BY file_path"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    moved_paths = [str(row["file_path"]).replace("\\", "/") for row in rows]
+    assert len(moved_paths) == 3
+    assert not any("/TopA/" in path or "/TopB/" in path or "/variants/" in path for path in moved_paths)
+
+
+def test_server_queue_publish_to_local_flattens_when_preserve_false(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    case_root = source_root / "flatten-local"
+    (case_root / "TopA" / "variants").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopA" / "base.3mf").write_bytes(b"base")
+    (case_root / "TopA" / "variants" / "tall.3mf").write_bytes(b"tall")
+    (case_root / "TopB" / "bench.3mf").write_bytes(b"bench")
+
+    with TestClient(app) as test_client:
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "none",
+                        "preserve_folder_structure": False,
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("created_model") is True
+
+        local_model_id = str(payload.get("local_model_id") or "")
+        assert local_model_id
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(
+            """
+            SELECT a.storage_path
+            FROM model_catalog_assets a
+            JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id
+            WHERE e.local_model_id = ?
+            ORDER BY a.storage_path
+            """,
+            (local_model_id,),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    storage_paths = [str(row["storage_path"]).replace("\\", "/") for row in rows]
+    assert len(storage_paths) == 3
+    assert all(path.startswith(f"{local_model_id}/") for path in storage_paths)
+    assert not any("/TopA/" in path or "/TopB/" in path or "/variants/" in path for path in storage_paths)
+
+
 def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()

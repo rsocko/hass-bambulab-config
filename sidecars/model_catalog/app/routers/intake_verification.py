@@ -285,12 +285,12 @@ def _compute_group_key(
     Compute the group key for a file based on grouping strategy.
     
     by-folder: file's parent folder relative to root
-    by-root: "__root__" (all files from this root → same group)
+    by-root: unique key per selected root path
     flat: unique per file
     none: "__single__" (all files → same group)
     """
     if strategy == "by-root":
-        return "__root__"
+        return f"__root__::{str(root_path)}"
     if strategy == "flat":
         return str(file_path.resolve())
     if strategy == "by-folder":
@@ -366,12 +366,29 @@ def _group_files_by_strategy(
         root_path = source_roots.get(source_path_raw, Path(file_item["path"]).parent)
         
         file_path = Path(file_item["path"]).resolve()
-        group_key = _compute_group_key(
-            file_path=file_path,
-            root_path=root_path,
-            strategy=strategy,
-            source_entry=source_entry
-        )
+        relative_path_raw = str(file_item.get("relative_path") or source_entry.get("relative_path") or "").strip().replace("\\", "/")
+        relative_path = Path(relative_path_raw) if relative_path_raw else None
+
+        # Browser uploads stage each file as a source entry, so root/folder grouping
+        # must derive from relative_path instead of absolute source roots.
+        if relative_path is not None and str(source_entry.get("source_type") or "").strip().lower() == "browser_upload":
+            if strategy == "by-folder":
+                rel_parent = relative_path.parent
+                group_key = "__root_folder__" if str(rel_parent) in {"", "."} else str(rel_parent).replace("\\", "/")
+            elif strategy == "by-root":
+                parts = [part for part in relative_path.parts if str(part).strip()]
+                group_key = parts[0] if parts else "__root__"
+            elif strategy == "flat":
+                group_key = str(relative_path).replace("\\", "/") or str(file_path.resolve())
+            else:
+                group_key = "__single__"
+        else:
+            group_key = _compute_group_key(
+                file_path=file_path,
+                root_path=root_path,
+                strategy=strategy,
+                source_entry=source_entry
+            )
         group_title = _compute_group_title(
             group_key=group_key,
             root_path=root_path,

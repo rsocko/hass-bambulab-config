@@ -14,6 +14,7 @@ import base64
 import binascii
 import json
 import os
+import re
 import shutil
 import sqlite3
 import uuid
@@ -61,6 +62,12 @@ VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "failed": set(),
 }
 
+_WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+}
+
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -68,9 +75,21 @@ def _browser_intake_upload_storage_root(settings: Settings) -> Path:
     return (settings.db_path.parent / BROWSER_INTAKE_UPLOAD_STORAGE_DIR).resolve()
 
 
+def _sanitize_filesystem_segment(segment: str, *, fallback: str = "item") -> str:
+    value = re.sub(r"[<>:\\|?*\x00-\x1f]", "_", str(segment or "").strip())
+    value = value.rstrip(" .")
+    if not value:
+        value = fallback
+    device_name = value.split(".", 1)[0].upper()
+    if device_name in _WINDOWS_RESERVED_NAMES:
+        value = f"{value}_"
+    return value
+
+
 def _sanitize_browser_upload_relative_path(relative_path: str | None, fallback_name: str) -> Path:
     raw_value = str(relative_path or "").strip().replace("\\", "/")
-    fallback = Path(Path(fallback_name or "upload.bin").name or "upload.bin")
+    fallback_raw = Path(fallback_name or "upload.bin").name or "upload.bin"
+    fallback = Path(_sanitize_filesystem_segment(fallback_raw, fallback="upload.bin"))
     if not raw_value:
         return fallback
 
@@ -82,7 +101,9 @@ def _sanitize_browser_upload_relative_path(relative_path: str | None, fallback_n
     if not parts:
         return fallback
 
-    sanitized = Path(*parts)
+    normalized_parts = [_sanitize_filesystem_segment(part, fallback="item") for part in parts]
+
+    sanitized = Path(*normalized_parts)
     if sanitized.name in {"", ".", ".."}:
         return fallback
     return sanitized
@@ -219,7 +240,16 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
             "source_birthtime": entry_source_metadata.get("source_birthtime"),
             "source_size_bytes": int(stat_result.st_size) if entry_type == "file" else None,
         }
-        for extra_key in ("source_type", "original_filename", "relative_path", "upload_id", "group_title_source", "group_title"):
+        for extra_key in (
+            "source_type",
+            "original_filename",
+            "relative_path",
+            "upload_id",
+            "grouping_strategy",
+            "preserve_folder_structure",
+            "group_title_source",
+            "group_title",
+        ):
             extra_value = entry.get(extra_key)
             if extra_value not in {None, ""}:
                 validated_entry[extra_key] = extra_value
@@ -575,6 +605,8 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
                 "relative_path": str(relative_path).replace("\\", "/"),
                 "upload_id": staged_upload_id,
                 "file_last_modified_ms": upload.get("file_last_modified_ms"),
+                "grouping_strategy": str(upload.get("grouping_strategy") or "").strip() or None,
+                "preserve_folder_structure": upload.get("preserve_folder_structure"),
                 "group_title_source": upload.get("group_title_source"),
                 "group_title": upload.get("group_title"),
             }

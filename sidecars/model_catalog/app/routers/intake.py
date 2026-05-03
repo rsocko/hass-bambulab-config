@@ -76,7 +76,7 @@ from .intake_queue import (
     VALID_STATUS_TRANSITIONS,
 )
 from .intake_cleanup import _build_cleanup_stub, _run_source_cleanup
-from .intake_verification import _default_group_title
+from .intake_verification import _default_group_title, _group_files_by_strategy, _normalize_grouping_strategy
 
 # Create combined router
 router = APIRouter(tags=["intake"])
@@ -162,7 +162,40 @@ def _unique_asset_id(*, filename: str, file_hash: str, existing_ids: set[str]) -
     return candidate
 
 
-def _copy_local_import_source(*, settings: Settings, local_model_id: str, source_path: Path) -> str:
+_WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+}
+
+
+def _sanitize_storage_segment(segment: str, *, fallback: str = "item") -> str:
+    value = re.sub(r"[<>:\\|?*\x00-\x1f]", "_", str(segment or "").strip())
+    value = value.rstrip(" .")
+    if not value:
+        value = fallback
+    device_name = value.split(".", 1)[0].upper()
+    if device_name in _WINDOWS_RESERVED_NAMES:
+        value = f"{value}_"
+    return value
+
+
+def _normalized_relative_parts(relative_path: str | None) -> list[str]:
+    raw_relative_path = str(relative_path or "").strip().replace("\\", "/")
+    if not raw_relative_path:
+        return []
+    safe_parts = [part for part in raw_relative_path.split("/") if part not in {"", ".", ".."}]
+    return [_sanitize_storage_segment(part, fallback="item") for part in safe_parts]
+
+
+def _copy_local_import_source(
+    *,
+    settings: Settings,
+    local_model_id: str,
+    source_path: Path,
+    relative_path: str | None = None,
+    preserve_folder_structure: bool = True,
+) -> str:
     import shutil
     catalog_root = _model_photo_storage_root(settings)
     asset_root = catalog_root / local_model_id
@@ -181,8 +214,22 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
                 return candidate
             counter += 1
     
-    destination = _unique_destination_path(asset_root, source_path.name)
-    shutil.move(str(source_path), str(destination))  # MOVE instead of copy
+    destination_directory = asset_root
+    destination_filename = source_path.name
+
+    if preserve_folder_structure:
+        safe_parts = _normalized_relative_parts(relative_path)
+        if safe_parts:
+            relative = Path(*safe_parts)
+            destination_directory = (asset_root / relative.parent).resolve() if str(relative.parent) not in {"", "."} else asset_root
+            destination_filename = _sanitize_storage_segment(relative.name or source_path.name, fallback=source_path.name)
+            if not destination_directory.is_relative_to(asset_root.resolve()):
+                destination_directory = asset_root
+                destination_filename = _sanitize_storage_segment(source_path.name, fallback="file")
+
+    destination_directory.mkdir(parents=True, exist_ok=True)
+    destination = _unique_destination_path(destination_directory, destination_filename)
+    shutil.copy2(str(source_path), str(destination))
     try:
         relative_path = destination.relative_to(catalog_root.resolve())
         return str(relative_path).replace("\\", "/")
@@ -190,7 +237,14 @@ def _copy_local_import_source(*, settings: Settings, local_model_id: str, source
         return str(destination).replace("\\", "/")
 
 
-def _move_file_to_working_directory(*, settings: Settings, working_group_slug: str, source_path: Path) -> str:
+def _move_file_to_working_directory(
+    *,
+    settings: Settings,
+    working_group_slug: str,
+    source_path: Path,
+    relative_path: str | None = None,
+    preserve_folder_structure: bool = True,
+) -> str:
     """Move a file from intake staging to the Working Files directory structure.
     
     Returns the ABSOLUTE path to the moved file so it can be found by the inventory system.
@@ -206,8 +260,21 @@ def _move_file_to_working_directory(*, settings: Settings, working_group_slug: s
     group_dir = working_root / working_group_slug
     group_dir.mkdir(parents=True, exist_ok=True)
     
+    destination_directory = group_dir
+    destination_filename = source_path.name
+    if preserve_folder_structure:
+        safe_parts = _normalized_relative_parts(relative_path)
+        if safe_parts:
+            relative = Path(*safe_parts)
+            destination_directory = (group_dir / relative.parent).resolve() if str(relative.parent) not in {"", "."} else group_dir
+            destination_filename = _sanitize_storage_segment(relative.name or source_path.name, fallback=source_path.name)
+            if not destination_directory.is_relative_to(group_dir.resolve()):
+                destination_directory = group_dir
+                destination_filename = _sanitize_storage_segment(source_path.name, fallback="file")
+
+    destination_directory.mkdir(parents=True, exist_ok=True)
     # Find unique destination path
-    destination = _unique_destination_path(group_dir, source_path.name)
+    destination = _unique_destination_path(destination_directory, destination_filename)
     
     # Move file to destination
     shutil.move(str(source_path), str(destination))
@@ -279,10 +346,20 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
                 )
                 continue
 
+            relative_path_value = ""
+            if entry_type == "folder":
+                try:
+                    relative_path_value = str(file_path.relative_to(source_path)).replace("\\", "/")
+                except ValueError:
+                    relative_path_value = file_path.name
+            else:
+                relative_path_value = str(entry.get("relative_path") or "").strip().replace("\\", "/") or file_path.name
+
             expanded.append(
                 {
                     "path": normalized_path,
                     "filename": file_path.name,
+                    "relative_path": relative_path_value,
                     "entry_type": entry_type,
                     "source_entry": entry,
                     "source_metadata": _bulk_path_source_metadata(file_path, stat_result),
@@ -302,6 +379,19 @@ def _append_intake_publish_history(*, db_path: Path, model_ref: str, entry: dict
     trimmed = history[-20:]
     set_model_field(db_path=db_path, model_ref=model_ref, field_key="intake_publish_history", field_value=trimmed)
     return trimmed
+
+
+def _extract_grouping_preferences(source_entries: list[dict[str, Any]]) -> tuple[str, bool]:
+    strategy = "none"
+    preserve_folder_structure = True
+    for entry in source_entries:
+        if not isinstance(entry, dict):
+            continue
+        if strategy == "none":
+            strategy = _normalize_grouping_strategy(entry.get("grouping_strategy"))
+        if "preserve_folder_structure" in entry:
+            preserve_folder_structure = _coerce_bool(entry.get("preserve_folder_structure"))
+    return strategy, preserve_folder_structure
 
 
 # Windows launch helpers
@@ -496,6 +586,332 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     requested_source_origin = str(payload.get("source_origin") or "intake_queue").strip() or "intake_queue"
     requested_source_origin_url = str(payload.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
+    grouping_strategy, preserve_folder_structure = _extract_grouping_preferences(source_entries)
+
+    if grouping_strategy != "none":
+        if requested_model_ref:
+            _transition_queue_status(
+                state.settings.db_path,
+                upload_id,
+                "failed",
+                event_type="local_publish_failed",
+                error_message="Cannot publish grouped intake batch to a single requested model_ref.",
+            )
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": "grouped_publish_requires_auto_model_creation",
+                    "message": "Grouped publish does not support model_ref override.",
+                    "upload_id": upload_id,
+                },
+            )
+
+        grouped_files = _group_files_by_strategy(
+            expanded_files=expanded_files,
+            source_entries=source_entries,
+            strategy=grouping_strategy,
+        )
+        created_models: list[dict[str, Any]] = []
+        imported_assets: list[dict[str, Any]] = []
+        duplicate_skipped: list[dict[str, Any]] = []
+        failed_files: list[dict[str, Any]] = []
+
+        for group in grouped_files.values():
+            group_title = str(group.get("title") or "").strip() or "Working Group"
+            group_files = list(group.get("files") or [])
+            preferred_model_id = _slugify_title(group_title) or upload_id
+            local_model_id = _ensure_unique_local_model_id(db_path=state.settings.db_path, preferred=preferred_model_id)
+
+            model_entry = create_local_model(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                model_name=group_title,
+                model_description=requested_description or None,
+                creator_name=requested_creator_name,
+                created_by=requested_created_by,
+                collection_names=[str(item).strip() for item in requested_collection_names or [] if str(item).strip()] or None,
+                tags=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                keyword_names=[str(item).strip() for item in requested_tags or [] if str(item).strip()] or None,
+                source_origin=requested_source_origin,
+                source_origin_url=requested_source_origin_url or None,
+            )
+
+            existing_assets = list_model_assets(db_path=state.settings.db_path, local_model_id=local_model_id)
+            existing_asset_ids = {
+                str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+                for asset in existing_assets
+                if str(getattr(asset, "asset_id", "") or getattr(asset, "id", ""))
+            }
+            existing_hashes = {
+                str(getattr(asset, "file_hash", "") or "").strip().lower()
+                for asset in existing_assets
+                if str(getattr(asset, "file_hash", "") or "").strip()
+            }
+            has_preview = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "preview" for asset in existing_assets)
+            has_primary = any(str(getattr(asset, "asset_role", "") or "").strip().lower() == "primary" for asset in existing_assets)
+            preview_source_normalized = requested_preview_source_path.lower() if requested_preview_source_path else None
+
+            group_imported_count = 0
+            for file_item in group_files:
+                source_path = Path(str(file_item["path"])).resolve()
+                file_hash = str(file_item["file_hash"] or "").strip().lower()
+                if file_hash in existing_hashes:
+                    duplicate_skipped.append(
+                        {
+                            "source_path": str(source_path),
+                            "filename": source_path.name,
+                            "sha256": file_hash,
+                            "reason": "duplicate_hash",
+                        }
+                    )
+                    continue
+
+                try:
+                    storage_path = _copy_local_import_source(
+                        settings=state.settings,
+                        local_model_id=local_model_id,
+                        source_path=source_path,
+                        relative_path=str(file_item.get("relative_path") or "").strip() or source_path.name,
+                        preserve_folder_structure=preserve_folder_structure,
+                    )
+                    asset_type = _normalize_local_asset_type(source_path)
+                    preview_selected = bool(preview_source_normalized and str(source_path).lower() == preview_source_normalized)
+                    asset_role = _normalize_local_asset_role(
+                        asset_type=asset_type,
+                        has_preview=has_preview,
+                        has_primary=has_primary,
+                        preview_selected=preview_selected,
+                    )
+                    asset_id = _unique_asset_id(filename=source_path.name, file_hash=file_hash, existing_ids=existing_asset_ids)
+                    asset = create_model_asset(
+                        db_path=state.settings.db_path,
+                        local_model_id=local_model_id,
+                        asset_id=asset_id,
+                        asset_filename=source_path.name,
+                        asset_type=asset_type,
+                        storage_path=storage_path,
+                        asset_role=asset_role,
+                        file_size_bytes=int(file_item["size_bytes"]),
+                        file_hash=file_hash,
+                        preview_url=None,
+                        geometry_bounds=None,
+                    )
+                    existing_hashes.add(file_hash)
+                    has_preview = has_preview or asset_role == "preview"
+                    has_primary = has_primary or asset_role == "primary"
+                    imported_assets.append(
+                        {
+                            "local_model_id": local_model_id,
+                            "local_asset_id": asset.asset_id,
+                            "local_storage_path": asset.storage_path,
+                            "asset_id": asset.asset_id,
+                            "filename": asset.asset_filename,
+                            "asset_type": asset.asset_type,
+                            "asset_role": asset.asset_role,
+                            "sort_order": asset.sort_order,
+                            "storage_path": asset.storage_path,
+                            "file_hash": asset.file_hash,
+                            "source_path": str(source_path),
+                            "source_entry_type": file_item.get("entry_type"),
+                        }
+                    )
+                    group_imported_count += 1
+                except Exception as exc:
+                    failed_files.append(
+                        {
+                            "source_path": str(source_path),
+                            "filename": source_path.name,
+                            "message": str(exc),
+                            "local_model_id": local_model_id,
+                        }
+                    )
+
+            _append_intake_publish_history(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                entry={
+                    "upload_id": upload_id,
+                    "published_at": _bulk_utc_now_iso(),
+                    "created_model": True,
+                    "grouping_strategy": grouping_strategy,
+                    "preserve_folder_structure": preserve_folder_structure,
+                    "imported_asset_count": group_imported_count,
+                    "duplicate_skipped_count": len(duplicate_skipped),
+                    "failed_file_count": len(failed_files),
+                    "source_entries": source_entries,
+                },
+            )
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                field_key="intake_queue_upload_id",
+                field_value=upload_id,
+            )
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                field_key="intake_source_entries",
+                field_value=source_entries,
+            )
+            set_model_field(
+                db_path=state.settings.db_path,
+                model_ref=local_model_id,
+                field_key="internal_notes",
+                field_value=f"Imported from intake upload {upload_id}",
+            )
+
+            created_models.append(
+                {
+                    "local_model_id": model_entry.local_model_id,
+                    "model_name": model_entry.model_name,
+                    "imported_asset_count": group_imported_count,
+                }
+            )
+
+        if not imported_assets:
+            _transition_queue_status(
+                state.settings.db_path,
+                upload_id,
+                "failed",
+                event_type="local_publish_failed",
+                error_message="No assets were imported into local models.",
+                metadata={
+                    "grouping_strategy": grouping_strategy,
+                    "preserve_folder_structure": preserve_folder_structure,
+                    "failed_file_count": len(failed_files),
+                },
+            )
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "local_publish_failed",
+                    "message": "No assets were imported into local models.",
+                    "upload_id": upload_id,
+                    "grouping_strategy": grouping_strategy,
+                    "preserve_folder_structure": preserve_folder_structure,
+                    "failed_files": failed_files,
+                },
+            )
+
+        now_iso = _bulk_utc_now_iso()
+        success_connection = connect(state.settings.db_path)
+        try:
+            success_connection.execute(
+                """
+                UPDATE intake_queue_uploads
+                SET file_hashes_json = ?, verification_status = ?, inbox_state = ?, updated_at = ?,
+                    terminal_action = ?, terminal_at = ?,
+                    terminal_result_id = ?
+                WHERE upload_id = ?
+                """,
+                (
+                    json.dumps([item["file_hash"] for item in imported_assets]),
+                    "pass",
+                    "published_to_catalog",
+                    now_iso,
+                    "published_to_catalog",
+                    now_iso,
+                    str(created_models[0].get("local_model_id") or ""),
+                    upload_id,
+                ),
+            )
+            success_connection.commit()
+        finally:
+            success_connection.close()
+
+        transitioned, transition_error = _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "uploaded_unverified",
+            event_type="local_publish_materialized",
+            metadata={
+                "grouping_strategy": grouping_strategy,
+                "preserve_folder_structure": preserve_folder_structure,
+                "created_model_count": len(created_models),
+                "imported_asset_count": len(imported_assets),
+                "duplicate_skipped_count": len(duplicate_skipped),
+                "failed_file_count": len(failed_files),
+            },
+        )
+        if transitioned:
+            transitioned, transition_error = _transition_queue_status(
+                state.settings.db_path,
+                upload_id,
+                "verified",
+                event_type="local_publish_verified",
+                metadata={
+                    "created_models": created_models,
+                },
+            )
+
+        if not transitioned:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "success": False,
+                    "error": "status_transition_failed",
+                    "message": transition_error or "Could not finalize local publish state.",
+                    "upload_id": upload_id,
+                },
+            )
+
+        cleanup_result = {
+            "policy": str(upload_row["cleanup_policy"] or "keep").strip().lower(),
+            "status": "skipped",
+            "skipped": True,
+            "reason": "policy_keep",
+            "processed_count": 0,
+            "failed_count": 0,
+            "results": [],
+        }
+        effective_status = "verified"
+        if imported_assets and cleanup_result["policy"] != "keep":
+            cleanup_ok, cleanup_payload = _run_source_cleanup(request=request, upload_id=upload_id, uploaded_rows=imported_assets)
+            if not cleanup_ok:
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "success": False,
+                        "error": cleanup_payload.get("error") or "cleanup_failed",
+                        "message": cleanup_payload.get("message") or "Cleanup could not be started.",
+                        "upload_id": upload_id,
+                    },
+                )
+            cleanup_result = cleanup_payload["cleanup"]
+            effective_status = str(cleanup_payload["status"])
+
+        return {
+            "success": True,
+            "contract": "intake-publish-local.v1alpha1",
+            "upload_id": upload_id,
+            "status": effective_status,
+            "verification_status": "pass",
+            "grouping_strategy": grouping_strategy,
+            "preserve_folder_structure": preserve_folder_structure,
+            "created_model_count": len(created_models),
+            "created_models": created_models,
+            "imported_asset_count": len(imported_assets),
+            "duplicate_skipped_count": len(duplicate_skipped),
+            "failed_file_count": len(failed_files),
+            "imported_assets": imported_assets,
+            "duplicate_skipped": duplicate_skipped,
+            "failed_files": failed_files,
+            "warnings": expansion_warnings,
+            "cleanup": cleanup_result,
+            "terminal": True,
+            "state": "published_to_catalog",
+            "is_terminal": True,
+            "allowed_actions": [],
+            "legacy_adapter": {
+                "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
+                "authoritative": False,
+                "status": "transition_only",
+            },
+            "model": None,
+            "enrichment": None,
+        }
 
     default_title = requested_model_name or _default_group_title(source_entries, expanded_files) or upload_id
     local_model_id = requested_model_ref
@@ -590,6 +1006,8 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 settings=state.settings,
                 local_model_id=local_model_id,
                 source_path=source_path,
+                relative_path=str(file_item.get("relative_path") or "").strip() or source_path.name,
+                preserve_folder_structure=preserve_folder_structure,
             )
             asset_type = _normalize_local_asset_type(source_path)
             preview_selected = bool(preview_source_normalized and str(source_path).lower() == preview_source_normalized)
@@ -937,6 +1355,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     requested_title = str(payload.get("title") or "").strip()
     requested_stage = str(payload.get("stage") or "draft").strip() or "draft"
     requested_notes = str(payload.get("notes") or "").strip()
+    grouping_strategy, preserve_folder_structure = _extract_grouping_preferences(source_entries)
 
     # Generate default title from source entries
     default_title = requested_title or _default_group_title(source_entries, expanded_files) or f"Import from {upload_id}"
@@ -963,120 +1382,155 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
             },
         )
 
-    # Create working group and add items
+    grouped_files = _group_files_by_strategy(
+        expanded_files=expanded_files,
+        source_entries=source_entries,
+        strategy=grouping_strategy,
+    ) if grouping_strategy != "none" else {
+        "__single__": {
+            "title": default_title,
+            "files": expanded_files,
+            "strategy": "none",
+            "source_entry": source_entries[0] if source_entries else {},
+            "root_path": folder_hint or "",
+        }
+    }
+
+    # Create working group(s) and add items
     working_group_id = None
     added_items = 0
     duplicate_items = 0
+    created_groups_meta: list[dict[str, Any]] = []
 
     wg_connection = connect(state.settings.db_path)
     wg_connection.row_factory = __import__("sqlite3").Row
     try:
         now_iso = _bulk_utc_now_iso()
         
-        # Generate unique slug for the group
-        slug = _default_group_title(source_entries, expanded_files) or f"import-{upload_id[:8]}"
-        slug = _slugify_title(slug) or f"import-{upload_id[:8]}"
-        
-        # Ensure unique slug
-        counter = 0
-        candidate_slug = slug
-        while wg_connection.execute(
-            "SELECT id FROM working_groups WHERE slug = ?", (candidate_slug,)
-        ).fetchone() is not None:
-            counter += 1
-            candidate_slug = f"{slug}-{counter}"
-        
-        # Create working group (primary_file_path will be set after first file is moved)
-        wg_connection.execute(
-            """
-            INSERT INTO working_groups (
-                slug, title, stage, notes, primary_file_path, folder_hint,
-                related_manyfold_model_id, created_at, updated_at,
-                discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                candidate_slug,
-                default_title,
-                requested_stage,
-                requested_notes or f"Created from intake upload {upload_id}",
-                None,  # Will update after first file is moved
-                folder_hint,
-                None,
-                now_iso,
-                now_iso,
-                folder_hint,
-                "intake",
-                now_iso,
-                json.dumps({"source": "intake", "upload_id": upload_id}),
-            ),
-        )
-        working_group_id = int(wg_connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
-        
-        # Add all expanded files as working items (move them to working directory)
-        primary_file_path = None
-        for index, file_item in enumerate(expanded_files):
-            source_file_path = Path(str(file_item["path"])).resolve()
-            file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
-            
-            # Check for duplicate
-            existing_item = wg_connection.execute(
-                "SELECT id FROM working_items WHERE working_group_id = ? AND file_hash = ?",
-                (working_group_id, file_hash),
-            ).fetchone() if file_hash else None
-            if existing_item is not None:
-                duplicate_items += 1
-                continue
-            
-            # Check for global hash match
-            if file_hash:
-                existing_hash_match = wg_connection.execute(
-                    "SELECT id FROM working_items WHERE file_hash = ?",
-                    (file_hash,),
-                ).fetchone()
-                if existing_hash_match is not None:
-                    duplicate_items += 1
-                    continue
-            
-            # Move file to working directory (this will raise if working root is not configured)
-            relative_path = _move_file_to_working_directory(
-                settings=state.settings,
-                working_group_slug=candidate_slug,
-                source_path=source_file_path,
-            )
-            file_path = str(relative_path)
-            
-            item_role = "primary" if index == 0 else "supporting"
-            
-            # Capture primary file path on first successful add
-            if item_role == "primary" and not primary_file_path:
-                primary_file_path = file_path
-            
+        for group in grouped_files.values():
+            group_files = list(group.get("files") or [])
+            group_title = str(group.get("title") or "").strip() or default_title
+            slug_base = _slugify_title(group_title) or f"import-{upload_id[:8]}"
+
+            counter = 0
+            candidate_slug = slug_base
+            while wg_connection.execute(
+                "SELECT id FROM working_groups WHERE slug = ?", (candidate_slug,)
+            ).fetchone() is not None:
+                counter += 1
+                candidate_slug = f"{slug_base}-{counter}"
+
+            group_folder_hint = str(Path(group_files[0]["path"]).parent) if group_files else folder_hint
+
             wg_connection.execute(
                 """
-                INSERT INTO working_items (
-                    working_group_id, file_path, item_role, created_at, updated_at,
-                    file_hash, file_size, source_metadata_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO working_groups (
+                    slug, title, stage, notes, primary_file_path, folder_hint,
+                    related_manyfold_model_id, created_at, updated_at,
+                    discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    working_group_id,
-                    file_path,
-                    item_role,
+                    candidate_slug,
+                    group_title,
+                    requested_stage,
+                    requested_notes or f"Created from intake upload {upload_id}",
+                    None,
+                    group_folder_hint,
+                    None,
                     now_iso,
                     now_iso,
-                    file_hash,
-                    int(file_item.get("size_bytes") or 0) or None,
-                    json.dumps(file_item.get("source_metadata") or {}),
+                    group_folder_hint,
+                    "intake",
+                    now_iso,
+                    json.dumps(
+                        {
+                            "source": "intake",
+                            "upload_id": upload_id,
+                            "grouping_strategy": grouping_strategy,
+                            "preserve_folder_structure": preserve_folder_structure,
+                            "group_title": group_title,
+                        }
+                    ),
                 ),
             )
-            added_items += 1
-        
-        # Update working group with primary file path
-        if primary_file_path:
-            wg_connection.execute(
-                "UPDATE working_groups SET primary_file_path = ? WHERE id = ?",
-                (primary_file_path, working_group_id),
+            created_group_id = int(wg_connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+            if working_group_id is None:
+                working_group_id = created_group_id
+
+            group_added_items = 0
+            group_duplicate_items = 0
+            primary_file_path = None
+            for file_item in group_files:
+                source_file_path = Path(str(file_item["path"])).resolve()
+                file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
+
+                existing_item = wg_connection.execute(
+                    "SELECT id FROM working_items WHERE working_group_id = ? AND file_hash = ?",
+                    (created_group_id, file_hash),
+                ).fetchone() if file_hash else None
+                if existing_item is not None:
+                    duplicate_items += 1
+                    group_duplicate_items += 1
+                    continue
+
+                if file_hash:
+                    existing_hash_match = wg_connection.execute(
+                        "SELECT id FROM working_items WHERE file_hash = ?",
+                        (file_hash,),
+                    ).fetchone()
+                    if existing_hash_match is not None:
+                        duplicate_items += 1
+                        group_duplicate_items += 1
+                        continue
+
+                moved_path = _move_file_to_working_directory(
+                    settings=state.settings,
+                    working_group_slug=candidate_slug,
+                    source_path=source_file_path,
+                    relative_path=str(file_item.get("relative_path") or "").strip() or source_file_path.name,
+                    preserve_folder_structure=preserve_folder_structure,
+                )
+                file_path = str(moved_path)
+                item_role = "primary" if primary_file_path is None else "supporting"
+                if primary_file_path is None:
+                    primary_file_path = file_path
+
+                wg_connection.execute(
+                    """
+                    INSERT INTO working_items (
+                        working_group_id, file_path, item_role, created_at, updated_at,
+                        file_hash, file_size, source_metadata_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        created_group_id,
+                        file_path,
+                        item_role,
+                        now_iso,
+                        now_iso,
+                        file_hash,
+                        int(file_item.get("size_bytes") or 0) or None,
+                        json.dumps(file_item.get("source_metadata") or {}),
+                    ),
+                )
+                added_items += 1
+                group_added_items += 1
+
+            if primary_file_path:
+                wg_connection.execute(
+                    "UPDATE working_groups SET primary_file_path = ? WHERE id = ?",
+                    (primary_file_path, created_group_id),
+                )
+
+            created_groups_meta.append(
+                {
+                    "working_group_id": created_group_id,
+                    "slug": candidate_slug,
+                    "title": group_title,
+                    "added_items": group_added_items,
+                    "duplicate_items": group_duplicate_items,
+                }
             )
         
         # Update upload status
@@ -1094,7 +1548,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                 now_iso,
                 "grouped_new",
                 now_iso,
-                str(working_group_id),
+                str(working_group_id or ""),
                 upload_id,
             ),
         )
@@ -1174,16 +1628,30 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     for stage_dir in browser_stage_dirs:
         shutil.rmtree(stage_dir, ignore_errors=True)
 
-    # Fetch the created working group for response
+    # Fetch created working groups for response
     detail_connection = connect(state.settings.db_path)
     detail_connection.row_factory = __import__("sqlite3").Row
     try:
-        wg_row = detail_connection.execute(
-            "SELECT * FROM working_groups WHERE id = ?", (working_group_id,)
-        ).fetchone()
-        serialized_group = _serialize_working_group(detail_connection, wg_row, state.settings) if wg_row else None
+        created_groups: list[dict[str, Any]] = []
+        for meta in created_groups_meta:
+            gid = int(meta.get("working_group_id") or 0)
+            wg_row = detail_connection.execute(
+                "SELECT * FROM working_groups WHERE id = ?", (gid,)
+            ).fetchone()
+            serialized_group = _serialize_working_group(detail_connection, wg_row, state.settings) if wg_row else None
+            if serialized_group is not None:
+                created_groups.append(
+                    {
+                        "working_group_id": gid,
+                        "group": serialized_group,
+                        "added_items": int(meta.get("added_items") or 0),
+                        "duplicate_items": int(meta.get("duplicate_items") or 0),
+                    }
+                )
     finally:
         detail_connection.close()
+
+    primary_group = created_groups[0]["group"] if created_groups else None
 
     return {
         "success": True,
@@ -1192,13 +1660,17 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         "status": "verified",
         "verification_status": "pass",
         "working_group_id": working_group_id,
+        "grouping_strategy": grouping_strategy,
+        "preserve_folder_structure": preserve_folder_structure,
+        "created_group_count": len(created_groups),
+        "created_groups": created_groups,
         "state": "grouped_new",
         "is_terminal": True,
         "allowed_actions": [],
         "added_items": added_items,
         "duplicate_items": duplicate_items,
         "warnings": expansion_warnings,
-        "group": serialized_group,
+        "group": primary_group,
         "legacy_adapter": {
             "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
             "authoritative": False,
