@@ -1080,6 +1080,43 @@ class ModelDetailPopupCard extends HTMLElement {
     }
   }
 
+  _galleryItems() {
+    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
+    const files = (this._modelDetail && this._modelDetail.model && Array.isArray(this._modelDetail.model.files))
+      ? this._modelDetail.model.files
+      : [];
+
+    return [
+      ...photos.map((photo, idx) => {
+        const imageUrl = this._normalizeModelApiUrl(String(photo.image_url || photo.thumbnail_url || photo.preview_url || photo.url || '').trim());
+        const thumbnailUrl = this._normalizeModelApiUrl(String(photo.thumbnail_url || photo.image_url || photo.preview_url || photo.url || '').trim());
+        return {
+          id: photo.id,
+          url: imageUrl || thumbnailUrl,
+          thumbnail_url: thumbnailUrl || imageUrl,
+          filename: photo.filename || `Photo ${idx + 1}`,
+          type: 'photo',
+          is_preview: Boolean(photo.is_preview),
+        };
+      }),
+      ...files
+        .filter(file => file && file.asset_type === 'image')
+        .map(file => {
+          const imageUrl = this._normalizeModelApiUrl(String(file.image_url || file.thumbnail_url || file.preview_url || file.download_url || '').trim());
+          const thumbnailUrl = this._normalizeModelApiUrl(String(file.thumbnail_url || file.image_url || file.preview_url || file.download_url || '').trim());
+          return {
+            id: file.id,
+            url: imageUrl || thumbnailUrl,
+            thumbnail_url: thumbnailUrl || imageUrl,
+            filename: file.filename || file.asset_filename || file.id,
+            type: 'asset',
+            asset_id: file.id,
+            is_preview: Boolean(file.is_preview || file.asset_role === 'preview'),
+          };
+        }),
+    ];
+  }
+
   _renderDetailsTab(model) {
     // In edit mode, show the edit form
     if (this._isEditMode) {
@@ -1148,31 +1185,8 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderGalleryTab() {
-    const photos = this._modelDetail.photos || [];
-    const files = (this._modelDetail.model && this._modelDetail.model.files) || [];
-    
-    // Combine photos from uploads AND images imported as model assets
-    const galleryItems = [
-      ...photos.map(p => ({
-        id: p.id,
-        url: p.image_url || p.thumbnail_url,
-        thumbnail_url: p.thumbnail_url,
-        filename: p.filename || `Photo ${photos.indexOf(p) + 1}`,
-        type: 'photo',
-        is_preview: p.is_preview
-      })),
-      ...files.filter(f => f.asset_type === 'image').map(f => ({
-        id: f.id,
-        url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
-        thumbnail_url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
-        filename: f.filename || f.asset_filename || f.id,
-        type: 'asset',
-        asset_id: f.id,
-        is_preview: files.some(x => x.asset_role === 'preview' && x.id === f.id)
-      }))
-    ];
-    
-    const previewPhotoId = this._modelDetail.preview_photo_id;
+    const galleryItems = this._galleryItems();
+
     const galleryModeHint = !this._isEditMode ? `
       <div style="
         margin: 0 0 16px;
@@ -1233,6 +1247,7 @@ class ModelDetailPopupCard extends HTMLElement {
             border-radius: 8px;
             overflow: hidden;
             cursor: pointer;
+            border: 1px solid var(--divider-color);
           }
           
           .gallery-thumbnail img {
@@ -1307,7 +1322,7 @@ class ModelDetailPopupCard extends HTMLElement {
         <div class="gallery-grid">
           ${galleryItems.map((item, idx) => `
             <div class="gallery-thumbnail" data-photo-id="${item.id}" data-photo-index="${idx}" data-item-type="${item.type}">
-              ${item.thumbnail_url ? `
+              ${item.thumbnail_url || item.url ? `
                 <img src="${item.thumbnail_url}" alt="${this._escapeHtml(item.filename)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2212%22%3ENo image%3C/text%3E%3C/svg%3E'">
               ` : `
                 <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color);">
@@ -1732,8 +1747,8 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _handlePhotoPreview(photoIdx) {
-    const photos = this._modelDetail.photos || [];
-    if (photoIdx < 0 || photoIdx >= photos.length) return;
+    const galleryItems = this._galleryItems();
+    if (photoIdx < 0 || photoIdx >= galleryItems.length) return;
 
     this._activePhotoIndex = photoIdx;
     this._render();
@@ -1748,14 +1763,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _stepPhotoPreview(direction) {
-    const photos = this._modelDetail && Array.isArray(this._modelDetail.photos) ? this._modelDetail.photos : [];
-    const files = (this._modelDetail && this._modelDetail.model && this._modelDetail.model.files) ? this._modelDetail.model.files : [];
-    
-    // Combine photos and image assets
-    const galleryItems = [
-      ...photos,
-      ...files.filter(f => f.asset_type === 'image')
-    ];
+    const galleryItems = this._galleryItems();
     
     if (!galleryItems.length || this._activePhotoIndex == null) {
       return;
@@ -1767,24 +1775,7 @@ class ModelDetailPopupCard extends HTMLElement {
   }
 
   _renderPhotoLightbox() {
-    const photos = this._modelDetail.photos || [];
-    const files = (this._modelDetail.model && this._modelDetail.model.files) || [];
-    
-    // Combine photos and image assets
-    const galleryItems = [
-      ...photos.map(p => ({
-        id: p.id,
-        url: p.image_url || p.thumbnail_url,
-        filename: p.filename || `Photo ${photos.indexOf(p) + 1}`,
-        type: 'photo'
-      })),
-      ...files.filter(f => f.asset_type === 'image').map(f => ({
-        id: f.id,
-        url: f.preview_url || `/local/model_catalog_assets/${f.storage_path}`,
-        filename: f.filename || f.asset_filename || f.id,
-        type: 'asset'
-      }))
-    ];
+    const galleryItems = this._galleryItems();
     
     if (!galleryItems.length || this._activePhotoIndex == null) {
       return '';

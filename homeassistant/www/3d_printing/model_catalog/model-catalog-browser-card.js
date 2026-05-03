@@ -701,22 +701,18 @@ class ModelCatalogBrowserCard extends HTMLElement {
       }
       if (img) {
         img.alt = String(model.name || "Model") + " preview";
-        if (this._isThumbnailLazyEndpoint(mediaUrl)) {
-          img.removeAttribute("src");
-          img.setAttribute("data-thumbnail-lazy-url", String(mediaUrl));
-          setupThumbnailLazyObserver({
-            rootElement: card,
-            root: null,
-            timeout: 5000,
-            retries: 2,
-            useIntersectionObserver: true,
-            rootMargin: "50px",
-            threshold: 0.1,
-          });
-        } else {
+        var nextSrc = String(mediaUrl);
+        var preload = new Image();
+        preload.decoding = "async";
+        preload.onload = function () {
           img.removeAttribute("data-thumbnail-lazy-url");
-          img.src = String(mediaUrl);
-        }
+          img.src = nextSrc;
+        };
+        // Keep current image in place on preload failure to avoid transient alt-text/broken-icon flashes.
+        preload.onerror = function () {
+          // No-op.
+        };
+        preload.src = nextSrc;
       }
     }
 
