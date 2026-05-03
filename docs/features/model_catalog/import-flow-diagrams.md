@@ -1,91 +1,72 @@
 # Model Catalog Import Flow Diagrams
 
-> Status: Updated with clear Queue vs History split and Execute Now decision point (May 2026)
-> Last reviewed: 2026-05-02
+> Status: Canonical wizard-first flow with queue demoted from primary UI (May 2026)
+> Last reviewed: 2026-05-03
 
-This document explains the import path from Intake through the Queue (Active Queue and Job History) to Working groups.
+This document explains the import path from Intake wizard planning through validation and commit, with queue retained as a system layer and Job History as the primary visible outcome surface.
 
 The short version:
 
-- Intake is the sidecar-owned staging mechanism (user selects files and submits batch).
-- Active Queue is the operator-facing review area where decisions are made (submitted, validated, deferred).
-- Job History is the immutable record of completed workflows (grouped, published, rejected).
-- Working groups are the first durable handoff target for accepted items.
-- Curated catalog publication happens later and is not part of the intake state machine.
+- Intake Wizard is the default operator flow.
+- Queue persists execution/staging state but is demoted from primary UI for now.
+- Job History is the visible audit surface for completed jobs regardless of execution path.
+- Working and Curated destinations are chosen during wizard Organize step.
 
-Issue #1171 refines the intake operator surface into a stepwise flow: choose one source mode, configure the batch, then choose to Queue for Review or Execute Now.
+Issue direction now emphasizes: Source -> Organize -> Validate -> Commit as the canonical wizard sequence.
 
 ## Mental Model
 
-Think of the flow as four layers:
+Think of the flow as five layers:
 
 1. Source selection: browser upload, server file selection, folder selection, or bulk discovery.
 2. Intake submission: the sidecar normalizes the source entries and creates an intake item.
-3. Queue decision (in wizard final step): operator chooses Queue for Review (staged to Active Queue) or Execute Now (direct to terminal action).
-4. Active Queue review (if queued): operator validates, defers, rejects, or groups the item.
-5. Working handoff or terminal action: the item becomes a new working group, attaches to existing, publishes directly, or is rejected.
-6. Job History: record of completed workflows immutable and audit-safe.
+3. Organize planning: logical model decomposition plus destination decision per logical model.
+4. Pre-commit validation: destination-aware checks, issue correction, and optional override handling.
+5. Commit and execution: run validated plan via direct or queued execution path.
+6. Job History: immutable record for completed jobs across all intake execution paths.
 
 UI note:
 
 - Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
-- Cleanup policy belongs to the queueing step for the current batch, near recurse/max-depth/grouping decisions.
+- Cleanup policy belongs to wizard planning and is validated before commit.
 - Mixed file+folder selections are allowed in one batch, but the wizard review step must show expansion preview so the operator understands what will be imported.
 
 ## High-Level Flow: Wizard to Execution
 
 ```mermaid
 flowchart TD
-    A[Wizard Step 1: Choose source mode\nBrowser upload OR Server browse] --> B[Wizard Step 2: Select files/folders\nconfigure recurse/max-depth/grouping]
-    B --> C[Wizard Step 3: Review batch\nshow expansion preview\nconfirm cleanup policy]
-    C --> D{Commit Mode\nin final step}
-    
-    D -->|Queue for Review| E[Stage to Active Queue\nitem enters submitted state\nwaits for operator triage]
-    D -->|Execute Now| F{Validation check\nall files resolvable?}
-    
-    F -->|✓ Valid| G{Choose action\nGroup New\nGroup Existing\nPublish Catalog}
-    F -->|✗ Invalid| H[Fallback to Queue\noperator reviews blocking issues]
-    
-    G -->|Group New| I[Create working_group\nmove files\nset to grouped_new\nEND - Job History]
-    G -->|Group Existing| J[Attach to working_group\nmove files\nset to grouped_existing\nEND - Job History]
-    G -->|Publish Catalog| K[Direct publish to catalog\nset to published_to_catalog\nEND - Job History]
-    
-    H --> E
-    
-    E --> L[Active Queue:\nitem waiting for operator]
-    L --> M{Operator action}
-    
-    M -->|Validate| N{Result}
-    N -->|ready| O[Validated Ready]
-    N -->|warnings| P[Validated Warning]
-    
-    M -->|Defer| Q[Deferred state]
-    M -->|Reject| R[Rejected terminal\nEND - Job History]
-    
-    O --> S{Group or Publish}
-    P --> T{Revalidate\nor Override}
-    Q --> U{Later:\nRevalidate}
-    
-    S -->|Group New| I
-    S -->|Group Existing| J
-    S -->|Publish| K
-    
-    T -->|Revalidate| N
-    T -->|Override Group| I
-    T -->|Override Group| J
-    
-    U --> N
-    
-    I --> V[Working phase]
-    J --> V
-    K --> V[Later: publish to curated catalog]
+    A[Step 1: Source\nBrowser upload OR Server browse] --> B[Step 2: Organize\nDefine logical models\nSet grouping and destination per model]
+    B --> C[Step 3: Validate (Pre-Commit)\nRun destination-aware checks\nShow blocking issues and override-eligible warnings]
+    C --> D{Validation outcome}
+
+    D -->|Blocking issues| E[Operator corrects source or organize settings\nRe-run validation]
+    E --> C
+
+    D -->|Valid or accepted override| F[Step 4: Commit]
+    F --> G{Execution path}
+
+    G -->|Direct| H[Execute immediately]
+    G -->|Queued/system fallback| I[Persist queue job and execute asynchronously]
+
+    H --> J{Per logical model destination}
+    I --> J
+
+    J -->|Working: Create New| K[grouped_new]
+    J -->|Working: Attach Existing| L[grouped_existing]
+    J -->|Curated: Create New| M[published_to_catalog]
+    J -->|Curated: Attach Existing| N[published_to_catalog]
+
+    K --> O[Job History]
+    L --> O
+    M --> O
+    N --> O
 ```
 
 ## Canonical Intake State Machine (Intake to Terminal)
 
 This matches the explicit design contract in [intake-state-machine.md](intake-state-machine.md).
 
-**Active Queue States** (operator decisions in progress):
+Active queue state semantics still exist for backend and compatibility paths, but inbox review is no longer the primary user-facing stage.
 
 ```mermaid
 stateDiagram-v2
@@ -159,9 +140,9 @@ During Intake, the sidecar:
 
 Intake is **transient staging**, not durable storage.
 
-### Active Queue (Review)
+### Active Queue (Demoted Surface)
 
-Active Queue is the operator-facing review surface for items awaiting decisions.
+Active Queue remains a system lifecycle stage and fallback review path, but is demoted from primary UX for now.
 
 Active Queue contains intake items in non-terminal states:
 
@@ -170,18 +151,13 @@ Active Queue contains intake items in non-terminal states:
 - `validated_warning` — validation found issues, operator review required
 - `deferred` — intentionally parked by operator
 
-Operators interact with Active Queue to:
-
-- Validate items
-- Defer items for later
-- Reject items as noise
-- Group items into working groups or publish directly to catalog
+Primary operator flow is expected to resolve most decisions in wizard Validate + Commit steps.
 
 **Active Queue is transient** — items exit when they reach a terminal state (grouped, published, rejected).
 
-### Job History (Audit Log)
+### Job History (Primary Visible Outcome Surface)
 
-Job History is the immutable audit record of completed intake workflows.
+Job History is the immutable audit record of completed intake workflows and is the primary post-execution intake surface.
 
 Job History contains intake items in terminal states:
 
@@ -195,8 +171,8 @@ Operators interact with Job History to:
 - View details of completed workflows
 - Review which group/model was created
 - Audit trail (who did what, when)
-- Delete log row (soft archive or hard delete) to clean history
-- **Admin Reopen** (with confirmation) to return item to Active Queue if needed
+- Delete log row (subject to implementation constraints)
+- inspect outcomes regardless of whether run direct from wizard or through queued/background execution
 
 **Job History is durable** — items are kept for audit and can only be deleted by explicit operator action with confirmation.
 
@@ -216,24 +192,21 @@ From the operator's perspective:
 
 | State | What it means | Available Actions | Typical Intent |
 |---|---|---|---|
-| `submitted` | Item in Active Queue, awaiting triage | Validate, Defer, Reject | New file arrived, needs initial review |
-| `validated_ready` | Item in Active Queue, passed validation cleanly | Validate, Group New, Group Existing, Publish Catalog, Defer, Reject | Item is clean and ready for operator decision |
-| `validated_warning` | Item in Active Queue, validation found issues | Validate (recheck), Group New (override), Group Existing (override), Defer, Reject | Stop and resolve issues before proceeding |
-| `deferred` | Item in Active Queue, intentionally parked | Validate (recheck), Reject | Keep visible but don't commit yet |
+| `submitted` | Item in queue lifecycle before terminal outcome | Validate (system/fallback path) | Non-primary path |
+| `validated_ready` | Validation succeeded | Commit eligible | Primary wizard should commit from this state |
+| `validated_warning` | Validation found issues | Correct, revalidate, or override if allowed | Primary wizard handles this before commit |
+| `deferred` | Parked item (if used) | Optional backend/admin path | Not required in primary UX |
 | `grouped_new` | Item in Job History, created new working group | View Details, Delete Log Row, Admin Reopen | Workflow complete; new group created |
 | `grouped_existing` | Item in Job History, attached to existing group | View Details, Delete Log Row, Admin Reopen | Workflow complete; files added to group |
 | `published_to_catalog` | Item in Job History, published to curated catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
 | `rejected` | Item in Job History, rejected as noise/invalid | View Details, Delete Log Row, Admin Reopen | Workflow complete; intentionally excluded |
 
-### Quick Decision Rules (Active Queue)
+### Quick Decision Rules (Wizard First)
 
-- **Validate** when you want to check or re-check file readiness and duplicate status.
-- **Group New** when the item represents a new piece of work (start a new working group).
-- **Group Existing** when the item belongs to work already in progress (attach to an existing working group).
-- **Publish Catalog** (when available) to skip working and publish directly to curated catalog.
-- **Defer** when the right answer is not clear yet but the item should stay visible in Active Queue.
-- **Reject** when the item is noise, unsupported, accidental duplication, or intentionally excluded.
-- **Treat `validated_warning` as a decision point**, not as a green-light state. Review the warnings before proceeding with group or publish.
+- **Organize** to define grouping and destination per logical model.
+- **Validate before commit** and resolve blocking issues.
+- **Use override only with explicit operator confirmation** for warning states.
+- **Commit only after intended destination plan is fully validated.**
 
 ### Quick Decision Rules (Job History)
 
@@ -241,7 +214,7 @@ From the operator's perspective:
 - **Delete Log Row** to clean up completed items from the audit log (soft archive or hard delete).
 - **Admin Reopen** (admin users only) if the action was wrong and needs to be redone; requires confirmation.
 
-## Wizard Step-by-Step Behavior
+## Wizard Step-by-Step Behavior (Canonical)
 
 ### Step 1: Choose Source Mode
 - **Browser Upload**: Files selected and uploaded directly from the operator's computer
@@ -249,58 +222,32 @@ From the operator's perspective:
 
 Choose **one mode** for the entire batch (not a mix).
 
-### Step 2: Select Files and Folders, Configure Traversal
+### Step 2: Organize
 
-- **Individual Files**: Click to select. Each adds one file to the batch.
-- **Folders**: Click folder to add. Configure:
-  - `recurse`: Whether to include subfolders (default: yes)
-  - `grouping_strategy`: How to organize files when expanding (see below)
+Organize step applies to both browser and server sources.
 
-**Mixed Selections**: You can select individual files AND folders in one batch. All go into a single intake item.
+For each logical model:
 
-**Grouping Strategy** (per-folder configuration):
+- set grouping strategy
+- set destination
+    - Working (new or existing)
+    - Curated (new or existing)
+- set title behavior and structure-preservation settings
 
-- `none` — don't pre-group; operator will decide grouping later
-- `by-folder` — group expanded files by their source folder structure
-- `by-root` — group expanded files by the root selected folder
-- `flat` — put all expanded files into a single group
+### Step 3: Validate (Before Commit)
 
-### Step 3: Review Batch, Confirm Cleanup Policy
+Validation runs before commit and returns:
 
-Before queuing or executing, you see a preview:
+- blocking issues
+- warning issues that may be override-eligible
+- informational notices
 
-- **Source Path**: Browser Upload or Server path(s)
-- **Selected Entries**: Number of files and folders you selected
-- **Expanded File Count** (preview): How many actual files will be imported if folders are expanded
-- **Grouping Summary**: What will happen when files are grouped (e.g., "by-folder: 3 groups")
-- **Warnings**: Any unsupported files, missing files, or duplicates detected
-- **Cleanup Policy**: What happens to source files after import (keep, delete_on_verified, replace_with_stub)
+Operator must resolve blockers before commit.
 
-**Expand preview** to see exactly which files will be imported and any warnings.
+### Step 4: Commit
 
-### Step 4 (Final): Choose Commit Mode
-
-- **Queue for Review**: Item enters Active Queue as `submitted` (or auto-validated to `validated_ready`). You review and decide what to do next.
-- **Execute Now**: Item bypasses Active Queue and goes directly to the final action you choose:
-  - Group New (create working group)
-  - Group Existing (attach to working group)
-  - Publish Catalog (direct publish)
-
-If **Execute Now** is blocked (e.g., due to validation warnings), you are informed and fallback to Queue for Review.
-
-## Wizard Final Step: Execute Now vs Queue for Review
-
-### Execute Now
-- **Best for**: Power users who know exactly what they want to do
-- **Requires**: Clean validation (no warnings) or explicit override
-- **Action**: Immediate grouping or publish, item goes to Job History
-- **Result**: Skip Active Queue entirely, workflow complete in seconds
-
-### Queue for Review
-- **Best for**: Normal operation, careful decisions
-- **Process**: Item enters Active Queue, you review and decide later
-- **Flexibility**: Can defer, defer and come back, change your mind
-- **Result**: Item stays in Active Queue until you take action
+- Commit executes the validated plan.
+- Outcome is recorded in Job History for all execution paths.
 
 
 
@@ -312,7 +259,7 @@ The design docs and the current code are close, but not identical.
 
 - Intake items are stored in `intake_queue_uploads`.
 - Inbox review uses `inbox_state` and `decision_note`.
-- The HA card now exposes Validate, Publish Curated, Send To Working Files, Attach Existing Group, Defer, and Reject at the item level.
+- Current code still contains inbox-oriented actions and queue endpoints that are being demoted from primary UX.
 - Grouping hands files into `working_groups` and `working_items`.
 
 ### Important Gaps Between Spec And Current Behavior
@@ -326,42 +273,23 @@ flowchart LR
     A4[invalid transitions should be rejected] --> B4[Defer and reject endpoints currently set inbox_state directly]
 ```
 
-The most important practical consequence is this:
+The key direction is to bring these controls into wizard Validate + Commit so the inbox card is no longer required for normal intake completion.
 
-- The intended model is a guarded state machine.
-- The current implementation behaves more like a review queue with state labels and soft conventions.
+## Transitional Flow Note
 
-That means operators can currently think of `validated_warning` as "proceed carefully" rather than "hard stop unless an override contract is supplied."
+Until implementation catches up, system behavior may still show queue-centric transitions.
 
-## Actual Current Flow
-
-This is the best current "how it behaves today" picture.
+This doc defines the target canonical flow for upcoming implementation work.
 
 ```mermaid
 flowchart TD
-    A[Submit intake item] --> B{auto_validate?}
-    B -->|yes, default| C[Immediate validation]
-    B -->|no| D[Submitted]
-
-    C -->|ready| E[Validated Ready]
-    C -->|duplicate or missing or unsupported or unresolved| F[Validated Warning]
-
-    D -->|Validate later| C
-    D -->|Defer| G[Deferred]
-    D -->|Reject| H[Rejected]
-
-    E -->|Create Group| I[Grouped New]
-    E -->|Attach Existing| J[Grouped Existing]
-    E -->|Defer| G
-    E -->|Reject| H
-
-    F -->|Validate again| C
-    F -->|Create Group anyway if files resolve| I
-    F -->|Attach Existing anyway if files resolve| J
-    F -->|Defer| G
-    F -->|Reject| H
-
-    G -->|Validate later| C
+    A[Wizard Source + Organize] --> B[Validate]
+    B -->|blockers| C[Fix and revalidate]
+    C --> B
+    B -->|ready or override-accepted| D[Commit]
+    D --> E[Direct or queued execution]
+    E --> F[Terminal result recorded]
+    F --> G[Job History]
 ```
 
 ## Recommended Reading Order

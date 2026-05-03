@@ -1,39 +1,32 @@
-# Model Catalog Intake Inbox Design
+# Model Catalog Intake Wizard and Queue Design
 
-> **Status**: Design proposal.
+> **Status**: Canonical design baseline.
 > **Created**: 2026-04-25
-> **Scope**: Fast intake of local model files into a reviewable queue before Working-group creation or curated publication.
+> **Last updated**: 2026-05-03
+> **Scope**: Wizard-first intake flow, queue demoted to background/staging, Job History as the visible intake outcome surface.
 
 ## Purpose
 
-Issue #1124 adds an operator need that is adjacent to, but not identical with, bulk folder discovery:
+Define the primary intake workflow as a guided wizard that can complete most imports end-to-end without opening a separate inbox review UI.
 
-- quickly send one file or a small batch from the filesystem into Model Catalog handling
-- validate what was received
-- hold those items in a queue while metadata is reviewed
-- mark them as an "Inbox" item until they are classified
+This design keeps queue persistence and queue APIs for safety and compatibility, but demotes inbox review from a primary operator surface.
 
-For a visual walkthrough of the Intake -> Inbox -> Working-group path, plus a state/action cheat sheet, see [import-flow-diagrams.md](c:\dev\hass-bambulab-config\docs\features\model_catalog\import-flow-diagrams.md).
+For flow and state details, also see:
 
-This should be incorporated into the existing Model Catalog design without collapsing the Working and curated boundaries.
+- [import-flow-diagrams.md](import-flow-diagrams.md)
+- [intake-state-machine.md](intake-state-machine.md)
 
-## Design Position
+## Canonical Design Position
 
-The intake flow should **not** default to immediate direct Manyfold publication.
+The wizard is the default and canonical intake experience.
 
-Instead:
+1. Source selection happens in wizard step 1.
+2. Logical model planning and destination decisions happen in wizard step 2 (Organize).
+3. Validation happens in wizard step 3 (before commit).
+4. Commit happens in wizard step 4.
+5. Job History is the primary post-commit visibility surface for all completed intake jobs.
 
-1. files enter a **sidecar-owned Intake Inbox**
-2. operator reviews and classifies them
-3. accepted items are queued for controlled upload into Manyfold-managed storage
-4. accepted items become Working groups or are attached to an existing Working group with Manyfold references persisted
-5. optional source cleanup runs only after verified upload
-
-Reason:
-
-- Manyfold is the curated catalog authority, while the sidecar queue is transient staging
-- the operator asked for validation, queueing, and metadata setup before curation
-- the existing Working-group design already provides the right pre-curated lifecycle boundary
+Queue persistence remains in the system as a staging and compatibility layer, but inbox review is demoted for now.
 
 ### Upload And Source Modes
 
@@ -47,15 +40,56 @@ Support both intake source modes under one queue contract, but keep each queued 
 
 Both modes still converge on the same queue state machine and review/import UX.
 
-### Intake Surface Direction
+## Wizard Information Architecture (Canonical)
 
-Issue #1171 shifts the HA intake surface toward a wizard-style layout:
+### Step 1: Source
 
-1. Choose the source mode for this batch.
-2. Select files or folders and configure folder-specific options inline.
-3. Choose the cleanup policy for this batch and queue the batch into Inbox.
+- Choose source mode: Browser upload or Server browse.
+- Select files and/or folders.
+- Configure folder traversal (`recurse`) where relevant.
 
-This keeps the operator focused on one intake path at a time, prevents hidden hybrid selections, and makes the queue handoff explicit.
+### Step 2: Organize
+
+Step 2 is required for both Browser and Server source modes.
+
+For each detected logical model, operator sets:
+
+- grouping strategy (`none`, `by-folder`, `by-root`, `flat`)
+- folder structure preservation (`preserve` or `flatten`)
+- title basis and optional custom title
+- destination strategy:
+  - Working Files -> Create New Group
+  - Working Files -> Attach Existing Group
+  - Curated Catalog -> Create New Model
+  - Curated Catalog -> Attach To Existing Model
+
+This replaces the old server-only preview concept and becomes the shared planning step for both source modes.
+
+### Step 3: Validate (Pre-Commit)
+
+Validation runs before commit and is destination-aware.
+
+Validation output includes:
+
+- resolvability/readability checks
+- supported type checks
+- duplicate and collision checks
+- destination-specific conflicts (for Working vs Curated targets)
+- warning and blocking issue classification
+
+Operator actions in this step:
+
+- fix selections or organize settings and re-run validation
+- accept explicit overrides where policy allows
+- continue only when validation result is acceptable
+
+This step is the primary place for correction and override, not the inbox card.
+
+### Step 4: Commit
+
+- Execute the validated plan.
+- If execution succeeds, record terminal outcome in Job History.
+- If execution is partial or fails, persist queue/event details for retry and diagnostics.
 
 ### Source Metadata Capture
 
@@ -84,9 +118,17 @@ Suggested folder fields:
 
 - `recurse` boolean (default false for targeted selection)
 
-## Core Concept: Intake Inbox Item
+## Core Concept: Intake Job Record
 
-Add a sidecar-owned `intake_inbox_item` concept for pre-Working intake.
+Treat each wizard execution as an intake job with persisted lifecycle metadata.
+
+Job records must be queryable in Job History regardless of execution path:
+
+- wizard direct execution
+- background/queued execution
+- compatibility paths that still route through queue endpoints
+
+Suggested fields remain aligned to queue/upload persistence tables and should include terminal linkage metadata.
 
 Suggested fields:
 
@@ -130,14 +172,14 @@ Selection semantics should be consistent across entry points:
 
 ## Validation Expectations
 
-Intake validation should stay lightweight and fast:
+Validation should remain fast, but must now evaluate destination intent from Organize step:
 
 - file exists and is readable
 - extension/type is supported
 - hash can be computed
-- likely duplicate can be detected against Intake Inbox and Working groups
+- likely duplicate can be detected against queued jobs, Working groups, and curated records when destination is curated
 - basic 3MF/STL metadata can be sampled when cheap
-- upload verification can compare source hash/size against Manyfold file metadata before cleanup actions
+- upload verification can compare source hash/size against resulting destination assets before cleanup actions
 
 Validation should produce operator-facing outcomes such as:
 
@@ -147,26 +189,27 @@ Validation should produce operator-facing outcomes such as:
 - `missing_source`
 - `needs_manual_grouping`
 
-## Inbox Semantics
+Validation response model should separate:
 
-"Inbox" is a sidecar-owned staging state, not a Manyfold tag.
+- blocking issues (must fix)
+- review-required warnings (can override)
+- informational notices
 
-Use it for:
+## Queue and Inbox Semantics (Demoted)
 
-- newly received items not yet classified
-- models awaiting metadata review
-- items needing grouping decisions
+Queue remains a system primitive for:
 
-This avoids pushing unstable staging semantics into Manyfold tags too early.
+- staging and resilient execution
+- transport compatibility (browser/server ingestion)
+- retry and operational diagnostics
 
-After triage, the operator can:
+Inbox review UI is demoted for now and is not part of the primary operator loop.
 
-- publish directly into the curated local catalog authority under `/assets/Model Catalog`
-- move the item into `/assets/Model Working Files` by creating a Working group and reorganizing files into the working-files structure
-- attach to an existing Working group when the item belongs to work already in progress
-- keep in Inbox for later review
-- reject as duplicate/noise
-- apply `keep` (default), `delete_on_verified`, or `replace_with_stub` cleanup semantics to determine whether the source remains after verified handoff
+Implications:
+
+- defer/reject are no longer required in primary wizard UX
+- batch triage beyond what wizard already supports is out of current scope
+- queue actions remain available as backend/admin capabilities if needed
 
 ## Post-Upload Source Cleanup (Optional)
 
@@ -191,35 +234,32 @@ Phase 1.5 should be broadened from only bulk discovery/import to:
 
 That keeps issue #1124 in the same implementation slice as bulk import instead of creating a second overlapping pre-curation phase.
 
-## HA Surface Expectations
+## HA Surface Expectations (Current Direction)
 
 The HA/operator surface should support:
 
-- inbox list with status chips
-- review of validation results
-- quick rename and note entry
-- explicit destination actions for curated local publish versus Working Files handoff
-- attach to existing Working group
-- defer/keep in Inbox
-- reject duplicate/noise
+- Wizard as the primary intake entry point
+- explicit Validate step before commit
+- explicit Organize step for logical-model destinations
+- Job History as the visible outcome surface
 
-## Non-Goals
+For now, do not require a primary Inbox review card for routine operation.
 
-This design does not change these baseline decisions:
+## Non-Goals (Current Direction)
 
-- Manyfold is still the curated catalog authority
-- Working groups remain the normal path for unstable or in-progress files
-- immediate bypass of queue/review into Manyfold is not the default acquisition path
+- Reintroducing inbox-first operator workflow as default
+- Requiring defer/reject actions in wizard v1 of this redesign
+- Adding separate queue batch-triage UX outside wizard for this iteration
 
 ## Recommended Phase Assignment
 
-This featureset belongs in:
+This featureset remains in current Phase 5 intake scope:
 
-- **Phase 1.5: Intake Inbox, Bulk Discovery & Import**
+- wizard-first intake completion
+- organize + validate-before-commit behavior
+- queue demotion and Job History-first visibility
 
-It is a pre-curation intake concern and should be implemented before archive linkage, browse ranking, or publish-time lineage work.
-
-## Grouping Strategies & Folder Structure Preservation (Phase 1.5.1)
+## Grouping Strategies and Folder Structure Preservation
 
 When importing hierarchical folders, the intake workflow supports **multi-model decomposition** and **folder structure preservation**:
 
@@ -259,7 +299,7 @@ models/
 
 **Strategy**: `by-folder`, **Preserve**: `true`
 
-**Result**: 4 working groups, each with hierarchical storage
+**Result**: logical-model decomposition is visible in Organize step, with destination chosen per logical model and folder behavior preserved as configured.
 
 ```
 gridfinity/

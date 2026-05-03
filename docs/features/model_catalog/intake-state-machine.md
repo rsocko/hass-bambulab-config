@@ -1,13 +1,13 @@
 # Intake Flow States And Transitions
 
-> Status: Wave 1 specification
+> Status: Canonical state machine with wizard-first UX direction
 > Issue: #1079
-> Last updated: 2026-04-30
+> Last updated: 2026-05-03
 > Scope: Canonical state machine for Phase 5 intake-to-working workflow.
 
 ## Purpose
 
-Define the state model that governs intake items from submission through triage and conversion to working groups. This contract is used by sidecar API endpoints, queue processing, and HA operator surfaces.
+Define the state model that governs intake items from submission through validation and conversion to Working/Curated outcomes. This contract is used by sidecar API endpoints, queue processing, and HA operator surfaces.
 
 For a visual walkthrough of the same flow, plus a state/action cheat sheet and a separate current-implementation flow, see [import-flow-diagrams.md](c:\dev\hass-bambulab-config\docs\features\model_catalog\import-flow-diagrams.md).
 
@@ -18,9 +18,9 @@ This state machine covers intake and working handoff only.
 Included:
 
 - intake submission
-- validation and dedupe review
-- defer/reject decisions
-- conversion into new or existing working groups
+- pre-commit validation and dedupe review
+- conversion into new or existing Working/Curated targets
+- terminal outcome recording in Job History
 
 Excluded (later phases):
 
@@ -28,19 +28,19 @@ Excluded (later phases):
 - lineage/supersession decisions
 - publish-time preview promotion
 
-## Lifecycle Overview: Active Queue vs Job History
+## Lifecycle Overview: Queue Lifecycle vs Job History
 
 Intake items progress through two distinct phases:
 
-### Active Queue
-Items in Active Queue are **works in progress** where the operator is still making decisions.
+### Queue Lifecycle (System Layer)
+Queue states remain part of the system lifecycle and compatibility layer.
+
+Inbox review is demoted from the primary operator path for now.
 
 - `submitted` — item just arrived, not yet validated
 - `validated_ready` — passed validation cleanly, ready for operator action
 - `validated_warning` — passed validation with caveats, operator decision required
-- `deferred` — intentionally parked by operator, still visible for later action
-
-Operators can validate, group, defer, or reject items in Active Queue.
+- `deferred` — optional parked state (non-primary UX)
 
 ### Terminal States (Job History)
 Items in Job History are **complete workflows** where a terminal action has been taken.
@@ -50,7 +50,7 @@ Items in Job History are **complete workflows** where a terminal action has been
 - `published_to_catalog` — item published directly to local curated catalog (terminal, bypass working)
 - `rejected` — operator rejected as noise/invalid (terminal, discarded)
 
-After an item reaches a terminal state, the intake workflow is **complete for that item**. The item may be viewed or inspected, but **normal grouping/publish actions are no longer available**. Operators must use explicit admin override to reopen a terminal item.
+After an item reaches a terminal state, the intake workflow is **complete for that item**. Terminal records should be visible in Job History regardless of whether the execution was direct from wizard or processed through queued/background path.
 
 ### Primary States
 
@@ -133,26 +133,26 @@ Mapping:
 
 ## Transition Table
 
-### Active Queue Transitions (Before Terminal State)
+### Queue Transitions (Before Terminal State)
 
 | From | Event | To | Notes |
 |---|---|---|---|
 | `submitted` | `validate` success/no warnings | `validated_ready` | Automatic when `auto_validate=true` |
 | `submitted` | `validate` success/with warnings | `validated_warning` | Warning payload required |
-| `submitted` | `defer` | `deferred` | Operator parks for later |
-| `submitted` | `reject` | `rejected` | **→ TERMINAL** |
+| `submitted` | `defer` | `deferred` | Optional backend/admin path |
+| `submitted` | `reject` | `rejected` | Optional backend/admin path |
 | `validated_ready` | `group:create_new` | `grouped_new` | **→ TERMINAL** Creates working group |
 | `validated_ready` | `group:attach_existing` | `grouped_existing` | **→ TERMINAL** Attaches to existing group |
 | `validated_ready` | `publish_to_catalog` | `published_to_catalog` | **→ TERMINAL** Direct publish bypass working |
-| `validated_ready` | `defer` | `deferred` | Operator parks for later |
-| `validated_ready` | `reject` | `rejected` | **→ TERMINAL** |
+| `validated_ready` | `defer` | `deferred` | Optional backend/admin path |
+| `validated_ready` | `reject` | `rejected` | Optional backend/admin path |
 | `validated_warning` | `validate_override` (revalidate) | `validated_ready` | Clears warnings after review |
 | `validated_warning` | `group:create_new` override | `grouped_new` | **→ TERMINAL** Requires explicit override flag |
 | `validated_warning` | `group:attach_existing` override | `grouped_existing` | **→ TERMINAL** Requires explicit override flag |
-| `validated_warning` | `defer` | `deferred` | Operator parks for later |
-| `validated_warning` | `reject` | `rejected` | **→ TERMINAL** |
+| `validated_warning` | `defer` | `deferred` | Optional backend/admin path |
+| `validated_warning` | `reject` | `rejected` | Optional backend/admin path |
 | `deferred` | `revalidate` | `validated_ready` or `validated_warning` | Returns to validation |
-| `deferred` | `reject` | `rejected` | **→ TERMINAL** Discard deferred item |
+| `deferred` | `reject` | `rejected` | Optional backend/admin path |
 
 ### Terminal State Recovery (Admin Override Only)
 
@@ -219,6 +219,12 @@ This table defines which operations are legal in each state and what the API sho
 | `grouped_existing` | ✗ terminal | ✗ terminal | ✗ terminal | ✗ terminal | N/A | N/A | ✓ admin only | ✓ allowed |
 | `published_to_catalog` | ✗ terminal | ✗ terminal | ✗ terminal | ✗ terminal | N/A | N/A | ✓ admin only | ✓ allowed |
 | `rejected` | ✗ terminal | ✗ terminal | ✗ terminal | ✗ terminal | N/A | N/A | ✓ admin only | ✓ allowed |
+
+Wizard-first UX policy:
+
+- The primary operator flow should use Validate before Commit in wizard.
+- Defer/Reject are not required actions in primary wizard UX for this iteration.
+- Defer/Reject may remain available in backend/admin tooling and compatibility surfaces.
 
 ### Action Eligibility Rules
 
@@ -293,10 +299,21 @@ Error codes returned by API:
 
 ## Operator UX Requirements
 
-HA/UI surfaces must distinguish between **Active Queue** and **Job History** surfaces:
+HA/UI surfaces must distinguish between queue lifecycle data and Job History, while using wizard as the primary intake path.
 
-### Active Queue Surface
-Shows items that operators can still take action on (states: `submitted`, `validated_ready`, `validated_warning`, `deferred`).
+### Wizard Surface (Primary)
+
+Wizard must provide:
+
+- Source step
+- Organize step (for both browser and server modes)
+- Validate step before commit
+- Commit step
+- destination-aware issue correction and override handling
+
+### Queue Surface (Demoted)
+
+Queue/inbox review UI is optional or hidden for routine operation in this phase.
 
 UX requirements for Active Queue:
 
@@ -308,7 +325,7 @@ UX requirements for Active Queue:
 - Show batch action support with eligibility precheck (e.g., "2 of 5 items eligible for group action")
 - Support inline defer/reject with optional operator notes
 
-### Job History Surface
+### Job History Surface (Primary Post-Execution)
 Shows items that have reached terminal states and are no longer active work (`grouped_new`, `grouped_existing`, `published_to_catalog`, `rejected`).
 
 UX requirements for Job History:
@@ -318,13 +335,13 @@ UX requirements for Job History:
 - Display immutable terminal state; no workflow action buttons
 - Provide "View Details" link to resulting entity or result metadata
 - Provide "Delete Log Row" button for operators to archive item (soft or hard delete)
-- Provide "Admin Reopen" button **only if** `admin_role` is true (requires confirmation dialog)
+- Provide terminal records for wizard-direct and queue-processed executions in one unified history list
 - Show terminal completion timestamp
 - Show actor (who performed terminal action) if available
 
 ### Action Availability by State (Eligibility Matrix)
 
-Active Queue Actions:
+Queue/Compatibility Actions:
 
 - `submitted`: Validate | Defer | Reject | Delete
 - `validated_ready`: Validate | Group New | Group Existing | Publish Catalog | Defer | Reject | Delete
@@ -344,6 +361,8 @@ Job History Actions:
 - transition rules and invalid transition behavior are explicit
 - required metadata by state is explicit
 - sidecar/API and HA/UI behavior expectations are explicit
+- wizard-first validation-before-commit requirement is explicit
+- Job History as unified outcome surface is explicit
 
 ## Related Docs
 
