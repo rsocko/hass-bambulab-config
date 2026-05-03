@@ -109,7 +109,64 @@ See **Deployment** section below for detailed options.
 
 ## CLI Commands
 
-The sidecar includes a Click CLI for maintenance operations. Run these from the host via `docker exec` or directly inside the container:
+The repository includes a Click CLI for maintenance operations, but the current deployed container image only copies `/app/app` and does not include the `sidecars.model_catalog` CLI package. Use the host-side `docker exec` Python snippet below with the current image. The `python -m sidecars.model_catalog ...` commands remain valid only after rebuilding the image to include the CLI package.
+
+Current deployed image reset command:
+
+```bash
+docker exec -i model-catalog python - <<'PY'
+import os
+import shutil
+import sqlite3
+from pathlib import Path
+
+tables = [
+	"model_catalog_assets",
+	"model_catalog_custom_fields",
+	"intake_queue_uploads",
+	"working_items",
+	"working_groups",
+	"model_catalog_events",
+	"model_catalog_links",
+	"model_catalog_model_ranking",
+	"manyfold_model_summary_cache",
+	"model_catalog_entries",
+]
+
+db_path = Path(os.getenv("MODEL_CATALOG_DB_PATH", "/data/model_catalog.db"))
+curated_root = Path(os.getenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", "/assets/Model Catalog"))
+working_root = Path(os.getenv("MODEL_CATALOG_WORKING_FILES_ROOT", "/assets/Model Working Files"))
+inbox_root = Path((os.getenv("MODEL_CATALOG_INTAKE_ROOTS", "/assets/Model Inbox").split(",")[0]).strip())
+
+if db_path.exists():
+	conn = sqlite3.connect(db_path)
+	try:
+		conn.execute("PRAGMA foreign_keys=ON")
+		for table in tables:
+			exists = conn.execute(
+				"SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+				(table,),
+			).fetchone()
+			if not exists:
+				continue
+			conn.execute(f"DELETE FROM {table}")
+		conn.commit()
+		conn.execute("VACUUM")
+	finally:
+		conn.close()
+
+for root in [curated_root, working_root, inbox_root]:
+	if not root.exists():
+		continue
+	for child in root.iterdir():
+		if child.is_dir():
+			shutil.rmtree(child)
+		else:
+			child.unlink()
+PY
+```
+
+After rebuilding the image to include the CLI package, these commands work:
 
 ```bash
 # Show available commands
@@ -127,6 +184,8 @@ docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --e
 # Advanced granular cleanup (specific tables/zones)
 docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db --tables model_catalog_entries
 ```
+
+Until that rebuild happens, do not use the `python -m sidecars.model_catalog ...` examples against the running `model-catalog` container.
 
 See [MAINTENANCE-CLEANUP-AND-RESET.md](../../docs/features/model_catalog/MAINTENANCE-CLEANUP-AND-RESET.md) for complete documentation.
 

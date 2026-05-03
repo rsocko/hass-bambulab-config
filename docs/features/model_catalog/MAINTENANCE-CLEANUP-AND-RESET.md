@@ -7,38 +7,101 @@
 
 ## Overview
 
-The cleanup utilities are integrated into the Model Catalog sidecar as a Click CLI command group. All operations default to **dry-run mode** and require explicit confirmation or `--execute` flag to apply changes.
+The repository includes cleanup utilities for the Model Catalog sidecar, but the currently deployed container image only copies `/app/app` and does **not** include the `sidecars.model_catalog` CLI package. That means documented commands like `python -m sidecars.model_catalog cleanup ...` will fail inside the running container until the image packaging is updated.
 
-**Three layers**:
-- **Sidecar CLI** (primary): `python -m sidecars.model_catalog cleanup` — runs inside the container or from host via `docker exec`
-- **Standalone scripts** (legacy): Still in `tools/model_catalog/` for reference, but the sidecar CLI is preferred
+For the current deployed image, the reliable host-side reset path is a `docker exec` Python snippet that runs directly inside the container against the configured DB and asset roots.
+
+**Available layers**:
+- **Host via `docker exec` Python snippet** (works with the current deployed image)
+- **Sidecar CLI** (`python -m sidecars.model_catalog cleanup`) only after the image is rebuilt to include the CLI package
+- **Standalone scripts** (legacy): Still in `tools/model_catalog/` for reference
 - **Preset wrapper** (legacy): `tools/model_catalog/reset_model_catalog.py` for standalone use
 
 ---
 
 ## Quick Start
 
-### Using Sidecar CLI (Recommended)
+### Using Host-Side `docker exec` (Current Deployed Image)
 
-From host via `docker exec`:
+From the host, run this to clear the database plus Catalog, Working Files, and Inbox contents while preserving the root folders themselves:
 ```bash
-# Dry-run: see what would be reset (DB + files)
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all
+docker exec -i model-catalog python - <<'PY'
+import os
+import shutil
+import sqlite3
+from pathlib import Path
 
-# Execute with confirmations
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
+tables = [
+  "model_catalog_assets",
+  "model_catalog_custom_fields",
+  "intake_queue_uploads",
+  "working_items",
+  "working_groups",
+  "model_catalog_events",
+  "model_catalog_links",
+  "model_catalog_model_ranking",
+  "manyfold_model_summary_cache",
+  "model_catalog_entries",
+]
+
+db_path = Path(os.getenv("MODEL_CATALOG_DB_PATH", "/data/model_catalog.db"))
+curated_root = Path(os.getenv("MODEL_CATALOG_CURATED_ASSETS_ROOT", "/assets/Model Catalog"))
+working_root = Path(os.getenv("MODEL_CATALOG_WORKING_FILES_ROOT", "/assets/Model Working Files"))
+inbox_root = Path((os.getenv("MODEL_CATALOG_INTAKE_ROOTS", "/assets/Model Inbox").split(",")[0]).strip())
+
+print(f"Cleaning database: {db_path}")
+if db_path.exists():
+  conn = sqlite3.connect(db_path)
+  try:
+    conn.execute("PRAGMA foreign_keys=ON")
+    for table in tables:
+      exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table,),
+      ).fetchone()
+      if not exists:
+        print(f"  skip missing table: {table}")
+        continue
+      deleted = conn.execute(f"DELETE FROM {table}").rowcount
+      print(f"  deleted {deleted} rows from {table}")
+    conn.commit()
+    conn.execute("VACUUM")
+    print("  VACUUM complete")
+  finally:
+    conn.close()
+else:
+  print("  database file not found, skipping")
+
+for label, root in [
+  ("curated", curated_root),
+  ("working", working_root),
+  ("inbox", inbox_root),
+]:
+  print(f"Cleaning {label} root: {root}")
+  if not root.exists():
+    print("  root not found, skipping")
+    continue
+  files_deleted = 0
+  dirs_deleted = 0
+  for child in root.iterdir():
+    if child.is_dir():
+      shutil.rmtree(child)
+      dirs_deleted += 1
+    else:
+      child.unlink()
+      files_deleted += 1
+  print(f"  deleted {files_deleted} files and {dirs_deleted} folders")
+
+print("Model catalog cleanup complete.")
+PY
 ```
 
-Or inside the container:
+### Using Sidecar CLI (Only After Rebuilding the Image)
+
+These commands are correct for the repository layout, but they will not work in the currently deployed image until the CLI package is copied into the container image:
 ```bash
-# Dry-run
-python -m sidecars.model_catalog cleanup reset-all
-
-# Execute with confirmations
-python -m sidecars.model_catalog cleanup reset-all --execute
-
-# Non-interactive (automation)
-python -m sidecars.model_catalog cleanup reset-all --execute --yes
+docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all
+docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
 ```
 
 ### Using Standalone Scripts (Legacy)
@@ -62,14 +125,12 @@ Clears all model catalog database tables only. Preserves filesystem zones.
 - Corrupted database state
 - Want to keep files but reset metadata
 
-**Command**:
+**Current deployed image**:
+Use the host-side Python snippet above and remove the filesystem cleanup block if you want DB-only behavior.
+
+**After image rebuild with CLI package included**:
 ```bash
 docker exec model-catalog python -m sidecars.model_catalog cleanup reset-db --execute
-```
-
-**Local (inside container)**:
-```bash
-python -m sidecars.model_catalog cleanup reset-db --execute
 ```
 
 **What gets cleared**:
@@ -96,7 +157,10 @@ Clears database **and** filesystem zones (curated, working, inbox). Zone root fo
 - Reset from corrupted or test state before running full test suite
 - Verify catalog behavior from empty state
 
-**Command**:
+**Current deployed image**:
+Use the host-side Python snippet above.
+
+**After image rebuild with CLI package included**:
 ```bash
 docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
 ```
@@ -113,11 +177,7 @@ docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --e
 - Database schema (columns and indexes remain)
 
 **Selective zones**:
-```bash
-# Reset DB + only curated and inbox zones (keep working files)
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all \
-  --file-zones curated inbox --execute
-```
+The current host-side snippet is intentionally the full reset path. For selective-zone cleanup today, use the legacy standalone script from the repo checkout or rebuild the image with the CLI package included.
 
 ### cleanup cleanup
 
@@ -129,24 +189,7 @@ Advanced granular cleanup with scope, table, and zone selection.
 - Testing partial cleanup scenarios
 
 **Command**:
-```bash
-# Dry-run: show what would be deleted from specific tables
-docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup \
-  --scope db \
-  --tables model_catalog_entries model_catalog_assets
-
-# Execute: delete only working files zone
-docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup \
-  --scope files \
-  --file-zones working \
-  --execute
-
-# Full cleanup with DB compaction
-docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup \
-  --scope both \
-  --execute \
-  --vacuum
-```
+This granular CLI is available in the repository source, but not in the currently deployed image. Use it after rebuilding the image to include the CLI package, or run the legacy standalone script from a repo checkout.
 
 **Scope options**:
 
@@ -170,7 +213,7 @@ docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup \
 
 ## Confirmation Flow
 
-When you run with `--execute` (and without `--yes`), you'll be prompted three times:
+When you run the CLI with `--execute` (and without `--yes`), you'll be prompted three times:
 
 1. **Exact phrase**: Type `DELETE MODEL CATALOG DATA`
 2. **Random token**: Type the generated 6-character token (e.g., `A1B2C3`)
@@ -178,7 +221,9 @@ When you run with `--execute` (and without `--yes`), you'll be prompted three ti
 
 This multi-step confirmation is intentionally verbose to prevent accidental data loss.
 
-**Bypass confirmations** (for CI/automation only):
+**Bypass confirmations**:
+This applies only to the repository CLI after the image is rebuilt to include the CLI package.
+
 ```bash
 docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute --yes
 ```
@@ -203,55 +248,45 @@ You can override these with command-line flags (`--db-path`, `--curated-root`, e
 ### Full Test Reset Before Running Tests
 
 ```bash
-# Dry-run to verify scope
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all
-
-# Execute with confirmations
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
+# Use the host-side Python snippet from Quick Start
 ```
 
 ### Cleanup for CI/Automation
 
 ```bash
-# Non-interactive reset (all zones, DB + files)
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute --yes
+# Current deployed image: run the host-side Python snippet from Quick Start
+# Future rebuilt image: docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute --yes
 ```
 
 ### Database Corruption Recovery
 
 ```bash
-# Dry-run to see what's affected
-docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db
-
-# Reset DB only, preserve files and timestamps
-docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db --execute
+# Current deployed image: use the host-side snippet and remove filesystem cleanup
+# Future rebuilt image: docker exec model-catalog python -m sidecars.model_catalog cleanup cleanup --scope db --execute
 ```
 
 ### Compact Database After Large Deletions
 
 ```bash
-# Reclaim disk space from deleted rows
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-db --execute --vacuum
+# The host-side snippet already runs VACUUM.
 ```
 
 ### Keep Working Files, Reset Curated & Inbox
 
 ```bash
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all \
-  --file-zones curated inbox \
-  --execute
+# Current deployed image: not available via the host snippet.
+# Use the legacy standalone script from a repo checkout, or rebuild the image with the CLI package included.
 ```
 
 ---
 
 ## Important Notes
 
-### Sidecar CLI is Primary
+### Current Runtime Limitation
 
-The sidecar CLI (`python -m sidecars.model_catalog cleanup`) is the recommended and preferred way to run cleanup operations. It's:
-- Integrated into the sidecar package
-- Uses the same settings and configuration as the running sidecar
-- Consistent with how the sidecar operates in production
+The repository contains a sidecar CLI, but the current image only copies `/app/app` into the container. As a result, `python -m sidecars.model_catalog ...` is not available in the running container until the image packaging is updated and redeployed.
+
+For now, treat the host-side `docker exec` Python snippet as the production-safe cleanup path.
 
 ### Standalone Scripts (Legacy)
 
@@ -275,7 +310,8 @@ When you clear database tables, the **schema** (tables, indexes, columns) remain
 
 Dry-run mode produces no side effects. Always start with dry-run:
 ```bash
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all
+# Current deployed image: no dry-run helper is bundled in the container.
+# Rebuild the image with the CLI package if you need an in-container dry-run.
 ```
 
 ### Backup Before Destructive Operations
@@ -287,8 +323,7 @@ For production environments, always backup your database and important files bef
 docker exec model-catalog bash -c 'cp /data/model_catalog.db /data/model_catalog.db.backup'
 docker exec model-catalog bash -c 'tar -czf /data/assets-backup.tar.gz /assets/'
 
-# Then run cleanup
-docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
+# Then run the host-side Python snippet from Quick Start
 ```
 
 ---
@@ -321,9 +356,11 @@ Unlikely but can occur if database is corrupted. Try `--vacuum` flag or manually
 docker exec model-catalog sqlite3 /data/model_catalog.db ".tables"
 ```
 
-### Command not found inside container
+### `No module named sidecars` inside container
 
-Ensure the sidecar container has Click installed (it's in `sidecars/model_catalog/requirements.txt`). If running from host via `docker exec`, verify the container is running:
+This is expected with the current deployed image. The image copies `/app/app` but does not copy the `sidecars.model_catalog` package, so `python -m sidecars.model_catalog ...` is unavailable until the image is rebuilt.
+
+For the current image, use the host-side Python snippet from Quick Start. Also verify the container is running:
 
 ```bash
 docker ps | grep model-catalog
@@ -337,7 +374,7 @@ The CLI reads from environment variables set in the sidecar container. Verify by
 docker exec model-catalog env | grep MODEL_CATALOG
 ```
 
-Or pass explicit paths on the command line:
+After rebuilding the image with the CLI package, you can also pass explicit paths on the command line:
 
 ```bash
 docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all \
@@ -359,19 +396,19 @@ The cleanup CLI is implemented as:
 
 ### Running Inside the Container
 
-The sidecar Dockerfile allows running CLI commands after the service starts:
+The repository CLI is designed to run inside the container after the image packaging is updated to include the CLI package.
 
 ```dockerfile
-CMD ["uvicorn", "sidecars.model_catalog.app.main:app", "--host", "0.0.0.0", "--port", "8314"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8314"]
 ```
 
-To run a CLI command, override the CMD:
+After that image rebuild, you can run a CLI command by overriding the CMD:
 
 ```bash
 docker run -it model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
 ```
 
-Or use `docker exec` on a running container:
+Or use `docker exec` on a running container after the rebuild:
 
 ```bash
 docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --execute
