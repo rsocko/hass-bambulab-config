@@ -791,6 +791,347 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     }
 
 
+@router.post("/api/intake/uploads/{upload_id}/publish-to-working")
+def intake_upload_publish_to_working(request: Request, upload_id: str, payload: dict[str, Any] | None = None) -> Any:
+    """
+    Publish a queued or reviewed intake upload into a working group.
+    
+    Transitions from validated_ready → grouped_new (terminal state).
+    Creates a new working group from the intake upload's source entries.
+    """
+    payload = payload or {}
+    state: AppState = request.app.state.model_catalog
+
+    connection = connect(state.settings.db_path)
+    connection.row_factory = __import__("sqlite3").Row
+    try:
+        upload_row = connection.execute(
+            "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if upload_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": "upload_not_found",
+                "message": f"Upload not found: {upload_id}",
+            },
+        )
+
+    # Get current state (prioritize inbox_state for new state machine)
+    current_state = str(upload_row["inbox_state"] or "").strip().lower() or "submitted"
+    current_status = str(upload_row["status"] or "").strip().lower()
+    
+    # Check eligibility: can publish to working from submitted, validated_ready, or deferred states
+    is_eligible, reason_code = ActionEligibility.validate_action_eligibility(current_state, ActionEligibility.GROUP_NEW)
+    if not is_eligible:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": reason_code,
+                "message": f"Cannot group item in state '{current_state}': {reason_code}",
+                "upload_id": upload_id,
+                "current_state": current_state,
+                "allowed_actions": ActionEligibility.build_allowed_actions_payload(current_state).get("allowed_actions", []),
+            },
+        )
+
+    # Also check backward compat with old status field (for transition functions)
+    if current_status != "queued":
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "upload_not_publishable",
+                "message": (
+                    f"Upload is in '{current_status}' state. Only 'queued' uploads can be "
+                    "published to working."
+                ),
+                "upload_id": upload_id,
+            },
+        )
+
+    source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
+    if not isinstance(source_entries, list) or not source_entries:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "upload_has_no_sources",
+                "message": "Upload does not contain any source entries.",
+                "upload_id": upload_id,
+            },
+        )
+
+    expanded_files, expansion_warnings = _expand_intake_source_entries(source_entries=source_entries)
+    if not expanded_files:
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "failed",
+            event_type="working_group_publish_failed",
+            error_message="Upload did not resolve to any readable supported files.",
+        )
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_files_to_publish",
+                "message": "Upload did not resolve to any readable supported files.",
+                "upload_id": upload_id,
+                "warnings": expansion_warnings,
+            },
+        )
+
+    transitioned, transition_error = _transition_queue_status(
+        state.settings.db_path,
+        upload_id,
+        "uploading",
+        event_type="working_group_publish_started",
+        metadata={"source_entry_count": len(source_entries), "file_count": len(expanded_files)},
+    )
+    if not transitioned:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "status_transition_failed",
+                "message": transition_error or "Could not transition upload to uploading.",
+                "upload_id": upload_id,
+            },
+        )
+
+    # Extract requested metadata
+    requested_title = str(payload.get("title") or "").strip()
+    requested_stage = str(payload.get("stage") or "draft").strip() or "draft"
+    requested_notes = str(payload.get("notes") or "").strip()
+
+    # Generate default title from source entries
+    default_title = requested_title or _default_group_title(source_entries, expanded_files) or f"Import from {upload_id}"
+    folder_hint = str(Path(expanded_files[0]["path"]).parent) if expanded_files else None
+
+    # Create working group and add items
+    working_group_id = None
+    added_items = 0
+    duplicate_items = 0
+
+    wg_connection = connect(state.settings.db_path)
+    wg_connection.row_factory = __import__("sqlite3").Row
+    try:
+        now_iso = _bulk_utc_now_iso()
+        
+        # Generate unique slug for the group
+        slug = _default_group_title(source_entries, expanded_files) or f"import-{upload_id[:8]}"
+        slug = _slugify_title(slug) or f"import-{upload_id[:8]}"
+        
+        # Ensure unique slug
+        counter = 0
+        candidate_slug = slug
+        while wg_connection.execute(
+            "SELECT id FROM working_groups WHERE slug = ?", (candidate_slug,)
+        ).fetchone() is not None:
+            counter += 1
+            candidate_slug = f"{slug}-{counter}"
+        
+        # Create working group
+        wg_connection.execute(
+            """
+            INSERT INTO working_groups (
+                slug, title, stage, notes, primary_file_path, folder_hint,
+                related_manyfold_model_id, created_at, updated_at,
+                discovery_source_folder, discovery_strategy, discovery_timestamp, discovery_metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                candidate_slug,
+                default_title,
+                requested_stage,
+                requested_notes or f"Created from intake upload {upload_id}",
+                str(expanded_files[0]["path"]),
+                folder_hint,
+                None,
+                now_iso,
+                now_iso,
+                folder_hint,
+                "intake",
+                now_iso,
+                json.dumps({"source": "intake", "upload_id": upload_id}),
+            ),
+        )
+        working_group_id = int(wg_connection.execute("SELECT last_insert_rowid() AS id").fetchone()[0])
+        
+        # Add all expanded files as working items
+        for index, file_item in enumerate(expanded_files):
+            file_path = str(file_item["path"])
+            file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
+            
+            # Check for duplicate
+            existing_item = wg_connection.execute(
+                "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",
+                (working_group_id, file_path),
+            ).fetchone()
+            if existing_item is not None:
+                duplicate_items += 1
+                continue
+            
+            # Check for global hash match
+            if file_hash:
+                existing_hash_match = wg_connection.execute(
+                    "SELECT id FROM working_items WHERE file_hash = ?",
+                    (file_hash,),
+                ).fetchone()
+                if existing_hash_match is not None:
+                    duplicate_items += 1
+                    continue
+            
+            item_role = "primary" if index == 0 else "supporting"
+            wg_connection.execute(
+                """
+                INSERT INTO working_items (
+                    working_group_id, file_path, item_role, created_at, updated_at,
+                    file_hash, file_size, source_metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    working_group_id,
+                    file_path,
+                    item_role,
+                    now_iso,
+                    now_iso,
+                    file_hash,
+                    int(file_item.get("size_bytes") or 0) or None,
+                    json.dumps(file_item.get("source_metadata") or {}),
+                ),
+            )
+            added_items += 1
+        
+        # Update upload status
+        wg_connection.execute(
+            """
+            UPDATE intake_queue_uploads
+            SET file_hashes_json = ?, inbox_state = ?, updated_at = ?,
+                terminal_action = ?, terminal_at = ?,
+                terminal_result_id = ?
+            WHERE upload_id = ?
+            """,
+            (
+                json.dumps([item["file_hash"] for item in expanded_files]),
+                "grouped_new",
+                now_iso,
+                "grouped_new",
+                now_iso,
+                str(working_group_id),
+                upload_id,
+            ),
+        )
+        
+        wg_connection.commit()
+    except Exception as exc:
+        wg_connection.rollback()
+        _transition_queue_status(
+            state.settings.db_path,
+            upload_id,
+            "failed",
+            event_type="working_group_publish_failed",
+            error_message=f"Failed to create working group: {exc}",
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "working_group_creation_failed",
+                "message": str(exc),
+                "upload_id": upload_id,
+            },
+        )
+    finally:
+        wg_connection.close()
+
+    # Transition to grouped state
+    transitioned, transition_error = _transition_queue_status(
+        state.settings.db_path,
+        upload_id,
+        "uploaded_unverified",
+        event_type="working_group_publish_materialized",
+        metadata={
+            "working_group_id": working_group_id,
+            "added_items": added_items,
+            "duplicate_items": duplicate_items,
+        },
+    )
+    if not transitioned:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "status_transition_failed",
+                "message": transition_error or "Could not transition upload to uploaded_unverified.",
+                "upload_id": upload_id,
+                "working_group_id": working_group_id,
+            },
+        )
+
+    # Final transition to verified
+    transitioned, transition_error = _transition_queue_status(
+        state.settings.db_path,
+        upload_id,
+        "verified",
+        event_type="working_group_publish_verified",
+        metadata={
+            "working_group_id": working_group_id,
+            "added_items": added_items,
+        },
+    )
+    if not transitioned:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "success": False,
+                "error": "status_transition_failed",
+                "message": transition_error or "Could not finalize working group publish state.",
+                "upload_id": upload_id,
+                "working_group_id": working_group_id,
+            },
+        )
+
+    # Fetch the created working group for response
+    detail_connection = connect(state.settings.db_path)
+    detail_connection.row_factory = __import__("sqlite3").Row
+    try:
+        wg_row = detail_connection.execute(
+            "SELECT * FROM working_groups WHERE id = ?", (working_group_id,)
+        ).fetchone()
+        serialized_group = _serialize_working_group(detail_connection, wg_row, state.settings) if wg_row else None
+    finally:
+        detail_connection.close()
+
+    return {
+        "success": True,
+        "contract": "intake-publish-working.v1alpha1",
+        "upload_id": upload_id,
+        "status": "verified",
+        "verification_status": "pass",
+        "working_group_id": working_group_id,
+        "state": "grouped_new",
+        "is_terminal": True,
+        "allowed_actions": [],
+        "added_items": added_items,
+        "duplicate_items": duplicate_items,
+        "warnings": expansion_warnings,
+        "group": serialized_group,
+        "legacy_adapter": {
+            "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
+            "authoritative": False,
+            "status": "transition_only",
+        },
+    }
+
+
 @router.post("/api/intake/uploads/{upload_id}/upload-to-manyfold")
 async def intake_upload_to_manyfold(
     upload_id: str,

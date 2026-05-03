@@ -1,0 +1,26 @@
+# Publish a queued intake upload into a working group.
+# Creates a new working group containing the upload's files.
+model_catalog_publish_to_working:
+  url: >-
+    {{
+      (
+        states('input_text.model_catalog_sidecar_base_url')
+        if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+        else 'http://model-catalog-sidecar:8314'
+      )
+    }}/api/intake/uploads/{{ upload_id }}/publish-to-working
+  method: POST
+  headers:
+    Content-Type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% if title is defined and (title | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, title=(title | string)) %}
+    {% endif %}
+    {% if stage is defined and (stage | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, stage=(stage | string)) %}
+    {% endif %}
+    {% if notes is defined and (notes | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, notes=(notes | string)) %}
+    {% endif %}
+    {{ ns.body | to_json }}

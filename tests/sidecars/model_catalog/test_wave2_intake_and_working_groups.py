@@ -242,7 +242,7 @@ def test_intake_group_duplicate_hash_is_handled_without_500(tmp_path: Path) -> N
 
         group_response = client.post(
             f"/api/intake/items/{item_id}/group",
-            json={"action": "create_working_group", "title": "Duplicate Candidate Group"},
+            json={"action": "create_working_group", "title": "Duplicate Candidate Group", "override": True},
         )
         assert group_response.status_code == 200
         payload = group_response.json()

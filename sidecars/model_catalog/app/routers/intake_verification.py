@@ -11,6 +11,7 @@ Handles:
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import uuid
 from pathlib import Path
@@ -21,7 +22,14 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..state import AppState
-from .._helpers import _bulk_utc_now_iso, _coerce_bool, _coerce_int, _collect_intake_source_files_in_folder
+from .._helpers import (
+    _bulk_utc_now_iso,
+    _coerce_bool,
+    _coerce_int,
+    _collect_intake_source_files_in_folder,
+    _configured_working_files_roots,
+    _normalize_path_compare_key,
+)
 from ..services import get_all_indexed_file_hashes
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
 from ..services.intake_eligibility_service import ActionEligibility
@@ -246,6 +254,98 @@ def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: l
         return first_entry_path.name or str(first_entry_path) or "Working Group"
 
     return Path(expanded_files[0]["filename"]).stem or "Working Group"
+
+
+def _move_files_to_working_group(
+    *, 
+    expanded_files: list[dict[str, Any]], 
+    working_group_id: int,
+    settings: Any
+) -> tuple[list[tuple[str, str]], list[dict[str, Any]]]:
+    """
+    Move files from their source locations to the working files folder.
+    
+    Returns:
+        (moved_files, errors) where:
+        - moved_files: List of (source_path, destination_path) tuples for successfully moved files
+        - errors: List of error dicts with 'path' and 'message' keys
+    """
+    moved_files: list[tuple[str, str]] = []
+    errors: list[dict[str, Any]] = []
+    
+    # Get working files root directory
+    working_files_roots = _configured_working_files_roots(settings)
+    if not working_files_roots:
+        errors.append({
+            "code": "no_working_files_root",
+            "message": "No working files root configured in settings"
+        })
+        return moved_files, errors
+    
+    working_files_root = working_files_roots[0]
+    group_folder = working_files_root / str(working_group_id)
+    
+    # Create group folder if it doesn't exist
+    try:
+        group_folder.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError) as exc:
+        errors.append({
+            "code": "mkdir_failed",
+            "message": f"Failed to create working group folder: {exc}"
+        })
+        return moved_files, errors
+    
+    # Move each file to the group folder
+    reserved_paths: set[str] = set()
+    for file_item in expanded_files:
+        source_path_str = str(file_item.get("path") or "").strip()
+        if not source_path_str:
+            continue
+        
+        source_path = Path(source_path_str).resolve()
+        
+        # Verify source exists
+        if not source_path.exists() or not source_path.is_file():
+            errors.append({
+                "code": "source_missing",
+                "path": source_path_str,
+                "message": f"Source file not found: {source_path_str}"
+            })
+            continue
+        
+        # Generate unique destination path (avoid conflicts)
+        dest_name = source_path.name
+        dest_path = group_folder / dest_name
+        dest_key = _normalize_path_compare_key(str(dest_path.resolve()))
+        
+        # If file already exists, append a counter
+        if dest_path.exists() or dest_key in reserved_paths:
+            stem = source_path.stem
+            suffix = source_path.suffix
+            counter = 2
+            while True:
+                next_dest_name = f"{stem}-{counter}{suffix}"
+                next_dest_path = group_folder / next_dest_name
+                next_key = _normalize_path_compare_key(str(next_dest_path.resolve()))
+                if not next_dest_path.exists() and next_key not in reserved_paths:
+                    dest_path = next_dest_path
+                    break
+                counter += 1
+        
+        reserved_paths.add(_normalize_path_compare_key(str(dest_path.resolve())))
+        
+        # Move the file
+        try:
+            shutil.move(str(source_path), str(dest_path))
+            moved_files.append((source_path_str, str(dest_path.resolve())))
+        except (OSError, PermissionError, shutil.Error) as exc:
+            errors.append({
+                "code": "move_failed",
+                "path": source_path_str,
+                "message": f"Failed to move file: {exc}"
+            })
+    
+    return moved_files, errors
 
 
 # ==================== ENDPOINTS ====================
@@ -1019,10 +1119,26 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                     },
                 )
 
+        # Move files to working files folder
+        moved_files, move_errors = _move_files_to_working_group(
+            expanded_files=expanded_files,
+            working_group_id=group_id,
+            settings=state.settings
+        )
+        
+        # Build a map of source -> destination paths
+        source_to_dest = dict(moved_files)
+        
+        # Record move errors in expansion_warnings
+        for error in move_errors:
+            expansion_warnings.append(error)
+
         added_items = 0
         duplicate_items = 0
         for index, file_item in enumerate(expanded_files):
-            file_path = str(file_item["path"])
+            original_path = str(file_item["path"])
+            # Use the moved path if available, otherwise use original path
+            file_path = source_to_dest.get(original_path, original_path)
             file_hash = str(file_item.get("file_hash") or "").strip().lower() or None
             existing_item = connection.execute(
                 "SELECT id FROM working_items WHERE working_group_id = ? AND file_path = ?",

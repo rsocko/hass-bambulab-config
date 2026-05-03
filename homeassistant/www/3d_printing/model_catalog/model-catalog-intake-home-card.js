@@ -49,6 +49,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
     this._commitMode = "queue"; // "queue" or "execute_now"
+    this._destinationChoice = "curated"; // "curated" or "working"
     this._previewData = null;
   }
 
@@ -625,8 +626,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       });
       var validationState = validation.validation ? validation.validation.validation_state : "unknown";
       var publishResponse = null;
+      var publishDestination = null;
       if (this._commitMode === 'execute_now' && validationState === 'ready') {
-        publishResponse = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_publish_to_local', {
+        publishDestination = this._destinationChoice || 'curated';
+        var publishService = publishDestination === 'working' ? 'model_catalog_publish_to_working' : 'model_catalog_publish_to_local';
+        publishResponse = await callServiceWithResponse(this._hass, 'rest_command', publishService, {
           upload_id: response.upload_id,
         });
       }
@@ -640,16 +644,20 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         cleanup_policy: cleanupPolicy,
         publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
         local_model_id: publishResponse && publishResponse.local_model_id ? publishResponse.local_model_id : null,
+        working_group_id: publishResponse && publishResponse.working_group_id ? publishResponse.working_group_id : null,
       };
       if (this._commitMode === 'execute_now') {
         if (publishResponse) {
+          var destinationText = publishDestination === 'working' ? 'working files' : 'the curated catalog';
           this._status = browserFiles.length
-            ? "Browser batch validated and published to the curated catalog."
-            : "Server selection validated and published to the curated catalog." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
-          fireModelCatalogDataChanged(['curated'], {
+            ? "Browser batch validated and published to " + destinationText + "."
+            : "Server selection validated and published to " + destinationText + "." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
+          var fireEvent = publishDestination === 'working' ? 'working' : 'curated';
+          fireModelCatalogDataChanged([fireEvent], {
             reason: 'execute-now-publish',
             uploadId: response.upload_id,
             localModelId: publishResponse.local_model_id || null,
+            workingGroupId: publishResponse.working_group_id || null,
           });
         } else {
           this._status = "Validation produced warnings, so the batch remains in Inbox for review.";
@@ -896,9 +904,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       }
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Choose Commit Mode</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Choose Commit Mode & Destination</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
+        + (this._commitMode === 'execute_now'
+          ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+          : '')
         + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
         + '</div>';
     }
@@ -924,9 +935,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Choose Commit Mode</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Choose Commit Mode & Destination</div><div class="subtitle">Select how you want to proceed with these files.</div></div></div>'
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
+      + (this._commitMode === 'execute_now'
+        ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+        : '')
       + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
       + this._renderBrowserSelectionSummary()
       + '</div>';
@@ -937,7 +951,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     var atLastStep = this._wizardStep === this._wizardStepCount();
     var commitButtonLabel = "Commit To Inbox";
     if (atLastStep && this._commitMode === 'execute_now') {
-      commitButtonLabel = "Validate & Publish";
+      var destination = this._destinationChoice === 'working' ? 'Working Files' : 'Catalog';
+      commitButtonLabel = "Validate & Publish to " + destination;
     }
     return ''
       + '<div class="wizard-footer">'
@@ -1100,6 +1115,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'set-commit-mode') {
       this._commitMode = String(target.value || 'queue');
+      this._render();
+      return;
+    }
+    if (action === 'set-destination') {
+      this._destinationChoice = String(target.value || 'curated');
       this._render();
       return;
     }
