@@ -539,6 +539,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       filename: fileEntry.name,
       relative_path: fileEntry.relative_path,
       content_base64: btoa(binary),
+      grouping_strategy: String(fileEntry.grouping_strategy || 'none').trim(),
+      preserve_folder_structure: fileEntry.preserve_folder_structure !== false,
       group_title_source: fileEntry.group_title_source,
       group_title: fileEntry.group_title,
     };
