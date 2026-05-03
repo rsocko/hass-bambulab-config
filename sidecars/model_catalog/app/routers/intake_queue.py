@@ -123,9 +123,10 @@ def _normalize_intake_cleanup_policy(value: object | None) -> str:
 
 
 def _normalize_browser_intake_cleanup_policy(value: object | None) -> str:
-    if value is None or str(value).strip() == "":
-        return "delete_on_verified"
-    return _normalize_intake_cleanup_policy(value)
+    _ = value
+    # Browser uploads are always ephemeral staging files that should be
+    # removed after successful materialization into local/working storage.
+    return "delete_on_verified"
 
 
 class IntakeSourceValidationError(ValueError):

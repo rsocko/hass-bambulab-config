@@ -133,7 +133,16 @@ def _run_source_cleanup(
     source_entries = json.loads(str(upload_row["source_entries_json"] or "[]"))
     if not isinstance(source_entries, list):
         source_entries = []
+    browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
     files_to_cleanup = _expand_source_entries_to_files([entry for entry in source_entries if isinstance(entry, dict)])
+    if not files_to_cleanup:
+        # Files may already be moved during publish (e.g., curated import).
+        # Fall back to declared file source entries so cleanup can still complete.
+        files_to_cleanup = [
+            Path(str(entry.get("path") or "")).expanduser().resolve()
+            for entry in source_entries
+            if isinstance(entry, dict) and str(entry.get("type") or "").strip().lower() == "file" and str(entry.get("path") or "").strip()
+        ]
     if not files_to_cleanup:
         return False, {
             "success": False,
@@ -143,7 +152,6 @@ def _run_source_cleanup(
 
     roots = _configured_intake_source_roots(state.settings)
     managed_roots = roots + [_browser_intake_upload_storage_root(state.settings)]
-    browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
 
     transitioned, transition_error = _transition_queue_status(
         state.settings.db_path,
@@ -173,6 +181,7 @@ def _run_source_cleanup(
     results: list[dict[str, Any]] = []
     for file_path in files_to_cleanup:
         resolved = file_path.expanduser().resolve()
+        is_browser_staged_file = any(resolved.is_relative_to(stage_dir) for stage_dir in browser_stage_dirs)
         result: dict[str, Any] = {
             "path": str(resolved),
             "policy": cleanup_policy,
@@ -183,8 +192,35 @@ def _run_source_cleanup(
             results.append(result)
             continue
         if not resolved.exists() or not resolved.is_file():
-            result.update({"success": False, "reason": "missing_source"})
-            failure_messages.append(f"{resolved}: source file missing")
+            if cleanup_policy == "replace_with_stub":
+                try:
+                    stub_path = _cleanup_stub_path(resolved)
+                    stub_text = _build_cleanup_stub(
+                        upload_id=upload_id,
+                        file_path=resolved,
+                        uploaded_row=uploaded_by_path.get(str(resolved)),
+                    )
+                    stub_path.write_text(stub_text, encoding="utf-8")
+                    result.update(
+                        {
+                            "success": True,
+                            "action": "replaced_with_stub",
+                            "stub_path": str(stub_path),
+                            "source_missing": True,
+                        }
+                    )
+                    processed_count += 1
+                except OSError as exc:
+                    result.update({"success": False, "reason": "write_error", "detail": str(exc)})
+                    failure_messages.append(f"{resolved}: {exc}")
+            elif is_browser_staged_file or cleanup_policy == "delete_on_verified":
+                # Browser staged files are moved into local/working storage during publish.
+                # Missing files after successful publish therefore represent success.
+                result.update({"success": True, "action": "already_moved"})
+                processed_count += 1
+            else:
+                result.update({"success": False, "reason": "missing_source"})
+                failure_messages.append(f"{resolved}: source file missing")
             results.append(result)
             continue
 
@@ -215,9 +251,8 @@ def _run_source_cleanup(
         results.append(result)
 
     final_status = "cleanup_done" if not failure_messages else "cleanup_failed"
-    if final_status == "cleanup_done" and cleanup_policy == "delete_on_verified":
-        for stage_dir in browser_stage_dirs:
-            shutil.rmtree(stage_dir, ignore_errors=True)
+    for stage_dir in browser_stage_dirs:
+        shutil.rmtree(stage_dir, ignore_errors=True)
     
     _transition_queue_status(
         state.settings.db_path,

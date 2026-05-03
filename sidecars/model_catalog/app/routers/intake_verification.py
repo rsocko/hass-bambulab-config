@@ -37,6 +37,7 @@ from ..services.intake_eligibility_service import ActionEligibility
 from .intake_queue import (
     _expand_source_entries_to_files,
     _record_queue_event,
+    _browser_upload_stage_directories,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     LOCAL_IMPORT_IMAGE_EXTENSIONS,
 )
@@ -1235,6 +1236,11 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             "warnings": expansion_warnings,
             "group": serialized_group,
         }
+
+        # Browser uploads stage into GUID directories; remove staging after files
+        # are successfully moved and grouped.
+        for stage_dir in _browser_upload_stage_directories(state.settings, source_entries):
+            shutil.rmtree(stage_dir, ignore_errors=True)
     finally:
         connection.close()
 

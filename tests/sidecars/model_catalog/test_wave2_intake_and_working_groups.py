@@ -438,7 +438,6 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
         upload_response = client.post(
             "/api/intake/uploads/browser",
             json={
-                "cleanup_policy": "keep",
                 "server_selections": [
                     {"type": "file", "path": str(server_file)}
                 ],
@@ -456,6 +455,7 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
         assert upload_payload["success"] is True
         assert upload_payload["source_entry_count"] == 2
         assert upload_payload["browser_file_count"] == 1
+        assert upload_payload["cleanup_policy"] == "delete_on_verified"
         assert upload_payload["warnings"] == []
 
         validate_response = client.post(f"/api/intake/items/{upload_payload['upload_id']}/validate")
@@ -475,7 +475,6 @@ def test_browser_upload_group_uses_queued_title_hint_when_title_omitted(tmp_path
         upload_response = client.post(
             "/api/intake/uploads/browser",
             json={
-                "cleanup_policy": "keep",
                 "browser_files": [
                     {
                         "filename": "router_mount_plate.3mf",
@@ -497,6 +496,21 @@ def test_browser_upload_group_uses_queued_title_hint_when_title_omitted(tmp_path
         assert upload_response.status_code == 200
         item_id = upload_response.json()["upload_id"]
 
+        connection = sqlite3.connect(tmp_path / "model_catalog.db")
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (item_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+
+        assert row is not None
+        source_entries = json.loads(row[0])
+        stage_upload_id = source_entries[0]["upload_id"]
+        stage_dir = main_module._browser_intake_upload_storage_root(client.app.state.model_catalog.settings) / stage_upload_id
+        assert stage_dir.exists() is True
+
         group_response = client.post(
             f"/api/intake/items/{item_id}/group",
             json={"action": "create_working_group"},
@@ -508,6 +522,7 @@ def test_browser_upload_group_uses_queued_title_hint_when_title_omitted(tmp_path
         assert groups_response.status_code == 200
         created_group = next(group for group in groups_response.json()["groups"] if group["id"] == working_group_id)
         assert created_group["title"] == "Router Mount Browser Batch"
+        assert stage_dir.exists() is False
     finally:
         client.__exit__(None, None, None)
 

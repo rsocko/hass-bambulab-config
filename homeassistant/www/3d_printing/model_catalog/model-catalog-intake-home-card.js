@@ -611,7 +611,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
           encodedBrowserFiles.push(await this._encodeBrowserFile(browserFiles[browserIndex]));
         }
         response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, "") + "/api/intake/uploads/browser", {
-          cleanup_policy: cleanupPolicy,
           browser_files: encodedBrowserFiles,
           server_selections: finalSelections,
         });
@@ -641,7 +640,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         expanded_file_count: response.expanded_file_count != null ? response.expanded_file_count : response.source_entry_count,
         validation_state: validationState,
         warnings: (response.warnings || []).concat(validation.validation ? validation.validation.warnings || [] : []),
-        cleanup_policy: cleanupPolicy,
+        cleanup_policy: response.cleanup_policy || cleanupPolicy,
         publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
         local_model_id: publishResponse && publishResponse.local_model_id ? publishResponse.local_model_id : null,
         working_group_id: publishResponse && publishResponse.working_group_id ? publishResponse.working_group_id : null,
@@ -744,7 +743,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return ''
       + '<div class="result-summary">'
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
-      + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicy()) + '</strong></div>'
+      + '  <div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div>'
       + '  <div class="result-line"><span>Staged files</span><strong>' + String(this._browserFiles.length) + '</strong></div>'
       + '  <div class="result-line"><span>Staged folders</span><strong>' + String(folderCount) + '</strong></div>'
       + (folderCount
@@ -918,7 +917,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
-        + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
         + this._renderBrowserSelectionSummary()
         + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
         + '</div>';
@@ -927,7 +925,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Preview Browser Uploads</div><div class="subtitle">Review the staged files and folders before choosing how to commit this batch.</div></div><span class="chip ok">' + String(this._browserFiles.length) + ' pending</span></div>'
-        + '  <div class="field"><label for="cleanup-policy-select">Cleanup Policy For This Batch</label><select id="cleanup-policy-select" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>keep</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>delete_on_verified</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>replace_with_stub</option></select></div>'
         + this._renderBrowserSelectionSummary()
         + '  <div class="muted">Folder uploads can use the same grouping selector as the server picker. Files still upload from this browser session and can be reviewed after queueing.</div>'
         + '  <div class="wizard-review-scroll">' + this._renderBrowserFileRows(false) + '</div>'

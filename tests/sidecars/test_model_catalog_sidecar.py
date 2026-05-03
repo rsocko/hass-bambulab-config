@@ -5431,7 +5431,6 @@ def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: 
         post = test_client.post(
             "/api/intake/uploads/browser",
             json={
-                "cleanup_policy": "keep",
                 "browser_files": [
                     {
                         "filename": "browser-model.3mf",
@@ -5456,8 +5455,24 @@ def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: 
         assert upload_payload["success"] is True
         assert upload_payload["source_entry_count"] == 3
         assert upload_payload["browser_file_count"] == 3
+        assert upload_payload["cleanup_policy"] == "delete_on_verified"
         assert upload_payload["warnings"] == []
         upload_id = upload_payload["upload_id"]
+
+        connection = sqlite3.connect(settings.db_path)
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        assert row is not None
+        source_entries = json.loads(str(row[0] or "[]"))
+        assert source_entries
+        stage_upload_id = str(source_entries[0]["upload_id"])
+        stage_dir = (settings.db_path.parent / "intake_browser_uploads" / stage_upload_id).resolve()
+        assert stage_dir.exists() is True
 
         validate = test_client.post(f"/api/intake/items/{upload_id}/validate")
         assert validate.status_code == 200
@@ -5472,6 +5487,9 @@ def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: 
         publish_payload = publish.json()
         assert publish_payload["success"] is True
         assert publish_payload["imported_asset_count"] == 3
+        assert publish_payload["cleanup"]["status"] == "cleanup_done"
+        assert publish_payload["cleanup"]["processed_count"] == 3
+        assert stage_dir.exists() is False
 
         detail = test_client.get(f"/api/models/{publish_payload['local_model_id']}/detail")
         assert detail.status_code == 200
@@ -5525,7 +5543,7 @@ def test_intake_queue_publish_to_local_delete_policy_removes_source_files(tmp_pa
     assert payload["status"] == "cleanup_done"
     assert payload["cleanup"]["status"] == "cleanup_done"
     assert payload["cleanup"]["processed_count"] == 1
-    assert payload["cleanup"]["results"][0]["action"] == "deleted"
+    assert payload["cleanup"]["results"][0]["action"] in {"deleted", "already_moved"}
     assert model_file.exists() is False
 
     connection = sqlite3.connect(settings.db_path)

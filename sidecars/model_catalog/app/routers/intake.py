@@ -1168,6 +1168,12 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
             },
         )
 
+    # Browser uploads stage files under a GUID folder; once files are moved
+    # into working storage this staging folder can be removed.
+    browser_stage_dirs = _browser_upload_stage_directories(state.settings, source_entries)
+    for stage_dir in browser_stage_dirs:
+        shutil.rmtree(stage_dir, ignore_errors=True)
+
     # Fetch the created working group for response
     detail_connection = connect(state.settings.db_path)
     detail_connection.row_factory = __import__("sqlite3").Row
