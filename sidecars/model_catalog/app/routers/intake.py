@@ -1927,6 +1927,7 @@ async def intake_upload_to_manyfold(
                     "failed",
                     _bulk_utc_now_iso(),
                     upload_id,
+                )
             )
             failure_connection.commit()
         finally:
