@@ -116,6 +116,22 @@ class TestThumbnailExtraction:
         result = extract_3mf_thumbnail(package)
         assert result == metadata_png
 
+    def test_thumbnail_prioritized_over_plate_top_pick(self) -> None:
+        """Should prefer thumbnail paths over plate/top/pick candidates."""
+        plate_png = b"plate_data"
+        thumbnail_png = b"thumbnail_data"
+        package = _create_3mf_zip(
+            {
+                "3D/3dmodel.model": b"<xml/>",
+                "Metadata/thumbnail.png": thumbnail_png,
+                "Metadata/top_1.png": b"top_data",
+                "Metadata/pick_1.png": b"pick_data",
+                "Metadata/plate_1.png": plate_png,
+            }
+        )
+        result = extract_3mf_thumbnail(package)
+        assert result == thumbnail_png
+
     def test_jpeg_thumbnail_accepted(self) -> None:
         """Should accept JPEG thumbnails."""
         package = _create_3mf_zip(
@@ -140,7 +156,7 @@ class TestThumbnailExtraction:
         assert result == ONE_PIXEL_PNG_BYTES
 
     def test_multiple_images_in_auxiliaries_first_returned(self) -> None:
-        """Should return first valid image from Auxiliaries/Model Pictures/."""
+        """Should return lexicographically first valid image from Auxiliaries/Model Pictures/."""
         package = _create_3mf_zip(
             {
                 "3D/3dmodel.model": b"<xml/>",
@@ -149,8 +165,7 @@ class TestThumbnailExtraction:
             }
         )
         result = extract_3mf_thumbnail(package)
-        # Should get one of the images (order depends on zip iteration)
-        assert result in (ONE_PIXEL_PNG_BYTES, b"different_png")
+        assert result == ONE_PIXEL_PNG_BYTES
 
     def test_oversized_file_rejected(self) -> None:
         """Files larger than 2 MB should be rejected."""

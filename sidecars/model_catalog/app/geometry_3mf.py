@@ -581,6 +581,9 @@ _THUMBNAIL_KNOWN_PATHS_PREFIXES = [
     "Metadata/thumbnail",
     "Thumbnails/thumbnail",
     "3D/Thumbnail",
+    "Metadata/plate_",
+    "Metadata/top_",
+    "Metadata/pick_",
     "Auxiliaries/Model Pictures/thumbnail",
 ]
 
@@ -619,10 +622,11 @@ def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:
         with zipfile.ZipFile(BytesIO(package_bytes)) as package:
             part_name_map = {_normalize_part_path(name): name for name in package.namelist()}
 
-            # Try known path prefixes first (order matters)
+            # Try known path prefixes first (order matters).
+            # thumbnail* is preferred over everything else, then plate_* (including plate_*_small).
             for prefix in _THUMBNAIL_KNOWN_PATHS_PREFIXES:
                 normalized_prefix = _normalize_part_path(prefix)
-                for normalized, original_name in part_name_map.items():
+                for normalized, original_name in sorted(part_name_map.items()):
                     if normalized.startswith(normalized_prefix):
                         mime_type = _get_mime_type_for_filename(original_name)
                         if mime_type and mime_type in _THUMBNAIL_ALLOWED_TYPES:
@@ -632,7 +636,7 @@ def extract_3mf_thumbnail(package_bytes: bytes) -> bytes | None:
 
             # Fall back to any image in Auxiliaries/Model Pictures
             auxiliaries_prefix = _normalize_part_path("Auxiliaries/Model Pictures/")
-            for normalized, original_name in part_name_map.items():
+            for normalized, original_name in sorted(part_name_map.items()):
                 if not normalized.startswith(auxiliaries_prefix):
                     continue
                 mime_type = _get_mime_type_for_filename(original_name)
