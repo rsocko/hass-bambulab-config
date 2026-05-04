@@ -421,15 +421,16 @@ function destinationGroupKey(model, index) {
     var groupTitleAction = String(settings.groupTitleAction || '');
     var perFileTitleAction = String(settings.perFileTitleAction || '');
     var description = String(settings.description || 'Applies to selected files in this intake batch.');
+    var showBatchTitleField = !(groupingValue === 'flat');
     return ''
       + '<article class="entry-row">'
       + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
       + '<div class="item-grid">'
       + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '"><option value="none"' + (groupingValue === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="flat"' + (groupingValue === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
       + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-      + (groupingValue === 'flat' && titleSource === 'custom'
-        ? ''
-        : '<div class="field"><label>' + escapeHtml(groupingValue === 'flat' ? 'Default Model Name' : 'Working Group Title') + '</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>')
+      + (showBatchTitleField
+        ? '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
+        : '')
       + '</div>'
       + (groupingValue === 'flat' && titleSource === 'custom'
         ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>'
@@ -521,8 +522,8 @@ function destinationGroupKey(model, index) {
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
       + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + ' (automatic)</strong></div>'
       + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders</strong></div>'
-      + (showControls && !(groupingStrategy === 'flat' && titleSource === 'custom')
-        ? '  <div class="result-line"><span>' + escapeHtml(groupingStrategy === 'flat' ? 'Default model name' : 'Working Group Title') + '</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+      + (showControls && groupingStrategy !== 'flat'
+        ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
         : '')
       + '</div>'
       + (showControls
@@ -535,9 +536,9 @@ function destinationGroupKey(model, index) {
             ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source">' + titleSourceOptions + '</select></div>'
-          + ((groupingStrategy === 'flat' && titleSource === 'custom')
-            ? ''
-            : '    <div class="field"><label>' + escapeHtml(groupingStrategy === 'flat' ? 'Default Model Name' : 'Working Group Title') + '</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>')
+          + (groupingStrategy !== 'flat'
+            ? '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+            : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
             ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>' + this._browserFlatCustomTitleRows()
