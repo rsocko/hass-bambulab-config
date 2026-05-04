@@ -45,44 +45,44 @@ def _build_settings(tmp_path: Path) -> Settings:
 
 
 def _insert_cached_summary(settings: Settings, *, public_id: str, model_url: str, name: str = "Sample Model") -> None:
-        connection = sqlite3.connect(settings.db_path)
-        try:
-                connection.execute(
-                        """
-                        INSERT INTO manyfold_model_summary_cache (
-                                manyfold_model_url,
-                                manyfold_model_public_id,
-                                manyfold_model_name,
-                                manyfold_model_id,
-                                preview_url,
-                                creator_name,
-                                collection_names_json,
-                                keyword_names_json,
-                                raw_json,
-                                refreshed_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                                model_url,
-                                public_id,
-                                name,
-                                None,
-                                None,
-                                None,
-                                "[]",
-                                "[]",
-                                "{}",
-                                "2026-04-23T00:00:00Z",
-                        ),
-                )
-                connection.commit()
-        finally:
-                connection.close()
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        connection.execute(
+            """
+            INSERT INTO manyfold_model_summary_cache (
+                manyfold_model_url,
+                manyfold_model_public_id,
+                manyfold_model_name,
+                manyfold_model_id,
+                preview_url,
+                creator_name,
+                collection_names_json,
+                keyword_names_json,
+                raw_json,
+                refreshed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                model_url,
+                public_id,
+                name,
+                None,
+                None,
+                None,
+                "[]",
+                "[]",
+                "{}",
+                "2026-04-23T00:00:00Z",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def _build_simple_3mf(*, transform: str | None = None) -> bytes:
-        transform_attr = f' transform="{transform}"' if transform else ""
-        model_xml = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+    transform_attr = f' transform="{transform}"' if transform else ""
+    model_xml = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
     <resources>
         <object id=\"1\" type=\"model\">
@@ -104,17 +104,17 @@ def _build_simple_3mf(*, transform: str | None = None) -> bytes:
 </model>
 """.encode("utf-8")
 
-        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+    rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
     <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
 </Relationships>
 """
 
-        buffer = BytesIO()
-        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-                archive.writestr("_rels/.rels", rels_xml)
-                archive.writestr("3D/3dmodel.model", model_xml)
-        return buffer.getvalue()
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("_rels/.rels", rels_xml)
+        archive.writestr("3D/3dmodel.model", model_xml)
+    return buffer.getvalue()
 
 
 def _build_external_component_3mf() -> bytes:
@@ -5132,32 +5132,6 @@ def test_intake_queue_post_upload_accepts_valid_file_entries(tmp_path: Path) -> 
         connection.close()
 
 
-def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -> None:
-    settings = _build_settings(tmp_path)
-    bootstrap_database(settings.db_path)
-    app = create_app(settings=settings)
-
-    test_folder = tmp_path / "models"
-    test_folder.mkdir()
-
-    with TestClient(app) as test_client:
-        response = test_client.post(
-            "/api/intake/uploads",
-            json={
-                "source_entries": [
-                    {
-                        "type": "folder",
-                        "path": str(test_folder),
-                        "recurse": True,
-                    }
-                ],
-            },
-        )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["success"] is True
-    assert payload["source_entry_count"] == 1
 
 
 def test_intake_queue_post_upload_supports_mixed_file_and_folder_entries(tmp_path: Path) -> None:
@@ -5606,6 +5580,86 @@ def test_browser_upload_v2_multipart_accepts_images_and_publishes_to_local_galle
         assert preview_asset["asset_role"] == "preview"
         assert any(file["asset_type"] == "3mf" and file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
         assert any(file["asset_type"] == "image" and file["filename"] == "badge.svg" for file in detail_payload["model"]["files"])
+
+def test_browser_upload_v2_multipart_replays_identical_idempotent_request(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    manifest = {
+        "idempotency_key": "multipart-replay-key",
+        "browser_files": [
+            {
+                "filename": "widget.3mf",
+                "relative_path": "Batch/widget.3mf",
+            }
+        ],
+    }
+
+    with TestClient(app) as test_client:
+        first = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[("files[]", ("widget.3mf", b"widget bytes", "application/octet-stream"))],
+        )
+        second = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[("files[]", ("widget.3mf", b"widget bytes", "application/octet-stream"))],
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_payload = first.json()
+    second_payload = second.json()
+    assert first_payload["contract"] == "intake-upload-v2-multipart"
+    assert first_payload["upload_id"] == second_payload["upload_id"]
+    assert first_payload["replayed"] is False
+    assert second_payload["replayed"] is True
+    assert second_payload["idempotency"] == {"key": "multipart-replay-key", "replayed": True}
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        upload_count = connection.execute("SELECT COUNT(*) FROM intake_queue_uploads").fetchone()[0]
+        idempotency_count = connection.execute("SELECT COUNT(*) FROM intake_upload_idempotency").fetchone()[0]
+        assert upload_count == 1
+        assert idempotency_count == 1
+    finally:
+        connection.close()
+
+
+def test_browser_upload_v2_multipart_rejects_conflicting_idempotency_request(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    manifest = {
+        "idempotency_key": "multipart-conflict-key",
+        "browser_files": [
+            {
+                "filename": "widget.3mf",
+                "relative_path": "Batch/widget.3mf",
+            }
+        ],
+    }
+
+    with TestClient(app) as test_client:
+        first = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[("files[]", ("widget.3mf", b"widget bytes", "application/octet-stream"))],
+        )
+        second = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[("files[]", ("widget.3mf", b"different bytes", "application/octet-stream"))],
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    second_payload = second.json()
+    assert second_payload["error"] == "idempotency_conflict"
+    assert second_payload["idempotency"] == {"key": "multipart-conflict-key", "replayed": False}
 
 
 def test_browser_upload_sanitizes_invalid_relative_path_segments(tmp_path: Path) -> None:
@@ -6588,6 +6642,76 @@ def test_intake_queue_post_upload_accepts_valid_folder_entries(tmp_path: Path) -
     payload = response.json()
     assert payload["success"] is True
     assert payload["source_entry_count"] == 1
+
+
+def test_intake_queue_post_upload_replays_identical_idempotent_request(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    test_file = tmp_path / "widget.3mf"
+    test_file.write_bytes(b"widget bytes")
+
+    payload = {
+        "idempotency_key": "queue-replay-key",
+        "source_entries": [{"type": "file", "path": str(test_file)}],
+        "cleanup_policy": "keep",
+    }
+
+    with TestClient(app) as test_client:
+        first = test_client.post("/api/intake/uploads", json=payload)
+        second = test_client.post("/api/intake/uploads", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_payload = first.json()
+    second_payload = second.json()
+    assert first_payload["upload_id"] == second_payload["upload_id"]
+    assert first_payload["replayed"] is False
+    assert second_payload["replayed"] is True
+    assert second_payload["idempotency"] == {"key": "queue-replay-key", "replayed": True}
+
+    connection = sqlite3.connect(settings.db_path)
+    try:
+        upload_count = connection.execute("SELECT COUNT(*) FROM intake_queue_uploads").fetchone()[0]
+        idempotency_count = connection.execute("SELECT COUNT(*) FROM intake_upload_idempotency").fetchone()[0]
+        assert upload_count == 1
+        assert idempotency_count == 1
+    finally:
+        connection.close()
+
+
+def test_intake_queue_post_upload_rejects_conflicting_idempotency_request(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    first_file = tmp_path / "widget-a.3mf"
+    first_file.write_bytes(b"widget bytes")
+    second_file = tmp_path / "widget-b.3mf"
+    second_file.write_bytes(b"different widget bytes")
+
+    with TestClient(app) as test_client:
+        first = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "idempotency_key": "queue-conflict-key",
+                "source_entries": [{"type": "file", "path": str(first_file)}],
+            },
+        )
+        second = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "idempotency_key": "queue-conflict-key",
+                "source_entries": [{"type": "file", "path": str(second_file)}],
+            },
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 409
+    second_payload = second.json()
+    assert second_payload["error"] == "idempotency_conflict"
+    assert second_payload["idempotency"] == {"key": "queue-conflict-key", "replayed": False}
 
 
 def test_intake_queue_post_upload_supports_mixed_file_and_folder_entries(tmp_path: Path) -> None:

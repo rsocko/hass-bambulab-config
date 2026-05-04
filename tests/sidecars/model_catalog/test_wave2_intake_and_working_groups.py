@@ -603,6 +603,13 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
         assert validate_response.status_code == 200
         validate_payload = validate_response.json()
         assert validate_payload["validation"]["validation_state"] == "ready"
+        assert [check["key"] for check in validate_payload["validation"]["checks"]] == [
+            "source_access",
+            "supported_types",
+            "duplicate_scan",
+            "commit_ready",
+        ]
+        assert all(check["passed"] is True for check in validate_payload["validation"]["checks"])
     finally:
         client.__exit__(None, None, None)
 

@@ -22,7 +22,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         1,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS manyfold_model_summary_cache (
         manyfold_model_url TEXT PRIMARY KEY,
         manyfold_model_public_id TEXT,
@@ -36,7 +36,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         refreshed_at TEXT NOT NULL
     )
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_links (
         id INTEGER PRIMARY KEY,
         manyfold_model_url TEXT NOT NULL,
@@ -53,7 +53,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         updated_at TEXT NOT NULL
     )
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS working_groups (
         id INTEGER PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
@@ -67,7 +67,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         updated_at TEXT NOT NULL
     )
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS working_items (
         id INTEGER PRIMARY KEY,
         working_group_id INTEGER NOT NULL,
@@ -78,7 +78,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         FOREIGN KEY (working_group_id) REFERENCES working_groups(id)
     )
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_events (
         id INTEGER PRIMARY KEY,
         event_type TEXT NOT NULL,
@@ -93,7 +93,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         2,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_custom_fields (
         id INTEGER PRIMARY KEY,
         entity_type TEXT NOT NULL,
@@ -116,7 +116,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         4,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_model_ranking (
         manyfold_model_url TEXT PRIMARY KEY,
         manyfold_model_public_id TEXT,
@@ -142,7 +142,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         7,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS intake_queue_uploads (
         id INTEGER PRIMARY KEY,
         upload_id TEXT NOT NULL UNIQUE,
@@ -160,11 +160,11 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         cleanup_done_at TEXT
     )
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_intake_queue_status
     ON intake_queue_uploads(status)
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_intake_queue_created_at
     ON intake_queue_uploads(created_at DESC)
     """,
@@ -173,7 +173,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         8,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_entries (
         id INTEGER PRIMARY KEY,
         local_model_id TEXT NOT NULL UNIQUE,
@@ -194,11 +194,11 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         archived_at TEXT
     )
     """,
-    """
+            """
     CREATE UNIQUE INDEX IF NOT EXISTS idx_model_catalog_entries_local_id
     ON model_catalog_entries (local_model_id)
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_assets (
         id INTEGER PRIMARY KEY,
         model_catalog_entry_id INTEGER NOT NULL,
@@ -218,11 +218,11 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         UNIQUE(model_catalog_entry_id, asset_id)
     )
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_model_catalog_assets_entry_id
     ON model_catalog_assets (model_catalog_entry_id)
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_model_catalog_assets_type
     ON model_catalog_assets (asset_type)
     """,
@@ -235,7 +235,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         10,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS working_file_inventory (
         id INTEGER PRIMARY KEY,
         source_path_raw TEXT NOT NULL,
@@ -256,24 +256,24 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         root_path TEXT
     )
     """,
-    """
+            """
     CREATE UNIQUE INDEX IF NOT EXISTS idx_working_file_inventory_compare_key
     ON working_file_inventory(source_path_compare_key)
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_working_file_inventory_name
     ON working_file_inventory(file_name_base_hint)
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_working_file_inventory_extension
     ON working_file_inventory(file_extension)
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_working_file_inventory_hash
     ON working_file_inventory(sha256_hash)
     WHERE sha256_hash IS NOT NULL
     """,
-    """
+            """
     CREATE TABLE IF NOT EXISTS working_group_model_links (
         id INTEGER PRIMARY KEY,
         working_group_id INTEGER NOT NULL,
@@ -286,7 +286,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         UNIQUE(working_group_id, model_ref)
     )
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_working_group_model_links_model_ref
     ON working_group_model_links(model_ref)
     """,
@@ -295,7 +295,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         11,
         (
-    """
+            """
     CREATE TABLE IF NOT EXISTS model_catalog_projects (
         id INTEGER PRIMARY KEY,
         slug TEXT NOT NULL UNIQUE,
@@ -308,7 +308,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         archived_at TEXT
     )
     """,
-    """
+            """
     CREATE INDEX IF NOT EXISTS idx_model_catalog_projects_slug
     ON model_catalog_projects(slug)
     """,
@@ -317,7 +317,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         12,
         (
-    """
+            """
     -- Add terminal state tracking columns to intake_queue_uploads for state machine
     -- terminal_action: what terminal action was performed (grouped_new, grouped_existing, published_to_catalog, rejected)
     -- terminal_at: timestamp when item reached terminal state
@@ -328,10 +328,30 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         13,
         (
-    """
+            """
     -- Add terminal actor tracking for intake job history
     -- terminal_actor: user/service path that completed the terminal action
     """,  # Comment-only SQL
+        ),
+    ),
+    (
+        14,
+        (
+            """
+    CREATE TABLE IF NOT EXISTS intake_upload_idempotency (
+        id INTEGER PRIMARY KEY,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        payload_signature TEXT NOT NULL,
+        upload_id TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    )
+    """,
+            """
+    CREATE INDEX IF NOT EXISTS idx_intake_upload_idempotency_expires_at
+    ON intake_upload_idempotency(expires_at)
+    """,
         ),
     ),
 )
@@ -395,15 +415,14 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
         if version == 10:
             ensure_column(connection, "intake_queue_uploads", "inbox_state", "TEXT NOT NULL DEFAULT 'submitted'")
             ensure_column(connection, "intake_queue_uploads", "decision_note", "TEXT")
-        if version == 13:
-            ensure_column(connection, "intake_queue_uploads", "terminal_actor", "TEXT")
         if version == 11:
             ensure_column(connection, "working_groups", "project_id", "INTEGER")
         if version == 12:
-            # Terminal state tracking for intake workflow state machine
             ensure_column(connection, "intake_queue_uploads", "terminal_action", "TEXT")
             ensure_column(connection, "intake_queue_uploads", "terminal_at", "TEXT")
             ensure_column(connection, "intake_queue_uploads", "terminal_result_id", "TEXT")
+        if version == 13:
+            ensure_column(connection, "intake_queue_uploads", "terminal_actor", "TEXT")
         connection.execute(
             "INSERT INTO model_catalog_schema_migrations(version, applied_at) VALUES(?, datetime('now'))",
             (version,),
@@ -412,9 +431,8 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
 
 def _migrate_manyfold_model_cache_keys(connection: sqlite3.Connection) -> None:
     """Migrate manyfold model cache keys (migration v5)."""
-    # Import here to avoid circular dependency
     from .db import derive_manyfold_model_key
-    
+
     ensure_column(connection, "manyfold_model_summary_cache", "manyfold_model_key", "TEXT")
 
     rows = connection.execute(

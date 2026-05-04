@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import mimetypes
 import os
@@ -19,6 +20,7 @@ import re
 import shutil
 import sqlite3
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from sqlite3 import connect
 from typing import Any
@@ -74,6 +76,7 @@ _WINDOWS_RESERVED_NAMES = {
 
 _INTAKE_PREVIEW_MAX_BYTES = 5 * 1024 * 1024  # 5 MB for direct image previews
 _INTAKE_PREVIEW_MAX_3MF_BYTES = 200 * 1024 * 1024  # cap package reads for thumbnail extraction
+_INTAKE_UPLOAD_IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -325,6 +328,156 @@ def _derive_terminal_display_action(terminal_action: object | None, terminal_res
             return next(iter(working_actions))
 
     return "completed"
+
+
+def _stable_json_dumps(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+
+
+def _payload_signature(value: Any) -> str:
+    return hashlib.sha256(_stable_json_dumps(value).encode("utf-8")).hexdigest()
+
+
+def _content_signature(value: bytes | str) -> str:
+    encoded = value.encode("utf-8") if isinstance(value, str) else value
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _idempotency_expires_at(now_iso: str) -> str:
+    now_dt = datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+    expires_dt = now_dt + timedelta(seconds=_INTAKE_UPLOAD_IDEMPOTENCY_TTL_SECONDS)
+    return expires_dt.isoformat().replace("+00:00", "Z")
+
+
+def _normalize_server_selection_signature(selections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for entry in selections:
+        if not isinstance(entry, dict):
+            continue
+        entry_type = str(entry.get("type") or "").strip().lower()
+        if entry_type not in {"file", "folder"}:
+            continue
+        entry_path = str(entry.get("path") or "").strip()
+        if not entry_path:
+            continue
+        try:
+            normalized_path = str(Path(entry_path).expanduser().resolve())
+        except (OSError, RuntimeError):
+            normalized_path = entry_path
+        normalized.append(
+            {
+                "type": entry_type,
+                "path": normalized_path,
+                "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
+            }
+        )
+    return normalized
+
+
+def _response_with_idempotency(response_payload: dict[str, Any], *, key: str | None, replayed: bool) -> dict[str, Any]:
+    idempotency_key = str(key or "").strip()
+    if not idempotency_key:
+        return response_payload
+    payload = dict(response_payload)
+    payload["replayed"] = replayed
+    payload["idempotency"] = {"key": idempotency_key, "replayed": replayed}
+    return payload
+
+
+def _idempotency_conflict_response(*, key: str, upload_id: str | None = None) -> JSONResponse:
+    payload: dict[str, Any] = {
+        "success": False,
+        "error": "idempotency_conflict",
+        "message": "This idempotency_key was already used with a different payload.",
+        "idempotency": {"key": key, "replayed": False},
+    }
+    if upload_id:
+        payload["upload_id"] = upload_id
+    return JSONResponse(status_code=409, content=payload)
+
+
+def _maybe_replay_idempotent_upload(*, db_path: Path, key: str | None, signature: str | None) -> JSONResponse | None:
+    idempotency_key = str(key or "").strip()
+    payload_signature = str(signature or "").strip()
+    if not idempotency_key or not payload_signature:
+        return None
+
+    now_iso = _bulk_utc_now_iso()
+    connection = connect(db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        connection.execute(
+            "DELETE FROM intake_upload_idempotency WHERE expires_at <= ?",
+            (now_iso,),
+        )
+        row = connection.execute(
+            """
+            SELECT payload_signature, upload_id, response_json
+            FROM intake_upload_idempotency
+            WHERE idempotency_key = ?
+            """,
+            (idempotency_key,),
+        ).fetchone()
+        connection.commit()
+    finally:
+        connection.close()
+
+    if row is None:
+        return None
+
+    existing_upload_id = str(row["upload_id"] or "").strip() or None
+    if str(row["payload_signature"] or "") != payload_signature:
+        return _idempotency_conflict_response(key=idempotency_key, upload_id=existing_upload_id)
+
+    try:
+        payload = json.loads(str(row["response_json"] or "{}"))
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    if existing_upload_id and not payload.get("upload_id"):
+        payload["upload_id"] = existing_upload_id
+    return JSONResponse(content=_response_with_idempotency(payload, key=idempotency_key, replayed=True))
+
+
+def _store_idempotent_upload_response(
+    *,
+    db_path: Path,
+    key: str | None,
+    signature: str | None,
+    upload_id: str,
+    response_payload: dict[str, Any],
+) -> None:
+    idempotency_key = str(key or "").strip()
+    payload_signature = str(signature or "").strip()
+    if not idempotency_key or not payload_signature:
+        return
+
+    now_iso = _bulk_utc_now_iso()
+    connection = connect(db_path)
+    try:
+        connection.execute(
+            "DELETE FROM intake_upload_idempotency WHERE expires_at <= ?",
+            (now_iso,),
+        )
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO intake_upload_idempotency (
+                idempotency_key, payload_signature, upload_id, response_json, created_at, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                idempotency_key,
+                payload_signature,
+                upload_id,
+                _stable_json_dumps(response_payload),
+                now_iso,
+                _idempotency_expires_at(now_iso),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 class IntakeSourceValidationError(ValueError):
@@ -615,6 +768,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     
     source_entries = payload.get("source_entries") or []
     cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
+    idempotency_key = str(payload.get("idempotency_key") or "").strip() or None
 
     try:
         validated_entries = _validate_intake_source_entries(source_entries)
@@ -629,13 +783,28 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
             },
         )
 
+    request_signature = _payload_signature(
+        {
+            "route": "intake_queue_post_upload",
+            "cleanup_policy": cleanup_policy,
+            "source_entries": validated_entries,
+        }
+    )
+    replay_response = _maybe_replay_idempotent_upload(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+    )
+    if replay_response is not None:
+        return replay_response
+
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
     )
 
-    return {
+    response_payload = {
         "success": True,
         "upload_id": upload_id,
         "status": "queued",
@@ -644,6 +813,16 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
         "source_entry_count": len(validated_entries),
         "created_at": now_iso,
     }
+    response_payload = _response_with_idempotency(response_payload, key=idempotency_key, replayed=False)
+    _store_idempotent_upload_response(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+        upload_id=upload_id,
+        response_payload=response_payload,
+    )
+
+    return response_payload
 
 
 
@@ -798,8 +977,10 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
         )
 
     cleanup_policy = _normalize_browser_intake_cleanup_policy(payload.get("cleanup_policy"))
+    idempotency_key = str(payload.get("idempotency_key") or "").strip() or None
     warnings: list[dict[str, Any]] = []
     source_entries: list[dict[str, Any]] = [entry for entry in parsed_selections if isinstance(entry, dict)]
+    idempotency_browser_files: list[dict[str, Any]] = []
 
     upload_files: list[UploadFile] = []
     seen_upload_ids: set[int] = set()
@@ -887,12 +1068,14 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
 
             destination.parent.mkdir(parents=True, exist_ok=True)
             bytes_written = 0
+            content_hasher = hashlib.sha256()
             with destination.open("wb") as handle:
                 while True:
                     chunk = await upload.read(1024 * 1024)
                     if not chunk:
                         break
                     handle.write(chunk)
+                    content_hasher.update(chunk)
                     bytes_written += len(chunk)
 
             if bytes_written <= 0:
@@ -919,6 +1102,20 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
                     "original_filename": filename,
                     "relative_path": str(relative_path).replace("\\", "/"),
                     "upload_id": staged_upload_id,
+                    "file_last_modified_ms": (file_meta or {}).get("file_last_modified_ms"),
+                    "grouping_strategy": grouping_strategy,
+                    "preserve_folder_structure": preserve_folder_structure,
+                    "group_title_source": (file_meta or {}).get("group_title_source", default_group_title_source),
+                    "group_title": (file_meta or {}).get("group_title", default_group_title),
+                }
+            )
+            idempotency_browser_files.append(
+                {
+                    "filename": filename,
+                    "upload_filename": str(upload.filename or "").strip() or filename,
+                    "relative_path": str(relative_path).replace("\\", "/"),
+                    "content_sha256": content_hasher.hexdigest(),
+                    "size_bytes": bytes_written,
                     "file_last_modified_ms": (file_meta or {}).get("file_last_modified_ms"),
                     "grouping_strategy": grouping_strategy,
                     "preserve_folder_structure": preserve_folder_structure,
@@ -959,13 +1156,31 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
             },
         )
 
+    request_signature = _payload_signature(
+        {
+            "route": "intake_queue_post_browser_upload_v2",
+            "cleanup_policy": cleanup_policy,
+            "server_selections": _normalize_server_selection_signature([entry for entry in parsed_selections if isinstance(entry, dict)]),
+            "browser_files": idempotency_browser_files,
+        }
+    )
+    replay_response = _maybe_replay_idempotent_upload(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+    )
+    if replay_response is not None:
+        if staged_root is not None:
+            shutil.rmtree(staged_root, ignore_errors=True)
+        return replay_response
+
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
     )
 
-    return {
+    response_payload = {
         "success": True,
         "contract": "intake-upload-v2-multipart",
         "upload_id": upload_id,
@@ -977,6 +1192,18 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
         "warnings": warnings,
         "created_at": now_iso,
     }
+    response_payload = _response_with_idempotency(response_payload, key=idempotency_key, replayed=False)
+    _store_idempotent_upload_response(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+        upload_id=upload_id,
+        response_payload=response_payload,
+    )
+
+    return response_payload
+
+
 @router.post("/api/intake/uploads/browser")
 async def intake_queue_post_browser_upload(request: Request) -> Any:
     state: AppState = request.app.state.model_catalog
@@ -1003,8 +1230,10 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
 
     browser_files = payload.get("browser_files") or []
     cleanup_policy = _normalize_browser_intake_cleanup_policy(payload.get("cleanup_policy"))
+    idempotency_key = str(payload.get("idempotency_key") or "").strip() or None
     warnings: list[dict[str, Any]] = []
     source_entries: list[dict[str, Any]] = []
+    idempotency_browser_files: list[dict[str, Any]] = []
 
     parsed_selections = payload.get("server_selections") or []
     if parsed_selections and not isinstance(parsed_selections, list):
@@ -1102,6 +1331,19 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
             continue
 
         destination.write_bytes(file_bytes)
+        idempotency_browser_files.append(
+            {
+                "filename": filename,
+                "relative_path": str(relative_path).replace("\\", "/"),
+                "content_sha256": _content_signature(file_bytes),
+                "size_bytes": len(file_bytes),
+                "file_last_modified_ms": upload.get("file_last_modified_ms"),
+                "grouping_strategy": str(upload.get("grouping_strategy") or "").strip() or None,
+                "preserve_folder_structure": upload.get("preserve_folder_structure"),
+                "group_title_source": upload.get("group_title_source"),
+                "group_title": upload.get("group_title"),
+            }
+        )
         source_entries.append(
             {
                 "type": "file",
@@ -1145,13 +1387,30 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
             },
         )
 
+    request_signature = _payload_signature(
+        {
+            "route": "intake_queue_post_browser_upload",
+            "cleanup_policy": cleanup_policy,
+            "server_selections": _normalize_server_selection_signature([entry for entry in parsed_selections if isinstance(entry, dict)]),
+            "browser_files": idempotency_browser_files,
+        }
+    )
+    replay_response = _maybe_replay_idempotent_upload(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+    )
+    if replay_response is not None:
+        shutil.rmtree(staged_root, ignore_errors=True)
+        return replay_response
+
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
     )
 
-    return {
+    response_payload = {
         "success": True,
         "upload_id": upload_id,
         "status": "queued",
@@ -1162,6 +1421,16 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
         "warnings": warnings,
         "created_at": now_iso,
     }
+    response_payload = _response_with_idempotency(response_payload, key=idempotency_key, replayed=False)
+    _store_idempotent_upload_response(
+        db_path=state.settings.db_path,
+        key=idempotency_key,
+        signature=request_signature,
+        upload_id=upload_id,
+        response_payload=response_payload,
+    )
+
+    return response_payload
 
 
 @router.get("/api/intake/uploads")
