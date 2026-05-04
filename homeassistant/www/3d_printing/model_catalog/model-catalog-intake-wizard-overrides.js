@@ -4,6 +4,7 @@ var basename = intakeShared.basename;
 var callServiceWithResponse = intakeShared.callServiceWithResponse;
 var fireModelCatalogDataChanged = intakeShared.fireModelCatalogDataChanged;
 var postJsonWithAuth = intakeShared.postJsonWithAuth;
+var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -933,15 +934,7 @@ function destinationGroupKey(model, index) {
     var response;
     if (browserFiles.length) {
       var sidecarBaseUrl = this._resolveSidecarUrl();
-      var encodedBrowserFiles = [];
-      for (var index = 0; index < browserFiles.length; index += 1) {
-        encodedBrowserFiles.push(await this._encodeBrowserFile(browserFiles[index]));
-      }
-      response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/browser', {
-        browser_files: encodedBrowserFiles,
-        server_selections: payloadSelections,
-        cleanup_policy: cleanupPolicy,
-      });
+      response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, payloadSelections, cleanupPolicy);
     } else {
       response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_select_source_filesystem_entries', {
         selections: payloadSelections,

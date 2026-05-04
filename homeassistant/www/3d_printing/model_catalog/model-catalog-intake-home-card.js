@@ -14,6 +14,7 @@ var selectInputOption = intakeShared.selectInputOption;
 var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
+var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 
 var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".png": true,
@@ -730,17 +731,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var response;
       if (browserFiles.length) {
         var sidecarBaseUrl = this._resolveSidecarUrl();
-        if (!sidecarBaseUrl) {
-          throw new Error("Set input_text.model_catalog_sidecar_base_url to enable browser uploads.");
-        }
-        var encodedBrowserFiles = [];
-        for (var browserIndex = 0; browserIndex < browserFiles.length; browserIndex += 1) {
-          encodedBrowserFiles.push(await this._encodeBrowserFile(browserFiles[browserIndex]));
-        }
-        response = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, "") + "/api/intake/uploads/browser", {
-          browser_files: encodedBrowserFiles,
-          server_selections: finalSelections,
-        });
+        response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, finalSelections, cleanupPolicy);
       } else {
         response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_select_source_filesystem_entries", {
           selections: finalSelections,

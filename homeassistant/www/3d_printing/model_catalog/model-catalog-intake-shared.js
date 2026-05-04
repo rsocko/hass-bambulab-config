@@ -227,10 +227,189 @@
     }
 
     if (!response.ok || (parsed && parsed.success === false)) {
-      throw new Error(parsed && (parsed.message || parsed.error) ? String(parsed.message || parsed.error) : "Request failed.");
+      var jsonError = new Error(parsed && (parsed.message || parsed.error) ? String(parsed.message || parsed.error) : "Request failed.");
+      jsonError.status = Number(response.status || 0);
+      jsonError.payload = parsed;
+      throw jsonError;
     }
 
     return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
+  async function getJsonWithAuth(hass, endpoint) {
+    var response = await fetch(endpoint, {
+      method: "GET",
+      headers: await authHeaders(hass, false),
+      mode: "cors",
+    });
+
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: "GET",
+        headers: await authHeaders(hass, true),
+        mode: "cors",
+      });
+    }
+
+    var parsed = {};
+    try {
+      parsed = await response.json();
+    } catch (_error) {
+      parsed = {};
+    }
+
+    if (!response.ok) {
+      var getError = new Error(parsed && (parsed.message || parsed.error) ? String(parsed.message || parsed.error) : "Request failed.");
+      getError.status = Number(response.status || 0);
+      getError.payload = parsed;
+      throw getError;
+    }
+
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
+  async function postFormWithAuth(hass, endpoint, formData) {
+    var response = await fetch(endpoint, {
+      method: "POST",
+      headers: await authHeaders(hass, false),
+      mode: "cors",
+      body: formData,
+    });
+
+    if (response.status === 401) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: await authHeaders(hass, true),
+        mode: "cors",
+        body: formData,
+      });
+    }
+
+    var parsed = {};
+    try {
+      parsed = await response.json();
+    } catch (_error) {
+      parsed = {};
+    }
+
+    if (!response.ok || (parsed && parsed.success === false)) {
+      var formError = new Error(parsed && (parsed.message || parsed.error) ? String(parsed.message || parsed.error) : "Request failed.");
+      formError.status = Number(response.status || 0);
+      formError.payload = parsed;
+      throw formError;
+    }
+
+    return parsed && typeof parsed === "object" ? parsed : {};
+  }
+
+  var browserUploadCapabilityCache = {};
+
+  function normalizeSidecarBaseUrl(sidecarBaseUrl) {
+    return String(sidecarBaseUrl || "").trim().replace(/\/$/, "");
+  }
+
+  async function supportsBrowserUploadV2(hass, sidecarBaseUrl) {
+    var normalizedBaseUrl = normalizeSidecarBaseUrl(sidecarBaseUrl);
+    if (!normalizedBaseUrl) {
+      return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(browserUploadCapabilityCache, normalizedBaseUrl)) {
+      return browserUploadCapabilityCache[normalizedBaseUrl];
+    }
+    try {
+      var openapi = await getJsonWithAuth(hass, normalizedBaseUrl + "/openapi.json");
+      var paths = openapi && typeof openapi === "object" ? openapi.paths : null;
+      var supportsV2 = !!(paths && paths["/api/intake/uploads/v2/browser-multipart"]);
+      browserUploadCapabilityCache[normalizedBaseUrl] = supportsV2;
+      return supportsV2;
+    } catch (_error) {
+      browserUploadCapabilityCache[normalizedBaseUrl] = false;
+      return false;
+    }
+  }
+
+  async function encodeBrowserFileForV1(fileEntry) {
+    var buffer = await fileEntry.file.arrayBuffer();
+    var bytes = new Uint8Array(buffer);
+    var chunkSize = 0x8000;
+    var binary = "";
+    for (var index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunkSize));
+    }
+    return {
+      filename: fileEntry.name,
+      relative_path: fileEntry.relative_path,
+      content_base64: btoa(binary),
+      grouping_strategy: String(fileEntry.grouping_strategy || 'none').trim(),
+      preserve_folder_structure: fileEntry.preserve_folder_structure !== false,
+      group_title_source: fileEntry.group_title_source,
+      group_title: fileEntry.group_title,
+      file_last_modified_ms: fileEntry.file && Number.isFinite(Number(fileEntry.file.lastModified))
+        ? Number(fileEntry.file.lastModified)
+        : undefined,
+    };
+  }
+
+  function browserFileManifestEntry(fileEntry) {
+    return {
+      filename: fileEntry.name,
+      relative_path: fileEntry.relative_path,
+      grouping_strategy: String(fileEntry.grouping_strategy || 'none').trim(),
+      preserve_folder_structure: fileEntry.preserve_folder_structure !== false,
+      group_title_source: fileEntry.group_title_source,
+      group_title: fileEntry.group_title,
+      file_last_modified_ms: fileEntry.file && Number.isFinite(Number(fileEntry.file.lastModified))
+        ? Number(fileEntry.file.lastModified)
+        : undefined,
+    };
+  }
+
+  function shouldFallbackToV1(error) {
+    if (!error || typeof error !== "object") {
+      return false;
+    }
+    var status = Number(error.status || 0);
+    return status === 404 || status === 405 || status === 415 || status === 501;
+  }
+
+  async function uploadBrowserFilesWithFallback(hass, sidecarBaseUrl, browserFiles, serverSelections, cleanupPolicy) {
+    var normalizedBaseUrl = normalizeSidecarBaseUrl(sidecarBaseUrl);
+    if (!normalizedBaseUrl) {
+      throw new Error("Set input_text.model_catalog_sidecar_base_url to enable browser uploads.");
+    }
+
+    var files = Array.isArray(browserFiles) ? browserFiles : [];
+    var selections = Array.isArray(serverSelections) ? serverSelections : [];
+    var supportsV2 = await supportsBrowserUploadV2(hass, normalizedBaseUrl);
+
+    if (supportsV2) {
+      try {
+        var multipartForm = new FormData();
+        multipartForm.append("manifest", JSON.stringify({
+          cleanup_policy: cleanupPolicy,
+          server_selections: selections,
+          browser_files: files.map(browserFileManifestEntry),
+        }));
+        files.forEach(function (fileEntry) {
+          multipartForm.append("files[]", fileEntry.file, fileEntry.name || (fileEntry.file && fileEntry.file.name) || "upload.bin");
+        });
+        return await postFormWithAuth(hass, normalizedBaseUrl + "/api/intake/uploads/v2/browser-multipart", multipartForm);
+      } catch (error) {
+        if (!shouldFallbackToV1(error)) {
+          throw error;
+        }
+      }
+    }
+
+    var encodedBrowserFiles = [];
+    for (var index = 0; index < files.length; index += 1) {
+      encodedBrowserFiles.push(await encodeBrowserFileForV1(files[index]));
+    }
+    return postJsonWithAuth(hass, normalizedBaseUrl + "/api/intake/uploads/browser", {
+      browser_files: encodedBrowserFiles,
+      server_selections: selections,
+      cleanup_policy: cleanupPolicy,
+    });
   }
 
   async function setHelperValue(hass, domain, entityId, value) {
@@ -244,17 +423,6 @@
     if (domain === "input_text") {
       await hass.callService("input_text", "set_value", { entity_id: entityId, value: value });
     }
-  }
-
-  function fireModelCatalogDataChanged(scopes, detail) {
-    var normalizedScopes = Array.isArray(scopes)
-      ? scopes.filter(function (scope) { return !!scope; })
-      : [];
-    window.dispatchEvent(new CustomEvent("model-catalog-data-changed", {
-      bubbles: true,
-      composed: true,
-      detail: Object.assign({ scopes: normalizedScopes }, detail || {}),
-    }));
   }
 
   var sharedStyles = ""
@@ -321,12 +489,16 @@
     formatBytes: formatBytes,
     formatLabel: formatLabel,
     fireModelCatalogDataChanged: fireModelCatalogDataChanged,
+    getJsonWithAuth: getJsonWithAuth,
     parseDecisionWarnings: parseDecisionWarnings,
+    postFormWithAuth: postFormWithAuth,
     postJsonWithAuth: postJsonWithAuth,
     selectInputOption: selectInputOption,
     setHelperValue: setHelperValue,
     sharedStyles: sharedStyles,
     summarizeStates: summarizeStates,
+    supportsBrowserUploadV2: supportsBrowserUploadV2,
+    uploadBrowserFilesWithFallback: uploadBrowserFilesWithFallback,
     warningMessages: warningMessages,
   };
 })();
