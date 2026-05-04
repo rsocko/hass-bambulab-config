@@ -45,6 +45,7 @@ Support both intake source modes under one queue contract, but keep each queued 
 - One batch uses either browser upload or server browse, not a browser+server hybrid submission.
 - Within the chosen mode, source selection can still include explicit files, folders, or mixed file+folder batches.
 - Folder source entries keep traversal control (`recurse` true/false) inline with the selection flow.
+- Server-browse selections may overlap hierarchically (parent folder plus child folder/file), but the canonical model is a union of unique resolved files rather than additive duplicate imports.
 
 Both modes still converge on the same queue state machine and review/import UX.
 
@@ -88,6 +89,24 @@ Step 1 follows the shared split-pane rule:
   - show root/source provenance (`Browser Upload` vs actual server path)
   - show immediate batch summary counts and a grouped preview of the selected inputs
 
+### Overlapping Server Selections
+
+This rule applies specifically to Server browse mode.
+
+- The wizard may allow selecting a parent folder and also one of its child folders or explicit files.
+- Those overlapping selections must be interpreted as one union of unique resolved files.
+- The same file must not be imported twice just because it is covered by multiple selected server entries.
+- Recursive parent coverage should be treated as making deeper child selections redundant unless the parent is non-recursive.
+- Non-recursive parent selection does not cover deeper descendants. In that case, explicitly selecting a child folder or file is a valid and expected workflow.
+
+The UX contract for overlap handling is:
+
+- harmless redundant overlap should warn, not hard-fail
+- conflicting overlap with different grouping/title/preservation intent should surface as an explicit review problem
+- review summaries should distinguish raw selected entries from the final unique resolved-file outcome
+
+This keeps legitimate mixed root selection available while removing ambiguity about whether overlap means duplicate import.
+
 ### Step 2: Organize
 
 Step 2 is required for both Browser and Server source modes.
@@ -119,6 +138,7 @@ Internal/backend values may continue to map to the existing grouping fields for 
 - Supporting files and images do not create standalone models when `Separate Models By File` is chosen. They attach to the nearest resolved model according to the planner's file-association rules.
 - `Each Root Folder Becomes A Model` applies at the selected-root level: each chosen root folder becomes a model, and its subfolders/files remain with it.
 - Multiple entries using `Keep Together In Same Model` may merge into one logical model if the operator intends them to land together.
+- When overlapping selections cover the same file, the plan must not silently treat that as two imports. If selection-specific metadata conflicts, validation or review must surface which rule applies or require the operator to resolve it.
 
 For each logical model or source batch, the operator sets:
 
@@ -198,6 +218,7 @@ Validation output includes:
 - resolvability/readability checks
 - supported type checks
 - duplicate and collision checks
+- overlapping-selection diagnostics for redundant or conflicting server-entry coverage
 - destination-specific conflicts (for Working vs Curated targets)
 - warning and blocking issue classification
 

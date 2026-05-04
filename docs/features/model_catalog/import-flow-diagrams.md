@@ -31,7 +31,14 @@ UI note:
 - Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
 - Cleanup policy belongs to wizard planning and is validated before commit.
 - Mixed file+folder selections are allowed in one batch, but the wizard review step must show expansion preview so the operator understands what will be imported.
+- For Server browse mode, overlapping parent/child/file selections must collapse to a union of unique resolved files, with review-time warnings for redundant or conflicting overlap.
 - The Organize, Validate, and Commit steps must keep showing the resolved logical-model outputs, not revert to raw source-entry lists.
+
+Overlap note:
+
+- A recursive parent folder plus a selected child folder/file is a supported workflow, but child entries are redundant if they are already fully covered by the parent.
+- A non-recursive parent folder plus a selected child folder/file is also supported and should not be treated as redundant.
+- The operator-facing result summary should communicate both selected-entry count and final unique-file outcome when overlap exists.
 
 ## High-Level Flow: Wizard to Execution
 

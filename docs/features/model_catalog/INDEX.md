@@ -31,6 +31,7 @@
 - **[Print History Slicer Implementation Plan](print-history-slicer-implementation-plan.md)** ← Local worker delivery slices and issue breakdown
 - **[Intake Flow States And Transitions](intake-state-machine.md)** ← Issue #1079
 - **[Intake Wizard UX Mockups](intake-wizard-ux-mockups.md)** ← Canonical split-pane intake layouts for #1282, #1288, and #1292
+- **[Intake Overlapping Server Selections Issue Drafts](intake-overlapping-server-selections-issue-drafts.md)** ← Parent/child overlap issue-ready tracking for Server intake follow-up
 
 ### 🧭 Phase 5 Wave 4 UI Design (New)
 - **[Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md)** ← Wave 4 implementation-facing UI design for #1077, #1082, #1145

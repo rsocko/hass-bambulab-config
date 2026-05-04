@@ -52,6 +52,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Phase 1.5 Intake Implementation Breakdown](phase-1.5-intake-implementation-breakdown.md) — Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
 - [Intake Wizard and Queue Design](intake-inbox-design.md) — Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
 - [Intake Wizard UX Mockups](intake-wizard-ux-mockups.md) — Low-fi split-pane wizard wireframes for Browser Upload and Server Inbox, aligned to issues #1282, #1288, and #1292
+- [Intake Overlapping Server Selections Issue Drafts](intake-overlapping-server-selections-issue-drafts.md) — Issue-ready parent/child overlap tracking for Server browse semantics, warning UX, and deterministic unique-file planning
 - [Phase 6 Search, Ranking, and Discovery Design](phase-6-search-ranking-and-discovery-design.md) — Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces
 - [Phase 6 Bulk Metadata Enrichment Design](phase-6-bulk-metadata-enrichment-design.md) — Authoritative Phase 6 contract for bulk analyze, review-first enrichment, confidence handling, and audited batch apply
 - Current implementation status: Phase 2 archive popup linkage is live; the current Phase 6 source of truth for candidate broadening, curated search/picker, ranking, related items, and bulk enrichment is the two Phase 6 design docs above
