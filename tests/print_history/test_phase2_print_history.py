@@ -822,12 +822,22 @@ class TestHeatmapActivityCard(unittest.TestCase):
     def test_heatmap_card_resource_is_versioned_for_reregistration(self):
         content = (ROOT / "homeassistant" / "packages" / "3d_printing" / "common" / "dashboards" / "_resources.yaml").read_text("utf-8")
         self.assertIn("/local/3d_printing/print_history/print-history-browser-card.js?v=123", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=64", content)
-        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=60", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-activity-heatmap-card.js?v=65", content)
+        self.assertIn("/local/3d_printing/print_history/print-history-photo-gallery-card.js?v=61", content)
         self.assertIn("/local/3d_printing/print_history/print-history-archive-actions-card.js?v=68", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-card.js?v=10", content)
         self.assertIn("/local/3d_printing/print_history/print-history-timelapse-editor-card.js?v=8", content)
         self.assertIn("/local/3d_printing/common/print-filament-breakdown-card.js?v=5", content)
+
+    def test_heatmap_card_uses_issue_1231_legend_labels(self):
+        content = (
+            ROOT / "homeassistant" / "www" / "3d_printing" / "print_history" / "print-history-activity-heatmap-card.js"
+        ).read_text("utf-8")
+
+        self.assertIn('startLabel: "Single-Color"', content)
+        self.assertIn('endLabel: "Multi-Color"', content)
+        self.assertIn('startLabel: "In Project"', content)
+        self.assertIn('endLabel: "No Project"', content)
 
     def test_heatmap_grouping_reducer_keeps_card_context_for_enrichment_helpers(self):
         content = (

@@ -2370,8 +2370,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     if (mode === "Single vs Multi-Color Prints") {
       return {
-        startLabel: "More single-color",
-        endLabel: "More multi-color",
+        startLabel: "Single-Color",
+        endLabel: "Multi-Color",
         colors: ["#2563EB", "#4F46E5", "#7C3AED", "#A21CAF", "#D946EF"],
         note: "Balanced days blend toward purple.",
       };
@@ -2387,8 +2387,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
 
     if (mode === "In a Project vs Not in a Project") {
       return {
-        startLabel: "More in a project",
-        endLabel: "More not in a project",
+        startLabel: "In Project",
+        endLabel: "No Project",
         colors: ["#2563EB", "#4F8FE0", "#7BB8CC", "#B7C78B", "#FACC15"],
       };
     }
