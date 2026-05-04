@@ -60,6 +60,43 @@ The intake wizard must use one consistent split-pane design regardless of source
 - The right pane may collapse or group long file lists, but it must still let the operator inspect the underlying files/folders that produced each result.
 - After the Source step, reuse shared wizard components where practical rather than building separate Browser-only and Server-only layouts for Organize, Validate, and Commit.
 
+### Long-Running Operation Contract (#1290)
+
+The wizard must expose explicit busy and progress affordances for operations that take noticeable time. This applies both to browser upload transport and to backend execution after the upload has already been accepted.
+
+Rules:
+
+- show determinate progress only when the UI has a real denominator such as bytes or file counts
+- show named backend phases rather than fake percentages for validation, publish, verification, and cleanup
+- disable source-changing controls while an operation that depends on the current plan is in flight
+- keep `Back` and `Close` behavior explicit; do not allow accidental dismissal without warning while upload or commit is active
+- show `Cancel` only while the operation is still safely abortable
+- when execution has crossed into irreversible backend mutation, switch from `Cancel` to read-only busy state plus `View In Job History` when available
+
+This is the canonical design response for issue #1290.
+
+### Progress Phase Model
+
+The wizard should map backend lifecycle to operator-facing phases:
+
+1. `Uploading files`
+2. `Preparing intake job`
+3. `Validating plan`
+4. `Publishing to Working Files` or `Publishing to Curated Catalog`
+5. `Verifying imported files`
+6. `Cleaning up source files`
+7. `Done`
+
+These phases should be driven by queue/job metadata rather than inferred from local timers.
+
+### Locking And Exit Behavior
+
+- During browser transfer, disable source edits that would invalidate the current request payload.
+- During validation, disable `Next` and commit actions until the validation result resolves.
+- During commit, disable all plan-mutating controls and keep the wizard in a dedicated execution state.
+- If the operator attempts to close the wizard during a cancellable phase, show a confirmation dialog.
+- If the operator closes after handoff to queue/background execution, the current job must remain discoverable in Job History or item detail so progress is not lost.
+
 ### Popup Shell And Scrolling Contract
 
 - The wizard popup shell should have a stable outer size during step changes; it should not expand or shrink based on content length.
@@ -88,6 +125,13 @@ Step 1 follows the shared split-pane rule:
   - show the actual files/folders currently selected
   - show root/source provenance (`Browser Upload` vs actual server path)
   - show immediate batch summary counts and a grouped preview of the selected inputs
+
+Progress/busy affordances for Step 1:
+
+- Browser Upload should show upload transfer progress once the operator starts the upload-bearing transition out of Source.
+- Prefer determinate progress using bytes sent / total bytes and file count when available.
+- While transfer is active, disable add/remove/reorder actions for the submitted batch and replace the primary action with `Cancel Upload` if the request is still abortable.
+- Server browse selection itself does not need a progress bar, but expensive server-side folder resolution may show an indeterminate `Scanning selection` busy state if traversal or dedupe expansion is slow.
 
 ### Overlapping Server Selections
 
@@ -251,6 +295,13 @@ Step 4 also uses the split-pane contract:
 
 Validate should reuse the Organize result-pane components and layer validation state onto them rather than introducing a new result layout.
 
+Progress/busy affordances for Step 4:
+
+- Validation should show an explicit `Validating plan` busy state whenever a validate call is running.
+- When the backend can only report lifecycle phase, use an indeterminate progress bar or stepper with the active phase highlighted.
+- When validation returns per-model results incrementally in a later iteration, the right pane may annotate completed models as they finish, but the initial design should not depend on incremental streaming.
+- Disable override toggles and navigation that would mutate the validated plan while validation is in flight.
+
 ### Step 4: Commit
 
 - Execute the validated plan.
@@ -276,6 +327,15 @@ Commit semantics:
 - `Queue For Review` leaves the validated prepared upload in Intake Queue.
 - `Execute Now` publishes immediately only when validation is ready.
 - When validation returns warnings, the validated upload remains in Intake Queue for follow-up review unless later policy/override work explicitly changes that behavior.
+
+Progress/busy affordances for Step 5:
+
+- Commit must show a dedicated execution state rather than a static confirmation screen once the operator starts execution.
+- Use the phase model above to show backend progress across publish, verify, and cleanup.
+- Publish-to-Working and publish-to-Curated should use different phase labels so the operator sees where the job is going.
+- If cleanup is configured, the wizard should remain explicit that the main publish succeeded even if cleanup is still pending or retryable.
+- Partial-success and cleanup-failed states should not strand the operator in a generic spinner; they should resolve to a concrete result summary plus Job History linkage.
+- After irreversible backend mutation begins, replace `Cancel` with read-only busy messaging and then terminal result links.
 
 ### Source Metadata Capture
 
@@ -429,6 +489,7 @@ The HA/operator surface should support:
 - explicit Validate step before commit
 - explicit Organize step for logical-model destinations
 - Job History as the visible outcome surface
+- explicit progress, busy-state, disable, and cancel affordances for upload, validation, publish, verification, and cleanup
 
 For now, do not require a primary Inbox review card for routine operation.
 

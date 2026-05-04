@@ -9,6 +9,10 @@
 - `docs/features/model_catalog/integration/intake-browser-upload-v2-contract-design.md`
 - `docs/features/model_catalog/integration/streamdeck-upload-functionality-design.md`
 
+Cross-cutting UI follow-on:
+
+- issue #1290 should be implemented against the progress/busy-state contract added to the v2 upload design and intake wizard docs.
+
 ## Labels (Suggested)
 
 - `model_catalog`
@@ -51,6 +55,7 @@ Acceptance Criteria:
 - [ ] Capture payload byte counters
 - [ ] Add diagnostics visibility in existing service diagnostics surface
 - [ ] Validate no sensitive content in logs
+- [ ] Expose enough phase/timing metadata to support #1290 progress UI without logging sensitive file content
 
 ### Issue 1.4
 Title: Model Catalog: Browser uploader feature-flagged v2 adoption with v1 fallback
@@ -61,6 +66,21 @@ Acceptance Criteria:
 - [ ] Browser uploader selects v2 when available
 - [ ] Automatic fallback to v1 on unavailable/unsupported v2
 - [ ] Add compatibility tests for mixed-mode deployments
+- [ ] Keep the wizard progress shell consistent across v2 primary and v1 fallback, degrading from byte-progress to phase-progress when necessary
+
+### Issue 1.4a
+Title: Model Catalog: Intake wizard progress, busy-state, and cancellation affordances
+
+Acceptance Criteria:
+- [ ] Browser upload shows determinate transfer progress when transport exposes real byte counts
+- [ ] Validate and Commit surfaces show phase-based processing states for server-side work
+- [ ] Wizard actions that would mutate inputs are disabled while upload/validate/commit is actively running
+- [ ] Operator can cancel before irreversible publish starts; UI clearly indicates when cancel is no longer available
+- [ ] Completion and failure states link cleanly into Job History/result entities instead of leaving the wizard in an ambiguous busy state
+
+Notes:
+- This issue depends on the queue/status metadata from 1.3 and the browser adoption shell in 1.4.
+- This is the implementation bridge for GitHub issue #1290.
 
 ### Issue 1.5
 Title: Model Catalog: Optional resumable upload session contract (deferred capability)

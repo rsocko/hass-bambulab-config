@@ -19,6 +19,7 @@ Current route and behavior:
 2. Preserve existing intake queue and publish workflow semantics.
 3. Keep migration low-risk with parallel v1 + v2 support.
 4. Add deterministic idempotency and resumable upload affordances.
+5. Provide enough transport and processing state for the Intake wizard to show honest progress, busy states, and cancellation affordances.
 
 ## Non-Goals
 
@@ -157,6 +158,81 @@ Add structured telemetry fields:
 - `staging_write_duration_ms`
 - `warnings_count`
 
+## Progress And Busy-State Contract
+
+Issue #1290 should be implemented against the upload transport and queue lifecycle documented here, not as a separate ad hoc spinner layer.
+
+### Principle: Honest Progress Only
+
+- Use determinate progress when the client knows real byte or file counts.
+- Use phase-based progress when the backend is doing server-side work whose total duration is not predictable.
+- Do not show fake 0-100 percentages for publish, verification, or cleanup unless the backend can supply a real denominator.
+
+### Browser UI Progress Types
+
+1. Client upload transfer progress
+  - Applies to Profile A multipart and Profile B resumable uploads.
+  - Show byte-based progress bar and uploaded file count when available.
+  - For v2 multipart this should come from the browser request upload stream/progress events.
+  - For resumable, show per-file and batch aggregate progress if both are cheaply available.
+
+2. Server processing progress
+  - Starts after transport finishes and the sidecar is validating, publishing, verifying, or cleaning up.
+  - Use a phase stepper/status line rather than a percentage when only lifecycle state is known.
+  - The canonical phase labels for wizard copy should be:
+    - `Uploading files`
+    - `Preparing intake job`
+    - `Validating plan`
+    - `Publishing to Working Files` or `Publishing to Curated Catalog`
+    - `Verifying imported files`
+    - `Cleaning up source files`
+    - `Done`
+
+### Required Backend Status Surface
+
+To support the wizard progress UI, the backend status payload for a submitted upload/job should expose:
+
+- stable `upload_id`
+- current `queue_status`
+- `current_phase` human-meaningful phase code
+- `phase_started_at`
+- optional `bytes_received` and `bytes_total` during browser upload transport
+- optional `files_received` and `files_total` when batch counts are known
+- terminal `terminal_result` or created entity identifiers when complete
+- `can_cancel` boolean for the current phase
+
+Suggested phase-code mapping:
+
+- `receiving_upload` -> browser-to-sidecar transfer in progress
+- `staging_upload` -> multipart data persisted to staged storage
+- `validating` -> destination-aware validation running
+- `publishing_working` -> commit into Working target running
+- `publishing_curated` -> commit into Curated target running
+- `verifying` -> post-publish verification running
+- `cleanup_pending` -> destructive cleanup queued or running
+- `completed` -> terminal success
+- `failed` -> terminal failure
+- `cancelled` -> operator-aborted before irreversible commit
+
+Existing queue lifecycle values remain authoritative for backend execution state. `current_phase` is the UI-facing refinement that lets #1290 present clearer copy without inventing separate frontend-only state.
+
+### Cancellation Contract
+
+Cancellation should be phase-aware:
+
+- Allowed during client-side selection/upload before commit finalization.
+- Allowed for resumable session abort before `finalize`.
+- Best-effort allowed while the server is still receiving or staging browser upload content.
+- Not allowed once publish/verification/cleanup has crossed into irreversible backend mutation.
+
+Wizard copy should prefer `Cancel Upload` before commit and `Close` or `View In Job History` after irreversible execution begins.
+
+### Fallback Behavior
+
+- v1 fallback should reuse the same busy-state shell where possible.
+- Fine-grained byte progress may be reduced or unavailable on v1 fallback.
+- If only phase information is available, the UI should degrade to phase-based progress instead of removing the progress affordance entirely.
+
 ## Performance Expectations
 
 Expected improvements vs v1 for larger files:
@@ -171,7 +247,7 @@ No guaranteed meaningful latency win for very small files.
 
 1. Implement Profile A multipart route and idempotency table.
 2. Add integration tests paralleling existing browser upload tests.
-3. Update browser card with feature flag/capability fallback to v1.
+3. Update browser card with feature flag/capability fallback to v1 and the progress/busy-state affordances needed by #1290.
 4. Roll out to StreamDeck uploader using v2 first.
 5. Evaluate telemetry; decide whether Profile B resumable is needed.
 
@@ -191,3 +267,4 @@ No guaranteed meaningful latency win for very small files.
 1. Do we require resumable/chunking in initial release, or defer until telemetry says needed?
 2. Should v2 keep automatic `delete_on_verified` behavior for browser-staged files (recommended: yes, for parity)?
 3. Should we expose a dedicated capabilities endpoint or fold into existing `/config` output?
+4. Should the progress-driving job status be delivered by polling item detail, SSE, or websocket later, while keeping the initial payload contract transport-agnostic?

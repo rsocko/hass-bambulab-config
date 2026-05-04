@@ -116,6 +116,30 @@ Supporting files and images do not become standalone models when `Separate Model
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
+When browser transfer is active, the Source step should switch to a busy variant:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Results                                     │
+│                                       │                                                    │
+│ Uploading files...                    │ Selected Inputs                                    │
+│ 2 of 12 files                         │ ┌────────────────────────────────────────────────┐ │
+│ [███████████---------] 58%            │ │ Browser Upload                                 │ │
+│ 184 MB / 318 MB                       │ │ Transfer in progress                           │ │
+│                                       │ │ - model-a.3mf                                 │ │
+│ Actions unavailable while upload runs │ │ - model-b.3mf                                 │ │
+│ [Cancel Upload]                       │ │ - image.jpg                                   │ │
+│                                       │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│                                       │ Phase                                             │
+│                                       │ - Uploading files                                │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
+
 ### Server Inbox Variant
 
 ```text
@@ -230,6 +254,30 @@ Validate should reuse the same right-side model/result cards from Organize and a
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
+When validation is running, the same step should show explicit processing state instead of leaving the operator on an inert form:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Validate                                                         [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Results                                     │
+│                                       │                                                    │
+│ Validating plan...                    │ Planned Output Models                             │
+│ [████████████████████] active phase   │ ┌────────────────────────────────────────────────┐ │
+│ Phase: Validating plan                │ │ Model A: Gridfinity Baseplate                  │ │
+│                                       │ │ Status: Checking                               │ │
+│ Validation controls disabled          │ ├────────────────────────────────────────────────┤ │
+│ while request is in flight            │ │ Model B: Adapter Variants                      │ │
+│ [Cancel] [Back disabled]              │ │ Status: Waiting                                │ │
+│                                       │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│                                       │ Use a named phase instead of a fake percent when │
+│                                       │ only backend lifecycle state is known.           │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
+
 ## Step 5: Commit
 
 Commit should keep the same split layout and continue using the same result/model cards, adding execution outcome details instead of switching to a different review surface.
@@ -258,6 +306,30 @@ Commit should keep the same split layout and continue using the same result/mode
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
+When execution is active, Commit should transition into a progress-oriented execution shell:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Commit                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Actions                         │ RIGHT: Results                                     │
+│                                       │                                                    │
+│ Executing intake job...               │ Final Outcome                                      │
+│ Phase 1: Publishing to Curated        │ ┌────────────────────────────────────────────────┐ │
+│ Phase 2: Verifying imported files     │ │ Model A -> Curated / creating new model        │ │
+│ Phase 3: Cleaning up source files     │ │ Status: Publishing                              │ │
+│                                       │ ├────────────────────────────────────────────────┤ │
+│ This phase cannot be cancelled.       │ │ Model B -> Working / existing group #42        │ │
+│ Plan editing disabled.                │ │ Status: Waiting                                 │ │
+│ [Close disabled]                      │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│                                       │ Job link appears here as soon as an item detail  │
+│                                       │ or Job History record exists.                    │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+```
+
 ## Mobile Adaptation
 
 On mobile, preserve the same order instead of inventing a different workflow:
@@ -276,3 +348,6 @@ This becomes a vertical stack rather than a side-by-side split, but the semantic
 - Do not collapse Organize into a generic commit/settings step.
 - The result pane should be reusable across Organize, Choose Destination, Validate, and Commit with progressively richer annotations.
 - Do not let the popup resize between Browser and Server variants or between steps; keep the shell fixed and scroll internally.
+- Use determinate progress only for real transfer/file-count progress; use named phases for backend processing work.
+- Disable mutating controls while upload, validation, or commit is actively running.
+- Only show `Cancel` while the current operation is still safely abortable.
