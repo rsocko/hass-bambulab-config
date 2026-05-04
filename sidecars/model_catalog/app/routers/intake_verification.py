@@ -366,8 +366,6 @@ def _normalize_effective_grouping_strategy(
     batch_files: list[dict[str, Any]],
 ) -> str:
     strategy = _normalize_grouping_strategy(requested_strategy)
-    if entry_type == "file" and strategy in {"by-folder", "by-root"}:
-        return "none"
     if strategy == "flat" and not any(_is_printable_intake_file(file_item) for file_item in batch_files):
         return "none"
     return strategy

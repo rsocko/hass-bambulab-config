@@ -23,11 +23,15 @@ from pathlib import Path, PurePosixPath
 from sqlite3 import connect
 from typing import Any
 
+from starlette.datastructures import UploadFile
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from ..settings import Settings
 from ..state import AppState
+
+
 
 from .._helpers import (
     SUPPORTED_WORKING_FILE_EXTENSIONS,
@@ -500,6 +504,337 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     }
 
 
+
+
+@router.post(
+    "/api/intake/uploads/v2/browser-multipart",
+    summary="Create intake upload from multipart browser files",
+    description=(
+        "Stages browser-uploaded files from multipart form-data and creates a standard intake queue "
+        "upload without using the v1 base64 transport. The multipart manifest preserves relative paths, "
+        "grouping hints, and optional server selections while reusing the existing queue semantics."
+    ),
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["manifest"],
+                        "properties": {
+                            "manifest": {
+                                "type": "string",
+                                "description": "JSON manifest describing cleanup policy, optional server selections, and per-file metadata.",
+                                "example": json.dumps(
+                                    {
+                                        "cleanup_policy": "delete_on_verified",
+                                        "grouping_strategy": "by-folder",
+                                        "preserve_folder_structure": True,
+                                        "browser_files": [
+                                            {
+                                                "filename": "widget.3mf",
+                                                "relative_path": "Batch A/widget.3mf",
+                                            },
+                                            {
+                                                "filename": "preview.jpg",
+                                                "relative_path": "Batch A/preview.jpg",
+                                            },
+                                        ],
+                                    }
+                                ),
+                            },
+                            "files[]": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "format": "binary",
+                                },
+                                "description": "Repeated multipart file parts, one for each uploaded file.",
+                            },
+                        },
+                    },
+                    "examples": {
+                        "nested-batch": {
+                            "summary": "Nested browser upload with per-file relative paths",
+                            "value": {
+                                "manifest": json.dumps(
+                                    {
+                                        "cleanup_policy": "delete_on_verified",
+                                        "grouping_strategy": "by-folder",
+                                        "preserve_folder_structure": True,
+                                        "browser_files": [
+                                            {
+                                                "filename": "base.3mf",
+                                                "relative_path": "TopA/base.3mf",
+                                            },
+                                            {
+                                                "filename": "tall.3mf",
+                                                "relative_path": "TopA/variants/tall.3mf",
+                                            },
+                                        ],
+                                    }
+                                ),
+                                "files[]": ["<binary>", "<binary>"],
+                            },
+                        }
+                    },
+                }
+            },
+        }
+    },
+)
+async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
+    state: AppState = request.app.state.model_catalog
+
+    try:
+        form = await request.form()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_payload",
+                "message": "Multipart upload must be valid form-data.",
+            },
+        )
+
+    manifest_raw = form.get("manifest")
+    if manifest_raw is None or isinstance(manifest_raw, UploadFile):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "missing_manifest",
+                "message": "Multipart upload requires a JSON manifest form field.",
+            },
+        )
+
+    try:
+        payload = json.loads(str(manifest_raw))
+    except json.JSONDecodeError:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_manifest",
+                "message": "Multipart upload manifest must be valid JSON.",
+            },
+        )
+    if not isinstance(payload, dict):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_manifest",
+                "message": "Multipart upload manifest must be a JSON object.",
+            },
+        )
+
+    browser_files_meta = payload.get("browser_files")
+    if browser_files_meta is None:
+        browser_files_meta = payload.get("files_meta") or []
+    if browser_files_meta and not isinstance(browser_files_meta, list):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_manifest",
+                "message": "browser_files or files_meta must be a list when provided.",
+            },
+        )
+
+    parsed_selections = payload.get("server_selections") or []
+    if parsed_selections and not isinstance(parsed_selections, list):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_server_selections",
+                "message": "server_selections must be a list.",
+            },
+        )
+
+    cleanup_policy = _normalize_browser_intake_cleanup_policy(payload.get("cleanup_policy"))
+    warnings: list[dict[str, Any]] = []
+    source_entries: list[dict[str, Any]] = [entry for entry in parsed_selections if isinstance(entry, dict)]
+
+    upload_files: list[UploadFile] = []
+    seen_upload_ids: set[int] = set()
+    for field_name in ("files[]", "files"):
+        for item in form.getlist(field_name):
+            if not isinstance(item, UploadFile):
+                continue
+            marker = id(item)
+            if marker in seen_upload_ids:
+                continue
+            seen_upload_ids.add(marker)
+            upload_files.append(item)
+
+    if browser_files_meta and len(browser_files_meta) != len(upload_files):
+        for upload in upload_files:
+            await upload.close()
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_manifest_file_mapping",
+                "message": "browser_files/files_meta must include exactly one entry per uploaded multipart file.",
+            },
+        )
+
+    if not upload_files and not source_entries:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "missing_browser_files",
+                "message": "Select at least one browser file or server selection before submitting.",
+            },
+        )
+
+    staged_upload_id = str(uuid.uuid4()) if upload_files else None
+    staged_root = (_browser_intake_upload_storage_root(state.settings) / staged_upload_id) if staged_upload_id else None
+    if staged_root is not None:
+        staged_root.mkdir(parents=True, exist_ok=True)
+
+    default_grouping_strategy = str(payload.get("grouping_strategy") or "").strip() or None
+    default_group_title_source = payload.get("group_title_source")
+    default_group_title = payload.get("group_title")
+    default_preserve_folder_structure = payload.get("preserve_folder_structure")
+
+    try:
+        for index, upload in enumerate(upload_files):
+            file_meta = browser_files_meta[index] if browser_files_meta else {}
+            if file_meta and not isinstance(file_meta, dict):
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "success": False,
+                        "error": "invalid_manifest_file_mapping",
+                        "message": "Each browser_files/files_meta entry must be an object.",
+                    },
+                )
+
+            filename = Path(str((file_meta or {}).get("filename") or upload.filename or "")).name or f"upload-{index + 1}.bin"
+            relative_path = _sanitize_browser_upload_relative_path(
+                str((file_meta or {}).get("relative_path") or upload.filename or filename),
+                filename,
+            )
+            if relative_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+                warnings.append(
+                    {
+                        "code": "unsupported_file_type",
+                        "message": f"Skipped unsupported browser upload: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            assert staged_root is not None
+            destination = (staged_root / relative_path).resolve()
+            if not destination.is_relative_to(staged_root.resolve()):
+                warnings.append(
+                    {
+                        "code": "invalid_relative_path",
+                        "message": f"Skipped browser upload with unsafe path: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            bytes_written = 0
+            with destination.open("wb") as handle:
+                while True:
+                    chunk = await upload.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+                    bytes_written += len(chunk)
+
+            if bytes_written <= 0:
+                destination.unlink(missing_ok=True)
+                warnings.append(
+                    {
+                        "code": "empty_upload",
+                        "message": f"Skipped empty browser upload: {filename}",
+                        "filename": filename,
+                    }
+                )
+                continue
+
+            grouping_strategy = str((file_meta or {}).get("grouping_strategy") or default_grouping_strategy or "").strip() or None
+            preserve_folder_structure = (file_meta or {}).get("preserve_folder_structure")
+            if preserve_folder_structure is None:
+                preserve_folder_structure = default_preserve_folder_structure
+
+            source_entries.append(
+                {
+                    "type": "file",
+                    "path": str(destination),
+                    "source_type": "browser_upload",
+                    "original_filename": filename,
+                    "relative_path": str(relative_path).replace("\\", "/"),
+                    "upload_id": staged_upload_id,
+                    "file_last_modified_ms": (file_meta or {}).get("file_last_modified_ms"),
+                    "grouping_strategy": grouping_strategy,
+                    "preserve_folder_structure": preserve_folder_structure,
+                    "group_title_source": (file_meta or {}).get("group_title_source", default_group_title_source),
+                    "group_title": (file_meta or {}).get("group_title", default_group_title),
+                }
+            )
+    finally:
+        for upload in upload_files:
+            await upload.close()
+
+    if not source_entries:
+        if staged_root is not None:
+            shutil.rmtree(staged_root, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_supported_sources",
+                "message": "No supported intake sources remained after browser upload filtering.",
+                "warnings": warnings,
+            },
+        )
+
+    try:
+        validated_entries = _validate_intake_source_entries(source_entries)
+    except IntakeSourceValidationError as error:
+        if staged_root is not None:
+            shutil.rmtree(staged_root, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": error.error,
+                "message": error.message,
+                **({"detail": error.detail} if error.detail else {}),
+                "warnings": warnings,
+            },
+        )
+
+    upload_id, now_iso = _create_intake_queue_upload_record(
+        db_path=state.settings.db_path,
+        validated_entries=validated_entries,
+        cleanup_policy=cleanup_policy,
+    )
+
+    return {
+        "success": True,
+        "contract": "intake-upload-v2-multipart",
+        "upload_id": upload_id,
+        "status": "queued",
+        "verification_status": "unverified",
+        "cleanup_policy": cleanup_policy,
+        "source_entry_count": len(validated_entries),
+        "browser_file_count": len([entry for entry in validated_entries if entry.get("source_type") == "browser_upload"]),
+        "warnings": warnings,
+        "created_at": now_iso,
+    }
 @router.post("/api/intake/uploads/browser")
 async def intake_queue_post_browser_upload(request: Request) -> Any:
     state: AppState = request.app.state.model_catalog
