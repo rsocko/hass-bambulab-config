@@ -1443,14 +1443,14 @@ function destinationGroupKey(model, index) {
       this._selected = Object.assign({}, this._selected, {
         [selectionPath]: Object.assign({}, this._selected[selectionPath], {
           group_title_source: 'custom',
-    if (action === 'group-lookup-query') {
-      this._updateGroupDestinationState(Number(target.getAttribute('data-group-index') || -1), {
-        lookup_query: String(target.value || ''),
+          group_title: String(target.value || '').trim(),
+        }),
       });
       return;
     }
-          group_title: String(target.value || '').trim(),
-        }),
+    if (action === 'group-lookup-query') {
+      this._updateGroupDestinationState(Number(target.getAttribute('data-group-index') || -1), {
+        lookup_query: String(target.value || ''),
       });
       return;
     }
