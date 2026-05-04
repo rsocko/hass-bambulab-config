@@ -20,6 +20,58 @@ function normalizePath(pathValue) {
   return String(pathValue || '').replace(/\\/g, '/');
 }
 
+// Issue #1322: pick an MDI icon for the file type indicator shown in source-step rows.
+function fileTypeIconName(pathValue) {
+  var normalized = normalizePath(pathValue).toLowerCase();
+  var dotIndex = normalized.lastIndexOf('.');
+  var extension = dotIndex >= 0 ? normalized.slice(dotIndex) : '';
+  if (PRINTABLE_EXTENSIONS[extension]) {
+    return 'mdi:cube-outline';
+  }
+  if (/\.(png|jpg|jpeg|webp|gif|bmp|svg|avif|heic|tif|tiff)$/i.test(normalized)) {
+    return 'mdi:image-outline';
+  }
+  if (extension === '.pdf') {
+    return 'mdi:file-pdf-box';
+  }
+  if (/\.(doc|docx|odt|rtf|txt|md)$/i.test(normalized)) {
+    return 'mdi:file-document-outline';
+  }
+  if (/\.(zip|rar|7z|tar|gz|bz2|xz)$/i.test(normalized)) {
+    return 'mdi:zip-box-outline';
+  }
+  if (/\.(gcode|g)$/i.test(normalized)) {
+    return 'mdi:printer-3d-nozzle';
+  }
+  return 'mdi:file-outline';
+}
+
+function entryTypeIconMarkup(pathValue, isFolder) {
+  if (isFolder) {
+    return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="mdi:folder-outline"></ha-icon></span>';
+  }
+  return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="' + fileTypeIconName(pathValue) + '"></ha-icon></span>';
+}
+
+// Issue #1322: strip the implementation-detail "/assets/" prefix when showing the server browse path,
+// so operators see "Model Inbox/..." instead of "/assets/Model Inbox/...".
+function formatBrowsePathForDisplay(rawPath) {
+  var normalized = normalizePath(rawPath || '/');
+  if (!normalized || normalized === '/') {
+    return 'Model Inbox/';
+  }
+  var stripped = normalized.replace(/^\/+/, '');
+  if (stripped.toLowerCase().indexOf('assets/') === 0) {
+    stripped = stripped.slice('assets/'.length);
+  } else if (stripped.toLowerCase() === 'assets') {
+    stripped = '';
+  }
+  if (!stripped) {
+    return 'Model Inbox/';
+  }
+  return stripped;
+}
+
 function fileKind(pathValue) {
   var normalized = normalizePath(pathValue).toLowerCase();
   var dotIndex = normalized.lastIndexOf('.');
@@ -276,6 +328,12 @@ function destinationGroupKey(model, index) {
 
   proto._wizardStepCount = function () {
     return 5;
+  };
+
+  // Issue #1322: plural top wizard title for the Browser path; Server path keeps
+  // its existing 'Import From Server Inbox' title from the base card.
+  proto._wizardTitle = function () {
+    return this._wizardMode === 'server' ? 'Import From Server Inbox' : 'Upload Files or Folders';
   };
 
   proto._wizardStepLabel = function (stepNumber) {
@@ -1094,6 +1152,83 @@ function destinationGroupKey(model, index) {
     return this._renderBrowserWizardSummary(true);
   };
 
+  // Issue #1322: replace original browser file row renderer so we drop the noisy
+  // "browser"/"single file" chips, surface a file-type icon top right, and let
+  // CSS left-align the title/path block next to the preview square.
+  proto._renderBrowserFileRows = function (showActions) {
+    if (!this._browserFiles.length) {
+      return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+    }
+    var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
+    var card = this;
+    return '<div class="entries">' + this._browserFiles.map(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      var displayName = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename
+        ? window.ModelCatalogIntakeShared.basename(relativePath || entry.name || '')
+        : relativePath) || entry.name || relativePath || 'upload.bin';
+      var folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+      var previewUrl = String(entry.preview_url || '');
+      var previewMarkup = previewUrl
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+        : '<div class="entry-thumb placeholder">No preview</div>';
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top">'
+        + previewMarkup
+        + '    <div class="entry-main">'
+        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(relativePath || entry.name || '') + '</div>'
+        + (folderPath ? '      <div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '')
+        + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
+        + '    </div>'
+        + '    <div class="button-row">'
+        + entryTypeIconMarkup(relativePath, false)
+        + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button>' : '')
+        + '    </div>'
+        + '  </div>'
+        + '</article>';
+    }).join('') + '</div>';
+  };
+
+  // Issue #1322: same treatment for the server browse entries - file-type icon
+  // top right, classed middle block for left-alignment, action buttons stay in
+  // the bottom row but CSS pushes them to the right.
+  proto._renderBrowseEntries = function () {
+    if (this._browseLoading) {
+      return '<div class="state-row">Loading allowlisted source paths...</div>';
+    }
+    if (!this._browse.entries.length) {
+      return '<div class="state-row">No allowlisted entries are available at this path.</div>';
+    }
+    var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
+    var card = this;
+    return '<div class="entries">' + this._browse.entries.map(function (entry) {
+      var selected = !!card._selected[entry.path];
+      var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
+      var isFolder = entry.type === 'folder';
+      var previewMarkup = !isFolder
+        ? card._serverPreviewMarkup(entry.path, displayName)
+        : '<div class="entry-thumb placeholder">Folder</div>';
+      return ''
+        + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
+        + '  <div class="entry-top">'
+        + previewMarkup
+        + '    <div class="entry-main">'
+        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(formatBrowsePathForDisplay(entry.path || '')) + '</div>'
+        + (!isFolder && entry.size_bytes != null ? '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes)) + '</div>' : '')
+        + '    </div>'
+        + '    ' + entryTypeIconMarkup(entry.path, isFolder)
+        + '  </div>'
+        + '  <div class="entry-actions">'
+        + (isFolder ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'
+        + '  </div>'
+        + '</article>';
+    }).join('') + '</div>';
+  };
+
   proto._renderServerSelectionRows = function (showSettings) {
     if (!showSettings) {
       var html = originalRenderServerSelectionRows.call(this, showSettings);
@@ -1160,10 +1295,13 @@ function destinationGroupKey(model, index) {
       if (this._wizardMode === 'server') {
         return ''
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Choose Server Files And Folders</div><div class="subtitle">Browse allowlisted roots and select the source entries for this intake batch.</div></div>'
-          + (this._browse.parent_path ? '<button class="button" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '">Up</button>' : '')
+          + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div></div>'
+          + '  <div class="intake-path-row">'
+          + (this._browse.parent_path
+              ? '<button class="button icon-only" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
+              : '')
+          + '    <div class="intake-path-text">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
           + '  </div>'
-          + '  <div class="muted">Current path: ' + escapeHtml(this._browse.path || '/') + '.</div>'
           + '  <div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div>'
           + '</div>'
           + '<div class="wizard-panel">'
@@ -1173,7 +1311,7 @@ function destinationGroupKey(model, index) {
       }
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Build the staged upload batch from this browser session.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
+        + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
         + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
