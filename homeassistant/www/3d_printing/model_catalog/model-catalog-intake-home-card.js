@@ -505,7 +505,34 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
-  _closeWizard() {
+  _isWizardDirty() {
+    if (this._wizardStep > 1) {
+      return true;
+    }
+    try {
+      if (this._selectedList && this._selectedList().length > 0) {
+        return true;
+      }
+    } catch (err) { /* noop */ }
+    if (Array.isArray(this._browserFiles) && this._browserFiles.length > 0) {
+      return true;
+    }
+    return false;
+  }
+
+  _closeWizard(options) {
+    var force = !!(options && options.force);
+    if (!force && this._isWizardDirty()) {
+      var ok = false;
+      try {
+        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
+      } catch (err) {
+        ok = true;
+      }
+      if (!ok) {
+        return;
+      }
+    }
     this._wizardOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
@@ -1094,10 +1121,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     return ''
       + '<div class="wizard-footer">'
-      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button>'
-      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
-      + '  </div>'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button></div>'
       + '  <div class="button-row">'
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
       + (!atLastStep
         ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
         : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>' + commitButtonLabel + '</button>')
@@ -1108,9 +1134,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _renderWizard() {
     return ''
       + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
-      + '  <div class="wizard-backdrop" data-action="close-wizard"></div>'
+      + '  <div class="wizard-backdrop"></div>'
       + '  <div class="wizard-dialog">'
-      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into the intake queue.</div></div><button class="button" data-action="close-wizard">Close</button></div>'
+      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into the intake queue.</div></div></div>'
       + this._renderWizardProgress()
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')

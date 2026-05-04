@@ -1040,7 +1040,19 @@ function destinationGroupKey(model, index) {
     return originalOpenWizard.call(this, mode);
   };
 
-  proto._closeWizard = function () {
+  proto._closeWizard = function (options) {
+    var force = !!(options && options.force);
+    if (!force && typeof this._isWizardDirty === 'function' && this._isWizardDirty()) {
+      var ok = false;
+      try {
+        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
+      } catch (err) {
+        ok = true;
+      }
+      if (!ok) {
+        return;
+      }
+    }
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._wizardOpen = false;
     this._wizardMode = '';
@@ -1225,10 +1237,9 @@ function destinationGroupKey(model, index) {
     var commitButtonLabel = 'Publish Destinations';
     return ''
       + '<div class="wizard-footer">'
-      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button>'
-      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
-      + '  </div>'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button></div>'
       + '  <div class="button-row">'
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
       + (this._wizardStep === 4
         ? '<button class="button primary" data-action="run-wizard-validation"' + (this._loading ? ' disabled' : '') + '>' + (this._validationData ? 'Re-Run Validation' : 'Run Validation') + '</button>' + '<button class="button" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
         : (!atLastStep
