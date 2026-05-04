@@ -255,6 +255,8 @@ Baseline recommendation:
 - also allow operator-supplied or intake-supplied source URLs
 - treat public metadata fetching as opt-in enrichment, not a mandatory parse step
 
+The concrete embedded-field contract and empirical sample findings for MakerWorld-adjacent `.3mf` metadata are specified in [embedded-makerworld-3mf-provenance-spec.md](embedded-makerworld-3mf-provenance-spec.md).
+
 Candidate fields:
 
 - `source_site`
