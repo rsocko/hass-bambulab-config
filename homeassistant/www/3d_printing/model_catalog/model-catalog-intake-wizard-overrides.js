@@ -219,7 +219,7 @@ function renderValidationSummary(card) {
       var passed = !!check.passed;
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(passed ? 'pass' : 'attention') + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + (passed ? 'pass' : 'fail') + '"><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip ' + (passed ? 'ok' : 'warn') + '">' + escapeHtml(passed ? 'pass' : 'attention') + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '<div class="muted">This prepared upload is reused during Commit so the wizard does not create a duplicate queue item.</div>');
@@ -1163,22 +1163,22 @@ function destinationGroupKey(model, index) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart. The right side shows the resolved outcome.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div>'
+        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">This is the planned model set that later steps will validate and commit.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + this._renderDestinationSummary() + '</div>'
+        + renderPlanSummary(this)
         + '</div>';
     }
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Curated Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
-        + this._renderDestinationAssignments()
+        + '  <div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Assignment Summary</div><div class="subtitle">Each planned group keeps its structure and only changes destination.</div></div></div>'
-        + this._renderDestinationSummary()
+        + '  <div class="wizard-selection-scroll">' + this._renderDestinationSummary() + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 4) {

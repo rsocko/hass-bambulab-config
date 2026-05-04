@@ -303,6 +303,11 @@
     + ".warning-box{display:grid;gap:6px;padding:12px;border-radius:14px;border:1px solid rgba(245,158,11,0.32);background:rgba(180,83,9,0.14);}"
     + ".warning-title{font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fbbf24;}"
     + ".selector{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--secondary-text-color);}"
+    + ".validation-check{display:inline-flex;align-items:center;gap:8px;color:var(--primary-text-color);}"
+    + ".validation-check input{width:16px;height:16px;margin:0;opacity:1;}"
+    + ".validation-check.pass{color:#86efac;}"
+    + ".validation-check.pass input{accent-color:#22c55e;}"
+    + ".validation-check.fail input{accent-color:rgba(148,163,184,0.7);}"
     + ".hidden-upload-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}"
     + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:14px;}}";
 
