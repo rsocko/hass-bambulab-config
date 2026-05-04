@@ -233,6 +233,7 @@ cards:
       - input_select.print_history_filter_material
       - input_select.print_history_filter_duplicates
       - input_select.print_history_filter_printer
+      - input_select.print_history_filter_date_range
       - input_select.print_history_filter_designer
       - input_select.print_history_filter_project
       - input_select.print_history_filter_layer_height
@@ -893,9 +894,42 @@ cards:
               show_icon: true
               show_name: true
               show_state: false
-              show_background: ${!!(states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
-              state_background: ${!!(states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
-              state_color: ${!!(states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === true || states['sensor.bambuddy_print_history_browser_filtered']?.attributes?.has_active_filters === 'True')}
+              show_background: >-
+                ${(() => {
+                  const selectIds = ['input_select.print_history_filter_status','input_select.print_history_filter_archive_error','input_select.print_history_filter_enrichment_status','input_select.print_history_filter_material','input_select.print_history_filter_duplicates','input_select.print_history_filter_printer','input_select.print_history_filter_designer','input_select.print_history_filter_project','input_select.print_history_filter_layer_height'];
+                  const hasSelectFilter = selectIds.some((id) => (states[id]?.state || 'All') !== 'All');
+                  const hasDateRangeFilter = (states['input_select.print_history_filter_date_range']?.state || 'All Time') !== 'All Time';
+                  const hasTagFilter = ((states['input_text.print_history_filter_tags']?.state || '').trim().length > 0) || ((states['input_select.print_history_filter_tags_mode']?.state || 'Any') !== 'Any') || (states['input_boolean.print_history_filter_tags_untagged_only']?.state === 'on');
+                  const hasFavoritesFilter = states['input_boolean.print_history_filter_favorites_only']?.state === 'on';
+                  const hasSearchFilter = ((states['input_text.print_history_search']?.state || '').trim().length > 0);
+                  const hasColorFilter = ((states['input_text.print_history_filter_colors']?.state || '').trim().length > 0);
+                  const hasSelectedDayFilter = ((states['input_text.print_history_activity_selected_date']?.state || '').trim().length > 0);
+                  return hasSelectFilter || hasDateRangeFilter || hasTagFilter || hasFavoritesFilter || hasSearchFilter || hasColorFilter || hasSelectedDayFilter;
+                })()}
+              state_background: >-
+                ${(() => {
+                  const selectIds = ['input_select.print_history_filter_status','input_select.print_history_filter_archive_error','input_select.print_history_filter_enrichment_status','input_select.print_history_filter_material','input_select.print_history_filter_duplicates','input_select.print_history_filter_printer','input_select.print_history_filter_designer','input_select.print_history_filter_project','input_select.print_history_filter_layer_height'];
+                  const hasSelectFilter = selectIds.some((id) => (states[id]?.state || 'All') !== 'All');
+                  const hasDateRangeFilter = (states['input_select.print_history_filter_date_range']?.state || 'All Time') !== 'All Time';
+                  const hasTagFilter = ((states['input_text.print_history_filter_tags']?.state || '').trim().length > 0) || ((states['input_select.print_history_filter_tags_mode']?.state || 'Any') !== 'Any') || (states['input_boolean.print_history_filter_tags_untagged_only']?.state === 'on');
+                  const hasFavoritesFilter = states['input_boolean.print_history_filter_favorites_only']?.state === 'on';
+                  const hasSearchFilter = ((states['input_text.print_history_search']?.state || '').trim().length > 0);
+                  const hasColorFilter = ((states['input_text.print_history_filter_colors']?.state || '').trim().length > 0);
+                  const hasSelectedDayFilter = ((states['input_text.print_history_activity_selected_date']?.state || '').trim().length > 0);
+                  return hasSelectFilter || hasDateRangeFilter || hasTagFilter || hasFavoritesFilter || hasSearchFilter || hasColorFilter || hasSelectedDayFilter;
+                })()}
+              state_color: >-
+                ${(() => {
+                  const selectIds = ['input_select.print_history_filter_status','input_select.print_history_filter_archive_error','input_select.print_history_filter_enrichment_status','input_select.print_history_filter_material','input_select.print_history_filter_duplicates','input_select.print_history_filter_printer','input_select.print_history_filter_designer','input_select.print_history_filter_project','input_select.print_history_filter_layer_height'];
+                  const hasSelectFilter = selectIds.some((id) => (states[id]?.state || 'All') !== 'All');
+                  const hasDateRangeFilter = (states['input_select.print_history_filter_date_range']?.state || 'All Time') !== 'All Time';
+                  const hasTagFilter = ((states['input_text.print_history_filter_tags']?.state || '').trim().length > 0) || ((states['input_select.print_history_filter_tags_mode']?.state || 'Any') !== 'Any') || (states['input_boolean.print_history_filter_tags_untagged_only']?.state === 'on');
+                  const hasFavoritesFilter = states['input_boolean.print_history_filter_favorites_only']?.state === 'on';
+                  const hasSearchFilter = ((states['input_text.print_history_search']?.state || '').trim().length > 0);
+                  const hasColorFilter = ((states['input_text.print_history_filter_colors']?.state || '').trim().length > 0);
+                  const hasSelectedDayFilter = ((states['input_text.print_history_activity_selected_date']?.state || '').trim().length > 0);
+                  return hasSelectFilter || hasDateRangeFilter || hasTagFilter || hasFavoritesFilter || hasSearchFilter || hasColorFilter || hasSelectedDayFilter;
+                })()}
               fill_width: false
               tap_action:
                 action: call-service
