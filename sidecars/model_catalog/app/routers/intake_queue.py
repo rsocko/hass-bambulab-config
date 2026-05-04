@@ -2,7 +2,8 @@
 Intake queue upload management endpoints.
 
 Handles:
-- Queue state machine (queued → uploading → uploaded_unverified → verified → cleanup_* → failed)
+    state: AppState = request.app.state.model_catalog
+    request_started = time.perf_counter()
 - Queue lifecycle (create, list, delete, status transitions)
 - Browser-based file upload staging
 - Server filesystem browsing for source selection
@@ -19,6 +20,7 @@ import os
 import re
 import shutil
 import sqlite3
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -343,6 +345,34 @@ def _content_signature(value: bytes | str) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _duration_ms(start_time: float) -> int:
+    return max(0, int((time.perf_counter() - start_time) * 1000))
+
+
+def _normalize_upload_telemetry(telemetry: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not telemetry:
+        return None
+
+    transport_mode = str(telemetry.get("transport_mode") or "").strip() or None
+    payload_bytes_raw = telemetry.get("payload_bytes_raw")
+    payload_bytes_encoded = telemetry.get("payload_bytes_encoded")
+    upload_duration_ms = telemetry.get("upload_duration_ms")
+    staging_write_duration_ms = telemetry.get("staging_write_duration_ms")
+    warnings_count = telemetry.get("warnings_count")
+
+    normalized = {
+        "transport_mode": transport_mode,
+        "payload_bytes_raw": int(payload_bytes_raw) if payload_bytes_raw is not None else None,
+        "payload_bytes_encoded": int(payload_bytes_encoded) if payload_bytes_encoded is not None else None,
+        "upload_duration_ms": int(upload_duration_ms) if upload_duration_ms is not None else None,
+        "staging_write_duration_ms": int(staging_write_duration_ms) if staging_write_duration_ms is not None else None,
+        "warnings_count": int(warnings_count) if warnings_count is not None else None,
+    }
+    if all(value is None for value in normalized.values()):
+        return None
+    return normalized
+
+
 def _idempotency_expires_at(now_iso: str) -> str:
     now_dt = datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
     expires_dt = now_dt + timedelta(seconds=_INTAKE_UPLOAD_IDEMPOTENCY_TTL_SECONDS)
@@ -592,9 +622,11 @@ def _create_intake_queue_upload_record(
     db_path: Path,
     validated_entries: list[dict[str, Any]],
     cleanup_policy: str,
+    telemetry: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
     upload_id = str(uuid.uuid4())
     now_iso = _bulk_utc_now_iso()
+    normalized_telemetry = _normalize_upload_telemetry(telemetry)
 
     connection = connect(db_path)
     try:
@@ -602,8 +634,10 @@ def _create_intake_queue_upload_record(
             """
             INSERT INTO intake_queue_uploads (
                 upload_id, status, source_entries_json, verification_status,
-                cleanup_policy, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                cleanup_policy, created_at, updated_at, transport_mode,
+                payload_bytes_raw, payload_bytes_encoded, upload_duration_ms,
+                staging_write_duration_ms, warnings_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 upload_id,
@@ -613,6 +647,12 @@ def _create_intake_queue_upload_record(
                 cleanup_policy,
                 now_iso,
                 now_iso,
+                normalized_telemetry.get("transport_mode") if normalized_telemetry else None,
+                normalized_telemetry.get("payload_bytes_raw") if normalized_telemetry else None,
+                normalized_telemetry.get("payload_bytes_encoded") if normalized_telemetry else None,
+                normalized_telemetry.get("upload_duration_ms") if normalized_telemetry else None,
+                normalized_telemetry.get("staging_write_duration_ms") if normalized_telemetry else None,
+                normalized_telemetry.get("warnings_count") if normalized_telemetry else None,
             ),
         )
         connection.commit()
@@ -765,6 +805,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
     Returns upload_id for tracking, plus queue status lifecycle.
     """
     state: AppState = request.app.state.model_catalog
+    request_started = time.perf_counter()
     
     source_entries = payload.get("source_entries") or []
     cleanup_policy = _normalize_intake_cleanup_policy(payload.get("cleanup_policy"))
@@ -802,6 +843,10 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
+        telemetry={
+            "warnings_count": 0,
+            "upload_duration_ms": _duration_ms(request_started),
+        },
     )
 
     response_payload = {
@@ -907,6 +952,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
 )
 async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
     state: AppState = request.app.state.model_catalog
+    request_started = time.perf_counter()
 
     try:
         form = await request.form()
@@ -981,6 +1027,8 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
     warnings: list[dict[str, Any]] = []
     source_entries: list[dict[str, Any]] = [entry for entry in parsed_selections if isinstance(entry, dict)]
     idempotency_browser_files: list[dict[str, Any]] = []
+    payload_bytes_raw = 0
+    staging_write_duration_ms = 0
 
     upload_files: list[UploadFile] = []
     seen_upload_ids: set[int] = set()
@@ -1070,6 +1118,7 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
             bytes_written = 0
             content_hasher = hashlib.sha256()
             with destination.open("wb") as handle:
+                file_write_started = time.perf_counter()
                 while True:
                     chunk = await upload.read(1024 * 1024)
                     if not chunk:
@@ -1077,6 +1126,7 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
                     handle.write(chunk)
                     content_hasher.update(chunk)
                     bytes_written += len(chunk)
+                staging_write_duration_ms += _duration_ms(file_write_started)
 
             if bytes_written <= 0:
                 destination.unlink(missing_ok=True)
@@ -1123,6 +1173,7 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
                     "group_title": (file_meta or {}).get("group_title", default_group_title),
                 }
             )
+            payload_bytes_raw += bytes_written
     finally:
         for upload in upload_files:
             await upload.close()
@@ -1178,6 +1229,13 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
+        telemetry={
+            "transport_mode": "v2_multipart",
+            "payload_bytes_raw": payload_bytes_raw,
+            "upload_duration_ms": _duration_ms(request_started),
+            "staging_write_duration_ms": staging_write_duration_ms,
+            "warnings_count": len(warnings),
+        },
     )
 
     response_payload = {
@@ -1207,6 +1265,7 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
 @router.post("/api/intake/uploads/browser")
 async def intake_queue_post_browser_upload(request: Request) -> Any:
     state: AppState = request.app.state.model_catalog
+    request_started = time.perf_counter()
     try:
         payload = await request.json()
     except json.JSONDecodeError:
@@ -1234,6 +1293,9 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
     warnings: list[dict[str, Any]] = []
     source_entries: list[dict[str, Any]] = []
     idempotency_browser_files: list[dict[str, Any]] = []
+    payload_bytes_raw = 0
+    payload_bytes_encoded = 0
+    staging_write_duration_ms = 0
 
     parsed_selections = payload.get("server_selections") or []
     if parsed_selections and not isinstance(parsed_selections, list):
@@ -1330,7 +1392,11 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
             )
             continue
 
+        write_started = time.perf_counter()
         destination.write_bytes(file_bytes)
+        staging_write_duration_ms += _duration_ms(write_started)
+        payload_bytes_raw += len(file_bytes)
+        payload_bytes_encoded += len(encoded_content.encode("utf-8"))
         idempotency_browser_files.append(
             {
                 "filename": filename,
@@ -1408,6 +1474,14 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
         db_path=state.settings.db_path,
         validated_entries=validated_entries,
         cleanup_policy=cleanup_policy,
+        telemetry={
+            "transport_mode": "v1_base64",
+            "payload_bytes_raw": payload_bytes_raw,
+            "payload_bytes_encoded": payload_bytes_encoded,
+            "upload_duration_ms": _duration_ms(request_started),
+            "staging_write_duration_ms": staging_write_duration_ms,
+            "warnings_count": len(warnings),
+        },
     )
 
     response_payload = {
@@ -1466,7 +1540,9 @@ def intake_queue_get_uploads(request: Request, status: str | None = None, limit:
             rows = connection.execute(
                 """
                 SELECT id, upload_id, status, verification_status, cleanup_policy,
-                       created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                      created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                      transport_mode, payload_bytes_raw, payload_bytes_encoded,
+                      upload_duration_ms, staging_write_duration_ms, warnings_count,
                        (SELECT COUNT(*) FROM json_each(source_entries_json)) as source_entry_count,
                        (SELECT COUNT(*) FROM json_each(file_hashes_json)) as file_count
                 FROM intake_queue_uploads
@@ -1480,7 +1556,9 @@ def intake_queue_get_uploads(request: Request, status: str | None = None, limit:
             rows = connection.execute(
                 """
                 SELECT id, upload_id, status, verification_status, cleanup_policy,
-                       created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                      created_at, updated_at, uploaded_at, verified_at, cleanup_done_at,
+                      transport_mode, payload_bytes_raw, payload_bytes_encoded,
+                      upload_duration_ms, staging_write_duration_ms, warnings_count,
                        (SELECT COUNT(*) FROM json_each(source_entries_json)) as source_entry_count,
                        (SELECT COUNT(*) FROM json_each(file_hashes_json)) as file_count
                 FROM intake_queue_uploads
@@ -1505,6 +1583,16 @@ def intake_queue_get_uploads(request: Request, status: str | None = None, limit:
                 "uploaded_at": row["uploaded_at"],
                 "verified_at": row["verified_at"],
                 "cleanup_done_at": row["cleanup_done_at"],
+                "upload_telemetry": _normalize_upload_telemetry(
+                    {
+                        "transport_mode": row["transport_mode"],
+                        "payload_bytes_raw": row["payload_bytes_raw"],
+                        "payload_bytes_encoded": row["payload_bytes_encoded"],
+                        "upload_duration_ms": row["upload_duration_ms"],
+                        "staging_write_duration_ms": row["staging_write_duration_ms"],
+                        "warnings_count": row["warnings_count"],
+                    }
+                ),
             })
     finally:
         connection.close()

@@ -143,8 +143,67 @@ def diagnostics(request: Request) -> dict[str, Any]:
                     collection_sample.extend(names)
             except Exception:
                 pass
+
+        upload_telemetry_rows = connection.execute(
+            """
+            SELECT transport_mode,
+                   COUNT(*) AS upload_count,
+                   COALESCE(SUM(payload_bytes_raw), 0) AS total_payload_bytes_raw,
+                   COALESCE(SUM(payload_bytes_encoded), 0) AS total_payload_bytes_encoded,
+                   AVG(upload_duration_ms) AS avg_upload_duration_ms,
+                   AVG(staging_write_duration_ms) AS avg_staging_write_duration_ms,
+                   COALESCE(SUM(warnings_count), 0) AS total_warnings_count
+            FROM intake_queue_uploads
+            WHERE transport_mode IS NOT NULL AND transport_mode != ''
+            GROUP BY transport_mode
+            ORDER BY transport_mode ASC
+            """
+        ).fetchall()
+
+        recent_upload_telemetry = connection.execute(
+            """
+            SELECT upload_id, created_at, transport_mode, payload_bytes_raw,
+                   payload_bytes_encoded, upload_duration_ms,
+                   staging_write_duration_ms, warnings_count
+            FROM intake_queue_uploads
+            WHERE transport_mode IS NOT NULL AND transport_mode != ''
+            ORDER BY created_at DESC
+            LIMIT 10
+            """
+        ).fetchall()
     finally:
         connection.close()
+
+    upload_telemetry_by_mode: dict[str, Any] = {}
+    tracked_upload_count = 0
+    for row in upload_telemetry_rows:
+        transport_mode = str(row[0] or "").strip()
+        if not transport_mode:
+            continue
+        upload_count = int(row[1] or 0)
+        tracked_upload_count += upload_count
+        upload_telemetry_by_mode[transport_mode] = {
+            "upload_count": upload_count,
+            "total_payload_bytes_raw": int(row[2] or 0),
+            "total_payload_bytes_encoded": int(row[3] or 0),
+            "avg_upload_duration_ms": float(row[4]) if row[4] is not None else None,
+            "avg_staging_write_duration_ms": float(row[5]) if row[5] is not None else None,
+            "total_warnings_count": int(row[6] or 0),
+        }
+
+    recent_uploads = [
+        {
+            "upload_id": row[0],
+            "created_at": row[1],
+            "transport_mode": row[2],
+            "payload_bytes_raw": row[3],
+            "payload_bytes_encoded": row[4],
+            "upload_duration_ms": row[5],
+            "staging_write_duration_ms": row[6],
+            "warnings_count": row[7],
+        }
+        for row in recent_upload_telemetry
+    ]
 
     return {
         "service": "model-catalog",
@@ -168,6 +227,11 @@ def diagnostics(request: Request) -> dict[str, Any]:
             "total_models": collection_stats[1] if collection_stats else 0,
             "models_with_collections": None,
             "sample_collection_names": list(set(collection_sample)),
+        },
+        "upload_telemetry": {
+            "tracked_upload_count": tracked_upload_count,
+            "transport_modes": upload_telemetry_by_mode,
+            "recent_uploads": recent_uploads,
         },
         **_image_metadata(state.settings),
     }

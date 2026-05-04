@@ -354,6 +354,14 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,
         ),
     ),
+    (
+        15,
+        (
+            """
+    -- Add intake upload telemetry columns for v1/v2 transport diagnostics
+    """,  # Comment-only SQL
+        ),
+    ),
 )
 
 
@@ -393,6 +401,13 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
         execute_statements(connection, statements)
         if version == 3:
             ensure_column(connection, "model_catalog_links", "review_note", "TEXT")
+        if version == 15:
+            ensure_column(connection, "intake_queue_uploads", "transport_mode", "TEXT")
+            ensure_column(connection, "intake_queue_uploads", "payload_bytes_raw", "INTEGER")
+            ensure_column(connection, "intake_queue_uploads", "payload_bytes_encoded", "INTEGER")
+            ensure_column(connection, "intake_queue_uploads", "upload_duration_ms", "INTEGER")
+            ensure_column(connection, "intake_queue_uploads", "staging_write_duration_ms", "INTEGER")
+            ensure_column(connection, "intake_queue_uploads", "warnings_count", "INTEGER")
         if version == 5:
             _migrate_manyfold_model_cache_keys(connection)
         if version == 6:

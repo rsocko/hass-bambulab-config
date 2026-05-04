@@ -5662,6 +5662,91 @@ def test_browser_upload_v2_multipart_rejects_conflicting_idempotency_request(tmp
     assert second_payload["idempotency"] == {"key": "multipart-conflict-key", "replayed": False}
 
 
+def test_browser_upload_v1_records_telemetry_in_list_and_diagnostics(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    payload = {
+        "browser_files": [
+            {
+                "filename": "widget.3mf",
+                "relative_path": "Batch/widget.3mf",
+                "content_base64": base64.b64encode(b"widget bytes").decode("ascii"),
+            }
+        ]
+    }
+
+    with TestClient(app) as test_client:
+        response = test_client.post("/api/intake/uploads/browser", json=payload)
+        uploads = test_client.get("/api/intake/uploads")
+        diagnostics = test_client.get("/diagnostics")
+
+    assert response.status_code == 200
+    upload_id = response.json()["upload_id"]
+
+    uploads_payload = uploads.json()
+    matching_upload = next(item for item in uploads_payload["uploads"] if item["upload_id"] == upload_id)
+    telemetry = matching_upload["upload_telemetry"]
+    assert telemetry["transport_mode"] == "v1_base64"
+    assert telemetry["payload_bytes_raw"] == len(b"widget bytes")
+    assert telemetry["payload_bytes_encoded"] == len(base64.b64encode(b"widget bytes"))
+    assert telemetry["upload_duration_ms"] >= 0
+    assert telemetry["staging_write_duration_ms"] >= 0
+    assert telemetry["warnings_count"] == 0
+
+    diagnostics_payload = diagnostics.json()["upload_telemetry"]
+    assert diagnostics_payload["tracked_upload_count"] == 1
+    assert diagnostics_payload["transport_modes"]["v1_base64"]["upload_count"] == 1
+    assert diagnostics_payload["transport_modes"]["v1_base64"]["total_payload_bytes_raw"] == len(b"widget bytes")
+    assert diagnostics_payload["transport_modes"]["v1_base64"]["total_payload_bytes_encoded"] == len(base64.b64encode(b"widget bytes"))
+    assert any(item["upload_id"] == upload_id and item["transport_mode"] == "v1_base64" for item in diagnostics_payload["recent_uploads"])
+
+
+def test_browser_upload_v2_records_telemetry_in_list_and_diagnostics(tmp_path: Path) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    manifest = {
+        "browser_files": [
+            {
+                "filename": "widget.3mf",
+                "relative_path": "Batch/widget.3mf",
+            }
+        ]
+    }
+
+    with TestClient(app) as test_client:
+        response = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[("files[]", ("widget.3mf", b"widget bytes", "application/octet-stream"))],
+        )
+        uploads = test_client.get("/api/intake/uploads")
+        diagnostics = test_client.get("/diagnostics")
+
+    assert response.status_code == 200
+    upload_id = response.json()["upload_id"]
+
+    uploads_payload = uploads.json()
+    matching_upload = next(item for item in uploads_payload["uploads"] if item["upload_id"] == upload_id)
+    telemetry = matching_upload["upload_telemetry"]
+    assert telemetry["transport_mode"] == "v2_multipart"
+    assert telemetry["payload_bytes_raw"] == len(b"widget bytes")
+    assert telemetry["payload_bytes_encoded"] is None
+    assert telemetry["upload_duration_ms"] >= 0
+    assert telemetry["staging_write_duration_ms"] >= 0
+    assert telemetry["warnings_count"] == 0
+
+    diagnostics_payload = diagnostics.json()["upload_telemetry"]
+    assert diagnostics_payload["tracked_upload_count"] == 1
+    assert diagnostics_payload["transport_modes"]["v2_multipart"]["upload_count"] == 1
+    assert diagnostics_payload["transport_modes"]["v2_multipart"]["total_payload_bytes_raw"] == len(b"widget bytes")
+    assert diagnostics_payload["transport_modes"]["v2_multipart"]["total_payload_bytes_encoded"] == 0
+    assert any(item["upload_id"] == upload_id and item["transport_mode"] == "v2_multipart" for item in diagnostics_payload["recent_uploads"])
+
+
 def test_browser_upload_sanitizes_invalid_relative_path_segments(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
     source_root.mkdir()
