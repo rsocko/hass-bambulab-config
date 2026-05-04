@@ -35,11 +35,53 @@ function suggestedGroupTitle(sourceEntry) {
   return pathStem(sourceEntry && sourceEntry.path || '') || basename(sourceEntry && sourceEntry.path || '') || 'Working Group';
 }
 
+function normalizedTerminalResult(item) {
+  var value = item && item.terminal_result;
+  if (value && typeof value === 'object') {
+    return value;
+  }
+  return {
+    kind: 'none',
+    primary_result_id: null,
+    local_model_ids: [],
+    working_group_ids: [],
+    group_results: [],
+    raw: item && item.terminal_result_id,
+  };
+}
+
 function splitTerminalResultIds(item) {
+  var terminalResult = normalizedTerminalResult(item);
+  if (Array.isArray(terminalResult.local_model_ids) && terminalResult.local_model_ids.length) {
+    return terminalResult.local_model_ids.slice();
+  }
+  if (Array.isArray(terminalResult.working_group_ids) && terminalResult.working_group_ids.length) {
+    return terminalResult.working_group_ids.slice();
+  }
   return String(item && item.terminal_result_id || '')
     .split(',')
     .map(function (value) { return String(value || '').trim(); })
     .filter(Boolean);
+}
+
+function terminalDisplayAction(item) {
+  return String(item && (item.terminal_display_action || item.terminal_action || item.state) || '').trim();
+}
+
+function terminalResultSummary(item) {
+  var terminalResult = normalizedTerminalResult(item);
+  var curatedCount = Array.isArray(terminalResult.local_model_ids) ? terminalResult.local_model_ids.length : 0;
+  var workingCount = Array.isArray(terminalResult.working_group_ids) ? terminalResult.working_group_ids.length : 0;
+  if (curatedCount && workingCount) {
+    return 'Curated ' + String(curatedCount) + ', Working ' + String(workingCount);
+  }
+  if (curatedCount) {
+    return curatedCount === 1 ? terminalResult.local_model_ids[0] : 'Curated ' + String(curatedCount);
+  }
+  if (workingCount) {
+    return workingCount === 1 ? terminalResult.working_group_ids[0] : 'Working ' + String(workingCount);
+  }
+  return 'Not recorded';
 }
 
 function formatTimestamp(value) {
@@ -172,29 +214,38 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
   }
 
   _terminalSummaryMarkup(item, proposedTitle) {
-    var terminalAction = String(item.terminal_action || item.state || '');
-    var terminalResultIds = splitTerminalResultIds(item);
-    var resultLabel = terminalAction === 'published_to_catalog'
-      ? 'Local Model'
-      : (terminalAction === 'rejected' ? 'Outcome' : 'Working Group');
-    var resultValue = terminalResultIds.length ? terminalResultIds.join(', ') : 'Not recorded';
+    var terminalAction = terminalDisplayAction(item);
+    var terminalResult = normalizedTerminalResult(item);
+    var hasCurated = Array.isArray(terminalResult.local_model_ids) && terminalResult.local_model_ids.length;
+    var hasWorking = Array.isArray(terminalResult.working_group_ids) && terminalResult.working_group_ids.length;
+    var resultLabel = hasCurated && hasWorking
+      ? 'Results'
+      : (terminalAction === 'published_to_catalog'
+        ? 'Local Model'
+        : (terminalAction === 'rejected' ? 'Outcome' : 'Working Group'));
+    var resultValue = terminalResultSummary(item);
+    var actorValue = String(item.terminal_actor || 'queue_processed').trim();
 
     return ''
-      + '<div class="item-grid"><div class="summary-card"><div class="summary-label">Outcome</div><div class="summary-value">' + escapeHtml(formatLabel(terminalAction || item.state || 'completed')) + '</div></div><div class="summary-card"><div class="summary-label">Completed</div><div class="summary-value">' + escapeHtml(formatTimestamp(item.terminal_at || item.updated_at || item.cleanup_done_at || item.verified_at || item.created_at)) + '</div></div><div class="summary-card"><div class="summary-label">' + escapeHtml(resultLabel) + '</div><div class="summary-value">' + escapeHtml(resultValue) + '</div></div></div>'
+      + '<div class="item-grid"><div class="summary-card"><div class="summary-label">Outcome</div><div class="summary-value">' + escapeHtml(formatLabel(terminalAction || item.state || 'completed')) + '</div></div><div class="summary-card"><div class="summary-label">Completed</div><div class="summary-value">' + escapeHtml(formatTimestamp(item.terminal_at || item.updated_at || item.cleanup_done_at || item.verified_at || item.created_at)) + '</div></div><div class="summary-card"><div class="summary-label">Actor</div><div class="summary-value">' + escapeHtml(formatLabel(actorValue)) + '</div></div><div class="summary-card"><div class="summary-label">' + escapeHtml(resultLabel) + '</div><div class="summary-value">' + escapeHtml(resultValue) + '</div></div></div>'
       + (proposedTitle ? '<div class="muted">Planned title: ' + escapeHtml(proposedTitle) + '</div>' : '');
   }
 
   _historyActionButtons(item, deleteDisabled, proposedTitle) {
-    var terminalAction = String(item.terminal_action || item.state || '');
-    var terminalResultIds = splitTerminalResultIds(item);
+    var terminalAction = terminalDisplayAction(item);
+    var terminalResult = normalizedTerminalResult(item);
+    var localModelIds = Array.isArray(terminalResult.local_model_ids) ? terminalResult.local_model_ids : [];
+    var workingGroupIds = Array.isArray(terminalResult.working_group_ids) ? terminalResult.working_group_ids : [];
     var buttons = [];
 
-    if (terminalAction === 'published_to_catalog' && terminalResultIds.length) {
-      buttons.push('<button class="button primary" data-action="view-local-model" data-local-model-id="' + escapeHtml(terminalResultIds[0]) + '" data-model-name="' + escapeHtml(proposedTitle || terminalResultIds[0]) + '">View Model</button>');
-      buttons.push('<button class="button" data-action="open-curated-section" data-local-model-id="' + escapeHtml(terminalResultIds[0]) + '">Open Curated</button>');
+    if (terminalAction === 'published_to_catalog' && localModelIds.length === 1 && !workingGroupIds.length) {
+      buttons.push('<button class="button primary" data-action="view-local-model" data-local-model-id="' + escapeHtml(localModelIds[0]) + '" data-model-name="' + escapeHtml(proposedTitle || localModelIds[0]) + '">View Model</button>');
     }
-    if ((terminalAction === 'grouped_new' || terminalAction === 'grouped_existing') && terminalResultIds.length) {
-      buttons.push('<button class="button primary" data-action="open-working-section" data-working-group-ids="' + escapeHtml(terminalResultIds.join(',')) + '">Open Working</button>');
+    if (localModelIds.length) {
+      buttons.push('<button class="button' + (!buttons.length ? ' primary' : '') + '" data-action="open-curated-section" data-local-model-id="' + escapeHtml(localModelIds[0]) + '">Open Curated</button>');
+    }
+    if (workingGroupIds.length) {
+      buttons.push('<button class="button' + (!buttons.length ? ' primary' : '') + '" data-action="open-working-section" data-working-group-ids="' + escapeHtml(workingGroupIds.join(',')) + '">Open Working</button>');
     }
     buttons.push('<button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>');
     return buttons.join('');
@@ -409,10 +460,13 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
   }
 
   _getJobHistoryItems() {
-    var terminalStates = ['grouped_new', 'grouped_existing', 'published_to_catalog', 'rejected'];
     return this._items.filter(function (item) {
+      var terminalAction = String(item.terminal_action || '').trim().toLowerCase();
+      if (terminalAction) {
+        return true;
+      }
       var state = String(item.state || item.status || '').toLowerCase();
-      return terminalStates.indexOf(state) >= 0;
+      return ['grouped_new', 'grouped_existing', 'published_to_catalog', 'published_by_destination', 'rejected'].indexOf(state) >= 0;
     });
   }
 
@@ -769,7 +823,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
             : '<button class="button" data-action="validate-item" data-item-id="' + escapeHtml(item.item_id) + '">Validate</button><button class="button primary" data-action="publish-curated-item" data-item-id="' + escapeHtml(item.item_id) + '">Publish Curated</button><button class="button primary" data-action="create-group" data-item-id="' + escapeHtml(item.item_id) + '" data-source-path="' + escapeHtml(sourceEntry.path || '') + '" data-source-type="' + escapeHtml(sourceEntry.type || '') + '" data-group-title="' + escapeHtml(sourceEntry.group_title || '') + '">Send To Working Files</button><button class="button" data-action="attach-existing" data-item-id="' + escapeHtml(item.item_id) + '">Attach Existing</button><button class="button warn" data-action="defer-item" data-item-id="' + escapeHtml(item.item_id) + '">Defer</button><button class="button danger" data-action="reject-item" data-item-id="' + escapeHtml(item.item_id) + '">Reject</button><button class="button danger" data-action="delete-item" data-item-id="' + escapeHtml(item.item_id) + '" data-item-status="' + escapeHtml(item.status || '') + '"' + deleteDisabled + '>Delete</button>';
           return ''
             + '<article class="entry-row' + (isSelected ? ' selected' : '') + '">'
-            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel(item.terminal_action || item.state || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
+            + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(basename(sourceEntry.path || item.item_id)) + '</div><div class="entry-path">' + escapeHtml(sourceEntry.path || item.item_id) + '</div></div><div class="button-row">' + (this._selectMode && canSelect ? '<label class="selector"><input type="checkbox" data-action="toggle-item-selection" data-item-id="' + escapeHtml(item.item_id) + '"' + (isSelected ? ' checked' : '') + '> Select</label>' : '') + '<span class="chip ' + ((item.state || '').indexOf('warning') >= 0 ? 'warn' : '') + '">' + escapeHtml(formatLabel((isTerminal ? terminalDisplayAction(item) : (item.terminal_action || item.state || item.status)) || item.status)) + '</span><span class="chip ' + (duplicateSignals.length ? 'warn' : (String(item.verification_status || '').toLowerCase() === 'pass' ? 'ok' : '')) + '">' + escapeHtml(item.verification_status || item.status || 'unknown') + '</span></div></div>'
             + '  ' + (isTerminal ? this._terminalSummaryMarkup(item, proposedTitle) : '<div class="item-grid"><div class="summary-card"><div class="summary-label">Cleanup Policy</div><div class="summary-value">' + escapeHtml(item.cleanup_policy || 'keep') + '</div></div><div class="summary-card"><div class="summary-label">Queue Status</div><div class="summary-value">' + escapeHtml(item.status || 'queued') + '</div></div><div class="summary-card"><div class="summary-label">Working Group Title</div><div class="summary-value">' + escapeHtml(proposedTitle) + '</div></div></div>')
             + (duplicateSignals.length ? '<div class="warning-box"><div class="warning-title">Duplicate Candidate</div><div class="muted">' + escapeHtml(warningMessages(duplicateSignals).join('; ')) + '</div></div>' : '')
             + (warningsText ? '<div class="muted">Validation / note: ' + escapeHtml(warningsText) + '</div>' : '')

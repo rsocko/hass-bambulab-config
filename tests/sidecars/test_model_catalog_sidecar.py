@@ -5379,7 +5379,10 @@ def test_intake_queue_publish_to_local_creates_curated_model_with_assets(tmp_pat
         published_item = next(item for item in items_payload["items"] if item["item_id"] == upload_id)
         assert published_item["state"] == "published_to_catalog"
         assert published_item["terminal_action"] == "published_to_catalog"
+        assert published_item["terminal_display_action"] == "published_to_catalog"
         assert published_item["terminal_result_id"] == local_model_id
+        assert published_item["terminal_actor"] == "queue_processed"
+        assert published_item["terminal_result"]["local_model_ids"] == [local_model_id]
         assert published_item["terminal_at"]
 
     connection = sqlite3.connect(settings.db_path)
@@ -5963,6 +5966,23 @@ def test_publish_by_destination_routes_each_planned_group(tmp_path: Path) -> Non
         assert working_new["match_mode"] == "new"
         assert working_new["working_group_id"] != existing_group_id
         assert working_new["added_items"] == 1
+
+        items_response = test_client.get("/api/intake/items")
+        assert items_response.status_code == 200
+        items_payload = items_response.json()
+        history_item = next(item for item in items_payload["items"] if item["item_id"] == upload_id)
+        assert history_item["terminal_action"] == "published_by_destination"
+        assert history_item["terminal_display_action"] == "completed"
+        assert history_item["terminal_actor"] == "wizard_direct"
+        assert history_item["terminal_result"]["local_model_ids"] == [
+            "existing-curated-model",
+            curated_new["local_model_id"],
+        ]
+        assert history_item["terminal_result"]["working_group_ids"] == [
+            str(existing_group_id),
+            str(working_new["working_group_id"]),
+        ]
+        assert len(history_item["terminal_result"]["group_results"]) == 4
 
     connection = sqlite3.connect(settings.db_path)
     connection.row_factory = sqlite3.Row

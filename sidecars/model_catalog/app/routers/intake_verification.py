@@ -37,6 +37,9 @@ from .intake_queue import (
     _expand_source_entries_to_files,
     _record_queue_event,
     _browser_upload_stage_directories,
+    _derive_terminal_display_action,
+    _normalize_terminal_actor,
+    _normalize_terminal_result,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
     LOCAL_IMPORT_IMAGE_EXTENSIONS,
 )
@@ -54,8 +57,9 @@ def _get_intake_item_row(db_path: Path, item_id: str) -> dict[str, Any] | None:
         row = connection.execute(
             """
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
-                 source_entries_json, file_hashes_json, error_json, decision_note,
-                   created_at, updated_at
+                                 source_entries_json, file_hashes_json, error_json, decision_note,
+                                     terminal_action, terminal_result_id, terminal_at, terminal_actor,
+                                     created_at, updated_at
             FROM intake_queue_uploads
             WHERE upload_id = ?
             """,
@@ -72,6 +76,8 @@ def _build_intake_item_response(item_row: dict[str, Any]) -> dict[str, Any]:
     """Build a response payload for an intake item with eligibility information."""
     current_state = str(item_row.get("inbox_state") or "submitted").strip().lower()
     eligibility = ActionEligibility.build_allowed_actions_payload(current_state)
+    terminal_action = item_row.get("terminal_action")
+    terminal_result_id = item_row.get("terminal_result_id")
 
     return {
         "item_id": item_row["upload_id"],
@@ -83,6 +89,12 @@ def _build_intake_item_response(item_row: dict[str, Any]) -> dict[str, Any]:
         "is_active_queue": eligibility["is_active_queue"],
         "allowed_actions": eligibility["allowed_actions"],
         "state_display_name": eligibility["state_display_name"],
+        "terminal_action": terminal_action,
+        "terminal_display_action": _derive_terminal_display_action(terminal_action, terminal_result_id),
+        "terminal_result_id": terminal_result_id,
+        "terminal_result": _normalize_terminal_result(terminal_action, terminal_result_id),
+        "terminal_at": item_row.get("terminal_at"),
+        "terminal_actor": _normalize_terminal_actor(item_row.get("terminal_actor"), fallback="queue_processed"),
         "created_at": item_row["created_at"],
         "updated_at": item_row["updated_at"],
     }
@@ -1089,7 +1101,7 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
                    source_entries_json, file_hashes_json, error_json,
                  created_at, updated_at, uploaded_at, verified_at, cleanup_done_at, decision_note,
-                 terminal_action, terminal_result_id, terminal_at
+                  terminal_action, terminal_result_id, terminal_at, terminal_actor
             FROM intake_queue_uploads
             WHERE {where_sql}
             ORDER BY created_at DESC
@@ -1105,6 +1117,8 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
         source_entries = json.loads(str(row["source_entries_json"] or "[]"))
         source_entry = source_entries[0] if isinstance(source_entries, list) and source_entries else {}
         normalized_state = str(row["inbox_state"] or "").strip() or _intake_item_state_from_upload_status(str(row["status"] or ""))
+        terminal_action = row["terminal_action"]
+        terminal_result_id = row["terminal_result_id"]
         items.append(
             {
                 "item_id": row["upload_id"],
@@ -1116,9 +1130,12 @@ def list_intake_items(request: Request, limit: int | None = None, offset: int | 
                 "file_hashes": json.loads(str(row["file_hashes_json"] or "[]")),
                 "error": json.loads(str(row["error_json"] or "null")),
                 "decision_note": row["decision_note"],
-                "terminal_action": row["terminal_action"],
-                "terminal_result_id": row["terminal_result_id"],
+                "terminal_action": terminal_action,
+                "terminal_display_action": _derive_terminal_display_action(terminal_action, terminal_result_id),
+                "terminal_result_id": terminal_result_id,
+                "terminal_result": _normalize_terminal_result(terminal_action, terminal_result_id),
                 "terminal_at": row["terminal_at"],
+                "terminal_actor": _normalize_terminal_actor(row["terminal_actor"], fallback="queue_processed"),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
                 "uploaded_at": row["uploaded_at"],
@@ -1374,10 +1391,10 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             """
             UPDATE intake_queue_uploads
             SET file_hashes_json = ?,
-                verification_status = ?,
+                terminal_action = 'rejected', terminal_at = ?, terminal_actor = ?
                 inbox_state = ?,
                 decision_note = ?,
-                updated_at = ?
+            ("rejected", note, now_iso, now_iso, "queue_processed", item_id),
             WHERE upload_id = ?
             """,
             (
@@ -1804,7 +1821,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             """
             UPDATE intake_queue_uploads 
             SET inbox_state = ?, decision_note = ?, updated_at = ?,
-                terminal_action = ?, terminal_at = ?,
+                terminal_action = ?, terminal_at = ?, terminal_actor = ?,
                 terminal_result_id = ?
             WHERE upload_id = ?
             """,
@@ -1814,6 +1831,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 now_iso,
                 terminal_action,
                 now_iso,
+                "queue_processed",
                 group_ids_str,
                 item_id,
             ),

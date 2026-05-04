@@ -185,6 +185,148 @@ def _normalize_browser_intake_cleanup_policy(value: object | None) -> str:
     return "delete_on_verified"
 
 
+def _normalize_terminal_actor(actor: object | None, *, fallback: str = "sidecar_api") -> str:
+    value = str(actor or "").strip()
+    return value or fallback
+
+
+def _split_terminal_result_ids(value: object | None) -> list[str]:
+    return [
+        segment.strip()
+        for segment in str(value or "").split(",")
+        if segment and segment.strip()
+    ]
+
+
+def _normalize_terminal_result(terminal_action: object | None, terminal_result_id: object | None) -> dict[str, Any]:
+    action = str(terminal_action or "").strip().lower()
+    raw_value = str(terminal_result_id or "").strip()
+    payload: Any = None
+    if raw_value[:1] in {"{", "["}:
+        try:
+            payload = json.loads(raw_value)
+        except json.JSONDecodeError:
+            payload = None
+
+    result: dict[str, Any] = {
+        "kind": "none",
+        "primary_result_id": None,
+        "local_model_ids": [],
+        "working_group_ids": [],
+        "group_results": [],
+        "raw": terminal_result_id,
+    }
+
+    if action == "published_by_destination" and isinstance(payload, dict):
+        local_model_ids = [
+            str(value).strip()
+            for value in (payload.get("curated_model_ids") or payload.get("curated") or [])
+            if str(value).strip()
+        ]
+        working_group_ids = [
+            str(value).strip()
+            for value in (payload.get("working_group_ids") or payload.get("working") or [])
+            if str(value).strip()
+        ]
+        group_results: list[dict[str, Any]] = []
+        for item in payload.get("group_results") or []:
+            if not isinstance(item, dict):
+                continue
+            destination = str(item.get("destination") or "").strip().lower()
+            match_mode = str(item.get("match_mode") or "").strip().lower()
+            result_id = str(
+                item.get("result_id")
+                or item.get("local_model_id")
+                or item.get("working_group_id")
+                or ""
+            ).strip()
+            outcome_action = str(item.get("action") or "").strip().lower()
+            if not outcome_action:
+                if destination == "curated":
+                    outcome_action = "published_to_catalog"
+                elif destination == "working":
+                    outcome_action = "grouped_existing" if match_mode == "existing" else "grouped_new"
+            group_results.append(
+                {
+                    "destination": destination,
+                    "match_mode": match_mode,
+                    "result_id": result_id,
+                    "action": outcome_action,
+                }
+            )
+
+        primary_result_id = local_model_ids[0] if local_model_ids else (working_group_ids[0] if working_group_ids else None)
+        result.update(
+            {
+                "kind": "destination_publish",
+                "primary_result_id": primary_result_id,
+                "local_model_ids": local_model_ids,
+                "working_group_ids": working_group_ids,
+                "group_results": group_results,
+            }
+        )
+        return result
+
+    if action == "published_to_catalog":
+        local_model_ids = _split_terminal_result_ids(raw_value)
+        result.update(
+            {
+                "kind": "curated_models",
+                "primary_result_id": local_model_ids[0] if local_model_ids else None,
+                "local_model_ids": local_model_ids,
+            }
+        )
+        return result
+
+    if action in {"grouped_new", "grouped_existing"}:
+        working_group_ids = _split_terminal_result_ids(raw_value)
+        result.update(
+            {
+                "kind": "working_groups",
+                "primary_result_id": working_group_ids[0] if working_group_ids else None,
+                "working_group_ids": working_group_ids,
+                "group_results": [
+                    {
+                        "destination": "working",
+                        "match_mode": "existing" if action == "grouped_existing" else "new",
+                        "result_id": result_id,
+                        "action": action,
+                    }
+                    for result_id in working_group_ids
+                ],
+            }
+        )
+        return result
+
+    return result
+
+
+def _derive_terminal_display_action(terminal_action: object | None, terminal_result_id: object | None) -> str:
+    action = str(terminal_action or "").strip().lower()
+    if action != "published_by_destination":
+        return action
+
+    normalized_result = _normalize_terminal_result(action, terminal_result_id)
+    local_model_ids = normalized_result.get("local_model_ids") or []
+    working_group_ids = normalized_result.get("working_group_ids") or []
+    group_results = normalized_result.get("group_results") or []
+
+    if local_model_ids and not working_group_ids:
+        return "published_to_catalog"
+
+    if working_group_ids and not local_model_ids:
+        working_actions = {
+            str(item.get("action") or "").strip().lower()
+            for item in group_results
+            if str(item.get("destination") or "").strip().lower() == "working"
+        }
+        working_actions.discard("")
+        if len(working_actions) == 1:
+            return next(iter(working_actions))
+
+    return "completed"
+
+
 class IntakeSourceValidationError(ValueError):
     def __init__(self, *, error: str, message: str, detail: str | None = None) -> None:
         super().__init__(message)

@@ -69,6 +69,7 @@ from .intake_cleanup import router as intake_cleanup_router
 from .intake_queue import (
     _browser_intake_upload_storage_root,
     _browser_upload_stage_directories,
+    _normalize_terminal_actor,
     _expand_source_entries_to_files,
     _record_queue_event,
     _transition_queue_status,
@@ -946,7 +947,7 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
             """
             UPDATE intake_queue_uploads
             SET file_hashes_json = ?, verification_status = ?, inbox_state = ?, updated_at = ?,
-                terminal_action = ?, terminal_at = ?, terminal_result_id = ?
+                terminal_action = ?, terminal_at = ?, terminal_actor = ?, terminal_result_id = ?
             WHERE upload_id = ?
             """,
             (
@@ -956,7 +957,25 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
                 now_iso,
                 "published_by_destination",
                 now_iso,
-                json.dumps({"curated": curated_model_ids, "working": working_group_ids}),
+                _normalize_terminal_actor("wizard_direct"),
+                json.dumps(
+                    {
+                        "kind": "destination_publish",
+                        "curated_model_ids": curated_model_ids,
+                        "working_group_ids": working_group_ids,
+                        "group_results": [
+                            {
+                                "destination": str(result.get("destination") or "").strip().lower(),
+                                "match_mode": str(result.get("match_mode") or "").strip().lower(),
+                                "result_id": str(result.get("local_model_id") or result.get("working_group_id") or "").strip(),
+                                "local_model_id": result.get("local_model_id"),
+                                "working_group_id": result.get("working_group_id"),
+                            }
+                            for result in results
+                            if isinstance(result, dict)
+                        ],
+                    }
+                ),
                 upload_id,
             ),
         )
@@ -1347,7 +1366,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 """
                 UPDATE intake_queue_uploads
                 SET file_hashes_json = ?, verification_status = ?, inbox_state = ?, updated_at = ?,
-                    terminal_action = ?, terminal_at = ?,
+                    terminal_action = ?, terminal_at = ?, terminal_actor = ?,
                     terminal_result_id = ?
                 WHERE upload_id = ?
                 """,
@@ -1358,6 +1377,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     now_iso,
                     "published_to_catalog",
                     now_iso,
+                    _normalize_terminal_actor("queue_processed"),
                     str(created_models[0].get("local_model_id") or ""),
                     upload_id,
                 ),
@@ -1645,7 +1665,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                 """
                 UPDATE intake_queue_uploads
                 SET file_hashes_json = ?, verification_status = ?, inbox_state = ?, updated_at = ?,
-                    terminal_action = ?, terminal_at = ?,
+                    terminal_action = ?, terminal_at = ?, terminal_actor = ?,
                     terminal_result_id = ?
                 WHERE upload_id = ?
                 """,
@@ -1656,6 +1676,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     now_iso,
                     "published_to_catalog",
                     now_iso,
+                    _normalize_terminal_actor("queue_processed"),
                     local_model_id,
                     upload_id,
                 ),

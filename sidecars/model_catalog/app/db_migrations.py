@@ -325,6 +325,15 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     """,  # Comment-only SQL
         ),
     ),
+    (
+        13,
+        (
+    """
+    -- Add terminal actor tracking for intake job history
+    -- terminal_actor: user/service path that completed the terminal action
+    """,  # Comment-only SQL
+        ),
+    ),
 )
 
 
@@ -386,6 +395,8 @@ def apply_migrations(connection: sqlite3.Connection) -> None:
         if version == 10:
             ensure_column(connection, "intake_queue_uploads", "inbox_state", "TEXT NOT NULL DEFAULT 'submitted'")
             ensure_column(connection, "intake_queue_uploads", "decision_note", "TEXT")
+        if version == 13:
+            ensure_column(connection, "intake_queue_uploads", "terminal_actor", "TEXT")
         if version == 11:
             ensure_column(connection, "working_groups", "project_id", "INTEGER")
         if version == 12:
