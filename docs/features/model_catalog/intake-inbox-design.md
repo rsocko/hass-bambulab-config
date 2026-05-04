@@ -222,6 +222,15 @@ Validation output includes:
 - destination-specific conflicts (for Working vs Curated targets)
 - warning and blocking issue classification
 
+Current shipped validation contract:
+
+- selected sources are present and readable
+- resolved files use supported model or image types
+- resolved file hashes do not collide with existing Working items
+- resolved plan contains at least one file to commit
+
+See [Intake Validation Contract](intake-validation-contract.md) for the concrete state mapping, warning codes, and the checklist payload returned to the UI.
+
 Operator actions in this step:
 
 - fix selections or organize settings and re-run validation

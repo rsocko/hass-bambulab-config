@@ -179,6 +179,34 @@ function renderValidationSummary(card) {
   if (!card._validationData) {
     return '<div class="state-row">Run validation to create one prepared upload snapshot that Commit can reuse.</div>';
   }
+  var checks = Array.isArray(card._validationData.checks) && card._validationData.checks.length
+    ? card._validationData.checks
+    : [
+        {
+          key: 'source_access',
+          label: 'Selected sources are present and readable',
+          passed: ['missing_source', 'source_warning'].indexOf(card._validationData.validation_state) === -1,
+          detail: 'Validation resolves the selected files before commit.',
+        },
+        {
+          key: 'supported_types',
+          label: 'Resolved files use supported model or image types',
+          passed: card._validationData.validation_state !== 'unsupported_type',
+          detail: 'Unsupported file types stay visible here instead of failing silently.',
+        },
+        {
+          key: 'duplicate_scan',
+          label: 'Resolved files do not match existing working items',
+          passed: card._validationData.validation_state !== 'duplicate_candidate',
+          detail: 'Duplicate detection compares resolved file hashes against working inventory.',
+        },
+        {
+          key: 'commit_ready',
+          label: 'Resolved plan contains at least one file to commit',
+          passed: card._validationData.validation_state !== 'needs_manual_grouping',
+          detail: 'Validation only advances when the prepared upload resolves into a real file set.',
+        },
+      ];
   var warningText = (card._validationData.warnings || []).map(function (warning) {
     return warning && (warning.message || warning.code) ? (warning.message || warning.code) : String(warning || '');
   }).filter(Boolean).slice(0, 5);
@@ -187,6 +215,13 @@ function renderValidationSummary(card) {
     + '  <div class="result-line"><span>Prepared upload</span><strong>' + escapeHtml(card._validationData.upload_id || '') + '</strong></div>'
     + '  <div class="result-line"><span>Validation state</span><strong>' + escapeHtml(card._validationData.validation_state || 'unknown') + '</strong></div>'
     + '</div>'
+    + '<div class="entries">' + checks.map(function (check) {
+      var passed = !!check.passed;
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top"><div><div class="entry-name"><label><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(passed ? 'pass' : 'attention') + '</span></div></div>'
+        + '</article>';
+    }).join('') + '</div>'
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '<div class="muted">This prepared upload is reused during Commit so the wizard does not create a duplicate queue item.</div>');
 }
 
@@ -936,6 +971,7 @@ function destinationGroupKey(model, index) {
         upload_id: uploadId,
         validation_state: validation.validation_state || 'unknown',
         warnings: (uploadResponse.warnings || []).concat(validation.warnings || []),
+        checks: Array.isArray(validation.checks) ? validation.checks : [],
       };
       this._status = this._validationData.validation_state === 'ready'
         ? 'Validation snapshot prepared. Review the destination assignments, then commit.'
@@ -1127,11 +1163,11 @@ function destinationGroupKey(model, index) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart. The right side shows the resolved outcome.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div>'
+        + '  <div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">This is the planned model set that later steps will validate and commit.</div></div></div>'
-        + renderPlanSummary(this)
+        + '  <div class="wizard-selection-scroll">' + this._renderDestinationSummary() + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 3) {

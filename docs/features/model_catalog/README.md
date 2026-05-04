@@ -84,6 +84,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Working File Inventory And Normalization Spec](working-file-spec.md) — Canonical path/name normalization, type scope, and dedupe identity rules for issue #1074
 - [Intake Flow States And Transitions](intake-state-machine.md) — Canonical intake state machine and transition contract for issue #1079
 - [Import Flow Diagrams](import-flow-diagrams.md) — Canonical Source -> Organize -> Validate -> Commit flow and Job History-centric outcome model
+- [Intake Validation Contract](intake-validation-contract.md) — Concrete checks, warning codes, state mapping, and UI checklist contract for the Validate step
 
 ### Home Assistant And UX
 

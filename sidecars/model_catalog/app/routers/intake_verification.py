@@ -272,6 +272,58 @@ def _read_existing_working_hashes(db_path: Path) -> set[str]:
         connection.close()
 
 
+def _build_validation_checks(
+    *,
+    warning_codes: set[str],
+    expanded_files: list[dict[str, Any]],
+    duplicate_hashes: list[str],
+) -> list[dict[str, Any]]:
+    resolved_count = len(expanded_files)
+    duplicate_count = len(duplicate_hashes)
+    return [
+        {
+            "key": "source_access",
+            "label": "Selected sources are present and readable",
+            "passed": not ({"missing_source", "source_unreadable"} & warning_codes),
+            "detail": (
+                f"Resolved {resolved_count} file(s) for validation."
+                if not ({"missing_source", "source_unreadable"} & warning_codes)
+                else "One or more selected source files are missing or unreadable."
+            ),
+        },
+        {
+            "key": "supported_types",
+            "label": "Resolved files use supported model or image types",
+            "passed": "unsupported_type" not in warning_codes,
+            "detail": (
+                "All resolved files use supported extensions."
+                if "unsupported_type" not in warning_codes
+                else "One or more selected files use unsupported extensions."
+            ),
+        },
+        {
+            "key": "duplicate_scan",
+            "label": "Resolved files do not match existing working items",
+            "passed": "working_group_hash_match" not in warning_codes,
+            "detail": (
+                "No duplicate working-file hashes were detected."
+                if "working_group_hash_match" not in warning_codes
+                else f"Detected {duplicate_count} file hash match(es) in working inventory."
+            ),
+        },
+        {
+            "key": "commit_ready",
+            "label": "Resolved plan contains at least one file to commit",
+            "passed": bool(expanded_files) and "needs_manual_grouping" not in warning_codes,
+            "detail": (
+                f"Prepared upload contains {resolved_count} resolved file(s)."
+                if expanded_files and "needs_manual_grouping" not in warning_codes
+                else "No files were resolved from the selected sources."
+            ),
+        },
+    ]
+
+
 def _intake_item_state_from_upload_status(status: str) -> str:
     """Map queue status to inbox state."""
     normalized = str(status or "").strip().lower()
@@ -1365,12 +1417,14 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
 
     existing_hashes = _read_existing_working_hashes(state.settings.db_path)
     file_hashes: list[str] = []
+    duplicate_hashes: list[str] = []
     for file_item in expanded_files:
         file_hash = str(file_item.get("file_hash") or "").strip().lower()
         if not file_hash:
             continue
         file_hashes.append(file_hash)
         if file_hash in existing_hashes:
+            duplicate_hashes.append(file_hash)
             validation_state = "duplicate_candidate"
             warnings.append(
                 {
@@ -1384,6 +1438,17 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         validation_state = "needs_manual_grouping"
         warnings.append({"code": "needs_manual_grouping", "message": "No files resolved from source entries."})
 
+    warning_codes = {
+        str(warning.get("code") or "").strip().lower()
+        for warning in warnings
+        if isinstance(warning, dict) and str(warning.get("code") or "").strip()
+    }
+    validation_checks = _build_validation_checks(
+        warning_codes=warning_codes,
+        expanded_files=expanded_files,
+        duplicate_hashes=duplicate_hashes,
+    )
+
     next_inbox_state = "validated_ready" if validation_state == "ready" else "validated_warning"
     connection = connect(state.settings.db_path)
     try:
@@ -1391,10 +1456,10 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             """
             UPDATE intake_queue_uploads
             SET file_hashes_json = ?,
-                terminal_action = 'rejected', terminal_at = ?, terminal_actor = ?
+                verification_status = ?,
                 inbox_state = ?,
                 decision_note = ?,
-            ("rejected", note, now_iso, now_iso, "queue_processed", item_id),
+                updated_at = ?
             WHERE upload_id = ?
             """,
             (
@@ -1432,6 +1497,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             "validation_state": validation_state,
             "warnings": warnings,
             "file_hash_count": len(file_hashes),
+            "checks": validation_checks,
         },
         **_build_intake_item_response(updated_row),
     }
