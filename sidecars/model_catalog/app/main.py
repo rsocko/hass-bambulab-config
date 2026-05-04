@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .manyfold import ManyfoldClient
 from .routers import intake as intake_module
+from .routers import intake_verification as intake_verification_module
 from .routers import working as working_module
 from .routers.archive_links import router as archive_links_router
 from .routers.intake import router as intake_router
@@ -36,6 +37,7 @@ def _sha256_file_proxy(path):
 
 
 intake_module._sha256_file = _sha256_file_proxy
+intake_verification_module._sha256_file = _sha256_file_proxy
 working_module._sha256_file = _sha256_file_proxy
 
 

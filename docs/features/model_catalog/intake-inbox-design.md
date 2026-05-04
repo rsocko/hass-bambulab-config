@@ -28,10 +28,11 @@ For flow and state details, also see:
 The wizard is the default and canonical intake experience.
 
 1. Source selection happens in wizard step 1.
-2. Logical model planning and destination decisions happen in wizard step 2 (Organize).
-3. Validation happens in wizard step 3 (before commit).
-4. Commit happens in wizard step 4.
-5. Job History is the primary post-commit visibility surface for all completed intake jobs.
+2. Logical model planning happens in wizard step 2 (Organize).
+3. Destination and cleanup-policy decisions happen in wizard step 3 (Choose Destination).
+4. Validation happens in wizard step 4 using one prepared upload snapshot.
+5. Commit happens in wizard step 5 by reusing that prepared upload rather than creating a second queue batch.
+6. Job History is the primary post-commit visibility surface for all completed intake jobs.
 
 Queue persistence remains in the system as a staging and compatibility layer, but inbox review is demoted for now.
 
@@ -92,6 +93,7 @@ Step 1 follows the shared split-pane rule:
 Step 2 is required for both Browser and Server source modes.
 
 This replaces the old server-only preview concept and becomes the shared planning step for both source modes.
+There is no separate Preview step in either source mode.
 
 #### Operator Language: Group / Split
 
@@ -135,13 +137,11 @@ Step 2 also follows the shared split-pane rule:
 - **Left pane**:
   - per-file-batch and per-folder configuration controls
   - title basis / custom naming
-  - destination selection
   - help/legend affordance explaining each Group / Split choice
 - **Right pane**:
   - the resulting logical models
   - resolved model name for each output group
   - included files/folders for each model
-  - destination for each model
   - type hints for included items (`model`, `media`, `supporting`)
 
 Organize should prefer shared reusable components for:
@@ -155,9 +155,43 @@ The right side of Organize is not just a count summary. It must show the planned
 
 **Result**: logical-model decomposition is visible in Organize step, with destination chosen per logical model and folder behavior preserved as configured. The Organize right pane should show these resolved model outputs directly, not just the raw source list.
 
-### Step 3: Validate (Pre-Commit)
+### Step 3: Choose Destination
+
+Choose Destination happens after the model plan is visible and before validation is run.
+Operator decisions in this step:
+
+- commit mode:
+  - Queue For Review
+  - Execute Now
+- publish target when `Execute Now` is selected:
+  - Curated Catalog
+  - Working Files
+- cleanup policy using friendly labels rather than raw enum values:
+  - Keep Originals In Place -> `keep`
+  - Delete Originals After Success -> `delete_on_verified`
+  - Replace Originals With Stub Marker -> `replace_with_stub`
+
+Cleanup policy nuance by source mode:
+
+- Server browse mode exposes the cleanup-policy choice directly.
+- Browser upload mode shows cleanup behavior as automatic `Delete Originals After Success` because the staged files only exist in the browser/session upload path.
+
+Step 3 also uses the split-pane contract:
+
+- **Left pane**:
+  - commit mode controls
+  - publish destination controls
+  - cleanup-policy choice with explanatory copy
+- **Right pane**:
+  - the same logical-model result structure shown in Organize
+  - a destination summary for the current plan
+  - a cleanup-policy summary for the current plan
+
+### Step 4: Validate (Pre-Commit)
 
 Validation runs before commit and is destination-aware.
+
+The canonical implementation should create or reuse one prepared upload snapshot in this step. Commit must reuse that prepared upload instead of creating a duplicate queue record.
 
 Validation output includes:
 
@@ -175,7 +209,7 @@ Operator actions in this step:
 
 This step is the primary place for correction and override, not the inbox card.
 
-Step 3 also uses the split-pane contract:
+Step 4 also uses the split-pane contract:
 
 - **Left pane**:
   - validation controls, rerun action, override controls where allowed
@@ -193,7 +227,9 @@ Validate should reuse the Organize result-pane components and layer validation s
 - If execution succeeds, record terminal outcome in Job History.
 - If execution is partial or fails, persist queue/event details for retry and diagnostics.
 
-Step 4 keeps the same layout:
+### Step 5: Commit
+
+Step 5 keeps the same layout:
 
 - **Left pane**:
   - final confirmation, commit mode, retry/fallback messaging, execution actions
@@ -204,6 +240,12 @@ Step 4 keeps the same layout:
   - cleanup-policy summary and any follow-up actions
 
 Commit should continue reusing the same result/model card components from Organize and Validate, with execution outcomes added as annotations rather than a new panel pattern.
+
+Commit semantics:
+
+- `Queue For Review` leaves the validated prepared upload in Intake Queue.
+- `Execute Now` publishes immediately only when validation is ready.
+- When validation returns warnings, the validated upload remains in Intake Queue for follow-up review unless later policy/override work explicitly changes that behavior.
 
 ### Source Metadata Capture
 

@@ -54,7 +54,7 @@ def _get_intake_item_row(db_path: Path, item_id: str) -> dict[str, Any] | None:
         row = connection.execute(
             """
             SELECT upload_id, status, inbox_state, verification_status, cleanup_policy,
-                   source_entries_json, file_hashes_json, error_json,
+                 source_entries_json, file_hashes_json, error_json, decision_note,
                    created_at, updated_at
             FROM intake_queue_uploads
             WHERE upload_id = ?
@@ -88,6 +88,48 @@ def _build_intake_item_response(item_row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+@router.post("/api/intake/plan")
+def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) -> Any:
+    payload = payload or {}
+    upload_id = str(payload.get("upload_id") or "").strip()
+    source_entries = payload.get("source_entries")
+
+    if upload_id:
+        item_row = _get_intake_item_row(request.app.state.model_catalog.settings.db_path, upload_id)
+        if item_row is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": "item_not_found",
+                    "message": f"No intake item found: {upload_id}",
+                },
+            )
+        source_entries = json.loads(str(item_row.get("source_entries_json") or "[]"))
+
+    if not isinstance(source_entries, list) or not source_entries:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "invalid_payload",
+                "message": "Provide upload_id or a non-empty source_entries array.",
+            },
+        )
+
+    normalized_entries = [entry for entry in source_entries if isinstance(entry, dict)]
+    expanded_files, warnings = _expand_intake_source_entries(source_entries=normalized_entries)
+    plan = _plan_intake_groups(source_entries=normalized_entries, expanded_files=expanded_files)
+    return {
+        "success": True,
+        "contract": "intake-plan.v1alpha1",
+        "upload_id": upload_id or None,
+        "warnings": warnings,
+        "planned_models": plan.get("planned_models", []),
+        "summary": plan.get("summary", {}),
+    }
+
 def _check_action_eligibility(item_row: dict[str, Any], action: str, override: bool = False) -> tuple[bool, str | None]:
     """
     Check if an action is eligible for the current item state.
@@ -95,6 +137,19 @@ def _check_action_eligibility(item_row: dict[str, Any], action: str, override: b
     Returns (is_eligible: bool, reason_code: str | None).
     """
     current_state = str(item_row.get("inbox_state") or "submitted").strip().lower()
+    warning_codes: set[str] = set()
+    decision_note_raw = item_row.get("decision_note")
+    if isinstance(decision_note_raw, str) and decision_note_raw.strip():
+        try:
+            decision_note_payload = json.loads(decision_note_raw)
+        except json.JSONDecodeError:
+            decision_note_payload = None
+        if isinstance(decision_note_payload, list):
+            warning_codes = {
+                str(warning.get("code") or "").strip().lower()
+                for warning in decision_note_payload
+                if isinstance(warning, dict) and str(warning.get("code") or "").strip()
+            }
     
     # Check basic eligibility
     is_eligible, reason = ActionEligibility.validate_action_eligibility(current_state, action)
@@ -103,6 +158,9 @@ def _check_action_eligibility(item_row: dict[str, Any], action: str, override: b
     
     # Check override requirement for warning state
     if action in {ActionEligibility.GROUP_NEW, ActionEligibility.GROUP_EXISTING}:
+        source_warning_codes = {"missing_source", "source_unreadable", "unsupported_type"}
+        if current_state == "validated_warning" and warning_codes and warning_codes.issubset(source_warning_codes):
+            return True, None
         is_valid_override, override_reason = ActionEligibility.validate_override_for_warning_state(
             current_state, action, override
         )
@@ -272,6 +330,292 @@ def _normalize_grouping_strategy(value: object | None) -> str:
     return "none"
 
 
+def _classify_intake_file_kind(file_item: dict[str, Any]) -> str:
+    suffix = Path(str(file_item.get("filename") or file_item.get("path") or "")).suffix.lower()
+    if suffix in SUPPORTED_WORKING_FILE_EXTENSIONS:
+        return "model"
+    if suffix in LOCAL_IMPORT_IMAGE_EXTENSIONS:
+        return "media"
+    return "supporting"
+
+
+def _is_printable_intake_file(file_item: dict[str, Any]) -> bool:
+    return _classify_intake_file_kind(file_item) == "model"
+
+
+def _common_prefix_length(left: tuple[str, ...], right: tuple[str, ...]) -> int:
+    count = 0
+    for left_part, right_part in zip(left, right):
+        if left_part != right_part:
+            break
+        count += 1
+    return count
+
+
+def _relative_parts_for_matching(file_item: dict[str, Any]) -> tuple[str, ...]:
+    relative_path = str(file_item.get("relative_path") or file_item.get("filename") or "").replace("\\", "/")
+    if not relative_path:
+        return ()
+    return tuple(part.lower() for part in Path(relative_path).parts if str(part).strip())
+
+
+def _normalize_effective_grouping_strategy(
+    *,
+    entry_type: str,
+    requested_strategy: object | None,
+    batch_files: list[dict[str, Any]],
+) -> str:
+    strategy = _normalize_grouping_strategy(requested_strategy)
+    if entry_type == "file" and strategy in {"by-folder", "by-root"}:
+        return "none"
+    if strategy == "flat" and not any(_is_printable_intake_file(file_item) for file_item in batch_files):
+        return "none"
+    return strategy
+
+
+def _find_flat_group_anchor(
+    *,
+    file_item: dict[str, Any],
+    printable_group_keys: list[str],
+    printable_files_by_key: dict[str, dict[str, Any]],
+) -> str | None:
+    file_parts = _relative_parts_for_matching(file_item)
+    file_parent_parts = file_parts[:-1]
+    best_key: str | None = None
+    best_score: tuple[int, int, int] | None = None
+    for group_key in printable_group_keys:
+        printable_file = printable_files_by_key[group_key]
+        printable_parts = _relative_parts_for_matching(printable_file)
+        printable_parent_parts = printable_parts[:-1]
+        prefix_score = _common_prefix_length(file_parent_parts, printable_parent_parts)
+        same_parent_score = 1 if file_parent_parts == printable_parent_parts else 0
+        depth_delta = abs(len(file_parent_parts) - len(printable_parent_parts))
+        candidate_score = (same_parent_score, prefix_score, -depth_delta)
+        if best_score is None or candidate_score > best_score:
+            best_key = group_key
+            best_score = candidate_score
+    return best_key
+
+
+def _plan_flat_file_groups(
+    *,
+    batch_files: list[dict[str, Any]],
+    source_entry: dict[str, Any],
+    root_path: Path,
+) -> dict[str, dict[str, Any]]:
+    printable_files = [file_item for file_item in batch_files if _is_printable_intake_file(file_item)]
+    if not printable_files:
+        first_file = Path(str(batch_files[0]["path"])).resolve()
+        return {
+            "__single__": {
+                "title": _compute_group_title(
+                    group_key="__single__",
+                    root_path=root_path,
+                    file_path=first_file,
+                    strategy="none",
+                    source_entry=source_entry,
+                ),
+                "files": list(batch_files),
+                "strategy": "none",
+                "source_entry": source_entry,
+                "root_path": str(root_path),
+                "preserve_folder_structure": _coerce_bool(source_entry.get("preserve_folder_structure", True)),
+                "group_title": str(source_entry.get("group_title") or "").strip(),
+            }
+        }
+
+    groups_by_key: dict[str, dict[str, Any]] = {}
+    printable_files_by_key: dict[str, dict[str, Any]] = {}
+    for file_item in printable_files:
+        file_path = Path(str(file_item["path"])).resolve()
+        relative_path = str(file_item.get("relative_path") or file_item.get("filename") or "").replace("\\", "/")
+        group_key = relative_path or str(file_path)
+        printable_files_by_key[group_key] = file_item
+        groups_by_key[group_key] = {
+            "title": _compute_group_title(
+                group_key=group_key,
+                root_path=root_path,
+                file_path=file_path,
+                strategy="flat",
+                source_entry=source_entry,
+            ),
+            "files": [file_item],
+            "strategy": "flat",
+            "source_entry": source_entry,
+            "root_path": str(root_path),
+            "preserve_folder_structure": _coerce_bool(source_entry.get("preserve_folder_structure", True)),
+            "group_title": str(source_entry.get("group_title") or "").strip(),
+        }
+
+    printable_group_keys = list(groups_by_key.keys())
+    for file_item in batch_files:
+        if _is_printable_intake_file(file_item):
+            continue
+        anchor_key = _find_flat_group_anchor(
+            file_item=file_item,
+            printable_group_keys=printable_group_keys,
+            printable_files_by_key=printable_files_by_key,
+        )
+        if anchor_key is None:
+            anchor_key = printable_group_keys[0]
+        groups_by_key[anchor_key]["files"].append(file_item)
+
+    return groups_by_key
+
+
+def _merge_planned_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged_by_key: dict[str, dict[str, Any]] = {}
+    ordered_keys: list[str] = []
+    for group in groups:
+        explicit_title = str(group.get("group_title") or "").strip()
+        effective_strategy = str(group.get("strategy") or "none").strip() or "none"
+        merge_key = f"none::{explicit_title.lower()}" if effective_strategy == "none" and explicit_title else str(group.get("plan_group_id") or uuid.uuid4())
+        existing = merged_by_key.get(merge_key)
+        if existing is None:
+            next_group = dict(group)
+            next_group["files"] = list(group.get("files") or [])
+            next_group["source_entries"] = list(group.get("source_entries") or [])
+            merged_by_key[merge_key] = next_group
+            ordered_keys.append(merge_key)
+            continue
+        existing["files"].extend(group.get("files") or [])
+        existing["source_entries"].extend(group.get("source_entries") or [])
+        existing["preserve_folder_structure"] = bool(existing.get("preserve_folder_structure")) or bool(group.get("preserve_folder_structure"))
+    return [merged_by_key[key] for key in ordered_keys]
+
+
+def _summarize_planned_group(group: dict[str, Any]) -> dict[str, Any]:
+    files = sorted(
+        list(group.get("files") or []),
+        key=lambda item: str(item.get("relative_path") or item.get("filename") or item.get("path") or "").lower(),
+    )
+    model_files = 0
+    media_files = 0
+    supporting_files = 0
+    summarized_files: list[dict[str, Any]] = []
+    for file_item in files:
+        file_kind = _classify_intake_file_kind(file_item)
+        if file_kind == "model":
+            model_files += 1
+        elif file_kind == "media":
+            media_files += 1
+        else:
+            supporting_files += 1
+        summarized_files.append(
+            {
+                "path": str(file_item.get("path") or ""),
+                "relative_path": str(file_item.get("relative_path") or file_item.get("filename") or ""),
+                "filename": str(file_item.get("filename") or Path(str(file_item.get("path") or "")).name),
+                "kind": file_kind,
+                "size_bytes": int(file_item.get("size_bytes") or 0),
+                "source_entry_type": str((file_item.get("source_entry") or {}).get("type") or file_item.get("entry_type") or ""),
+                "source_entry_path": str((file_item.get("source_entry") or {}).get("path") or ""),
+            }
+        )
+    summarized_group = dict(group)
+    summarized_group["files"] = summarized_files
+    summarized_group["file_count"] = len(summarized_files)
+    summarized_group["model_file_count"] = model_files
+    summarized_group["media_file_count"] = media_files
+    summarized_group["supporting_file_count"] = supporting_files
+    summarized_group["source_entry_count"] = len(group.get("source_entries") or [])
+    return summarized_group
+
+
+def _plan_intake_groups(
+    *,
+    source_entries: list[dict[str, Any]],
+    expanded_files: list[dict[str, Any]],
+) -> dict[str, Any]:
+    file_entries = [entry for entry in source_entries if isinstance(entry, dict) and str(entry.get("type") or "").strip().lower() == "file"]
+    folder_entries = [entry for entry in source_entries if isinstance(entry, dict) and str(entry.get("type") or "").strip().lower() == "folder"]
+    planned_groups: list[dict[str, Any]] = []
+
+    if file_entries:
+        file_batch_files = [file_item for file_item in expanded_files if str((file_item.get("source_entry") or {}).get("type") or "").strip().lower() == "file"]
+        if file_batch_files:
+            representative_entry = dict(file_entries[0])
+            effective_strategy = _normalize_effective_grouping_strategy(
+                entry_type="file",
+                requested_strategy=representative_entry.get("grouping_strategy"),
+                batch_files=file_batch_files,
+            )
+            root_path = Path(str(file_batch_files[0].get("path") or representative_entry.get("path") or "")).resolve().parent
+            grouped = _plan_flat_file_groups(
+                batch_files=file_batch_files,
+                source_entry=representative_entry,
+                root_path=root_path,
+            ) if effective_strategy == "flat" else _group_files_by_strategy(
+                expanded_files=file_batch_files,
+                source_entries=file_entries,
+                strategy=effective_strategy,
+            )
+            for group_key, group in grouped.items():
+                planned_groups.append(
+                    {
+                        "plan_group_id": f"files::{group_key}",
+                        "title": str(group.get("title") or _default_group_title(file_entries, file_batch_files)),
+                        "strategy": effective_strategy,
+                        "preserve_folder_structure": _coerce_bool(representative_entry.get("preserve_folder_structure", True)),
+                        "group_title": str(representative_entry.get("group_title") or "").strip(),
+                        "source_entries": list(file_entries),
+                        "files": list(group.get("files") or []),
+                    }
+                )
+
+    for entry in folder_entries:
+        entry_files = [file_item for file_item in expanded_files if file_item.get("source_entry") is entry]
+        if not entry_files:
+            continue
+        effective_strategy = _normalize_effective_grouping_strategy(
+            entry_type="folder",
+            requested_strategy=entry.get("grouping_strategy"),
+            batch_files=entry_files,
+        )
+        entry_root = Path(str(entry.get("path") or entry_files[0].get("path") or "")).resolve()
+        grouped = _plan_flat_file_groups(
+            batch_files=entry_files,
+            source_entry=entry,
+            root_path=entry_root,
+        ) if effective_strategy == "flat" else _group_files_by_strategy(
+            expanded_files=entry_files,
+            source_entries=[entry],
+            strategy=effective_strategy,
+        )
+        for group_key, group in grouped.items():
+            planned_groups.append(
+                {
+                    "plan_group_id": f"folder::{entry_root}::{group_key}",
+                    "title": str(group.get("title") or _default_group_title([entry], entry_files)),
+                    "strategy": effective_strategy,
+                    "preserve_folder_structure": _coerce_bool(entry.get("preserve_folder_structure", True)),
+                    "group_title": str(entry.get("group_title") or "").strip(),
+                    "source_entries": [entry],
+                    "files": list(group.get("files") or []),
+                }
+            )
+
+    merged_groups = _merge_planned_groups(planned_groups)
+    summarized_groups = [_summarize_planned_group(group) for group in merged_groups]
+    strategies = sorted({str(group.get("strategy") or "none") for group in summarized_groups})
+    preserve_values = {bool(group.get("preserve_folder_structure", True)) for group in summarized_groups}
+    return {
+        "groups": merged_groups,
+        "planned_models": summarized_groups,
+        "summary": {
+            "planned_model_count": len(summarized_groups),
+            "source_entry_count": len([entry for entry in source_entries if isinstance(entry, dict)]),
+            "file_count": sum(int(group.get("file_count") or 0) for group in summarized_groups),
+            "model_file_count": sum(int(group.get("model_file_count") or 0) for group in summarized_groups),
+            "media_file_count": sum(int(group.get("media_file_count") or 0) for group in summarized_groups),
+            "supporting_file_count": sum(int(group.get("supporting_file_count") or 0) for group in summarized_groups),
+            "grouping_strategy": strategies[0] if len(strategies) == 1 else "mixed",
+            "preserve_folder_structure": next(iter(preserve_values)) if len(preserve_values) == 1 else None,
+            "mixed_grouping": len(strategies) > 1,
+        },
+    }
+
+
 def _compute_group_key(
     *, 
     file_path: Path,
@@ -365,8 +709,7 @@ def _group_files_by_strategy(
     }
     """
     groups_by_key: dict[str, dict[str, Any]] = {}
-    
-    # For each source entry, compute its root path
+
     source_roots: dict[str, Path] = {}
     for entry in source_entries:
         if not isinstance(entry, dict):
@@ -374,19 +717,28 @@ def _group_files_by_strategy(
         entry_path_raw = str(entry.get("path") or "").strip()
         if entry_path_raw:
             source_roots[entry_path_raw] = Path(entry_path_raw).expanduser().resolve()
-    
-    # Group files
+
+    if strategy == "flat":
+        representative_entry = next((entry for entry in source_entries if isinstance(entry, dict)), {})
+        representative_root = next(
+            iter(source_roots.values()),
+            Path(str(expanded_files[0]["path"])).resolve().parent if expanded_files else Path(),
+        )
+        return _plan_flat_file_groups(
+            batch_files=expanded_files,
+            source_entry=representative_entry,
+            root_path=representative_root,
+        )
+
     for file_item in expanded_files:
         source_entry = file_item.get("source_entry", {})
         source_path_raw = str(source_entry.get("path") or "").strip()
         root_path = source_roots.get(source_path_raw, Path(file_item["path"]).parent)
-        
+
         file_path = Path(file_item["path"]).resolve()
         relative_path_raw = str(file_item.get("relative_path") or source_entry.get("relative_path") or "").strip().replace("\\", "/")
         relative_path = Path(relative_path_raw) if relative_path_raw else None
 
-        # Browser uploads stage each file as a source entry, so root/folder grouping
-        # must derive from relative_path instead of absolute source roots.
         if relative_path is not None and str(source_entry.get("source_type") or "").strip().lower() == "browser_upload":
             if strategy == "by-folder":
                 rel_parent = relative_path.parent
@@ -394,8 +746,6 @@ def _group_files_by_strategy(
             elif strategy == "by-root":
                 parts = [part for part in relative_path.parts if str(part).strip()]
                 group_key = parts[0] if parts else "__root__"
-            elif strategy == "flat":
-                group_key = str(relative_path).replace("\\", "/") or str(file_path.resolve())
             else:
                 group_key = "__single__"
         else:
@@ -403,16 +753,16 @@ def _group_files_by_strategy(
                 file_path=file_path,
                 root_path=root_path,
                 strategy=strategy,
-                source_entry=source_entry
+                source_entry=source_entry,
             )
         group_title = _compute_group_title(
             group_key=group_key,
             root_path=root_path,
             file_path=file_path,
             strategy=strategy,
-            source_entry=source_entry
+            source_entry=source_entry,
         )
-        
+
         if group_key not in groups_by_key:
             groups_by_key[group_key] = {
                 "title": group_title,
@@ -420,10 +770,12 @@ def _group_files_by_strategy(
                 "strategy": strategy,
                 "source_entry": source_entry,
                 "root_path": str(root_path),
+                "preserve_folder_structure": _coerce_bool(source_entry.get("preserve_folder_structure", True)),
+                "group_title": str(source_entry.get("group_title") or "").strip(),
             }
-        
+
         groups_by_key[group_key]["files"].append(file_item)
-    
+
     return groups_by_key
 
 
@@ -1280,42 +1632,31 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 },
             )
 
-        # Extract grouping strategy and folder preservation settings
-        grouping_strategy = _normalize_grouping_strategy(
-            next(
-                (str(e.get("grouping_strategy") or "").strip() 
-                 for e in source_entries if isinstance(e, dict) and e.get("grouping_strategy")),
-                "none"
-            )
-        )
-        preserve_folder_structure = _coerce_bool(
-            next(
-                (e.get("preserve_folder_structure", True) 
-                 for e in source_entries if isinstance(e, dict) and e.get("preserve_folder_structure") is not None),
-                True
-            )
-        )
+        plan = _plan_intake_groups(source_entries=source_entries, expanded_files=expanded_files)
+        plan_summary = dict(plan.get("summary") or {})
 
-        # Group files by strategy if create_working_group, otherwise attach to single existing group
         if action == "create_working_group":
-            file_groups = _group_files_by_strategy(
-                expanded_files=expanded_files,
-                source_entries=source_entries,
-                strategy=grouping_strategy
-            )
+            planned_models = list(plan.get("groups") or [])
         else:
-            # For attach_existing, treat all files as one group
-            file_groups = {"__all__": {"title": "Existing", "files": expanded_files, "strategy": "none"}}
+            planned_models = [{
+                "title": "Existing",
+                "files": expanded_files,
+                "strategy": "none",
+                "preserve_folder_structure": True,
+                "source_entries": list(source_entries),
+            }]
 
         now_iso = _bulk_utc_now_iso()
         created_groups: list[dict[str, Any]] = []
         total_added_items = 0
         total_duplicate_items = 0
         
-        for group_key, group_info in file_groups.items():
+        for group_info in planned_models:
             group_files = group_info.get("files", [])
             if not group_files:
                 continue
+            group_strategy = str(group_info.get("strategy") or "none").strip() or "none"
+            group_preserve_folder_structure = _coerce_bool(group_info.get("preserve_folder_structure", True))
             
             if action == "create_working_group":
                 # Create new working group
@@ -1343,13 +1684,13 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                         now_iso,
                         now_iso,
                         folder_hint,
-                        grouping_strategy,
+                        group_strategy,
                         now_iso,
                         json.dumps({
                             "source": "intake",
                             "upload_id": item_id,
-                            "grouping_strategy": grouping_strategy,
-                            "preserve_folder_structure": preserve_folder_structure,
+                            "grouping_strategy": group_strategy,
+                            "preserve_folder_structure": group_preserve_folder_structure,
                         }),
                     ),
                 )
@@ -1385,7 +1726,7 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                 working_group_id=group_id,
                 working_group_slug=group_slug,
                 settings=state.settings,
-                preserve_folder_structure=preserve_folder_structure
+                preserve_folder_structure=group_preserve_folder_structure
             )
             
             # Build a map of source -> destination paths
@@ -1484,8 +1825,8 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
         event_payload = {
             "upload_id": item_id,
             "action": action,
-            "grouping_strategy": grouping_strategy,
-            "preserve_folder_structure": preserve_folder_structure,
+            "grouping_strategy": plan_summary.get("grouping_strategy", "none"),
+            "preserve_folder_structure": plan_summary.get("preserve_folder_structure"),
             "created_groups": [
                 {
                     "working_group_id": g["working_group_id"],
@@ -1502,11 +1843,16 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
             "item_id": item_id,
             "state": terminal_action,
             "terminal": True,
-            "grouping_strategy": grouping_strategy,
-            "preserve_folder_structure": preserve_folder_structure,
+            "working_group_id": created_groups[0]["working_group_id"] if created_groups else None,
+            "grouping_strategy": plan_summary.get("grouping_strategy", "none"),
+            "preserve_folder_structure": plan_summary.get("preserve_folder_structure"),
+            "plan_summary": plan_summary,
             "created_groups": created_groups,
             "total_added_items": total_added_items,
             "total_duplicate_items": total_duplicate_items,
+            "added_items": created_groups[0]["added_items"] if len(created_groups) == 1 else total_added_items,
+            "duplicate_items": created_groups[0]["duplicate_items"] if len(created_groups) == 1 else total_duplicate_items,
+            "group": created_groups[0]["group"] if created_groups else None,
             "warnings": expansion_warnings,
         }
 

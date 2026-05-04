@@ -30,8 +30,6 @@ This rule is mandatory for both source modes.
 - Content growth should scroll inside the pane, not resize the modal.
 - Browser Upload and Server Inbox must behave the same way here.
 
-This is already the intended Server behavior and is now the canonical rule for Browser as well.
-
 ### Component Reuse Rule
 
 After the Source step, prefer shared reusable components where practical:
@@ -42,7 +40,7 @@ After the Source step, prefer shared reusable components where practical:
 - validation status badges and issue markers
 - commit result annotations
 
-The Source step may differ more by mode, but Organize, Validate, and Commit should converge on the same component language.
+The Source step may differ more by mode, but Organize, Choose Destination, Validate, and Commit should converge on the same component language.
 
 ### Left Pane Responsibilities
 
@@ -59,7 +57,7 @@ The Source step may differ more by mode, but Organize, Validate, and Commit shou
 - show what was picked
 - show resulting logical models
 - show which files/folders belong to each model
-- show destination for each model
+- show destination and cleanup summaries where applicable
 - show validation markers on the affected outputs
 - show final commit results
 
@@ -69,10 +67,11 @@ The canonical wizard step labels are:
 
 1. **Source**
 2. **Organize**
-3. **Validate**
-4. **Commit**
+3. **Choose Destination**
+4. **Validate**
+5. **Commit**
 
-These labels should be identical for Browser Upload and Server Inbox.
+These labels are identical for Browser Upload and Server Inbox. There is no separate Preview step for either path.
 
 ## Group / Split Labels
 
@@ -93,7 +92,7 @@ Supporting files and images do not become standalone models when `Separate Model
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Source                                                           [Close]   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [1 Source] [2 Organize] [3 Validate] [4 Commit]                                           │
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
 │ LEFT: Actions                         │ RIGHT: Results                                     │
 │                                       │                                                    │
@@ -108,12 +107,12 @@ Supporting files and images do not become standalone models when `Separate Model
 │ - remove individual items             │ │ Folder B/                                      │ │
 │ - re-add more files/folders           │ │   sub/part-a.stl                               │ │
 │                                       │ │ loose-file.3mf                                │ │
-│ Cleanup policy                        │ └────────────────────────────────────────────────┘ │
-│ keep / delete_on_verified / stub      │                                                    │
-│                                       │ Batch Summary                                      │
-│ [Next]                                │ - source: Browser Upload                          │
-│                                       │ - printable files: 9                              │
-│                                       │ - media/supporting files: 3                       │
+│ [Next]                                │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│                                       │ Batch Summary                                     │
+│                                       │ - source: Browser Upload                         │
+│                                       │ - printable files: 9                             │
+│                                       │ - media/supporting files: 3                      │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
@@ -123,7 +122,7 @@ Supporting files and images do not become standalone models when `Separate Model
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Source                                                           [Close]   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [1 Source] [2 Organize] [3 Validate] [4 Commit]                                           │
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
 │ LEFT: Actions                         │ RIGHT: Results                                     │
 │                                       │                                                    │
@@ -138,10 +137,10 @@ Supporting files and images do not become standalone models when `Separate Model
 │ (•) Include subfolders                │ │ loose-file.3mf                                 │ │
 │ ( ) Just selected folder              │ └────────────────────────────────────────────────┘ │
 │                                       │                                                    │
-│ Cleanup policy                        │ Batch Summary                                      │
-│ keep / delete_on_verified / stub      │ - source: Server Inbox                            │
-│                                       │ - selected roots/files: 3                         │
-│ [Next]                                │ - resolved source path shown for every item       │
+│ [Next]                                │ Batch Summary                                     │
+│                                       │ - source: Server Inbox                           │
+│                                       │ - selected roots/files: 3                        │
+│                                       │ - resolved source path shown for every item      │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
@@ -149,28 +148,24 @@ Supporting files and images do not become standalone models when `Separate Model
 
 This step must look structurally identical for Browser Upload and Server Inbox.
 
-The panel chrome, result cards, and footer behavior should be shared components rather than source-mode-specific reimplementations.
-
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Organize                                                         [Close]   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [1 Source] [2 Organize] [3 Validate] [4 Commit]                                           │
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
 │ LEFT: Actions                         │ RIGHT: Results                                     │
 │                                       │                                                    │
 │ Selected batch / folder / file batch  │ Planned Output Models                             │
 │ [Files Batch ▼]                       │ ┌────────────────────────────────────────────────┐ │
 │                                       │ │ Model A: Gridfinity Baseplate                  │ │
-│ Group / Split [Keep Together ▼]       │ │ Destination: Curated -> Create New Model       │ │
-│ [i] legend / help                     │ │ Includes:                                       │ │
-│                                       │ │ - baseplate.3mf (model)                        │ │
-│ Recursive      [On ▼]                 │ │ - label.svg (supporting)                       │ │
-│ Folder layout  [Preserve ▼]           │ ├────────────────────────────────────────────────┤ │
-│ Naming basis   [Folder Name ▼]        │ │ Model B: Adapter Variants                      │ │
-│ Model name     [Gridfinity Baseplate] │ │ Destination: Working -> Attach Existing        │ │
-│ Destination    [Curated ▼]            │ │ Includes:                                       │ │
-│ Target         [Create New ▼]         │ │ - adapter-v2/body.3mf (model)                  │ │
+│ Group / Split [Keep Together ▼]       │ │ Includes:                                       │ │
+│ [i] legend / help                     │ │ - baseplate.3mf (model)                        │ │
+│                                       │ │ - label.svg (supporting)                       │ │
+│ Recursive      [On ▼]                 │ ├────────────────────────────────────────────────┤ │
+│ Folder layout  [Preserve ▼]           │ │ Model B: Adapter Variants                      │ │
+│ Naming basis   [Folder Name ▼]        │ │ Includes:                                       │ │
+│ Model name     [Gridfinity Baseplate] │ │ - adapter-v2/body.3mf (model)                  │ │
 │                                       │ │ - adapter-v2/ref/photo.jpg (media)             │ │
 │ [Back] [Next]                         │ └────────────────────────────────────────────────┘ │
 │                                       │                                                    │
@@ -188,7 +183,25 @@ The panel chrome, result cards, and footer behavior should be shared components 
 - file-only batches should not expose recursion controls
 - the result pane must show model name plus included files/folders
 
-## Step 3: Validate
+## Step 3: Choose Destination
+
+Choose Destination keeps the same left-actions/right-results structure as Organize. The left side changes commit mode, publish target, and cleanup policy. The right side keeps showing the resolved model plan so the operator can see the exact outcome that will be validated next.
+
+Low-fi contract for this step:
+
+- left pane:
+  - Queue For Review / Execute Now toggle
+  - Curated Catalog / Working Files destination picker when Execute Now is selected
+  - friendly cleanup labels:
+    - Keep Originals In Place
+    - Delete Originals After Success
+    - Replace Originals With Stub Marker
+- right pane:
+  - same planned model cards shown in Organize
+  - destination summary per model or batch
+  - cleanup-policy summary for the batch
+
+## Step 4: Validate
 
 Validate should reuse the same right-side model/result cards from Organize and add validation state markers, warnings, and blockers onto those existing components.
 
@@ -196,29 +209,28 @@ Validate should reuse the same right-side model/result cards from Organize and a
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Validate                                                         [Close]   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [1 Source] [2 Organize] [3 Validate] [4 Commit]                                           │
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
 │ LEFT: Actions                         │ RIGHT: Results                                     │
 │                                       │                                                    │
 │ Validation Summary                    │ Planned Output Models                             │
 │ Blocking: 1                           │ ┌────────────────────────────────────────────────┐ │
 │ Warning: 2                            │ │ Model A: Gridfinity Baseplate                  │ │
-│ Info: 3                               │ │ Destination: Curated -> Create New Model       │ │
-│                                       │ │ Status: Warning                                │ │
-│ [Run Validation Again]                │ │ - duplicate candidate: baseplate.3mf           │ │
-│ [Show blockers only]                  │ ├────────────────────────────────────────────────┤ │
-│ [Allow override for warnings]         │ │ Model B: Adapter Variants                      │ │
-│                                       │ │ Destination: Working -> Attach Existing        │ │
-│ Issue detail                          │ │ Status: Blocking                               │ │
-│ - selected folder includes            │ │ - missing source: adapter-v2/ref/photo.jpg     │ │
-│   unreadable subpath                  │ └────────────────────────────────────────────────┘ │
-│                                       │                                                    │
+│ Info: 3                               │ │ Status: Warning                                │ │
+│                                       │ │ - duplicate candidate: baseplate.3mf           │ │
+│ [Run Validation Again]                │ ├────────────────────────────────────────────────┤ │
+│ [Show blockers only]                  │ │ Model B: Adapter Variants                      │ │
+│ [Allow override for warnings]         │ │ Status: Blocking                               │ │
+│                                       │ │ - missing source: adapter-v2/ref/photo.jpg     │ │
+│ Issue detail                          │ └────────────────────────────────────────────────┘ │
+│ - selected folder includes            │                                                    │
+│   unreadable subpath                  │                                                    │
 │ [Back] [Next if acceptable]           │ The right pane stays in the same model/result     │
 │                                       │ shape used during Organize.                       │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
-## Step 4: Commit
+## Step 5: Commit
 
 Commit should keep the same split layout and continue using the same result/model cards, adding execution outcome details instead of switching to a different review surface.
 
@@ -226,11 +238,11 @@ Commit should keep the same split layout and continue using the same result/mode
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
 │ Intake Wizard: Commit                                                           [Close]   │
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
-│ [1 Source] [2 Organize] [3 Validate] [4 Commit]                                           │
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
 │ LEFT: Actions                         │ RIGHT: Results                                     │
 │                                       │                                                    │
-│ Commit mode                           │ Final Outcome Preview                              │
+│ Commit mode                           │ Final Outcome                                      │
 │ (•) Execute now                       │ ┌────────────────────────────────────────────────┐ │
 │ ( ) Queue for follow-up               │ │ Model A -> Curated / new model                 │ │
 │                                       │ │ Model B -> Working / existing group #42        │ │
@@ -241,7 +253,7 @@ Commit should keep the same split layout and continue using the same result/mode
 │ - validation acceptable               │ │ - show type: model / media / supporting        │ │
 │ - destination confirmed               │ └────────────────────────────────────────────────┘ │
 │                                       │                                                    │
-│ [Back] [Commit Intake Job]            │ After commit, replace this preview with the       │
+│ [Back] [Commit Intake Job]            │ After commit, replace this result pane with the   │
 │                                       │ actual created model/group results and links.     │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
@@ -259,7 +271,8 @@ This becomes a vertical stack rather than a side-by-side split, but the semantic
 ## Implementation Notes
 
 - Do not ship Browser Upload and Server Inbox as two different wizard designs.
-- Do not use a generic "preview" pane that lacks concrete result detail.
+- Do not reintroduce a separate Preview step for either source mode.
+- Do not use a generic results pane that lacks concrete result detail.
 - Do not collapse Organize into a generic commit/settings step.
-- The result pane should be reusable across Organize, Validate, and Commit with progressively richer annotations.
+- The result pane should be reusable across Organize, Choose Destination, Validate, and Commit with progressively richer annotations.
 - Do not let the popup resize between Browser and Server variants or between steps; keep the shell fixed and scroll internally.

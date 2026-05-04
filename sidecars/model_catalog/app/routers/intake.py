@@ -75,7 +75,7 @@ from .intake_queue import (
     VALID_STATUS_TRANSITIONS,
 )
 from .intake_cleanup import _build_cleanup_stub, _run_source_cleanup
-from .intake_verification import _default_group_title, _group_files_by_strategy, _normalize_grouping_strategy
+from .intake_verification import _default_group_title, _plan_intake_groups
 
 # Create combined router
 router = APIRouter(tags=["intake"])
@@ -392,6 +392,34 @@ def _extract_grouping_preferences(source_entries: list[dict[str, Any]]) -> tuple
     return strategy, preserve_folder_structure
 
 
+def _build_publish_groups(
+    *,
+    source_entries: list[dict[str, Any]],
+    expanded_files: list[dict[str, Any]],
+    default_title: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    plan = _plan_intake_groups(source_entries=source_entries, expanded_files=expanded_files)
+    planned_groups = [dict(group) for group in list(plan.get("groups") or [])]
+
+    if not planned_groups and expanded_files:
+        planned_groups = [
+            {
+                "title": default_title or _default_group_title(source_entries, expanded_files),
+                "files": list(expanded_files),
+                "strategy": "none",
+                "preserve_folder_structure": True,
+                "source_entries": list(source_entries),
+            }
+        ]
+
+    for group in planned_groups:
+        group_files = list(group.get("files") or [])
+        if not str(group.get("title") or "").strip():
+            group["title"] = default_title or _default_group_title(source_entries, group_files)
+
+    return planned_groups, dict(plan.get("summary") or {})
+
+
 # Windows launch helpers
 
 def _windows_root_from_assets_host(settings: Settings) -> str | None:
@@ -584,9 +612,16 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
     requested_source_origin = str(payload.get("source_origin") or "intake_queue").strip() or "intake_queue"
     requested_source_origin_url = str(payload.get("source_origin_url") or f"intake://uploads/{upload_id}").strip()
     requested_preview_source_path = str(payload.get("preview_source_path") or "").strip()
-    grouping_strategy, preserve_folder_structure = _extract_grouping_preferences(source_entries)
+    default_model_title = requested_model_name or _default_group_title(source_entries, expanded_files) or "Working Group"
+    planned_groups, plan_summary = _build_publish_groups(
+        source_entries=source_entries,
+        expanded_files=expanded_files,
+        default_title=default_model_title,
+    )
+    grouping_strategy = str(plan_summary.get("grouping_strategy") or "none")
+    preserve_folder_structure = plan_summary.get("preserve_folder_structure")
 
-    if grouping_strategy != "none":
+    if len(planned_groups) > 1:
         if requested_model_ref:
             _transition_queue_status(
                 state.settings.db_path,
@@ -604,20 +639,16 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     "upload_id": upload_id,
                 },
             )
-
-        grouped_files = _group_files_by_strategy(
-            expanded_files=expanded_files,
-            source_entries=source_entries,
-            strategy=grouping_strategy,
-        )
         created_models: list[dict[str, Any]] = []
         imported_assets: list[dict[str, Any]] = []
         duplicate_skipped: list[dict[str, Any]] = []
         failed_files: list[dict[str, Any]] = []
 
-        for group in grouped_files.values():
+        for group in planned_groups:
             group_title = str(group.get("title") or "").strip() or "Working Group"
             group_files = list(group.get("files") or [])
+            group_strategy = str(group.get("strategy") or "none").strip() or "none"
+            group_preserve_folder_structure = _coerce_bool(group.get("preserve_folder_structure", True))
             preferred_model_id = _slugify_title(group_title) or upload_id
             local_model_id = _ensure_unique_local_model_id(db_path=state.settings.db_path, preferred=preferred_model_id)
 
@@ -671,7 +702,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                         local_model_id=local_model_id,
                         source_path=source_path,
                         relative_path=str(file_item.get("relative_path") or "").strip() or source_path.name,
-                        preserve_folder_structure=preserve_folder_structure,
+                        preserve_folder_structure=group_preserve_folder_structure,
                     )
                     asset_type = _normalize_local_asset_type(source_path)
                     preview_selected = bool(preview_source_normalized and str(source_path).lower() == preview_source_normalized)
@@ -732,8 +763,8 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
                     "upload_id": upload_id,
                     "published_at": _bulk_utc_now_iso(),
                     "created_model": True,
-                    "grouping_strategy": grouping_strategy,
-                    "preserve_folder_structure": preserve_folder_structure,
+                    "grouping_strategy": group_strategy,
+                    "preserve_folder_structure": group_preserve_folder_structure,
                     "imported_asset_count": group_imported_count,
                     "duplicate_skipped_count": len(duplicate_skipped),
                     "failed_file_count": len(failed_files),
@@ -898,6 +929,7 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
             "failed_files": failed_files,
             "warnings": expansion_warnings,
             "cleanup": cleanup_result,
+            "plan_summary": plan_summary,
             "terminal": True,
             "state": "published_to_catalog",
             "is_terminal": True,
@@ -1210,6 +1242,9 @@ def intake_upload_publish_to_local(request: Request, upload_id: str, payload: di
         "verification_status": "pass",
         "local_model_id": local_model_id,
         "model_ref": local_model_id,
+        "grouping_strategy": grouping_strategy,
+        "preserve_folder_structure": preserve_folder_structure,
+        "plan_summary": plan_summary,
         "created_model": created_model,
         "imported_asset_count": len(imported_assets),
         "duplicate_skipped_count": len(duplicate_skipped),
@@ -1353,11 +1388,17 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     requested_title = str(payload.get("title") or "").strip()
     requested_stage = str(payload.get("stage") or "draft").strip() or "draft"
     requested_notes = str(payload.get("notes") or "").strip()
-    grouping_strategy, preserve_folder_structure = _extract_grouping_preferences(source_entries)
 
     # Generate default title from source entries
     default_title = requested_title or _default_group_title(source_entries, expanded_files) or f"Import from {upload_id}"
     folder_hint = str(Path(expanded_files[0]["path"]).parent) if expanded_files else None
+    planned_groups, plan_summary = _build_publish_groups(
+        source_entries=source_entries,
+        expanded_files=expanded_files,
+        default_title=default_title,
+    )
+    grouping_strategy = str(plan_summary.get("grouping_strategy") or "none")
+    preserve_folder_structure = plan_summary.get("preserve_folder_structure")
 
     # Check if working files root is configured BEFORE trying to move files
     from ..services.working_groups_service import _working_files_destination_root
@@ -1380,20 +1421,6 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
             },
         )
 
-    grouped_files = _group_files_by_strategy(
-        expanded_files=expanded_files,
-        source_entries=source_entries,
-        strategy=grouping_strategy,
-    ) if grouping_strategy != "none" else {
-        "__single__": {
-            "title": default_title,
-            "files": expanded_files,
-            "strategy": "none",
-            "source_entry": source_entries[0] if source_entries else {},
-            "root_path": folder_hint or "",
-        }
-    }
-
     # Create working group(s) and add items
     working_group_id = None
     added_items = 0
@@ -1405,9 +1432,11 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
     try:
         now_iso = _bulk_utc_now_iso()
         
-        for group in grouped_files.values():
+        for group in planned_groups:
             group_files = list(group.get("files") or [])
             group_title = str(group.get("title") or "").strip() or default_title
+            group_strategy = str(group.get("strategy") or "none").strip() or "none"
+            group_preserve_folder_structure = _coerce_bool(group.get("preserve_folder_structure", True))
             slug_base = _slugify_title(group_title) or f"import-{upload_id[:8]}"
 
             counter = 0
@@ -1439,14 +1468,14 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                     now_iso,
                     now_iso,
                     group_folder_hint,
-                    "intake",
+                    group_strategy,
                     now_iso,
                     json.dumps(
                         {
                             "source": "intake",
                             "upload_id": upload_id,
-                            "grouping_strategy": grouping_strategy,
-                            "preserve_folder_structure": preserve_folder_structure,
+                            "grouping_strategy": group_strategy,
+                            "preserve_folder_structure": group_preserve_folder_structure,
                             "group_title": group_title,
                         }
                     ),
@@ -1487,7 +1516,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
                     working_group_slug=candidate_slug,
                     source_path=source_file_path,
                     relative_path=str(file_item.get("relative_path") or "").strip() or source_file_path.name,
-                    preserve_folder_structure=preserve_folder_structure,
+                    preserve_folder_structure=group_preserve_folder_structure,
                 )
                 file_path = str(moved_path)
                 item_role = "primary" if primary_file_path is None else "supporting"
@@ -1669,6 +1698,7 @@ def intake_upload_publish_to_working(request: Request, upload_id: str, payload: 
         "duplicate_items": duplicate_items,
         "warnings": expansion_warnings,
         "group": primary_group,
+        "plan_summary": plan_summary,
         "legacy_adapter": {
             "upload_to_manyfold_route": f"/api/intake/uploads/{quote(upload_id, safe='')}/upload-to-manyfold",
             "authoritative": False,

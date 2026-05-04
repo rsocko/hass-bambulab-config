@@ -1,0 +1,18 @@
+model_catalog_plan_intake:
+  url: >-
+    {{ (
+      states('input_text.model_catalog_sidecar_base_url')
+      if states('input_text.model_catalog_sidecar_base_url') not in ['unknown', 'unavailable', 'none', '']
+      else 'http://model-catalog-sidecar:8314'
+    ) }}/api/intake/plan
+  method: POST
+  content_type: application/json
+  payload: >-
+    {% set ns = namespace(body={}) %}
+    {% if upload_id is defined and (upload_id | string | trim) != '' %}
+      {% set ns.body = dict(ns.body, upload_id=(upload_id | string)) %}
+    {% endif %}
+    {% if source_entries is defined %}
+      {% set ns.body = dict(ns.body, source_entries=(source_entries | default([], true))) %}
+    {% endif %}
+    {{ ns.body | tojson }}

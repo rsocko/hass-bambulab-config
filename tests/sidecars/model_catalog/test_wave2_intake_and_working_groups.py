@@ -336,6 +336,139 @@ def test_folder_selection_group_uses_queued_title_hint_when_title_omitted(tmp_pa
     finally:
         client.__exit__(None, None, None)
 
+def test_intake_plan_flat_attaches_media_to_printable_model(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "adapter-v2"
+    refs = folder / "refs"
+    refs.mkdir(parents=True)
+    (folder / "body.3mf").write_bytes(b"3mf-bytes")
+    (refs / "photo.jpg").write_bytes(b"jpg-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        response = client.post(
+            "/api/intake/plan",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "grouping_strategy": "flat",
+                        "group_title_source": "custom",
+                        "group_title": "Adapter Variants",
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["summary"]["planned_model_count"] == 1
+        planned_model = payload["planned_models"][0]
+        assert planned_model["title"] == "Adapter Variants - body"
+        assert planned_model["model_file_count"] == 1
+        assert planned_model["media_file_count"] == 1
+        assert [file_info["kind"] for file_info in planned_model["files"]] == ["model", "media"]
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_intake_plan_keeps_file_batch_and_folder_plan_separate(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    loose_a = source_root / "router_mount_plate.3mf"
+    loose_b = source_root / "router_mount_brace.stl"
+    folder = source_root / "gridfinity"
+    folder.mkdir()
+    (folder / "baseplate.3mf").write_bytes(b"gridfinity-bytes")
+    loose_a.write_bytes(b"plate-bytes")
+    loose_b.write_bytes(b"brace-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        response = client.post(
+            "/api/intake/plan",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(loose_a),
+                        "grouping_strategy": "none",
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Batch",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(loose_b),
+                        "grouping_strategy": "none",
+                        "group_title_source": "custom",
+                        "group_title": "Router Mount Batch",
+                    },
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "grouping_strategy": "by-root",
+                    },
+                ]
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["summary"]["planned_model_count"] == 2
+        assert payload["summary"]["grouping_strategy"] == "mixed"
+        titles = sorted(model["title"] for model in payload["planned_models"])
+        assert titles == ["Router Mount Batch", "gridfinity"]
+        file_batch_model = next(model for model in payload["planned_models"] if model["title"] == "Router Mount Batch")
+        assert file_batch_model["file_count"] == 2
+        assert file_batch_model["model_file_count"] == 2
+    finally:
+        client.__exit__(None, None, None)
+
+def test_publish_to_working_flat_attaches_media_to_model_group(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "adapter-v2"
+    refs = folder / "refs"
+    refs.mkdir(parents=True)
+    (folder / "body.3mf").write_bytes(b"3mf-bytes")
+    (refs / "photo.jpg").write_bytes(b"jpg-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "grouping_strategy": "flat",
+                        "group_title_source": "custom",
+                        "group_title": "Adapter Variants",
+                    }
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        upload_id = select_response.json()["upload_id"]
+
+        publish_response = client.post(f"/api/intake/uploads/{upload_id}/publish-to-working", json={})
+        assert publish_response.status_code == 200
+        payload = publish_response.json()
+        assert payload["created_group_count"] == 1
+        assert payload["added_items"] == 2
+        assert payload["plan_summary"]["planned_model_count"] == 1
+        assert payload["plan_summary"]["grouping_strategy"] == "flat"
+
+        created_group = payload["created_groups"][0]["group"]
+        assert created_group["title"] == "Adapter Variants - body"
+        assert len(created_group["items"]) == 2
+    finally:
+        client.__exit__(None, None, None)
+
 
 def test_file_selection_group_uses_queued_title_hint_when_title_omitted(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"

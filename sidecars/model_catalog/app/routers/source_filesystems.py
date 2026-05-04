@@ -339,10 +339,15 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             )
             normalized_title_source = _normalize_group_title_source(selection.get("group_title_source"))
             group_title = str(selection.get("group_title") or "").strip()
+            grouping_strategy = str(selection.get("grouping_strategy") or "").strip().lower()
             if normalized_title_source:
                 validated_entries[-1]["group_title_source"] = normalized_title_source
             if group_title:
                 validated_entries[-1]["group_title"] = group_title
+            if grouping_strategy:
+                validated_entries[-1]["grouping_strategy"] = grouping_strategy
+            if "preserve_folder_structure" in selection:
+                validated_entries[-1]["preserve_folder_structure"] = _coerce_bool(selection.get("preserve_folder_structure"))
             expanded_file_count += 1
 
         else:  # folder
@@ -385,10 +390,15 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             )
             normalized_title_source = _normalize_group_title_source(selection.get("group_title_source"))
             group_title = str(selection.get("group_title") or "").strip()
+            grouping_strategy = str(selection.get("grouping_strategy") or "").strip().lower()
             if normalized_title_source:
                 validated_entries[-1]["group_title_source"] = normalized_title_source
             if group_title:
                 validated_entries[-1]["group_title"] = group_title
+            if grouping_strategy:
+                validated_entries[-1]["grouping_strategy"] = grouping_strategy
+            if "preserve_folder_structure" in selection:
+                validated_entries[-1]["preserve_folder_structure"] = _coerce_bool(selection.get("preserve_folder_structure"))
             expanded_file_count += len(contained_files)
 
     # Create intake queue record

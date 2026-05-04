@@ -6,6 +6,8 @@
 
 **2026-05-03 note**: The backend/storage behavior in this document remains valid, but the canonical operator-facing Organize semantics are now further constrained by issues #1288 and #1292. Use the Group / Split labels and wizard layout defined in [intake-inbox-design.md](intake-inbox-design.md) and [intake-wizard-ux-mockups.md](intake-wizard-ux-mockups.md) when implementing or revising the UI.
 
+Additional 2026-05 note: the canonical wizard flow is now `Source -> Organize -> Choose Destination -> Validate -> Commit`. Destination choice and cleanup policy no longer belong inside Organize. Cleanup policy should be shown with friendly labels in the operator UI, even though backend values remain `keep`, `delete_on_verified`, and `replace_with_stub`.
+
 ## Overview
 
 This document describes the intake grouping strategies and folder structure preservation feature that enables multi-model decomposition and hierarchical file organization when importing files from browser upload or server filesystem into Home Assistant.
@@ -16,7 +18,7 @@ Previously, all files from a single intake batch were placed into a **single wor
 
 1. **Loss of structure**: Hierarchical models (e.g., variants in subfolders) collapsed into one flat group
 2. **Manual re-organization**: Users had to manually separate files after import
-3. **Non-intuitive UX**: "Grouping: by-folder" in the UI was ignored during actual grouping
+3. **Non-intuitive UX**: the legacy `Grouping: by-folder` UI was ignored during actual grouping
 4. **Flat storage**: Even when folder structure WAS preserved, files were stored flat in the working directory
 
 ## Solution: Multi-Group Decomposition + Folder Preservation
@@ -167,7 +169,7 @@ Additional Organize rules now required by the canonical wizard design:
 │ Staged files: 33                                 │
 │ Staged folders: 3                                │
 │                                                  │
-│ [Grouping:          by-folder ▼]                 │
+│ [Group / Split:     Separate Models By Folder ▼] │
 │ [Folder Structure:  Preserve  ▼]                 │
 │ [Title Basis:       Folder name ▼]               │
 │ [Working Group Title: _________________ ]        │
@@ -189,7 +191,7 @@ Additional Organize rules now required by the canonical wizard design:
 ```
 ┌─ Server Selection: /path/to/models ──────────────┐
 │ [Recurse:           On ▼]                        │
-│ [Grouping:          by-folder ▼]                 │
+│ [Group / Split:     Separate Models By Folder ▼] │
 │ [Folder Structure:  Preserve ▼]                  │
 │ [Title Basis:       Folder name ▼]               │
 │ [Working Group Title: _________________ ]        │
