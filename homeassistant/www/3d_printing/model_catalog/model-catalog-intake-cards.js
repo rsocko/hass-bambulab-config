@@ -1,4 +1,4 @@
 import './model-catalog-intake-shared.js?v=20';
 import './model-catalog-intake-home-card.js?v=47';
-import './model-catalog-intake-wizard-overrides.js?v=4';
+import './model-catalog-intake-wizard-overrides.js?v=5';
 import './model-catalog-inbox-review-card.js?v=22';
