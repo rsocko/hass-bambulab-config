@@ -44,7 +44,6 @@ cards:
           action: more-info
           entity: binary_sensor.error_alert_display_wrapper
         hold_action:
-          action: more-info
           entity: binary_sensor.error_alert_display_wrapper
         card_mod:
           style:
@@ -367,7 +366,7 @@ cards:
                   action: call-service
                   service: button.press
                   service_data:
-                    entity_id: button.ntk_ryansoffice_3dprinter_resume
+                    entity_id: button.ntk_ryansoffice_3dprinter_resume_printing
                 styles:
                   card:
                     - background: rgba(76, 175, 80, 0.15)
@@ -403,7 +402,7 @@ cards:
                     text: "Cancel the current print?"
                   service: button.press
                   service_data:
-                    entity_id: button.ntk_ryansoffice_3dprinter_stop
+                    entity_id: button.ntk_ryansoffice_3dprinter_stop_printing
                 styles:
                   card:
                     - background: rgba(244, 67, 54, 0.12)
