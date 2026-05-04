@@ -190,6 +190,18 @@ function renderValidationSummary(card) {
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '<div class="muted">This prepared upload is reused during Commit so the wizard does not create a duplicate queue item.</div>');
 }
 
+function destinationGroupKey(model, index) {
+  var files = model && Array.isArray(model.files) ? model.files : [];
+  var firstFile = files.length ? String(files[0].relative_path || files[0].filename || '') : '';
+  return [
+    String(index),
+    String(model && model.title ? model.title : ''),
+    String(model && model.strategy ? model.strategy : ''),
+    String(model && model.file_count ? model.file_count : files.length),
+    firstFile,
+  ].join('|');
+}
+
 (function applyWizardOverrides() {
   var Card = customElements.get('model-catalog-intake-home-card');
   if (!Card || Card.prototype.__wizardStepOverridesApplied) {
@@ -555,12 +567,14 @@ function renderValidationSummary(card) {
     }
     if (this._wizardMode === 'browser') {
       this._previewData = buildBrowserPlanPreview(this);
+      this._syncGroupDestinationsFromPreview();
       this._render();
       return;
     }
     var selections = this._serverPayloadSelections('server');
     if (!selections.length) {
       this._previewData = null;
+      this._groupDestinations = [];
       this._render();
       return;
     }
@@ -568,10 +582,305 @@ function renderValidationSummary(card) {
       this._previewData = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_plan_intake', {
         source_entries: selections,
       });
+      this._syncGroupDestinationsFromPreview();
     } catch (_error) {
       this._previewData = null;
+      this._groupDestinations = [];
     }
     this._render();
+  };
+
+  proto._syncGroupDestinationsFromPreview = function () {
+    var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
+      ? this._previewData.planned_models
+      : [];
+    var existingPlans = Array.isArray(this._groupDestinations) ? this._groupDestinations : [];
+    var nextPlans = [];
+    for (var index = 0; index < plannedModels.length; index += 1) {
+      var model = plannedModels[index] || {};
+      var groupKey = destinationGroupKey(model, index);
+      var previous = null;
+      for (var existingIndex = 0; existingIndex < existingPlans.length; existingIndex += 1) {
+        if (existingPlans[existingIndex] && existingPlans[existingIndex]._group_key === groupKey) {
+          previous = existingPlans[existingIndex];
+          break;
+        }
+      }
+      nextPlans.push(Object.assign({
+        _group_key: groupKey,
+        destination: 'curated',
+        match_mode: 'new',
+        model_ref: '',
+        working_group_id: null,
+        lookup_query: '',
+        lookup_results: [],
+        lookup_loading: false,
+        lookup_error: '',
+        selected_summary: null,
+      }, previous || {}, {
+        _group_key: groupKey,
+      }));
+    }
+    this._groupDestinations = nextPlans;
+    return nextPlans;
+  };
+
+  proto._updateGroupDestinationState = function (groupIndex, updates) {
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (groupIndex < 0 || groupIndex >= plans.length) {
+      return null;
+    }
+    var nextPlan = Object.assign({}, plans[groupIndex], updates || {});
+    this._groupDestinations = plans.slice();
+    this._groupDestinations[groupIndex] = nextPlan;
+    return nextPlan;
+  };
+
+  proto._destinationPlansReady = function () {
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (!plans.length) {
+      return false;
+    }
+    for (var index = 0; index < plans.length; index += 1) {
+      var plan = plans[index] || {};
+      var destination = String(plan.destination || 'curated').trim().toLowerCase();
+      var matchMode = String(plan.match_mode || 'new').trim().toLowerCase();
+      if (destination !== 'curated' && destination !== 'working') {
+        return false;
+      }
+      if (matchMode === 'existing') {
+        if (destination === 'working') {
+          if (!(Number(plan.working_group_id) > 0)) {
+            return false;
+          }
+        } else if (!String(plan.model_ref || '').trim()) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  proto._buildDestinationPublishPayload = function () {
+    var plans = this._syncGroupDestinationsFromPreview();
+    return plans.map(function (plan) {
+      var payload = {
+        destination: String(plan.destination || 'curated').trim().toLowerCase(),
+        match_mode: String(plan.match_mode || 'new').trim().toLowerCase(),
+      };
+      if (payload.match_mode === 'existing') {
+        if (payload.destination === 'working') {
+          payload.working_group_id = Number(plan.working_group_id || 0);
+        } else {
+          payload.model_ref = String(plan.model_ref || '').trim();
+        }
+      }
+      return payload;
+    });
+  };
+
+  proto._destinationSelectionSummary = function (plan) {
+    var destination = String(plan && plan.destination ? plan.destination : 'curated').trim().toLowerCase();
+    var matchMode = String(plan && plan.match_mode ? plan.match_mode : 'new').trim().toLowerCase();
+    var selected = plan && plan.selected_summary ? plan.selected_summary : null;
+    if (matchMode !== 'existing') {
+      return destination === 'working'
+        ? 'Create a new Working Files group.'
+        : 'Create a new Curated Catalog model.';
+    }
+    if (selected) {
+      return String(selected.primary || '') + (selected.secondary ? ' - ' + String(selected.secondary) : '');
+    }
+    return destination === 'working'
+      ? 'Select an existing Working Files group.'
+      : 'Select an existing Curated Catalog model.';
+  };
+
+  proto._curatedLookupResultMeta = function (result) {
+    var primary = String((result && (result.name || result.title || result.public_id || result.model_id || result.model_ref)) || 'Catalog Model').trim();
+    var idValue = String((result && (result.public_id || result.model_id || result.model_ref || result.id)) || '').trim();
+    var creatorNames = Array.isArray(result && result.creator_names) ? result.creator_names.filter(Boolean).join(', ') : '';
+    var collections = Array.isArray(result && result.collection_names) ? result.collection_names.filter(Boolean).join(', ') : '';
+    return {
+      id: idValue,
+      primary: primary,
+      secondary: creatorNames || collections || idValue,
+    };
+  };
+
+  proto._workingLookupResultMeta = function (result) {
+    var project = result && result.project && result.project.title ? String(result.project.title) : '';
+    var itemCount = Array.isArray(result && result.items) ? result.items.length : 0;
+    return {
+      id: String(result && result.id ? result.id : '').trim(),
+      primary: String((result && result.title) || 'Working Group').trim(),
+      secondary: [
+        result && result.stage ? String(result.stage) : '',
+        project,
+        itemCount ? String(itemCount) + ' items' : '',
+      ].filter(Boolean).join(' - '),
+    };
+  };
+
+  proto._runGroupDestinationLookup = async function (groupIndex) {
+    if (!this._hass) {
+      return;
+    }
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (groupIndex < 0 || groupIndex >= plans.length) {
+      return;
+    }
+    var plan = plans[groupIndex] || {};
+    var query = String(plan.lookup_query || '').trim();
+    if (!query) {
+      this._updateGroupDestinationState(groupIndex, {
+        lookup_results: [],
+        lookup_error: '',
+        lookup_loading: false,
+      });
+      this._render();
+      return;
+    }
+    this._updateGroupDestinationState(groupIndex, {
+      lookup_loading: true,
+      lookup_error: '',
+      lookup_results: [],
+    });
+    this._render();
+    try {
+      var response;
+      if (String(plan.destination || 'curated') === 'working') {
+        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_list_working_groups', {
+          q: query,
+          limit: 8,
+          offset: 0,
+        });
+        this._updateGroupDestinationState(groupIndex, {
+          lookup_loading: false,
+          lookup_error: '',
+          lookup_results: Array.isArray(response && response.groups) ? response.groups : [],
+        });
+      } else {
+        response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_search_models', {
+          q: query,
+          page: 1,
+          per_page: 8,
+        });
+        this._updateGroupDestinationState(groupIndex, {
+          lookup_loading: false,
+          lookup_error: '',
+          lookup_results: Array.isArray(response && response.results) ? response.results : [],
+        });
+      }
+    } catch (error) {
+      this._updateGroupDestinationState(groupIndex, {
+        lookup_loading: false,
+        lookup_error: error && error.message ? String(error.message) : 'Could not search existing destinations.',
+        lookup_results: [],
+      });
+    }
+    this._render();
+  };
+
+  proto._selectGroupDestinationResult = function (groupIndex, resultIndex) {
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (groupIndex < 0 || groupIndex >= plans.length) {
+      return;
+    }
+    var plan = plans[groupIndex] || {};
+    var results = Array.isArray(plan.lookup_results) ? plan.lookup_results : [];
+    if (resultIndex < 0 || resultIndex >= results.length) {
+      return;
+    }
+    var result = results[resultIndex];
+    if (String(plan.destination || 'curated') === 'working') {
+      var workingMeta = this._workingLookupResultMeta(result);
+      this._updateGroupDestinationState(groupIndex, {
+        working_group_id: Number(workingMeta.id || 0),
+        model_ref: '',
+        selected_summary: workingMeta,
+      });
+    } else {
+      var curatedMeta = this._curatedLookupResultMeta(result);
+      this._updateGroupDestinationState(groupIndex, {
+        model_ref: curatedMeta.id,
+        working_group_id: null,
+        selected_summary: curatedMeta,
+      });
+    }
+    this._render();
+  };
+
+  proto._renderDestinationAssignments = function () {
+    var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
+      ? this._previewData.planned_models
+      : [];
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (!plannedModels.length) {
+      return '<div class="state-row">No planned groups available yet. Return to Organize to resolve the model plan first.</div>';
+    }
+    return '<div class="entries">' + plannedModels.map(function (model, index) {
+      var plan = plans[index] || {};
+      var destination = String(plan.destination || 'curated');
+      var matchMode = String(plan.match_mode || 'new');
+      var isWorking = destination === 'working';
+      var resultRows = '';
+      if (matchMode === 'existing') {
+        if (plan.lookup_loading) {
+          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Curated Catalog models') + '...</div>';
+        } else if (plan.lookup_error) {
+          resultRows = '<div class="muted">' + escapeHtml(plan.lookup_error) + '</div>';
+        } else if (Array.isArray(plan.lookup_results) && plan.lookup_results.length) {
+          resultRows = '<div class="entries">' + plan.lookup_results.map(function (result, resultIndex) {
+            var meta = isWorking ? this._workingLookupResultMeta(result) : this._curatedLookupResultMeta(result);
+            var isSelected = isWorking
+              ? Number(plan.working_group_id || 0) === Number(meta.id || 0)
+              : String(plan.model_ref || '') === String(meta.id || '');
+            return ''
+              + '<article class="entry-row">'
+              + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(meta.primary) + '</div><div class="entry-path">' + escapeHtml(meta.secondary || '') + '</div></div><div class="button-row"><button class="button' + (isSelected ? ' primary' : '') + '" data-action="select-destination-result" data-group-index="' + String(index) + '" data-result-index="' + String(resultIndex) + '">' + (isSelected ? 'Selected' : 'Use This') + '</button></div></div>'
+              + '</article>';
+          }, this).join('') + '</div>';
+        } else if (String(plan.lookup_query || '').trim()) {
+          resultRows = '<div class="muted">No matches found yet for this search.</div>';
+        }
+      }
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
+        + '  <div class="item-grid">'
+        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
+        + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
+        + '    <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div>'
+        + '  </div>'
+        + (matchMode === 'existing'
+          ? '  <div class="item-grid">'
+            + '    <div class="field"><label>' + escapeHtml(isWorking ? 'Find Working Group' : 'Find Catalog Model') + '</label><input class="input" type="text" value="' + escapeHtml(plan.lookup_query || '') + '" data-action="group-lookup-query" data-group-index="' + String(index) + '" placeholder="Search by name or id"></div>'
+            + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-destination-search" data-group-index="' + String(index) + '"' + (plan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
+            + '  </div>'
+            + resultRows
+          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Curated Catalog model.') + '</div>')
+        + '</article>';
+    }, this).join('') + '</div>';
+  };
+
+  proto._renderDestinationSummary = function () {
+    var plannedModels = this._previewData && Array.isArray(this._previewData.planned_models)
+      ? this._previewData.planned_models
+      : [];
+    var plans = this._syncGroupDestinationsFromPreview();
+    if (!plannedModels.length) {
+      return '<div class="state-row">No destination assignments yet.</div>';
+    }
+    return '<div class="entries">' + plannedModels.map(function (model, index) {
+      var plan = plans[index] || {};
+      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var matchMode = String(plan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(destination) + '</span><span class="chip">' + escapeHtml(matchMode) + '</span></div></div>'
+        + '</article>';
+    }, this).join('') + '</div>';
   };
 
   proto._prepareWizardUpload = async function (forceNewUpload) {
@@ -627,7 +936,9 @@ function renderValidationSummary(card) {
         validation_state: validation.validation_state || 'unknown',
         warnings: (uploadResponse.warnings || []).concat(validation.warnings || []),
       };
-      this._status = 'Validation snapshot prepared. Review the outcome, then move to Commit.';
+      this._status = this._validationData.validation_state === 'ready'
+        ? 'Validation snapshot prepared. Review the destination assignments, then commit.'
+        : 'Validation finished with blockers. Resolve them before commit.';
       return this._validationData;
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not validate the intake batch.';
@@ -639,8 +950,14 @@ function renderValidationSummary(card) {
   };
 
   proto._canAdvanceWizard = function () {
+    if (this._wizardStep === 3) {
+      return this._destinationPlansReady();
+    }
     if (this._wizardStep === 4) {
-      return !!(this._validationData && this._validationData.upload_id);
+      return !!(this._validationData && this._validationData.upload_id && this._validationData.validation_state === 'ready');
+    }
+    if (this._wizardStep === 5) {
+      return this._destinationPlansReady() && !!(this._validationData && this._validationData.upload_id && this._validationData.validation_state === 'ready');
     }
     return this._wizardMode === 'server' ? this._selectedList().length > 0 : this._browserFiles.length > 0;
   };
@@ -649,9 +966,17 @@ function renderValidationSummary(card) {
     var maxStep = this._wizardStepCount();
     var nextStep = Math.max(1, Math.min(maxStep, Number(stepNumber || 1)));
     if (nextStep > this._wizardStep && !this._canAdvanceWizard()) {
-      this._error = this._wizardMode === 'server'
-        ? 'Select at least one server file or folder first.'
-        : 'Choose at least one browser file or folder first.';
+      if (this._wizardStep === 3) {
+        this._error = 'Choose a destination for every planned group. Existing matches require a selected target.';
+      } else if (this._wizardStep === 4) {
+        this._error = this._validationData && this._validationData.upload_id
+          ? 'Validation must be ready before commit.'
+          : 'Run validation before continuing.';
+      } else {
+        this._error = this._wizardMode === 'server'
+          ? 'Select at least one server file or folder first.'
+          : 'Choose at least one browser file or folder first.';
+      }
       this._render();
       return;
     }
@@ -676,6 +1001,7 @@ function renderValidationSummary(card) {
     this._cleanupPolicyValue = null;
     this._commitMode = 'queue';
     this._destinationChoice = 'curated';
+    this._groupDestinations = [];
     this._selected = {};
     this._clearBrowserFiles();
     this._render();
@@ -810,21 +1136,12 @@ function renderValidationSummary(card) {
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Choose Destination</div><div class="subtitle">Pick whether the validated upload stays in Intake Queue or publishes immediately.</div></div></div>'
-        + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue For Review</strong> - stop after validation and leave the batch in Intake Queue.</label></div>'
-        + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - publish immediately when validation is ready.</label></div>'
-        + (this._commitMode === 'execute_now'
-          ? '  <div class="field"><label for="destination-select">Publish Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
-          : '')
-        + '  <div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
-        + (this._wizardMode === 'browser'
-          ? '<div class="muted">Browser uploads automatically use ' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + '.</div>'
-          : '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>')
-        + '  </div>'
+        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Curated Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
+        + this._renderDestinationAssignments()
         + '</div>'
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Destination and cleanup choices do not change the model plan shown here.</div></div></div>'
-        + renderPlanSummary(this)
+        + '  <div class="title-row"><div><div class="title">Assignment Summary</div><div class="subtitle">Each planned group keeps its structure and only changes destination.</div></div></div>'
+        + this._renderDestinationSummary()
         + '</div>';
     }
     if (this._wizardStep === 4) {
@@ -840,8 +1157,14 @@ function renderValidationSummary(card) {
     }
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">Review the prepared upload, destination, and cleanup policy before the final commit.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">Review the prepared upload, cleanup policy, and destination assignments before the final publish.</div></div></div>'
       + renderValidationSummary(this)
+      + '  <div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
+      + (this._wizardMode === 'browser'
+        ? '<div class="muted">Browser uploads automatically use ' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + '.</div>'
+        : '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>')
+      + '  </div>'
+      + this._renderDestinationSummary()
       + '</div>'
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload and resolved plan.</div></div></div>'
@@ -852,9 +1175,7 @@ function renderValidationSummary(card) {
   proto._renderWizardFooter = function () {
     var atFirstStep = this._wizardStep === 1;
     var atLastStep = this._wizardStep === this._wizardStepCount();
-    var commitButtonLabel = this._commitMode === 'execute_now'
-      ? 'Commit To ' + (this._destinationChoice === 'working' ? 'Working Files' : 'Catalog')
-      : 'Commit Intake Batch';
+    var commitButtonLabel = 'Publish Destinations';
     return ''
       + '<div class="wizard-footer">'
       + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button>'
@@ -886,14 +1207,23 @@ function renderValidationSummary(card) {
         this._render();
         return;
       }
+      if (validationData.validation_state !== 'ready') {
+        throw new Error('Validation must be ready before commit.');
+      }
+      if (!this._destinationPlansReady()) {
+        throw new Error('Choose a destination for every planned group before commit.');
+      }
       var uploadId = validationData.upload_id;
-      var publishResponse = null;
-      var publishDestination = null;
-      if (this._commitMode === 'execute_now' && validationData.validation_state === 'ready') {
-        publishDestination = this._destinationChoice || 'curated';
-        publishResponse = await callServiceWithResponse(this._hass, 'rest_command', publishDestination === 'working' ? 'model_catalog_publish_to_working' : 'model_catalog_publish_to_local', {
-          upload_id: uploadId,
-        });
+      var sidecarBaseUrl = this._resolveSidecarUrl();
+      var publishResponse = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/' + encodeURIComponent(String(uploadId || '')) + '/publish-by-destination', {
+        group_destinations: this._buildDestinationPublishPayload(),
+      });
+      var changedCollections = [];
+      if (Array.isArray(publishResponse && publishResponse.curated_model_ids) && publishResponse.curated_model_ids.length) {
+        changedCollections.push('curated');
+      }
+      if (Array.isArray(publishResponse && publishResponse.working_group_ids) && publishResponse.working_group_ids.length) {
+        changedCollections.push('working');
       }
       this._result = {
         upload_id: uploadId,
@@ -904,23 +1234,23 @@ function renderValidationSummary(card) {
         warnings: validationData.warnings || [],
         cleanup_policy: this._wizardMode === 'browser' ? 'delete_on_verified' : this._cleanupPolicy(),
         publish_status: publishResponse && publishResponse.status ? publishResponse.status : null,
-        local_model_id: publishResponse && publishResponse.local_model_id ? publishResponse.local_model_id : null,
-        working_group_id: publishResponse && publishResponse.working_group_id ? publishResponse.working_group_id : null,
+        curated_model_ids: publishResponse && Array.isArray(publishResponse.curated_model_ids) ? publishResponse.curated_model_ids : [],
+        working_group_ids: publishResponse && Array.isArray(publishResponse.working_group_ids) ? publishResponse.working_group_ids : [],
+        group_results: publishResponse && Array.isArray(publishResponse.group_results) ? publishResponse.group_results : [],
       };
-      this._status = this._commitMode === 'execute_now' && publishResponse
-        ? 'Validated upload published successfully.'
-        : 'Validated upload left in Intake Queue for follow-up review.';
-      if (publishResponse) {
-        fireModelCatalogDataChanged([publishDestination === 'working' ? 'working' : 'curated'], {
-          reason: 'execute-now-publish',
+      this._status = 'Validated upload published successfully.';
+      if (publishResponse && changedCollections.length) {
+        fireModelCatalogDataChanged(changedCollections, {
+          reason: 'publish-by-destination',
           uploadId: uploadId,
-          localModelId: publishResponse.local_model_id || null,
-          workingGroupId: publishResponse.working_group_id || null,
+          curatedModelIds: publishResponse.curated_model_ids || [],
+          workingGroupIds: publishResponse.working_group_ids || [],
         });
       }
       this._preparedUploadId = null;
       this._validationData = null;
       this._previewData = null;
+      this._groupDestinations = [];
       this._selected = {};
       this._clearBrowserFiles();
       this._wizardOpen = false;
@@ -946,6 +1276,19 @@ function renderValidationSummary(card) {
       this._runWizardValidation(!!this._validationData);
       return;
     }
+    if (action === 'run-destination-search') {
+      event.preventDefault();
+      this._runGroupDestinationLookup(Number(target.getAttribute('data-group-index') || -1));
+      return;
+    }
+    if (action === 'select-destination-result') {
+      event.preventDefault();
+      this._selectGroupDestinationResult(
+        Number(target.getAttribute('data-group-index') || -1),
+        Number(target.getAttribute('data-result-index') || -1)
+      );
+      return;
+    }
     if (action === 'clear-browser-files') {
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     }
@@ -956,6 +1299,16 @@ function renderValidationSummary(card) {
     var target = event.target instanceof Element ? event.target : null;
     var action = target ? String(target.getAttribute('data-action') || '') : '';
     originalHandleChange.call(this, event);
+    if (action === 'selection-title-source-files') {
+      this._updateSelectedFileBatchMeta({
+        group_title_source: String(target.value || 'first-file').trim(),
+        group_title: '',
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      this._render();
+      return;
+    }
     if (action === 'selection-grouping-files') {
       var groupingValue = String(target.value || 'none').trim().toLowerCase();
       this._updateSelectedFileBatchMeta({
@@ -1010,14 +1363,40 @@ function renderValidationSummary(card) {
       this._refreshWizardPreview();
       return;
     }
+    if (action === 'group-destination') {
+      var destinationIndex = Number(target.getAttribute('data-group-index') || -1);
+      this._updateGroupDestinationState(destinationIndex, {
+        destination: String(target.value || 'curated').trim().toLowerCase(),
+        model_ref: '',
+        working_group_id: null,
+        lookup_query: '',
+        lookup_results: [],
+        lookup_error: '',
+        lookup_loading: false,
+        selected_summary: null,
+      });
+      this._render();
+      return;
+    }
+    if (action === 'group-match-mode') {
+      var matchIndex = Number(target.getAttribute('data-group-index') || -1);
+      this._updateGroupDestinationState(matchIndex, {
+        match_mode: String(target.value || 'new').trim().toLowerCase(),
+        model_ref: '',
+        working_group_id: null,
+        lookup_query: '',
+        lookup_results: [],
+        lookup_error: '',
+        lookup_loading: false,
+        selected_summary: null,
+      });
+      this._render();
+      return;
+    }
     if (/^(browser-|selection-|cleanup-policy$)/.test(action)) {
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
       this._refreshWizardPreview();
       return;
-    }
-    if (action === 'set-commit-mode' || action === 'set-destination') {
-      this._validationData = null;
-      this._render();
     }
   };
 
@@ -1064,6 +1443,12 @@ function renderValidationSummary(card) {
       this._selected = Object.assign({}, this._selected, {
         [selectionPath]: Object.assign({}, this._selected[selectionPath], {
           group_title_source: 'custom',
+    if (action === 'group-lookup-query') {
+      this._updateGroupDestinationState(Number(target.getAttribute('data-group-index') || -1), {
+        lookup_query: String(target.value || ''),
+      });
+      return;
+    }
           group_title: String(target.value || '').trim(),
         }),
       });

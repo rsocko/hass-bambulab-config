@@ -301,7 +301,7 @@ def create_working_group_service(*, settings: Settings, payload: dict[str, Any])
         connection.close()
 
 
-def list_working_groups_service(*, settings: Settings, limit: int | None, offset: int | None, stage: str | None, project_id: int | None) -> dict[str, Any]:
+def list_working_groups_service(*, settings: Settings, limit: int | None, offset: int | None, stage: str | None, project_id: int | None, q: str | None = None) -> dict[str, Any]:
     limit_value = max(1, min(int(limit or 100), 500))
     offset_value = max(0, int(offset or 0))
 
@@ -313,6 +313,11 @@ def list_working_groups_service(*, settings: Settings, limit: int | None, offset
     if project_id is not None:
         where_sql += " AND project_id = ?"
         params.append(int(project_id))
+    query_value = str(q or "").strip()
+    if query_value:
+        like_value = f"%{query_value.lower()}%"
+        where_sql += " AND (LOWER(title) LIKE ? OR LOWER(slug) LIKE ? OR LOWER(COALESCE(folder_hint, '')) LIKE ? OR CAST(id AS TEXT) = ?)"
+        params.extend([like_value, like_value, like_value, query_value])
 
     connection = connect(settings.db_path)
     connection.row_factory = sqlite3.Row

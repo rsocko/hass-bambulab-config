@@ -1,6 +1,9 @@
 model_catalog_list_working_groups:
   url: >-
     {%- set ns = namespace(params=[]) -%}
+    {%- if q is defined and (q | string | trim) != '' -%}
+      {%- set ns.params = ns.params + ['q=' ~ ((q | string) | urlencode)] -%}
+    {%- endif -%}
     {%- if stage is defined and (stage | string | trim) != '' -%}
       {%- set ns.params = ns.params + ['stage=' ~ ((stage | string) | urlencode)] -%}
     {%- endif -%}

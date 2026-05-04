@@ -1207,7 +1207,7 @@ def create_working_group(request: Request, payload: dict[str, Any]) -> Any:
 
 
 @router.get("/api/working-groups")
-def list_working_groups(request: Request, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None) -> Any:
+def list_working_groups(request: Request, limit: int | None = None, offset: int | None = None, stage: str | None = None, project_id: int | None = None, q: str | None = None) -> Any:
     """List working groups with filtering."""
     state: AppState = request.app.state.model_catalog
     return list_working_groups_service(
@@ -1216,6 +1216,7 @@ def list_working_groups(request: Request, limit: int | None = None, offset: int 
         offset=offset,
         stage=stage,
         project_id=project_id,
+        q=q,
     )
 
 

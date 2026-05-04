@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 # Terminal states: once reached, intake workflow is complete
-TERMINAL_STATES = {"grouped_new", "grouped_existing", "published_to_catalog", "rejected"}
+TERMINAL_STATES = {"grouped_new", "grouped_existing", "published_to_catalog", "published_by_destination", "rejected"}
 
 # Active Queue states: operator decisions in progress
 ACTIVE_QUEUE_STATES = {"submitted", "validated_ready", "validated_warning", "deferred"}
@@ -41,6 +41,7 @@ class ActionEligibility:
         "grouped_new": {DELETE, REOPEN},
         "grouped_existing": {DELETE, REOPEN},
         "published_to_catalog": {DELETE, REOPEN},
+        "published_by_destination": {DELETE, REOPEN},
         "rejected": {DELETE, REOPEN},
     }
 
@@ -145,6 +146,7 @@ class ActionEligibility:
             "grouped_new": "Complete (New Group Created)",
             "grouped_existing": "Complete (Attached to Group)",
             "published_to_catalog": "Complete (Published to Catalog)",
+            "published_by_destination": "Complete (Routed By Destination)",
             "rejected": "Complete (Rejected)",
         }
 

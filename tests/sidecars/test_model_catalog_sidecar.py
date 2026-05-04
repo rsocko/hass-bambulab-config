@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key, set_model_field
 from sidecars.model_catalog.app.geometry_3mf import extract_3mf_geometry
+from sidecars.model_catalog.app.local_models import create_local_model
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
@@ -5508,6 +5509,101 @@ def test_browser_upload_accepts_images_and_publishes_to_local_gallery(tmp_path: 
         assert any(file["asset_type"] == "3mf" and file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
         assert any(file["asset_type"] == "image" and file["filename"] == "badge.svg" for file in detail_payload["model"]["files"])
 
+def test_browser_upload_v2_multipart_accepts_images_and_publishes_to_local_gallery(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    manifest = {
+        "browser_files": [
+            {
+                "filename": "browser-model.3mf",
+                "relative_path": "Browser Batch/browser-model.3mf",
+            },
+            {
+                "filename": "preview-image.jpg",
+                "relative_path": "Browser Batch/preview-image.jpg",
+            },
+            {
+                "filename": "badge.svg",
+                "relative_path": "Browser Batch/badge.svg",
+            },
+        ]
+    }
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[
+                ("files[]", ("browser-model.3mf", b"browser model bytes", "application/octet-stream")),
+                ("files[]", ("preview-image.jpg", b"\xff\xd8\xffbrowser preview", "image/jpeg")),
+                ("files[]", ("badge.svg", b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>", "image/svg+xml")),
+            ],
+        )
+        assert post.status_code == 200
+        upload_payload = post.json()
+        assert upload_payload["success"] is True
+        assert upload_payload["contract"] == "intake-upload-v2-multipart"
+        assert upload_payload["source_entry_count"] == 3
+        assert upload_payload["browser_file_count"] == 3
+        assert upload_payload["cleanup_policy"] == "delete_on_verified"
+        assert upload_payload["warnings"] == []
+        upload_id = upload_payload["upload_id"]
+
+        connection = sqlite3.connect(settings.db_path)
+        try:
+            row = connection.execute(
+                "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+                (upload_id,),
+            ).fetchone()
+        finally:
+            connection.close()
+        assert row is not None
+        source_entries = json.loads(str(row[0] or "[]"))
+        assert source_entries
+        stage_upload_id = str(source_entries[0]["upload_id"])
+        stage_dir = (settings.db_path.parent / "intake_browser_uploads" / stage_upload_id).resolve()
+        assert stage_dir.exists() is True
+
+        validate = test_client.post(f"/api/intake/items/{upload_id}/validate")
+        assert validate.status_code == 200
+        validate_payload = validate.json()
+        assert validate_payload["validation"]["validation_state"] == "ready"
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-to-local",
+            json={"model_name": "Browser Upload Gallery Model V2"},
+        )
+        assert publish.status_code == 200
+        publish_payload = publish.json()
+        assert publish_payload["success"] is True
+        assert publish_payload["imported_asset_count"] == 3
+        assert publish_payload["cleanup"]["status"] == "cleanup_done"
+        assert publish_payload["cleanup"]["processed_count"] == 3
+        assert stage_dir.exists() is False
+
+        detail = test_client.get(f"/api/models/{publish_payload['local_model_id']}/detail")
+        assert detail.status_code == 200
+        detail_payload = detail.json()
+        assert detail_payload["authority"] == "local"
+        assert detail_payload["model"]["name"] == "Browser Upload Gallery Model V2"
+        assert len(detail_payload["model"]["files"]) == 3
+
+        preview_file_id = detail_payload["model"]["preview_file_id"]
+        assert preview_file_id is not None
+        preview_asset = next(file for file in detail_payload["model"]["files"] if file["id"] == preview_file_id)
+        assert preview_asset["asset_type"] == "image"
+        assert preview_asset["asset_role"] == "preview"
+        assert any(file["asset_type"] == "3mf" and file["asset_role"] == "primary" for file in detail_payload["model"]["files"])
+        assert any(file["asset_type"] == "image" and file["filename"] == "badge.svg" for file in detail_payload["model"]["files"])
+
 
 def test_browser_upload_sanitizes_invalid_relative_path_segments(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
@@ -5619,6 +5715,71 @@ def test_browser_folder_grouping_and_preserve_structure_publish_to_local(tmp_pat
     assert any("TopA/variants/tall.3mf" in path for path in storage_paths)
     assert any("TopB/bench.3mf" in path for path in storage_paths)
 
+def test_browser_upload_v2_multipart_preserves_grouping_and_structure_publish_to_local(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    manifest = {
+        "grouping_strategy": "by-folder",
+        "preserve_folder_structure": True,
+        "browser_files": [
+            {
+                "filename": "base.3mf",
+                "relative_path": "TopA/base.3mf",
+            },
+            {
+                "filename": "tall.3mf",
+                "relative_path": "TopA/variants/tall.3mf",
+            },
+            {
+                "filename": "bench.3mf",
+                "relative_path": "TopB/bench.3mf",
+            },
+        ],
+    }
+
+    with TestClient(app) as test_client:
+        post = test_client.post(
+            "/api/intake/uploads/v2/browser-multipart",
+            data={"manifest": json.dumps(manifest)},
+            files=[
+                ("files[]", ("base.3mf", b"base", "application/octet-stream")),
+                ("files[]", ("tall.3mf", b"tall", "application/octet-stream")),
+                ("files[]", ("bench.3mf", b"bench", "application/octet-stream")),
+            ],
+        )
+        assert post.status_code == 200
+        upload_id = post.json()["upload_id"]
+
+        publish = test_client.post(f"/api/intake/uploads/{upload_id}/publish-to-local")
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload.get("grouping_strategy") == "by-folder"
+        assert payload.get("preserve_folder_structure") is True
+        assert payload.get("created_model_count") == 3
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        asset_rows = connection.execute(
+            "SELECT storage_path FROM model_catalog_assets ORDER BY storage_path"
+        ).fetchall()
+        storage_paths = [str(row["storage_path"]) for row in asset_rows]
+    finally:
+        connection.close()
+
+    assert any("TopA/base.3mf" in path for path in storage_paths)
+    assert any("TopA/variants/tall.3mf" in path for path in storage_paths)
+    assert any("TopB/bench.3mf" in path for path in storage_paths)
+
 
 def test_queue_publish_to_working_honors_grouping_and_preserve_structure(tmp_path: Path) -> None:
     source_root = tmp_path / "allowed"
@@ -5677,6 +5838,155 @@ def test_queue_publish_to_working_honors_grouping_and_preserve_structure(tmp_pat
     assert any(path.endswith("/TopA/base.3mf") for path in moved_paths)
     assert any(path.endswith("/TopA/variants/tall.3mf") for path in moved_paths)
     assert any(path.endswith("/TopB/bench.3mf") for path in moved_paths)
+
+
+def test_working_groups_list_supports_query_filter(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        alpha_response = test_client.post("/api/working-groups", json={"title": "Alpha Bracket", "stage": "draft"})
+        beta_response = test_client.post("/api/working-groups", json={"title": "Beta Jig", "stage": "draft"})
+        assert alpha_response.status_code == 200
+        assert beta_response.status_code == 200
+
+        filtered = test_client.get("/api/working-groups", params={"q": "alpha"})
+        assert filtered.status_code == 200
+        payload = filtered.json()
+        assert payload["success"] is True
+        assert payload["pagination"]["total"] == 1
+        assert payload["groups"][0]["title"] == "Alpha Bracket"
+
+
+def test_publish_by_destination_routes_each_planned_group(tmp_path: Path) -> None:
+    source_root = tmp_path / "allowed"
+    source_root.mkdir()
+    case_root = source_root / "mixed-destinations"
+    (case_root / "TopA").mkdir(parents=True)
+    (case_root / "TopB").mkdir(parents=True)
+    (case_root / "TopC").mkdir(parents=True)
+    (case_root / "TopD").mkdir(parents=True)
+    (case_root / "TopA" / "alpha.3mf").write_bytes(b"alpha")
+    (case_root / "TopB" / "beta.3mf").write_bytes(b"beta")
+    (case_root / "TopC" / "gamma.3mf").write_bytes(b"gamma")
+    (case_root / "TopD" / "delta.3mf").write_bytes(b"delta")
+
+    settings = replace(
+        _build_settings(tmp_path),
+        intake_source_roots=(source_root.resolve(),),
+        working_files_root=(tmp_path / "working-files").resolve(),
+        model_catalog_assets_root=(tmp_path / "assets" / "Model Catalog").resolve(),
+    )
+    bootstrap_database(settings.db_path)
+    create_local_model(
+        db_path=settings.db_path,
+        local_model_id="existing-curated-model",
+        model_name="Existing Curated Model",
+        model_description=None,
+        creator_name=None,
+        created_by="test",
+        collection_names=None,
+        tags=None,
+        keyword_names=None,
+        source_origin="test",
+        source_origin_url=None,
+    )
+    app = create_app(settings=settings)
+
+    with TestClient(app) as test_client:
+        existing_group_response = test_client.post("/api/working-groups", json={"title": "Existing Working Group", "stage": "draft"})
+        assert existing_group_response.status_code == 200
+        existing_group_id = existing_group_response.json()["group"]["id"]
+
+        queued = test_client.post(
+            "/api/intake/uploads",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(case_root),
+                        "recurse": True,
+                        "grouping_strategy": "by-folder",
+                        "preserve_folder_structure": True,
+                    }
+                ]
+            },
+        )
+        assert queued.status_code == 200
+        upload_id = queued.json()["upload_id"]
+
+        publish = test_client.post(
+            f"/api/intake/uploads/{upload_id}/publish-by-destination",
+            json={
+                "group_destinations": [
+                    {"destination": "curated", "match_mode": "existing", "model_ref": "existing-curated-model"},
+                    {"destination": "curated", "match_mode": "new"},
+                    {"destination": "working", "match_mode": "existing", "working_group_id": existing_group_id},
+                    {"destination": "working", "match_mode": "new"},
+                ]
+            },
+        )
+        assert publish.status_code == 200
+        payload = publish.json()
+        assert payload["success"] is True
+        assert payload["state"] == "published_by_destination"
+        assert len(payload["group_results"]) == 4
+
+        curated_existing = next(result for result in payload["group_results"] if result["group_index"] == 0)
+        curated_new = next(result for result in payload["group_results"] if result["group_index"] == 1)
+        working_existing = next(result for result in payload["group_results"] if result["group_index"] == 2)
+        working_new = next(result for result in payload["group_results"] if result["group_index"] == 3)
+
+        assert curated_existing["destination"] == "curated"
+        assert curated_existing["match_mode"] == "existing"
+        assert curated_existing["local_model_id"] == "existing-curated-model"
+        assert curated_existing["imported_asset_count"] == 1
+
+        assert curated_new["destination"] == "curated"
+        assert curated_new["match_mode"] == "new"
+        assert curated_new["local_model_id"] != "existing-curated-model"
+        assert curated_new["imported_asset_count"] == 1
+
+        assert working_existing["destination"] == "working"
+        assert working_existing["match_mode"] == "existing"
+        assert working_existing["working_group_id"] == existing_group_id
+        assert working_existing["added_items"] == 1
+
+        assert working_new["destination"] == "working"
+        assert working_new["match_mode"] == "new"
+        assert working_new["working_group_id"] != existing_group_id
+        assert working_new["added_items"] == 1
+
+    connection = sqlite3.connect(settings.db_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        upload_row = connection.execute(
+            "SELECT inbox_state, terminal_action FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        asset_rows = connection.execute(
+            "SELECT e.local_model_id, a.storage_path FROM model_catalog_assets a JOIN model_catalog_entries e ON a.model_catalog_entry_id = e.id ORDER BY e.local_model_id, a.storage_path"
+        ).fetchall()
+        working_item_rows = connection.execute(
+            "SELECT working_group_id, file_path FROM working_items ORDER BY working_group_id, file_path"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert upload_row is not None
+    assert str(upload_row["inbox_state"]) == "published_by_destination"
+    assert str(upload_row["terminal_action"]) == "published_by_destination"
+    assert any(str(row["local_model_id"]) == "existing-curated-model" and str(row["storage_path"]).replace("\\", "/").endswith("/alpha.3mf") for row in asset_rows)
+    assert any(str(row["local_model_id"]) != "existing-curated-model" and str(row["storage_path"]).replace("\\", "/").endswith("/beta.3mf") for row in asset_rows)
+    assert any(int(row["working_group_id"]) == existing_group_id and str(row["file_path"]).replace("\\", "/").endswith("/gamma.3mf") for row in working_item_rows)
+    assert any(int(row["working_group_id"]) != existing_group_id and str(row["file_path"]).replace("\\", "/").endswith("/delta.3mf") for row in working_item_rows)
 
 
 @pytest.mark.parametrize(
