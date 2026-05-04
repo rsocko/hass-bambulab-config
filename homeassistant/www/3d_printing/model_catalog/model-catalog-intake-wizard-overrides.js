@@ -28,13 +28,13 @@ function fileKind(pathValue) {
   }
   if (/\.(png|jpg|jpeg|webp|gif|bmp|svg|avif)$/i.test(normalized)) {
     return 'media';
+  }
+  return 'supporting';
+}
 
 function browserRootKey(relativePath) {
   var parts = normalizePath(relativePath).split('/').filter(Boolean);
   return parts.length > 1 ? parts[0] : '';
-}
-  }
-  return 'supporting';
 }
 
 function titleForStrategy(card, strategy, key) {
@@ -60,7 +60,7 @@ function summarizeGroups(groups, strategy) {
       } else if (kind === 'media') {
         mediaCount += 1;
       } else {
-        groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
+        supportingCount += 1;
       }
       return {
         relative_path: relativePath,
@@ -371,6 +371,64 @@ function renderValidationSummary(card) {
     }, updates);
   };
 
+  proto._fileBatchGroupingStrategy = function () {
+    var fileEntries = this._fileSelectionEntries ? this._fileSelectionEntries() : [];
+    if (!fileEntries.length) {
+      return 'none';
+    }
+    var normalized = String(fileEntries[0].grouping_strategy || 'none').trim().toLowerCase();
+    return normalized === 'flat' ? 'flat' : 'none';
+  };
+
+  proto._renderSharedPerFileNameRows = function (entries, options) {
+    var settings = options || {};
+    var inputAction = String(settings.inputAction || '');
+    var pathAttribute = String(settings.pathAttribute || 'data-path');
+    return '<div class="entries">' + (entries || []).filter(function (entry) {
+      return fileKind(entry.relative_path || entry.name || entry.path || '') === 'model';
+    }).map(function (entry) {
+      var entryPath = String(entry.relative_path || entry.name || entry.path || '');
+      var defaultTitle = basename(entryPath).replace(/\.[^.]+$/, '') || 'Model';
+      var currentTitle = String(entry.group_title || '').trim() || defaultTitle;
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(defaultTitle) + '</div><div class="entry-path">' + escapeHtml(entryPath) + '</div></div><span class="chip">model</span></div>'
+        + '  <div class="field"><label>Model Name</label><input class="input" type="text" value="' + escapeHtml(currentTitle) + '" data-action="' + escapeHtml(inputAction) + '" ' + pathAttribute + '="' + escapeHtml(entryPath) + '" placeholder="Model"></div>'
+        + '</article>';
+    }).join('') + '</div>';
+  };
+
+  proto._renderSharedFileBatchCard = function (options) {
+    var settings = options || {};
+    var entries = settings.entries || [];
+    var groupingValue = String(settings.groupingValue || 'none').trim().toLowerCase();
+    var titleSource = String(settings.titleSource || 'first-file').trim().toLowerCase();
+    var resolvedTitle = String(settings.resolvedTitle || 'Working Group');
+    var groupingAction = String(settings.groupingAction || '');
+    var titleSourceAction = String(settings.titleSourceAction || '');
+    var groupTitleAction = String(settings.groupTitleAction || '');
+    var perFileTitleAction = String(settings.perFileTitleAction || '');
+    var description = String(settings.description || 'Applies to selected files in this intake batch.');
+    return ''
+      + '<article class="entry-row">'
+      + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
+      + '<div class="item-grid">'
+      + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '"><option value="none"' + (groupingValue === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="flat"' + (groupingValue === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+      + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+      + (groupingValue === 'flat' && titleSource === 'custom'
+        ? ''
+        : '<div class="field"><label>' + escapeHtml(groupingValue === 'flat' ? 'Default Model Name' : 'Working Group Title') + '</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>')
+      + '</div>'
+      + (groupingValue === 'flat' && titleSource === 'custom'
+        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>'
+            + this._renderSharedPerFileNameRows(entries, {
+              inputAction: perFileTitleAction,
+              pathAttribute: settings.perFilePathAttribute || 'data-path',
+            })
+        : '')
+      + '</article>';
+  };
+
   proto._browserFlatCustomTitleRows = function (files) {
     var modelFiles = (files || this._filterBrowserFilesForSubmit(this._browserFiles || [])).filter(function (entry) {
       return fileKind(entry.relative_path || entry.name || '') === 'model';
@@ -396,23 +454,18 @@ function renderValidationSummary(card) {
     var looseFiles = this._browserLooseFiles();
     var sections = [];
     if (looseFiles.length) {
-      var looseGrouping = String(looseFiles[0].grouping_strategy || 'none').trim().toLowerCase();
-      var looseTitleSource = this._browserLooseTitleSource();
-      var looseResolvedTitle = this._browserLooseResolvedTitle();
-      sections.push(''
-        + '<article class="entry-row">'
-        + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">Applies to individually selected browser files in this intake batch.</div></div><div class="button-row"><span class="chip">' + String(looseFiles.length) + ' files</span></div></div>'
-        + '<div class="item-grid">'
-        + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-loose-grouping"><option value="none"' + (looseGrouping === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="flat"' + (looseGrouping === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
-        + '<div class="field"><label>Title Basis</label><select class="select" data-action="browser-loose-title-source"><option value="first-file"' + (looseTitleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (looseTitleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-        + (looseGrouping === 'flat' && looseTitleSource === 'custom'
-          ? ''
-          : '<div class="field"><label>' + escapeHtml(looseGrouping === 'flat' ? 'Default Model Name' : 'Working Group Title') + '</label><input class="input" type="text" value="' + escapeHtml(looseResolvedTitle) + '" data-action="browser-loose-group-title" placeholder="Working Group"></div>')
-        + '</div>'
-        + (looseGrouping === 'flat' && looseTitleSource === 'custom'
-          ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>' + this._browserFlatCustomTitleRows(looseFiles)
-          : '')
-        + '</article>');
+      sections.push(this._renderSharedFileBatchCard({
+        entries: looseFiles,
+        groupingValue: String(looseFiles[0].grouping_strategy || 'none').trim().toLowerCase(),
+        titleSource: this._browserLooseTitleSource(),
+        resolvedTitle: this._browserLooseResolvedTitle(),
+        groupingAction: 'browser-loose-grouping',
+        titleSourceAction: 'browser-loose-title-source',
+        groupTitleAction: 'browser-loose-group-title',
+        perFileTitleAction: 'browser-flat-model-title',
+        perFilePathAttribute: 'data-relative-path',
+        description: 'Applies to individually selected browser files in this intake batch.',
+      }));
     }
     rootKeys.forEach(function (rootKey) {
       var files = rootBuckets[rootKey];
@@ -657,15 +710,64 @@ function renderValidationSummary(card) {
   };
 
   proto._renderServerSelectionRows = function (showSettings) {
-    var html = originalRenderServerSelectionRows.call(this, showSettings);
-    return html
-      .replace(/<label>Grouping<\/label>/g, '<label>Group / Split</label>')
-      .replace(/>None<\/option>/g, '>Keep Together In Same Model</option>')
-      .replace(/>by-folder<\/option>/g, '>Separate Models By Folder</option>')
-      .replace(/>by-root<\/option>/g, '>Each Root Folder Becomes A Model</option>')
-      .replace(/>flat<\/option>/g, '>Separate Models By File</option>')
-      .replace(/Folder structure is preserved in Curated catalog\./g, 'Folder structure is preserved in Curated Catalog.')
+    if (!showSettings) {
+      var html = originalRenderServerSelectionRows.call(this, showSettings);
+      return html
+        .replace(/<label>Grouping<\/label>/g, '<label>Group \/ Split<\/label>')
+        .replace(/>None<\/option>/g, '>Keep Together In Same Model</option>')
+        .replace(/>by-folder<\/option>/g, '>Separate Models By Folder</option>')
+        .replace(/>by-root<\/option>/g, '>Each Root Folder Becomes A Model</option>')
+        .replace(/>flat<\/option>/g, '>Separate Models By File</option>')
+        .replace(/Folder structure is preserved in Curated catalog\./g, 'Folder structure is preserved in Curated Catalog.')
         .replace(/This title is copied to the queued file entries and becomes the default group title for follow-up working actions\./g, 'This title is copied to the queued file entries and becomes the default title if the batch later lands in Working Files.');
+    }
+    var selections = this._selectedList();
+    var fileEntries = this._fileSelectionEntries();
+    var fileBatchTitleSource = this._fileBatchTitleSource();
+    var fileBatchResolvedTitle = this._fileBatchResolvedTitle();
+    var fileBatchGrouping = this._fileBatchGroupingStrategy();
+    if (!selections.length) {
+      return '<div class="state-row">No server files or folders selected yet.</div>';
+    }
+    return '<div class="entries">'
+      + (fileEntries.length
+        ? this._renderSharedFileBatchCard({
+            entries: fileEntries,
+            groupingValue: fileBatchGrouping,
+            titleSource: fileBatchTitleSource,
+            resolvedTitle: fileBatchResolvedTitle,
+            groupingAction: 'selection-grouping-files',
+            titleSourceAction: 'selection-title-source-files',
+            groupTitleAction: 'selection-group-title-files',
+            perFileTitleAction: 'selection-file-model-title',
+            perFilePathAttribute: 'data-path',
+            description: 'Applies to all individually selected server files in this intake batch.',
+          })
+        : '')
+      + selections.map(function (entry) {
+        var titleSource = this._selectionTitleSource(entry);
+        var resolvedTitle = this._resolvedGroupTitle(entry);
+        var entryName = String(basename(entry.path) || entry.path);
+        var previewMarkup = entry.type === 'file'
+          ? this._serverPreviewMarkup(entry.path, entryName)
+          : '<div class="entry-thumb placeholder">Folder</div>';
+        return ''
+          + '<article class="entry-row">'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
+          + (entry.type === 'folder'
+            ? '<div class="item-grid">'
+              + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
+              + '<div class="field"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+              + (entry.recurse
+                ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+                : '')
+              + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+              + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+              + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated Catalog.' : '') + '</div>'
+              + '</div>'
+            : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
+          + '</article>';
+      }, this).join('') + '</div>';
   };
 
   proto._renderWizardBody = function () {
@@ -854,6 +956,17 @@ function renderValidationSummary(card) {
     var target = event.target instanceof Element ? event.target : null;
     var action = target ? String(target.getAttribute('data-action') || '') : '';
     originalHandleChange.call(this, event);
+    if (action === 'selection-grouping-files') {
+      var groupingValue = String(target.value || 'none').trim().toLowerCase();
+      this._updateSelectedFileBatchMeta({
+        grouping_strategy: groupingValue,
+        group_title_source: groupingValue === 'flat' ? 'first-file' : this._fileBatchTitleSource(),
+        group_title: '',
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      return;
+    }
     if (action === 'browser-loose-grouping') {
       var looseGrouping = String(target.value || 'none').trim();
       this._updateBrowserLooseMeta({
@@ -940,6 +1053,19 @@ function renderValidationSummary(card) {
       }, {
         group_title_source: 'custom',
         group_title: String(target.value || '').trim(),
+      });
+      return;
+    }
+    if (action === 'selection-file-model-title') {
+      var selectionPath = String(target.getAttribute('data-path') || '');
+      if (!selectionPath || !this._selected[selectionPath]) {
+        return;
+      }
+      this._selected = Object.assign({}, this._selected, {
+        [selectionPath]: Object.assign({}, this._selected[selectionPath], {
+          group_title_source: 'custom',
+          group_title: String(target.value || '').trim(),
+        }),
       });
       return;
     }

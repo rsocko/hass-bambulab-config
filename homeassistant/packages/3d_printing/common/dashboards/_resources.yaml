@@ -1,6 +1,6 @@
 - url: /local/3d_printing/printer_controls/skip-objects-card.js
   type: module
-- url: /local/3d_printing/printer_controls/bambu-move-axis-card.js
+- url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=57
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=56
   type: module
