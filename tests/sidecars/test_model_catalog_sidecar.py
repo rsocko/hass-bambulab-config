@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from sidecars.model_catalog.app.db import bootstrap_database, derive_manyfold_model_key, set_model_field
 from sidecars.model_catalog.app.geometry_3mf import extract_3mf_geometry
-from sidecars.model_catalog.app.local_models import create_local_model
+from sidecars.model_catalog.app.local_models import create_local_model, read_local_model
 from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
@@ -6090,6 +6090,9 @@ def test_publish_by_destination_routes_each_planned_group(tmp_path: Path) -> Non
         assert curated_existing["match_mode"] == "existing"
         assert curated_existing["local_model_id"] == "existing-curated-model"
         assert curated_existing["imported_asset_count"] == 1
+        existing_model = read_local_model(db_path=settings.db_path, local_model_id="existing-curated-model")
+        assert existing_model is not None
+        assert existing_model.model_name == "Existing Curated Model"
 
         assert curated_new["destination"] == "curated"
         assert curated_new["match_mode"] == "new"

@@ -149,28 +149,42 @@ function buildBrowserPlanPreview(card) {
   return preview;
 }
 
-function renderPlanSummary(card) {
+function renderPlanSummary(card, options) {
+  var settings = options || {};
   var preview = card._previewData;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
     return '<div class="state-row">No planned output yet. Advance to Organize after selecting sources to resolve the model plan.</div>';
   }
+  var destinationPlans = settings.includeDestinations && typeof card._syncGroupDestinationsFromPreview === 'function'
+    ? card._syncGroupDestinationsFromPreview()
+    : [];
   return ''
     + '<div class="result-summary">'
     + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>'
     + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
     + '</div>'
-    + '<div class="entries">' + preview.planned_models.map(function (model) {
+    + '<div class="entries">' + preview.planned_models.map(function (model, index) {
+      var destinationPlan = destinationPlans[index] || null;
       var totalFiles = (model.files || []).length;
       var visibleFiles = (model.files || []).slice(0, 4);
+      var destinationMarkup = '';
       var files = visibleFiles.map(function (entry) {
         return '<div class="entry-path">' + escapeHtml(entry.relative_path || entry.filename || '') + '</div>';
       }).join('');
       if (totalFiles > visibleFiles.length) {
         files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
       }
+      if (destinationPlan) {
+        var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+        var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
+        destinationMarkup = ''
+          + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
+          + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
+      }
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
+        + destinationMarkup
         + files
         + '</article>';
     }).join('') + '</div>';
@@ -223,6 +237,7 @@ function renderValidationSummary(card) {
         + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + (passed ? 'pass' : 'fail') + '"><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip ' + (passed ? 'ok' : 'warn') + '">' + escapeHtml(passed ? 'pass' : 'attention') + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
+    + (typeof card._renderDestinationSummary === 'function' ? '<div class="title-row"><div><div class="title">Destination Plan</div><div class="subtitle">Existing targets keep their current model or group name.</div></div></div>' + card._renderDestinationSummary() : '')
     + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '<div class="muted">This prepared upload is reused during Commit so the wizard does not create a duplicate queue item.</div>');
 }
 
@@ -726,11 +741,13 @@ function destinationGroupKey(model, index) {
         : 'Create a new Curated Catalog model.';
     }
     if (selected) {
-      return String(selected.primary || '') + (selected.secondary ? ' - ' + String(selected.secondary) : '');
+      return String(selected.primary || '')
+        + (selected.secondary ? ' - ' + String(selected.secondary) : '')
+        + (destination === 'working' ? ' - existing group title preserved' : ' - existing model name preserved');
     }
     return destination === 'working'
-      ? 'Select an existing Working Files group.'
-      : 'Select an existing Curated Catalog model.';
+      ? 'Select an existing Working Files group. Existing group title is preserved.'
+      : 'Select an existing Curated Catalog model. Existing model name is preserved.';
   };
 
   proto._curatedLookupResultMeta = function (result) {
@@ -1159,8 +1176,8 @@ function destinationGroupKey(model, index) {
         + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">This is the planned model set that later steps will validate and commit.</div></div></div>'
-        + renderPlanSummary(this)
+        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output and destination mapping shown here.</div></div></div>'
+        + renderPlanSummary(this, { includeDestinations: true })
         + '</div>';
     }
     if (this._wizardStep === 3) {
@@ -1197,8 +1214,8 @@ function destinationGroupKey(model, index) {
       + this._renderDestinationSummary()
       + '</div>'
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload and resolved plan.</div></div></div>'
-      + renderPlanSummary(this)
+        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload, resolved plan, and destination mapping.</div></div></div>'
+        + renderPlanSummary(this, { includeDestinations: true })
       + '</div>';
   };
 

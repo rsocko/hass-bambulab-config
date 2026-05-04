@@ -479,7 +479,7 @@ def _publish_group_to_local_destination(
         update_local_model(
             db_path=state.settings.db_path,
             local_model_id=local_model_id,
-            model_name=requested_model_name if requested_model_name else None,
+            model_name=None,
             model_description=requested_description or None,
             creator_name=requested_creator_name,
             created_by=requested_created_by,
