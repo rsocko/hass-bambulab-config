@@ -1692,6 +1692,30 @@ The shipped activity heatmap uses these metric definitions:
 
 This keeps the browser and heatmap aligned on the same projected Layer 1 data contract and avoids deriving object totals from fallback printable-object blobs.
 
+### Total Time Printing Normalization
+
+Issue #1156 raised a correctness problem in the `Total Time Printing` heatmap mode: when the card buckets duration entirely by `started_at` day, a single long print or several same-day starts can push one calendar cell above 24 hours and distort the whole color scale.
+
+The current implementation keeps the existing start-date bucketing but normalizes the visual metric in the card layer:
+
+- The heatmap still aggregates raw archive duration onto the archive start day.
+- The cell intensity value for `Total Time Printing` is capped at 24 hours per day.
+- Tooltips retain the raw started-on-that-day total so the cap is explicit instead of silently hiding duration.
+- This normalization stays in the browser/card aggregation path, not Layer 1 projection, because it is a heatmap-display rule rather than a shared archive-data contract.
+
+This is an intentional approximation, not a true occupancy calculation. A capped 24-hour cell means the started-print total for that date met or exceeded the daily display limit; it does not prove the printer was actually busy for all 24 wall-clock hours of that calendar day.
+
+### Deferred: Cross-Day Duration Allocation
+
+A more accurate model would split each archive's duration across every calendar day it overlaps, using `started_at` plus the best available effective duration to allocate hours per day before rendering the heatmap.
+
+That approach is feasible, but it is deferred for now:
+
+- It adds more per-archive date math to the hottest client-side aggregation path.
+- It needs careful fallback rules for incomplete timestamps and duration fields.
+- The immediate user problem is scale distortion, which the 24-hour cap solves with negligible performance cost.
+- If deeper duration analytics are added to the print statistics surface, that view is a better place to introduce true cross-midnight allocation as a first-class metric instead of quietly changing the browser heatmap semantics.
+
 ### Deferred: Backend-Only Heatmap Filtering / Single Source of Truth
 
 The idea of moving all heatmap filtering out of the browser card and into Layer 2 was analyzed and intentionally deferred.

@@ -275,9 +275,9 @@ From future provenance work that is not shipped yet:
 | Filament type breakdown | 3.4 | Low | Low-Medium — informational |
 | Fleet efficiency & energy dashboard | 3.5 | Low-Medium | Medium-High — operational cost + workload insight |
 | Rolling window exception sensors | 3.6 | Medium | **High** — recent anomaly detection |
+| Cross-day duration allocation analytics | 3.7 | Medium | Medium-High — fixes daily time semantics for analytics |
 
 ---
-
 ## Phase 3.5: Fleet Efficiency & Energy Dashboard
 
 ### API
@@ -358,3 +358,51 @@ From future provenance work that is not shipped yet:
 - **Package**: print_statistics
 - **Effort**: Medium
 - **Value**: High — gives HA a stronger alerting role instead of just a passive stats mirror
+
+---
+
+## Phase 3.7: Cross-Day Duration Allocation Analytics
+
+### Problem Statement
+
+Current duration-oriented views can still inherit start-day semantics, where an archive's entire runtime is attributed to the day the print started. That is acceptable for lightweight browser heatmap activity signaling, but it is not the right semantic model for a statistics surface that is supposed to answer questions like "how many print hours actually landed on Tuesday?" or "which week had the most occupied printer hours?"
+
+### Feature Scope
+
+**True occupied-hours analytics** — allocate each print's duration across every calendar day it overlaps, then aggregate those per-day slices into chart-friendly daily, weekly, and monthly duration metrics.
+
+**Use cases:**
+1. **Daily occupied print hours** — show the actual hours consumed on each calendar day, capped naturally by 24 hours per printer-day rather than by a UI normalization rule.
+2. **Weekly print-time trend** — compare weeks by actual occupied runtime instead of start-date totals.
+3. **Printer occupancy comparison** — identify which printers contribute the most wall-clock runtime over a selected period.
+4. **Heatmap-quality analytics without heatmap compromise** — keep the Print History browser heatmap lightweight while still offering accurate duration semantics in the Statistics view.
+
+### Proposed Semantics
+
+- Start from `started_at` as the anchor timestamp.
+- Use the best available duration in this order: `effective_duration_seconds`, `actual_time_seconds`, then `print_time_seconds`.
+- Derive an end timestamp from `started_at + duration` when an authoritative terminal timestamp is unavailable or unsuitable.
+- Split the runtime into per-day segments at local calendar boundaries.
+- Aggregate the resulting day slices into daily occupied hours, weekly totals, monthly totals, and optional per-printer breakdowns.
+
+### Implementation Direction
+
+This should be implemented as a Statistics-specific analytics path, not as Layer 1 archive projection growth:
+
+- preferred landing zone: Variant 3-friendly analytics tables or integration-side query code that can materialize day-slice summaries
+- acceptable first slice: a dedicated server-side statistics query that computes day slices on demand for a bounded date window
+- avoid: expanding the Print History browser heatmap's client-side path into the canonical duration analytics engine
+
+### Dependencies
+
+- A stable source of archive start timestamps and effective durations
+- Clear rules for incomplete records, missing timestamps, and repaired archives
+- Preferably the Variant 3 metadata/analytics roadmap when this graduates beyond a bounded query
+
+### Phase & Dependencies
+
+- **Phase**: 3.7
+- **Depends on**: print_statistics core, reliable archive duration fields, optional Variant 3 analytics materialization for scale
+- **Package**: print_statistics
+- **Effort**: Medium
+- **Value**: Medium-High — improves trustworthiness of duration analytics without complicating the browser heatmap path

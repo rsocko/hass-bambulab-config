@@ -26,13 +26,12 @@ Intentionally deferred:
 - trustworthy per-print derived cost and energy joins
 - spool-history crossover and empty-filament-risk reporting
 - archive-filter-aware analytics that depend on the Variant 3 metadata roadmap
-
+- true cross-day duration allocation / occupancy-hour analytics
 Those deferred items should build on the Variant 3 metadata work in [../print_history/planning/metadata-implementation-roadmap.md](../print_history/planning/metadata-implementation-roadmap.md), especially `archive_metric_summary` and `archive_spool_snapshots`.
 
-## Package Structure
+For duration specifically, the Statistics view is the intended place for a future metric that allocates each print's runtime across the actual calendar days it overlaps instead of assigning the full runtime to the print start day. That metric is intentionally deferred out of the Print History heatmap so the browser heatmap can stay lightweight while deeper duration analytics land in a more analytics-oriented surface.
 
 ```
-homeassistant/packages/3d_printing/print_statistics/
 ├── print_statistics_loader.yaml
 ├── automations/
 │   └── bambuddy_event_stats_refresh.yaml
@@ -196,7 +195,8 @@ Recommended next phases after the now-shipped first slice:
 2. **Issue-driven chart expansion**: add hours per week and month, color usage, and additional printer or outcome charts without introducing new metadata tables.
 3. **Metadata-blocked analytics**: implement `archive_metric_summary` and `archive_spool_snapshots` before shipping utilization rate, per-print cost truth, energy-use-versus-print-time joins, or spool-history crossover reports.
 4. **Rolling exception sensors**: add 7-day and 30-day sensors for recent anomaly detection once the base operational dashboard is stable.
-5. **Filter-aware analytics**: extend the current URL-aware handoff card into broader scoped charts or controls through integration-side query surfaces rather than Layer 1 expansion.
+5. **Cross-day duration analytics**: add a Statistics-view metric that splits runtime across overlapping calendar days so daily and weekly duration charts reflect actual occupied print hours instead of start-day bucketing.
+6. **Filter-aware analytics**: extend the current URL-aware handoff card into broader scoped charts or controls through integration-side query surfaces rather than Layer 1 expansion.
 
 ## Open Items
 
@@ -205,4 +205,5 @@ Recommended next phases after the now-shipped first slice:
 | 1 | **Trend charts are not shipped yet** — current package has KPI and first-slice comparison charts, but not week-over-week or month-over-month time series. | Next dashboard slice | No |
 | 2 | **Metadata-dependent analytics remain deferred** — utilization, derived per-print cost truth, spool-history crossover, and some energy joins should wait for Variant 3 metadata work. | Phase sequencing | No |
 | 3 | **Archive-filter-aware charts are only partially wired** — the handoff card supports scoped failure analysis, but the rest of the statistics view remains aggregate-focused. | Future integration work | No |
-| 4 | **Experimental visuals remain optional** — treemaps, tag clouds, and iframe/embed workflows should be evaluated after the core stats view is stable. | UI backlog | No |
+| 4 | **Cross-day duration allocation is not implemented** — current duration surfaces still depend on simpler start-day semantics; a true occupied-hours metric is reserved for the Statistics roadmap. | Future analytics work | No |
+| 5 | **Experimental visuals remain optional** — treemaps, tag clouds, and iframe/embed workflows should be evaluated after the core stats view is stable. | UI backlog | No |

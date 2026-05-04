@@ -1,5 +1,6 @@
 var printHistoryActivityReadyPromise = null;
 var printHistoryActivityImportTried = false;
+var PRINT_HISTORY_HEATMAP_DAY_DURATION_CAP_HOURS = 24;
 
 class PrintHistoryActivityHeatmapCard extends HTMLElement {
   constructor() {
@@ -995,6 +996,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
             singleColorCount: 0,
             multiColorCount: 0,
             durationHours: 0,
+            cappedDurationHours: 0,
+            durationCapped: false,
             successCount: 0,
             archivedCount: 0,
             failedCount: 0,
@@ -1091,7 +1094,9 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       maxStorageBytes = Math.max(maxStorageBytes, day.storageBytes || 0);
       maxCost = Math.max(maxCost, day.cost || 0);
       maxFilamentCount = Math.max(maxFilamentCount, day.filamentCount || 0);
-      maxDurationHours = Math.max(maxDurationHours, day.durationHours || 0);
+      day.cappedDurationHours = this._normalizeHeatmapDayDurationHours(day.durationHours || 0);
+      day.durationCapped = Number(day.durationHours || 0) > Number(day.cappedDurationHours || 0);
+      maxDurationHours = Math.max(maxDurationHours, day.cappedDurationHours || 0);
       day.uniqueTagCount = Object.keys(day.uniqueTags || {}).length;
       day.uniqueFilamentCount = Object.keys(day.uniqueFilamentKeys || {}).length;
       maxUniqueTagCount = Math.max(maxUniqueTagCount, day.uniqueTagCount || 0);
@@ -1108,7 +1113,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       day.enrichmentColor = this._buildEnrichmentColor(day);
       day.enrichmentBackground = this._buildEnrichmentBackground(day);
       day.enrichmentLabel = this._buildEnrichmentLabel(day);
-      day.hasFullDayPrinting = Number(day.durationHours || 0) >= 24;
       day.archives.sort(function (left, right) {
         return right.timestamp - left.timestamp;
       });
@@ -1242,7 +1246,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         value = Number(stats.favoriteCount || 0);
         color = this._buildIntensityColor(value, input.maxFavoriteCount || 0, "#6B4F00", "#FACC15");
       } else if (input.mode === "Total Time Printing") {
-        value = Number(stats.durationHours || 0);
+        value = Number(stats.cappedDurationHours || 0);
         color = this._buildIntensityColor(value, input.maxDurationHours || 0, "#EDE9FE", "#6D28D9");
       } else if (input.mode === "Dominant Color") {
         value = Number(stats.count || 0);
@@ -1281,6 +1285,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         singleMultiLabel: stats ? stats.singleMultiLabel || "" : "",
         projectMembershipLabel: stats ? stats.projectMembershipLabel || "" : "",
         durationHours: stats ? stats.durationHours : 0,
+        cappedDurationHours: stats ? stats.cappedDurationHours : 0,
+        durationCapped: stats ? !!stats.durationCapped : false,
         dominantColor: stats ? stats.dominantColor || "" : "",
         outcomeColor: stats ? stats.outcomeColor : "",
         outcomeLabel: stats ? this._buildOutcomeLabel(stats) : "",
@@ -1293,7 +1299,6 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
         enrichmentPartialCount: stats ? (stats.enrichmentCounts["partially complete"] || 0) : 0,
         enrichmentUnavailableCount: stats ? (stats.enrichmentCounts.unavailable || 0) : 0,
         enrichmentNotDefinedCount: stats ? (stats.enrichmentCounts["not defined"] || 0) : 0,
-        hasFullDayPrinting: stats ? !!stats.hasFullDayPrinting : false,
         successCount: stats ? stats.successCount : 0,
         archivedCount: stats ? stats.archivedCount : 0,
         failedCount: stats ? stats.failedCount : 0,
@@ -2037,8 +2042,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       title.push(metric.label + ': ' + metric.value);
     });
 
-    if (mode === 'Total Time Printing' && meta.hasFullDayPrinting) {
-      title.push('Printed all 24 hours');
+    if (mode === 'Total Time Printing' && meta.durationCapped) {
+      title.push('Started-print total exceeded 24h; heatmap cell capped at 24h');
     }
 
     return title.join(' | ');
@@ -2624,8 +2629,8 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       lines.push('</div>');
     }
 
-    if (mode === "Total Time Printing" && meta.hasFullDayPrinting) {
-      lines.push('<div style="margin-top:4px">Printed all 24 hours.</div>');
+    if (mode === "Total Time Printing" && meta.durationCapped) {
+      lines.push('<div style="margin-top:4px">Started-print total exceeded 24h, so the heatmap cell is capped at 24h.</div>');
     }
     lines.push("</div>");
     return lines.join("");
@@ -2650,7 +2655,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _buildTooltipMetrics(meta) {
     var printCountText = 'Prints: ' + this._formatCount(meta.count || 0);
 
-    return [
+    var metrics = [
       { key: 'Print Count', label: 'Prints', value: printCountText.slice(8) },
       { key: 'Number of Printed Objects', label: 'Objects', value: this._formatCount(meta.objectCount || 0) },
       { key: 'Filament Weight', label: 'Weight', value: this._formatWeight(meta.weight || 0) },
@@ -2662,7 +2667,7 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       { key: 'Number of Favorites', label: 'Favorites', value: this._formatCount(meta.favoriteCount || 0) },
       { key: 'In a Project vs Not in a Project', label: 'Project mix', value: meta.projectMembershipLabel || 'No project data' },
       { key: 'Number of Duplicates / Similar', label: 'Duplicate/similar', value: this._formatCount(meta.duplicateSimilarCount || 0) },
-      { key: 'Total Time Printing', label: 'Time', value: this._formatHours(meta.durationHours || 0) },
+      { key: 'Total Time Printing', label: 'Time', value: this._formatHours(meta.cappedDurationHours != null ? meta.cappedDurationHours : (meta.durationHours || 0)) },
       {
         key: 'Status',
         label: 'Status',
@@ -2673,6 +2678,16 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
       { key: 'Outcome', label: 'Outcome band', value: meta.outcomeLabel || 'No outcome data' },
       { key: 'Dominant Color', label: 'Dominant color', value: meta.dominantColor ? meta.dominantColor.toUpperCase() : 'No dominant color', swatch: meta.dominantColor || '' },
     ];
+
+    if (meta.durationCapped) {
+      metrics.splice(12, 0, {
+        key: 'Started Print Time',
+        label: 'Started-print total',
+        value: this._formatHours(meta.durationHours || 0),
+      });
+    }
+
+    return metrics;
   }
 
   _resolvePrimaryTooltipMetric(mode, metrics) {
@@ -3413,6 +3428,11 @@ class PrintHistoryActivityHeatmapCard extends HTMLElement {
   _secondsToHours(value) {
     var seconds = this._toNumber(value);
     return seconds > 0 ? seconds / 3600 : 0;
+  }
+
+  _normalizeHeatmapDayDurationHours(hours) {
+    var value = Math.max(0, this._toNumber(hours));
+    return Math.min(value, PRINT_HISTORY_HEATMAP_DAY_DURATION_CAP_HOURS);
   }
 
   _formatHours(hours) {
