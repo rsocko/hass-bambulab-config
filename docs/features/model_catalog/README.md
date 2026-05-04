@@ -35,11 +35,11 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ## Key Decisions & Facts
 
-- **No GraphQL dependency**: the design assumes Manyfold's documented REST API only
-- **No native promote/demote assumption**: the design does not assume Manyfold can convert a model between external and internal storage modes in place
-- **Working stays outside Manyfold by default**: the Working experience is a sidecar/HA veneer, not a Manyfold-owned tree
-- **Curated catalog goes through Manyfold**: curated models are cataloged in Manyfold, with internal/managed storage preferred when the operator wants Manyfold to own organization
-- **External scanned libraries are folder-oriented**: for Manyfold-managed external storage, a model is fundamentally a folder path plus the files found under it
+- **No GraphQL dependency**: the active Phase 6 design does not depend on GraphQL or Manyfold-native runtime paths
+- **No native promote/demote assumption**: the design keeps explicit publish and relink semantics rather than assuming in-place storage-mode conversion
+- **Working stays sidecar-owned by default**: the Working experience is a sidecar/HA veneer, not an upstream catalog-owned tree
+- **Curated catalog is sidecar-owned**: stable model metadata and asset identity live in the local sidecar authority
+- **Filesystem organization still matters for intake**: folder shape remains useful as intake and provenance context, but it is not the authoritative curated identity
 - **Same-stack sidecar is the preferred integration shape**: deploy the sidecar alongside Manyfold if operationally convenient, but avoid direct Manyfold DB writes as the product contract
 
 ## Documentation Map
@@ -52,7 +52,9 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Phase 1.5 Intake Implementation Breakdown](phase-1.5-intake-implementation-breakdown.md) — Concrete endpoint, HA service, card, and validation slices for the Intake Inbox phase
 - [Intake Wizard and Queue Design](intake-inbox-design.md) — Canonical wizard-first intake design with queue demoted from primary UI and Job History as the visible outcome surface
 - [Intake Wizard UX Mockups](intake-wizard-ux-mockups.md) — Low-fi split-pane wizard wireframes for Browser Upload and Server Inbox, aligned to issues #1282, #1288, and #1292
-- Current implementation status: Phase 2 archive popup linkage is live; heuristic candidate broadening, curated search/picker, and queue/backlog fields remain later-phase work
+- [Phase 6 Search, Ranking, and Discovery Design](phase-6-search-ranking-and-discovery-design.md) — Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces
+- [Phase 6 Bulk Metadata Enrichment Design](phase-6-bulk-metadata-enrichment-design.md) — Authoritative Phase 6 contract for bulk analyze, review-first enrichment, confidence handling, and audited batch apply
+- Current implementation status: Phase 2 archive popup linkage is live; the current Phase 6 source of truth for candidate broadening, curated search/picker, ranking, related items, and bulk enrichment is the two Phase 6 design docs above
 - [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
 - [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
 

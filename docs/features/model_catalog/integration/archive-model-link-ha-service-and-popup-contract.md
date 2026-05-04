@@ -1,10 +1,10 @@
 # Archive Model Link HA Service And Popup Contract
 
-> **Status**: Proposed contract only.
+> **Status**: Proposed contract with Phase 6 search/picker extensions.
 
 ## Purpose
 
-Define the first Home Assistant-facing service contract and archive-popup UX contract for model-library linkage.
+Define the Home Assistant-facing service contract and archive-popup UX contract for archive-to-curated-model linkage.
 
 This document is intentionally narrower than the broader integration strategy.
 
@@ -17,16 +17,17 @@ It answers:
 
 ## Scope
 
-This contract only covers the first archive-centric slice:
+This contract covers the archive-centric linkage surface and its Phase 6 picker/search extensions:
 
 - link a Bambuddy archive to one source-model identity
-- optionally associate that identity with a Manyfold model
+- optionally associate that identity with a sidecar-owned curated model
 - surface link state in the archive popup
 - support manual review and low-risk operator actions from HA
+- support explicit curated search/picker fallback when candidate refresh is insufficient
 
-This contract does not yet cover:
+This contract still does not cover:
 
-- broad Manyfold model search or editing parity
+- broad model-edit parity beyond archive-linked actions
 - full library browsing UI inside HA
 - graph lineage UIs
 - bidirectional metadata sync beyond explicit operator actions
@@ -47,8 +48,8 @@ Recommended initial services:
 
 Recommended later services:
 
-- `bambuddy.search_model_library`
-- `bambuddy.sync_manyfold_model_metadata`
+- `bambuddy.search_curated_models`
+- `bambuddy.open_archive_model_picker`
 
 ## Common Service Conventions
 
@@ -73,7 +74,7 @@ Recommended success envelope:
     "source_sha256": "2a5c...",
     "source_canonical_path": "D:/3D Printing/Library/Gridfinity/box.3mf",
     "source_kind": "source_3mf",
-    "manyfold_model_id": 921,
+    "model_ref": "gridfinity-box",
     "relationship_type": "source_for",
     "match_method": "manual",
     "match_confidence": "high",
@@ -83,7 +84,7 @@ Recommended success envelope:
   },
   "meta": {
     "candidate_count": 0,
-    "manyfold_enabled": true
+    "catalog_authority": "sidecar_local"
   }
 }
 ```
@@ -110,7 +111,7 @@ Recommended initial error codes:
 - `link_not_found`
 - `candidate_not_found`
 - `ambiguous_match`
-- `manyfold_disabled`
+- `catalog_unavailable`
 - `open_target_unavailable`
 - `storage_unavailable`
 
@@ -127,9 +128,7 @@ Inputs:
 - optional `include_candidates` with default `true`
 
 Suggested payload schema:
-
-```yaml
-entry_id: string?
+- optional `model_ref`
 archive_id: int
 include_candidates: bool = true
 ```
@@ -148,8 +147,8 @@ Recommended compact candidate shape:
   "source_sha256": "2a5c...",
   "source_label": "Gridfinity Box",
   "source_canonical_path": "D:/3D Printing/Library/Gridfinity/box.3mf",
-  "manyfold_model_id": 921,
-  "manyfold_model_name": "Gridfinity Box",
+  "model_ref": "gridfinity-box",
+  "model_name": "Gridfinity Box",
   "match_method": "sha256_exact",
   "match_confidence": "high",
   "review_state": "unreviewed"
@@ -218,7 +217,42 @@ Behavior:
 Status note:
 
 - the shipped Phase 2 popup linkage baseline only implements review-first candidate refresh using archive-name overlap plus optional cache refresh
-- heuristic broadening and richer candidate rationale remain planned for a later phase
+- heuristic broadening, richer candidate rationale, and explicit curated picker/search behavior are defined by the current Phase 6 search/discovery design
+
+## 2a. `search_curated_models`
+
+Purpose:
+
+- let the archive popup open an explicit curated-model picker/search flow when candidate refresh is empty, weak, or operator-bypassed
+
+Inputs:
+
+- optional `entry_id`
+- required `archive_id`
+- optional `query`
+- optional `offset`
+- optional `limit`
+- optional `sort`
+- optional `include_facets`
+
+Suggested payload schema:
+
+```yaml
+entry_id: string?
+archive_id: int
+query: string?
+offset: int = 0
+limit: int = 25
+sort: relevance | recent | frequent | common | favorites | queue_priority = relevance
+include_facets: bool = false
+```
+
+Behavior:
+
+- default to curated-model results only
+- use archive context as a ranking boost, not a hidden hard filter
+- keep explicit search results visually distinct from candidate-refresh rows in the popup
+- selecting a result should flow through normal reviewed link creation or acceptance behavior
 
 ## 3. `create_archive_model_link`
 
@@ -233,8 +267,7 @@ Inputs:
 - optional `source_sha256`
 - optional `source_path`
 - required `source_kind`
-- optional `manyfold_model_id`
-- optional `bambuddy_library_file_id`
+- optional `model_ref`
 - optional `relationship_type` default `source_for`
 - optional `match_method` default `manual`
 - optional `review_note`
@@ -248,8 +281,7 @@ archive_id: int
 source_sha256: string?
 source_path: string?
 source_kind: source_3mf | sliced_3mf | gcode_3mf | other_supporting_asset
-manyfold_model_id: int?
-bambuddy_library_file_id: int?
+model_ref: string?
 relationship_type: source_for | derived_from | printed_from | family_anchor = source_for
 match_method: manual | sha256_exact | path_exact | filename_and_time_window = manual
 review_note: string?
@@ -260,7 +292,7 @@ Validation rules:
 
 - reject when both `source_sha256` and `source_path` are absent
 - reject when `relationship_type` is not in the supported set
-- reject when `manyfold_model_id` is provided but Manyfold integration is disabled and no local-only fallback is intended
+- reject when `model_ref` cannot be resolved to a current sidecar-owned curated model
 
 Behavior:
 
@@ -370,7 +402,7 @@ Inputs:
 Supported targets:
 
 - `ha_panel`
-- `manyfold`
+- `catalog_browser`
 - `bambuddy`
 
 Suggested payload schema:
@@ -378,7 +410,7 @@ Suggested payload schema:
 ```yaml
 entry_id: string?
 archive_id: int
-target: ha_panel | manyfold | bambuddy = ha_panel
+target: ha_panel | catalog_browser | bambuddy = ha_panel
 ```
 
 Success response additions:
@@ -389,7 +421,7 @@ Success response additions:
 
 Recommended behavior:
 
-- if `target=manyfold`, require an accepted link with `manyfold_model_id`
+- if `target=catalog_browser`, require an accepted link with `model_ref`
 - if `target=bambuddy`, allow future support for archive-local source file or Bambuddy library file destinations
 - if `target=ha_panel`, open the HA-native panel only when that panel exists
 
@@ -421,8 +453,8 @@ Recommended compact projection:
     "source_label": "Gridfinity Box",
     "source_kind": "source_3mf",
     "source_canonical_path": "D:/3D Printing/Library/Gridfinity/box.3mf",
-    "manyfold_model_id": 921,
-    "manyfold_model_name": "Gridfinity Box",
+    "model_ref": "gridfinity-box",
+    "model_name": "Gridfinity Box",
     "relationship_type": "source_for",
     "match_method": "manual",
     "match_confidence": "high"
@@ -440,7 +472,7 @@ Show:
 
 - linked state badge: `Linked`, `Needs Review`, or `Unlinked`
 - source label
-- Manyfold model name when present
+- curated model name when present
 - match method and confidence
 - compact source path or source hash hint
 
@@ -466,7 +498,7 @@ Action behavior:
 When candidate rows exist, render a compact review list with:
 
 - source label
-- Manyfold label if present
+- curated model label if present
 - match method
 - match confidence
 - primary action button per row

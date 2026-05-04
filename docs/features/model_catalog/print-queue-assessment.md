@@ -45,6 +45,11 @@ Use sidecar custom fields for curated models:
 - `to_print_priority`: numeric rank
 - optional manual `favorite` or `quick_reprint` flag later if archive-derived ranking is not sufficient
 
+Phase 6 note:
+
+- the authoritative facet and sort contract for backlog/search views now lives in [phase-6-search-ranking-and-discovery-design.md](phase-6-search-ranking-and-discovery-design.md)
+- this document remains the queue-state split and operator-surface rationale, not the primary query-model spec
+
 ### Bambuddy Queue
 
 Use Bambuddy's native queue only for printer-ready files and projects.

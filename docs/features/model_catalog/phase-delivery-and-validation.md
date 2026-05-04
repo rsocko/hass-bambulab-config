@@ -311,5 +311,8 @@ Phase 1.5 is complete when all of the following are true:
 - Manual and live validation completed for the popup linkage surface, including candidate acceptance, manual link create, and confirmed-link display with Manyfold model name
 - Open follow-on endpoint in repo: duplicate cleanup for inactive historical link rows (`POST /api/archive-links/{archive_id}/cleanup-duplicates`)
 - Deferred from Phase 2 into later phases: heuristic candidate broadening beyond the current name-overlap baseline, curated catalog picker/search, and queue/backlog field behavior
+- Phase 6 authority docs now published:
+   - `phase-6-search-ranking-and-discovery-design.md`
+   - `phase-6-bulk-metadata-enrichment-design.md`
 - Recommended next implementation target: **Phase 1.25 backup bundle automation and restore drill**
-- After Phase 1.25: **Phase 3 candidate broadening, curated search/picker, ranking, and queue/backlog fields**
+- After the current Phase 5 intake/bulk-unification execution: implement the published **Phase 6 search/discovery** and **Phase 6 bulk enrichment** contracts

@@ -155,6 +155,8 @@ Define the definitive migration plan from Manyfold-backed curated catalog author
 
 - architecture-overview.md
 - phase-delivery-and-validation.md
+- phase-6-search-ranking-and-discovery-design.md
+- phase-6-bulk-metadata-enrichment-design.md
 - implementation-strategy-options.md
 - external-services-design-review-2026-04.md
 - README.md
