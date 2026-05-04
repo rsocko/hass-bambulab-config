@@ -89,30 +89,50 @@ function buildBrowserPlanPreview(card) {
   if (!files.length) {
     return null;
   }
-  var strategy = card._browserHasFolderUpload() ? card._browserGroupingStrategy() : 'none';
+  var strategy = card._browserGroupingStrategy();
   var groups = [];
   if (strategy === 'by-folder') {
+
+  proto._renderBrowserWizardSummary = function (showControls) {
+    var counts = this._browserSelectionCounts();
+    var fileCount = counts.fileCount;
+    var folderCount = counts.folderCount;
+    var groupingStrategy = this._browserGroupingStrategy();
+    var recurse = this._browserRecurse();
+    var titleSource = this._browserBatchTitleSource();
+    var resolvedTitle = this._browserBatchResolvedTitle();
+    var hasFiles = !!this._browserFiles.length;
+    if (!hasFiles) {
+      return '<div class="state-row">No browser files selected yet. Add files or a folder to begin.</div>';
+    }
+    var titleSourceOptions = folderCount
+      ? '<option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>'
+      : '<option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>';
+    return ''
+      + '<div class="result-summary">'
+      + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
+      + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + ' (automatic)</strong></div>'
+      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders</strong></div>'
+      + '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+      + '</div>'
+      + (showControls
+        ? '<div class="item-grid">'
+          + (folderCount
+            ? '    <div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
+            : '')
+          + '    <div class="field"><label>Group / Split</label><select class="select" data-action="browser-grouping"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+          + (folderCount && recurse
+            ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+            : '')
+          + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source">' + titleSourceOptions + '</select></div>'
+          + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+          + '  </div><div class="muted">Organize controls how the selected browser files resolve into models. Validation and Commit reuse the resolved plan shown on the right.</div>'
+        : '<div class="muted">Move to Organize to choose Group / Split behavior, title handling, and any folder-specific structure options.</div>');
+  };
     var folderMap = {};
     files.forEach(function (entry) {
       var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var folderKey = parts.length > 1 ? parts.slice(0, -1).join('/') : '__loose__';
-      if (!folderMap[folderKey]) {
-        folderMap[folderKey] = { title: titleForStrategy(card, strategy, folderKey), strategy: 'by-folder', files: [] };
-      }
-      folderMap[folderKey].files.push(entry);
-    });
-    groups = Object.keys(folderMap).sort().map(function (key) { return folderMap[key]; });
-  } else if (strategy === 'by-root') {
-    var rootMap = {};
-    files.forEach(function (entry) {
-      var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var rootKey = parts.length > 1 ? parts[0] : '__loose__';
-      if (!rootMap[rootKey]) {
-        rootMap[rootKey] = { title: titleForStrategy(card, strategy, rootKey), strategy: 'by-root', files: [] };
-      }
-      rootMap[rootKey].files.push(entry);
+    return this._renderBrowserWizardSummary(true);
     });
     groups = Object.keys(rootMap).sort().map(function (key) { return rootMap[key]; });
   } else if (strategy === 'flat') {
@@ -131,7 +151,7 @@ function buildBrowserPlanPreview(card) {
     } else {
       groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
       strategy = 'none';
-    }
+            + this._renderBrowserWizardSummary(false)
   } else {
     groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
     strategy = 'none';
@@ -153,9 +173,14 @@ function renderPlanSummary(card) {
     + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
     + '</div>'
     + '<div class="entries">' + preview.planned_models.map(function (model) {
-      var files = (model.files || []).slice(0, 4).map(function (entry) {
+      var totalFiles = (model.files || []).length;
+      var visibleFiles = (model.files || []).slice(0, 4);
+      var files = visibleFiles.map(function (entry) {
         return '<div class="entry-path">' + escapeHtml(entry.relative_path || entry.filename || '') + '</div>';
       }).join('');
+      if (totalFiles > visibleFiles.length) {
+        files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
+      }
       return ''
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
@@ -240,6 +265,9 @@ function renderValidationSummary(card) {
     }
     if (normalized === 'replace_with_stub') {
       return 'Replace Originals With Stub Marker';
+    }
+    return 'Keep Originals In Place';
+  };
 
   proto._renderLaunchPad = function () {
     var html = originalRenderLaunchPad.call(this);
@@ -257,8 +285,14 @@ function renderValidationSummary(card) {
         ', select files or folders, then follow the same Source -> Organize -> Choose Destination -> Validate -> Commit flow as Browser Upload.'
       );
   };
-    }
-    return 'Keep Originals In Place';
+
+  proto._browserSelectionCounts = function () {
+    var files = this._filterBrowserFilesForSubmit(this._browserFiles || []);
+    var folderCount = this._browserTopLevelFolders().length;
+    return {
+      fileCount: files.length,
+      folderCount: folderCount,
+        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserWizardSummary(true) + this._renderBrowserFileRows(false)) + '</div>'
   };
 
   proto._invalidateWizardArtifacts = function (options) {
@@ -434,10 +468,13 @@ function renderValidationSummary(card) {
 
   proto._renderBrowserSelectionSummary = function () {
     var html = originalRenderBrowserSelectionSummary.call(this);
+    var counts = this._browserSelectionCounts();
     return html
+      .replace('<div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div><div class="result-line"><span>Cleanup policy</span><strong>delete_on_verified (automatic)</strong></div>', '<div class="result-line"><span>Cleanup policy</span><strong>Delete Originals After Success (automatic)</strong></div>')
       .replace(/delete_on_verified \(automatic\)/g, 'Delete Originals After Success (automatic)')
       .replace(/<span>Grouping<\/span>/g, '<span>Group / Split</span>')
       .replace(/<label>Grouping<\/label>/g, '<label>Group / Split</label>')
+      .replace(/<div class="result-line"><span>Grouping<\/span><strong>[^<]*<\/strong><\/div>/g, '')
       .replace(/>None<\/option>/g, '>Keep Together In Same Model</option>')
       .replace(/>by-folder<\/option>/g, '>Separate Models By Folder</option>')
       .replace(/>by-root<\/option>/g, '>Each Root Folder Becomes A Model</option>')
@@ -445,7 +482,10 @@ function renderValidationSummary(card) {
       .replace(/<strong>none<\/strong>/g, '<strong>Keep Together In Same Model</strong>')
       .replace(/<strong>by-folder<\/strong>/g, '<strong>Separate Models By Folder</strong>')
       .replace(/<strong>by-root<\/strong>/g, '<strong>Each Root Folder Becomes A Model</strong>')
-      .replace(/<strong>flat<\/strong>/g, '<strong>Separate Models By File</strong>');
+      .replace(/<strong>flat<\/strong>/g, '<strong>Separate Models By File</strong>')
+      .replace(/<div class="result-line"><span>Files queued now<\/span><strong>\d+<\/strong><\/div>/g, '<div class="result-line"><span>Selected files<\/span><strong>' + String(counts.fileCount) + '</strong></div>')
+      .replace(/<div class="result-line"><span>Staged folders<\/span><strong>\d+<\/strong><\/div>/g, '<div class="result-line"><span>Selected files\/folders<\/span><strong>' + String(counts.fileCount) + ' files, ' + String(counts.folderCount) + ' folders</strong></div>')
+      .replace(/\(folderCount \? ' Folder uploads now expose the same recurse and grouping controls as the server picker\.' : ''\)/g, '');
   };
 
   proto._renderServerSelectionRows = function (showSettings) {
@@ -457,7 +497,7 @@ function renderValidationSummary(card) {
       .replace(/>by-root<\/option>/g, '>Each Root Folder Becomes A Model</option>')
       .replace(/>flat<\/option>/g, '>Separate Models By File</option>')
       .replace(/Folder structure is preserved in Curated catalog\./g, 'Folder structure is preserved in Curated Catalog.')
-      .replace(/This title is copied to the queued file entries and becomes the default group title for follow-up working actions\./g, 'This title is copied to the queued file entries and becomes the default title if the batch later lands in Working Files.');
+        .replace(/This title is copied to the queued file entries and becomes the default group title for follow-up working actions\./g, 'This title is copied to the queued file entries and becomes the default title if the batch later lands in Working Files.');
   };
 
   proto._renderWizardBody = function () {
@@ -490,7 +530,7 @@ function renderValidationSummary(card) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart. The right side shows the resolved outcome.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserSelectionSummary() + this._renderBrowserFileRows(false)) + '</div>'
+        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserSelectionSummary()) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">This is the planned model set that later steps will validate and commit.</div></div></div>'
@@ -663,7 +703,9 @@ function renderValidationSummary(card) {
     originalHandleInput.call(this, event);
     if (action === 'browser-group-title' || action === 'selection-group-title' || action === 'selection-group-title-files') {
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
-      this._refreshWizardPreview();
+      if (this._wizardStep > 2) {
+        this._refreshWizardPreview();
+      }
     }
   };
 })();
