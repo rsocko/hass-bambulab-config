@@ -425,6 +425,17 @@
     }
   }
 
+  function fireModelCatalogDataChanged(scopes, detail) {
+    var normalizedScopes = Array.isArray(scopes)
+      ? scopes.filter(function (scope) { return !!scope; })
+      : [];
+    window.dispatchEvent(new CustomEvent("model-catalog-data-changed", {
+      bubbles: true,
+      composed: true,
+      detail: Object.assign({ scopes: normalizedScopes }, detail || {}),
+    }));
+  }
+
   var sharedStyles = ""
     + "ha-card{border-radius:20px;border:1px solid rgba(148,163,184,0.18);background:linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.02));}"
     + ".shell{display:grid;gap:14px;padding:16px;}"
