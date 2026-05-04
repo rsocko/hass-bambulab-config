@@ -28,6 +28,8 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     this._didInitialRender = false;
     this._hasAttemptedLoad = false;
+    this._lastAppliedScopeStamp = 0;
+    this._catalogScope = "curated";
   }
 
   _defaultFilters() {
@@ -63,7 +65,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
     if (!hadHass && !this._hasAttemptedLoad && !this._loading && !this._error) {
       this._hasAttemptedLoad = true;
-      this._requestLoad(1, false);
+      this._requestLoad(1, this._isScopeStale());
     }
 
     if (!hadHass || !this._didInitialRender) {
@@ -83,7 +85,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     window.addEventListener("model-catalog-data-changed", this._boundCatalogDataChanged);
     addShimmerAnimation();
     if (this._hass && this._hasAttemptedLoad && !this._loading) {
-      this._requestLoad(this._currentPage(), false);
+      if (this._isScopeStale()) {
+        this._requestLoad(1, true);
+      } else {
+        this._requestLoad(this._currentPage(), false);
+      }
     }
   }
 
@@ -272,7 +278,20 @@ class ModelCatalogBrowserCard extends HTMLElement {
     if (scopes.length && scopes.indexOf("curated") < 0 && scopes.indexOf("all") < 0) {
       return;
     }
+    var stamp = Number(detail.stamp || 0) || 0;
+    if (stamp) {
+      this._lastAppliedScopeStamp = stamp;
+    }
     this._requestLoad(1, true);
+  }
+
+  _isScopeStale() {
+    var shared = window.ModelCatalogIntakeShared;
+    if (!shared || typeof shared.getModelCatalogScopeStamp !== "function") {
+      return false;
+    }
+    var latest = shared.getModelCatalogScopeStamp(this._catalogScope || "curated");
+    return latest > (Number(this._lastAppliedScopeStamp) || 0);
   }
 
   async _loadPage(page, refresh) {
@@ -283,6 +302,11 @@ class ModelCatalogBrowserCard extends HTMLElement {
     this._loading = true;
     this._error = "";
     this._render();
+
+    var shared = window.ModelCatalogIntakeShared;
+    var stampSnapshot = shared && typeof shared.getModelCatalogScopeStamp === "function"
+      ? shared.getModelCatalogScopeStamp(this._catalogScope || "curated")
+      : 0;
 
     try {
       var requestPayload = {
@@ -307,6 +331,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       this._pagination.per_page = Number(pagination.per_page || this._pagination.per_page) || this._pagination.per_page;
       this._pagination.total = Number(pagination.total || 0) || 0;
       this._pagination.total_pages = Number(pagination.total_pages || 0) || 0;
+      if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
+        this._lastAppliedScopeStamp = stampSnapshot;
+      }
     } catch (error) {
       this._results = [];
       this._pagination.page = 1;

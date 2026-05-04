@@ -425,14 +425,46 @@
     }
   }
 
+  function getModelCatalogScopeStamps() {
+    if (!window.__modelCatalogScopeStamps || typeof window.__modelCatalogScopeStamps !== "object") {
+      window.__modelCatalogScopeStamps = {};
+    }
+    return window.__modelCatalogScopeStamps;
+  }
+
+  function getModelCatalogScopeStamp(scope) {
+    var stamps = getModelCatalogScopeStamps();
+    var key = String(scope || "");
+    if (!key) {
+      return 0;
+    }
+    var allStamp = Number(stamps.all || 0) || 0;
+    var scopeStamp = Number(stamps[key] || 0) || 0;
+    return Math.max(allStamp, scopeStamp);
+  }
+
   function fireModelCatalogDataChanged(scopes, detail) {
     var normalizedScopes = Array.isArray(scopes)
       ? scopes.filter(function (scope) { return !!scope; })
       : [];
+    var stamp = (typeof performance !== "undefined" && typeof performance.now === "function")
+      ? Math.floor(performance.now() * 1000) + Date.now()
+      : Date.now();
+    var stamps = getModelCatalogScopeStamps();
+    if (!normalizedScopes.length) {
+      stamps.all = stamp;
+    } else {
+      normalizedScopes.forEach(function (scope) {
+        var key = String(scope || "");
+        if (key) {
+          stamps[key] = stamp;
+        }
+      });
+    }
     window.dispatchEvent(new CustomEvent("model-catalog-data-changed", {
       bubbles: true,
       composed: true,
-      detail: Object.assign({ scopes: normalizedScopes }, detail || {}),
+      detail: Object.assign({ scopes: normalizedScopes, stamp: stamp }, detail || {}),
     }));
   }
 
@@ -500,6 +532,7 @@
     formatBytes: formatBytes,
     formatLabel: formatLabel,
     fireModelCatalogDataChanged: fireModelCatalogDataChanged,
+    getModelCatalogScopeStamp: getModelCatalogScopeStamp,
     getJsonWithAuth: getJsonWithAuth,
     parseDecisionWarnings: parseDecisionWarnings,
     postFormWithAuth: postFormWithAuth,

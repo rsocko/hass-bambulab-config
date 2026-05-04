@@ -222,6 +222,8 @@
       this._hasAttemptedInitialReindex = false;
       this._selectedGroupId = 0;
       this._selectedPaths = {};
+      this._lastAppliedScopeStamp = 0;
+      this._catalogScope = 'working';
       this._boundClick = this._handleClick.bind(this);
       this._boundCatalogDataChanged = this._handleCatalogDataChanged.bind(this);
     }
@@ -239,6 +241,8 @@
       this._hass = hass;
       if (this.isConnected && !this._loading && !this._hasLoadedExplorer) {
         this._loadExplorer();
+      } else if (this.isConnected && !this._loading && this._isScopeStale()) {
+        this._loadExplorer({ forceReindex: true });
       }
     }
 
@@ -247,8 +251,12 @@
         this.shadowRoot.addEventListener('click', this._boundClick);
       }
       window.addEventListener('model-catalog-data-changed', this._boundCatalogDataChanged);
-      if (this._hass && !this._loading && !this._hasLoadedExplorer) {
-        this._loadExplorer();
+      if (this._hass && !this._loading) {
+        if (!this._hasLoadedExplorer) {
+          this._loadExplorer();
+        } else if (this._isScopeStale()) {
+          this._loadExplorer({ forceReindex: true });
+        }
       }
     }
 
@@ -294,6 +302,11 @@
       this._status = '';
       this._render();
 
+      var shared = window.ModelCatalogIntakeShared;
+      var stampSnapshot = shared && typeof shared.getModelCatalogScopeStamp === 'function'
+        ? shared.getModelCatalogScopeStamp(this._catalogScope || 'working')
+        : 0;
+
       try {
         var shouldRunInitialReindex = !this._hasAttemptedInitialReindex && !!this._config.auto_reindex_on_initial_load;
         if (shouldForceReindex || shouldRunInitialReindex) {
@@ -327,6 +340,9 @@
               this._selectedGroupId = Number(this._groups[0].id || 0);
             }
           }
+        }
+        if (stampSnapshot > (Number(this._lastAppliedScopeStamp) || 0)) {
+          this._lastAppliedScopeStamp = stampSnapshot;
         }
       } catch (error) {
         this._error = error && error.message ? String(error.message) : 'Could not load Working Files explorer.';
@@ -596,7 +612,20 @@
       if (scopes.length && scopes.indexOf('working') < 0 && scopes.indexOf('all') < 0) {
         return;
       }
-      this._loadExplorer();
+      var stamp = Number(detail.stamp || 0) || 0;
+      if (stamp) {
+        this._lastAppliedScopeStamp = stamp;
+      }
+      this._loadExplorer({ forceReindex: true });
+    }
+
+    _isScopeStale() {
+      var shared = window.ModelCatalogIntakeShared;
+      if (!shared || typeof shared.getModelCatalogScopeStamp !== 'function') {
+        return false;
+      }
+      var latest = shared.getModelCatalogScopeStamp(this._catalogScope || 'working');
+      return latest > (Number(this._lastAppliedScopeStamp) || 0);
     }
 
     _handleClick(event) {
