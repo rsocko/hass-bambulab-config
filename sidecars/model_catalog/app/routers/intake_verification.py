@@ -415,7 +415,6 @@ def _common_prefix_length(left: tuple[str, ...], right: tuple[str, ...]) -> int:
         count += 1
     return count
 
-
 def _relative_parts_for_matching(file_item: dict[str, Any]) -> tuple[str, ...]:
     relative_path = str(file_item.get("relative_path") or file_item.get("filename") or "").replace("\\", "/")
     if not relative_path:
@@ -740,6 +739,22 @@ def _compute_group_title(
             return explicit_title
         suffix = _strategy_suffix()
         return f"{explicit_title} - {suffix}" if suffix else explicit_title
+
+    if strategy == "by-root":
+        return root_path.name or str(root_path)
+    if strategy == "flat":
+        return file_path.stem or file_path.name
+    if strategy == "by-folder":
+        if group_key == "__root_folder__":
+            return f"{root_path.name} Root"
+        parent = Path(group_key)
+        return parent.name or group_key
+    # "none"
+    title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
+    entry_type = str(source_entry.get("type") or "").strip().lower()
+    if title_source == "folder" and entry_type == "folder":
+        return root_path.name or str(root_path) or "Working Group"
+    return file_path.stem or file_path.name or "Working Group"
     
     if strategy == "by-root":
         return root_path.name or str(root_path)
@@ -753,7 +768,10 @@ def _compute_group_title(
     # "none"
     return "Working Group"
 
-
+    title_source = str(source_entry.get("group_title_source") or "").strip().lower().replace("_", "-")
+    entry_type = str(source_entry.get("type") or "").strip().lower()
+    if title_source == "folder" and entry_type == "folder":
+        return f"{root_path.name} Root"
 def _group_files_by_strategy(
     *,
     expanded_files: list[dict[str, Any]],

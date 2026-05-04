@@ -18,7 +18,6 @@ class FakeManyfoldClient:
     def close(self) -> None:
         return None
 
-
 def _make_settings(db_path: Path, source_root: Path) -> Settings:
     return Settings(
         manyfold_base_url="http://manyfold.example",
@@ -79,7 +78,6 @@ def _create_client_with_roots(tmp_path: Path, source_roots: tuple[Path, ...]) ->
     app = create_app(settings=_make_settings_with_roots(db_path, source_roots), manyfold_client=FakeManyfoldClient())
     client = TestClient(app)
     client.__enter__()
-    return client
     return client
 
 
@@ -671,6 +669,43 @@ def test_browser_upload_group_uses_queued_title_hint_when_title_omitted(tmp_path
         created_group = next(group for group in groups_response.json()["groups"] if group["id"] == working_group_id)
         assert created_group["title"] == "Router Mount Browser Batch"
         assert stage_dir.exists() is False
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_browser_upload_single_file_defaults_group_title_to_file_stem(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        upload_response = client.post(
+            "/api/intake/uploads/browser",
+            json={
+                "browser_files": [
+                    {
+                        "filename": "corner_bracket_v2.3mf",
+                        "relative_path": "corner_bracket_v2.3mf",
+                        "content_base64": base64.b64encode(b"corner-bracket-bytes").decode("ascii"),
+                    }
+                ],
+            },
+        )
+        assert upload_response.status_code == 200
+        item_id = upload_response.json()["upload_id"]
+
+        group_response = client.post(
+            f"/api/intake/items/{item_id}/group",
+            json={"action": "create_working_group"},
+        )
+        assert group_response.status_code == 200
+        working_group_id = group_response.json()["working_group_id"]
+
+        groups_response = client.get("/api/working-groups")
+        assert groups_response.status_code == 200
+        created_group = next(group for group in groups_response.json()["groups"] if group["id"] == working_group_id)
+        assert created_group["title"] == "corner_bracket_v2"
+        assert created_group["slug"].startswith("corner-bracket-v2")
     finally:
         client.__exit__(None, None, None)
 
