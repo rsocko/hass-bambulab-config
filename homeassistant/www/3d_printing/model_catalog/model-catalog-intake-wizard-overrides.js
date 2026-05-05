@@ -1200,7 +1200,7 @@ function destinationGroupKey(model, index) {
     this._destinationChoice = 'curated';
     this._groupDestinations = [];
     this._selected = {};
-    this._highlightedLeftPath = null;
+    this._highlightedLeftIndex = null;
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
     this._restoreBackgroundScroll();
@@ -1363,7 +1363,7 @@ function destinationGroupKey(model, index) {
           ? this._serverPreviewMarkup(entry.path, entryName)
           : folderPreviewMarkup();
         return ''
-          + '<article class="entry-row">'
+          + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
           + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
@@ -1437,6 +1437,54 @@ function destinationGroupKey(model, index) {
     return overrideStyles + baseHtml;
   };
 
+  // Issue #1328: Build a mapping of left-side entries to right-side models
+  // Uses actual data relationships instead of name matching
+  proto._buildModelSourceMapping = function () {
+    if (!this.shadowRoot || this._wizardStep !== 2 || !this._previewData) {
+      return {};
+    }
+    var mapping = {}; // left-entry-index -> [right-model-indices]
+    var panels = this.shadowRoot.querySelectorAll('.wizard-panel');
+    if (panels.length < 2) {
+      return mapping;
+    }
+    var leftPanel = panels[0];
+    var leftEntries = leftPanel.querySelectorAll('.entry-row');
+    var preview = this._previewData;
+    var plannedModels = preview.planned_models || [];
+    
+    // For each left entry, find which models it contributed to
+    leftEntries.forEach(function (leftRow, leftIndex) {
+      mapping[leftIndex] = [];
+      var entryName = leftRow.querySelector('.entry-name');
+      var leftTitle = entryName ? entryName.textContent.trim() : '';
+      var leftPath = leftRow.getAttribute('data-path') || '';
+      
+      // Match by checking model title containment and file associations
+      plannedModels.forEach(function (model, modelIndex) {
+        var modelTitle = model.title || '';
+        var files = model.files || [];
+        
+        // Check 1: Title match (folder name → model title)
+        var titleContains = modelTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(modelTitle) !== -1;
+        
+        // Check 2: File path match (files from selected entry appear in model)
+        var hasRelatedFiles = files.some(function (file) {
+          var filePath = file.relative_path || file.filename || '';
+          // Check if file path starts with or contains the left entry identifier
+          return leftPath && filePath.indexOf(leftPath) !== -1;
+        });
+        
+        // Include model if either title matches or has related files
+        if (titleContains || hasRelatedFiles) {
+          mapping[leftIndex].push(modelIndex);
+        }
+      });
+    });
+    
+    return mapping;
+  };
+
   // Issue #1328: Attach event listeners for left/right side highlighting in ORGANIZE step
   proto._attachHighlightListeners = function () {
     if (!this.shadowRoot || this._wizardStep !== 2) {
@@ -1452,43 +1500,28 @@ function destinationGroupKey(model, index) {
     var leftEntries = leftPanel.querySelectorAll('.entry-row');
     var rightEntries = rightPanel.querySelectorAll('.entry-row');
     
+    // Build the mapping once
+    var modelMapping = this._buildModelSourceMapping();
+    
     // Restore highlighting if we have a previously selected entry
-    if (this._highlightedLeftPath) {
-      leftEntries.forEach(function (leftRow) {
-        var entryPath = leftRow.getAttribute('data-entry-path');
-        if (entryPath === self._highlightedLeftPath) {
-          leftRow.classList.add('highlighted');
-          // Find and highlight matching right-side models
-          var entryName = leftRow.querySelector('.entry-name');
-          var leftTitle = entryName ? entryName.textContent.trim() : '';
-          var found = false;
-          rightEntries.forEach(function (rightRow) {
-            var rightTitleElement = rightRow.querySelector('.entry-name');
-            var rightTitle = rightTitleElement ? rightTitleElement.textContent.trim() : '';
-            if (rightTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(rightTitle) !== -1) {
-              rightRow.classList.add('highlighted');
-              found = true;
-            } else {
-              rightRow.classList.add('related');
-            }
-          });
-          // If no title match, show all right entries as related
-          if (!found) {
-            rightEntries.forEach(function (r) {
-              r.classList.add('related');
-            });
+    if (this._highlightedLeftIndex !== undefined && this._highlightedLeftIndex !== null) {
+      var leftRow = leftEntries[this._highlightedLeftIndex];
+      if (leftRow) {
+        leftRow.classList.add('highlighted');
+        var modelIndices = modelMapping[this._highlightedLeftIndex] || [];
+        rightEntries.forEach(function (rightRow, rightIndex) {
+          if (modelIndices.indexOf(rightIndex) !== -1) {
+            rightRow.classList.add('highlighted');
+          } else {
+            rightRow.classList.add('related');
           }
-        }
-      });
+        });
+      }
     }
     
-    leftEntries.forEach(function (leftRow, index) {
-      var entryPath = String(index); // Use index as a fallback path identifier
-      var entryName = leftRow.querySelector('.entry-name');
-      if (entryName) {
-        entryPath = entryName.textContent.trim();
-      }
-      leftRow.setAttribute('data-entry-path', entryPath);
+    leftEntries.forEach(function (leftRow, leftIndex) {
+      var entryPath = leftRow.getAttribute('data-path') || '';
+      leftRow.setAttribute('data-entry-index', leftIndex);
       
       leftRow.addEventListener('click', function (event) {
         // Only highlight if clicking on the row itself, not on buttons
@@ -1508,34 +1541,19 @@ function destinationGroupKey(model, index) {
         
         if (!isCurrentlyHighlighted) {
           leftRow.classList.add('highlighted');
-          self._highlightedLeftPath = entryPath;
+          self._highlightedLeftIndex = leftIndex;
           
-          // Get the title from the left-side entry
-          var titleElement = leftRow.querySelector('.entry-name');
-          var leftTitle = titleElement ? titleElement.textContent.trim() : '';
-          
-          // Find matching right-side entries - be flexible with matching
-          // Match by title or if left title appears in right title or vice versa
-          var found = false;
-          rightEntries.forEach(function (rightRow) {
-            var rightTitleElement = rightRow.querySelector('.entry-name');
-            var rightTitle = rightTitleElement ? rightTitleElement.textContent.trim() : '';
-            // Match if titles are equal or if one contains the other
-            if (rightTitle === leftTitle || rightTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(rightTitle) !== -1) {
+          // Use the mapping to highlight matching right-side models
+          var modelIndices = modelMapping[leftIndex] || [];
+          rightEntries.forEach(function (rightRow, rightIndex) {
+            if (modelIndices.indexOf(rightIndex) !== -1) {
               rightRow.classList.add('highlighted');
-              found = true;
             } else {
               rightRow.classList.add('related');
             }
           });
-          // If no match found, dim all right-side entries
-          if (!found) {
-            rightEntries.forEach(function (r) {
-              r.classList.add('related');
-            });
-          }
         } else {
-          self._highlightedLeftPath = null;
+          self._highlightedLeftIndex = null;
         }
       }, false);
     });
@@ -1926,7 +1944,7 @@ function destinationGroupKey(model, index) {
   proto._render = function () {
     // Clear highlighting when leaving step 2
     if (this._wizardStep !== 2) {
-      this._highlightedLeftPath = null;
+      this._highlightedLeftIndex = null;
     }
     originalRender.call(this);
     // Attach highlight listeners after rendering completes
