@@ -680,4 +680,4 @@ class SourceServerBrowser extends HTMLElement {
 }
 
 // Register the custom element
-customElements.define('source-server-browser', SourceServerBrowser);
+customElements.define('source-server', SourceServerBrowser);
