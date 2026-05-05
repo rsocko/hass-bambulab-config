@@ -53,6 +53,17 @@ function entryTypeIconMarkup(pathValue, isFolder) {
   return '<span class="entry-type-icon" aria-hidden="true"><ha-icon icon="' + fileTypeIconName(pathValue) + '"></ha-icon></span>';
 }
 
+// Issue #1323: shared markup for the "preview" thumbnail block when the entry
+// is a folder. Shows an MDI folder icon with the word "folder" underneath so
+// folders are visually distinct from files in both Server and Browser paths.
+function folderPreviewMarkup() {
+  return ''
+    + '<div class="entry-thumb folder-thumb" aria-hidden="true">'
+    + '<ha-icon icon="mdi:folder-outline"></ha-icon>'
+    + '<div class="folder-thumb-label">folder</div>'
+    + '</div>';
+}
+
 // Issue #1322: strip the implementation-detail "/assets/" prefix when showing the server browse path,
 // so operators see "Model Inbox/..." instead of "/assets/Model Inbox/...".
 function formatBrowsePathForDisplay(rawPath) {
@@ -597,7 +608,7 @@ function destinationGroupKey(model, index) {
       var resolvedTitle = this._browserRootResolvedTitle(rootKey, representative);
       sections.push(''
         + '<article class="entry-row">'
-        + '<div class="entry-top"><div><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
+        + '<div class="entry-top">' + folderPreviewMarkup() + '<div class="entry-main"><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
         + '<div class="item-grid">'
         + '<div class="field"><label>Folder Scope</label><select class="select" data-action="browser-root-recurse" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.recurse !== false ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (representative.recurse === false ? ' selected' : '') + '>Just this folder</option></select></div>'
         + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
@@ -1092,8 +1103,66 @@ function destinationGroupKey(model, index) {
     this._render();
   };
 
+  // Issue #1323: lock the host page scroll while the modal is open so the
+  // mouse wheel cannot inadvertently scroll the dashboard behind the wizard.
+  proto._lockBackgroundScroll = function () {
+    try {
+      var body = document && document.body;
+      if (!body) {
+        return;
+      }
+      if (this.__previousBodyOverflow == null) {
+        this.__previousBodyOverflow = body.style.overflow || '';
+      }
+      body.style.overflow = 'hidden';
+    } catch (_err) { /* no-op */ }
+  };
+
+  proto._restoreBackgroundScroll = function () {
+    try {
+      var body = document && document.body;
+      if (!body) {
+        return;
+      }
+      if (this.__previousBodyOverflow != null) {
+        body.style.overflow = this.__previousBodyOverflow;
+        this.__previousBodyOverflow = null;
+      } else {
+        body.style.overflow = '';
+      }
+    } catch (_err) { /* no-op */ }
+  };
+
   proto._openWizard = async function (mode) {
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+    var nextMode = mode === 'server' ? 'server' : 'browser';
+    this._lockBackgroundScroll();
+    if (nextMode === 'server') {
+      // Issue #1323: open the Server intake directly inside the Model Inbox
+      // root so operators do not need to navigate down from "/" each time.
+      this._wizardOpen = true;
+      this._wizardMode = 'server';
+      this._wizardStep = 1;
+      this._cleanupPolicyValue = this._defaultCleanupPolicy('server');
+      this._commitMode = 'queue';
+      this._destinationChoice = 'curated';
+      this._error = '';
+      this._status = '';
+      this._result = null;
+      this._selected = {};
+      this._clearBrowserFiles();
+      await this._setSourceMode('server');
+      try {
+        await this._loadBrowse('/assets/Model Inbox');
+      } catch (_err) {
+        await this._loadBrowse('/');
+      }
+      // If Model Inbox returned no entries (e.g., not allowlisted), fall back to root.
+      if (!this._browse || !this._browse.path || !this._browse.entries) {
+        await this._loadBrowse('/');
+      }
+      return;
+    }
     return originalOpenWizard.call(this, mode);
   };
 
@@ -1120,6 +1189,8 @@ function destinationGroupKey(model, index) {
     this._groupDestinations = [];
     this._selected = {};
     this._clearBrowserFiles();
+    // Issue #1323: release the background scroll lock when the modal closes.
+    this._restoreBackgroundScroll();
     this._render();
   };
 
@@ -1177,15 +1248,21 @@ function destinationGroupKey(model, index) {
         + previewMarkup
         + '    <div class="entry-main">'
         + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
-        + '      <div class="entry-path">' + escapeHtml(relativePath || entry.name || '') + '</div>'
-        + (folderPath ? '      <div class="muted">Folder: ' + escapeHtml(folderPath) + '</div>' : '')
+        // Issue #1323: when a folder upload contributes nested files, surface
+        // the file's relative path inside that folder (mirroring how the
+        // Server intake displays paths under "Model Inbox/..."). For loose
+        // single-file selections we skip the path line because it would just
+        // repeat the filename already shown above.
+        + (folderPath
+          ? '      <div class="entry-path">' + escapeHtml(relativePath) + '</div>'
+          : '')
         + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
         + '    </div>'
-        + '    <div class="button-row">'
-        + entryTypeIconMarkup(relativePath, false)
-        + (showActions ? '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button>' : '')
-        + '    </div>'
+        + '    ' + entryTypeIconMarkup(relativePath, false)
         + '  </div>'
+        + (showActions
+          ? '  <div class="entry-actions"><button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button></div>'
+          : '')
         + '</article>';
     }).join('') + '</div>';
   };
@@ -1208,7 +1285,7 @@ function destinationGroupKey(model, index) {
       var isFolder = entry.type === 'folder';
       var previewMarkup = !isFolder
         ? card._serverPreviewMarkup(entry.path, displayName)
-        : '<div class="entry-thumb placeholder">Folder</div>';
+        : folderPreviewMarkup();
       return ''
         + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
         + '  <div class="entry-top">'
@@ -1269,7 +1346,7 @@ function destinationGroupKey(model, index) {
         var entryName = String(basename(entry.path) || entry.path);
         var previewMarkup = entry.type === 'file'
           ? this._serverPreviewMarkup(entry.path, entryName)
-          : '<div class="entry-thumb placeholder">Folder</div>';
+          : folderPreviewMarkup();
         return ''
           + '<article class="entry-row">'
           + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
@@ -1287,6 +1364,52 @@ function destinationGroupKey(model, index) {
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
           + '</article>';
       }, this).join('') + '</div>';
+  };
+
+  var originalRenderWizard = proto._renderWizard;
+
+  // Issue #1323: stable wizard height with independent left/right scroll, MDI
+  // folder preview styling, and theme-aware (light/dark) colors. We layer
+  // these as a scoped <style> block prepended to the wizard markup so we do
+  // not have to copy the whole base render pipeline.
+  proto._renderWizard = function () {
+    var baseHtml = originalRenderWizard.call(this);
+    var overrideStyles = ''
+      + '<style>'
+      // Lock the dialog to a stable height based on the viewport so steps
+      // don't change overall height, and let inner panels own scrolling.
+      + '.wizard-modal{overscroll-behavior:contain;}'
+      + '.wizard-dialog{height:min(92vh,980px);min-height:560px;max-height:min(92vh,980px);overflow:hidden;display:flex;flex-direction:column;gap:14px;'
+        + 'background:var(--card-background-color,linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9)));color:var(--primary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.22));}'
+      + '.wizard-body{flex:1 1 auto;min-height:0;overflow:hidden;align-items:stretch;}'
+      + '.wizard-panel{min-height:0;overflow:auto;overscroll-behavior:contain;'
+        + 'background:var(--secondary-background-color,rgba(15,23,42,0.22));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
+      + '.wizard-scroll-region,.wizard-selection-scroll,.wizard-review-scroll{max-height:none;overflow:visible;padding-right:0;}'
+      // Sticky panel headers so users keep context as they scroll within a panel.
+      + '.wizard-panel > .title-row{position:sticky;top:0;z-index:1;background:var(--secondary-background-color,rgba(15,23,42,0.22));padding-bottom:8px;}'
+      // Theme-friendly chrome
+      + '.wizard-step{background:var(--secondary-background-color,rgba(30,41,59,0.45));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
+      + '.wizard-step.current{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.45));}'
+      + '.wizard-step.complete{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.45);}'
+      + '.wizard-dialog .entry-row{background:var(--card-background-color,rgba(15,23,42,0.12));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
+      + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
+      + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
+      + '.wizard-dialog .input,.wizard-dialog .select{background:var(--card-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
+      + '.wizard-dialog .button{background:var(--secondary-background-color,rgba(148,163,184,0.12));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
+      + '.wizard-dialog .button.primary{background:var(--primary-color,rgba(30,64,175,0.22));border-color:var(--primary-color,rgba(96,165,250,0.4));color:var(--text-primary-color,var(--primary-text-color));}'
+      + '.wizard-dialog .result-summary{background:var(--secondary-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.22));}'
+      + '.wizard-dialog .state-row{color:var(--secondary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.28));}'
+      + '.wizard-dialog .chip{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.3));color:var(--primary-text-color);}'
+      + '.wizard-dialog .entry-type-icon{background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
+      // Folder preview thumbnail styling (mdi:folder + small "folder" label).
+      + '.wizard-dialog .entry-thumb.folder-thumb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--primary-text-color);}'
+      + '.wizard-dialog .entry-thumb.folder-thumb ha-icon{--mdc-icon-size:28px;width:28px;height:28px;color:var(--primary-color,#60a5fa);}'
+      + '.wizard-dialog .entry-thumb.folder-thumb .folder-thumb-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:lowercase;color:var(--secondary-text-color);}'
+      // Browser file row: keep file-type icon at the top-right corner.
+      + '.wizard-dialog .entry-row .entry-actions{justify-content:flex-end;}'
+      + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
+      + '</style>';
+    return overrideStyles + baseHtml;
   };
 
   proto._renderWizardBody = function () {
