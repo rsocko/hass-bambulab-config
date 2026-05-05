@@ -328,6 +328,46 @@ function destinationGroupKey(model, index) {
   ].join('|');
 }
 
+// Issue #1324: compute which ancestor folders are "partial" (contain excluded descendants).
+// Returns a plain object mapping normalised path => true for any folder that has at least
+// one excluded item anywhere beneath it.
+function computePartialIndicators(excludedPaths) {
+  var indicators = {};
+  if (!excludedPaths || !excludedPaths.length) {
+    return indicators;
+  }
+  excludedPaths.forEach(function (excludedPath) {
+    var parts = normalizePath(excludedPath).split('/').filter(Boolean);
+    for (var depth = 1; depth < parts.length; depth += 1) {
+      indicators['/' + parts.slice(0, depth).join('/')] = true;
+    }
+  });
+  return indicators;
+}
+
+// Issue #1324: true when itemPath is a descendant of any path in the selectedPaths array.
+function isChildOfSelection(itemPath, selectedPaths) {
+  var normalized = normalizePath(itemPath);
+  for (var i = 0; i < selectedPaths.length; i += 1) {
+    var sel = normalizePath(selectedPaths[i]);
+    var prefix = sel === '/' ? '/' : sel + '/';
+    if (sel !== normalized && normalized.indexOf(prefix) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Issue #1324: return the subset of excludedItems whose paths are under parentPath.
+function getExcludedItemsUnderPath(parentPath, excludedItems) {
+  var normalized = normalizePath(parentPath);
+  var prefix = normalized === '/' ? '/' : normalized + '/';
+  return (excludedItems || []).filter(function (p) {
+    var np = normalizePath(p);
+    return np !== normalized && np.indexOf(prefix) === 0;
+  });
+}
+
 (function applyWizardOverrides() {
   var Card = customElements.get('model-catalog-intake-home-card');
   if (!Card || Card.prototype.__wizardStepOverridesApplied) {
@@ -348,6 +388,7 @@ function destinationGroupKey(model, index) {
   var originalRenderLaunchPad = proto._renderLaunchPad;
   var originalRenderBrowserSelectionSummary = proto._renderBrowserSelectionSummary;
   var originalRenderServerSelectionRows = proto._renderServerSelectionRows;
+  var originalServerPayloadSelections = proto._serverPayloadSelections;
 
   proto._wizardStepCount = function () {
     return 5;
@@ -1168,6 +1209,7 @@ function destinationGroupKey(model, index) {
       this._status = '';
       this._result = null;
       this._selected = {};
+      this._excludedItems = []; // Issue #1324
       this._clearBrowserFiles();
       await this._setSourceMode('server');
       try {
@@ -1207,6 +1249,7 @@ function destinationGroupKey(model, index) {
     this._groupDestinations = [];
     this._previewLoading = false;
     this._selected = {};
+    this._excludedItems = []; // Issue #1324
     this._highlightedLeftIndex = null;
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
@@ -1240,6 +1283,21 @@ function destinationGroupKey(model, index) {
 
   proto._renderBrowserSelectionSummary = function () {
     return this._renderBrowserWizardSummary(true);
+  };
+
+  // Issue #1324: inject excluded_items into every folder selection payload so
+  // the backend intake_grouping.py _prefilter_excluded_items() can honour them.
+  proto._serverPayloadSelections = function (sourceMode) {
+    var selections = originalServerPayloadSelections
+      ? originalServerPayloadSelections.call(this, sourceMode)
+      : [];
+    var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
+    if (!excludedItems.length || !selections || !selections.length) {
+      return selections;
+    }
+    return selections.map(function (sel) {
+      return Object.assign({}, sel, { excluded_items: excludedItems });
+    });
   };
 
   // Issue #1322: replace original browser file row renderer so we drop the noisy
@@ -1285,9 +1343,11 @@ function destinationGroupKey(model, index) {
     }).join('') + '</div>';
   };
 
-  // Issue #1322: same treatment for the server browse entries - file-type icon
-  // top right, classed middle block for left-alignment, action buttons stay in
-  // the bottom row but CSS pushes them to the right.
+  // Issue #1322 + #1324: file-type icon top right, classed middle block for
+  // left-alignment. Issue #1324 adds child-of-selection detection so that when
+  // browsing inside a selected folder, each item shows an ✕ Exclude button
+  // instead of a Select/Remove toggle. Selected folders also surface a ⚠️ badge
+  // when one or more of their children have been excluded.
   proto._renderBrowseEntries = function () {
     if (this._browseLoading) {
       return '<div class="state-row">Loading allowlisted source paths...</div>';
@@ -1297,10 +1357,11 @@ function destinationGroupKey(model, index) {
     }
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
     var card = this;
-    // Issue #1323: the path line under each entry should show only the
-    // directory the entry lives in (not the entry itself). All entries in
-    // this list share the current browse path as their parent.
+    // Issue #1323: the path line under each entry shows only the parent dir.
     var parentDisplayPath = formatBrowsePathForDisplay(this._browse.path || '/');
+    // Issue #1324: pre-compute sets needed for child-of-selection and exclusion checks.
+    var selectedPaths = Object.keys(card._selected || {});
+    var excludedItems = Array.isArray(card._excludedItems) ? card._excludedItems : [];
     return '<div class="entries">' + this._browse.entries.map(function (entry) {
       var selected = !!card._selected[entry.path];
       var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
@@ -1308,20 +1369,43 @@ function destinationGroupKey(model, index) {
       var previewMarkup = !isFolder
         ? card._serverPreviewMarkup(entry.path, displayName)
         : folderPreviewMarkup();
+      // Issue #1324: detect whether this entry is inside an already-selected folder.
+      var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
+      // Issue #1324: detect whether this entry is explicitly excluded.
+      var isExcluded = excludedItems.indexOf(entry.path) !== -1;
+      // Issue #1324: count how many excluded items live under a selected folder.
+      var excludedUnder = (selected && isFolder) ? getExcludedItemsUnderPath(entry.path, excludedItems).length : 0;
+      var rowClass = 'entry-row'
+        + (selected ? ' selected' : '')
+        + (childOfSelection ? ' related' : '')
+        + (isExcluded ? ' excluded' : '');
       return ''
-        + '<article class="entry-row' + (selected ? ' selected' : '') + '">'
+        + '<article class="' + rowClass + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
-        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+        + '      <div class="entry-name"' + (isExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(displayName) + '</div>'
         + (parentDisplayPath ? '      <div class="entry-path">' + escapeHtml(parentDisplayPath) + '</div>' : '')
         + (!isFolder && entry.size_bytes != null ? '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes)) + '</div>' : '')
         + '    </div>'
         + '    ' + entryTypeIconMarkup(entry.path, isFolder)
         + '  </div>'
         + '  <div class="entry-actions">'
-        + (isFolder ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
-        + '    <button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'
+        // Chips row: status indicators for selected/excluded/included-in-parent
+        + (isExcluded ? '<span class="chip warn" style="align-self:center;">Excluded</span>' : '')
+        + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;opacity:0.75;">✓ included in selection</span>' : '')
+        + (selected && excludedUnder > 0 ? '<span class="chip warn" style="align-self:center;" title="Items excluded from this folder">⚠ ' + String(excludedUnder) + ' excluded</span>' : '')
+        // Open button for folders (always visible unless excluded)
+        + (isFolder && !isExcluded ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        // Action buttons depend on context:
+        //   - excluded item → Restore button
+        //   - child of selected folder → Exclude button
+        //   - top-level item → normal Select/Remove toggle
+        + (isExcluded
+          ? '<button class="button primary" data-action="unexclude-item" data-path="' + escapeHtml(entry.path) + '">Restore</button>'
+          : (childOfSelection
+            ? '<button class="button warn" data-action="exclude-item" data-path="' + escapeHtml(entry.path) + '" title="Exclude this item from the parent folder\'s intake">✕ Exclude</button>'
+            : '<button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'))
         + '  </div>'
         + '</article>';
     }).join('') + '</div>';
@@ -1344,6 +1428,8 @@ function destinationGroupKey(model, index) {
     var fileBatchTitleSource = this._fileBatchTitleSource();
     var fileBatchResolvedTitle = this._fileBatchResolvedTitle();
     var fileBatchGrouping = this._fileBatchGroupingStrategy();
+    // Issue #1324: pre-compute exclusion context for this render pass.
+    var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
     if (!selections.length) {
       return '<div class="state-row">No server files or folders selected yet.</div>';
     }
@@ -1369,9 +1455,16 @@ function destinationGroupKey(model, index) {
         var previewMarkup = entry.type === 'file'
           ? this._serverPreviewMarkup(entry.path, entryName)
           : folderPreviewMarkup();
+        // Issue #1324: exclusion count chip for selected folders.
+        var excludedUnder = (entry.type === 'folder' && excludedItems.length)
+          ? getExcludedItemsUnderPath(entry.path, excludedItems).length
+          : 0;
+        var exclusionChip = excludedUnder > 0
+          ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(excludedUnder) + ' excluded</span>'
+          : '';
         return ''
           + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
-          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
@@ -1776,6 +1869,34 @@ function destinationGroupKey(model, index) {
     }
     if (action === 'clear-browser-files') {
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+    }
+    // Issue #1324: exclude a specific item that lives inside a selected folder.
+    if (action === 'exclude-item') {
+      event.preventDefault();
+      var excludePath = String(target.getAttribute('data-path') || '');
+      if (excludePath) {
+        var currentExcluded = Array.isArray(this._excludedItems) ? this._excludedItems : [];
+        if (currentExcluded.indexOf(excludePath) === -1) {
+          this._excludedItems = currentExcluded.concat([excludePath]);
+        }
+        this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+        this._refreshWizardPreview();
+        this._render();
+      }
+      return;
+    }
+    // Issue #1324: restore (un-exclude) a previously excluded item.
+    if (action === 'unexclude-item') {
+      event.preventDefault();
+      var restorePath = String(target.getAttribute('data-path') || '');
+      if (restorePath) {
+        this._excludedItems = (Array.isArray(this._excludedItems) ? this._excludedItems : [])
+          .filter(function (p) { return p !== restorePath; });
+        this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+        this._refreshWizardPreview();
+        this._render();
+      }
+      return;
     }
     originalHandleClick.call(this, event);
   };
