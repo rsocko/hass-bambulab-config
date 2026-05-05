@@ -1200,6 +1200,7 @@ function destinationGroupKey(model, index) {
     this._destinationChoice = 'curated';
     this._groupDestinations = [];
     this._selected = {};
+    this._highlightedLeftPath = null;
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
     this._restoreBackgroundScroll();
@@ -1451,7 +1452,44 @@ function destinationGroupKey(model, index) {
     var leftEntries = leftPanel.querySelectorAll('.entry-row');
     var rightEntries = rightPanel.querySelectorAll('.entry-row');
     
-    leftEntries.forEach(function (leftRow) {
+    // Restore highlighting if we have a previously selected entry
+    if (this._highlightedLeftPath) {
+      leftEntries.forEach(function (leftRow) {
+        var entryPath = leftRow.getAttribute('data-entry-path');
+        if (entryPath === self._highlightedLeftPath) {
+          leftRow.classList.add('highlighted');
+          // Find and highlight matching right-side models
+          var entryName = leftRow.querySelector('.entry-name');
+          var leftTitle = entryName ? entryName.textContent.trim() : '';
+          var found = false;
+          rightEntries.forEach(function (rightRow) {
+            var rightTitleElement = rightRow.querySelector('.entry-name');
+            var rightTitle = rightTitleElement ? rightTitleElement.textContent.trim() : '';
+            if (rightTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(rightTitle) !== -1) {
+              rightRow.classList.add('highlighted');
+              found = true;
+            } else {
+              rightRow.classList.add('related');
+            }
+          });
+          // If no title match, show all right entries as related
+          if (!found) {
+            rightEntries.forEach(function (r) {
+              r.classList.add('related');
+            });
+          }
+        }
+      });
+    }
+    
+    leftEntries.forEach(function (leftRow, index) {
+      var entryPath = String(index); // Use index as a fallback path identifier
+      var entryName = leftRow.querySelector('.entry-name');
+      if (entryName) {
+        entryPath = entryName.textContent.trim();
+      }
+      leftRow.setAttribute('data-entry-path', entryPath);
+      
       leftRow.addEventListener('click', function (event) {
         // Only highlight if clicking on the row itself, not on buttons
         var clickedButton = event.target.closest('[data-action]');
@@ -1470,28 +1508,34 @@ function destinationGroupKey(model, index) {
         
         if (!isCurrentlyHighlighted) {
           leftRow.classList.add('highlighted');
+          self._highlightedLeftPath = entryPath;
+          
           // Get the title from the left-side entry
           var titleElement = leftRow.querySelector('.entry-name');
           var leftTitle = titleElement ? titleElement.textContent.trim() : '';
           
-          // Find matching right-side entry by title and highlight it
+          // Find matching right-side entries - be flexible with matching
+          // Match by title or if left title appears in right title or vice versa
           var found = false;
           rightEntries.forEach(function (rightRow) {
             var rightTitleElement = rightRow.querySelector('.entry-name');
             var rightTitle = rightTitleElement ? rightTitleElement.textContent.trim() : '';
-            if (rightTitle === leftTitle) {
+            // Match if titles are equal or if one contains the other
+            if (rightTitle === leftTitle || rightTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(rightTitle) !== -1) {
               rightRow.classList.add('highlighted');
               found = true;
             } else {
               rightRow.classList.add('related');
             }
           });
-          // If no exact match found, just dim all right-side entries
+          // If no match found, dim all right-side entries
           if (!found) {
             rightEntries.forEach(function (r) {
               r.classList.add('related');
             });
           }
+        } else {
+          self._highlightedLeftPath = null;
         }
       }, false);
     });
@@ -1880,6 +1924,10 @@ function destinationGroupKey(model, index) {
 
   // Issue #1328: Override _render to attach highlight listeners after DOM update
   proto._render = function () {
+    // Clear highlighting when leaving step 2
+    if (this._wizardStep !== 2) {
+      this._highlightedLeftPath = null;
+    }
     originalRender.call(this);
     // Attach highlight listeners after rendering completes
     setTimeout(function () {
