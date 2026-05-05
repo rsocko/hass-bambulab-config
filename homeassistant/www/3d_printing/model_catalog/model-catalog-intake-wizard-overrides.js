@@ -1248,13 +1248,11 @@ function destinationGroupKey(model, index) {
         + previewMarkup
         + '    <div class="entry-main">'
         + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
-        // Issue #1323: when a folder upload contributes nested files, surface
-        // the file's relative path inside that folder (mirroring how the
-        // Server intake displays paths under "Model Inbox/..."). For loose
-        // single-file selections we skip the path line because it would just
-        // repeat the filename already shown above.
+        // Issue #1323: show only the folder path (not the file itself) under
+        // the filename. Loose single-file picks have no folder path so we
+        // omit the line entirely instead of repeating the filename.
         + (folderPath
-          ? '      <div class="entry-path">' + escapeHtml(relativePath) + '</div>'
+          ? '      <div class="entry-path">' + escapeHtml(folderPath) + '</div>'
           : '')
         + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
         + '    </div>'
@@ -1279,6 +1277,10 @@ function destinationGroupKey(model, index) {
     }
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
     var card = this;
+    // Issue #1323: the path line under each entry should show only the
+    // directory the entry lives in (not the entry itself). All entries in
+    // this list share the current browse path as their parent.
+    var parentDisplayPath = formatBrowsePathForDisplay(this._browse.path || '/');
     return '<div class="entries">' + this._browse.entries.map(function (entry) {
       var selected = !!card._selected[entry.path];
       var displayName = String(entry.name || (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.basename ? window.ModelCatalogIntakeShared.basename(entry.path) : entry.path) || '');
@@ -1292,7 +1294,7 @@ function destinationGroupKey(model, index) {
         + previewMarkup
         + '    <div class="entry-main">'
         + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
-        + '      <div class="entry-path">' + escapeHtml(formatBrowsePathForDisplay(entry.path || '')) + '</div>'
+        + (parentDisplayPath ? '      <div class="entry-path">' + escapeHtml(parentDisplayPath) + '</div>' : '')
         + (!isFolder && entry.size_bytes != null ? '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes)) + '</div>' : '')
         + '    </div>'
         + '    ' + entryTypeIconMarkup(entry.path, isFolder)
