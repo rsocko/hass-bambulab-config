@@ -1562,26 +1562,79 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
     var card = this;
 
-    // Issue #1349: the right pane no longer mirrors the left tree. Render a
-    // flat list of non-excluded staged files (no folder navigation, no Open
-    // button) so it matches the Server right pane contract — chosen entries
-    // only, with a click-to-jump affordance back to the parent folder on the
-    // left. Removed/excluded files do not appear here, matching the Server
-    // path's "remove makes it disappear from the right" behavior (see #1345
-    // regression noted in the issue).
+    // Issue #1354: the right pane mirrors the Server right pane contract —
+    // top-level uploaded folders appear as a single folder row (NOT recursive
+    // file lists), and loose files (no parent folder) appear as individual
+    // file rows. Excluding individual items inside a folder on the left does
+    // NOT collapse the folder row on the right; it only adds a "⚠ N excluded"
+    // chip. A folder disappears from the right pane only when ALL of its
+    // descendants are excluded (Server parity: remove-folder == deselect).
+    // Issue #1349: each row remains a click-to-jump affordance back to the
+    // staged-tree on the left.
     if (!showActions) {
-      var visibleFiles = files.filter(function (entry) {
-        return !card._isBrowserKeyExcluded(card._browserFileKey(entry));
+      // Group all (including excluded) files by their top-level folder so the
+      // folder row is stable even while individual files are excluded.
+      var folderGroups = {};
+      var folderOrder = [];
+      var looseFiles = [];
+      files.forEach(function (entry) {
+        var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
+        var rootKey = browserRootKey(relativePath);
+        if (rootKey) {
+          if (!folderGroups[rootKey]) {
+            folderGroups[rootKey] = { total: 0, excluded: 0 };
+            folderOrder.push(rootKey);
+          }
+          folderGroups[rootKey].total += 1;
+          if (card._isBrowserKeyExcluded(card._browserFileKey(entry))) {
+            folderGroups[rootKey].excluded += 1;
+          }
+        } else if (!card._isBrowserKeyExcluded(card._browserFileKey(entry))) {
+          looseFiles.push(entry);
+        }
       });
-      if (!visibleFiles.length) {
-        return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
-      }
-      visibleFiles.sort(function (a, b) {
+      // A folder disappears from the right pane when all of its files are
+      // excluded (parity with Server's remove-selection -> drops from right).
+      var visibleFolders = folderOrder.filter(function (rootKey) {
+        var info = folderGroups[rootKey];
+        return info.total > info.excluded;
+      });
+      visibleFolders.sort(function (a, b) { return a.localeCompare(b); });
+      looseFiles.sort(function (a, b) {
         var ap = String(a.relative_path || a.name || '');
         var bp = String(b.relative_path || b.name || '');
         return ap.localeCompare(bp);
       });
-      return '<div class="entries">' + visibleFiles.map(function (entry) {
+      if (!visibleFolders.length && !looseFiles.length) {
+        return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+      }
+      var folderMarkup = visibleFolders.map(function (rootKey) {
+        var info = folderGroups[rootKey];
+        var activeCount = info.total - info.excluded;
+        var countLine = info.excluded > 0
+          ? String(activeCount) + ' files · ' + String(info.excluded) + ' excluded'
+          : String(info.total) + ' files';
+        var exclusionChip = info.excluded > 0
+          ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(info.excluded) + ' excluded</span>'
+          : '';
+        return ''
+          + '<article class="entry-row selected right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(rootKey) + '" title="Jump to this folder on the left">'
+          + '  <div class="entry-top">'
+          + folderPreviewMarkup()
+          + '    <div class="entry-main">'
+          + '      <div class="entry-name">' + escapeHtml(rootKey) + '</div>'
+          + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(rootKey)) + '</div>'
+          + '      <div class="muted">' + escapeHtml(countLine) + '</div>'
+          + '    </div>'
+          + '    ' + entryTypeIconMarkup(rootKey, true)
+          + '  </div>'
+          + '  <div class="entry-actions">'
+          + '<span class="chip ok">selected</span>'
+          + exclusionChip
+          + '  </div>'
+          + '</article>';
+      }).join('');
+      var fileMarkup = looseFiles.map(function (entry) {
         var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
         var displayName = String(entry.name || relativePath || '');
         var parentPath = browserParentRelativePath(relativePath);
@@ -1590,7 +1643,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
           : '<div class="entry-thumb placeholder">No preview</div>';
         return ''
-          + '<article class="entry-row right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
+          + '<article class="entry-row selected right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
           + '  <div class="entry-top">'
           + previewMarkup
           + '    <div class="entry-main">'
@@ -1602,8 +1655,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '    </div>'
           + '    ' + entryTypeIconMarkup(relativePath, false)
           + '  </div>'
+          + '  <div class="entry-actions">'
+          + '<span class="chip ok">selected</span>'
+          + '  </div>'
           + '</article>';
-      }).join('') + '</div>';
+      }).join('');
+      return '<div class="entries">' + folderMarkup + fileMarkup + '</div>';
     }
 
     // Left pane (showActions=true): tree-navigated browse with Remove/Restore
