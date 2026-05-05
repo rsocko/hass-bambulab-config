@@ -629,7 +629,6 @@ function destinationGroupKey(model, index) {
     return ''
       + '<div class="result-summary">'
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
-      + '  <div class="result-line"><span>Cleanup policy</span><strong>' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + ' (automatic)</strong></div>'
       + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders</strong></div>'
       + (showControls && groupingStrategy !== 'flat'
         ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
@@ -1352,15 +1351,16 @@ function destinationGroupKey(model, index) {
         + renderPlanSummary(this)
         + '</div>';
     }
+    var isBrowserMode = this._wizardMode === 'browser';
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">Review the prepared upload, cleanup policy, and destination assignments before the final publish.</div></div></div>'
+      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">' + (isBrowserMode ? 'Review the prepared upload and destination assignments before the final publish.' : 'Review the prepared upload, cleanup policy, and destination assignments before the final publish.') + '</div></div></div>'
       + renderValidationSummary(this)
-      + '  <div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
-      + (this._wizardMode === 'browser'
-        ? '<div class="muted">Browser uploads automatically use ' + escapeHtml(this._cleanupPolicyFriendlyLabel('delete_on_verified')) + '.</div>'
-        : '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>')
-      + '  </div>'
+      + (isBrowserMode
+        ? ''
+        : '  <div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
+          + '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>'
+          + '  </div>')
       + this._renderDestinationSummary()
       + '</div>'
       + '<div class="wizard-panel">'
