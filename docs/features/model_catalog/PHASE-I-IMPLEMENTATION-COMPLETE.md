@@ -334,14 +334,49 @@ expect(executionTime).toBeLessThan(50);  // ✅
    - I1 filtering tests (core logic)
    - Integration verification tests
 
-**Total: 1,650+ lines of code + tests**
+3. ✅ **model-catalog-intake-wizard-components.js** — Entry point for all 13 components
+   - Loads all intake wizard modules with versioning
+   - Registered in `_resources.yaml` with cache-bust URL parameters
+   - Follows established model catalog resource pattern
+
+**Location:** All 13 components moved from `custom_components/` → `homeassistant/www/3d_printing/model_catalog/intake-wizard/` for consistent resource versioning
+
+**Total: 1,650+ lines of code + tests + resource versioning**
 
 ---
 
 ## Deployment Checklist
 
+### Resource Versioning & Cache-Busting
+
+✅ **Components moved to standard location:**
+- From: `homeassistant/custom_components/model_catalog/www/intake-wizard/` (internal, no versioning)
+- To: `homeassistant/www/3d_printing/model_catalog/intake-wizard/` (public, versioned, cacheable)
+
+✅ **Entry point created:** `model-catalog-intake-wizard-components.js`
+- Imports all 13 components with `?v=1` query parameters
+- Registered in `_resources.yaml` for HA Lovelace loader
+- Follows established pattern for all model catalog cards
+
+✅ **Versioning scheme:**
+```yaml
+# In _resources.yaml
+- url: /local/3d_printing/model_catalog/model-catalog-intake-wizard-components.js?v=1
+  type: module
+```
+
+**Future updates:** When changing any component, increment both:
+1. Component version in entry point: `store.js?v=1` → `store.js?v=2`
+2. Entry point version in `_resources.yaml`: `?v=1` → `?v=2`
+3. Hard browser refresh: `Ctrl+Shift+R` to clear cache
+
+### Pre-Deployment Review
+
 - [ ] Review upload-handler.js for code quality
 - [ ] Run test suite: `npm test -- test_phase_i_end_to_end.js`
+- [ ] Verify files at new location: `homeassistant/www/3d_printing/model_catalog/intake-wizard/` (13 files)
+- [ ] Verify `_resources.yaml` has new entry point registered
+- [ ] Verify entry point imports all 13 components with ?v=1
 - [ ] Test full wizard flow manually: Source → Organize → Validate → Upload
 - [ ] Verify excluded items never appear in upload
 - [ ] Test with 50, 100, 500 files
@@ -352,7 +387,8 @@ expect(executionTime).toBeLessThan(50);  // ✅
 - [ ] Performance test: 1000 files <50ms
 - [ ] Integration test all phases D-I together
 - [ ] Deploy to staging with all phases
-- [ ] Hard refresh browser after deployment
+- [ ] Hard refresh browser after deployment (Ctrl+Shift+R)
+- [ ] Verify Network tab shows versioned resource URLs
 - [ ] Manual QA: Full wizard flow with real files
 
 ---

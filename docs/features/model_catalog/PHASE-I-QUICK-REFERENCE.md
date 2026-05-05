@@ -1,9 +1,37 @@
 # Phase I: End-to-End Testing & Deployment — Quick Reference
 
-## Files Created (2 total, 1,650+ lines)
+## Files Created (4 total, 1,650+ lines)
 
 1. **`upload-handler.js`** (550 lines) — Upload step component with I1 filtering
 2. **`test_phase_i_end_to_end.js`** (1,100+ lines) — 40+ E2E and integration tests
+3. **`model-catalog-intake-wizard-components.js`** — Entry point for all 13 wizard components (new)
+4. **13 moved files** — All intake-wizard components now at `homeassistant/www/3d_printing/model_catalog/intake-wizard/` with versioning
+
+## Resource Loading & Cache-Busting
+
+**Location:** All 13 intake-wizard components moved to standard location for resource versioning.
+
+**Entry Point:**
+```javascript
+// homeassistant/www/3d_printing/model_catalog/model-catalog-intake-wizard-components.js
+import './intake-wizard/store.js?v=1';
+import './intake-wizard/upload-handler.js?v=1';
+// ... all 13 components with ?v=NN for cache-busting
+```
+
+**Registration in `_resources.yaml`:**
+```yaml
+- url: /local/3d_printing/model_catalog/model-catalog-intake-wizard-components.js?v=1
+  type: module
+```
+
+**How versioning works:**
+1. Component changes → increment component `?v=N` in entry point
+2. Entry point changes → increment `?v=N` in `_resources.yaml`
+3. Browser hard refresh (`Ctrl+Shift+R`) clears cache
+4. New version URLs force fresh fetch of resources
+
+**Consistent with:** All model catalog cards use same versioning + caching pattern
 
 ## Quick Start
 

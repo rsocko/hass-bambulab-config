@@ -4,6 +4,8 @@
   type: module
 - url: /local/3d_printing/model_catalog/model-catalog-intake-cards.js?v=88
   type: module
+- url: /local/3d_printing/model_catalog/model-catalog-intake-wizard-components.js?v=1
+  type: module
 - url: /local/3d_printing/model_catalog/model-catalog-browser-card.js?v=24
   type: module
 - url: /local/3d_printing/model_catalog/thumbnail-lazy-loader.js?v=1
