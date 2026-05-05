@@ -1613,7 +1613,7 @@ function destinationGroupKey(model, index) {
         + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
         + planSummaryMarkup
         + '  <div class="wizard-panel-scroll" style="flex:1 1 auto;min-height:0;overflow:auto;">' + renderPlanSummary(this, { includeDestinations: false, skipSummary: true }) + '</div>'
-        + (isLoading ? '<div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>' : '')
+        + (isLoading ? '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>' : '')
         + '</div>';
     }
     if (this._wizardStep === 3) {
