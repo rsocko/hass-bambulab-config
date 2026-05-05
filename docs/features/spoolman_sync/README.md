@@ -166,6 +166,12 @@ transient tracking is not expected to be populated in production today.
 
 - [Bambuddy Partial-Usage Sidecar Design](bambuddy-partial-usage-sidecar-design.md)
 
+Plan-only implementation documentation:
+
+- [Bambuddy Partial-Usage Hybrid Implementation Plan](bambuddy-partial-usage-implementation-plan.md)
+- [Bambuddy Partial-Usage Contracts and Decision Tables](bambuddy-partial-usage-contracts.md)
+- [Bambuddy Partial-Usage Rollout and Validation Runbook](bambuddy-partial-usage-rollout-validation.md)
+
 Current repository implementation status:
 
 - sidecar endpoints now exist for `POST /admin/archive-partial-usage/estimate`
