@@ -370,6 +370,26 @@ function renderValidationSummary(card) {
           passed: card._validationData.validation_state !== 'needs_manual_grouping',
           detail: 'Validation only advances when the prepared upload resolves into a real file set.',
         },
+        // Issue #1347: fallback exclusion summary so the chip reflects the
+        // wizard-side exclusion count even if the backend omits the check.
+        (function () {
+          var fallbackExcluded = 0;
+          if (Array.isArray(card._excludedItems)) {
+            fallbackExcluded += card._excludedItems.length;
+          }
+          if (typeof card._excludedBrowserKeyCount === 'function') {
+            fallbackExcluded += card._excludedBrowserKeyCount();
+          }
+          return {
+            key: 'excluded_items_summary',
+            label: 'Exclusion summary',
+            passed: true,
+            detail: fallbackExcluded > 0
+              ? (String(fallbackExcluded) + ' items excluded from selected sources.')
+              : 'No items excluded.',
+            excluded_count: fallbackExcluded,
+          };
+        })(),
       ];
   var warningText = (card._validationData.warnings || []).map(function (warning) {
     return warning && (warning.message || warning.code) ? (warning.message || warning.code) : String(warning || '');
@@ -381,9 +401,23 @@ function renderValidationSummary(card) {
     + '</div>'
     + '<div class="entries">' + checks.map(function (check) {
       var passed = !!check.passed;
+      // Issue #1347: the informational "excluded_items_summary" check should
+      // surface the excluded count rather than a generic "pass" badge so the
+      // Validation step matches the Select/Organize "X excluded" affordance.
+      var excludedCount = (check && typeof check.excluded_count === 'number') ? check.excluded_count : 0;
+      var isExclusionCheck = check && check.key === 'excluded_items_summary';
+      var chipClass;
+      var chipLabel;
+      if (isExclusionCheck) {
+        chipClass = excludedCount > 0 ? 'warn' : 'ok';
+        chipLabel = excludedCount > 0 ? (String(excludedCount) + ' excluded') : 'none excluded';
+      } else {
+        chipClass = passed ? 'ok' : 'warn';
+        chipLabel = passed ? 'pass' : 'attention';
+      }
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + (passed ? 'pass' : 'fail') + '"><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip ' + (passed ? 'ok' : 'warn') + '">' + escapeHtml(passed ? 'pass' : 'attention') + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + (passed ? 'pass' : 'fail') + '"><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
     + (typeof card._renderDestinationSummary === 'function' ? '<div class="title-row"><div><div class="title">Destination Plan</div><div class="subtitle">Existing targets keep their current model or group name.</div></div></div>' + card._renderDestinationSummary() : '')

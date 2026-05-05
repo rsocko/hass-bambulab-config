@@ -294,6 +294,50 @@ def test_folder_selection_ignores_unsupported_files_during_validate_and_group(tm
         assert group_payload["warnings"] == []
     finally:
         client.__exit__(None, None, None)
+
+
+def test_folder_selection_excluded_items_propagate_to_validation(tmp_path: Path) -> None:
+    """Issue #1347: excluded_items from server folder selections must reach the
+    Validation step so the wizard's exclusion summary reflects the real count
+    rather than reporting 'No items excluded.'"""
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder = source_root / "ModelDrop"
+    folder.mkdir()
+    keep_file = folder / "keep.3mf"
+    keep_file.write_bytes(b"keep-bytes")
+    drop_file = folder / "drop.3mf"
+    drop_file.write_bytes(b"drop-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        select_response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {
+                        "type": "folder",
+                        "path": str(folder),
+                        "recurse": True,
+                        "excluded_items": [str(drop_file)],
+                    }
+                ]
+            },
+        )
+        assert select_response.status_code == 200
+        item_id = select_response.json()["upload_id"]
+
+        validate_response = client.post(f"/api/intake/items/{item_id}/validate")
+        assert validate_response.status_code == 200
+        validate_payload = validate_response.json()
+        checks = validate_payload["validation"]["checks"]
+        summary_check = next(c for c in checks if c["key"] == "excluded_items_summary")
+        assert summary_check["excluded_count"] == 1
+        assert "1 items excluded" in summary_check["detail"]
+    finally:
+        client.__exit__(None, None, None)
+
+
 def test_folder_selection_group_uses_queued_title_hint_when_title_omitted(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -606,6 +650,7 @@ def test_browser_upload_stages_and_validates_mixed_sources(tmp_path: Path) -> No
             "supported_types",
             "duplicate_scan",
             "commit_ready",
+            "excluded_items_summary",
         ]
         assert all(check["passed"] is True for check in validate_payload["validation"]["checks"])
     finally:

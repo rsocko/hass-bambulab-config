@@ -359,12 +359,15 @@ def _build_validation_checks(
         {
             "key": "excluded_items_summary",
             "label": "Exclusion summary",
-            "passed": True,  # Always passes - informational only
+            "passed": True,  # Informational only - never blocks commit
             "detail": (
                 f"{excluded_files_count} items excluded from selected sources. Proceeding with {resolved_count} remaining items for import."
                 if excluded_files_count > 0
                 else "No items excluded."
             ),
+            # Issue #1347: surface the count so the wizard chip shows "N excluded"
+            # instead of a misleading generic "pass" badge.
+            "excluded_count": excluded_files_count,
         },
     ]
     

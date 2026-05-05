@@ -348,6 +348,12 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                 validated_entries[-1]["grouping_strategy"] = grouping_strategy
             if "preserve_folder_structure" in selection:
                 validated_entries[-1]["preserve_folder_structure"] = _coerce_bool(selection.get("preserve_folder_structure"))
+            # Issue #1347: persist excluded_items so validation/grouping can honour user removals.
+            raw_excluded = selection.get("excluded_items")
+            if isinstance(raw_excluded, list):
+                normalized_excluded = [str(p).strip() for p in raw_excluded if str(p or "").strip()]
+                if normalized_excluded:
+                    validated_entries[-1]["excluded_items"] = normalized_excluded
             expanded_file_count += 1
 
         else:  # folder
@@ -399,6 +405,12 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                 validated_entries[-1]["grouping_strategy"] = grouping_strategy
             if "preserve_folder_structure" in selection:
                 validated_entries[-1]["preserve_folder_structure"] = _coerce_bool(selection.get("preserve_folder_structure"))
+            # Issue #1347: persist excluded_items so validation/grouping can honour user removals.
+            raw_excluded = selection.get("excluded_items")
+            if isinstance(raw_excluded, list):
+                normalized_excluded = [str(p).strip() for p in raw_excluded if str(p or "").strip()]
+                if normalized_excluded:
+                    validated_entries[-1]["excluded_items"] = normalized_excluded
             expanded_file_count += len(contained_files)
 
     # Create intake queue record
