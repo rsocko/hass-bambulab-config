@@ -215,17 +215,30 @@ function buildBrowserPlanPreview(card) {
 function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
+  var isLoading = card._loading || false;
+  var skipSummary = settings.skipSummary || false;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
+    if (isLoading) {
+      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...</div>';
+    }
     return '<div class="state-row">No planned output yet. Advance to Organize after selecting sources to resolve the model plan.</div>';
   }
   var destinationPlans = settings.includeDestinations && typeof card._syncGroupDestinationsFromPreview === 'function'
     ? card._syncGroupDestinationsFromPreview()
     : [];
+  var summaryHtml = '';
+  if (!skipSummary) {
+    summaryHtml = ''
+      + '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
+      + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
+      + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>';
+    if (isLoading) {
+      summaryHtml += '  <div class="result-line muted"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 16px; width: 16px; height: 16px; display: inline-block; margin-right: 6px;"></ha-icon>Recalculating...</div>';
+    }
+    summaryHtml += '</div>';
+  }
   return ''
-    + '<div class="result-summary">'
-    + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>'
-    + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
-    + '</div>'
+    + summaryHtml
     + '<div class="entries">' + preview.planned_models.map(function (model, index) {
       var destinationPlan = destinationPlans[index] || null;
       var totalFiles = (model.files || []).length;
@@ -1395,6 +1408,10 @@ function destinationGroupKey(model, index) {
       + '.wizard-step.complete{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.45);}'
       + '.wizard-dialog .entry-row{background:var(--card-background-color,rgba(15,23,42,0.12));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
       + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
+      + '.wizard-dialog .entry-row.highlighted{background:rgba(124,179,66,0.15);border-color:rgba(124,179,66,0.35);}'
+      + '.wizard-dialog .entry-row.related{opacity:0.65;}'
+      + '.wizard-dialog .result-summary.recalculating{opacity:0.6;}'
+      + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
       + '.wizard-dialog .input,.wizard-dialog .select{background:var(--card-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
       + '.wizard-dialog .button{background:var(--secondary-background-color,rgba(148,163,184,0.12));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
@@ -1412,6 +1429,41 @@ function destinationGroupKey(model, index) {
       + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
       + '</style>';
     return overrideStyles + baseHtml;
+  };
+
+  // Issue #1328: Attach event listeners for left/right side highlighting in ORGANIZE step
+  proto._attachHighlightListeners = function () {
+    if (!this.shadowRoot || this._wizardStep !== 2) {
+      return;
+    }
+    var self = this;
+    var entryRows = this.shadowRoot.querySelectorAll('.entry-row');
+    entryRows.forEach(function (row) {
+      row.addEventListener('click', function (event) {
+        // Only highlight if clicking on the row itself, not on buttons
+        var clickedButton = event.target.closest('[data-action]');
+        if (clickedButton) {
+          return; // Let button handlers take precedence
+        }
+        event.stopPropagation();
+        // Toggle highlighting on click
+        var isCurrentlyHighlighted = row.classList.contains('highlighted');
+        entryRows.forEach(function (r) {
+          r.classList.remove('highlighted', 'related');
+        });
+        if (!isCurrentlyHighlighted) {
+          row.classList.add('highlighted');
+          // Mark all right-side models as related
+          var reviewPanel = self.shadowRoot.querySelector('.wizard-panel:last-of-type');
+          if (reviewPanel) {
+            var rightEntries = reviewPanel.querySelectorAll('.entry-row');
+            rightEntries.forEach(function (r) {
+              r.classList.add('related');
+            });
+          }
+        }
+      }, false);
+    });
   };
 
   proto._renderWizardBody = function () {
@@ -1444,14 +1496,22 @@ function destinationGroupKey(model, index) {
         + '</div>';
     }
     if (this._wizardStep === 2) {
+      var preview = this._previewData;
+      var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
+        ? '<div class="result-summary">'
+          + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
+          + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>'
+          + '</div>'
+        : '';
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart. The right side shows the resolved outcome.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div></div>'
         + '</div>'
-        + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output and destination mapping shown here.</div></div></div>'
-        + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this, { includeDestinations: true }) + '</div>'
+        + '<div class="wizard-panel" style="display:flex;flex-direction:column;">'
+        + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
+        + planSummaryMarkup
+        + '  <div class="wizard-panel-scroll" style="flex:1 1 auto;min-height:0;overflow:auto;">' + renderPlanSummary(this, { includeDestinations: false, skipSummary: true }) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 3) {
@@ -1783,5 +1843,14 @@ function destinationGroupKey(model, index) {
         this._refreshWizardPreview();
       }
     }
+  };
+
+  // Issue #1328: Override _render to attach highlight listeners after DOM update
+  proto._render = function () {
+    originalRender.call(this);
+    // Attach highlight listeners after rendering completes
+    setTimeout(function () {
+      this._attachHighlightListeners();
+    }.bind(this), 0);
   };
 })();
