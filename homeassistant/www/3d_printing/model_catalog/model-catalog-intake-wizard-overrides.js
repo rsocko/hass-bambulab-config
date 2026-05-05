@@ -237,33 +237,32 @@ function renderPlanSummary(card, options) {
     }
     summaryHtml += '</div>';
   }
-  return ''
-    + summaryHtml
-    + '<div class="entries">' + preview.planned_models.map(function (model, index) {
-      var destinationPlan = destinationPlans[index] || null;
-      var totalFiles = (model.files || []).length;
-      var visibleFiles = (model.files || []).slice(0, 4);
-      var destinationMarkup = '';
-      var files = visibleFiles.map(function (entry) {
-        return '<div class="entry-path">' + escapeHtml(entry.relative_path || entry.filename || '') + '</div>';
-      }).join('');
-      if (totalFiles > visibleFiles.length) {
-        files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
-      }
-      if (destinationPlan) {
-        var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
-        var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
-        destinationMarkup = ''
-          + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
-          + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
-      }
-      return ''
-        + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
-        + destinationMarkup
-        + files
-        + '</article>';
-    }).join('') + '</div>';
+  var entriesHtml = '<div class="entries' + (isLoading ? ' recalculating-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
+    var destinationPlan = destinationPlans[index] || null;
+    var totalFiles = (model.files || []).length;
+    var visibleFiles = (model.files || []).slice(0, 4);
+    var destinationMarkup = '';
+    var files = visibleFiles.map(function (entry) {
+      return '<div class="entry-path">' + escapeHtml(entry.relative_path || entry.filename || '') + '</div>';
+    }).join('');
+    if (totalFiles > visibleFiles.length) {
+      files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
+    }
+    if (destinationPlan) {
+      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
+      destinationMarkup = ''
+        + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
+        + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
+    }
+    return ''
+      + '<article class="entry-row' + (isLoading ? ' loading-item' : '') + '">'
+      + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
+      + destinationMarkup
+      + files
+      + '</article>';
+  }).join('') + '</div>';
+  return summaryHtml + entriesHtml;
 }
 
 function renderValidationSummary(card) {
@@ -1410,6 +1409,8 @@ function destinationGroupKey(model, index) {
       + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
       + '.wizard-dialog .entry-row.highlighted{background:rgba(124,179,66,0.15);border-color:rgba(124,179,66,0.35);}'
       + '.wizard-dialog .entry-row.related{opacity:0.65;}'
+      + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
+      + '.wizard-dialog .entries.recalculating-entries{opacity:0.5;}'
       + '.wizard-dialog .result-summary.recalculating{opacity:0.6;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
@@ -1426,6 +1427,10 @@ function destinationGroupKey(model, index) {
       + '.wizard-dialog .entry-thumb.folder-thumb .folder-thumb-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:lowercase;color:var(--secondary-text-color);}'
       // Browser file row: keep file-type icon at the top-right corner.
       + '.wizard-dialog .entry-row .entry-actions{justify-content:flex-end;}'
+      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.4);backdrop-filter:blur(2px);display:grid;place-items:center;z-index:10;border-radius:18px;}'
+      + '.wizard-panel.recalculating-panel{position:relative;}'
+      + '.result-summary.recalculating{position:relative;opacity:0.6;}'
+      + '.result-summary.recalculating::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border:3px solid rgba(96,165,250,0.2);border-top-color:rgba(96,165,250,0.8);border-radius:50%;animation:spin 1s linear infinite;z-index:5;}'
       + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
       + '</style>';
     return overrideStyles + baseHtml;
@@ -1523,8 +1528,9 @@ function destinationGroupKey(model, index) {
     }
     if (this._wizardStep === 2) {
       var preview = this._previewData;
+      var isLoading = this._loading || false;
       var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
-        ? '<div class="result-summary">'
+        ? '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
           + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
           + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>'
           + '</div>'
@@ -1534,10 +1540,11 @@ function destinationGroupKey(model, index) {
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div></div>'
         + '</div>'
-        + '<div class="wizard-panel" style="display:flex;flex-direction:column;">'
+        + '<div class="wizard-panel' + (isLoading ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
         + planSummaryMarkup
         + '  <div class="wizard-panel-scroll" style="flex:1 1 auto;min-height:0;overflow:auto;">' + renderPlanSummary(this, { includeDestinations: false, skipSummary: true }) + '</div>'
+        + (isLoading ? '<div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>' : '')
         + '</div>';
     }
     if (this._wizardStep === 3) {
