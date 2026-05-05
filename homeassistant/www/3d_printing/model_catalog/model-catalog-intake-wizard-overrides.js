@@ -215,7 +215,7 @@ function buildBrowserPlanPreview(card) {
 function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
-  var isLoading = card._loading || false;
+  var isLoading = card._loading || card._previewLoading || false;
   var skipSummary = settings.skipSummary || false;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
     if (isLoading) {
@@ -697,29 +697,35 @@ function destinationGroupKey(model, index) {
     if (!this._wizardOpen || this._wizardStep < 2) {
       return;
     }
-    if (this._wizardMode === 'browser') {
-      this._previewData = buildBrowserPlanPreview(this);
-      this._syncGroupDestinationsFromPreview();
-      this._render();
-      return;
-    }
-    var selections = this._serverPayloadSelections('server');
-    if (!selections.length) {
-      this._previewData = null;
-      this._groupDestinations = [];
-      this._render();
-      return;
-    }
+    var requestToken = Number(this._previewRefreshToken || 0) + 1;
+    this._previewRefreshToken = requestToken;
+    this._previewLoading = true;
+    this._render();
     try {
-      this._previewData = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_plan_intake', {
-        source_entries: selections,
-      });
-      this._syncGroupDestinationsFromPreview();
+      if (this._wizardMode === 'browser') {
+        this._previewData = buildBrowserPlanPreview(this);
+        this._syncGroupDestinationsFromPreview();
+      } else {
+        var selections = this._serverPayloadSelections('server');
+        if (!selections.length) {
+          this._previewData = null;
+          this._groupDestinations = [];
+        } else {
+          this._previewData = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_plan_intake', {
+            source_entries: selections,
+          });
+          this._syncGroupDestinationsFromPreview();
+        }
+      }
     } catch (_error) {
       this._previewData = null;
       this._groupDestinations = [];
+    } finally {
+      if (this._previewRefreshToken === requestToken) {
+        this._previewLoading = false;
+        this._render();
+      }
     }
-    this._render();
   };
 
   proto._syncGroupDestinationsFromPreview = function () {
@@ -1199,6 +1205,7 @@ function destinationGroupKey(model, index) {
     this._commitMode = 'queue';
     this._destinationChoice = 'curated';
     this._groupDestinations = [];
+    this._previewLoading = false;
     this._selected = {};
     this._highlightedLeftIndex = null;
     this._clearBrowserFiles();
@@ -1590,7 +1597,7 @@ function destinationGroupKey(model, index) {
     }
     if (this._wizardStep === 2) {
       var preview = this._previewData;
-      var isLoading = this._loading || false;
+      var isLoading = this._loading || this._previewLoading || false;
       var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
         ? '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
           + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
