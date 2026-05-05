@@ -1364,7 +1364,7 @@ function destinationGroupKey(model, index) {
           : folderPreviewMarkup();
         return ''
           + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
-          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span><button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button></div></div>'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
@@ -1408,11 +1408,9 @@ function destinationGroupKey(model, index) {
       + '.wizard-step.complete{background:rgba(74,222,128,0.18);border-color:rgba(74,222,128,0.45);}'
       + '.wizard-dialog .entry-row{background:var(--card-background-color,rgba(15,23,42,0.12));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
       + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
-      + '.wizard-dialog .entry-row.highlighted{background:rgba(124,179,66,0.15);border-color:rgba(124,179,66,0.35);}'
+      + '.wizard-dialog .entry-row.highlighted{background:rgba(var(--rgb-primary-color,96 165 250),0.25);border-color:rgba(var(--rgb-primary-color,96 165 250),0.4);}'
       + '.wizard-dialog .entry-row.related{opacity:0.65;}'
       + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
-      + '.wizard-dialog .entries.recalculating-entries{opacity:0.5;}'
-      + '.wizard-dialog .result-summary.recalculating{opacity:0.6;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
       + '.wizard-dialog .input,.wizard-dialog .select{background:var(--card-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--primary-text-color);}'
@@ -1428,10 +1426,12 @@ function destinationGroupKey(model, index) {
       + '.wizard-dialog .entry-thumb.folder-thumb .folder-thumb-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:lowercase;color:var(--secondary-text-color);}'
       // Browser file row: keep file-type icon at the top-right corner.
       + '.wizard-dialog .entry-row .entry-actions{justify-content:flex-end;}'
-      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.4);backdrop-filter:blur(2px);display:grid;place-items:center;z-index:10;border-radius:18px;}'
+      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:10;border-radius:18px;pointer-events:none;}'
       + '.wizard-panel.recalculating-panel{position:relative;}'
-      + '.result-summary.recalculating{position:relative;opacity:0.6;}'
+      + '.result-summary.recalculating{filter:blur(2px);opacity:0.5;}'
+      + '.entries.recalculating-entries{filter:blur(3px);opacity:0.4;}'
       + '.result-summary.recalculating::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border:3px solid rgba(96,165,250,0.2);border-top-color:rgba(96,165,250,0.8);border-radius:50%;animation:spin 1s linear infinite;z-index:5;}'
+      + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
       + '</style>';
     return overrideStyles + baseHtml;
