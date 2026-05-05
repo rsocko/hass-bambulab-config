@@ -753,6 +753,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var counts = this._browserSelectionCounts();
     var fileCount = counts.fileCount;
     var folderCount = counts.folderCount;
+    // Issue #1324: surface excluded count alongside the selected counts so the
+    // user has a visible cue that some staged items were removed (parity with
+    // Server path).
+    var excludedFileCount = typeof this._excludedBrowserKeyCount === 'function'
+      ? this._excludedBrowserKeyCount()
+      : 0;
     var folderNames = this._browserTopFolderNames();
     var groupingStrategy = this._browserGroupingStrategy();
     var recurse = this._browserRecurse();
@@ -767,7 +773,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return ''
       + '<div class="result-summary">'
       + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
-      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders</strong></div>'
+      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
       + (showControls && groupingStrategy !== 'flat'
         ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
         : '')
@@ -1284,6 +1290,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._result = null;
       this._selected = {};
       this._excludedItems = []; // Issue #1324
+      this._excludedBrowserKeys = {}; // Issue #1324: clear browser exclusions on open
       this._browserSourcePath = '';
       this._clearBrowserFiles();
       await this._setSourceMode('server');
@@ -1326,6 +1333,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._previewLoading = false;
     this._selected = {};
     this._excludedItems = []; // Issue #1324
+    this._excludedBrowserKeys = {}; // Issue #1324: clear browser exclusions on close
     this._highlightedLeftIndex = null;
     this._browserSourcePath = '';
     this._clearBrowserFiles();
@@ -1353,15 +1361,22 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._refreshWizardPreview();
   };
 
+  // Issue #1324: in the wizard the per-file Remove button should mark the entry
+  // as excluded (consistent with Server path semantics) instead of physically
+  // dropping it from _browserFiles. The entry stays in the left tree with a
+  // strike-through and Restore button, and disappears from the staged list /
+  // plan / upload payload via _filterBrowserFilesForSubmit. The home-card's
+  // legacy remove handler still routes through proto._removeBrowserFile, so
+  // we override it here for the wizard surface.
   proto._removeBrowserFile = function (key) {
-    originalRemoveBrowserFile.call(this, key);
-    var treeAfterRemove = buildBrowserSourceTree(this._browserFiles || []);
-    var currentNode = getBrowserTreeNode(treeAfterRemove, this._browserSourcePath || '');
-    if (!currentNode || !currentNode.path) {
-      this._browserSourcePath = '';
+    var normalizedKey = String(key || '');
+    if (!normalizedKey) {
+      return;
     }
+    this._setBrowserKeyExcluded(normalizedKey, true);
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._refreshWizardPreview();
+    this._render();
   };
 
   proto._renderBrowserSelectionSummary = function () {
@@ -1432,7 +1447,20 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
-    var tree = buildBrowserSourceTree(files);
+    // Issue #1324: the left pane (showActions=true) keeps excluded entries
+    // visible so the user can Restore them. The right "Current Batch" pane
+    // (showActions=false) reflects what will actually be uploaded, so we
+    // build that pane's tree from the post-exclusion file list.
+    var card = this;
+    var treeFiles = showActions
+      ? files
+      : files.filter(function (entry) {
+        return !card._isBrowserKeyExcluded(card._browserFileKey(entry));
+      });
+    if (!treeFiles.length) {
+      return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+    }
+    var tree = buildBrowserSourceTree(treeFiles);
     var currentPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
     var node = getBrowserTreeNode(tree, currentPath);
     if (currentPath && (!node || node.path !== currentPath)) {
@@ -1447,35 +1475,59 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (!folderNames.length && !fileRows.length) {
       return '<div class="state-row">No entries available at this path.</div>';
     }
-    var card = this;
     var foldersMarkup = folderNames.map(function (folderName) {
       var folderNode = node.folders[folderName];
       var folderPath = folderNode.path;
       var fileCount = 0;
+      // Issue #1324: count active vs excluded descendants so the folder row
+      // can mirror the Server path (⚠ N excluded badge + Restore when fully
+      // excluded) for parity across paths.
+      var excludedCount = 0;
       var pending = [folderNode];
       while (pending.length) {
         var next = pending.pop();
-        fileCount += (next.files || []).length;
+        (next.files || []).forEach(function (fileItem) {
+          fileCount += 1;
+          if (card._isBrowserKeyExcluded(card._browserFileKey(fileItem.entry || {}))) {
+            excludedCount += 1;
+          }
+        });
         Object.keys(next.folders || {}).forEach(function (k) {
           pending.push(next.folders[k]);
         });
       }
+      var activeCount = fileCount - excludedCount;
+      var fullyExcluded = fileCount > 0 && activeCount === 0;
+      var folderRowClass = 'entry-row' + (fullyExcluded ? ' excluded' : '');
+      var countLine = fullyExcluded
+        ? String(fileCount) + ' files (all excluded)'
+        : (excludedCount > 0
+          ? String(activeCount) + ' files · ' + String(excludedCount) + ' excluded'
+          : String(fileCount) + ' files');
+      var folderActionButton = '';
+      if (showActions) {
+        if (fullyExcluded) {
+          folderActionButton = '    <button class="button primary" data-action="restore-browser-folder" data-path="' + escapeHtml(folderPath) + '">Restore</button>';
+        } else {
+          folderActionButton = '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>';
+        }
+      }
       return ''
-        + '<article class="entry-row">'
+        + '<article class="' + folderRowClass + '">'
         + '  <div class="entry-top">'
         + folderPreviewMarkup()
         + '    <div class="entry-main">'
-        + '      <div class="entry-name">' + escapeHtml(folderName) + '</div>'
+        + '      <div class="entry-name"' + (fullyExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(folderName) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(folderPath)) + '</div>'
-        + '      <div class="muted">' + String(fileCount) + ' files</div>'
+        + '      <div class="muted">' + escapeHtml(countLine) + '</div>'
         + '    </div>'
         + '    ' + entryTypeIconMarkup(folderPath, true)
         + '  </div>'
         + '  <div class="entry-actions">'
+        + (excludedCount > 0 && !fullyExcluded ? '    <span class="chip warn" title="Items excluded from this folder">⚠ ' + String(excludedCount) + ' excluded</span>' : '')
+        + (fullyExcluded ? '    <span class="chip warn">Excluded</span>' : '')
         + '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>'
-        + (showActions
-          ? '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>'
-          : '')
+        + folderActionButton
         + '  </div>'
         + '</article>';
     }).join('');
@@ -1485,20 +1537,32 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var previewMarkup = previewUrl
         ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(item.name) + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder">No preview</div>';
+      // Issue #1324: render excluded files struck-through with a Restore action
+      // so the user can recover from an accidental Remove on the Source step.
+      var entryKey = card._browserFileKey(entry);
+      var isExcluded = card._isBrowserKeyExcluded(entryKey);
+      var fileRowClass = 'entry-row' + (isExcluded ? ' excluded' : '');
+      var fileActions = '';
+      if (showActions) {
+        fileActions = isExcluded
+          ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Restore</button>'
+          : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
+      }
       return ''
-        + '<article class="entry-row">'
+        + '<article class="' + fileRowClass + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
-        + '      <div class="entry-name">' + escapeHtml(item.name) + '</div>'
+        + '      <div class="entry-name"' + (isExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(item.name) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(currentPath)) + '</div>'
         + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
         + '    </div>'
         + '    ' + entryTypeIconMarkup(item.path, false)
         + '  </div>'
-        + (showActions
-          ? '  <div class="entry-actions"><button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button></div>'
-          : '')
+        + '  <div class="entry-actions">'
+        + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
+        + fileActions
+        + '  </div>'
         + '</article>';
     }).join('');
     return '<div class="entries">' + foldersMarkup + filesMarkup + '</div>';
@@ -2104,19 +2168,52 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     if (action === 'remove-browser-folder') {
       event.preventDefault();
+      // Issue #1324: align with Server path — "removing" a folder marks all
+      // descendants as excluded so they remain visible on the left tree (with
+      // strike-through + Restore) but are dropped from the staged list, plan
+      // preview, and upload payload via _filterBrowserFilesForSubmit.
       var folderPath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
       if (folderPath) {
         var prefix = folderPath + '/';
-        var keysToRemove = (this._browserFiles || []).filter(function (entry) {
+        var card = this;
+        (this._browserFiles || []).forEach(function (entry) {
           var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
-          return relativePath === folderPath || relativePath.indexOf(prefix) === 0;
-        }, this).map(function (entry) {
-          return this._browserFileKey(entry);
-        }, this);
-        for (var i = 0; i < keysToRemove.length; i += 1) {
-          originalRemoveBrowserFile.call(this, keysToRemove[i]);
-        }
-        this._browserSourcePath = browserParentRelativePath(this._browserSourcePath || '');
+          if (relativePath === folderPath || relativePath.indexOf(prefix) === 0) {
+            card._setBrowserKeyExcluded(card._browserFileKey(entry), true);
+          }
+        });
+        this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+        this._refreshWizardPreview();
+        this._render();
+      }
+      return;
+    }
+    // Issue #1324: restore (un-exclude) all descendants of a previously
+    // excluded browser folder. Triggered from the folder's Restore button.
+    if (action === 'restore-browser-folder') {
+      event.preventDefault();
+      var restoreFolderPath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
+      if (restoreFolderPath) {
+        var restorePrefix = restoreFolderPath + '/';
+        var restoreCard = this;
+        (this._browserFiles || []).forEach(function (entry) {
+          var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
+          if (relativePath === restoreFolderPath || relativePath.indexOf(restorePrefix) === 0) {
+            restoreCard._setBrowserKeyExcluded(restoreCard._browserFileKey(entry), false);
+          }
+        });
+        this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+        this._refreshWizardPreview();
+        this._render();
+      }
+      return;
+    }
+    // Issue #1324: restore a single previously excluded browser file.
+    if (action === 'restore-browser-file') {
+      event.preventDefault();
+      var restoreKey = String(target.getAttribute('data-key') || '');
+      if (restoreKey) {
+        this._setBrowserKeyExcluded(restoreKey, false);
         this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
         this._refreshWizardPreview();
         this._render();

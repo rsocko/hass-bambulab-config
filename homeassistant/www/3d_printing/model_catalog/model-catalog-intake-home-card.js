@@ -54,6 +54,13 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._browse = { path: "/", entries: [], parent_path: null, is_root: true };
     this._selected = {};
     this._browserFiles = [];
+    // Issue #1324: keys (from _browserFileKey) of browser entries the user has
+    // "removed" on the Source step. Excluded entries stay in _browserFiles so
+    // the left tree can still show them (struck-through with a Restore button)
+    // for parity with the Server path. They are filtered out of every consumer
+    // that builds the staged list, plan preview, organize step, or upload
+    // payload via _filterBrowserFilesForSubmit.
+    this._excludedBrowserKeys = {};
     this._intakeItems = [];
     this._queueUploads = [];
     this._wizardOpen = false;
@@ -208,6 +215,34 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _clearBrowserFiles() {
     this._revokeBrowserPreviewUrls(this._browserFiles);
     this._browserFiles = [];
+    // Issue #1324: clearing the staging set also clears any pending exclusions.
+    this._excludedBrowserKeys = {};
+  }
+
+  // Issue #1324: returns true when the given browser entry key has been marked
+  // as excluded by the user on the Source step. Excluded entries remain in
+  // _browserFiles for display purposes but are filtered out of all submit/plan
+  // consumers via _filterBrowserFilesForSubmit.
+  _isBrowserKeyExcluded(key) {
+    return !!(this._excludedBrowserKeys && this._excludedBrowserKeys[String(key || '')]);
+  }
+
+  _setBrowserKeyExcluded(key, excluded) {
+    var nextExcluded = Object.assign({}, this._excludedBrowserKeys || {});
+    var normalizedKey = String(key || '');
+    if (!normalizedKey) {
+      return;
+    }
+    if (excluded) {
+      nextExcluded[normalizedKey] = true;
+    } else {
+      delete nextExcluded[normalizedKey];
+    }
+    this._excludedBrowserKeys = nextExcluded;
+  }
+
+  _excludedBrowserKeyCount() {
+    return Object.keys(this._excludedBrowserKeys || {}).length;
   }
 
   _selectedList() {
@@ -250,7 +285,13 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
 
   _browserTopLevelFolders() {
     var folderMap = {};
+    var card = this;
     this._browserFiles.forEach(function (entry) {
+      // Issue #1324: skip entries the user has marked as excluded so the
+      // selected-folder summary reflects what will actually be uploaded.
+      if (card._isBrowserKeyExcluded(card._browserFileKey(entry))) {
+        return;
+      }
       var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
       var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
       if (pathParts.length > 1) {
@@ -276,10 +317,19 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!entries.length) {
       return [];
     }
-    if (!this._browserHasFolderUpload() || this._browserRecurse()) {
-      return entries.slice();
+    // Issue #1324: drop any entry the user has explicitly removed/excluded on
+    // the Source step before applying the recursive-vs-flat scope filter.
+    var card = this;
+    var nonExcluded = entries.filter(function (entry) {
+      return !card._isBrowserKeyExcluded(card._browserFileKey(entry));
+    });
+    if (!nonExcluded.length) {
+      return [];
     }
-    return entries.filter(function (entry) {
+    if (!this._browserHasFolderUpload() || this._browserRecurse()) {
+      return nonExcluded.slice();
+    }
+    return nonExcluded.filter(function (entry) {
       var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
       var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
       // Non-recursive folder mode keeps only direct children of selected roots.
@@ -626,6 +676,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         this._revokeBrowserPreviewUrl(existingEntry.preview_url);
       }
       nextByKey[nextKey] = nextEntry;
+      // Issue #1324: re-adding a previously excluded entry is a deliberate user
+      // act (re-pick of the same file or folder), so treat it as an implicit
+      // Restore.
+      if (this._isBrowserKeyExcluded(nextKey)) {
+        this._setBrowserKeyExcluded(nextKey, false);
+      }
     }, this);
     this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
       return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
