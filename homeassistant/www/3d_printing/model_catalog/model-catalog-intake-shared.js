@@ -519,6 +519,10 @@
     + ".validation-check input:checked{background:#16a34a;border-color:#4ade80;}"
     + ".validation-check input:checked::after{content:'';width:8px;height:5px;border-left:2px solid #f0fdf4;border-bottom:2px solid #f0fdf4;transform:rotate(-45deg) translateY(-1px);}"
     + ".validation-check.fail input{border-color:rgba(148,163,184,0.48);background:rgba(15,23,42,0.2);}"
+    + ".validation-check.warn{color:#fbbf24;}"
+    + ".validation-icon.warn{display:inline-grid;place-content:center;width:16px;height:16px;font-size:14px;line-height:1;color:#fbbf24;}"
+    + ".link-button{background:transparent;border:0;padding:0;margin-left:8px;font:inherit;color:#fbbf24;text-decoration:underline;cursor:pointer;}"
+    + ".link-button:hover{color:#fde047;}"
     + ".hidden-upload-input{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;}"
     + "@media (max-width: 860px){.two-column,.grid,.item-grid{grid-template-columns:1fr;}.shell{padding:14px;}}";
 

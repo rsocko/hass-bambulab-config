@@ -402,22 +402,37 @@ function renderValidationSummary(card) {
     + '<div class="entries">' + checks.map(function (check) {
       var passed = !!check.passed;
       // Issue #1347: the informational "excluded_items_summary" check should
-      // surface the excluded count rather than a generic "pass" badge so the
-      // Validation step matches the Select/Organize "X excluded" affordance.
+      // surface the excluded count as a Warning (orange) with a "Go to Select
+      // Step" link so the user can return to the Select step to review/restore
+      // exclusions, instead of rendering a misleading "pass" badge.
       var excludedCount = (check && typeof check.excluded_count === 'number') ? check.excluded_count : 0;
       var isExclusionCheck = check && check.key === 'excluded_items_summary';
+      var hasExclusions = isExclusionCheck && excludedCount > 0;
+      var checkClass = hasExclusions ? 'warn' : (passed ? 'pass' : 'fail');
+      var iconHtml;
+      if (hasExclusions) {
+        iconHtml = '<span class="validation-icon warn" aria-hidden="true">⚠</span>';
+      } else {
+        iconHtml = '<input type="checkbox" disabled' + (passed ? ' checked' : '') + '>';
+      }
       var chipClass;
       var chipLabel;
-      if (isExclusionCheck) {
-        chipClass = excludedCount > 0 ? 'warn' : 'ok';
-        chipLabel = excludedCount > 0 ? (String(excludedCount) + ' excluded') : 'none excluded';
+      if (hasExclusions) {
+        chipClass = 'warn';
+        chipLabel = 'Warning · ' + String(excludedCount) + ' excluded';
+      } else if (isExclusionCheck) {
+        chipClass = 'ok';
+        chipLabel = 'none excluded';
       } else {
         chipClass = passed ? 'ok' : 'warn';
         chipLabel = passed ? 'pass' : 'attention';
       }
+      var actionHtml = hasExclusions
+        ? '<button class="link-button" data-action="wizard-jump-step" data-step="1">Go to Select Step</button>'
+        : '';
       return ''
         + '<article class="entry-row">'
-        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + (passed ? 'pass' : 'fail') + '"><input type="checkbox" disabled' + (passed ? ' checked' : '') + '> ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + '</div></div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
+        + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div></div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
     + (typeof card._renderDestinationSummary === 'function' ? '<div class="title-row"><div><div class="title">Destination Plan</div><div class="subtitle">Existing targets keep their current model or group name.</div></div></div>' + card._renderDestinationSummary() : '')
@@ -2320,6 +2335,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
         this._refreshWizardPreview();
         this._render();
+      }
+      return;
+    }
+    // Issue #1347: jump backward to a specific wizard step (used by the
+    // Validate step's "Go to Select Step" link when exclusions are present).
+    if (action === 'wizard-jump-step') {
+      event.preventDefault();
+      var jumpTarget = parseInt(target.getAttribute('data-step') || '0', 10);
+      if (jumpTarget >= 1 && jumpTarget <= this._wizardStepCount() && jumpTarget < this._wizardStep) {
+        this._goToWizardStep(jumpTarget);
       }
       return;
     }
