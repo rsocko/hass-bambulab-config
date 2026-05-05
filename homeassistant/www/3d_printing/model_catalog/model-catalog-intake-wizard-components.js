@@ -9,28 +9,28 @@
  */
 
 // Phase F: State Management
-import './intake-wizard-store.js';
+import './intake-wizard-store.js?v=4';
 
 // Phase D-E: Source Step Components
-import './intake-wizard-source-summary.js';
-import './intake-wizard-source-browser.js';
-import './intake-wizard-source-server.js';
-import './intake-wizard-source-server-summary.js';
+import './intake-wizard-source-summary.js?v=4';
+import './intake-wizard-source-browser.js?v=4';
+import './intake-wizard-source-server.js?v=4';
+import './intake-wizard-source-server-summary.js?v=4';
 
 // Phase E: Shared Components
-import './intake-wizard-partial-folder-badge.js';
-import './intake-wizard-return-to-source-banner.js';
-import './intake-wizard-recursive-toggle.js';
-import './intake-wizard-recursive-override-warning.js';
-import './intake-wizard-pane-sync.js';
+import './intake-wizard-partial-folder-badge.js?v=4';
+import './intake-wizard-return-to-source-banner.js?v=4';
+import './intake-wizard-recursive-toggle.js?v=4';
+import './intake-wizard-recursive-override-warning.js?v=4';
+import './intake-wizard-pane-sync.js?v=4';
 
 // Phase G: Organize Step
-import './intake-wizard-organize-step.js';
+import './intake-wizard-organize-step.js?v=4';
 
 // Phase H: Validate Step
-import './intake-wizard-validate-step.js';
+import './intake-wizard-validate-step.js?v=4';
 
 // Phase I: Upload Handler
-import './intake-wizard-upload-handler.js';
+import './intake-wizard-upload-handler.js?v=4';
 
 console.log('✓ Intake Wizard components loaded');
