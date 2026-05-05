@@ -848,6 +848,38 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         : '<div class="muted">Move to Organize to choose Group / Split behavior, title handling, and any folder-specific structure options.</div>');
   };
 
+  // Issue #1345: parity with browser side — surface a summary block at the top
+  // of the Server right pane so operators see selected files/folders and the
+  // resolved planned-model count alongside the per-entry list.
+  proto._renderServerWizardSummary = function () {
+    var selections = this._selectedList();
+    if (!selections.length) {
+      return '';
+    }
+    var fileCount = 0;
+    var folderCount = 0;
+    selections.forEach(function (entry) {
+      if (entry && entry.type === 'folder') {
+        folderCount += 1;
+      } else {
+        fileCount += 1;
+      }
+    });
+    var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
+    var excludedCount = excludedItems.length;
+    var preview = this._previewData;
+    var plannedModelCount = preview && preview.summary
+      ? Number(preview.summary.planned_model_count || (preview.planned_models ? preview.planned_models.length : 0))
+      : 0;
+    var browsePath = formatBrowsePathForDisplay(this._browse && this._browse.path ? this._browse.path : '/');
+    return ''
+      + '<div class="result-summary">'
+      + '  <div class="result-line"><span>Source path</span><strong>' + escapeHtml(browsePath) + '</strong></div>'
+      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedCount > 0 ? ', ' + String(excludedCount) + ' excluded' : '') + '</strong></div>'
+      + (plannedModelCount > 0 ? '  <div class="result-line"><span>Planned models</span><strong>' + String(plannedModelCount) + '</strong></div>' : '')
+      + '</div>';
+  };
+
   proto._invalidateWizardArtifacts = function (options) {
     var settings = options || {};
     var uploadId = this._preparedUploadId;
@@ -1496,16 +1528,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
-    // Issue #1324: the left pane (showActions=true) keeps excluded entries
-    // visible so the user can Restore them. The right "Current Batch" pane
-    // (showActions=false) reflects what will actually be uploaded, so we
-    // build that pane's tree from the post-exclusion file list.
+    // Issue #1345: the right pane keeps excluded entries visible (struck
+    // through with an Excluded chip) so removed items remain in the wizard
+    // for parity with the Server path. Left pane (showActions=true) still
+    // owns the Restore action.
     var card = this;
-    var treeFiles = showActions
-      ? files
-      : files.filter(function (entry) {
-        return !card._isBrowserKeyExcluded(card._browserFileKey(entry));
-      });
+    var treeFiles = files;
     if (!treeFiles.length) {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
@@ -2028,13 +2056,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
-            + '  <div class="intake-path-row">'
-            + (this._browse.parent_path
-              ? '<button class="button icon-only" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
-              : '')
-            + '    <div class="intake-path-text">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
-            + '  </div>'
-            + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowseEntriesMirror() + this._renderServerSelectionRows(false) + '</div></div>'
+            // Issue #1345: the right pane now shows only the chosen entries
+            // (no mirrored navigation tree, no second path/breadcrumb row).
+            // Navigation lives on the left pane; the right pane is a
+            // selection summary plus the per-entry list.
+            + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderServerWizardSummary() + this._renderServerSelectionRows(false) + '</div></div>'
           + '</div>';
       }
           var browserPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
