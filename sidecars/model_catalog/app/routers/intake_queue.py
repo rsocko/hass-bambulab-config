@@ -522,7 +522,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
     if not isinstance(source_entries, list) or len(source_entries) == 0:
         raise IntakeSourceValidationError(
             error="invalid_payload",
-            message="source_entries must be a non-empty list of {type, path, recurse?}",
+            message="source_entries must be a non-empty list of {type, path, recurse?, excluded_items?}",
         )
 
     validated_entries: list[dict[str, Any]] = []
@@ -535,6 +535,21 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
 
         entry_type = str(entry.get("type") or "").strip().lower()
         entry_path = str(entry.get("path") or "").strip()
+        excluded_items = entry.get("excluded_items") or []
+        
+        # Validate excluded_items format
+        if not isinstance(excluded_items, list):
+            raise IntakeSourceValidationError(
+                error="invalid_excluded_items",
+                message="source_entry.excluded_items must be a list of strings",
+            )
+        for item in excluded_items:
+            if not isinstance(item, str):
+                raise IntakeSourceValidationError(
+                    error="invalid_excluded_items",
+                    message="Each item in excluded_items must be a string",
+                )
+        
         if entry_type not in {"file", "folder"}:
             raise IntakeSourceValidationError(
                 error="invalid_source_type",
@@ -594,6 +609,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
             "type": entry_type,
             "path": str(resolved_path),
             "recurse": _coerce_bool(entry.get("recurse", True)) if entry_type == "folder" else False,
+            "excluded_items": excluded_items,  # NEW: Include excluded_items in validated entry
             "source_mtime": entry_source_metadata["source_mtime"],
             "source_ctime": entry_source_metadata["source_ctime"],
             "source_birthtime": entry_source_metadata.get("source_birthtime"),
@@ -824,11 +840,15 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
             },
         )
 
+    # NEW: Consolidate overlapping selections
+    from ..services.intake_consolidation import _consolidate_overlapping_selections
+    consolidated_entries = _consolidate_overlapping_selections(validated_entries)
+    
     request_signature = _payload_signature(
         {
             "route": "intake_queue_post_upload",
             "cleanup_policy": cleanup_policy,
-            "source_entries": validated_entries,
+            "source_entries": consolidated_entries,
         }
     )
     replay_response = _maybe_replay_idempotent_upload(
@@ -841,7 +861,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
 
     upload_id, now_iso = _create_intake_queue_upload_record(
         db_path=state.settings.db_path,
-        validated_entries=validated_entries,
+        validated_entries=consolidated_entries,  # Use consolidated entries instead
         cleanup_policy=cleanup_policy,
         telemetry={
             "warnings_count": 0,
@@ -855,7 +875,7 @@ def intake_queue_post_upload(request: Request, payload: dict[str, Any]) -> Any:
         "status": "queued",
         "verification_status": "unverified",
         "cleanup_policy": cleanup_policy,
-        "source_entry_count": len(validated_entries),
+        "source_entry_count": len(consolidated_entries),  # Use consolidated count
         "created_at": now_iso,
     }
     response_payload = _response_with_idempotency(response_payload, key=idempotency_key, replayed=False)
