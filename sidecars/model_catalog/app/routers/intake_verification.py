@@ -32,6 +32,7 @@ from .._helpers import (
 from ..services import get_all_indexed_file_hashes
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
 from ..services.intake_eligibility_service import ActionEligibility
+from ..services.intake_grouping import _prefilter_excluded_items
 
 from .intake_queue import (
     _expand_source_entries_to_files,
@@ -132,6 +133,18 @@ def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) 
 
     normalized_entries = [entry for entry in source_entries if isinstance(entry, dict)]
     expanded_files, warnings = _expand_intake_source_entries(source_entries=normalized_entries)
+    
+    # Extract excluded_items from source entries and filter out excluded files
+    excluded_items = []
+    for entry in normalized_entries:
+        if isinstance(entry, dict) and entry.get("excluded_items"):
+            excluded_list = entry.get("excluded_items")
+            if isinstance(excluded_list, list):
+                excluded_items.extend(excluded_list)
+    
+    if excluded_items:
+        expanded_files = _prefilter_excluded_items(expanded_files, excluded_items)
+    
     plan = _plan_intake_groups(source_entries=normalized_entries, expanded_files=expanded_files)
     return {
         "success": True,
@@ -1765,6 +1778,11 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
                     "warnings": expansion_warnings,
                 },
             )
+
+        # Extract excluded_items from payload and filter out excluded files
+        excluded_items = payload.get("excluded_items", [])
+        if excluded_items and isinstance(excluded_items, list):
+            expanded_files = _prefilter_excluded_items(expanded_files, excluded_items)
 
         plan = _plan_intake_groups(source_entries=source_entries, expanded_files=expanded_files)
         plan_summary = dict(plan.get("summary") or {})

@@ -1349,7 +1349,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   // instead of a Select/Remove toggle. Selected folders also surface a ⚠️ badge
   // when one or more of their children have been excluded.
   proto._renderBrowseEntries = function () {
-    console.log('[#1324] _renderBrowseEntries called, browseLoading=' + this._browseLoading);
     if (this._browseLoading) {
       return '<div class="state-row">Loading allowlisted source paths...</div>';
     }
@@ -1381,7 +1380,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + (childOfSelection ? ' related' : '')
         + (isExcluded ? ' excluded' : '');
       return ''
-        + '<article class="' + rowClass + '" data-debug-1324="yes">'
+        + '<article class="' + rowClass + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
