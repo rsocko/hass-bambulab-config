@@ -481,6 +481,33 @@ function isChildOfSelection(itemPath, selectedPaths) {
   return false;
 }
 
+// Issue #1349: true when any path in selectedPaths is a descendant of folderPath.
+// Used to mark unselected parent folders that contain selected items so the
+// left-side browse tree can decorate them with a dashed border (vs the solid
+// colored border applied to a folder that is itself selected).
+function hasSelectedDescendants(folderPath, selectedPaths) {
+  var normalized = normalizePath(folderPath);
+  var prefix = normalized === '/' ? '/' : normalized + '/';
+  for (var i = 0; i < selectedPaths.length; i += 1) {
+    var sel = normalizePath(selectedPaths[i]);
+    if (sel !== normalized && sel.indexOf(prefix) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Issue #1349: dirname of a normalized server path (e.g. /foo/bar/baz.3mf -> /foo/bar).
+// Trailing slash is stripped first so folders behave the same as files.
+function serverParentPath(pathValue) {
+  var raw = String(pathValue || '').replace(/\/+$/, '');
+  var slash = raw.lastIndexOf('/');
+  if (slash <= 0) {
+    return '/';
+  }
+  return raw.slice(0, slash);
+}
+
 // Issue #1324: return the subset of excludedItems whose paths are under parentPath.
 function getExcludedItemsUnderPath(parentPath, excludedItems) {
   var normalized = normalizePath(parentPath);
@@ -1528,15 +1555,56 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
     }
     var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
-    // Issue #1345: the right pane keeps excluded entries visible (struck
-    // through with an Excluded chip) so removed items remain in the wizard
-    // for parity with the Server path. Left pane (showActions=true) still
-    // owns the Restore action.
     var card = this;
-    var treeFiles = files;
-    if (!treeFiles.length) {
-      return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+
+    // Issue #1349: the right pane no longer mirrors the left tree. Render a
+    // flat list of non-excluded staged files (no folder navigation, no Open
+    // button) so it matches the Server right pane contract — chosen entries
+    // only, with a click-to-jump affordance back to the parent folder on the
+    // left. Removed/excluded files do not appear here, matching the Server
+    // path's "remove makes it disappear from the right" behavior (see #1345
+    // regression noted in the issue).
+    if (!showActions) {
+      var visibleFiles = files.filter(function (entry) {
+        return !card._isBrowserKeyExcluded(card._browserFileKey(entry));
+      });
+      if (!visibleFiles.length) {
+        return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+      }
+      visibleFiles.sort(function (a, b) {
+        var ap = String(a.relative_path || a.name || '');
+        var bp = String(b.relative_path || b.name || '');
+        return ap.localeCompare(bp);
+      });
+      return '<div class="entries">' + visibleFiles.map(function (entry) {
+        var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
+        var displayName = String(entry.name || relativePath || '');
+        var parentPath = browserParentRelativePath(relativePath);
+        var previewUrl = String(entry.preview_url || '');
+        var previewMarkup = previewUrl
+          ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+          : '<div class="entry-thumb placeholder">No preview</div>';
+        return ''
+          + '<article class="entry-row right-pane-jump" data-action="jump-browser-parent" data-parent="' + escapeHtml(parentPath) + '" title="Jump to parent folder on the left">'
+          + '  <div class="entry-top">'
+          + previewMarkup
+          + '    <div class="entry-main">'
+          + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+          + (parentPath
+            ? '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(parentPath)) + '</div>'
+            : '')
+          + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
+          + '    </div>'
+          + '    ' + entryTypeIconMarkup(relativePath, false)
+          + '  </div>'
+          + '</article>';
+      }).join('') + '</div>';
     }
+
+    // Left pane (showActions=true): tree-navigated browse with Remove/Restore
+    // actions. This is the only place the user navigates browser-source
+    // folders; the right pane is a flat selection summary.
+    var treeFiles = files;
     var tree = buildBrowserSourceTree(treeFiles);
     var currentPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
     var node = getBrowserTreeNode(tree, currentPath);
@@ -1575,19 +1643,25 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       var activeCount = fileCount - excludedCount;
       var fullyExcluded = fileCount > 0 && activeCount === 0;
-      var folderRowClass = 'entry-row' + (fullyExcluded ? ' excluded' : '');
+      // Issue #1349: a folder that contains any included (non-excluded) files
+      // gets a dashed primary border so it visually mirrors the Server-side
+      // "contains selection" treatment. Browser mode has no separate
+      // "selected folder" concept — every folder visible in the staged tree
+      // either contains included items or is fully excluded.
+      var containsSelection = !fullyExcluded && activeCount > 0;
+      var folderRowClass = 'entry-row'
+        + (fullyExcluded ? ' excluded' : '')
+        + (containsSelection ? ' contains-selection' : '');
       var countLine = fullyExcluded
         ? String(fileCount) + ' files (all excluded)'
         : (excludedCount > 0
           ? String(activeCount) + ' files · ' + String(excludedCount) + ' excluded'
           : String(fileCount) + ' files');
       var folderActionButton = '';
-      if (showActions) {
-        if (fullyExcluded) {
-          folderActionButton = '    <button class="button primary" data-action="restore-browser-folder" data-path="' + escapeHtml(folderPath) + '">Restore</button>';
-        } else {
-          folderActionButton = '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>';
-        }
+      if (fullyExcluded) {
+        folderActionButton = '    <button class="button primary" data-action="restore-browser-folder" data-path="' + escapeHtml(folderPath) + '">Restore</button>';
+      } else {
+        folderActionButton = '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>';
       }
       return ''
         + '<article class="' + folderRowClass + '">'
@@ -1619,12 +1693,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var entryKey = card._browserFileKey(entry);
       var isExcluded = card._isBrowserKeyExcluded(entryKey);
       var fileRowClass = 'entry-row' + (isExcluded ? ' excluded' : '');
-      var fileActions = '';
-      if (showActions) {
-        fileActions = isExcluded
-          ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Restore</button>'
-          : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
-      }
+      var fileActions = isExcluded
+        ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Restore</button>'
+        : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
       return ''
         + '<article class="' + fileRowClass + '">'
         + '  <div class="entry-top">'
@@ -1715,9 +1786,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var isExcluded = excludedItems.indexOf(entry.path) !== -1;
       // Issue #1324: count how many excluded items live under a selected folder.
       var excludedUnder = (selected && isFolder) ? getExcludedItemsUnderPath(entry.path, excludedItems).length : 0;
+      // Issue #1349: mark unselected parent folders that contain selected items
+      // so the left-side browse tree can show a dashed primary border (vs the
+      // solid border for a folder that is itself selected).
+      var containsSelection = !selected && isFolder && hasSelectedDescendants(entry.path, selectedPaths);
       var rowClass = 'entry-row'
         + (selected ? ' selected' : '')
         + (childOfSelection ? ' included-in-selection' : '')
+        + (containsSelection ? ' contains-selection' : '')
         + (isExcluded ? ' excluded' : '');
       return ''
         + '<article class="' + rowClass + '">'
@@ -1782,7 +1858,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(excludedUnder) + ' excluded</span>'
             : '';
           return ''
-            + '<article class="entry-row selected" data-path="' + escapeHtml(entry.path) + '">'
+            + '<article class="entry-row selected right-pane-jump" data-path="' + escapeHtml(entry.path) + '" data-action="jump-server-parent" data-parent="' + escapeHtml(parentPath || '/') + '" title="Jump to parent folder on the left">'
             + '  <div class="entry-top">'
             + previewMarkup
             + '    <div class="entry-main">'
@@ -1891,6 +1967,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // selection" relationship is obvious instead of looking inactive.
       + '.wizard-dialog .entry-row.included-in-selection{opacity:1;border-style:dashed;border-width:2px;border-color:var(--primary-color,#60a5fa);background:rgba(96,165,250,0.08);}'
       + '.wizard-dialog .entry-row.included-in-selection .chip{background:rgba(96,165,250,0.28);border-color:var(--primary-color,#60a5fa);color:var(--primary-text-color);font-weight:600;opacity:1;}'
+      // Issue #1349: a folder that contains selected/included items (but is
+      // not itself selected) gets a dashed primary border so the user can
+      // visually distinguish it from a fully-selected folder (solid border).
+      + '.wizard-dialog .entry-row.contains-selection:not(.selected){border-style:dashed;border-width:2px;border-color:var(--primary-color,#60a5fa);background:rgba(96,165,250,0.04);}'
+      // Issue #1349: rows in the right pane are clickable to jump to the
+      // entry's parent folder on the left (which now owns all navigation).
+      + '.wizard-dialog .entry-row.right-pane-jump{cursor:pointer;}'
+      + '.wizard-dialog .entry-row.right-pane-jump:hover{background:rgba(96,165,250,0.12);border-color:var(--primary-color,rgba(96,165,250,0.55));}'
       + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
@@ -2055,7 +2139,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="wizard-panel-scroll"><div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div></div>'
           + '</div>'
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
+          + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Click an entry to jump to its parent folder on the left. Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
             // Issue #1345: the right pane now shows only the chosen entries
             // (no mirrored navigation tree, no second path/breadcrumb row).
             // Navigation lives on the left pane; the right pane is a
@@ -2077,14 +2161,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowserSourceEntries(true) + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Organize will resolve how these staged files split into models.</div></div></div>'
-          + '  <div class="intake-path-row">'
-          + (browserPath
-            ? '<button class="button icon-only" data-action="browser-parent-path" data-path="' + escapeHtml(browserParentPath) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
-            : '')
-          + '    <div class="intake-path-text">' + escapeHtml(formatBrowserPathForDisplay(browserPath)) + '</div>'
-          + '  </div>'
-          + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + this._renderBrowserSourceEntries(false) + '</div>'
+        + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Click an entry to jump to its parent folder on the left. Organize will resolve how these staged files split into models.</div></div></div>'
+        + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + this._renderBrowserSourceEntries(false) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 2) {
@@ -2372,6 +2450,24 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       if (jumpTarget >= 1 && jumpTarget <= this._wizardStepCount() && jumpTarget < this._wizardStep) {
         this._goToWizardStep(jumpTarget);
       }
+      return;
+    }
+    // Issue #1349: clicking a Server right-pane row jumps the left-side
+    // browse tree to that entry's parent folder. The right pane is no
+    // longer used for navigation (it only summarizes the current selection).
+    if (action === 'jump-server-parent') {
+      event.preventDefault();
+      var serverParent = String(target.getAttribute('data-parent') || '/') || '/';
+      this._loadBrowse(serverParent);
+      return;
+    }
+    // Issue #1349: clicking a Browser right-pane row jumps the left-side
+    // staged-files tree to that file's parent folder for parity with the
+    // Server path.
+    if (action === 'jump-browser-parent') {
+      event.preventDefault();
+      this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-parent') || '');
+      this._render();
       return;
     }
     originalHandleClick.call(this, event);
