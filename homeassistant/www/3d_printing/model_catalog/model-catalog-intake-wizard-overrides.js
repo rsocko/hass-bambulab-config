@@ -851,14 +851,23 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var titleSourceOptions = folderCount
       ? '<option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>'
       : '<option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>';
+    // Issue #1356: Step 1 right pane uses chips instead of a key/value summary box.
+    // Source path is intentionally omitted (it's implicit -- this is Browser Upload).
+    var chipMarkup = ''
+      + '<div class="button-row intake-summary-chips">'
+      + '  <span class="chip"><ha-icon icon="mdi:folder" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:file" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(excludedFileCount) + ' Excluded</span>'
+      + '</div>';
     return ''
-      + '<div class="result-summary">'
-      + '  <div class="result-line"><span>Source path</span><strong>Browser Upload</strong></div>'
-      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
-      + (showControls && groupingStrategy !== 'flat'
-        ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
-        : '')
-      + '</div>'
+      + (showControls
+        ? '<div class="result-summary">'
+          + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
+          + (groupingStrategy !== 'flat'
+            ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+            : '')
+          + '</div>'
+        : chipMarkup)
       + (showControls
         ? '<div class="item-grid">'
           + (folderCount
@@ -877,7 +886,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>' + this._browserFlatCustomTitleRows()
             : '')
           + '<div class="muted">Organize controls how the selected browser files resolve into models. Validation and Commit reuse the resolved plan shown on the right.</div>'
-        : '<div class="muted">Move to Organize to choose Group / Split behavior, title handling, and any folder-specific structure options.</div>');
+        : '');
   };
 
   // Issue #1345: parity with browser side — surface a summary block at the top
@@ -899,16 +908,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     });
     var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
     var excludedCount = excludedItems.length;
-    var preview = this._previewData;
-    var plannedModelCount = preview && preview.summary
-      ? Number(preview.summary.planned_model_count || (preview.planned_models ? preview.planned_models.length : 0))
-      : 0;
-    var browsePath = formatBrowsePathForDisplay(this._browse && this._browse.path ? this._browse.path : '/');
+    // Issue #1356: Step 1 right pane uses chips instead of a key/value summary
+    // box. Source path is intentionally omitted from the right pane (the user
+    // can see/navigate it on the left).
     return ''
-      + '<div class="result-summary">'
-      + '  <div class="result-line"><span>Source path</span><strong>' + escapeHtml(browsePath) + '</strong></div>'
-      + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedCount > 0 ? ', ' + String(excludedCount) + ' excluded' : '') + '</strong></div>'
-      + (plannedModelCount > 0 ? '  <div class="result-line"><span>Planned models</span><strong>' + String(plannedModelCount) + '</strong></div>' : '')
+      + '<div class="button-row intake-summary-chips">'
+      + '  <span class="chip"><ha-icon icon="mdi:folder" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:file" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(excludedCount) + ' Excluded</span>'
       + '</div>';
   };
 
@@ -2201,7 +2208,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="wizard-panel-scroll"><div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div></div>'
           + '</div>'
           + '<div class="wizard-panel">'
-          + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Click an entry to jump to its parent folder on the left. Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
+          + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Click an entry to jump to its parent on the left.</div></div></div>'
             // Issue #1345: the right pane now shows only the chosen entries
             // (no mirrored navigation tree, no second path/breadcrumb row).
             // Navigation lives on the left pane; the right pane is a
@@ -2223,7 +2230,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowserSourceEntries(true) + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Click an entry to jump to its parent folder on the left. Organize will resolve how these staged files split into models.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Click an entry to jump to its parent on the left.</div></div></div>'
         + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + this._renderBrowserSourceEntries(false) + '</div>'
         + '</div>';
     }
