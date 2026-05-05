@@ -101,6 +101,80 @@ function browserRootKey(relativePath) {
   return parts.length > 1 ? parts[0] : '';
 }
 
+function normalizeBrowserRelativePath(pathValue) {
+  return normalizePath(pathValue).replace(/^\/+/, '');
+}
+
+function browserParentRelativePath(pathValue) {
+  var normalized = normalizeBrowserRelativePath(pathValue);
+  if (!normalized) {
+    return '';
+  }
+  var parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 1) {
+    return '';
+  }
+  return parts.slice(0, -1).join('/');
+}
+
+function formatBrowserPathForDisplay(pathValue) {
+  var normalized = normalizeBrowserRelativePath(pathValue);
+  return normalized ? normalized : 'Browser Upload';
+}
+
+function buildBrowserSourceTree(files) {
+  var root = {
+    name: '',
+    path: '',
+    folders: {},
+    files: [],
+  };
+  (files || []).forEach(function (entry) {
+    var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
+    if (!relativePath) {
+      return;
+    }
+    var parts = relativePath.split('/').filter(Boolean);
+    var cursor = root;
+    var accum = [];
+    for (var i = 0; i < parts.length - 1; i += 1) {
+      var segment = parts[i];
+      accum.push(segment);
+      if (!cursor.folders[segment]) {
+        cursor.folders[segment] = {
+          name: segment,
+          path: accum.join('/'),
+          folders: {},
+          files: [],
+        };
+      }
+      cursor = cursor.folders[segment];
+    }
+    cursor.files.push({
+      name: parts[parts.length - 1],
+      path: relativePath,
+      entry: entry,
+    });
+  });
+  return root;
+}
+
+function getBrowserTreeNode(root, pathValue) {
+  var normalized = normalizeBrowserRelativePath(pathValue);
+  if (!normalized) {
+    return root;
+  }
+  var parts = normalized.split('/').filter(Boolean);
+  var cursor = root;
+  for (var i = 0; i < parts.length; i += 1) {
+    if (!cursor || !cursor.folders || !cursor.folders[parts[i]]) {
+      return root;
+    }
+    cursor = cursor.folders[parts[i]];
+  }
+  return cursor || root;
+}
+
 function titleForStrategy(card, strategy, key) {
   if (!key || key === '__loose__') {
     return card._wizardMode === 'browser' ? card._browserBatchResolvedTitle() : 'Working Group';
@@ -1210,6 +1284,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._result = null;
       this._selected = {};
       this._excludedItems = []; // Issue #1324
+      this._browserSourcePath = '';
       this._clearBrowserFiles();
       await this._setSourceMode('server');
       try {
@@ -1223,6 +1298,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       return;
     }
+    this._browserSourcePath = '';
     return originalOpenWizard.call(this, mode);
   };
 
@@ -1251,6 +1327,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._selected = {};
     this._excludedItems = []; // Issue #1324
     this._highlightedLeftIndex = null;
+    this._browserSourcePath = '';
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
     this._restoreBackgroundScroll();
@@ -1271,12 +1348,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
 
   proto._appendBrowserFiles = function (fileList) {
     originalAppendBrowserFiles.call(this, fileList);
+    this._browserSourcePath = '';
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._refreshWizardPreview();
   };
 
   proto._removeBrowserFile = function (key) {
     originalRemoveBrowserFile.call(this, key);
+    var treeAfterRemove = buildBrowserSourceTree(this._browserFiles || []);
+    var currentNode = getBrowserTreeNode(treeAfterRemove, this._browserSourcePath || '');
+    if (!currentNode || !currentNode.path) {
+      this._browserSourcePath = '';
+    }
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._refreshWizardPreview();
   };
@@ -1341,6 +1424,122 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           : '')
         + '</article>';
     }).join('') + '</div>';
+  };
+
+  proto._renderBrowserSourceEntries = function (showActions) {
+    var files = this._browserFiles || [];
+    if (!files.length) {
+      return '<div class="state-row">No browser files staged yet. Add files or a folder to begin.</div>';
+    }
+    var formatBytes = (window.ModelCatalogIntakeShared && window.ModelCatalogIntakeShared.formatBytes) || function (n) { return String(n || 0); };
+    var tree = buildBrowserSourceTree(files);
+    var currentPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
+    var node = getBrowserTreeNode(tree, currentPath);
+    if (currentPath && (!node || node.path !== currentPath)) {
+      currentPath = '';
+      this._browserSourcePath = '';
+      node = tree;
+    }
+    var folderNames = Object.keys(node.folders || {}).sort();
+    var fileRows = (node.files || []).slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    if (!folderNames.length && !fileRows.length) {
+      return '<div class="state-row">No entries available at this path.</div>';
+    }
+    var card = this;
+    var foldersMarkup = folderNames.map(function (folderName) {
+      var folderNode = node.folders[folderName];
+      var folderPath = folderNode.path;
+      var fileCount = 0;
+      var pending = [folderNode];
+      while (pending.length) {
+        var next = pending.pop();
+        fileCount += (next.files || []).length;
+        Object.keys(next.folders || {}).forEach(function (k) {
+          pending.push(next.folders[k]);
+        });
+      }
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top">'
+        + folderPreviewMarkup()
+        + '    <div class="entry-main">'
+        + '      <div class="entry-name">' + escapeHtml(folderName) + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(folderPath)) + '</div>'
+        + '      <div class="muted">' + String(fileCount) + ' files</div>'
+        + '    </div>'
+        + '    ' + entryTypeIconMarkup(folderPath, true)
+        + '  </div>'
+        + '  <div class="entry-actions">'
+        + '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>'
+        + (showActions
+          ? '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>'
+          : '')
+        + '  </div>'
+        + '</article>';
+    }).join('');
+    var filesMarkup = fileRows.map(function (item) {
+      var entry = item.entry || {};
+      var previewUrl = String(entry.preview_url || '');
+      var previewMarkup = previewUrl
+        ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(item.name) + '" loading="lazy" decoding="async"></div>'
+        : '<div class="entry-thumb placeholder">No preview</div>';
+      return ''
+        + '<article class="entry-row">'
+        + '  <div class="entry-top">'
+        + previewMarkup
+        + '    <div class="entry-main">'
+        + '      <div class="entry-name">' + escapeHtml(item.name) + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(currentPath)) + '</div>'
+        + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
+        + '    </div>'
+        + '    ' + entryTypeIconMarkup(item.path, false)
+        + '  </div>'
+        + (showActions
+          ? '  <div class="entry-actions"><button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button></div>'
+          : '')
+        + '</article>';
+    }).join('');
+    return '<div class="entries">' + foldersMarkup + filesMarkup + '</div>';
+  };
+
+  proto._renderBrowseEntriesMirror = function () {
+    if (this._browseLoading) {
+      return '<div class="state-row">Loading allowlisted source paths...</div>';
+    }
+    if (!this._browse.entries.length) {
+      return '<div class="state-row">No allowlisted entries are available at this path.</div>';
+    }
+    var selectedPaths = Object.keys(this._selected || {});
+    var excludedItems = Array.isArray(this._excludedItems) ? this._excludedItems : [];
+    return '<div class="entries">' + this._browse.entries.map(function (entry) {
+      var selected = !!this._selected[entry.path];
+      var childOfSelection = !selected && isChildOfSelection(entry.path, selectedPaths);
+      var isExcluded = excludedItems.indexOf(entry.path) !== -1;
+      var rowClass = 'entry-row'
+        + (selected ? ' selected' : '')
+        + (childOfSelection ? ' related' : '')
+        + (isExcluded ? ' excluded' : '');
+      var displayName = String(entry.name || basename(entry.path) || entry.path);
+      return ''
+        + '<article class="' + rowClass + '">'
+        + '  <div class="entry-top">'
+        + (entry.type === 'folder' ? folderPreviewMarkup() : this._serverPreviewMarkup(entry.path, displayName))
+        + '    <div class="entry-main">'
+        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+        + '      <div class="entry-path">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
+        + '    </div>'
+        + '    ' + entryTypeIconMarkup(entry.path, entry.type === 'folder')
+        + '  </div>'
+        + '  <div class="entry-actions">'
+        + (selected ? '<span class="chip ok">selected</span>' : '')
+        + (!selected && childOfSelection ? '<span class="chip">included in selection</span>' : '')
+        + (isExcluded ? '<span class="chip warn">excluded</span>' : '')
+        + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
+        + '  </div>'
+        + '</article>';
+    }, this).join('') + '</div>';
   };
 
   // Issue #1322 + #1324: file-type icon top right, classed middle block for
@@ -1675,17 +1874,37 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
-          + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderServerSelectionRows(false) + '</div></div>'
+            + '  <div class="intake-path-row">'
+            + (this._browse.parent_path
+              ? '<button class="button icon-only" data-action="browse-parent" data-path="' + escapeHtml(this._browse.parent_path) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
+              : '')
+            + '    <div class="intake-path-text">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
+            + '  </div>'
+            + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowseEntriesMirror() + this._renderServerSelectionRows(false) + '</div></div>'
           + '</div>';
       }
+          var browserPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
+          var browserParentPath = browserParentRelativePath(browserPath);
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
-        + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div></div>'
+          + '  <div class="intake-path-row">'
+          + (browserPath
+            ? '<button class="button icon-only" data-action="browser-parent-path" data-path="' + escapeHtml(browserParentPath) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
+            : '')
+          + '    <div class="intake-path-text">' + escapeHtml(formatBrowserPathForDisplay(browserPath)) + '</div>'
+          + '  </div>'
+          + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowserSourceEntries(true) + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Organize will resolve how these staged files split into models.</div></div></div>'
-        + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + '</div>'
+          + '  <div class="intake-path-row">'
+          + (browserPath
+            ? '<button class="button icon-only" data-action="browser-parent-path" data-path="' + escapeHtml(browserParentPath) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
+            : '')
+          + '    <div class="intake-path-text">' + escapeHtml(formatBrowserPathForDisplay(browserPath)) + '</div>'
+          + '  </div>'
+          + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + this._renderBrowserSourceEntries(false) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 2) {
@@ -1868,7 +2087,41 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       return;
     }
     if (action === 'clear-browser-files') {
+      this._browserSourcePath = '';
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+    }
+    if (action === 'browser-open-path') {
+      event.preventDefault();
+      this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
+      this._render();
+      return;
+    }
+    if (action === 'browser-parent-path') {
+      event.preventDefault();
+      this._browserSourcePath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
+      this._render();
+      return;
+    }
+    if (action === 'remove-browser-folder') {
+      event.preventDefault();
+      var folderPath = normalizeBrowserRelativePath(target.getAttribute('data-path') || '');
+      if (folderPath) {
+        var prefix = folderPath + '/';
+        var keysToRemove = (this._browserFiles || []).filter(function (entry) {
+          var relativePath = normalizeBrowserRelativePath(entry.relative_path || entry.name || '');
+          return relativePath === folderPath || relativePath.indexOf(prefix) === 0;
+        }, this).map(function (entry) {
+          return this._browserFileKey(entry);
+        }, this);
+        for (var i = 0; i < keysToRemove.length; i += 1) {
+          originalRemoveBrowserFile.call(this, keysToRemove[i]);
+        }
+        this._browserSourcePath = browserParentRelativePath(this._browserSourcePath || '');
+        this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+        this._refreshWizardPreview();
+        this._render();
+      }
+      return;
     }
     // Issue #1324: exclude a specific item that lives inside a selected folder.
     if (action === 'exclude-item') {
