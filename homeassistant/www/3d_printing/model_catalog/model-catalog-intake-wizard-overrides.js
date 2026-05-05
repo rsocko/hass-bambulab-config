@@ -1617,7 +1617,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var isExcluded = excludedItems.indexOf(entry.path) !== -1;
       var rowClass = 'entry-row'
         + (selected ? ' selected' : '')
-        + (childOfSelection ? ' related' : '')
+        + (childOfSelection ? ' included-in-selection' : '')
         + (isExcluded ? ' excluded' : '');
       var displayName = String(entry.name || basename(entry.path) || entry.path);
       return ''
@@ -1674,7 +1674,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var excludedUnder = (selected && isFolder) ? getExcludedItemsUnderPath(entry.path, excludedItems).length : 0;
       var rowClass = 'entry-row'
         + (selected ? ' selected' : '')
-        + (childOfSelection ? ' related' : '')
+        + (childOfSelection ? ' included-in-selection' : '')
         + (isExcluded ? ' excluded' : '');
       return ''
         + '<article class="' + rowClass + '">'
@@ -1690,7 +1690,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-actions">'
         // Chips row: status indicators for selected/excluded/included-in-parent
         + (isExcluded ? '<span class="chip warn" style="align-self:center;">Excluded</span>' : '')
-        + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;opacity:0.75;">✓ included in selection</span>' : '')
+        + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;">✓ included in selection</span>' : '')
         + (selected && excludedUnder > 0 ? '<span class="chip warn" style="align-self:center;" title="Items excluded from this folder">⚠ ' + String(excludedUnder) + ' excluded</span>' : '')
         // Open button for folders (always visible unless excluded)
         + (isFolder && !isExcluded ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
@@ -1710,15 +1710,51 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
 
   proto._renderServerSelectionRows = function (showSettings) {
     if (!showSettings) {
-      var html = originalRenderServerSelectionRows.call(this, showSettings);
-      return html
-        .replace(/<label>Grouping<\/label>/g, '<label>Group \/ Split<\/label>')
-        .replace(/>None<\/option>/g, '>Keep Together In Same Model</option>')
-        .replace(/>by-folder<\/option>/g, '>Separate Models By Folder</option>')
-        .replace(/>by-root<\/option>/g, '>Each Root Folder Becomes A Model</option>')
-        .replace(/>flat<\/option>/g, '>Separate Models By File</option>')
-        .replace(/Folder structure is preserved in Curated catalog\./g, 'Folder structure is preserved in Curated Catalog.')
-        .replace(/This title is copied to the queued file entries and becomes the default group title for follow-up working actions\./g, 'This title is copied to the queued file entries and becomes the default title if the batch later lands in Working Files.');
+      // Issue #1343: Select-step right pane shows the chosen entries only —
+      // organization chips (scope/grouping/title) belong to the Organize step,
+      // and card chrome (icon top-right, formatted parent path, no filename)
+      // must match the left pane for visual consistency. Remove is still
+      // exposed because users may want to drop an entry from the staged batch.
+      var selections = this._selectedList();
+      if (!selections.length) {
+        return '<div class="state-row">No server files or folders selected yet.</div>';
+      }
+      var card = this;
+      var excludedItems = Array.isArray(card._excludedItems) ? card._excludedItems : [];
+      return '<div class="entries">'
+        + selections.map(function (entry) {
+          var entryName = String(basename(entry.path) || entry.path);
+          var isFolder = entry.type === 'folder';
+          var previewMarkup = isFolder
+            ? folderPreviewMarkup()
+            : card._serverPreviewMarkup(entry.path, entryName);
+          var rawPath = String(entry.path || '').replace(/\/+$/, '');
+          var slashIdx = rawPath.lastIndexOf('/');
+          var parentPath = slashIdx >= 0 ? rawPath.slice(0, slashIdx) : '';
+          var displayParentPath = formatBrowsePathForDisplay(parentPath || '/');
+          var excludedUnder = (isFolder && excludedItems.length)
+            ? getExcludedItemsUnderPath(entry.path, excludedItems).length
+            : 0;
+          var exclusionChip = excludedUnder > 0
+            ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(excludedUnder) + ' excluded</span>'
+            : '';
+          return ''
+            + '<article class="entry-row selected" data-path="' + escapeHtml(entry.path) + '">'
+            + '  <div class="entry-top">'
+            + previewMarkup
+            + '    <div class="entry-main">'
+            + '      <div class="entry-name">' + escapeHtml(entryName) + '</div>'
+            + '      <div class="entry-path">' + escapeHtml(displayParentPath) + '</div>'
+            + '    </div>'
+            + '    ' + entryTypeIconMarkup(entry.path, isFolder)
+            + '  </div>'
+            + '  <div class="entry-actions">'
+            + '<span class="chip ok">selected</span>'
+            + exclusionChip
+            + '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>'
+            + '  </div>'
+            + '</article>';
+        }).join('') + '</div>';
     }
     var selections = this._selectedList();
     var fileEntries = this._fileSelectionEntries();
@@ -1807,6 +1843,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .entry-row.selected{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.4));}'
       + '.wizard-dialog .entry-row.highlighted{background:rgba(var(--rgb-primary-color,96 165 250),0.25);border-color:rgba(var(--rgb-primary-color,96 165 250),0.4);}'
       + '.wizard-dialog .entry-row.related{opacity:0.65;}'
+      // Issue #1343: a row that lives inside a selected folder must NOT be
+      // dimmed — give it a bold dashed primary outline so the "included in
+      // selection" relationship is obvious instead of looking inactive.
+      + '.wizard-dialog .entry-row.included-in-selection{opacity:1;border-style:dashed;border-width:2px;border-color:var(--primary-color,#60a5fa);background:rgba(96,165,250,0.08);}'
+      + '.wizard-dialog .entry-row.included-in-selection .chip{background:rgba(96,165,250,0.28);border-color:var(--primary-color,#60a5fa);color:var(--primary-text-color);font-weight:600;opacity:1;}'
       + '.wizard-dialog .entry-row.loading-item{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       + '.wizard-dialog .entry-thumb{background:var(--secondary-background-color,rgba(15,23,42,0.24));border-color:var(--divider-color,rgba(148,163,184,0.24));color:var(--secondary-text-color);}'
