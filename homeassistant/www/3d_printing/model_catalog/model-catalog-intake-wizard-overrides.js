@@ -338,7 +338,7 @@ function destinationGroupKey(model, index) {
 
   proto._wizardStepLabel = function (stepNumber) {
     if (stepNumber === 1) {
-      return 'Source';
+      return 'Select';
     }
     if (stepNumber === 2) {
       return 'Organize';
@@ -382,15 +382,15 @@ function destinationGroupKey(model, index) {
     return html
       .replace(
         'Start one path at a time, review the batch, then commit it into the shared intake queue.',
-        'Start one path at a time and move through the same shared flow: Source, Organize, Choose Destination, Validate, Commit.'
+        'Start one path at a time and move through the same shared flow: Select, Organize, Choose Destination, Validate, Commit.'
       )
       .replace(
         'Use the current browser session to add local files or a local folder, keep building the staged list, then review before commit.',
-        'Use the current browser session to add local files or a local folder, then follow the shared Source -> Organize -> Choose Destination -> Validate -> Commit flow.'
+        'Use the current browser session to add local files or a local folder, then follow the shared Select -> Organize -> Choose Destination -> Validate -> Commit flow.'
       )
       .replace(
         ', select files or folders, configure recurse/grouping, then review before commit.',
-        ', select files or folders, then follow the same Source -> Organize -> Choose Destination -> Validate -> Commit flow as Browser Upload.'
+        ', select files or folders, then follow the same Select -> Organize -> Choose Destination -> Validate -> Commit flow as Browser Upload.'
       );
   };
 

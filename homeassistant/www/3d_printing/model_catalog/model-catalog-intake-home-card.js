@@ -1136,7 +1136,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '<div class="wizard-modal" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._wizardTitle()) + '">'
       + '  <div class="wizard-backdrop"></div>'
       + '  <div class="wizard-dialog">'
-      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div><div class="subtitle">Choose one intake path, move step by step, then commit the reviewed batch into the intake queue.</div></div></div>'
+      + '    <div class="wizard-header"><div><div class="title">' + escapeHtml(this._wizardTitle()) + '</div></div></div>'
       + this._renderWizardProgress()
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
