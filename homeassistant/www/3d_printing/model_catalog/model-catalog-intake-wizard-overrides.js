@@ -1384,11 +1384,11 @@ function destinationGroupKey(model, index) {
       + '.wizard-dialog{height:min(92vh,980px);min-height:560px;max-height:min(92vh,980px);overflow:hidden;display:flex;flex-direction:column;gap:14px;'
         + 'background:var(--card-background-color,linear-gradient(180deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9)));color:var(--primary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.22));}'
       + '.wizard-body{flex:1 1 auto;min-height:0;overflow:hidden;align-items:stretch;}'
-      + '.wizard-panel{min-height:0;overflow:auto;overscroll-behavior:contain;'
+      + '.wizard-panel{min-height:0;overflow:hidden;display:flex;flex-direction:column;overscroll-behavior:contain;'
         + 'background:var(--secondary-background-color,rgba(15,23,42,0.22));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
+      + '.wizard-panel-scroll{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:4px;}'
       + '.wizard-scroll-region,.wizard-selection-scroll,.wizard-review-scroll{max-height:none;overflow:visible;padding-right:0;}'
-      // Sticky panel headers so users keep context as they scroll within a panel.
-      + '.wizard-panel > .title-row{position:sticky;top:0;z-index:1;background:var(--secondary-background-color,rgba(15,23,42,0.22));padding-bottom:8px;}'
+      + '.wizard-panel > .title-row,.wizard-panel > .intake-path-row{flex:0 0 auto;}'
       // Theme-friendly chrome
       + '.wizard-step{background:var(--secondary-background-color,rgba(30,41,59,0.45));border-color:var(--divider-color,rgba(148,163,184,0.18));}'
       + '.wizard-step.current{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.45));}'
@@ -1426,60 +1426,61 @@ function destinationGroupKey(model, index) {
               : '')
           + '    <div class="intake-path-text">' + escapeHtml(formatBrowsePathForDisplay(this._browse.path || '/')) + '</div>'
           + '  </div>'
-          + '  <div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div>'
+          + '  <div class="wizard-panel-scroll"><div class="wizard-scroll-region">' + this._renderBrowseEntries() + '</div></div>'
           + '</div>'
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Move to Organize to define Group / Split rules and titles.</div></div><span class="chip ok">' + String(this._selectedList().length) + ' selected</span></div>'
-          + '  <div class="wizard-selection-scroll">' + this._renderServerSelectionRows(false) + '</div>'
+          + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderServerSelectionRows(false) + '</div></div>'
           + '</div>';
       }
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
-        + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
+        + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Organize will resolve how these staged files split into models.</div></div></div>'
-        + this._renderBrowserWizardSummary(false)
+        + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 2) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart. The right side shows the resolved outcome.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div>'
+        + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output and destination mapping shown here.</div></div></div>'
-        + renderPlanSummary(this, { includeDestinations: true })
+        + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this, { includeDestinations: true }) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Curated Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div>'
+        + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Assignment Summary</div><div class="subtitle">Each planned group keeps its structure and only changes destination.</div></div></div>'
-        + '  <div class="wizard-selection-scroll">' + this._renderDestinationSummary() + '</div>'
+        + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderDestinationSummary() + '</div></div>'
         + '</div>';
     }
     if (this._wizardStep === 4) {
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Create one prepared upload snapshot and verify it before the final commit.</div></div></div>'
-        + renderValidationSummary(this)
+        + '  <div class="wizard-panel-scroll">' + renderValidationSummary(this) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output shown here.</div></div></div>'
-        + renderPlanSummary(this)
+        + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this) + '</div>'
         + '</div>';
     }
     var isBrowserMode = this._wizardMode === 'browser';
     return ''
       + '<div class="wizard-panel">'
       + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">' + (isBrowserMode ? 'Review the prepared upload and destination assignments before the final publish.' : 'Review the prepared upload, cleanup policy, and destination assignments before the final publish.') + '</div></div></div>'
+      + '  <div class="wizard-panel-scroll">'
       + renderValidationSummary(this)
       + (isBrowserMode
         ? ''
@@ -1487,10 +1488,11 @@ function destinationGroupKey(model, index) {
           + '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>'
           + '  </div>')
       + this._renderDestinationSummary()
+      + '  </div>'
       + '</div>'
       + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload, resolved plan, and destination mapping.</div></div></div>'
-        + renderPlanSummary(this, { includeDestinations: true })
+        + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this, { includeDestinations: true }) + '</div>'
       + '</div>';
   };
 
