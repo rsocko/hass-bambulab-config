@@ -1437,9 +1437,17 @@ function destinationGroupKey(model, index) {
       return;
     }
     var self = this;
-    var entryRows = this.shadowRoot.querySelectorAll('.entry-row');
-    entryRows.forEach(function (row) {
-      row.addEventListener('click', function (event) {
+    var panels = this.shadowRoot.querySelectorAll('.wizard-panel');
+    if (panels.length < 2) {
+      return;
+    }
+    var leftPanel = panels[0];
+    var rightPanel = panels[1];
+    var leftEntries = leftPanel.querySelectorAll('.entry-row');
+    var rightEntries = rightPanel.querySelectorAll('.entry-row');
+    
+    leftEntries.forEach(function (leftRow) {
+      leftRow.addEventListener('click', function (event) {
         // Only highlight if clicking on the row itself, not on buttons
         var clickedButton = event.target.closest('[data-action]');
         if (clickedButton) {
@@ -1447,16 +1455,34 @@ function destinationGroupKey(model, index) {
         }
         event.stopPropagation();
         // Toggle highlighting on click
-        var isCurrentlyHighlighted = row.classList.contains('highlighted');
-        entryRows.forEach(function (r) {
+        var isCurrentlyHighlighted = leftRow.classList.contains('highlighted');
+        leftEntries.forEach(function (r) {
+          r.classList.remove('highlighted');
+        });
+        rightEntries.forEach(function (r) {
           r.classList.remove('highlighted', 'related');
         });
+        
         if (!isCurrentlyHighlighted) {
-          row.classList.add('highlighted');
-          // Mark all right-side models as related
-          var reviewPanel = self.shadowRoot.querySelector('.wizard-panel:last-of-type');
-          if (reviewPanel) {
-            var rightEntries = reviewPanel.querySelectorAll('.entry-row');
+          leftRow.classList.add('highlighted');
+          // Get the title from the left-side entry
+          var titleElement = leftRow.querySelector('.entry-name');
+          var leftTitle = titleElement ? titleElement.textContent.trim() : '';
+          
+          // Find matching right-side entry by title and highlight it
+          var found = false;
+          rightEntries.forEach(function (rightRow) {
+            var rightTitleElement = rightRow.querySelector('.entry-name');
+            var rightTitle = rightTitleElement ? rightTitleElement.textContent.trim() : '';
+            if (rightTitle === leftTitle) {
+              rightRow.classList.add('highlighted');
+              found = true;
+            } else {
+              rightRow.classList.add('related');
+            }
+          });
+          // If no exact match found, just dim all right-side entries
+          if (!found) {
             rightEntries.forEach(function (r) {
               r.classList.add('related');
             });
