@@ -1,28 +1,40 @@
 /**
- * Browser File Tree Component for Intake Wizard Source Step
+ * Browser File Tree Helper for Intake Wizard Source Step
  * 
- * Displays uploaded files/folders in a tree structure with:
+ * Pure functions for rendering and managing:
+ * - Uploaded files/folders in tree structure
  * - Remove buttons [X] for each item
  * - Partial indicators (⚠️) showing exclusion counts
- * - Synchronized display with right pane
  * 
  * Part of Issue #1335: Phase D — Frontend Source Step Browser Mode
  */
 
-class SourceBrowserFileTree extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this._items = [];
-    this._excludedItems = new Set();
-    this._partialIndicators = new Map();
-    this._onRemoveItem = null;
-    this._onStateChange = null;
+/**
+ * Compute partial indicators: folders that contain excluded items
+ * @param {Array<string>} excludedPaths - Full paths of excluded items
+ * @returns {Map} path => true for partial folders
+ */
+function computePartialIndicators(excludedPaths) {
+  const partialIndicators = new Map();
+  
+  if (!excludedPaths || excludedPaths.length === 0) {
+    return partialIndicators;
   }
 
-  connectedCallback() {
-    this._render();
+  // For each excluded item, mark its parent and ancestors as partial
+  for (const excludedPath of excludedPaths) {
+    // Extract parent path from excluded item
+    const pathParts = excludedPath.split('/').filter(p => p);
+    
+    // Mark each ancestor as partial (cascade upward)
+    for (let i = 1; i < pathParts.length; i++) {
+      const ancestorPath = '/' + pathParts.slice(0, i).join('/');
+      partialIndicators.set(ancestorPath, true);
+    }
   }
+  
+  return partialIndicators;
+}
 
   /**
    * Set the file/folder tree data
