@@ -277,10 +277,32 @@ def _build_validation_checks(
     warning_codes: set[str],
     expanded_files: list[dict[str, Any]],
     duplicate_hashes: list[str],
+    source_entries: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     resolved_count = len(expanded_files)
     duplicate_count = len(duplicate_hashes)
-    return [
+    
+    # Extract excluded items from all source entries
+    excluded_files_count = 0
+    excluded_folders_count = 0
+    if source_entries:
+        all_excluded_items: set[str] = set()
+        for entry in source_entries:
+            if not isinstance(entry, dict):
+                continue
+            excluded_items = entry.get("excluded_items") or []
+            if isinstance(excluded_items, list):
+                all_excluded_items.update(excluded_items)
+        
+        # Count files vs folders (folders typically end with / or are detected as dir paths)
+        # For simplicity, count total excluded items and note that some may be folders
+        total_excluded = len(all_excluded_items)
+        if total_excluded > 0:
+            # Estimate: assume folders are roughly 20% of exclusions (can be refined)
+            # In practice, we count items; the UI can distinguish if needed
+            excluded_files_count = total_excluded
+    
+    checks: list[dict[str, Any]] = [
         {
             "key": "source_access",
             "label": "Selected sources are present and readable",
@@ -321,7 +343,19 @@ def _build_validation_checks(
                 else "No files were resolved from the selected sources."
             ),
         },
+        {
+            "key": "excluded_items_summary",
+            "label": "Exclusion summary",
+            "passed": True,  # Always passes - informational only
+            "detail": (
+                f"{excluded_files_count} items excluded from selected sources. Proceeding with {resolved_count} remaining items for import."
+                if excluded_files_count > 0
+                else "No items excluded."
+            ),
+        },
     ]
+    
+    return checks
 
 
 def _intake_item_state_from_upload_status(status: str) -> str:
@@ -1465,6 +1499,7 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
         warning_codes=warning_codes,
         expanded_files=expanded_files,
         duplicate_hashes=duplicate_hashes,
+        source_entries=source_entries,
     )
 
     next_inbox_state = "validated_ready" if validation_state == "ready" else "validated_warning"
