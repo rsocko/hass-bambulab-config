@@ -841,7 +841,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var titleSource = this._browserBatchTitleSource();
     var resolvedTitle = this._browserBatchResolvedTitle();
     if (!this._browserFiles.length) {
-      return '<div class="state-row">No browser files selected yet. Add files or a folder to begin.</div>';
+      // Issue: avoid duplicate empty-state in the wizard right pane. The
+      // companion call to _renderBrowserSourceEntries(false) already renders
+      // the "No browser files staged yet" message, and the Organize step that
+      // shows controls renders its own empty state from _renderBrowserOrganizeRows.
+      // Return empty here so neither path shows two stacked empty rows.
+      return '';
     }
     var titleSourceOptions = folderCount
       ? '<option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>'
