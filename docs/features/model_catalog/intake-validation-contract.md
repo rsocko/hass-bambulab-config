@@ -82,6 +82,40 @@ The current checklist keys are:
 - `supported_types`
 - `duplicate_scan`
 - `commit_ready`
+- `excluded_items_summary` (NEW — Issue #1324)
+
+## New Validation Check: Exclusion Summary (Issue #1324)
+
+**Key**: `excluded_items_summary`
+
+**When added**:
+- Always present in validation response
+- After Source step (items may have been excluded/removed)
+
+**Behavior**:
+- **Always passes**: This check is informational only, not blocking
+- Shows count of excluded items
+- Allows user to proceed to Commit with exclusions in place
+
+**Response format**:
+```json
+{
+  "key": "excluded_items_summary",
+  "label": "Exclusion summary",
+  "passed": true,
+  "detail": "3 files and 1 subfolder excluded from selected sources. Proceeding with 12 remaining items for import."
+}
+```
+
+**Edge cases**:
+- If `excluded_items[]` is empty: Check still present but detail reads "No items excluded"
+- If `excluded_items[]` has N items: Count shown in detail message
+- Multiple source entries: Aggregate count from all entries
+
+**Rationale**:
+- Users need visibility into what will be excluded before final commit
+- Informational check does not block workflow (user decision already made in Source step)
+- Warning-level prominence in UI (shown as check item, not as blocking error)
 
 ## UI Contract
 
@@ -91,8 +125,9 @@ The wizard Validate step should display:
 - validation state
 - ordered checklist with disabled checkboxes that reflect `checks[].passed`
 - warning summary text when warnings exist
+- **NEW**: exclusion summary check with count (if any items were excluded)
 
-The checklist is meant to show what already passed and what still needs attention before Commit. It should not invent additional client-only validation rules that diverge from the backend response.
+The checklist is meant to show what already passed and what still needs attention before Commit. The exclusion summary is an informational item showing what was excluded during Source step. It should not invent additional client-only validation rules that diverge from the backend response.
 
 ## Future Extension Boundary
 

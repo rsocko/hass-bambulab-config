@@ -140,7 +140,7 @@ When browser transfer is active, the Source step should switch to a busy variant
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
 ```
 
-### Server Inbox Variant
+### Server Inbox Variant — Basic Selection
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -148,24 +148,153 @@ When browser transfer is active, the Source step should switch to a busy variant
 ├────────────────────────────────────────────────────────────────────────────────────────────┤
 │ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
 ├───────────────────────────────────────┬────────────────────────────────────────────────────┤
-│ LEFT: Actions                         │ RIGHT: Results                                     │
+│ LEFT: Browse & Remove                 │ RIGHT: Selected Items                             │
 │                                       │                                                    │
 │ Server Inbox                          │ Selected Inputs                                    │
 │ Roots: [Model Inbox ▼]                │ ┌────────────────────────────────────────────────┐ │
-│ Current path: /assets/Model Inbox     │ │ /assets/Model Inbox                            │ │
-│ [Up] [Search current folder_______]   │ │                                                │ │
-│                                       │ │ gridfinity/                                    │ │
-│ [Open folder] [Select] [Remove]       │ │   baseplate.3mf                                │ │
-│                                       │ │   label.svg                                    │ │
-│ Folder scope                          │ │ remixes/adapter-v2/                            │ │
-│ (•) Include subfolders                │ │ loose-file.3mf                                 │ │
+│ Current path: /assets/Model Inbox     │ │ /assets/Model Inbox/                           │ │
+│ [Up] [⟳ Refresh] [Search_______]      │ │                                                │ │
+│                                       │ │ ✓ gridfinity/                                  │ │
+│ 📁 gridfinity/                        │ │ ✓ remixes/                                     │ │
+│   ✓ 📄 baseplate.3mf [X]              │ │ ✓ loose-file.3mf                               │ │
+│   ✓ 📄 label.svg       [X]            │ │                                                │ │
+│ 📁 remixes/                           │ │ Batch Summary                                    │ │
+│   📁 adapter-v2/                      │ │ - source: Server Inbox                         │ │
+│     ✓ 📄 body.3mf      [X]            │ │ - 2 folders, 1 file selected                   │ │
+│     ✓ 📄 photo.jpg     [X]            │ │ - items below may have been excluded           │ │
+│ ✓ 📄 loose-file.3mf  [X]              │ └────────────────────────────────────────────────┘ │
+│                                       │                                                    │
+│ Folder scope                          │ Navigation shows same level on both panes        │
+│ (•) Include subfolders                │ Breadcrumb: Home > Model Inbox (L=R)             │
+│ ( ) Just selected folder              │                                                    │
+│                                       │                                                    │
+│ [Next]                                │                                                    │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+KEY:
+- ✓ = selected (checkbox checked, item included)
+- [X] = remove button (remove this item, add to exclusions)
+- 📁 = folder, 📄 = file
+- Left pane shows tree with ALL items, user can remove
+- Right pane shows ONLY topmost selected items (consolidation)
+- Children implicitly selected via parent selection
+```
+
+### Server Inbox Variant — With Exclusions/Removals
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Browse & Remove                 │ RIGHT: Selected Items                             │
+│                                       │                                                    │
+│ Server Inbox                          │ Selected Inputs                                    │
+│ Roots: [Model Inbox ▼]                │ ┌────────────────────────────────────────────────┐ │
+│ Current path: /assets/Model Inbox     │ │ /assets/Model Inbox/                           │ │
+│ [Up] [⟳ Refresh] [Search_______]      │ │                                                │ │
+│                                       │ │ ✓ gridfinity/ ⚠️ 1 item excluded               │ │
+│ 📁 gridfinity/ ⚠️ 1 item excluded     │ │ ✓ remixes/ ⚠️ 2 items excluded                 │ │
+│   ✓ 📄 baseplate.3mf [X]              │ │ ✓ loose-file.3mf                               │ │
+│     (removed line not shown)           │ │                                                │ │
+│   ✓ 📄 label.svg       [X]            │ │ Batch Summary                                    │ │
+│ 📁 remixes/ ⚠️ 2 items excluded       │ │ - source: Server Inbox                         │ │
+│   📁 adapter-v2/ ⚠️ 1 item excluded   │ │ - 2 folders, 1 file selected                   │ │
+│     ✓ 📄 body.3mf      [X]            │ │ - 3 items total excluded                       │ │
+│       (removed line not shown)         │ │ - 5 items will be imported                     │ │
+│     ✓ 📄 photo.jpg     [X]            │ └────────────────────────────────────────────────┘ │
+│ ✓ 📄 loose-file.3mf  [X]              │                                                    │
+│                                       │ Cascading: gridfinity marked partial              │
+│ Folder scope                          │ because adapter-v2 (descendant) has exclusions  │
+│ (•) Include subfolders                │                                                    │
+│ ( ) Just selected folder              │                                                    │
+│                                       │                                                    │
+│ [Next]                                │                                                    │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+CHANGES FROM ABOVE:
+- ⚠️ badge shows count of excluded items per folder
+- Removed items are NOT shown (line is removed from view)
+- Partial indicator cascades: if adapter-v2 has exclusions, remixes also marked partial
+- Right pane ONLY shows topmost selected folders (gridfinity, remixes, loose-file)
+- Right pane ALSO shows ⚠️ badge counts for visibility
+- Removed items never appear in either pane
+```
+
+### Server Inbox Variant — Navigating Into Subfolder
+
+When user opens/expands a subfolder in left pane, right pane synchronizes:
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Browse & Remove                 │ RIGHT: Same Navigation Level                      │
+│                                       │                                                    │
+│ Server Inbox                          │ Selected: /assets/Model Inbox/remixes/            │
+│ Current path: …/remixes/              │ 📍 Part of: /assets/Model Inbox/remixes/          │
+│ [Up ↑] [⟳ Refresh]                    │ ┌────────────────────────────────────────────────┐ │
+│                                       │ │ Current folder: remixes/                       │ │
+│ 📁 adapter-v2/ ⚠️ 1 item excluded     │ │                                                │ │
+│   ✓ 📄 body.3mf        [X]            │ │ 📁 adapter-v2/ ⚠️ 1 item excluded              │ │
+│     (removed line not shown)           │ │   ✓ 📄 body.3mf (included)                     │ │
+│   ✓ 📄 photo.jpg       [X]            │ │   (removed items not listed)                    │ │
+│ 📁 glitcher-remix/                    │ │ 📁 glitcher-remix/                              │ │
+│   ✓ 📄 remix.3mf       [X]            │ │   ✓ 📄 remix.3mf (included)                    │ │
+│                                       │ │ 📁 test-folder/                                │ │
+│ Folder scope                          │ │   ✓ 📄 test.3mf (included)                     │ │
+│ (•) Include subfolders                │ │                                                │ │
 │ ( ) Just selected folder              │ └────────────────────────────────────────────────┘ │
 │                                       │                                                    │
-│ [Next]                                │ Batch Summary                                     │
-│                                       │ - source: Server Inbox                           │
-│                                       │ - selected roots/files: 3                        │
-│                                       │ - resolved source path shown for every item      │
+│ [Next]                                │ Breadcrumb: Home > Model Inbox > remixes/         │
+│                                       │ (same on both sides)                              │
 └───────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+CHANGES:
+- Both left and right now show SAME subfolder level (remixes/)
+- Left [Up] button = Right can click breadcrumb to go up
+- Both show partial badges and removed-item indicators (or not, if none)
+- Breadcrumb identical on both sides
+```
+
+### Browser Upload Variant — With Removal
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Intake Wizard: Source                                                           [Close]   │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│ [1 Source] [2 Organize] [3 Choose Destination] [4 Validate] [5 Commit]                    │
+├───────────────────────────────────────┬────────────────────────────────────────────────────┤
+│ LEFT: Uploaded Files                  │ RIGHT: Selected Items                             │
+│                                       │                                                    │
+│ Browser Upload                        │ Selected Inputs                                    │
+│ [Add Files] [Add Folder] [Clear All]  │ ┌────────────────────────────────────────────────┐ │
+│                                       │ │ Browser Upload                                 │ │
+│ 📁 Folder A/ ⚠️ 1 item excluded       │ │ 📁 Folder A/                                   │ │
+│   ✓ 📄 model.3mf    [X]               │ │   ✓ 📄 model.3mf (included)                    │ │
+│   ✓ 📄 image.jpg    [X]               │ │   ✓ 📄 image.jpg (included)                    │ │
+│ 📁 Folder B/                          │ │ 📁 Folder B/                                   │ │
+│   📁 sub/                             │ │   📁 sub/                                      │ │
+│     ✓ 📄 part-a.stl  [X]              │ │     ✓ 📄 part-a.stl (included)                 │ │
+│ ✓ 📄 loose-file.3mf [X]               │ │ ✓ 📄 loose-file.3mf (included)                 │ │
+│                                       │ │                                                │ │
+│                                       │ │ Batch Summary                                    │ │
+│                                       │ │ - source: Browser Upload                       │ │
+│                                       │ │ - 11 items selected (1 excluded)                │ │
+│                                       │ │ - 9 printable, 2 media                         │ │
+│                                       │ └────────────────────────────────────────────────┘ │
+│ [Next]                                │                                                    │
+└───────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+KEY:
+- Browser upload shows folder/file tree just like Server
+- Removal buttons [X] remove item (item disappears)
+- Partial indicator shows on folder if children are removed
+- Left/right panes stay synchronized (same view)
+- No "special" browser-only behavior; unified with Server
 ```
 
 ## Step 2: Organize

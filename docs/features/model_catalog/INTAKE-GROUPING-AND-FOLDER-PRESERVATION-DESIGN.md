@@ -492,3 +492,170 @@ No structural changes. `source_metadata_json` already captures:
 - [ ] Attach existing: add new files to already-created group
 - [ ] Publish to curated: folder structure propagates
 - [ ] Database audit: discovery_metadata reflects choices
+
+---
+
+## Partial Folders & Exclusions (Issue #1324 — 2026-05-04)
+
+### Overview
+
+When users exclude/remove items from a selected folder in the Source step, the folder becomes "partial" — some files/subfolders are included, others excluded. This section defines how partial folders interact with grouping and validation.
+
+### Partial Folder Semantics
+
+**Definition**: A folder is marked as "partial" if any descendant (direct or indirect child) has been excluded/removed.
+
+**Cascade**: Partial status cascades upward through the folder hierarchy.
+
+**Example**:
+```
+/models/ (root selected by user)
+├── gridfinity/ (user removes 1 file here → gridfinity is partial)
+│   ├── bin-4x4.3mf (included)
+│   ├── removed-file.3mf (REMOVED - not shown)
+│   └── variants/ (also marked partial because parent gridfinity is)
+│       ├── tall.3mf (included)
+│       └── short.3mf (included)
+├── benchmarks/
+│   └── test-1.3mf (included, no exclusions)
+```
+
+Result in UI:
+- `📁 gridfinity/ ⚠️ 1 item excluded` (parent marked partial)
+- `📁 models/ ⚠️ 1 item excluded` (ancestor marked partial due to cascade)
+
+### Pre-Filtering Contract for Grouping
+
+After Source step, `excluded_items[]` is captured in the source entry. When Organize step performs grouping:
+
+1. **Expansion**: `_expand_intake_source_entries()` returns all files including removed ones
+2. **Pre-filtering**: Before grouping, filter out excluded items:
+   ```python
+   expanded_files = [
+     file for file in all_files
+     if file.path not in source_entry.excluded_items
+   ]
+   ```
+3. **Grouping**: `_group_files_by_strategy()` operates on pre-filtered list only
+4. **Result**: Grouping acts as if excluded files don't exist
+
+**Example**:
+- User selected `/models/gridfinity/` (5 files total)
+- User removed `experimental.3mf` → `excluded_items = ["experimental.3mf"]`
+- Organize receives pre-filtered list (4 files)
+- If grouping strategy is `by-folder`, result is 1 model named "gridfinity" with 4 files
+- Removed file is never processed, never grouped, never stored
+
+### Recursive Override With Partial Folders
+
+If user changes `recursive` setting in Organize step:
+
+**Scenario**:
+- Source: User selects `/models/` with `recursive=true`, removes 2 files
+- Organize: User changes to `recursive=false`
+
+**Effect**:
+- Subfolders are automatically excluded (on top of user-removed items)
+- Additive: `excluded_items` grows with additional entries for excluded subfolders
+- Warning: "⚠️ Non-recursive mode will exclude 8 subfolders below this folder"
+
+**Implementation**:
+```python
+# In Organize step, if recursive changed to False
+if organize_recursive == False and source_recursive == True:
+    # Compute additional excluded subfolders
+    new_exclusions = _compute_subfolders(source_path, depth > 0)
+    excluded_items.extend(new_exclusions)
+    show_warning()
+```
+
+### Grouping With Partial Folders
+
+Grouping strategies work on **pre-filtered list** (already excluding items in `excluded_items[]`).
+
+**Example Scenario**:
+```
+Input folder structure:
+/models/
+├── gridfinity/ (3 files after removal of 2)
+│   ├── bin.3mf
+│   ├── tray.3mf
+│   └── variants/ (2 files)
+│       ├── tall.3mf
+│       └── short.3mf
+├── benchmarks/ (2 files, no exclusions)
+│   └── test.3mf
+```
+
+**Grouping strategy: `by-folder`, Preserve: `true`**
+
+Result:
+```
+wg1: "gridfinity" (3 files - removed file never appears)
+  working_files/gridfinity/
+  ├── bin.3mf
+  ├── tray.3mf
+  └── variants/
+      ├── tall.3mf
+      └── short.3mf
+
+wg2: "gridfinity/variants" (2 files)
+  working_files/gridfinity-variants/
+  ├── tall.3mf
+  └── short.3mf
+
+wg3: "benchmarks" (2 files)
+  working_files/benchmarks/
+  └── test.3mf
+```
+
+**Key**: Removed files are not counted, not shown, not grouped. Grouping treats the folder as if those files were never there.
+
+### Validation With Exclusions
+
+New validation check: `excluded_items_summary`
+
+```json
+{
+  "key": "excluded_items_summary",
+  "label": "Exclusion summary",
+  "passed": true,
+  "detail": "3 files and 1 subfolder excluded from selected sources. Proceeding with remaining 12 items."
+}
+```
+
+**Rules**:
+- This check always "passes" (informational, not blocking)
+- Message format: `"N files and M folders excluded from selected sources"`
+- Shown in validation checklist
+- User can proceed to Commit regardless
+
+### No Restoration After Source Step
+
+- Once items are excluded in Source, they are **permanently gone**
+- No "undo" or "restore" affordances after leaving Source step
+- Organize step cannot re-add items, only confirm/modify grouping
+- Validation shows the exclusion count but no restoration option
+
+### Implementation Helper Functions
+
+**`_prefilter_excluded_items(expanded_files, excluded_items) → list[File]`**
+- Input: All files from source expansion + exclusion paths
+- Output: Files not in exclusion list
+- Used by: Organize, Validate, Commit
+
+**`_cascade_partial_indicators(folder_tree, excluded_items) → dict[str, bool]`**
+- Input: Folder hierarchy + list of excluded items
+- Output: Dict mapping folder_path → is_partial (bool)
+- Used by: UI to render ⚠️ badges
+
+**`_compute_exclusion_impact(recursive_old, recursive_new, folder_path) → list[str]`**
+- Input: Old recursive setting, new setting, folder path
+- Output: List of paths to exclude (for subfolders)
+- Used by: Organize step to warn about recursive override
+
+### Related Design Documents
+
+- [intake-source-selection-removal-design.md](intake-source-selection-removal-design.md) — Source step UX and removal semantics
+- [intake-wizard-ux-mockups.md](intake-wizard-ux-mockups.md) — Visual mockups showing partial indicators
+- [intake-validation-contract.md](intake-validation-contract.md) — Validation checklist with exclusion summary
