@@ -4,32 +4,33 @@
  * Loads all intake wizard components for model catalog intake workflow
  * Phases D-I: Source → Organize → Validate → Upload
  * 
- * Cache-bust versioning: Increment v=NN when any component changes
+ * Flattened structure: all components at model_catalog/ root level
+ * Cache-bust versioning: increment this file's version in _resources.yaml
  */
 
 // Phase F: State Management
-import '/local/3d_printing/model_catalog/intake-wizard/store.js?v=1';
+import './intake-wizard-store.js';
 
 // Phase D-E: Source Step Components
-import '/local/3d_printing/model_catalog/intake-wizard/source-summary.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/source-browser.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/source-server.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/source-server-summary.js?v=1';
+import './intake-wizard-source-summary.js';
+import './intake-wizard-source-browser.js';
+import './intake-wizard-source-server.js';
+import './intake-wizard-source-server-summary.js';
 
 // Phase E: Shared Components
-import '/local/3d_printing/model_catalog/intake-wizard/partial-folder-badge.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/return-to-source-banner.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/recursive-toggle.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/recursive-override-warning.js?v=1';
-import '/local/3d_printing/model_catalog/intake-wizard/pane-sync.js?v=1';
+import './intake-wizard-partial-folder-badge.js';
+import './intake-wizard-return-to-source-banner.js';
+import './intake-wizard-recursive-toggle.js';
+import './intake-wizard-recursive-override-warning.js';
+import './intake-wizard-pane-sync.js';
 
 // Phase G: Organize Step
-import '/local/3d_printing/model_catalog/intake-wizard/organize-step.js?v=1';
+import './intake-wizard-organize-step.js';
 
 // Phase H: Validate Step
-import '/local/3d_printing/model_catalog/intake-wizard/validate-step.js?v=1';
+import './intake-wizard-validate-step.js';
 
 // Phase I: Upload Handler
-import '/local/3d_printing/model_catalog/intake-wizard/upload-handler.js?v=1';
+import './intake-wizard-upload-handler.js';
 
 console.log('✓ Intake Wizard components loaded');
