@@ -2,7 +2,7 @@
 
 > **Status**: Canonical low-fi intake wizard reference
 > **Created**: 2026-05-03
-> **Scope**: Shared Browser Upload and Server Inbox wizard UX for issues #1282, #1288, and #1292
+> **Scope**: Shared Browser Upload and Server Inbox wizard UX for issues #1265, #1282, #1288, and #1292
 
 ## Purpose
 

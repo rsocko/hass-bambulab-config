@@ -60,7 +60,7 @@ The intake wizard must use one consistent split-pane design regardless of source
 - The right pane may collapse or group long file lists, but it must still let the operator inspect the underlying files/folders that produced each result.
 - After the Source step, reuse shared wizard components where practical rather than building separate Browser-only and Server-only layouts for Organize, Validate, and Commit.
 
-### Long-Running Operation Contract (#1290)
+### Long-Running Operation Contract (#1265)
 
 The wizard must expose explicit busy and progress affordances for operations that take noticeable time. This applies both to browser upload transport and to backend execution after the upload has already been accepted.
 
@@ -73,7 +73,7 @@ Rules:
 - show `Cancel` only while the operation is still safely abortable
 - when execution has crossed into irreversible backend mutation, switch from `Cancel` to read-only busy state plus `View In Job History` when available
 
-This is the canonical design response for issue #1290.
+This is the canonical design response for issue #1265.
 
 ### Progress Phase Model
 

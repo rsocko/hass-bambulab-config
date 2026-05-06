@@ -51,6 +51,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._result = null;
+    this._busyState = null;
     this._roots = [];
     this._browse = { path: "/", entries: [], parent_path: null, is_root: true };
     this._selected = {};
@@ -219,6 +220,69 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._browserFiles = [];
     // Issue #1324: clearing the staging set also clears any pending exclusions.
     this._excludedBrowserKeys = {};
+  }
+
+  _setBusyState(nextState) {
+    this._busyState = Object.assign({
+      phase: "",
+      detail: "",
+      mode: "indeterminate",
+      percent: null,
+      files_done: null,
+      files_total: null,
+      bytes_done: null,
+      bytes_total: null,
+    }, nextState || {});
+    this._render();
+  }
+
+  _setBusyPhase(phase, detail) {
+    this._setBusyState({
+      phase: String(phase || "Working"),
+      detail: String(detail || ""),
+      mode: "indeterminate",
+      percent: null,
+    });
+  }
+
+  _updateUploadProgress(progress, context) {
+    var details = context || {};
+    var filesTotal = Number(details.files_total || 0);
+    var bytesTotal = Number(details.bytes_total || 0);
+    var loaded = Number(progress && progress.loaded || 0);
+    var total = Number(progress && progress.total || 0);
+    var filesProcessed = Number(progress && progress.files_processed || 0);
+    var lengthComputable = !!(progress && progress.lengthComputable && total > 0);
+
+    if (!lengthComputable) {
+      this._setBusyState({
+        phase: "Uploading files",
+        detail: filesTotal > 0
+          ? ("Preparing file " + String(Math.min(Math.max(filesProcessed, 0), filesTotal)) + " of " + String(filesTotal))
+          : "Preparing browser upload payload",
+        mode: "indeterminate",
+        files_done: filesProcessed > 0 ? filesProcessed : null,
+        files_total: filesTotal > 0 ? filesTotal : null,
+      });
+      return;
+    }
+
+    var safeTotal = total > 0 ? total : (bytesTotal > 0 ? bytesTotal : 0);
+    var percent = safeTotal > 0 ? Math.max(0, Math.min(100, Math.round((loaded / safeTotal) * 100))) : null;
+    this._setBusyState({
+      phase: "Uploading files",
+      detail: "Transferring browser files to intake staging",
+      mode: "determinate",
+      percent: percent,
+      files_done: filesTotal > 0 ? Math.min(filesTotal, filesProcessed || filesTotal) : null,
+      files_total: filesTotal > 0 ? filesTotal : null,
+      bytes_done: loaded,
+      bytes_total: safeTotal,
+    });
+  }
+
+  _clearBusyState() {
+    this._busyState = null;
   }
 
   // Issue #1324: returns true when the given browser entry key has been marked
@@ -872,7 +936,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._result = null;
-    this._render();
+    this._setBusyPhase("Preparing intake job", "Collecting and normalizing selected files");
     try {
       var expandedSelections = [];
       var plainSelections = [];
@@ -910,13 +974,40 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var response;
       if (browserFiles.length) {
         var sidecarBaseUrl = this._resolveSidecarUrl();
-        response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, finalSelections, cleanupPolicy);
+        var totalBrowserBytes = browserFiles.reduce(function (sum, entry) {
+          var size = entry && entry.file ? Number(entry.file.size || 0) : 0;
+          return sum + (Number.isFinite(size) ? size : 0);
+        }, 0);
+        response = await uploadBrowserFilesWithFallback(
+          this._hass,
+          sidecarBaseUrl,
+          browserFiles,
+          finalSelections,
+          cleanupPolicy,
+          {
+            onPhase: function (phaseCode) {
+              if (phaseCode === "encoding_files") {
+                this._setBusyPhase("Uploading files", "Encoding files for fallback upload mode");
+              } else if (phaseCode === "submitting_request") {
+                this._setBusyPhase("Uploading files", "Submitting intake upload request");
+              }
+            }.bind(this),
+            onUploadProgress: function (progressPayload) {
+              this._updateUploadProgress(progressPayload, {
+                files_total: browserFiles.length,
+                bytes_total: totalBrowserBytes,
+              });
+            }.bind(this),
+          }
+        );
       } else {
+        this._setBusyPhase("Preparing intake job", "Resolving server selections and staging queue item");
         response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_select_source_filesystem_entries", {
           selections: finalSelections,
           cleanup_policy: cleanupPolicy,
         });
       }
+      this._setBusyPhase("Validating plan", "Running pre-commit intake validation");
       var validation = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_validate_intake_item", {
         item_id: response.upload_id,
       });
@@ -926,6 +1017,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._commitMode === 'execute_now' && validationState === 'ready') {
         publishDestination = this._destinationChoice || 'curated';
         var publishService = publishDestination === 'working' ? 'model_catalog_publish_to_working' : 'model_catalog_publish_to_local';
+        this._setBusyPhase(
+          publishDestination === 'working' ? 'Publishing to Working Files' : 'Publishing to Catalog',
+          'Committing validated intake plan to destination'
+        );
         publishResponse = await callServiceWithResponse(this._hass, 'rest_command', publishService, {
           upload_id: response.upload_id,
         });
@@ -972,10 +1067,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      this._clearBusyState();
       await this._refreshAll();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : "Could not queue intake selection.";
       this._loading = false;
+      this._clearBusyState();
       this._render();
     }
   }
@@ -1271,14 +1368,45 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var destination = this._destinationChoice === 'working' ? 'Working Files' : 'Catalog';
       commitButtonLabel = "Validate & Publish to " + destination;
     }
+    if (this._loading) {
+      commitButtonLabel = "Working...";
+    }
     return ''
       + '<div class="wizard-footer">'
-      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button></div>'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard"' + (this._loading ? ' disabled' : '') + '>Cancel</button></div>'
       + '  <div class="button-row">'
-      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back"' + (this._loading ? ' disabled' : '') + '>Back</button>' : '')
       + (!atLastStep
-        ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
+        ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Next</button>'
         : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>' + commitButtonLabel + '</button>')
+      + '  </div>'
+      + '</div>';
+  }
+
+  _renderBusyState() {
+    if (!this._loading || !this._busyState) {
+      return '';
+    }
+    var busy = this._busyState;
+    var progressMarkup = '';
+    if (busy.mode === 'determinate' && busy.percent != null) {
+      progressMarkup = ''
+        + '<div class="busy-progress">'
+        + '  <div class="busy-progress-track"><div class="busy-progress-fill" style="width:' + String(Math.max(0, Math.min(100, Number(busy.percent || 0)))) + '%"></div></div>'
+        + '  <div class="busy-progress-meta">'
+        + '    <strong>' + String(Math.max(0, Math.min(100, Number(busy.percent || 0)))) + '%</strong>'
+        + (busy.bytes_total ? '<span>' + escapeHtml(formatBytes(busy.bytes_done || 0)) + ' / ' + escapeHtml(formatBytes(busy.bytes_total || 0)) + '</span>' : '')
+        + (busy.files_total ? '<span>Files ' + String(busy.files_done || 0) + ' / ' + String(busy.files_total || 0) + '</span>' : '')
+        + '  </div>'
+        + '</div>';
+    }
+    return ''
+      + '<div class="wizard-busy-shell" aria-live="polite">'
+      + '  <div class="wizard-busy-spinner" aria-hidden="true"></div>'
+      + '  <div class="wizard-busy-content">'
+      + '    <div class="wizard-busy-phase">' + escapeHtml(String(busy.phase || 'Working')) + '</div>'
+      + (busy.detail ? '<div class="wizard-busy-detail">' + escapeHtml(String(busy.detail)) + '</div>' : '')
+      + progressMarkup
       + '  </div>'
       + '</div>';
   }
@@ -1292,6 +1420,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + this._renderWizardProgress()
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+      + this._renderBusyState()
       + '    <div class="wizard-body">' + this._renderWizardBody() + '</div>'
       + this._renderWizardFooter()
       + '    <input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files">'
@@ -1317,6 +1446,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     event.preventDefault();
+    if (this._loading) {
+      return;
+    }
     if (action === 'refresh-intake') {
       this._refreshAll();
       return;
@@ -1399,6 +1531,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   _handleChange(event) {
     var target = event.target instanceof Element ? event.target : null;
     if (!target) {
+      return;
+    }
+    if (this._loading) {
       return;
     }
     var action = String(target.getAttribute('data-action') || '');
@@ -1526,6 +1661,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!target) {
       return;
     }
+    if (this._loading) {
+      return;
+    }
     var action = String(target.getAttribute('data-action') || '');
     if (action === 'browser-group-title') {
       this._updateBrowserBatchMeta({
@@ -1595,6 +1733,16 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-close-confirm-dialog{position:relative;display:grid;gap:10px;width:min(460px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;padding:18px;border-radius:16px;border:1px solid rgba(148,163,184,0.28);background:var(--card-background-color,rgba(15,23,42,0.98));box-shadow:0 20px 56px rgba(2,6,23,0.45);}'
       + '.wizard-close-confirm-dialog .title{font-size:18px;line-height:1.25;}'
       + '.wizard-close-confirm-actions{justify-content:flex-end;}'
+      + '.wizard-busy-shell{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(96,165,250,0.35);background:rgba(30,64,175,0.15);}'
+      + '.wizard-busy-spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(148,163,184,0.45);border-top-color:rgba(96,165,250,0.95);animation:intakeSpin .9s linear infinite;flex:0 0 18px;margin-top:2px;}'
+      + '.wizard-busy-content{display:grid;gap:6px;min-width:0;}'
+      + '.wizard-busy-phase{font-size:13px;font-weight:800;line-height:1.25;}'
+      + '.wizard-busy-detail{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
+      + '.busy-progress{display:grid;gap:6px;}'
+      + '.busy-progress-track{height:8px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,0.24);}'
+      + '.busy-progress-fill{height:100%;background:linear-gradient(90deg,rgba(59,130,246,0.95),rgba(56,189,248,0.9));}'
+      + '.busy-progress-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--secondary-text-color);}'
+      + '@keyframes intakeSpin{to{transform:rotate(360deg);}}'
       // Issue #1322 tweaks: hover affordances, right-aligned action buttons, larger summary font, file-type icon, intake path row
       + '.button{transition:background-color .12s ease,border-color .12s ease,filter .12s ease,transform .12s ease;}'
       + '.button:hover:not(:disabled){filter:brightness(1.18);transform:translateY(-1px);background:rgba(148,163,184,0.22);}'

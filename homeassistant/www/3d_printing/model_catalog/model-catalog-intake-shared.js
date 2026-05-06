@@ -352,6 +352,73 @@
     return parsed && typeof parsed === "object" ? parsed : {};
   }
 
+  async function postFormWithAuthWithProgress(hass, endpoint, formData, onProgress) {
+    async function sendRequest(forceRefresh) {
+      var headers = await authHeaders(hass, forceRefresh);
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", endpoint, true);
+        Object.keys(headers || {}).forEach(function (name) {
+          xhr.setRequestHeader(name, headers[name]);
+        });
+
+        if (typeof onProgress === "function" && xhr.upload) {
+          xhr.upload.onprogress = function (event) {
+            try {
+              onProgress({
+                loaded: Number(event && event.loaded || 0),
+                total: Number(event && event.total || 0),
+                lengthComputable: !!(event && event.lengthComputable),
+              });
+            } catch (_progressError) {
+              // Progress callbacks are best-effort.
+            }
+          };
+        }
+
+        xhr.onload = function () {
+          var bodyText = String(xhr.responseText || "");
+          var parsed = {};
+          if (bodyText) {
+            try {
+              parsed = JSON.parse(bodyText);
+            } catch (_parseError) {
+              parsed = {};
+            }
+          }
+          resolve({
+            status: Number(xhr.status || 0),
+            ok: Number(xhr.status || 0) >= 200 && Number(xhr.status || 0) < 300,
+            payload: parsed,
+          });
+        };
+
+        xhr.onerror = function () {
+          reject(new Error("Network request failed."));
+        };
+
+        xhr.send(formData);
+      });
+    }
+
+    var firstAttempt = await sendRequest(false);
+    var response = firstAttempt;
+    if (firstAttempt.status === 401) {
+      response = await sendRequest(true);
+    }
+
+    if (!response.ok || (response.payload && response.payload.success === false)) {
+      var formError = new Error(response.payload && (response.payload.message || response.payload.error)
+        ? String(response.payload.message || response.payload.error)
+        : "Request failed.");
+      formError.status = Number(response.status || 0);
+      formError.payload = response.payload;
+      throw formError;
+    }
+
+    return response.payload && typeof response.payload === "object" ? response.payload : {};
+  }
+
   var browserUploadCapabilityCache = {};
 
   function normalizeSidecarBaseUrl(sidecarBaseUrl) {
@@ -422,7 +489,7 @@
     return status === 404 || status === 405 || status === 415 || status === 501;
   }
 
-  async function uploadBrowserFilesWithFallback(hass, sidecarBaseUrl, browserFiles, serverSelections, cleanupPolicy) {
+  async function uploadBrowserFilesWithFallback(hass, sidecarBaseUrl, browserFiles, serverSelections, cleanupPolicy, options) {
     var normalizedBaseUrl = normalizeSidecarBaseUrl(sidecarBaseUrl);
     if (!normalizedBaseUrl) {
       throw new Error("Set input_text.model_catalog_sidecar_base_url to enable browser uploads.");
@@ -430,10 +497,16 @@
 
     var files = Array.isArray(browserFiles) ? browserFiles : [];
     var selections = Array.isArray(serverSelections) ? serverSelections : [];
+    var callbacks = options && typeof options === "object" ? options : {};
+    var onUploadProgress = typeof callbacks.onUploadProgress === "function" ? callbacks.onUploadProgress : null;
+    var onPhase = typeof callbacks.onPhase === "function" ? callbacks.onPhase : null;
     var supportsV2 = await supportsBrowserUploadV2(hass, normalizedBaseUrl);
 
     if (supportsV2) {
       try {
+        if (onPhase) {
+          onPhase("uploading_files");
+        }
         var multipartForm = new FormData();
         multipartForm.append("manifest", JSON.stringify({
           cleanup_policy: cleanupPolicy,
@@ -443,7 +516,12 @@
         files.forEach(function (fileEntry) {
           multipartForm.append("files[]", fileEntry.file, fileEntry.name || (fileEntry.file && fileEntry.file.name) || "upload.bin");
         });
-        return await postFormWithAuth(hass, normalizedBaseUrl + "/api/intake/uploads/v2/browser-multipart", multipartForm);
+        return await postFormWithAuthWithProgress(
+          hass,
+          normalizedBaseUrl + "/api/intake/uploads/v2/browser-multipart",
+          multipartForm,
+          onUploadProgress
+        );
       } catch (error) {
         if (!shouldFallbackToV1(error)) {
           throw error;
@@ -451,9 +529,24 @@
       }
     }
 
+    if (onPhase) {
+      onPhase("encoding_files");
+    }
     var encodedBrowserFiles = [];
+    var processedFiles = 0;
     for (var index = 0; index < files.length; index += 1) {
       encodedBrowserFiles.push(await encodeBrowserFileForV1(files[index]));
+      processedFiles += 1;
+      if (onUploadProgress) {
+        onUploadProgress({
+          files_processed: processedFiles,
+          files_total: files.length,
+          lengthComputable: false,
+        });
+      }
+    }
+    if (onPhase) {
+      onPhase("submitting_request");
     }
     return postJsonWithAuth(hass, normalizedBaseUrl + "/api/intake/uploads/browser", {
       browser_files: encodedBrowserFiles,
