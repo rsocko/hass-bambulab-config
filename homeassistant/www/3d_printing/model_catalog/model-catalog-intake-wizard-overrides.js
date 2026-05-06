@@ -780,10 +780,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<article class="entry-row">'
       + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
       + '<div class="item-grid">'
-      + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
+      + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
       + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
       + (showBatchTitleField
-        ? '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
+        ? '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
         : '')
       + '</div>'
       + (groupingValue === 'flat' && titleSource === 'custom'
@@ -844,12 +844,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '<article class="entry-row">'
         + '<div class="entry-top">' + folderPreviewMarkup() + '<div class="entry-main"><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
         + '<div class="item-grid">'
+        + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
         + '<div class="field"><label>Folder Scope</label><select class="select" data-action="browser-root-recurse" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.recurse !== false ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (representative.recurse === false ? ' selected' : '') + '>Just this folder</option></select></div>'
-        + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
-        + (representative.recurse !== false ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>' : '')
+        + (representative.recurse !== false
+          ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+          : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
         + '<div class="field"><label>Title Basis</label><select class="select" data-action="browser-root-title-source" data-root="' + escapeHtml(rootKey) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-        + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
-        + '<div class="muted">These options apply only to the folder ' + escapeHtml(rootKey) + '.</div>'
+        + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
+        + '<div class="muted" style="grid-column:1 / -1;">These options apply only to the folder ' + escapeHtml(rootKey) + '.</div>'
         + '</div>'
         + '</article>');
     }, this);
@@ -901,22 +903,21 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         ? '<div class="result-summary">'
           + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
           + (groupingStrategy !== 'flat'
-            ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+            ? '  <div class="result-line"><span>Model/Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
             : '')
           + '</div>'
         : chipMarkup)
       + (showControls
         ? '<div class="item-grid">'
           + (folderCount
-            ? '    <div class="field"><label>Selected Folder</label><div class="muted">' + escapeHtml(folderCount === 1 ? folderNames[0] : String(folderCount) + ' folders selected') + '</div></div><div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
+            ? '    <div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-grouping">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div><div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
             : '')
-          + '    <div class="field"><label>Group / Split</label><select class="select" data-action="browser-grouping">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
           + (folderCount && recurse
             ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
-            : '')
+            : (folderCount ? '    <div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>' : ''))
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source">' + titleSourceOptions + '</select></div>'
           + (groupingStrategy !== 'flat'
-            ? '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+            ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
             : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
@@ -2067,14 +2068,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
+              + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'
               + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
-              + '<div class="field"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'
               + (entry.recurse
                 ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
-                : '')
+                : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
               + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-              + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-              + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated Catalog.' : '') + '</div>'
+              + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated Catalog.' : '') + '</div>'
               + '</div>'
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
           + '</article>';
