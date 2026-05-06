@@ -235,12 +235,40 @@ function buildBrowserPlanPreview(card) {
   if (!files.length) {
     return null;
   }
-  function normalizeSectionStrategy(rawValue) {
-    return normalizeGroupingStrategy(rawValue, { allowFolderStrategies: true });
+  function mergeNoneStrategyGroups(groups) {
+    var merged = [];
+    var noneIndex = -1;
+    (groups || []).forEach(function (group) {
+      var strategy = String(group && group.strategy || 'none').trim().toLowerCase();
+      if (strategy !== 'none') {
+        merged.push(group);
+        return;
+      }
+      if (noneIndex < 0) {
+        noneIndex = merged.length;
+        merged.push(Object.assign({}, group, {
+          files: (group && group.files ? group.files.slice() : []),
+        }));
+        return;
+      }
+      var existing = merged[noneIndex];
+      existing.files = (existing.files || []).concat((group && group.files) || []);
+      var incomingExplicitTitle = String(group && group.group_title || '').trim();
+      var existingExplicitTitle = String(existing.group_title || '').trim();
+      if (!existingExplicitTitle && incomingExplicitTitle) {
+        existing.group_title = incomingExplicitTitle;
+        existing.title = incomingExplicitTitle;
+      }
+    });
+    return merged;
   }
 
-  function groupsForSection(sectionFiles, requestedStrategy, sectionTitle) {
-    var sectionStrategy = normalizeSectionStrategy(requestedStrategy);
+  function groupsForSection(sectionFiles, requestedStrategy, sectionTitle, sectionGroupTitle, options) {
+    var settings = options || {};
+    var sectionStrategy = normalizeGroupingStrategy(requestedStrategy, {
+      allowFolderStrategies: settings.allowFolderStrategies !== false,
+    });
+    var explicitGroupTitle = String(sectionGroupTitle || '').trim();
     var sectionGroups = [];
     if (!sectionFiles.length) {
       return sectionGroups;
@@ -269,6 +297,7 @@ function buildBrowserPlanPreview(card) {
       sectionGroups.push({
         title: sectionTitle || titleForStrategy(card, 'by-root', '__loose__'),
         strategy: 'by-root',
+        group_title: explicitGroupTitle,
         files: sectionFiles.slice(),
       });
       return sectionGroups;
@@ -281,7 +310,12 @@ function buildBrowserPlanPreview(card) {
         sectionGroups = printable.map(function (entry) {
           var stem = basename(entry.relative_path || entry.name || '').replace(/\.[^.]+$/, '');
           var customTitle = String(entry.group_title || '').trim();
-          return { title: customTitle || stem || 'Model', strategy: 'flat', files: [entry] };
+          return {
+            title: customTitle || stem || 'Model',
+            strategy: 'flat',
+            group_title: customTitle,
+            files: [entry],
+          };
         });
         sectionFiles.forEach(function (entry) {
           if (fileKind(entry.relative_path || entry.name || '') === 'model') {
@@ -296,6 +330,7 @@ function buildBrowserPlanPreview(card) {
     sectionGroups.push({
       title: sectionTitle || card._browserBatchResolvedTitle(),
       strategy: sectionStrategy,
+      group_title: explicitGroupTitle,
       files: sectionFiles.slice(),
     });
     return sectionGroups;
@@ -313,19 +348,28 @@ function buildBrowserPlanPreview(card) {
     groups = groups.concat(groupsForSection(
       bucketFiles,
       representative.grouping_strategy,
-      card._browserRootResolvedTitle ? card._browserRootResolvedTitle(rootKey, representative) : rootKey
+      card._browserRootResolvedTitle ? card._browserRootResolvedTitle(rootKey, representative) : rootKey,
+      representative.group_title,
+      { allowFolderStrategies: true }
     ));
   });
 
   var looseFiles = card._browserLooseFiles ? card._browserLooseFiles() : [];
   if (looseFiles.length) {
-    var looseRepresentative = looseFiles[0] || {};
-    groups = groups.concat(groupsForSection(
-      looseFiles,
-      looseRepresentative.grouping_strategy,
-      card._browserLooseResolvedTitle ? card._browserLooseResolvedTitle() : card._browserBatchResolvedTitle()
-    ));
+    looseFiles.forEach(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '');
+      var looseTitle = basename(relativePath).replace(/\.[^.]+$/, '') || 'Working Group';
+      groups = groups.concat(groupsForSection(
+        [entry],
+        entry.grouping_strategy,
+        looseTitle,
+        entry.group_title,
+        { allowFolderStrategies: false }
+      ));
+    });
   }
+
+  groups = mergeNoneStrategyGroups(groups);
 
   var strategies = {};
   groups.forEach(function (group) {
@@ -766,6 +810,37 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return basename(String(files[0].relative_path || files[0].name || '')).replace(/\.[^.]+$/, '') || 'Working Group';
   };
 
+  proto._renderBrowserLooseFileCard = function (entry) {
+    var relativePath = String(entry && (entry.relative_path || entry.name) || '');
+    var displayName = basename(relativePath) || relativePath || 'upload.bin';
+    var defaultTitle = displayName.replace(/\.[^.]+$/, '') || 'Working Group';
+    var groupingValue = normalizeGroupingStrategy(entry && entry.grouping_strategy || 'none', { allowFolderStrategies: false });
+    var titleSource = String(entry && entry.group_title_source || '').trim().toLowerCase() === 'custom' ? 'custom' : 'first-file';
+    var resolvedTitle = String(entry && entry.group_title || '').trim() || defaultTitle;
+    var previewUrl = String(entry && entry.preview_url || '');
+    var previewMarkup = previewUrl
+      ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+      : '<div class="entry-thumb placeholder">No preview</div>';
+    return ''
+      + '<article class="entry-row">'
+      + '  <div class="entry-top">'
+      + previewMarkup
+      + '    <div class="entry-main">'
+      + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+      + '      <div class="entry-path">Loose browser file</div>'
+      + '    </div>'
+      + '    ' + entryTypeIconMarkup(relativePath, false)
+      + '  </div>'
+      + '  <div class="item-grid">'
+      + '    <div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-loose-file-grouping" data-relative-path="' + escapeHtml(relativePath) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
+      + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-loose-file-title-source" data-relative-path="' + escapeHtml(relativePath) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+      + (titleSource === 'custom'
+        ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-loose-file-group-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="Working Group"></div>'
+        : '')
+      + '  </div>'
+      + '</article>';
+  };
+
   proto._updateBrowserEntriesWhere = function (predicate, updates) {
     this._browserFiles = this._browserFiles.map(function (entry) {
       if (!predicate(entry)) {
@@ -870,18 +945,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var looseFiles = this._browserLooseFiles();
     var sections = [];
     if (looseFiles.length) {
-      sections.push(this._renderSharedFileBatchCard({
-        entries: looseFiles,
-        groupingValue: normalizeGroupingStrategy(looseFiles[0].grouping_strategy || 'none', { allowFolderStrategies: false }),
-        titleSource: this._browserLooseTitleSource(),
-        resolvedTitle: this._browserLooseResolvedTitle(),
-        groupingAction: 'browser-loose-grouping',
-        titleSourceAction: 'browser-loose-title-source',
-        groupTitleAction: 'browser-loose-group-title',
-        perFileTitleAction: 'browser-flat-model-title',
-        perFilePathAttribute: 'data-relative-path',
-        description: 'Applies to individually selected browser files in this intake batch.',
-      }));
+      looseFiles.slice().sort(function (left, right) {
+        var leftPath = String(left.relative_path || left.name || '');
+        var rightPath = String(right.relative_path || right.name || '');
+        return leftPath.localeCompare(rightPath);
+      }).forEach(function (entry) {
+        sections.push(this._renderBrowserLooseFileCard(entry));
+      }, this);
     }
     rootKeys.forEach(function (rootKey) {
       var files = rootBuckets[rootKey];
@@ -2765,6 +2835,42 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._refreshWizardPreview();
       return;
     }
+    if (action === 'browser-loose-file-grouping') {
+      var groupingPath = String(target.getAttribute('data-relative-path') || '');
+      if (!groupingPath) {
+        return;
+      }
+      var nextGrouping = String(target.value || 'none').trim().toLowerCase();
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === groupingPath;
+      }, {
+        grouping_strategy: nextGrouping,
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      this._render();
+      return;
+    }
+    if (action === 'browser-loose-file-title-source') {
+      var titlePath = String(target.getAttribute('data-relative-path') || '');
+      if (!titlePath) {
+        return;
+      }
+      var nextTitleSource = String(target.value || 'first-file').trim().toLowerCase();
+      var existingEntry = (this._browserFiles || []).find(function (entry) {
+        return String(entry.relative_path || entry.name || '') === titlePath;
+      }) || {};
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === titlePath;
+      }, {
+        group_title_source: nextTitleSource,
+        group_title: nextTitleSource === 'custom' ? String(existingEntry.group_title || '') : '',
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      this._render();
+      return;
+    }
     if (action === 'browser-root-recurse' || action === 'browser-root-grouping' || action === 'browser-root-preserve-structure' || action === 'browser-root-title-source') {
       var rootKey = String(target.getAttribute('data-root') || '');
       if (!rootKey) {
@@ -2850,6 +2956,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         return;
       }
       this._updateBrowserRootMeta(rootKey, {
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
+      });
+      return;
+    }
+    if (action === 'browser-loose-file-group-title') {
+      var looseRelativePath = String(target.getAttribute('data-relative-path') || '');
+      if (!looseRelativePath) {
+        return;
+      }
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === looseRelativePath;
+      }, {
         group_title_source: 'custom',
         group_title: String(target.value || '').trim(),
       });
