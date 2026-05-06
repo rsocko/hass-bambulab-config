@@ -2209,11 +2209,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
           + '<div class="wizard-panel">'
           + '  <div class="title-row"><div><div class="title">Selected Source Entries</div><div class="subtitle">Click an entry to jump to its parent on the left.</div></div></div>'
+          // Issue #1356: chips live in the fixed header (mirroring the
+          // .intake-path-row on the left) so the scrolling list aligns
+          // vertically with the left pane and the chips have breathing
+          // room above the entries.
+          + '  <div class="intake-path-row intake-summary-chips-row">' + this._renderServerWizardSummary() + '</div>'
             // Issue #1345: the right pane now shows only the chosen entries
             // (no mirrored navigation tree, no second path/breadcrumb row).
             // Navigation lives on the left pane; the right pane is a
             // selection summary plus the per-entry list.
-            + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderServerWizardSummary() + this._renderServerSelectionRows(false) + '</div></div>'
+            + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderServerSelectionRows(false) + '</div></div>'
           + '</div>';
       }
           var browserPath = normalizeBrowserRelativePath(this._browserSourcePath || '');
@@ -2231,7 +2236,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Current Batch</div><div class="subtitle">Click an entry to jump to its parent on the left.</div></div></div>'
-        + '  <div class="wizard-panel-scroll">' + this._renderBrowserWizardSummary(false) + this._renderBrowserSourceEntries(false) + '</div>'
+        // Issue #1356: chips live in the fixed header (mirroring the
+        // .intake-path-row on the left) so the scrolling list aligns
+        // vertically with the left pane and the chips have breathing
+        // room above the entries.
+        + '  <div class="intake-path-row intake-summary-chips-row">' + this._renderBrowserWizardSummary(false) + '</div>'
+        + '  <div class="wizard-panel-scroll">' + this._renderBrowserSourceEntries(false) + '</div>'
         + '</div>';
     }
     if (this._wizardStep === 2) {
