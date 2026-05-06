@@ -853,7 +853,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       : '<option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>';
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary box.
     // Source path is intentionally omitted (it's implicit -- this is Browser Upload).
-    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;vertical-align:middle;position:relative;top:-1px;';
+    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;top:-2px;';
     var chipMarkup = ''
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
@@ -912,7 +912,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary
     // box. Source path is intentionally omitted from the right pane (the user
     // can see/navigate it on the left).
-    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;vertical-align:middle;position:relative;top:-1px;';
+    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;top:-2px;';
     return ''
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
@@ -1638,7 +1638,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '    ' + entryTypeIconMarkup(rootKey, true)
           + '  </div>'
           + '  <div class="entry-actions">'
-          + '<span class="chip ok">selected</span>'
+          + '<span class="chip ok">Selected</span>'
           + exclusionChip
           + '  </div>'
           + '</article>';
@@ -1665,7 +1665,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '    ' + entryTypeIconMarkup(relativePath, false)
           + '  </div>'
           + '  <div class="entry-actions">'
-          + '<span class="chip ok">selected</span>'
+          + '<span class="chip ok">Selected</span>'
           + '  </div>'
           + '</article>';
       }).join('');
@@ -1714,15 +1714,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       var activeCount = fileCount - excludedCount;
       var fullyExcluded = fileCount > 0 && activeCount === 0;
-      // Issue #1349: a folder that contains any included (non-excluded) files
-      // gets a dashed primary border so it visually mirrors the Server-side
-      // "contains selection" treatment. Browser mode has no separate
-      // "selected folder" concept — every folder visible in the staged tree
-      // either contains included items or is fully excluded.
-      var containsSelection = !fullyExcluded && activeCount > 0;
+      // Issue #1350: unify with Server path styling.
+      //   At root (currentPath==='') the visible folders ARE the user's
+      //   explicit selections → solid border + "Selected" chip + Remove.
+      //   At non-root (drilled into a parent) sub-folders are children of
+      //   that selection → dashed border + "Included in Selection" + Remove.
+      //   Fully-excluded folders → dashed duller border + "Excluded" + Select.
+      var atRoot = !currentPath;
+      var isSelected = !fullyExcluded && atRoot;
+      var indirectlySelected = !fullyExcluded && !atRoot;
       var folderRowClass = 'entry-row'
-        + (fullyExcluded ? ' excluded' : '')
-        + (containsSelection ? ' contains-selection' : '');
+        + (isSelected ? ' selected' : '')
+        + (indirectlySelected ? ' included-in-selection' : '')
+        + (fullyExcluded ? ' excluded' : '');
       var countLine = fullyExcluded
         ? String(fileCount) + ' files (all excluded)'
         : (excludedCount > 0
@@ -1730,7 +1734,8 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           : String(fileCount) + ' files');
       var folderActionButton = '';
       if (fullyExcluded) {
-        folderActionButton = '    <button class="button primary" data-action="restore-browser-folder" data-path="' + escapeHtml(folderPath) + '">Restore</button>';
+        // Issue #1350: label parity with Server path — "Select" not "Restore".
+        folderActionButton = '    <button class="button primary" data-action="restore-browser-folder" data-path="' + escapeHtml(folderPath) + '">Select</button>';
       } else {
         folderActionButton = '    <button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(folderPath) + '">Remove</button>';
       }
@@ -1739,16 +1744,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-top">'
         + folderPreviewMarkup()
         + '    <div class="entry-main">'
-        + '      <div class="entry-name"' + (fullyExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(folderName) + '</div>'
+        + '      <div class="entry-name">' + escapeHtml(folderName) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(folderPath)) + '</div>'
         + '      <div class="muted">' + escapeHtml(countLine) + '</div>'
         + '    </div>'
         + '    ' + entryTypeIconMarkup(folderPath, true)
         + '  </div>'
         + '  <div class="entry-actions">'
-        + (excludedCount > 0 && !fullyExcluded ? '    <span class="chip warn" title="Items excluded from this folder">⚠ ' + String(excludedCount) + ' excluded</span>' : '')
+        + (isSelected ? '    <span class="chip ok">Selected</span>' : '')
+        + (indirectlySelected ? '    <span class="chip">Included in Selection</span>' : '')
         + (fullyExcluded ? '    <span class="chip warn">Excluded</span>' : '')
-        + '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>'
+        + (excludedCount > 0 && !fullyExcluded ? '    <span class="chip warn" title="Items excluded from this folder">⚠ ' + String(excludedCount) + ' excluded</span>' : '')
+        + (!fullyExcluded ? '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>' : '')
         + folderActionButton
         + '  </div>'
         + '</article>';
@@ -1759,26 +1766,35 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var previewMarkup = previewUrl
         ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(item.name) + '" loading="lazy" decoding="async"></div>'
         : '<div class="entry-thumb placeholder">No preview</div>';
-      // Issue #1324: render excluded files struck-through with a Restore action
-      // so the user can recover from an accidental Remove on the Source step.
+      // Issue #1350: file rows mirror the folder treatment — at root files
+      // are "Selected", inside a folder they are "Included in Selection",
+      // excluded files get a duller dashed border with a Select button to
+      // re-include them. No strike-through (parity with Server path).
       var entryKey = card._browserFileKey(entry);
       var isExcluded = card._isBrowserKeyExcluded(entryKey);
-      var fileRowClass = 'entry-row' + (isExcluded ? ' excluded' : '');
+      var fileSelected = !isExcluded && !currentPath;
+      var fileIndirectlySelected = !isExcluded && !!currentPath;
+      var fileRowClass = 'entry-row'
+        + (fileSelected ? ' selected' : '')
+        + (fileIndirectlySelected ? ' included-in-selection' : '')
+        + (isExcluded ? ' excluded' : '');
       var fileActions = isExcluded
-        ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Restore</button>'
+        ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Select</button>'
         : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
       return ''
         + '<article class="' + fileRowClass + '">'
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
-        + '      <div class="entry-name"' + (isExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(item.name) + '</div>'
+        + '      <div class="entry-name">' + escapeHtml(item.name) + '</div>'
         + '      <div class="entry-path">' + escapeHtml(formatBrowserPathForDisplay(currentPath)) + '</div>'
         + '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes || 0)) + '</div>'
         + '    </div>'
         + '    ' + entryTypeIconMarkup(item.path, false)
         + '  </div>'
         + '  <div class="entry-actions">'
+        + (fileSelected ? '<span class="chip ok">Selected</span>' : '')
+        + (fileIndirectlySelected ? '<span class="chip">Included in Selection</span>' : '')
         + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
         + fileActions
         + '  </div>'
@@ -1816,9 +1832,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '    ' + entryTypeIconMarkup(entry.path, entry.type === 'folder')
         + '  </div>'
         + '  <div class="entry-actions">'
-        + (selected ? '<span class="chip ok">selected</span>' : '')
-        + (!selected && childOfSelection ? '<span class="chip">included in selection</span>' : '')
-        + (isExcluded ? '<span class="chip warn">excluded</span>' : '')
+        + (selected ? '<span class="chip ok">Selected</span>' : '')
+        + (!selected && childOfSelection ? '<span class="chip">Included in Selection</span>' : '')
+        + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
         + (entry.type === 'folder' ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
         + '  </div>'
         + '</article>';
@@ -1871,27 +1887,34 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-top">'
         + previewMarkup
         + '    <div class="entry-main">'
-        + '      <div class="entry-name"' + (isExcluded ? ' style="text-decoration:line-through;opacity:0.55;"' : '') + '>' + escapeHtml(displayName) + '</div>'
+        + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
         + (parentDisplayPath ? '      <div class="entry-path">' + escapeHtml(parentDisplayPath) + '</div>' : '')
         + (!isFolder && entry.size_bytes != null ? '      <div class="muted">' + escapeHtml(formatBytes(entry.size_bytes)) + '</div>' : '')
         + '    </div>'
         + '    ' + entryTypeIconMarkup(entry.path, isFolder)
         + '  </div>'
         + '  <div class="entry-actions">'
-        // Chips row: status indicators for selected/excluded/included-in-parent
+        // Issue #1350: unified chips/buttons across browser+server paths.
+        //   Selected         → solid border + highlighted bg + "Selected" + Remove
+        //   Indirectly sel.  → dashed border + highlighted bg + "Included in Selection" + Remove
+        //   Excluded         → dashed duller border + no bg + "Excluded" + Select
+        //   Contains sel.    → dashed border + no bg + "1 or more children included" + Open + Select
+        //   Not selected     → no border + Select (file) / Open + Select (folder)
+        + (selected ? '<span class="chip ok" style="align-self:center;">Selected</span>' : '')
+        + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;">Included in Selection</span>' : '')
         + (isExcluded ? '<span class="chip warn" style="align-self:center;">Excluded</span>' : '')
-        + (childOfSelection && !isExcluded ? '<span class="chip" style="align-self:center;">✓ included in selection</span>' : '')
+        + (containsSelection ? '<span class="chip" style="align-self:center;">1 or more children included</span>' : '')
         + (selected && excludedUnder > 0 ? '<span class="chip warn" style="align-self:center;" title="Items excluded from this folder">⚠ ' + String(excludedUnder) + ' excluded</span>' : '')
         // Open button for folders (always visible unless excluded)
         + (isFolder && !isExcluded ? '<button class="button" data-action="browse-path" data-path="' + escapeHtml(entry.path) + '">Open</button>' : '')
-        // Action buttons depend on context:
-        //   - excluded item → Restore button
-        //   - child of selected folder → Exclude button
-        //   - top-level item → normal Select/Remove toggle
+        // Action buttons (Issue #1350: use Remove/Select labels consistently):
+        //   - excluded item            → Select button (re-include via unexclude-item)
+        //   - child of selected folder → Remove button (exclude-item action)
+        //   - top-level / unselected   → Select / Remove toggle
         + (isExcluded
-          ? '<button class="button primary" data-action="unexclude-item" data-path="' + escapeHtml(entry.path) + '">Restore</button>'
+          ? '<button class="button primary" data-action="unexclude-item" data-path="' + escapeHtml(entry.path) + '">Select</button>'
           : (childOfSelection
-            ? '<button class="button warn" data-action="exclude-item" data-path="' + escapeHtml(entry.path) + '" title="Exclude this item from the parent folder\'s intake">✕ Exclude</button>'
+            ? '<button class="button warn" data-action="exclude-item" data-path="' + escapeHtml(entry.path) + '" title="Remove this item from the parent folder\'s intake">Remove</button>'
             : '<button class="button ' + (selected ? 'warn' : 'primary') + '" data-action="toggle-selection" data-entry-type="' + escapeHtml(entry.type) + '" data-path="' + escapeHtml(entry.path) + '">' + (selected ? 'Remove' : 'Select') + '</button>'))
         + '  </div>'
         + '</article>';
@@ -1939,7 +1962,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '    ' + entryTypeIconMarkup(entry.path, isFolder)
             + '  </div>'
             + '  <div class="entry-actions">'
-            + '<span class="chip ok">selected</span>'
+            + '<span class="chip ok">Selected</span>'
             + exclusionChip
             + '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>'
             + '  </div>'
@@ -2041,7 +2064,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Issue #1349: a folder that contains selected/included items (but is
       // not itself selected) gets a dashed primary border so the user can
       // visually distinguish it from a fully-selected folder (solid border).
-      + '.wizard-dialog .entry-row.contains-selection:not(.selected){border-style:dashed;border-width:2px;border-color:var(--primary-color,#60a5fa);background:rgba(96,165,250,0.04);}'
+      + '.wizard-dialog .entry-row.contains-selection:not(.selected):not(.excluded){border-style:dashed;border-width:2px;border-color:var(--primary-color,#60a5fa);background:rgba(96,165,250,0.04);}'
+      // Issue #1350: an excluded item / fully-excluded folder gets a duller
+      // dashed border with NO highlighted background — visually distinct from
+      // selected (solid + bg) and indirectly-selected (dashed + bg). No
+      // strike-through or opacity dim — the row remains fully readable so the
+      // user can re-Select it.
+      + '.wizard-dialog .entry-row.excluded{border-style:dashed;border-width:2px;border-color:rgba(96,165,250,0.4);background:transparent;opacity:1;}'
+      + '.wizard-dialog .entry-row.excluded .entry-name{text-decoration:none;opacity:1;}'
       // Issue #1349: rows in the right pane are clickable to jump to the
       // entry's parent folder on the left (which now owns all navigation).
       + '.wizard-dialog .entry-row.right-pane-jump{cursor:pointer;}'
