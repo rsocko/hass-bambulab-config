@@ -92,7 +92,7 @@ Must support:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Surface 2: Curated Catalog Browser
+## Surface 2: Catalog Browser
 
 Primary purpose:
 
@@ -116,7 +116,7 @@ Important content hierarchy:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Curated Catalog Browser                                                     │
+│ Catalog Browser                                                     │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Search: [gridfinity holder________________]  View: [Grid v]  Sort: Recent   │
 │ Filters: [Collection v] [Tags v] [Queue v] [Origin v] [Published v]         │
@@ -331,7 +331,7 @@ Must communicate:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ Publish To Curated Catalog                                          │
+│ Publish To Catalog                                          │
 ├─────────────────────────────────────────────────────────────────────┤
 │ Source group: Gridfinity Bit Holder v3                              │
 │                                                                     │
@@ -388,6 +388,6 @@ When visual mockups are refined further, favor:
 If higher-fidelity documentation is needed, the next most valuable assets would be:
 
 1. a mid-fi archive popup mockup with real card proportions
-2. a desktop and mobile curated catalog browse view
+2. a desktop and mobile catalog browse view
 3. a publish-flow stepper mockup
 4. screenshots once the first HA surfaces are implemented

@@ -24,7 +24,7 @@ The Phase 1.5 design has been revised to support remote-client workflows:
 You asked whether the Model Catalog design accounts for:
 1. **Bulk ingestion** of 500+ existing 3MF files with mixed organization
 2. **Project relationships** for multiple related 3MF files
-3. Whether "Grouping" from Working Files can carry through to curated catalog
+3. Whether "Grouping" from Working Files can carry through to catalog
 
 ## Answer: Partial, But Critical Gaps Identified
 
@@ -94,7 +94,7 @@ Manyfold Models
 ---
 
 ### Gap 4: Grouping Doesn't Carry to Curated
-**Problem**: You're asking if "Grouping" from Working files carries to the curated catalog. Answer: **not yet**.
+**Problem**: You're asking if "Grouping" from Working files carries to the catalog. Answer: **not yet**.
 
 **Current**:
 - Working groups are logical and flexible
@@ -111,7 +111,7 @@ Manyfold Models
 
 ### 1. Three Storage Zones (Current ✅)
 ```
-Working Files          Curated Catalog    Print History
+Working Files          Catalog    Print History
 (sidecar-owned)       (Manyfold-owned)   (Bambuddy-owned)
 └─ Logical groups     └─ Models, tags    └─ Archives, projects
    (not in Manyfold)     (long-lived)       (runtime outcomes)

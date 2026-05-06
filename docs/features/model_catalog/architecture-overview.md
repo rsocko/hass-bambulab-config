@@ -2,7 +2,7 @@
 
 > **Status**: Approved baseline with post-Manyfold transition in execution.
 > **Last updated**: 2026-04-28
-> **Scope**: Single-user personal model catalog with sidecar-owned curated catalog + Working veneer, and Bambuddy-backed archive intelligence.
+> **Scope**: Single-user personal model catalog with sidecar-owned catalog + Working veneer, and Bambuddy-backed archive intelligence.
 
 ## Transition Authority Note
 
@@ -10,7 +10,7 @@ This document contains historical architectural context and current-state bounda
 
 Final authority decision:
 
-- sidecar-owned custom catalog is the active curated catalog authority
+- sidecar-owned custom catalog is the active catalog authority
 - Manyfold is retired from the active operational path (optional future read-only adapter only)
 
 ## Problem Statement
@@ -31,7 +31,7 @@ The final design must preserve clean authority boundaries across sidecar, Bambud
 The approved architecture separates three zones:
 
 1. **Working veneer** — filesystem-native files and logical groups managed by the sidecar
-2. **Curated catalog** — stable sidecar-owned model records and assets
+2. **Catalog** — stable sidecar-owned model records and assets
 3. **Archive intelligence** — Bambuddy archives, runtime facts, filament usage, and print-history context
 
 ```
@@ -42,7 +42,7 @@ The approved architecture separates three zones:
           |
           | publish new canonical revision
           v
-[Curated catalog entry in sidecar] <-----> [Catalog sidecar]
+[Catalog entry in sidecar] <-----> [Catalog sidecar]
           |                                      |
           | linked model summary, ranking        | linkage, custom fields,
           v                                      | working groups, caches,
@@ -54,7 +54,7 @@ The approved architecture separates three zones:
 
 ## Baseline Decisions
 
-### Sidecar Is The Curated Catalog Authority
+### Sidecar Is The Catalog Authority
 
 Sidecar catalog owns:
 
@@ -80,7 +80,7 @@ Reasons:
 - active edits need unrestricted filesystem access
 - filenames and folder structure may churn during iteration
 - shared external-library assumptions are path-sensitive and must avoid dual-write ownership
-- the sidecar can provide grouping and status without forcing an unstable tree into the curated catalog
+- the sidecar can provide grouping and status without forcing an unstable tree into the catalog
 
 The Working experience should be implemented as a sidecar/HA veneer with logical grouping, notes, stage tracking, and quick-open actions.
 
@@ -111,7 +111,7 @@ Why:
 This means the default recommendation is:
 
 - **Working**: external filesystem, sidecar-owned veneer
-- **Curated catalog**: sidecar-owned local catalog and asset graph
+- **Catalog**: sidecar-owned local catalog and asset graph
 
 ### External Scanned Storage Is Still Valid, But Narrower
 
@@ -183,7 +183,7 @@ The updated design avoids vague “promote/demote” language for model storage 
 
 Preferred language:
 
-- **publish to curated catalog** — when a Working group becomes stable enough for Manyfold cataloging
+- **publish to catalog** — when a Working group becomes stable enough for Manyfold cataloging
 - **publish new canonical revision** — when an existing curated model gets a new approved source revision
 - **relink/recreate** — when external path changes require a new Manyfold record or new link state
 
@@ -209,15 +209,15 @@ The intended operator experience is a **Home Assistant-first hybrid UI**, not a 
 
 Baseline expectation:
 
-- use **Home Assistant** as the main day-to-day operator surface for joined workflows across archives, curated catalog summaries, Working groups, and backlog/queue state
+- use **Home Assistant** as the main day-to-day operator surface for joined workflows across archives, catalog summaries, Working groups, and backlog/queue state
 - use **Manyfold UI** directly for deeper curated-catalog-native workflows that are either already good there or not yet safely exposed through API-backed repo surfaces
 - use the **catalog sidecar** primarily as a backend/domain service, not as the primary end-user UI in the baseline design
 
 That means the practical ownership split is:
 
 - **Working files**: primarily surfaced through Home Assistant via the sidecar-owned Working veneer
-- **Curated catalog common browse/actions**: primarily surfaced through Home Assistant, backed by Manyfold data through the sidecar
-- **Curated catalog deep/native flows**: remain in Manyfold UI until there is a clear reason and safe contract to absorb them
+- **Catalog common browse/actions**: primarily surfaced through Home Assistant, backed by Manyfold data through the sidecar
+- **Catalog deep/native flows**: remain in Manyfold UI until there is a clear reason and safe contract to absorb them
 
 Expected evolution:
 
@@ -231,7 +231,7 @@ Expected evolution:
 - archive popup linked-model summary and candidate review
 - Working-group boards and lightweight actions
 - queue/backlog views derived from sidecar fields and archive signals
-- curated catalog quick actions and drill-ins
+- catalog quick actions and drill-ins
 - deterministic write-back actions that are safe and explicit
 
 ### Manyfold Native UI Still Owns
@@ -302,7 +302,7 @@ What does not belong there as primary truth:
 
 The first implementation slices should optimize:
 
-1. curated catalog visibility and archive linkage
+1. catalog visibility and archive linkage
 2. ranking and queue signals from archive history plus sidecar fields
 3. Working-group veneer after the curated baseline is stable
 4. optional deeper strategy work such as upstream API improvements only after the sidecar boundary is proven

@@ -1057,7 +1057,7 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
 @router.post("/api/intake/uploads/{upload_id}/publish-to-local")
 def intake_upload_publish_to_local(request: Request, upload_id: str, payload: dict[str, Any] | None = None) -> Any:
     """
-    Publish a queued or reviewed intake upload into the local-authority curated catalog.
+    Publish a queued or reviewed intake upload into the local-authority catalog.
     
     Transitions from validated_ready → published_to_catalog (terminal state).
     This is the authoritative post-Manyfold sink for reviewed queue/source inputs.

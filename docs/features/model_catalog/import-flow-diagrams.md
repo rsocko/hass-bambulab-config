@@ -172,7 +172,7 @@ Job History contains intake items in terminal states:
 
 - `grouped_new` — created new working group
 - `grouped_existing` — attached to existing working group
-- `published_to_catalog` — published directly to curated catalog
+- `published_to_catalog` — published directly to catalog
 - `rejected` — rejected as noise/invalid
 
 Operators interact with Job History to:
@@ -195,7 +195,7 @@ From the operator's perspective:
 
 - Grouped items appear in the Job History with a link to the resulting working group.
 - Further work happens in Working flow, not Intake flow.
-- Publishing to curated catalog is a later decision in Working or Curated flow.
+- Publishing to catalog is a later decision in Working or Curated flow.
 
 ## Operator Cheat Sheet
 
@@ -207,7 +207,7 @@ From the operator's perspective:
 | `deferred` | Parked item (if used) | Optional backend/admin path | Not required in primary UX |
 | `grouped_new` | Item in Job History, created new working group | View Details, Delete Log Row, Admin Reopen | Workflow complete; new group created |
 | `grouped_existing` | Item in Job History, attached to existing group | View Details, Delete Log Row, Admin Reopen | Workflow complete; files added to group |
-| `published_to_catalog` | Item in Job History, published to curated catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
+| `published_to_catalog` | Item in Job History, published to catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
 | `rejected` | Item in Job History, rejected as noise/invalid | View Details, Delete Log Row, Admin Reopen | Workflow complete; intentionally excluded |
 
 ### Quick Decision Rules (Wizard First)

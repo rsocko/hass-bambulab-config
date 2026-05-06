@@ -2,7 +2,7 @@
 
 > **Status**: Authoritative Phase 6 design.
 > **Last updated**: 2026-05-03
-> **Scope**: Bulk analyze, operator-reviewed enrichment, async-capable 3MF analysis reuse, confidence handling, and audited batch apply for Working and curated catalog workflows.
+> **Scope**: Bulk analyze, operator-reviewed enrichment, async-capable 3MF analysis reuse, confidence handling, and audited batch apply for Working and catalog workflows.
 
 ## Purpose
 

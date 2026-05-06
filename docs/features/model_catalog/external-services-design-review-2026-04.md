@@ -234,7 +234,7 @@ Why:
 The currently selected operational architecture is:
 
 - Bambuddy as runtime archive authority
-- sidecar as curated catalog authority
+- sidecar as catalog authority
 - Home Assistant as the operator-facing control plane
 - a sidecar-owned link layer for strong archive-to-library provenance
 

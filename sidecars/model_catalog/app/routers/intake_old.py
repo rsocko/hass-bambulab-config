@@ -2169,7 +2169,7 @@ def _run_source_cleanup(
 @router.post("/api/intake/uploads/{upload_id}/publish-to-local")
 def intake_upload_publish_to_local(request: Request, upload_id: str, payload: dict[str, Any] | None = None) -> Any:
     """
-    Publish a queued or reviewed intake upload into the local-authority curated catalog.
+    Publish a queued or reviewed intake upload into the local-authority catalog.
 
     This is the authoritative post-Manyfold sink for reviewed queue/source inputs.
     Legacy /upload-to-manyfold remains available only as a transition adapter.

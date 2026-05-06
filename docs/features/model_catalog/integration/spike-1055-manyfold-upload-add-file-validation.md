@@ -3,13 +3,13 @@
 > **Status**: Validation Spike - Complete
 > **Issue**: #1055
 > **Date**: 2026-04-25
-> **Scope**: Investigate and document Manyfold REST API upload and add-file flows for curated catalog operations
+> **Scope**: Investigate and document Manyfold REST API upload and add-file flows for catalog operations
 
 ## Executive Summary
 
 Manyfold's REST API supports both file upload via TUS (resumable upload protocol) and add-file workflows. The API is **sufficient for Phase 1-3 catalog operations** (model creation, file attachment, and metadata updates) but has gaps in error recovery, batch operations, and advanced workflows that may affect Phase 4+ use cases.
 
-**Status**: VALIDATED - Recommend proceeding with planned curated catalog operations. Document limitations for future phases.
+**Status**: VALIDATED - Recommend proceeding with planned catalog operations. Document limitations for future phases.
 
 ---
 
@@ -161,7 +161,7 @@ Content-Type: application/json
 3. Current workaround: Save uploaded file locally, then POST to `/models/{id}/files` with re-upload
 
 #### Impact:
-- Curated catalog upload workflows require saving the file twice or re-uploading content
+- Catalog upload workflows require saving the file twice or re-uploading content
 - Adds disk I/O and network overhead for large 3MF files
 
 #### Recommendation:
@@ -261,7 +261,7 @@ No documented max file size, storage quota, or per-model file limits in the API.
 
 ---
 
-## Recommended Workflows for Curated Catalog Operations
+## Recommended Workflows for Catalog Operations
 
 ### Workflow 1: Create Curated Model from File (Phase 2)
 
@@ -323,7 +323,7 @@ HA → Refresh model detail, show new file in file list
 
 ### Workflow 3: Bulk Import External Files (Phase 1.5)
 
-**Background**: When user wants to bulk-import a folder of 3MF files into curated catalog.
+**Background**: When user wants to bulk-import a folder of 3MF files into catalog.
 
 ```
 Bulk Import Job (Sidecar)
@@ -339,7 +339,7 @@ HA → Surface review queue for operator to approve/reject
     ↓
 Operator → Accept bulk models or adjust tags/creator
     ↓
-Sidecar → Move accepted models from Inbox to curated catalog (noop in Manyfold; update sidecar refs)
+Sidecar → Move accepted models from Inbox to catalog (noop in Manyfold; update sidecar refs)
 ```
 
 ---
@@ -464,7 +464,7 @@ Before moving to Phase 2 implementation, validate:
 
 ## Conclusion
 
-Manyfold's REST API is **sufficient for the planned curated catalog workflows** in Phase 1-3. The main gaps (no direct add-file from upload, no batch operations, no callbacks) do not block Phase 2 implementation but should be documented and revisited for Phase 4+ bulk enrichment workflows.
+Manyfold's REST API is **sufficient for the planned catalog workflows** in Phase 1-3. The main gaps (no direct add-file from upload, no batch operations, no callbacks) do not block Phase 2 implementation but should be documented and revisited for Phase 4+ bulk enrichment workflows.
 
 **Recommendation**: PROCEED with Phase 2 planning using documented workflow above. No upstream API changes required for MVP.
 

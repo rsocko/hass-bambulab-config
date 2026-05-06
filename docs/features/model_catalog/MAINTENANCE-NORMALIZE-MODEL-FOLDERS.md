@@ -275,7 +275,7 @@ def validate_preconditions(plan: list[RenameOperation], settings: Settings) -> V
     """Check database integrity, permissions, space, concurrency."""
     
 def create_backup(storage_root: Path, backup_path: Path) -> BackupManifest:
-    """Archive curated catalog folder with checksums."""
+    """Archive catalog folder with checksums."""
     
 def execute_migration(plan: list[RenameOperation], db_path: Path, storage_root: Path) -> MigrationResult:
     """Rename folders and update database in transaction."""

@@ -24,11 +24,11 @@ Use `Working` for:
 - active edits
 - experiments and branches
 - short-lived variants
-- supporting files that belong to a work item but not yet to the curated catalog
+- supporting files that belong to a work item but not yet to the catalog
 
 `Working` is paired with a sidecar-owned `working_group`, so the filesystem layout does not have to be perfect before the work is usable.
 
-### Curated Catalog
+### Catalog
 
 Use the curated Manyfold catalog for:
 
@@ -57,7 +57,7 @@ Recommended flow:
 2. edit files in `Working/`
 3. print from that working copy as needed
 4. let Bambuddy capture archive outcomes
-5. publish to the curated catalog only when the source is worth keeping long term
+5. publish to the catalog only when the source is worth keeping long term
 
 ### When You Want To Reopen A Curated Model
 
@@ -70,7 +70,7 @@ If you expect to save changes:
 3. edit there
 4. publish a new canonical revision later if the updated version should replace or supersede the curated one
 
-Do not treat the curated catalog as the default place for ad hoc iterative editing.
+Do not treat the catalog as the default place for ad hoc iterative editing.
 
 ### When You Want To Keep A Source Around Only For One Archive
 

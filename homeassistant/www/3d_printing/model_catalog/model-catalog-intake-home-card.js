@@ -917,7 +917,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       };
       if (this._commitMode === 'execute_now') {
         if (publishResponse) {
-          var destinationText = publishDestination === 'working' ? 'working files' : 'the curated catalog';
+          var destinationText = publishDestination === 'working' ? 'working files' : 'the catalog';
           this._status = browserFiles.length
             ? "Browser batch validated and published to " + destinationText + "."
             : "Server selection validated and published to " + destinationText + "." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
@@ -1047,7 +1047,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Curated catalog.' : '') + '</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Catalog.' : '') + '</div>'
         : '')
       + '</div>';
   }
@@ -1124,7 +1124,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               : '')
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
             + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-            + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated catalog.' : '') + '</div>'
+            + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
             + '</div>'
           : (entry.type === 'folder'
             ? '<div class="button-row"><span class="chip">scope ' + escapeHtml(entry.recurse ? 'recursive' : 'just this folder') + '</span><span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
@@ -1209,7 +1209,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
         + (this._commitMode === 'execute_now'
-          ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+          ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
           : '')
         + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
         + '</div>';
@@ -1229,7 +1229,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
       + (this._commitMode === 'execute_now'
-        ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+        ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
         : '')
       + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
       + this._renderBrowserSelectionSummary()

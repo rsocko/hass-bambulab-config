@@ -250,7 +250,7 @@ This is the operator escape hatch when candidate refresh is not sufficient.
 
 ### Entry Points
 
-- archive popup action: `Search curated catalog`
+- archive popup action: `Search catalog`
 - archive popup fallback after empty or weak candidate refresh
 - archive detail shortcut to open curated picker with archive context preloaded
 
@@ -428,7 +428,7 @@ Phase 6 search/discovery design is implementation-ready when all of the followin
 ### Archive Discovery And Navigation
 
 - `#1114` — broaden model-catalog candidate discovery beyond name overlap
-- `#1115` — archive-initiated model picker and curated catalog search
+- `#1115` — archive-initiated model picker and catalog search
 - `#1118` — archive candidate discovery and rationale
 - `#1142` — archive-model search, related models, and navigation
 

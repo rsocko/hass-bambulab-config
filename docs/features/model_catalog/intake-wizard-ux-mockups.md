@@ -344,7 +344,7 @@ Low-fi contract for this step:
 
 - left pane:
   - Queue For Review / Execute Now toggle
-  - Curated Catalog / Working Files destination picker when Execute Now is selected
+  - Catalog / Working Files destination picker when Execute Now is selected
   - friendly cleanup labels:
     - Keep Originals In Place
     - Delete Originals After Success

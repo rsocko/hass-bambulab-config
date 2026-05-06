@@ -39,7 +39,7 @@ Implement required capabilities by extending Manyfold directly via fork and/or u
 | Access to internal capabilities | Limited | Limited to moderate via volumes and local topology, but still contract-safe | Highest |
 | Data-authority clarity | Strong | Strong | Can blur boundaries if too much is pushed into Manyfold |
 | Working veneer fit | Strong | Strongest practical fit | Weak unless Manyfold is changed substantially |
-| Curated catalog enhancement fit | Good | Good | Good for broadly useful native features |
+| Catalog enhancement fit | Good | Good | Good for broadly useful native features |
 | Long-term maintainability | Good | Good | Good only if upstreamed; weaker if long-lived fork |
 
 ## Historical Recommendation (Superseded)

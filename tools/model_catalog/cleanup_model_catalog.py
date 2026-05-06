@@ -285,7 +285,7 @@ def parse_args() -> argparse.Namespace:
         default=["curated", "working", "inbox"],
         help="Filesystem zones to clean when --scope includes files",
     )
-    parser.add_argument("--curated-root", help="Override curated catalog root path")
+    parser.add_argument("--curated-root", help="Override catalog root path")
     parser.add_argument("--working-root", help="Override working files root path")
     parser.add_argument("--inbox-root", help="Override inbox root path")
     return parser.parse_args()

@@ -1,4 +1,4 @@
-# Publish a queued intake upload into the sidecar-owned local curated catalog.
+# Publish a queued intake upload into the sidecar-owned local catalog.
 # This is the authoritative post-Manyfold sink for reviewed intake uploads.
 model_catalog_publish_to_local:
   url: >-

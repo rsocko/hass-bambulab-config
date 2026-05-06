@@ -82,7 +82,7 @@ The wizard should map backend lifecycle to operator-facing phases:
 1. `Uploading files`
 2. `Preparing intake job`
 3. `Validating plan`
-4. `Publishing to Working Files` or `Publishing to Curated Catalog`
+4. `Publishing to Working Files` or `Publishing to Catalog`
 5. `Verifying imported files`
 6. `Cleaning up source files`
 7. `Done`
@@ -193,8 +193,8 @@ For each logical model or source batch, the operator sets:
 - destination strategy:
   - Working Files -> Create New Group
   - Working Files -> Attach Existing Group
-  - Curated Catalog -> Create New Model
-  - Curated Catalog -> Attach To Existing Model
+  - Catalog -> Create New Model
+  - Catalog -> Attach To Existing Model
 
 Step 2 also follows the shared split-pane rule:
 
@@ -228,7 +228,7 @@ Operator decisions in this step:
   - Queue For Review
   - Execute Now
 - publish target when `Execute Now` is selected:
-  - Curated Catalog
+  - Catalog
   - Working Files
 - cleanup policy using friendly labels rather than raw enum values:
   - Keep Originals In Place -> `keep`

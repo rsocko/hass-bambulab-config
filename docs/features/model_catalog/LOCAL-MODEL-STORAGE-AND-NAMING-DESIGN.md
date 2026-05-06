@@ -6,7 +6,7 @@
 
 ## Overview
 
-Local model entries in the sidecar curated catalog are stored as folders under `MODEL_CATALOG_CURATED_ASSETS_ROOT` (e.g., `/assets/Model Catalog`). Each folder corresponds to one model record and contains all associated model assets (3MF, images, documents, etc.).
+Local model entries in the sidecar catalog are stored as folders under `MODEL_CATALOG_CURATED_ASSETS_ROOT` (e.g., `/assets/Model Catalog`). Each folder corresponds to one model record and contains all associated model assets (3MF, images, documents, etc.).
 
 This document specifies:
 1. **Naming convention** for model folders

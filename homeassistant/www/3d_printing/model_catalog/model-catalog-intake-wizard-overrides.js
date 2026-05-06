@@ -419,7 +419,7 @@ function renderPlanSummary(card, options) {
       files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
     }
     if (destinationPlan) {
-      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       destinationMarkup = ''
         + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
@@ -1226,7 +1226,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (matchMode !== 'existing') {
       return destination === 'working'
         ? 'Create a new Working Files group.'
-        : 'Create a new Curated Catalog model.';
+        : 'Create a new Catalog model.';
     }
     if (selected) {
       return String(selected.primary || '')
@@ -1235,7 +1235,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return destination === 'working'
       ? 'Select an existing Working Files group. Existing group title is preserved.'
-      : 'Select an existing Curated Catalog model. Existing model name is preserved.';
+      : 'Select an existing Catalog model. Existing model name is preserved.';
   };
 
   proto._curatedLookupResultMeta = function (result) {
@@ -1369,7 +1369,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var resultRows = '';
       if (matchMode === 'existing') {
         if (plan.lookup_loading) {
-          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Curated Catalog models') + '...</div>';
+          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Catalog models') + '...</div>';
         } else if (plan.lookup_error) {
           resultRows = '<div class="muted">' + escapeHtml(plan.lookup_error) + '</div>';
         } else if (Array.isArray(plan.lookup_results) && plan.lookup_results.length) {
@@ -1391,7 +1391,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
         + '  <div class="item-grid">'
-        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
+        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
         + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
         + '    <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div>'
         + '  </div>'
@@ -1401,7 +1401,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-destination-search" data-group-index="' + String(index) + '"' + (plan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
             + '  </div>'
             + resultRows
-          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Curated Catalog model.') + '</div>')
+          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Catalog model.') + '</div>')
         + '</article>';
     }, this).join('') + '</div>';
   };
@@ -1416,7 +1416,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
-      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchMode = String(plan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       return ''
         + '<article class="entry-row">'
@@ -2196,7 +2196,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
                 : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
               + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
               + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated Catalog.' : '') + '</div>'
+              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
               + '</div>'
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
           + '</article>';
@@ -2684,7 +2684,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Curated Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'

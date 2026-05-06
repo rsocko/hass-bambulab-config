@@ -13,7 +13,7 @@ There are still two distinct queueing needs:
 
 The revised model-catalog design adds a third useful nuance:
 
-3. **Working-group stage** — in-flight work that may not yet deserve a curated catalog entry
+3. **Working-group stage** — in-flight work that may not yet deserve a catalog entry
 
 ## Recommendation
 

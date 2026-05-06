@@ -313,20 +313,20 @@ Deliverables:
 **Status**: Open
 
 Outcomes:
-- Curated catalog becomes useful for day-to-day rediscovery and quick reprint
+- Catalog becomes useful for day-to-day rediscovery and quick reprint
 
 Work items (Phase 3):
 - Add sidecar-owned queue/backlog fields
 - Add sidecar-owned model taxonomy/browse fields
 - Derive archive-backed ranking fields
-- Add HA browse card for curated catalog
+- Add HA browse card for catalog
 - Add filtered backlog/queue view
 - Add curated browse filtering
 
 **No changes to Phase 3 core** (Phase 3.5 is separate sub-phase)
 
 Deliverables:
-- Curated catalog card optimized for quick rediscovery
+- Catalog card optimized for quick rediscovery
 - Simple backlog/queue view
 
 ---
@@ -430,11 +430,11 @@ Deliverables:
 **Status**: Open
 
 Outcomes:
-- Boundary between Working and curated catalog becomes explicit
+- Boundary between Working and catalog becomes explicit
 - Curated models can belong to projects
 
 Work items (Phase 5 — Original):
-- Implement publish flow from Working group to curated catalog
+- Implement publish flow from Working group to catalog
 - Define lineage semantics
 - Add reconciliation checks before publish
 - Support deliberate publish-time choices

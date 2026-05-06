@@ -183,7 +183,7 @@ Issue #1290 should be implemented against the upload transport and queue lifecyc
     - `Uploading files`
     - `Preparing intake job`
     - `Validating plan`
-    - `Publishing to Working Files` or `Publishing to Curated Catalog`
+    - `Publishing to Working Files` or `Publishing to Catalog`
     - `Verifying imported files`
     - `Cleaning up source files`
     - `Done`
