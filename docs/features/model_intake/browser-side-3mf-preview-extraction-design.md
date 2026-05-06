@@ -1,12 +1,20 @@
 # Browser-Side 3MF Preview Extraction Design
 
-**Status:** Design | **Phase:** 1-2 | **Last Updated:** May 6, 2026
+**Status:** Phase 1 Implemented, Phase 2 Planned | **Phase:** 1-2 | **Last Updated:** May 6, 2026
 
 ---
 
 ## Overview
 
 Enable users to preview 3MF model thumbnails and metadata **before uploading** by extracting content client-side using the HTML5 File API. This eliminates the need for a server round-trip and provides instant visual feedback in the upload dialog.
+
+### Current Implementation Status
+
+- Phase 1 is implemented in the Model Catalog Intake browser upload flow.
+- Browser image files preview immediately via local blob URLs.
+- Browser `.3mf` files attempt embedded thumbnail extraction client-side using JSZip.
+- The intake staged list displays preview thumbnails before upload commit.
+- Phase 2 (dimensions/colors/plate metadata display) is intentionally deferred and tracked separately.
 
 ---
 
@@ -134,6 +142,16 @@ async function extract3MFThumbnail(file) {
 async function extract3MFThumbnailDataURL(file) {
   // Returns data: URL (no need for blob)
 }
+
+// Intake card implementation APIs (current)
+async function _createBrowserPreviewUrl(file) {
+  // Image files: URL.createObjectURL(file)
+  // .3mf files: _extractBrowser3mfThumbnailUrl(file)
+}
+
+async function _extractBrowser3mfThumbnailUrl(file) {
+  // JSZip path lookup + fallback scanning + safety validation
+}
 ```
 
 ### Implementation Location
@@ -186,6 +204,7 @@ async _extract3MFThumbnailPreview(file) {
     }
   }
 }
+```
 
 ### Safety Requirements
 
@@ -266,19 +285,24 @@ function isSafeImageFile(file) {
 
 ### UI Updates
 
-Add to source upload section:
+Use the existing browser intake staged file rows and populate each entry `preview_url`:
+
+```javascript
+var nextEntry = {
+  file: file,
+  name: file.name,
+  relative_path: relativePath,
+  size_bytes: Number(file.size || 0),
+  preview_url: await this._createBrowserPreviewUrl(file),
+};
+```
+
+Rendered output uses the existing intake entry thumbnail markup:
 
 ```html
-<!-- Preview area -->
-<div id="source-upload-preview-container" style="display: none;">
-  <img id="source-upload-preview" style="max-width: 100%; max-height: 200px; border-radius: 4px;" />
-  <p style="font-size: 0.85rem; color: var(--secondary-text-color);">
-    File preview: <span id="source-upload-filename"></span>
-  </p>
+<div class="entry-thumb">
+  <img class="entry-thumb-image" src="{preview_url}" alt="Image preview for {displayName}" loading="lazy" decoding="async">
 </div>
-
-<!-- File input -->
-<input type="file" id="source-upload-input" accept=".3mf" />
 ```
 
 ### Error Handling
@@ -389,20 +413,20 @@ const fitStatus = checkFit({
 
 ## Implementation Checklist (Phase 1)
 
-- [ ] Add JSZip library to `_resources.yaml`
-- [ ] Create `_extract3MFThumbnailPreview()` function supporting both:
-  - [ ] Direct image files (PNG, JPEG, GIF, WebP)
-  - [ ] 3MF embedded thumbnails
-- [ ] Create `_isSafe3MFThumbnail()` safety validation function
-- [ ] Create image file validation logic
-- [ ] Wire into browser intake `_handleChange()` and `_appendBrowserFiles()`
-- [ ] Add preview HTML elements
-- [ ] Handle errors gracefully (silent fallback)
-- [ ] Test with image files (various formats and sizes)
-- [ ] Test with real 3MF files (various sources)
-- [ ] Test on Chrome, Firefox, Safari, Edge
-- [ ] Verify no UI blocking with large files
-- [ ] Update resource version in `_resources.yaml`
+- [x] Add JSZip loading path for browser 3MF extraction
+- [x] Support direct image previews (PNG, JPEG, GIF, WebP)
+- [x] Support 3MF embedded thumbnail extraction
+- [x] Add 3MF thumbnail safety validation (size/type/extension guards)
+- [x] Wire into browser intake `_handleChange()` and async `_appendBrowserFiles()`
+- [x] Reuse existing intake entry thumbnail rendering (`preview_url`)
+- [x] Handle extraction failures gracefully (fallback to no preview)
+- [x] Keep preview generation async to avoid blocking UI
+- [x] Bump resource/versioned imports for cache busting
+
+Phase 1 implementation files:
+- `homeassistant/www/3d_printing/model_catalog/model-catalog-intake-home-card.js`
+- `homeassistant/www/3d_printing/model_catalog/model-catalog-intake-cards.js`
+- `homeassistant/packages/3d_printing/common/dashboards/_resources.yaml`
 
 ## Implementation Checklist (Phase 2)
 
@@ -437,7 +461,7 @@ const fitStatus = checkFit({
 - **File size limits:** 2 MB for extracted thumbnail
 - **Path traversal:** Normalize paths, no `../` allowed
 - **MIME type validation:** Only PNG/JPEG
-- **No network requests:** All processing client-side
+- **Network behavior:** Extraction is local; a one-time JSZip fetch may occur if runtime fallback script loading is needed
 - **Sandbox:** Thumbnail extracted in user's browser, not transferred until upload
 
 ---
@@ -482,7 +506,7 @@ describe("Preview Extraction", () => {
 - Benchmark extraction time on typical files
 - Verify no main thread blocking
 - Memory usage validation
-- Network usage (should be zero until upload)
+- Network usage (should be zero for extraction after JSZip is available; at most one JSZip fetch if fallback loader runs)
 
 ---
 
