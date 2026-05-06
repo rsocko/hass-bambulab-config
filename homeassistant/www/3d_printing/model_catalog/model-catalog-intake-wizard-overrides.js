@@ -386,10 +386,20 @@ function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
   var isLoading = card._loading || card._previewLoading || false;
+  var uploadProgress = card._uploadProgress || null;
+  var uploadProgressText = '';
+  if (uploadProgress && uploadProgress.mode === 'determinate' && uploadProgress.percent != null) {
+    uploadProgressText = String(Math.max(0, Math.min(100, Number(uploadProgress.percent || 0)))) + '%';
+    if (uploadProgress.bytes_total) {
+      uploadProgressText += ' (' + String(uploadProgress.bytes_done || 0) + ' / ' + String(uploadProgress.bytes_total || 0) + ' bytes)';
+    }
+  } else if (uploadProgress && uploadProgress.detail) {
+    uploadProgressText = String(uploadProgress.detail || '');
+  }
   var skipSummary = settings.skipSummary || false;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
     if (isLoading) {
-      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...</div>';
+      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...' + (uploadProgressText ? '<div class="muted" style="margin-top:6px;">' + escapeHtml(uploadProgressText) + '</div>' : '') + '</div>';
     }
     return '<div class="state-row">No planned output yet. Advance to Organize after selecting sources to resolve the model plan.</div>';
   }
@@ -399,15 +409,18 @@ function renderPlanSummary(card, options) {
   var summaryHtml = '';
   if (!skipSummary) {
     summaryHtml = ''
-      + '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
+      + '<div class="result-summary">'
       + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
       + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>';
     if (isLoading) {
       summaryHtml += '  <div class="result-line muted"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 16px; width: 16px; height: 16px; display: inline-block; margin-right: 6px;"></ha-icon>Recalculating...</div>';
+      if (uploadProgressText) {
+        summaryHtml += '  <div class="result-line muted">' + escapeHtml(uploadProgressText) + '</div>';
+      }
     }
     summaryHtml += '</div>';
   }
-  var entriesHtml = '<div class="entries' + (isLoading ? ' recalculating-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
+  var entriesHtml = '<div class="entries' + (isLoading ? ' loading-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
     var destinationPlan = destinationPlans[index] || null;
     var totalFiles = (model.files || []).length;
     var visibleFiles = (model.files || []).slice(0, 4);
@@ -1439,8 +1452,93 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var response;
     if (browserFiles.length) {
       var sidecarBaseUrl = this._resolveSidecarUrl();
-      response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, payloadSelections, cleanupPolicy);
+      var totalBrowserBytes = browserFiles.reduce(function (sum, entry) {
+        var size = entry && entry.file ? Number(entry.file.size || 0) : 0;
+        return sum + (Number.isFinite(size) ? size : 0);
+      }, 0);
+      this._uploadProgress = {
+        phase: 'Uploading files',
+        detail: 'Preparing browser upload payload',
+        mode: 'indeterminate',
+        percent: null,
+        bytes_done: null,
+        bytes_total: totalBrowserBytes,
+      };
+      if (typeof this._setBusyPhase === 'function') {
+        this._setBusyPhase('Uploading files', 'Preparing browser upload payload');
+      }
+      response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, payloadSelections, cleanupPolicy, {
+        onPhase: function (phaseCode) {
+          if (phaseCode === 'encoding_files') {
+            this._uploadProgress = {
+              phase: 'Uploading files',
+              detail: 'Encoding files for fallback upload mode',
+              mode: 'indeterminate',
+              percent: null,
+              bytes_done: null,
+              bytes_total: totalBrowserBytes,
+            };
+            if (typeof this._setBusyPhase === 'function') {
+              this._setBusyPhase('Uploading files', 'Encoding files for fallback upload mode');
+            }
+            this._render();
+            return;
+          }
+          if (phaseCode === 'submitting_request') {
+            this._uploadProgress = {
+              phase: 'Preparing intake job',
+              detail: 'Submitting upload request',
+              mode: 'indeterminate',
+              percent: null,
+              bytes_done: null,
+              bytes_total: totalBrowserBytes,
+            };
+            if (typeof this._setBusyPhase === 'function') {
+              this._setBusyPhase('Preparing intake job', 'Submitting upload request');
+            }
+            this._render();
+          }
+        }.bind(this),
+        onUploadProgress: function (progressPayload) {
+          var loaded = Number(progressPayload && progressPayload.loaded || 0);
+          var total = Number(progressPayload && progressPayload.total || 0);
+          var lengthComputable = !!(progressPayload && progressPayload.lengthComputable && total > 0);
+          if (lengthComputable) {
+            var percent = Math.max(0, Math.min(100, Math.round((loaded / total) * 100)));
+            this._uploadProgress = {
+              phase: 'Uploading files',
+              detail: 'Transferring browser files',
+              mode: 'determinate',
+              percent: percent,
+              bytes_done: loaded,
+              bytes_total: total,
+            };
+            if (typeof this._updateUploadProgress === 'function') {
+              this._updateUploadProgress(progressPayload, {
+                files_total: browserFiles.length,
+                bytes_total: totalBrowserBytes,
+              });
+            } else {
+              this._render();
+            }
+            return;
+          }
+          this._uploadProgress = {
+            phase: 'Uploading files',
+            detail: 'Preparing files for upload',
+            mode: 'indeterminate',
+            percent: null,
+            bytes_done: null,
+            bytes_total: totalBrowserBytes,
+          };
+          this._render();
+        }.bind(this),
+      });
     } else {
+      this._uploadProgress = null;
+      if (typeof this._setBusyPhase === 'function') {
+        this._setBusyPhase('Preparing intake job', 'Resolving server selections and staging queue item');
+      }
       response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_select_source_filesystem_entries', {
         selections: payloadSelections,
         cleanup_policy: cleanupPolicy,
@@ -1457,6 +1555,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._loading = true;
     this._error = '';
     this._status = '';
+    if (typeof this._setBusyPhase === 'function') {
+      this._setBusyPhase('Validating plan', 'Preparing and validating resolved output');
+    }
     this._render();
     try {
       var uploadResponse = await this._prepareWizardUpload(forceNewUpload === true);
@@ -1479,6 +1580,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._error = error && error.message ? String(error.message) : 'Could not validate the intake batch.';
       return null;
     } finally {
+      this._uploadProgress = null;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       this._loading = false;
       this._render();
     }
@@ -2274,11 +2379,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .entry-thumb.folder-thumb .folder-thumb-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:lowercase;color:var(--secondary-text-color);}'
       // Browser file row: keep file-type icon at the top-right corner.
       + '.wizard-dialog .entry-row .entry-actions{justify-content:flex-end;}'
-      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:10;border-radius:18px;pointer-events:none;}'
+      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.45);z-index:10;border-radius:18px;pointer-events:none;}'
       + '.wizard-panel.recalculating-panel{position:relative;}'
-      + '.result-summary.recalculating{filter:blur(2px);opacity:0.5;}'
-      + '.entries.recalculating-entries{filter:blur(3px);opacity:0.4;}'
-      + '.result-summary.recalculating::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border:3px solid rgba(96,165,250,0.2);border-top-color:rgba(96,165,250,0.8);border-radius:50%;animation:spin 1s linear infinite;z-index:5;}'
+      + '.entries.loading-entries{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       // Issue #1307: fixed (non-scrolling) panels for the Validate-step results
       // and Commit-step summary so the operator-facing chrome stays put while
@@ -2767,6 +2870,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._error = '';
     this._status = '';
     this._result = null;
+    this._uploadProgress = null;
+    if (typeof this._setBusyPhase === 'function') {
+      this._setBusyPhase('Publishing destinations', 'Publishing validated batch to selected destinations');
+    }
     this._render();
     try {
       var validationData = this._validationData || await this._runWizardValidation(false);
@@ -2833,10 +2940,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       await this._refreshAll();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not commit the intake batch.';
       this._loading = false;
+      this._uploadProgress = null;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       this._render();
     }
   };

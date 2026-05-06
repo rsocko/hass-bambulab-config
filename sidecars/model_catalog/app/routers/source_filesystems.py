@@ -28,6 +28,7 @@ from .._helpers import (
     _configured_intake_source_roots,
     _is_path_within_roots,
 )
+from ..services.intake_consolidation import _consolidate_overlapping_selections
 
 router = APIRouter(tags=["source-filesystems"])
 
@@ -455,10 +456,22 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             },
         )
 
+    consolidated_entries = _consolidate_overlapping_selections(validated_entries)
+    expanded_file_count = 0
+    for entry in consolidated_entries:
+        if str(entry.get("type") or "").strip().lower() == "file":
+            expanded_file_count += 1
+            continue
+        folder_path = Path(str(entry.get("path") or "")).expanduser().resolve()
+        recurse = _coerce_bool(entry.get("recurse", True))
+        expanded_file_count += len(
+            _collect_intake_source_files_in_folder(folder_path, recurse=recurse)
+        )
+
     # Create intake queue record
     upload_id = str(_uuid_module.uuid4())
     now_iso = _bulk_utc_now_iso()
-    source_entries_json = json.dumps(validated_entries)
+    source_entries_json = json.dumps(consolidated_entries)
 
     connection = connect(state.settings.db_path)
     try:
@@ -489,7 +502,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
         "status": "queued",
         "verification_status": "unverified",
         "cleanup_policy": cleanup_policy,
-        "selection_count": len(validated_entries),
+        "selection_count": len(consolidated_entries),
         "expanded_file_count": expanded_file_count,
         "warnings": warnings,
         "created_at": now_iso,

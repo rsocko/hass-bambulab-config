@@ -137,17 +137,17 @@ Progress/busy affordances for Step 1:
 
 This rule applies specifically to Server browse mode.
 
-- The wizard may allow selecting a parent folder and also one of its child folders or explicit files.
-- Those overlapping selections must be interpreted as one union of unique resolved files.
+- The current intake contract is topmost-selection only.
+- If the operator selects a parent folder and then selects one of its child folders or explicit files, the child selection is absorbed into the parent selection.
+- This applies regardless of the parent's recursive setting. Parent/child overlap is not treated as a separately-supported mixed-selection workflow in the current wizard.
 - The same file must not be imported twice just because it is covered by multiple selected server entries.
-- Recursive parent coverage should be treated as making deeper child selections redundant unless the parent is non-recursive.
-- Non-recursive parent selection does not cover deeper descendants. In that case, explicitly selecting a child folder or file is a valid and expected workflow.
+- If the operator wants to work with a child subtree independently, they must deselect the parent and select the child directly instead.
 
 The UX contract for overlap handling is:
 
-- harmless redundant overlap should warn, not hard-fail
-- conflicting overlap with different grouping/title/preservation intent should surface as an explicit review problem
-- review summaries should distinguish raw selected entries from the final unique resolved-file outcome
+- overlapping child selections are normalized away instead of being preserved for later conflict resolution
+- review surfaces should show only the canonical topmost entries that remain after normalization
+- summaries should communicate the resolved logical outcome, not encourage raw overlapping-entry semantics
 
 This keeps legitimate mixed root selection available while removing ambiguity about whether overlap means duplicate import.
 
