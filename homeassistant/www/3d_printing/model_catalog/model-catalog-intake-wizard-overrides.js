@@ -2261,7 +2261,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .result-summary{background:var(--secondary-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.22));}'
       + '.wizard-dialog .state-row{color:var(--secondary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.28));}'
       + '.wizard-dialog .chip{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.3));color:var(--primary-text-color);}'
-      + '.wizard-dialog .entry-type-icon{background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
+      // Issue #1366: keep icon chrome and glyph positioning centered in both
+      // axes across all wizard panes and icon-only controls.
+      + '.wizard-dialog .entry-type-icon{display:inline-flex;align-items:center;justify-content:center;background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
+      + '.wizard-dialog .entry-type-icon ha-icon{display:block;margin:0;}'
+      + '.wizard-dialog .button.icon-only{display:inline-flex;align-items:center;justify-content:center;}'
+      + '.wizard-dialog .button.icon-only ha-icon{display:block;margin:0;}'
       // Folder preview thumbnail styling (mdi:folder + small "folder" label).
       + '.wizard-dialog .entry-thumb.folder-thumb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--primary-text-color);}'
       + '.wizard-dialog .entry-thumb.folder-thumb ha-icon{--mdc-icon-size:28px;width:28px;height:28px;color:var(--primary-color,#60a5fa);}'
