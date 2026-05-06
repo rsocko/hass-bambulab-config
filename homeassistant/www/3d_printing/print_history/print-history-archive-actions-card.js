@@ -768,8 +768,9 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
         return;
       }
 
-      // Load JSZip if not already available
-      if (typeof JSZip === "undefined") {
+      // Load JSZip if not already available.
+      const jsZipReady = await this._ensureJsZipLoaded();
+      if (!jsZipReady || typeof JSZip === "undefined") {
         console.warn("JSZip library not loaded, skipping 3MF preview extraction");
         return;
       }
@@ -784,44 +785,105 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       const zip = new JSZip();
       await zip.loadAsync(arrayBuffer);
 
-      // Try known thumbnail paths in priority order
+      // Build case-insensitive lookup to handle exporters that vary path casing.
+      const zipEntries = Object.keys(zip.files || {});
+      const entryLookup = {};
+      for (const entryName of zipEntries) {
+        entryLookup[String(entryName).toLowerCase()] = entryName;
+      }
+
+      // Try known thumbnail paths in priority order.
       const thumbnailPaths = [
-        "Metadata/thumbnail.png",
-        "Metadata/thumbnail.jpg",
-        "Metadata/thumbnail.jpeg",
-        "Thumbnails/thumbnail.png",
-        "Thumbnails/thumbnail.jpg",
-        "Thumbnails/thumbnail.jpeg",
-        "3D/Thumbnail.png",
-        "3D/Thumbnail.jpg",
-        "3D/Thumbnail.jpeg",
-        "Metadata/plate_1.png",
-        "Metadata/plate_1.jpg",
-        "Auxiliaries/Model Pictures/thumbnail.png",
-        "Auxiliaries/Model Pictures/thumbnail.jpg",
+        "metadata/thumbnail.png",
+        "metadata/thumbnail.jpg",
+        "metadata/thumbnail.jpeg",
+        "thumbnails/thumbnail.png",
+        "thumbnails/thumbnail.jpg",
+        "thumbnails/thumbnail.jpeg",
+        "3d/thumbnail.png",
+        "3d/thumbnail.jpg",
+        "3d/thumbnail.jpeg",
+        "metadata/plate_1.png",
+        "metadata/plate_1.jpg",
+        "auxiliaries/model pictures/thumbnail.png",
+        "auxiliaries/model pictures/thumbnail.jpg",
       ];
 
       for (const path of thumbnailPaths) {
-        const member = zip.file(path);
-        if (member) {
-          try {
-            const blob = await member.async("blob");
-            
-            // Safety checks
-            if (this._isSafe3MFThumbnail(blob, path)) {
-              // Create object URL for preview
-              if (this._sourceUploadPreview) {
-                URL.revokeObjectURL(this._sourceUploadPreview);
-              }
-              this._sourceUploadPreview = URL.createObjectURL(blob);
-              this._sourceUploadPreviewFilename = file.name;
-              this._sourceUploadPreviewError = "";
-              this._render();
-              return;
-            }
-          } catch (e) {
-            // Continue to next path
+        const matchedEntryName = entryLookup[path];
+        const member = matchedEntryName ? zip.file(matchedEntryName) : null;
+        if (!member) {
+          continue;
+        }
+        try {
+          const blob = await member.async("blob");
+
+          if (!this._isSafe3MFThumbnail(blob, matchedEntryName)) {
+            continue;
           }
+
+          const inferredType = this._inferImageMimeTypeFromPath(matchedEntryName);
+          const previewBlob = inferredType && blob.type !== inferredType
+            ? new Blob([blob], { type: inferredType })
+            : blob;
+
+          if (this._sourceUploadPreview) {
+            URL.revokeObjectURL(this._sourceUploadPreview);
+          }
+          this._sourceUploadPreview = URL.createObjectURL(previewBlob);
+          this._sourceUploadPreviewFilename = file.name;
+          this._sourceUploadPreviewError = "";
+          this._render();
+          return;
+        } catch (_error) {
+          // Continue to next path candidate.
+        }
+      }
+
+      // Prefix fallback: find any image under common thumbnail folders.
+      const fallbackPrefixes = [
+        "metadata/",
+        "thumbnails/",
+        "3d/",
+        "auxiliaries/model pictures/",
+      ];
+      const fallbackEntries = zipEntries
+        .filter((name) => {
+          const lower = String(name || "").toLowerCase();
+          const imageExt = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+          if (!imageExt) {
+            return false;
+          }
+          return fallbackPrefixes.some((prefix) => lower.startsWith(prefix));
+        })
+        .sort();
+
+      for (const matchedEntryName of fallbackEntries) {
+        const member = zip.file(matchedEntryName);
+        if (!member) {
+          continue;
+        }
+        try {
+          const blob = await member.async("blob");
+          if (!this._isSafe3MFThumbnail(blob, matchedEntryName)) {
+            continue;
+          }
+
+          const inferredType = this._inferImageMimeTypeFromPath(matchedEntryName);
+          const previewBlob = inferredType && blob.type !== inferredType
+            ? new Blob([blob], { type: inferredType })
+            : blob;
+
+          if (this._sourceUploadPreview) {
+            URL.revokeObjectURL(this._sourceUploadPreview);
+          }
+          this._sourceUploadPreview = URL.createObjectURL(previewBlob);
+          this._sourceUploadPreviewFilename = file.name;
+          this._sourceUploadPreviewError = "";
+          this._render();
+          return;
+        } catch (_error) {
+          // Continue scanning candidates.
         }
       }
     } catch (error) {
@@ -845,18 +907,62 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       return false;
     }
 
-    // Check MIME type
-    if (!ALLOWED_TYPES.includes(blob.type)) {
-      return false;
-    }
-
     // Check file extension
     const ext = String(path || "").toLowerCase();
     if (!ext.endsWith(".png") && !ext.endsWith(".jpg") && !ext.endsWith(".jpeg")) {
       return false;
     }
 
+    // ZIP-extracted blobs often have an empty MIME type; infer by extension when absent.
+    if (blob.type && !ALLOWED_TYPES.includes(blob.type)) {
+      return false;
+    }
+
     return true;
+  }
+
+  _inferImageMimeTypeFromPath(path) {
+    var normalized = String(path || "").toLowerCase();
+    if (normalized.endsWith(".png")) {
+      return "image/png";
+    }
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    return "";
+  }
+
+  async _ensureJsZipLoaded() {
+    if (typeof JSZip !== "undefined") {
+      return true;
+    }
+
+    const existing = document.querySelector('script[data-print-history-jszip="1"]');
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
+        return typeof JSZip !== "undefined";
+      }
+      await new Promise((resolve) => {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", resolve, { once: true });
+      });
+      return typeof JSZip !== "undefined";
+    }
+
+    await new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      script.async = true;
+      script.dataset.printHistoryJszip = "1";
+      script.addEventListener("load", () => {
+        script.dataset.loaded = "1";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", resolve, { once: true });
+      document.head.appendChild(script);
+    });
+
+    return typeof JSZip !== "undefined";
   }
 
   _getBaseUrl() {
