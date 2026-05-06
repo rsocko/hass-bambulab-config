@@ -1647,6 +1647,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  <div class="entry-actions">'
           + '<span class="chip ok">Selected</span>'
           + exclusionChip
+          + '<button class="button warn" data-action="remove-browser-folder" data-path="' + escapeHtml(rootKey) + '">Remove</button>'
           + '  </div>'
           + '</article>';
       }).join('');
@@ -1673,6 +1674,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '  </div>'
           + '  <div class="entry-actions">'
           + '<span class="chip ok">Selected</span>'
+          + '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(card._browserFileKey(entry)) + '">Remove</button>'
           + '  </div>'
           + '</article>';
       }).join('');

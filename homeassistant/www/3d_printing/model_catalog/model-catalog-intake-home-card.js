@@ -683,6 +683,18 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (nextSelected[normalizedPath]) {
       delete nextSelected[normalizedPath];
     } else {
+      // Issue #1352: when selecting a folder, drop any previously-selected
+      // descendants so they collapse into the folder's "included in selection"
+      // visualization instead of double-counting on the right-side list and
+      // appearing as explicitly selected when the user re-enters the folder.
+      if (entryType === 'folder') {
+        var prefix = normalizedPath.replace(/\/+$/, '') + '/';
+        Object.keys(nextSelected).forEach(function (existingPath) {
+          if (existingPath !== normalizedPath && existingPath.indexOf(prefix) === 0) {
+            delete nextSelected[existingPath];
+          }
+        });
+      }
       nextSelected[normalizedPath] = {
         type: entryType,
         path: normalizedPath,
