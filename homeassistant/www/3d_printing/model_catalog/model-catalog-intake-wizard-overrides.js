@@ -2403,10 +2403,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
         : '';
       return ''
-        + '<div class="wizard-panel' + (isLoading ? ' recalculating-panel' : '') + '" style="position:relative;">'
+        + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div></div>'
-        + (isLoading ? recalculatingBadge : '')
         + '</div>'
         + '<div class="wizard-panel' + (isLoading ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
