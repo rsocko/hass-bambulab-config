@@ -138,9 +138,9 @@ async function extract3MFThumbnailDataURL(file) {
 
 ### Implementation Location
 
-**File:** `homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js`
+**File:** `homeassistant/www/3d_printing/model_catalog/model-catalog-intake-home-card.js`
 
-**Hook point:** `_handleSourceUploadChange()` method (line ~706)
+**Hook point:** `_handleChange()` for browser file/folder inputs plus `_appendBrowserFiles()` preview generation
 
 **Processing Flow:**
 
@@ -395,7 +395,7 @@ const fitStatus = checkFit({
   - [ ] 3MF embedded thumbnails
 - [ ] Create `_isSafe3MFThumbnail()` safety validation function
 - [ ] Create image file validation logic
-- [ ] Wire into `_handleSourceUploadChange()`
+- [ ] Wire into browser intake `_handleChange()` and `_appendBrowserFiles()`
 - [ ] Add preview HTML elements
 - [ ] Handle errors gracefully (silent fallback)
 - [ ] Test with image files (various formats and sizes)
@@ -490,7 +490,7 @@ describe("Preview Extraction", () => {
 
 - **Issue #1331:** "Show model and image previews even for Browser uploads"
 - **Server-side implementation:** `sidecars/model_catalog/app/geometry_3mf.py` (thumbnail extraction reference)
-- **Card implementation:** `homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js`
+- **Card implementation:** `homeassistant/www/3d_printing/model_catalog/model-catalog-intake-home-card.js`
 
 ---
 

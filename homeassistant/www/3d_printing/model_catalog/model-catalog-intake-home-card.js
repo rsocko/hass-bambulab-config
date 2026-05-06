@@ -28,6 +28,12 @@ var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".avif": true,
 };
 
+var BROWSER_PREVIEW_3MF_EXTENSIONS = {
+  ".3mf": true,
+};
+
+var BROWSER_3MF_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
+
 function pathStem(path) {
   var name = basename(path || '');
   if (!name) {
@@ -187,15 +193,197 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return !!BROWSER_PREVIEW_IMAGE_EXTENSIONS[extension];
   }
 
-  _createBrowserPreviewUrl(file) {
-    if (!this._isBrowserImageFile(file) || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+  _isBrowser3mfFile(file) {
+    if (!file) {
+      return false;
+    }
+    var fileName = String(file.name || "");
+    var extension = fileName.lastIndexOf(".") >= 0 ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase() : "";
+    return !!BROWSER_PREVIEW_3MF_EXTENSIONS[extension];
+  }
+
+  _inferImageMimeTypeFromPath(path) {
+    var normalized = String(path || "").toLowerCase();
+    if (normalized.endsWith(".png")) {
+      return "image/png";
+    }
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    return "";
+  }
+
+  async _ensureJsZipLoaded() {
+    if (typeof JSZip !== "undefined") {
+      return true;
+    }
+
+    var existing = document.querySelector('script[data-model-catalog-jszip="1"]');
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
+        return typeof JSZip !== "undefined";
+      }
+      await new Promise(function (resolve) {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", resolve, { once: true });
+      });
+      return typeof JSZip !== "undefined";
+    }
+
+    await new Promise(function (resolve) {
+      var script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      script.async = true;
+      script.dataset.modelCatalogJszip = "1";
+      script.addEventListener("load", function () {
+        script.dataset.loaded = "1";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", resolve, { once: true });
+      document.head.appendChild(script);
+    });
+
+    return typeof JSZip !== "undefined";
+  }
+
+  _isSafeBrowser3mfThumbnail(blob, entryPath) {
+    if (!blob || typeof blob.size !== "number") {
+      return false;
+    }
+    if (blob.size > BROWSER_3MF_THUMBNAIL_MAX_BYTES) {
+      return false;
+    }
+    var lowerPath = String(entryPath || "").toLowerCase();
+    if (!lowerPath.endsWith(".png") && !lowerPath.endsWith(".jpg") && !lowerPath.endsWith(".jpeg")) {
+      return false;
+    }
+    var allowedTypes = { "image/png": true, "image/jpeg": true };
+    if (blob.type && !allowedTypes[blob.type]) {
+      return false;
+    }
+    return true;
+  }
+
+  async _extractBrowser3mfThumbnailUrl(file) {
+    if (!this._isBrowser3mfFile(file)) {
       return "";
     }
-    try {
-      return URL.createObjectURL(file);
-    } catch (_error) {
+    var jsZipReady = await this._ensureJsZipLoaded();
+    if (!jsZipReady || typeof JSZip === "undefined") {
       return "";
     }
+
+    var buffer = await file.arrayBuffer();
+    if (!buffer || !buffer.byteLength) {
+      return "";
+    }
+
+    var zip = new JSZip();
+    await zip.loadAsync(buffer);
+
+    var zipEntries = Object.keys(zip.files || {});
+    var entryLookup = {};
+    zipEntries.forEach(function (name) {
+      entryLookup[String(name).toLowerCase()] = name;
+    });
+
+    var knownPaths = [
+      "metadata/thumbnail.png",
+      "metadata/thumbnail.jpg",
+      "metadata/thumbnail.jpeg",
+      "thumbnails/thumbnail.png",
+      "thumbnails/thumbnail.jpg",
+      "thumbnails/thumbnail.jpeg",
+      "3d/thumbnail.png",
+      "3d/thumbnail.jpg",
+      "3d/thumbnail.jpeg",
+      "metadata/plate_1.png",
+      "metadata/plate_1.jpg",
+      "auxiliaries/model pictures/thumbnail.png",
+      "auxiliaries/model pictures/thumbnail.jpg",
+    ];
+
+    var card = this;
+    var toPreviewUrl = async function (entryName) {
+      var member = zip.file(entryName);
+      if (!member) {
+        return "";
+      }
+      var blob = await member.async("blob");
+      if (!card._isSafeBrowser3mfThumbnail(blob, entryName)) {
+        return "";
+      }
+      var inferred = card._inferImageMimeTypeFromPath(entryName);
+      var previewBlob = inferred && blob.type !== inferred
+        ? new Blob([blob], { type: inferred })
+        : blob;
+      try {
+        return URL.createObjectURL(previewBlob);
+      } catch (_error) {
+        return "";
+      }
+    };
+
+    for (var i = 0; i < knownPaths.length; i += 1) {
+      var matched = entryLookup[knownPaths[i]];
+      if (!matched) {
+        continue;
+      }
+      try {
+        var knownPreviewUrl = await toPreviewUrl(matched);
+        if (knownPreviewUrl) {
+          return knownPreviewUrl;
+        }
+      } catch (_knownError) {
+        // Try next candidate.
+      }
+    }
+
+    var fallbackPrefixes = ["metadata/", "thumbnails/", "3d/", "auxiliaries/model pictures/"];
+    var fallbackEntries = zipEntries.filter(function (name) {
+      var lower = String(name || "").toLowerCase();
+      var imageExt = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+      if (!imageExt) {
+        return false;
+      }
+      return fallbackPrefixes.some(function (prefix) {
+        return lower.indexOf(prefix) === 0;
+      });
+    }).sort();
+
+    for (var j = 0; j < fallbackEntries.length; j += 1) {
+      try {
+        var fallbackPreviewUrl = await toPreviewUrl(fallbackEntries[j]);
+        if (fallbackPreviewUrl) {
+          return fallbackPreviewUrl;
+        }
+      } catch (_fallbackError) {
+        // Continue.
+      }
+    }
+
+    return "";
+  }
+
+  async _createBrowserPreviewUrl(file) {
+    if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      return "";
+    }
+    if (this._isBrowserImageFile(file)) {
+      try {
+        return URL.createObjectURL(file);
+      } catch (_error) {
+        return "";
+      }
+    }
+    if (this._isBrowser3mfFile(file)) {
+      try {
+        return await this._extractBrowser3mfThumbnailUrl(file);
+      } catch (_extractError) {
+        return "";
+      }
+    }
+    return "";
   }
 
   _revokeBrowserPreviewUrl(previewUrl) {
@@ -806,24 +994,27 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
-  _appendBrowserFiles(fileList) {
+  async _appendBrowserFiles(fileList) {
     var currentBrowserTitleSource = this._browserBatchTitleSource();
     var currentBrowserTitle = this._browserBatchResolvedTitle();
     var nextByKey = {};
     this._browserFiles.forEach(function (entry) {
       nextByKey[this._browserFileKey(entry)] = entry;
     }, this);
-    Array.prototype.slice.call(fileList || []).forEach(function (file) {
+    var incomingFiles = Array.prototype.slice.call(fileList || []);
+    for (var index = 0; index < incomingFiles.length; index += 1) {
+      var file = incomingFiles[index];
       if (!file || typeof file.arrayBuffer !== "function") {
-        return;
+        continue;
       }
       var relativePath = String(file.webkitRelativePath || file.name || "").trim() || String(file.name || "").trim();
+      var previewUrl = await this._createBrowserPreviewUrl(file);
       var nextEntry = {
         file: file,
         name: String(file.name || relativePath || "upload.bin"),
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
-        preview_url: this._createBrowserPreviewUrl(file),
+        preview_url: previewUrl,
         grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
         recurse: this._browserRecurse(),
         preserve_folder_structure: true,
@@ -842,7 +1033,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._isBrowserKeyExcluded(nextKey)) {
         this._setBrowserKeyExcluded(nextKey, false);
       }
-    }, this);
+    }
     this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
       return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
     });
@@ -1528,7 +1719,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
-  _handleChange(event) {
+  async _handleChange(event) {
     var target = event.target instanceof Element ? event.target : null;
     if (!target) {
       return;
@@ -1538,7 +1729,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     var action = String(target.getAttribute('data-action') || '');
     if (action === 'browser-files' || action === 'browser-folder') {
-      this._appendBrowserFiles(target.files);
+      await this._appendBrowserFiles(target.files);
       target.value = '';
       return;
     }
