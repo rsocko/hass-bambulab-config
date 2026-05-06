@@ -2696,10 +2696,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Issue #1307: the validation results section on the left is now fixed
       // (no inner scroll) and shows ONLY the validation summary — Destination
       // Plan was removed from this pane.
+      // Issue #1364: show blur overlay + spinner on the left pane while validation is running.
+      var isValidating = !!this._loading;
+      var validatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Running validation...</div>';
       return ''
-        + '<div class="wizard-panel">'
+        + '<div class="wizard-panel' + (isValidating ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Create one prepared upload snapshot and verify it before the final commit.</div></div></div>'
         + '  <div class="wizard-validate-fixed">' + renderValidationSummary(this) + '</div>'
+        + (isValidating ? validatingBadge : '')
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output shown here.</div></div></div>'
