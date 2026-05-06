@@ -2225,7 +2225,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           var browserParentPath = browserParentRelativePath(browserPath);
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
+        + '  <div class="title-row"><div><div class="title">Choose Files &amp; Folders</div><div class="subtitle">Choose or Drag &amp; Drop Files to Build an Upload Batch</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button></div></div>'
           + '  <div class="intake-path-row">'
           + (browserPath
             ? '<button class="button icon-only" data-action="browser-parent-path" data-path="' + escapeHtml(browserParentPath) + '" aria-label="Up one folder" title="Up one folder"><ha-icon icon="mdi:arrow-up"></ha-icon></button>'
@@ -2422,10 +2422,6 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         Number(target.getAttribute('data-result-index') || -1)
       );
       return;
-    }
-    if (action === 'clear-browser-files') {
-      this._browserSourcePath = '';
-      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     }
     if (action === 'browser-open-path') {
       event.preventDefault();

@@ -1149,7 +1149,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (this._wizardStep === 1) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button><button class="button warn" data-action="clear-browser-files"' + (!this._browserFiles.length ? ' disabled' : '') + '>Clear All</button></div></div>'
+        + '  <div class="title-row"><div><div class="title">Choose Local Files Or Folder</div><div class="subtitle">Add files or folders from this device. You can repeat the action and build a staged list before moving on.</div></div><div class="button-row"><button class="button" data-action="choose-browser-files">Add Files</button><button class="button" data-action="choose-browser-folder">Add Folder</button></div></div>'
         + this._renderBrowserSelectionSummary()
         + '  <div class="wizard-selection-scroll">' + this._renderBrowserFileRows(true) + '</div>'
         + '</div>';
@@ -1280,11 +1280,6 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (folderInput) {
         folderInput.click();
       }
-      return;
-    }
-    if (action === 'clear-browser-files') {
-      this._clearBrowserFiles();
-      this._render();
       return;
     }
     if (action === 'remove-browser-file') {
