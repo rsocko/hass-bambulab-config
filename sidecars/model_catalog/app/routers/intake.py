@@ -897,6 +897,37 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
     if len(destination_plans) != len(planned_groups):
         return JSONResponse(status_code=400, content={"success": False, "error": "invalid_group_destinations", "message": "group_destinations must include one entry for each planned group.", "upload_id": upload_id, "planned_group_count": len(planned_groups)})
 
+    # Issue #1307: accept an optional cleanup_policy override in the payload so the
+    # wizard's Commit step can change the policy without invalidating the prepared
+    # upload + revalidating. Persist the new value on the upload row before any
+    # downstream cleanup logic reads it.
+    raw_cleanup_policy = payload.get("cleanup_policy")
+    if isinstance(raw_cleanup_policy, str):
+        candidate_policy = raw_cleanup_policy.strip().lower()
+        if candidate_policy in {"keep", "delete_on_verified", "replace_with_stub"}:
+            current_policy = str(upload_row["cleanup_policy"] or "keep").strip().lower()
+            if candidate_policy != current_policy:
+                policy_connection = connect(state.settings.db_path)
+                try:
+                    policy_connection.execute(
+                        "UPDATE intake_queue_uploads SET cleanup_policy = ?, updated_at = ? WHERE upload_id = ?",
+                        (candidate_policy, _bulk_utc_now_iso(), upload_id),
+                    )
+                    policy_connection.commit()
+                finally:
+                    policy_connection.close()
+                # Refresh the in-memory row reference so any subsequent read in this
+                # request sees the new value.
+                refresh_connection = connect(state.settings.db_path)
+                refresh_connection.row_factory = __import__("sqlite3").Row
+                try:
+                    upload_row = refresh_connection.execute(
+                        "SELECT * FROM intake_queue_uploads WHERE upload_id = ?",
+                        (upload_id,),
+                    ).fetchone() or upload_row
+                finally:
+                    refresh_connection.close()
+
     results: list[dict[str, Any]] = []
     imported_rows: list[dict[str, Any]] = []
     failed_files: list[dict[str, Any]] = []

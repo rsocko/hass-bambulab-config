@@ -396,10 +396,13 @@ function renderValidationSummary(card) {
   var warningText = (card._validationData.warnings || []).map(function (warning) {
     return warning && (warning.message || warning.code) ? (warning.message || warning.code) : String(warning || '');
   }).filter(Boolean).slice(0, 5);
+  // Issue #1307: drop the "Prepared upload <GUID>" line (implementation detail, not
+  // useful to operators) and surface validation_state in UPPER CASE for emphasis.
+  // The Destination Plan section that used to render at the bottom of this summary
+  // has also been removed — destinations are summarized on the right pane only.
   return ''
     + '<div class="result-summary">'
-    + '  <div class="result-line"><span>Prepared upload</span><strong>' + escapeHtml(card._validationData.upload_id || '') + '</strong></div>'
-    + '  <div class="result-line"><span>Validation state</span><strong>' + escapeHtml(card._validationData.validation_state || 'unknown') + '</strong></div>'
+    + '  <div class="result-line"><span>Validation state</span><strong>' + escapeHtml(String(card._validationData.validation_state || 'unknown').toUpperCase()) + '</strong></div>'
     + '</div>'
     + '<div class="entries">' + checks.map(function (check) {
       var passed = !!check.passed;
@@ -437,8 +440,41 @@ function renderValidationSummary(card) {
         + '  <div class="entry-top"><div><div class="entry-name"><label class="validation-check ' + checkClass + '">' + iconHtml + ' ' + escapeHtml(check.label || check.key || 'Check') + '</label></div><div class="entry-path">' + escapeHtml(check.detail || '') + (actionHtml ? ' ' + actionHtml : '') + '</div></div><div class="button-row"><span class="chip ' + chipClass + '">' + escapeHtml(chipLabel) + '</span></div></div>'
         + '</article>';
     }).join('') + '</div>'
-    + (typeof card._renderDestinationSummary === 'function' ? '<div class="title-row"><div><div class="title">Destination Plan</div><div class="subtitle">Existing targets keep their current model or group name.</div></div></div>' + card._renderDestinationSummary() : '')
-    + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '<div class="muted">This prepared upload is reused during Commit so the wizard does not create a duplicate queue item.</div>');
+    + (warningText.length ? '<div class="muted">Warnings: ' + escapeHtml(warningText.join('; ')) + '</div>' : '');
+}
+
+// Issue #1307: compact roll-up of validation checks for the Commit step's left pane.
+// Counts checks by outcome (pass / warn / fail) so the user sees a one-line summary
+// instead of the full per-rule list (which is shown on the Validate step).
+function renderValidationSummaryCompact(card) {
+  if (!card._validationData) {
+    return '<div class="state-row">Validation has not run yet.</div>';
+  }
+  var checks = Array.isArray(card._validationData.checks) ? card._validationData.checks : [];
+  var passed = 0;
+  var warnings = 0;
+  var attention = 0;
+  checks.forEach(function (check) {
+    var excludedCount = (check && typeof check.excluded_count === 'number') ? check.excluded_count : 0;
+    var isExclusionCheck = check && check.key === 'excluded_items_summary';
+    if (isExclusionCheck && excludedCount > 0) {
+      warnings += 1;
+    } else if (check && check.passed) {
+      passed += 1;
+    } else {
+      attention += 1;
+    }
+  });
+  var stateLabel = String(card._validationData.validation_state || 'unknown').toUpperCase();
+  return ''
+    + '<div class="result-summary">'
+    + '  <div class="result-line"><span>Validation state</span><strong>' + escapeHtml(stateLabel) + '</strong></div>'
+    + '  <div class="result-line"><span>Checks</span><strong>'
+    + String(passed) + ' passed'
+    + (warnings ? ' &middot; ' + String(warnings) + ' warning' + (warnings === 1 ? '' : 's') : '')
+    + (attention ? ' &middot; ' + String(attention) + ' need' + (attention === 1 ? 's' : '') + ' attention' : '')
+    + '</strong></div>'
+    + '</div>';
 }
 
 function destinationGroupKey(model, index) {
@@ -2115,6 +2151,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.entries.recalculating-entries{filter:blur(3px);opacity:0.4;}'
       + '.result-summary.recalculating::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border:3px solid rgba(96,165,250,0.2);border-top-color:rgba(96,165,250,0.8);border-radius:50%;animation:spin 1s linear infinite;z-index:5;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
+      // Issue #1307: fixed (non-scrolling) panels for the Validate-step results
+      // and Commit-step summary so the operator-facing chrome stays put while
+      // the right-pane Resolved Output handles scrolling on its own.
+      + '.wizard-validate-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;overflow:hidden;}'
+      + '.wizard-validate-fixed .entries{display:flex;flex-direction:column;gap:6px;}'
+      + '.wizard-commit-fixed{flex:0 0 auto;display:flex;flex-direction:column;gap:14px;padding-right:4px;overflow:hidden;}'
+      + '.wizard-cleanup-policy-block{padding:12px;border-radius:14px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.08);}'
+      + '.wizard-cleanup-policy-block .field label{font-weight:700;color:var(--primary-text-color);font-size:14px;}'
+      + '.wizard-cleanup-policy-block .select{margin-top:6px;}'
+      + '.wizard-commit-policy-chip{flex:0 0 auto;display:flex;align-items:baseline;gap:10px;padding:10px 14px;border-radius:12px;border:1px solid var(--primary-color,rgba(96,165,250,0.45));background:rgba(96,165,250,0.12);margin-bottom:10px;}'
+      + '.wizard-commit-policy-chip .muted{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--secondary-text-color);}'
+      + '.wizard-commit-policy-chip strong{font-size:14px;color:var(--primary-text-color);}'
       + '@media (max-width: 860px){.wizard-dialog{height:auto;max-height:94vh;}}'
       + '</style>';
     return overrideStyles + baseHtml;
@@ -2326,10 +2374,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '</div>';
     }
     if (this._wizardStep === 4) {
+      // Issue #1307: the validation results section on the left is now fixed
+      // (no inner scroll) and shows ONLY the validation summary — Destination
+      // Plan was removed from this pane.
       return ''
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Create one prepared upload snapshot and verify it before the final commit.</div></div></div>'
-        + '  <div class="wizard-panel-scroll">' + renderValidationSummary(this) + '</div>'
+        + '  <div class="wizard-validate-fixed">' + renderValidationSummary(this) + '</div>'
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output shown here.</div></div></div>'
@@ -2337,22 +2388,37 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '</div>';
     }
     var isBrowserMode = this._wizardMode === 'browser';
+    // Issue #1307: Commit step layout cleanup.
+    //   Left  -> compact validation summary (counts, not full list)
+    //            + cleanup policy selector (Server only) — entire panel fixed,
+    //            no inner scroll, no destination/list rehash.
+    //   Right -> fixed header chip showing the chosen Cleanup Policy at the
+    //            top (Server only) above the scrollable Resolved Output.
+    var cleanupPolicyValue = this._cleanupPolicy();
+    var cleanupPolicyLabel = typeof this._cleanupPolicyFriendlyLabel === 'function'
+      ? this._cleanupPolicyFriendlyLabel(cleanupPolicyValue)
+      : String(cleanupPolicyValue || '');
     return ''
       + '<div class="wizard-panel">'
-      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">' + (isBrowserMode ? 'Review the prepared upload and destination assignments before the final publish.' : 'Review the prepared upload, cleanup policy, and destination assignments before the final publish.') + '</div></div></div>'
-      + '  <div class="wizard-panel-scroll">'
-      + renderValidationSummary(this)
+      + '  <div class="title-row"><div><div class="title">Commit Summary</div><div class="subtitle">' + (isBrowserMode ? 'Confirm validation results before the final publish.' : 'Confirm validation results and choose how the originals are handled after publish.') + '</div></div></div>'
+      + '  <div class="wizard-commit-fixed">'
+      + renderValidationSummaryCompact(this)
       + (isBrowserMode
         ? ''
-        : '  <div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
-          + '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (this._cleanupPolicy() === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (this._cleanupPolicy() === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (this._cleanupPolicy() === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>'
-          + '  </div>')
-      + this._renderDestinationSummary()
+        : '<div class="wizard-cleanup-policy-block">'
+          + '<div class="field"><label for="wizard-cleanup-policy">Cleanup Policy</label>'
+          + '<select id="wizard-cleanup-policy" class="select" data-action="cleanup-policy"><option value="keep"' + (cleanupPolicyValue === 'keep' ? ' selected' : '') + '>Keep Originals In Place</option><option value="delete_on_verified"' + (cleanupPolicyValue === 'delete_on_verified' ? ' selected' : '') + '>Delete Originals After Success</option><option value="replace_with_stub"' + (cleanupPolicyValue === 'replace_with_stub' ? ' selected' : '') + '>Replace Originals With Stub Marker</option></select>'
+          + '<div class="muted">Applied to the staged source files after the publish completes.</div>'
+          + '</div>'
+          + '</div>')
       + '  </div>'
       + '</div>'
       + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload, resolved plan, and destination mapping.</div></div></div>'
-        + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this, { includeDestinations: true }) + '</div>'
+      + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Commit reuses the same prepared upload, resolved plan, and destination mapping.</div></div></div>'
+      + (isBrowserMode
+        ? ''
+        : '  <div class="wizard-commit-policy-chip"><span class="muted">Cleanup Policy</span><strong>' + escapeHtml(cleanupPolicyLabel) + '</strong></div>')
+      + '  <div class="wizard-panel-scroll">' + renderPlanSummary(this, { includeDestinations: true }) + '</div>'
       + '</div>';
   };
 
@@ -2398,8 +2464,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       }
       var uploadId = validationData.upload_id;
       var sidecarBaseUrl = this._resolveSidecarUrl();
+      // Issue #1307: send cleanup_policy with the publish so a Commit-step policy
+      // change is applied without forcing a re-validation. Browser path is locked
+      // to delete_on_verified per the existing UX contract.
+      var commitCleanupPolicy = this._wizardMode === 'browser' ? 'delete_on_verified' : this._cleanupPolicy();
       var publishResponse = await postJsonWithAuth(this._hass, sidecarBaseUrl.replace(/\/$/, '') + '/api/intake/uploads/' + encodeURIComponent(String(uploadId || '')) + '/publish-by-destination', {
         group_destinations: this._buildDestinationPublishPayload(),
+        cleanup_policy: commitCleanupPolicy,
       });
       var changedCollections = [];
       if (Array.isArray(publishResponse && publishResponse.curated_model_ids) && publishResponse.curated_model_ids.length) {
@@ -2695,9 +2766,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._render();
       return;
     }
-    if (/^(browser-|selection-|cleanup-policy$)/.test(action)) {
+    if (/^(browser-|selection-)/.test(action)) {
       this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
       this._refreshWizardPreview();
+      return;
+    }
+    // Issue #1307: changing the cleanup policy in the Commit step must NOT
+    // invalidate the prepared upload — the policy is applied at publish/cleanup
+    // time and the publish-by-destination call now ships the chosen value so
+    // the upload row is updated server-side without re-validating.
+    if (action === 'cleanup-policy') {
+      this._render();
       return;
     }
   };
