@@ -1016,7 +1016,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
       + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedFileCount) + ' Excluded</span>'
+      + (excludedFileCount > 0 ? '  <span class="chip warn">⚠ ' + String(excludedFileCount) + ' Excluded</span>' : '')
       + '</div>';
     return ''
       + (showControls
@@ -1076,7 +1076,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
       + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedCount) + ' Excluded</span>'
+      + (excludedCount > 0 ? '  <span class="chip warn">⚠ ' + String(excludedCount) + ' Excluded</span>' : '')
       + '</div>';
   };
 
