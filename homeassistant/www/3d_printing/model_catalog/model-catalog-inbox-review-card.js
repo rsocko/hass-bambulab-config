@@ -112,6 +112,7 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     this._selectedIds = {};
     this._batchResult = null;
     this._currentView = 'active_queue'; // 'active_queue' or 'job_history'
+    this._confirmDialog = null;
   }
 
   setConfig(config) {
@@ -364,13 +365,66 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     return this._canDeleteStatus(item && item.status);
   }
 
+  _showConfirmDialog(options) {
+    var config = options && typeof options === 'object' ? options : {};
+    var card = this;
+    return new Promise(function (resolve) {
+      card._confirmDialog = {
+        title: String(config.title || 'Confirm Action'),
+        message: String(config.message || 'Are you sure you want to continue?'),
+        confirmLabel: String(config.confirmLabel || 'Confirm'),
+        cancelLabel: String(config.cancelLabel || 'Cancel'),
+        danger: config.danger !== false,
+        resolve: resolve,
+      };
+      card._render();
+    });
+  }
+
+  _resolveConfirmDialog(accepted) {
+    if (!this._confirmDialog) {
+      return;
+    }
+    var resolver = this._confirmDialog.resolve;
+    this._confirmDialog = null;
+    this._render();
+    if (typeof resolver === 'function') {
+      resolver(!!accepted);
+    }
+  }
+
+  _renderConfirmDialog() {
+    if (!this._confirmDialog) {
+      return '';
+    }
+    return ''
+      + '<div class="confirm-overlay" role="dialog" aria-modal="true" aria-label="' + escapeHtml(this._confirmDialog.title) + '">'
+      + '  <div class="confirm-backdrop" data-action="confirm-dialog-cancel"></div>'
+      + '  <div class="confirm-dialog">'
+      + '    <div class="title">' + escapeHtml(this._confirmDialog.title) + '</div>'
+      + '    <div class="muted">' + escapeHtml(this._confirmDialog.message) + '</div>'
+      + '    <div class="button-row confirm-actions">'
+      + '      <button class="button" data-action="confirm-dialog-cancel">' + escapeHtml(this._confirmDialog.cancelLabel) + '</button>'
+      + '      <button class="button' + (this._confirmDialog.danger ? ' danger' : ' primary') + '" data-action="confirm-dialog-accept">' + escapeHtml(this._confirmDialog.confirmLabel) + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
   async _deleteItem(itemId, status) {
     if (!this._canDeleteStatus(status)) {
       this._error = 'Delete is only allowed for queued or failed items.';
       this._render();
       return;
     }
-    if (!window.confirm('Delete this intake item from the queue? This cannot be undone.')) {
+    var confirmed = await this._showConfirmDialog({
+      title: 'Delete Intake Item?',
+      message: 'This removes the selected intake item from the queue and cannot be undone.',
+      confirmLabel: 'Delete Item',
+      cancelLabel: 'Keep Item',
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
     this._loading = true;
@@ -526,7 +580,14 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     }
     if (action === 'delete') {
       var deleteMessage = 'Delete ' + String(selectedItems.length) + ' selected intake item(s) from the queue? This cannot be undone.\n\nOnly queued/failed items can be deleted; others will be reported as skipped.';
-      if (!window.confirm(deleteMessage)) {
+      var confirmedBatchDelete = await this._showConfirmDialog({
+        title: 'Delete Selected Intake Items?',
+        message: deleteMessage,
+        confirmLabel: 'Delete Selected',
+        cancelLabel: 'Keep Items',
+        danger: true,
+      });
+      if (!confirmedBatchDelete) {
         return;
       }
     }
@@ -691,6 +752,14 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
       this._render();
       return;
     }
+    if (action === 'confirm-dialog-cancel') {
+      this._resolveConfirmDialog(false);
+      return;
+    }
+    if (action === 'confirm-dialog-accept') {
+      this._resolveConfirmDialog(true);
+      return;
+    }
     if (action === 'batch-validate') {
       this._runBatchAction('validate');
       return;
@@ -790,9 +859,15 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
     var viewToolbar = this._showActiveQueue()
       ? '<section class="section"><div class="toolbar-row"><div class="button-row"><button class="button' + (isActiveQueueView ? ' primary' : '') + '" data-action="switch-view" data-view="active_queue">Active Queue (' + String(activeQueueCount) + ')</button><button class="button' + (this._currentView === 'job_history' ? ' primary' : '') + '" data-action="switch-view" data-view="job_history">Job History (' + String(jobHistoryCount) + ')</button></div></div></section>'
       : '<section class="section"><div class="toolbar-row"><div class="status">Showing completed Job History only. Active Queue remains available through background/admin paths.</div></div></section>';
+    var confirmStyles = ''
+      + '.confirm-overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;box-sizing:border-box;}'
+      + '.confirm-backdrop{position:absolute;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);}'
+      + '.confirm-dialog{position:relative;display:grid;gap:10px;width:min(460px,100%);max-height:calc(100% - 16px);overflow:auto;padding:16px;border-radius:14px;border:1px solid rgba(148,163,184,0.28);background:var(--card-background-color,rgba(15,23,42,0.98));box-shadow:0 18px 42px rgba(2,6,23,0.45);}'
+      + '.confirm-dialog .muted{white-space:pre-line;}'
+      + '.confirm-actions{justify-content:flex-end;}';
 
     this.shadowRoot.innerHTML = ''
-      + '<style>' + sharedStyles + '</style>'
+      + '<style>' + sharedStyles + confirmStyles + '</style>'
       + '<ha-card>'
       + '  <div class="shell">'
       + '    <div class="header"><div class="title-row"><div><div class="title">' + escapeHtml(this._config.title) + '</div><div class="subtitle">' + escapeHtml(subtitle) + '</div></div><div class="button-row"><button class="button" data-action="refresh-inbox">Refresh</button>' + (canSelect ? '<button class="button ' + (this._selectMode ? 'warn' : '') + '" data-action="toggle-select-mode">' + (this._selectMode ? 'Cancel Select' : 'Select Items') + '</button>' : '') + '</div></div>'
@@ -831,7 +906,8 @@ class ModelCatalogInboxReviewCard extends HTMLElement {
             + '</article>';
         }, this).join('') + '</div>' : '')
       + '  </div>'
-      + '</ha-card>';
+      + '</ha-card>'
+      + this._renderConfirmDialog();
 
     var filterNode = this.shadowRoot.querySelector('#inbox-state-filter');
     if (filterNode) {

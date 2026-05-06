@@ -65,6 +65,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._intakeItems = [];
     this._queueUploads = [];
     this._wizardOpen = false;
+    this._wizardCloseConfirmOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
@@ -593,6 +594,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   async _openWizard(mode) {
     var nextMode = mode === "server" ? "server" : "browser";
     this._wizardOpen = true;
+    this._wizardCloseConfirmOpen = false;
     this._wizardMode = nextMode;
     this._wizardStep = 1;
     this._cleanupPolicyValue = this._defaultCleanupPolicy(nextMode);
@@ -626,19 +628,44 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return false;
   }
 
+  _openWizardCloseConfirm() {
+    this._wizardCloseConfirmOpen = true;
+    this._render();
+  }
+
+  _dismissWizardCloseConfirm() {
+    if (!this._wizardCloseConfirmOpen) {
+      return;
+    }
+    this._wizardCloseConfirmOpen = false;
+    this._render();
+  }
+
+  _renderWizardCloseConfirm() {
+    if (!this._wizardCloseConfirmOpen) {
+      return '';
+    }
+    return ''
+      + '<div class="wizard-close-confirm" role="dialog" aria-modal="true" aria-label="Discard intake selections">'
+      + '  <div class="wizard-close-confirm-backdrop" data-action="dismiss-close-confirm"></div>'
+      + '  <div class="wizard-close-confirm-dialog">'
+      + '    <div class="title">Discard Intake Selections?</div>'
+      + '    <div class="muted">Your in-progress selections and wizard setup will be lost.</div>'
+      + '    <div class="button-row wizard-close-confirm-actions">'
+      + '      <button class="button" data-action="dismiss-close-confirm">Keep Editing</button>'
+      + '      <button class="button danger" data-action="confirm-close-wizard">Discard And Close</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
   _closeWizard(options) {
     var force = !!(options && options.force);
     if (!force && this._isWizardDirty()) {
-      var ok = false;
-      try {
-        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
-      } catch (err) {
-        ok = true;
-      }
-      if (!ok) {
-        return;
-      }
+      this._openWizardCloseConfirm();
+      return;
     }
+    this._wizardCloseConfirmOpen = false;
     this._wizardOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
@@ -1269,6 +1296,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + this._renderWizardFooter()
       + '    <input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files">'
       + '    <input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder">'
+        + this._renderWizardCloseConfirm()
       + '  </div>'
       + '</div>';
   }
@@ -1303,6 +1331,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'close-wizard') {
       this._closeWizard();
+      return;
+    }
+    if (action === 'dismiss-close-confirm') {
+      this._dismissWizardCloseConfirm();
+      return;
+    }
+    if (action === 'confirm-close-wizard') {
+      this._closeWizard({ force: true });
       return;
     }
     if (action === 'wizard-next') {
@@ -1554,6 +1590,11 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-selection-scroll{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
       + '.wizard-review-scroll{min-height:0;max-height:420px;overflow:auto;padding-right:4px;}'
       + '.wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:4px;}'
+      + '.wizard-close-confirm{position:absolute;inset:0;display:grid;place-items:center;z-index:30;padding:18px;box-sizing:border-box;}'
+      + '.wizard-close-confirm-backdrop{position:absolute;inset:0;background:rgba(2,6,23,0.58);}'
+      + '.wizard-close-confirm-dialog{position:relative;display:grid;gap:10px;width:min(460px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;padding:18px;border-radius:16px;border:1px solid rgba(148,163,184,0.28);background:var(--card-background-color,rgba(15,23,42,0.98));box-shadow:0 20px 56px rgba(2,6,23,0.45);}'
+      + '.wizard-close-confirm-dialog .title{font-size:18px;line-height:1.25;}'
+      + '.wizard-close-confirm-actions{justify-content:flex-end;}'
       // Issue #1322 tweaks: hover affordances, right-aligned action buttons, larger summary font, file-type icon, intake path row
       + '.button{transition:background-color .12s ease,border-color .12s ease,filter .12s ease,transform .12s ease;}'
       + '.button:hover:not(:disabled){filter:brightness(1.18);transform:translateY(-1px);background:rgba(148,163,184,0.22);}'

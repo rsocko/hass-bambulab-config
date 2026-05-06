@@ -1593,16 +1593,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._closeWizard = function (options) {
     var force = !!(options && options.force);
     if (!force && typeof this._isWizardDirty === 'function' && this._isWizardDirty()) {
-      var ok = false;
-      try {
-        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
-      } catch (err) {
-        ok = true;
-      }
-      if (!ok) {
+      if (typeof this._openWizardCloseConfirm === 'function') {
+        this._openWizardCloseConfirm();
         return;
       }
     }
+    this._wizardCloseConfirmOpen = false;
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._wizardOpen = false;
     this._wizardMode = '';
