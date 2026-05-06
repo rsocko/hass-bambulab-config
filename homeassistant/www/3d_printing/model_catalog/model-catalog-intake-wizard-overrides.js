@@ -5,6 +5,8 @@ var callServiceWithResponse = intakeShared.callServiceWithResponse;
 var fireModelCatalogDataChanged = intakeShared.fireModelCatalogDataChanged;
 var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
+var groupingStrategyLabel = intakeShared.groupingStrategyLabel;
+var groupingOptionsHtml = intakeShared.groupingOptionsHtml;
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -567,17 +569,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   };
 
   proto._groupingStrategyLabel = function (strategy) {
-    var normalized = String(strategy || 'none').trim().toLowerCase();
-    if (normalized === 'by-folder') {
-      return 'Separate Models By Folder';
-    }
-    if (normalized === 'flat') {
-      return 'Separate Models By File';
-    }
-    if (normalized === 'by-root') {
-      return 'Each Root Folder Becomes A Model';
-    }
-    return 'Keep Together In Same Model';
+    // Issue #1341: delegate to the shared helper so Browser/Server flows stay
+    // in lockstep with bulk-import and any future surface that needs to render
+    // the user-facing label for a grouping_strategy enum value.
+    return groupingStrategyLabel(strategy);
   };
 
   proto._cleanupPolicyFriendlyLabel = function (policy) {
@@ -749,14 +744,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<article class="entry-row">'
       + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
       + '<div class="item-grid">'
-      + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '"><option value="none"' + (groupingValue === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="flat"' + (groupingValue === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+      + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
       + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
       + (showBatchTitleField
         ? '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
         : '')
       + '</div>'
       + (groupingValue === 'flat' && titleSource === 'custom'
-        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>'
+        ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models by File.</div></div></div>'
             + this._renderSharedPerFileNameRows(entries, {
               inputAction: perFileTitleAction,
               pathAttribute: settings.perFilePathAttribute || 'data-path',
@@ -814,7 +809,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '<div class="entry-top">' + folderPreviewMarkup() + '<div class="entry-main"><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
         + '<div class="item-grid">'
         + '<div class="field"><label>Folder Scope</label><select class="select" data-action="browser-root-recurse" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.recurse !== false ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (representative.recurse === false ? ' selected' : '') + '>Just this folder</option></select></div>'
-        + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+        + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
         + (representative.recurse !== false ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>' : '')
         + '<div class="field"><label>Title Basis</label><select class="select" data-action="browser-root-title-source" data-root="' + escapeHtml(rootKey) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
         + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
@@ -879,7 +874,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + (folderCount
             ? '    <div class="field"><label>Selected Folder</label><div class="muted">' + escapeHtml(folderCount === 1 ? folderNames[0] : String(folderCount) + ' folders selected') + '</div></div><div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
             : '')
-          + '    <div class="field"><label>Group / Split</label><select class="select" data-action="browser-grouping"><option value="none"' + (groupingStrategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (groupingStrategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (groupingStrategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (groupingStrategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+          + '    <div class="field"><label>Group / Split</label><select class="select" data-action="browser-grouping">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
           + (folderCount && recurse
             ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
             : '')
@@ -889,7 +884,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
-            ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models By File.</div></div></div>' + this._browserFlatCustomTitleRows()
+            ? '<div class="title-row"><div><div class="title">Per-File Model Names</div><div class="subtitle">Custom names apply to each model created by Separate Models by File.</div></div></div>' + this._browserFlatCustomTitleRows()
             : '')
           + '<div class="muted">Organize controls how the selected browser files resolve into models. Validation and Commit reuse the resolved plan shown on the right.</div>'
         : '');
@@ -2036,7 +2031,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
               + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
-              + '<div class="field"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '"><option value="none"' + (entry.grouping_strategy === 'none' ? ' selected' : '') + '>Keep Together In Same Model</option><option value="by-folder"' + (entry.grouping_strategy === 'by-folder' ? ' selected' : '') + '>Separate Models By Folder</option><option value="by-root"' + (entry.grouping_strategy === 'by-root' ? ' selected' : '') + '>Each Root Folder Becomes A Model</option><option value="flat"' + (entry.grouping_strategy === 'flat' ? ' selected' : '') + '>Separate Models By File</option></select></div>'
+              + '<div class="field"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'
               + (entry.recurse
                 ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
                 : '')

@@ -387,10 +387,17 @@ class ModelCatalogBulkImportCard extends HTMLElement {
       + "<div class=\"title\">" + String((this._config && this._config.title) || "Bulk Working-Group Import") + "</div>"
       + "<div class=\"controls\">"
       + "<input id=\"bulk-folder-path\" class=\"field\" placeholder=\"Folder path (example: D:/3D Printing)\" value=\"" + String(this._discoverMeta.folder_path || "").replace(/\"/g, "&quot;") + "\" />"
+      // Issue #1341: render the grouping select via the shared helper when
+      // model-catalog-intake-shared.js is loaded so this card stays in sync
+      // with the wizard labels. Fall back to a minimal inline rendering with
+      // the same user-facing wording when the shared module isn't present.
       + "<select id=\"bulk-grouping-strategy\" class=\"field\">"
-      + "<option value=\"by-folder\"" + (this._discoverMeta.grouping_strategy === "by-folder" ? " selected" : "") + ">by-folder</option>"
-      + "<option value=\"by-root\"" + (this._discoverMeta.grouping_strategy === "by-root" ? " selected" : "") + ">by-root</option>"
-      + "<option value=\"flat\"" + (this._discoverMeta.grouping_strategy === "flat" ? " selected" : "") + ">flat</option>"
+      + ((window.ModelCatalogIntakeShared && typeof window.ModelCatalogIntakeShared.groupingOptionsHtml === "function")
+          ? window.ModelCatalogIntakeShared.groupingOptionsHtml(this._discoverMeta.grouping_strategy, "folder")
+          : ("<option value=\"none\"" + (this._discoverMeta.grouping_strategy === "none" ? " selected" : "") + ">Group with the batch</option>"
+            + "<option value=\"by-folder\"" + (this._discoverMeta.grouping_strategy === "by-folder" ? " selected" : "") + ">Separate Models by Folder</option>"
+            + "<option value=\"by-root\"" + (this._discoverMeta.grouping_strategy === "by-root" ? " selected" : "") + ">This folder as its own Model</option>"
+            + "<option value=\"flat\"" + (this._discoverMeta.grouping_strategy === "flat" ? " selected" : "") + ">Separate Models by File</option>"))
       + "</select>"
       + "<button class=\"btn\" data-action=\"discover\"" + (this._loadingDiscover || this._loadingImport ? " disabled" : "") + ">"
       + (this._loadingDiscover ? "Discovering..." : "Discover")

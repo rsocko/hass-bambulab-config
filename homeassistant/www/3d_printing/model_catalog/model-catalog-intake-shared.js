@@ -42,6 +42,39 @@
       .join(" ");
   }
 
+  // Issue #1341: single source of truth for the user-facing labels of the
+  // grouping_strategy enum used by both the Browser and Server intake flows.
+  // Internal codes (none/by-folder/by-root/flat) are intentionally unchanged.
+  var GROUPING_STRATEGY_LABELS = {
+    "none": "Group with the batch",
+    "by-folder": "Separate Models by Folder",
+    "by-root": "This folder as its own Model",
+    "flat": "Separate Models by File",
+  };
+
+  function groupingStrategyLabel(strategy) {
+    var normalized = String(strategy == null ? "none" : strategy).trim().toLowerCase() || "none";
+    if (Object.prototype.hasOwnProperty.call(GROUPING_STRATEGY_LABELS, normalized)) {
+      return GROUPING_STRATEGY_LABELS[normalized];
+    }
+    return GROUPING_STRATEGY_LABELS.none;
+  }
+
+  // kind: 'folder' (all four options) or 'file' (none + flat only). Folder
+  // selections expose the full set; pure file batches hide the folder-specific
+  // by-folder / by-root choices because they don't apply.
+  function groupingOptionsHtml(currentValue, kind) {
+    var current = String(currentValue == null ? "none" : currentValue).trim().toLowerCase() || "none";
+    var keys = String(kind || "folder").toLowerCase() === "file"
+      ? ["none", "flat"]
+      : ["none", "by-folder", "by-root", "flat"];
+    return keys.map(function (key) {
+      return '<option value="' + key + '"'
+        + (current === key ? ' selected' : '')
+        + '>' + escapeHtml(GROUPING_STRATEGY_LABELS[key]) + '</option>';
+    }).join("");
+  }
+
   function parseDecisionWarnings(item) {
     if (!item || !item.decision_note) {
       return [];
@@ -536,6 +569,8 @@
     formatBytes: formatBytes,
     formatLabel: formatLabel,
     fireModelCatalogDataChanged: fireModelCatalogDataChanged,
+    groupingStrategyLabel: groupingStrategyLabel,
+    groupingOptionsHtml: groupingOptionsHtml,
     getModelCatalogScopeStamp: getModelCatalogScopeStamp,
     getJsonWithAuth: getJsonWithAuth,
     parseDecisionWarnings: parseDecisionWarnings,
