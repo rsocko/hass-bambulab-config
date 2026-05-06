@@ -577,10 +577,19 @@ def _plan_flat_file_groups(
 def _merge_planned_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged_by_key: dict[str, dict[str, Any]] = {}
     ordered_keys: list[str] = []
+    # Issue #1341: 'none' (a.k.a. "Group with the batch") means every selection
+    # in the batch that picks this strategy collapses into a single planned
+    # model -- regardless of whether the user customized per-entry titles. The
+    # merged title prefers the first non-empty explicit group_title we
+    # encounter; if none of the merged entries set one, we keep the existing
+    # default title that was already populated on the first group.
     for group in groups:
         explicit_title = str(group.get("group_title") or "").strip()
         effective_strategy = str(group.get("strategy") or "none").strip() or "none"
-        merge_key = f"none::{explicit_title.lower()}" if effective_strategy == "none" and explicit_title else str(group.get("plan_group_id") or uuid.uuid4())
+        if effective_strategy == "none":
+            merge_key = "none::__batch__"
+        else:
+            merge_key = str(group.get("plan_group_id") or uuid.uuid4())
         existing = merged_by_key.get(merge_key)
         if existing is None:
             next_group = dict(group)
@@ -592,6 +601,14 @@ def _merge_planned_groups(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
         existing["files"].extend(group.get("files") or [])
         existing["source_entries"].extend(group.get("source_entries") or [])
         existing["preserve_folder_structure"] = bool(existing.get("preserve_folder_structure")) or bool(group.get("preserve_folder_structure"))
+        # Upgrade the merged group's title if a later 'none' entry carries an
+        # explicit user-set group_title and the existing merged group still
+        # holds only a derived/default title.
+        if effective_strategy == "none" and explicit_title:
+            existing_explicit_title = str(existing.get("group_title") or "").strip()
+            if not existing_explicit_title:
+                existing["group_title"] = explicit_title
+                existing["title"] = explicit_title
     return [merged_by_key[key] for key in ordered_keys]
 
 

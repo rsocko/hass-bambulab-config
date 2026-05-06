@@ -468,7 +468,65 @@ def test_intake_plan_keeps_file_batch_and_folder_plan_separate(tmp_path: Path) -
     finally:
         client.__exit__(None, None, None)
 
-def test_publish_to_working_flat_attaches_media_to_model_group(tmp_path: Path) -> None:
+
+def test_intake_plan_merges_all_none_strategy_into_single_batch(tmp_path: Path) -> None:
+    """Issue #1341: 'Group with the batch' (strategy='none') across multiple
+    selected folders/files must collapse into ONE planned model regardless of
+    differing per-entry group_titles. Title preference: first non-empty
+    explicit group_title encountered, otherwise the existing default."""
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    folder_a = source_root / "alpha"
+    folder_b = source_root / "bravo"
+    folder_a.mkdir()
+    folder_b.mkdir()
+    (folder_a / "alpha-part.3mf").write_bytes(b"alpha-bytes")
+    (folder_b / "bravo-part.3mf").write_bytes(b"bravo-bytes")
+    loose_file = source_root / "extra-bracket.stl"
+    loose_file.write_bytes(b"loose-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        response = client.post(
+            "/api/intake/plan",
+            json={
+                "source_entries": [
+                    {
+                        "type": "folder",
+                        "path": str(folder_a),
+                        "recurse": True,
+                        "grouping_strategy": "none",
+                    },
+                    {
+                        "type": "folder",
+                        "path": str(folder_b),
+                        "recurse": True,
+                        "grouping_strategy": "none",
+                        "group_title_source": "custom",
+                        "group_title": "Combined Models",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(loose_file),
+                        "grouping_strategy": "none",
+                    },
+                ]
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        # All three 'none' selections must collapse to a single planned model.
+        assert payload["summary"]["planned_model_count"] == 1
+        planned_model = payload["planned_models"][0]
+        # Title prefers the first non-empty explicit group_title we encounter.
+        assert planned_model["title"] == "Combined Models"
+        # All three files must land in the merged model.
+        assert planned_model["file_count"] == 3
+    finally:
+        client.__exit__(None, None, None)
+
+
+
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)
     folder = source_root / "adapter-v2"
