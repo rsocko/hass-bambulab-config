@@ -52,8 +52,24 @@
     "flat": "Separate Models by File",
   };
 
-  function groupingStrategyLabel(strategy) {
+  function normalizeGroupingStrategy(strategy, options) {
+    var settings = options || {};
+    var allowFolderStrategies = settings.allowFolderStrategies !== false;
     var normalized = String(strategy == null ? "none" : strategy).trim().toLowerCase() || "none";
+    if (normalized === "by-file") {
+      normalized = "flat";
+    }
+    if (normalized === "none" || normalized === "flat") {
+      return normalized;
+    }
+    if (allowFolderStrategies && (normalized === "by-folder" || normalized === "by-root")) {
+      return normalized;
+    }
+    return "none";
+  }
+
+  function groupingStrategyLabel(strategy) {
+    var normalized = normalizeGroupingStrategy(strategy, { allowFolderStrategies: true });
     if (Object.prototype.hasOwnProperty.call(GROUPING_STRATEGY_LABELS, normalized)) {
       return GROUPING_STRATEGY_LABELS[normalized];
     }
@@ -64,8 +80,9 @@
   // selections expose the full set; pure file batches hide the folder-specific
   // by-folder / by-root choices because they don't apply.
   function groupingOptionsHtml(currentValue, kind) {
-    var current = String(currentValue == null ? "none" : currentValue).trim().toLowerCase() || "none";
-    var keys = String(kind || "folder").toLowerCase() === "file"
+    var isFileKind = String(kind || "folder").toLowerCase() === "file";
+    var current = normalizeGroupingStrategy(currentValue, { allowFolderStrategies: !isFileKind });
+    var keys = isFileKind
       ? ["none", "flat"]
       : ["none", "by-folder", "by-root", "flat"];
     return keys.map(function (key) {
@@ -569,6 +586,7 @@
     formatBytes: formatBytes,
     formatLabel: formatLabel,
     fireModelCatalogDataChanged: fireModelCatalogDataChanged,
+    normalizeGroupingStrategy: normalizeGroupingStrategy,
     groupingStrategyLabel: groupingStrategyLabel,
     groupingOptionsHtml: groupingOptionsHtml,
     getModelCatalogScopeStamp: getModelCatalogScopeStamp,

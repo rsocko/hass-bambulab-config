@@ -20,8 +20,7 @@ from fastapi.responses import JSONResponse
 
 from ..state import AppState
 from .._helpers import (
-    LOCAL_IMPORT_IMAGE_EXTENSIONS,
-    SUPPORTED_WORKING_FILE_EXTENSIONS,
+    SUPPORTED_INTAKE_FILE_EXTENSIONS,
     _bulk_path_source_metadata,
     _bulk_utc_now_iso,
     _coerce_bool,
@@ -31,6 +30,27 @@ from .._helpers import (
 )
 
 router = APIRouter(tags=["source-filesystems"])
+
+
+def _count_disallowed_files_in_folder(folder: Path, *, recurse: bool) -> int:
+    count = 0
+    try:
+        for item in sorted(folder.iterdir()):
+            if item.name.startswith("."):
+                continue
+            try:
+                if item.is_file():
+                    if item.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
+                        count += 1
+                elif item.is_dir() and recurse:
+                    count += _count_disallowed_files_in_folder(item, recurse=True)
+            except (OSError, PermissionError):
+                pass
+    except (OSError, PermissionError):
+        pass
+    return count
+
+
 def _normalize_group_title_source(value: object | None) -> str | None:
     normalized = str(value or "").strip().lower().replace("_", "-")
     if normalized in {"folder", "first-file", "custom"}:
@@ -234,6 +254,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
         cleanup_policy = "keep"
 
     validated_entries: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
     expanded_file_count = 0
 
     for idx, selection in enumerate(selections):
@@ -317,15 +338,15 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                         "message": f"selections[{idx}].path could not be read: {exc}",
                     },
                 )
-            if resolved.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "success": False,
-                        "error": "unsupported_type",
-                        "message": f"selections[{idx}].path has unsupported extension: {resolved.suffix.lower() or '<none>'}",
-                    },
+            if resolved.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
+                warnings.append(
+                    {
+                        "code": "unsupported_file_type",
+                        "message": f"Skipped unsupported selection: {resolved.name}",
+                        "path": str(resolved),
+                    }
                 )
+                continue
             entry_meta = _bulk_path_source_metadata(resolved, stat_result)
             validated_entries.append(
                 {
@@ -383,6 +404,16 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
             contained_files = _collect_intake_source_files_in_folder(
                 resolved, recurse=recurse
             )
+            disallowed_count = _count_disallowed_files_in_folder(resolved, recurse=recurse)
+            if disallowed_count > 0:
+                warnings.append(
+                    {
+                        "code": "unsupported_file_type",
+                        "message": f"Skipped {disallowed_count} unsupported file(s) under folder selection.",
+                        "path": str(resolved),
+                        "excluded_count": disallowed_count,
+                    }
+                )
             validated_entries.append(
                 {
                     "type": "folder",
@@ -412,6 +443,17 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
                 if normalized_excluded:
                     validated_entries[-1]["excluded_items"] = normalized_excluded
             expanded_file_count += len(contained_files)
+
+    if not validated_entries:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": "no_supported_sources",
+                "message": "No supported intake sources remained after filtering selections.",
+                "warnings": warnings,
+            },
+        )
 
     # Create intake queue record
     upload_id = str(_uuid_module.uuid4())
@@ -449,6 +491,7 @@ def select_source_filesystem_entries(request: Request, payload: dict[str, Any]) 
         "cleanup_policy": cleanup_policy,
         "selection_count": len(validated_entries),
         "expanded_file_count": expanded_file_count,
+        "warnings": warnings,
         "created_at": now_iso,
     }
 

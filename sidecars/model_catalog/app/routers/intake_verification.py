@@ -23,6 +23,8 @@ from fastapi.responses import JSONResponse
 
 from ..state import AppState
 from .._helpers import (
+    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_utc_now_iso,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
@@ -41,8 +43,7 @@ from .intake_queue import (
     _derive_terminal_display_action,
     _normalize_terminal_actor,
     _normalize_terminal_result,
-    SUPPORTED_WORKING_FILE_EXTENSIONS,
-    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    SUPPORTED_INTAKE_FILE_EXTENSIONS,
 )
 
 router = APIRouter(tags=["intake"])
@@ -217,7 +218,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
                 continue
-            if file_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+            if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
                     {
                         "code": "unsupported_type",
@@ -439,6 +440,8 @@ def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: l
 def _normalize_grouping_strategy(value: object | None) -> str:
     """Normalize grouping strategy value."""
     normalized = str(value or "").strip().lower()
+    if normalized == "by-file":
+        normalized = "flat"
     if normalized in {"by-folder", "by-root", "flat", "none"}:
         return normalized
     return "none"
@@ -1107,7 +1110,7 @@ def intake_submit(request: Request, payload: dict[str, Any]) -> Any:
                 continue
 
             suffix = source_path.suffix.lower()
-            if suffix not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if suffix not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 created_items.append(
                     {
                         "item_id": None,

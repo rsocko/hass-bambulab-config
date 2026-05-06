@@ -15,6 +15,7 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
+var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 
 var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".png": true,
@@ -398,11 +399,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!this._browserFiles.length) {
       return 'none';
     }
-    var normalized = String(this._browserFiles[0] && this._browserFiles[0].grouping_strategy || '').trim().toLowerCase();
-    if (normalized === 'by-folder' || normalized === 'by-root' || normalized === 'flat') {
-      return normalized;
-    }
-    return 'none';
+    return normalizeGroupingStrategy(this._browserFiles[0] && this._browserFiles[0].grouping_strategy, {
+      allowFolderStrategies: true,
+    });
   }
 
   _browserBatchTitleSource() {

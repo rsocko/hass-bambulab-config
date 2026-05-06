@@ -20,6 +20,30 @@ from .settings import Settings
 
 SUPPORTED_WORKING_FILE_EXTENSIONS: set[str] = {".3mf", ".stl", ".obj", ".step", ".stp", ".zip"}
 LOCAL_IMPORT_IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
+LOCAL_IMPORT_DOCUMENT_EXTENSIONS: set[str] = {
+    ".pdf",
+    ".md",
+    ".txt",
+    ".csv",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".rtf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".odt",
+    ".ods",
+    ".odp",
+}
+SUPPORTED_INTAKE_FILE_EXTENSIONS: set[str] = (
+    SUPPORTED_WORKING_FILE_EXTENSIONS
+    | LOCAL_IMPORT_IMAGE_EXTENSIONS
+    | LOCAL_IMPORT_DOCUMENT_EXTENSIONS
+)
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +232,7 @@ def _collect_intake_source_files_in_folder(
                 continue
             try:
                 if item.is_file():
-                    if item.suffix.lower() in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+                    if item.suffix.lower() in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                         results.append(item)
                 elif item.is_dir() and recurse:
                     results.extend(

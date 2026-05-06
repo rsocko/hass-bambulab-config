@@ -364,6 +364,73 @@ def test_select_folder_recurse_includes_nested_levels(tmp_path: Path) -> None:
     assert payload["expanded_file_count"] == 3
 
 
+def test_select_unsupported_file_returns_no_supported_sources_with_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    bad_file = root / "installer.exe"
+    bad_file.write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "file", "path": str(bad_file)}]},
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"] == "no_supported_sources"
+    assert isinstance(payload.get("warnings"), list)
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload["warnings"])
+
+
+def test_select_mixed_supported_and_unsupported_includes_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    good_file = root / "part.3mf"
+    good_file.write_bytes(b"3mf")
+    bad_file = root / "tool.exe"
+    bad_file.write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {"type": "file", "path": str(good_file)},
+                    {"type": "file", "path": str(bad_file)},
+                ]
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["selection_count"] == 1
+    assert payload["expanded_file_count"] == 1
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload.get("warnings", []))
+
+
+def test_select_folder_with_unsupported_files_surfaces_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    (root / "ok.3mf").write_bytes(b"ok")
+    (root / "readme.md").write_text("allowed doc", encoding="utf-8")
+    (root / "script.exe").write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(root), "recurse": True}]},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["expanded_file_count"] == 2
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload.get("warnings", []))
+
+
 def test_select_mixed_batch(tmp_path: Path) -> None:
     root = tmp_path / "models"
     root.mkdir()

@@ -7,6 +7,7 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 var groupingStrategyLabel = intakeShared.groupingStrategyLabel;
 var groupingOptionsHtml = intakeShared.groupingOptionsHtml;
+var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -234,55 +235,104 @@ function buildBrowserPlanPreview(card) {
   if (!files.length) {
     return null;
   }
-  var strategy = card._browserGroupingStrategy();
-  var groups = [];
-  if (strategy === 'by-folder') {
-    var folderMap = {};
-    files.forEach(function (entry) {
-      var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var folderKey = parts.length > 1 ? parts.slice(0, -1).join('/') : '__loose__';
-      if (!folderMap[folderKey]) {
-        folderMap[folderKey] = { title: titleForStrategy(card, strategy, folderKey), strategy: 'by-folder', files: [] };
-      }
-      folderMap[folderKey].files.push(entry);
-    });
-    groups = Object.keys(folderMap).sort().map(function (key) { return folderMap[key]; });
-  } else if (strategy === 'by-root') {
-    var rootMap = {};
-    files.forEach(function (entry) {
-      var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var rootKey = parts.length > 1 ? parts[0] : '__loose__';
-      if (!rootMap[rootKey]) {
-        rootMap[rootKey] = { title: titleForStrategy(card, strategy, rootKey), strategy: 'by-root', files: [] };
-      }
-      rootMap[rootKey].files.push(entry);
-    });
-    groups = Object.keys(rootMap).sort().map(function (key) { return rootMap[key]; });
-  } else if (strategy === 'flat') {
-    var printable = files.filter(function (entry) { return fileKind(entry.relative_path || entry.name || '') === 'model'; });
-    if (printable.length) {
-      groups = printable.map(function (entry) {
-        var stem = basename(entry.relative_path || entry.name || '').replace(/\.[^.]+$/, '');
-        var customTitle = String(entry.group_title || '').trim();
-        return { title: customTitle || stem || 'Model', strategy: 'flat', files: [entry] };
-      });
-      files.forEach(function (entry) {
-        if (fileKind(entry.relative_path || entry.name || '') === 'model') {
-          return;
-        }
-        groups[0].files.push(entry);
-      });
-    } else {
-      groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
-      strategy = 'none';
-    }
-  } else {
-    groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
-    strategy = 'none';
+  function normalizeSectionStrategy(rawValue) {
+    return normalizeGroupingStrategy(rawValue, { allowFolderStrategies: true });
   }
-  var preview = summarizeGroups(groups, strategy);
+
+  function groupsForSection(sectionFiles, requestedStrategy, sectionTitle) {
+    var sectionStrategy = normalizeSectionStrategy(requestedStrategy);
+    var sectionGroups = [];
+    if (!sectionFiles.length) {
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'by-folder') {
+      var folderMap = {};
+      sectionFiles.forEach(function (entry) {
+        var relativePath = normalizePath(entry.relative_path || entry.name || '');
+        var parts = relativePath.split('/').filter(Boolean);
+        var folderKey = parts.length > 1 ? parts.slice(0, -1).join('/') : '__loose__';
+        if (!folderMap[folderKey]) {
+          folderMap[folderKey] = {
+            title: titleForStrategy(card, sectionStrategy, folderKey),
+            strategy: 'by-folder',
+            files: [],
+          };
+        }
+        folderMap[folderKey].files.push(entry);
+      });
+      Object.keys(folderMap).sort().forEach(function (key) {
+        sectionGroups.push(folderMap[key]);
+      });
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'by-root') {
+      sectionGroups.push({
+        title: sectionTitle || titleForStrategy(card, 'by-root', '__loose__'),
+        strategy: 'by-root',
+        files: sectionFiles.slice(),
+      });
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'flat') {
+      var printable = sectionFiles.filter(function (entry) {
+        return fileKind(entry.relative_path || entry.name || '') === 'model';
+      });
+      if (printable.length) {
+        sectionGroups = printable.map(function (entry) {
+          var stem = basename(entry.relative_path || entry.name || '').replace(/\.[^.]+$/, '');
+          var customTitle = String(entry.group_title || '').trim();
+          return { title: customTitle || stem || 'Model', strategy: 'flat', files: [entry] };
+        });
+        sectionFiles.forEach(function (entry) {
+          if (fileKind(entry.relative_path || entry.name || '') === 'model') {
+            return;
+          }
+          sectionGroups[0].files.push(entry);
+        });
+        return sectionGroups;
+      }
+      sectionStrategy = 'none';
+    }
+    sectionGroups.push({
+      title: sectionTitle || card._browserBatchResolvedTitle(),
+      strategy: sectionStrategy,
+      files: sectionFiles.slice(),
+    });
+    return sectionGroups;
+  }
+
+  var groups = [];
+  var rootBuckets = card._browserRootBuckets ? card._browserRootBuckets() : {};
+  var rootKeys = Object.keys(rootBuckets).sort();
+  rootKeys.forEach(function (rootKey) {
+    var bucketFiles = rootBuckets[rootKey] || [];
+    if (!bucketFiles.length) {
+      return;
+    }
+    var representative = bucketFiles[0] || {};
+    groups = groups.concat(groupsForSection(
+      bucketFiles,
+      representative.grouping_strategy,
+      card._browserRootResolvedTitle ? card._browserRootResolvedTitle(rootKey, representative) : rootKey
+    ));
+  });
+
+  var looseFiles = card._browserLooseFiles ? card._browserLooseFiles() : [];
+  if (looseFiles.length) {
+    var looseRepresentative = looseFiles[0] || {};
+    groups = groups.concat(groupsForSection(
+      looseFiles,
+      looseRepresentative.grouping_strategy,
+      card._browserLooseResolvedTitle ? card._browserLooseResolvedTitle() : card._browserBatchResolvedTitle()
+    ));
+  }
+
+  var strategies = {};
+  groups.forEach(function (group) {
+    strategies[String(group && group.strategy || 'none')] = true;
+  });
+  var strategyKeys = Object.keys(strategies);
+  var preview = summarizeGroups(groups, strategyKeys.length === 1 ? strategyKeys[0] : 'mixed');
   preview.contract = 'intake-plan.v1alpha1';
   preview.success = true;
   return preview;
@@ -742,8 +792,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (!fileEntries.length) {
       return 'none';
     }
-    var normalized = String(fileEntries[0].grouping_strategy || 'none').trim().toLowerCase();
-    return normalized === 'flat' ? 'flat' : 'none';
+    return normalizeGroupingStrategy(fileEntries[0].grouping_strategy || 'none', { allowFolderStrategies: false });
   };
 
   proto._renderSharedPerFileNameRows = function (entries, options) {
@@ -823,7 +872,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (looseFiles.length) {
       sections.push(this._renderSharedFileBatchCard({
         entries: looseFiles,
-        groupingValue: String(looseFiles[0].grouping_strategy || 'none').trim().toLowerCase(),
+        groupingValue: normalizeGroupingStrategy(looseFiles[0].grouping_strategy || 'none', { allowFolderStrategies: false }),
         titleSource: this._browserLooseTitleSource(),
         resolvedTitle: this._browserLooseResolvedTitle(),
         groupingAction: 'browser-loose-grouping',
@@ -837,7 +886,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     rootKeys.forEach(function (rootKey) {
       var files = rootBuckets[rootKey];
       var representative = files[0] || {};
-      var groupingStrategy = String(representative.grouping_strategy || 'none').trim().toLowerCase();
+      var groupingStrategy = normalizeGroupingStrategy(representative.grouping_strategy || 'none', { allowFolderStrategies: true });
       var titleSource = this._browserRootTitleSource(representative);
       var resolvedTitle = this._browserRootResolvedTitle(rootKey, representative);
       sections.push(''
@@ -2346,6 +2395,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 2) {
       var preview = this._previewData;
       var isLoading = this._loading || this._previewLoading || false;
+      var recalculatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>';
       var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
         ? '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
           + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
@@ -2353,15 +2403,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
           + '</div>'
         : '';
       return ''
-        + '<div class="wizard-panel">'
+        + '<div class="wizard-panel' + (isLoading ? ' recalculating-panel' : '') + '" style="position:relative;">'
         + '  <div class="title-row"><div><div class="title">Organize</div><div class="subtitle">Choose how files stay together or split apart.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + (this._wizardMode === 'server' ? this._renderServerSelectionRows(true) : this._renderBrowserOrganizeRows()) + '</div></div>'
+        + (isLoading ? recalculatingBadge : '')
         + '</div>'
         + '<div class="wizard-panel' + (isLoading ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
         + planSummaryMarkup
         + '  <div class="wizard-panel-scroll" style="flex:1 1 auto;min-height:0;overflow:auto;">' + renderPlanSummary(this, { includeDestinations: false, skipSummary: true }) + '</div>'
-        + (isLoading ? '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>' : '')
+        + (isLoading ? recalculatingBadge : '')
         + '</div>';
     }
     if (this._wizardStep === 3) {
