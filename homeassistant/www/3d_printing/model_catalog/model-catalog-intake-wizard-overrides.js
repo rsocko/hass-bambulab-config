@@ -853,11 +853,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       : '<option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>';
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary box.
     // Source path is intentionally omitted (it's implicit -- this is Browser Upload).
+    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;vertical-align:middle;position:relative;top:-1px;';
     var chipMarkup = ''
       + '<div class="button-row intake-summary-chips">'
-      + '  <span class="chip"><ha-icon icon="mdi:folder" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(folderCount) + ' Folders</span>'
-      + '  <span class="chip"><ha-icon icon="mdi:file" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(excludedFileCount) + ' Excluded</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:file" style="' + chipIconStyle + '"></ha-icon>' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="' + chipIconStyle + '"></ha-icon>' + String(excludedFileCount) + ' Excluded</span>'
       + '</div>';
     return ''
       + (showControls
@@ -911,11 +912,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary
     // box. Source path is intentionally omitted from the right pane (the user
     // can see/navigate it on the left).
+    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;vertical-align:middle;position:relative;top:-1px;';
     return ''
       + '<div class="button-row intake-summary-chips">'
-      + '  <span class="chip"><ha-icon icon="mdi:folder" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(folderCount) + ' Folders</span>'
-      + '  <span class="chip"><ha-icon icon="mdi:file" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="--mdc-icon-size:14px;width:14px;height:14px;"></ha-icon>' + String(excludedCount) + ' Excluded</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip"><ha-icon icon="mdi:file" style="' + chipIconStyle + '"></ha-icon>' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="' + chipIconStyle + '"></ha-icon>' + String(excludedCount) + ' Excluded</span>'
       + '</div>';
   };
 
