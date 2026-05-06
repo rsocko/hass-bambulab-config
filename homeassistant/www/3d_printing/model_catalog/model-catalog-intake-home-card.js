@@ -245,6 +245,63 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return Object.keys(this._excludedBrowserKeys || {}).length;
   }
 
+  // Issue #1350: count only files excluded WITHIN a parent folder that still
+  // has at least one included sibling (i.e., real "excluded from this folder's
+  // intake" semantics). Files whose entire root folder has been removed are
+  // not counted because the root no longer participates in the batch — the
+  // user simply hasn't selected it. Loose root-level files that are excluded
+  // are likewise treated as just-not-selected.
+  _meaningfulExcludedBrowserCount() {
+    var files = this._browserFiles || [];
+    if (!files.length) {
+      return 0;
+    }
+    var card = this;
+    var rootTotals = {};
+    var rootExcluded = {};
+    var rootlessExcluded = 0;
+    files.forEach(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '').replace(/\\/g, '/');
+      var pathParts = relativePath.split('/').filter(function (part) { return !!part; });
+      var rootKey = pathParts.length > 1 ? pathParts[0] : '';
+      var isExcluded = card._isBrowserKeyExcluded(card._browserFileKey(entry));
+      if (!rootKey) {
+        // Loose root-level file: an excluded loose file is just "not selected".
+        if (isExcluded) {
+          rootlessExcluded += 1;
+        }
+        return;
+      }
+      rootTotals[rootKey] = (rootTotals[rootKey] || 0) + 1;
+      if (isExcluded) {
+        rootExcluded[rootKey] = (rootExcluded[rootKey] || 0) + 1;
+      }
+    });
+    var meaningful = 0;
+    Object.keys(rootExcluded).forEach(function (rootKey) {
+      // Only count if the parent folder still has at least one included file.
+      if (rootExcluded[rootKey] < rootTotals[rootKey]) {
+        meaningful += rootExcluded[rootKey];
+      }
+    });
+    return meaningful;
+  }
+
+  // Issue #1350: count browser-staged files that are NOT excluded so the
+  // wizard's Next button is disabled when the user has effectively cleared
+  // the staging area (every uploaded file removed).
+  _activeBrowserFileCount() {
+    var files = this._browserFiles || [];
+    var card = this;
+    var count = 0;
+    files.forEach(function (entry) {
+      if (!card._isBrowserKeyExcluded(card._browserFileKey(entry))) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
   _selectedList() {
     return Object.keys(this._selected).map(function (key) { return this._selected[key]; }, this);
   }
@@ -598,7 +655,8 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (this._wizardMode === "server") {
       return this._selectedList().length > 0;
     }
-    return this._browserFiles.length > 0;
+    // Issue #1350: only count non-excluded browser entries.
+    return this._activeBrowserFileCount() > 0;
   }
 
   _goToWizardStep(stepNumber) {

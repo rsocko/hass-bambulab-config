@@ -832,9 +832,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1324: surface excluded count alongside the selected counts so the
     // user has a visible cue that some staged items were removed (parity with
     // Server path).
-    var excludedFileCount = typeof this._excludedBrowserKeyCount === 'function'
-      ? this._excludedBrowserKeyCount()
-      : 0;
+    // Issue #1350: only count files excluded WITHIN a parent folder that
+    // still has included siblings. A whole-folder-removed at root is not
+    // "Excluded" — it's just not selected — so it must not inflate this chip.
+    var excludedFileCount = typeof this._meaningfulExcludedBrowserCount === 'function'
+      ? this._meaningfulExcludedBrowserCount()
+      : (typeof this._excludedBrowserKeyCount === 'function' ? this._excludedBrowserKeyCount() : 0);
     var folderNames = this._browserTopFolderNames();
     var groupingStrategy = this._browserGroupingStrategy();
     var recurse = this._browserRecurse();
@@ -853,12 +856,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       : '<option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option>';
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary box.
     // Source path is intentionally omitted (it's implicit -- this is Browser Upload).
-    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;top:-2px;';
+    // Issue #1356: chips mirror the entry-row "⚠ N excluded" chip style which
+    // uses inline unicode glyphs (no <ha-icon>) so the icon and label share a
+    // baseline naturally — matching what the user sees on the folder card.
     var chipMarkup = ''
       + '<div class="button-row intake-summary-chips">'
-      + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
-      + '  <span class="chip"><ha-icon icon="mdi:file" style="' + chipIconStyle + '"></ha-icon>' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="' + chipIconStyle + '"></ha-icon>' + String(excludedFileCount) + ' Excluded</span>'
+      + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedFileCount) + ' Excluded</span>'
       + '</div>';
     return ''
       + (showControls
@@ -912,12 +917,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     // Issue #1356: Step 1 right pane uses chips instead of a key/value summary
     // box. Source path is intentionally omitted from the right pane (the user
     // can see/navigate it on the left).
-    var chipIconStyle = '--mdc-icon-size:14px;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;position:relative;top:-2px;';
+    // Issue #1356: chips mirror the entry-row "⚠ N excluded" chip style which
+    // uses inline unicode glyphs (no <ha-icon>) so the icon and label share a
+    // baseline naturally — matching what the user sees on the folder card.
     return ''
       + '<div class="button-row intake-summary-chips">'
-      + '  <span class="chip"><ha-icon icon="mdi:folder" style="' + chipIconStyle + '"></ha-icon>' + String(folderCount) + ' Folders</span>'
-      + '  <span class="chip"><ha-icon icon="mdi:file" style="' + chipIconStyle + '"></ha-icon>' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '"><ha-icon icon="mdi:alert" style="' + chipIconStyle + '"></ha-icon>' + String(excludedCount) + ' Excluded</span>'
+      + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
+      + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
+      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedCount) + ' Excluded</span>'
       + '</div>';
   };
 
@@ -1335,7 +1342,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 5) {
       return this._destinationPlansReady() && !!(this._validationData && this._validationData.upload_id && this._validationData.validation_state === 'ready');
     }
-    return this._wizardMode === 'server' ? this._selectedList().length > 0 : this._browserFiles.length > 0;
+    return this._wizardMode === 'server' ? this._selectedList().length > 0 : this._activeBrowserFileCount() > 0;
   };
 
   proto._goToWizardStep = function (stepNumber) {
@@ -1719,16 +1726,23 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       //   explicit selections → solid border + "Selected" chip + Remove.
       //   At non-root (drilled into a parent) sub-folders are children of
       //   that selection → dashed border + "Included in Selection" + Remove.
-      //   Fully-excluded folders → dashed duller border + "Excluded" + Select.
+      //   Fully-excluded folders inside a parent → dashed duller border +
+      //   "Excluded" + Select.
+      //   Fully-excluded folders AT ROOT → NEUTRAL (no border, no chip)
+      //   because there is no parent context that they're excluded from —
+      //   the user simply hasn't selected them. They stay listed so the
+      //   user can re-Select without re-uploading.
       var atRoot = !currentPath;
       var isSelected = !fullyExcluded && atRoot;
       var indirectlySelected = !fullyExcluded && !atRoot;
+      var excludedNested = fullyExcluded && !atRoot;
+      var notSelectedAtRoot = fullyExcluded && atRoot;
       var folderRowClass = 'entry-row'
         + (isSelected ? ' selected' : '')
         + (indirectlySelected ? ' included-in-selection' : '')
-        + (fullyExcluded ? ' excluded' : '');
+        + (excludedNested ? ' excluded' : '');
       var countLine = fullyExcluded
-        ? String(fileCount) + ' files (all excluded)'
+        ? String(fileCount) + ' files (none selected)'
         : (excludedCount > 0
           ? String(activeCount) + ' files · ' + String(excludedCount) + ' excluded'
           : String(fileCount) + ' files');
@@ -1753,9 +1767,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-actions">'
         + (isSelected ? '    <span class="chip ok">Selected</span>' : '')
         + (indirectlySelected ? '    <span class="chip">Included in Selection</span>' : '')
-        + (fullyExcluded ? '    <span class="chip warn">Excluded</span>' : '')
+        + (excludedNested ? '    <span class="chip warn">Excluded</span>' : '')
         + (excludedCount > 0 && !fullyExcluded ? '    <span class="chip warn" title="Items excluded from this folder">⚠ ' + String(excludedCount) + ' excluded</span>' : '')
-        + (!fullyExcluded ? '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>' : '')
+        + (!notSelectedAtRoot && !excludedNested ? '    <button class="button" data-action="browser-open-path" data-path="' + escapeHtml(folderPath) + '">Open</button>' : '')
         + folderActionButton
         + '  </div>'
         + '</article>';
@@ -1772,12 +1786,18 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // re-include them. No strike-through (parity with Server path).
       var entryKey = card._browserFileKey(entry);
       var isExcluded = card._isBrowserKeyExcluded(entryKey);
+      // Issue #1350: a removed file at root has no parent context, so it
+      // renders neutral (no border, no chip) like an unselected item rather
+      // than "Excluded". Inside a folder, an excluded file keeps the dashed
+      // duller border + "Excluded" chip because it was excluded from the
+      // parent folder's intake.
       var fileSelected = !isExcluded && !currentPath;
       var fileIndirectlySelected = !isExcluded && !!currentPath;
+      var fileExcludedNested = isExcluded && !!currentPath;
       var fileRowClass = 'entry-row'
         + (fileSelected ? ' selected' : '')
         + (fileIndirectlySelected ? ' included-in-selection' : '')
-        + (isExcluded ? ' excluded' : '');
+        + (fileExcludedNested ? ' excluded' : '');
       var fileActions = isExcluded
         ? '<button class="button primary" data-action="restore-browser-file" data-key="' + escapeHtml(entryKey) + '">Select</button>'
         : '<button class="button warn" data-action="remove-browser-file" data-key="' + escapeHtml(entryKey) + '">Remove</button>';
@@ -1795,7 +1815,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="entry-actions">'
         + (fileSelected ? '<span class="chip ok">Selected</span>' : '')
         + (fileIndirectlySelected ? '<span class="chip">Included in Selection</span>' : '')
-        + (isExcluded ? '<span class="chip warn">Excluded</span>' : '')
+        + (fileExcludedNested ? '<span class="chip warn">Excluded</span>' : '')
         + fileActions
         + '  </div>'
         + '</article>';
