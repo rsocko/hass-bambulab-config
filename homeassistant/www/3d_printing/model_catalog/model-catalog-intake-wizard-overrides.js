@@ -426,7 +426,7 @@ function renderPlanSummary(card, options) {
         + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
     }
     return ''
-      + '<article class="entry-row' + (isLoading ? ' loading-item' : '') + '">'
+      + '<article class="entry-row' + (isLoading ? ' loading-item' : '') + '" data-model-index="' + String(index) + '">' 
       + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
       + destinationMarkup
       + files
@@ -822,7 +822,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
       : '<div class="entry-thumb placeholder">No preview</div>';
     return ''
-      + '<article class="entry-row">'
+      + '<article class="entry-row" data-source-key="browser-file:' + escapeHtml(relativePath) + '">'
       + '  <div class="entry-top">'
       + previewMarkup
       + '    <div class="entry-main">'
@@ -899,9 +899,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var groupTitleAction = String(settings.groupTitleAction || '');
     var perFileTitleAction = String(settings.perFileTitleAction || '');
     var description = String(settings.description || 'Applies to selected files in this intake batch.');
+    var sourceKey = String(settings.sourceKey || '');
     var showBatchTitleField = !(groupingValue === 'flat');
     return ''
-      + '<article class="entry-row">'
+      + '<article class="entry-row"' + (sourceKey ? ' data-source-key="' + escapeHtml(sourceKey) + '"' : '') + '>'
       + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
       + '<div class="item-grid">'
       + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
@@ -960,7 +961,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var titleSource = this._browserRootTitleSource(representative);
       var resolvedTitle = this._browserRootResolvedTitle(rootKey, representative);
       sections.push(''
-        + '<article class="entry-row">'
+        + '<article class="entry-row" data-source-key="browser-root:' + escapeHtml(rootKey) + '">'
         + '<div class="entry-top">' + folderPreviewMarkup() + '<div class="entry-main"><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
         + '<div class="item-grid">'
         + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
@@ -1614,7 +1615,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._selected = {};
     this._excludedItems = []; // Issue #1324
     this._excludedBrowserKeys = {}; // Issue #1324: clear browser exclusions on close
-    this._highlightedLeftIndex = null;
+    this._highlightSelection = null;
     this._browserSourcePath = '';
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
@@ -2159,6 +2160,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             groupingValue: fileBatchGrouping,
             titleSource: fileBatchTitleSource,
             resolvedTitle: fileBatchResolvedTitle,
+            sourceKey: 'server-file-batch',
             groupingAction: 'selection-grouping-files',
             titleSourceAction: 'selection-title-source-files',
             groupTitleAction: 'selection-group-title-files',
@@ -2289,51 +2291,140 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return overrideStyles + baseHtml;
   };
 
-  // Issue #1328: Build a mapping of left-side entries to right-side models
-  // Uses actual data relationships instead of name matching
-  proto._buildModelSourceMapping = function () {
-    if (!this.shadowRoot || this._wizardStep !== 2 || !this._previewData) {
-      return {};
+  proto._normalizeHighlightPath = function (value) {
+    return String(value || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  };
+
+  proto._leftRowSourceKey = function (leftRow) {
+    if (!leftRow) {
+      return '';
     }
-    var mapping = {}; // left-entry-index -> [right-model-indices]
-    var panels = this.shadowRoot.querySelectorAll('.wizard-panel');
-    if (panels.length < 2) {
+    var explicitKey = String(leftRow.getAttribute('data-source-key') || '').trim();
+    if (explicitKey) {
+      return explicitKey;
+    }
+    var pathAttr = String(leftRow.getAttribute('data-path') || '').trim();
+    if (pathAttr) {
+      return 'server:' + pathAttr;
+    }
+    var rootSelect = leftRow.querySelector('[data-root]');
+    if (rootSelect) {
+      var rootValue = String(rootSelect.getAttribute('data-root') || '').trim();
+      if (rootValue) {
+        return 'browser-root:' + rootValue;
+      }
+    }
+    var relativePathTarget = leftRow.querySelector('[data-relative-path]');
+    if (relativePathTarget) {
+      var relativePath = String(relativePathTarget.getAttribute('data-relative-path') || '').trim();
+      if (relativePath) {
+        return 'browser-file:' + relativePath;
+      }
+    }
+    if (leftRow.querySelector('[data-action="selection-grouping-files"]')) {
+      return 'server-file-batch';
+    }
+    return '';
+  };
+
+  proto._modelMatchesSourceKey = function (model, sourceKey) {
+    var normalizedKey = String(sourceKey || '').trim();
+    if (!normalizedKey) {
+      return false;
+    }
+    var files = Array.isArray(model && model.files) ? model.files : [];
+    var card = this;
+    if (normalizedKey === 'server-file-batch') {
+      return files.some(function (file) {
+        return String(file && file.source_entry_type || '').trim().toLowerCase() === 'file';
+      });
+    }
+    if (normalizedKey.indexOf('server:') === 0) {
+      var sourcePath = card._normalizeHighlightPath(normalizedKey.slice('server:'.length));
+      if (!sourcePath) {
+        return false;
+      }
+      return files.some(function (file) {
+        var sourceEntryPath = card._normalizeHighlightPath(file && file.source_entry_path || '');
+        return sourceEntryPath === sourcePath || sourceEntryPath.indexOf(sourcePath + '/') === 0;
+      });
+    }
+    if (normalizedKey.indexOf('browser-root:') === 0) {
+      var rootKey = card._normalizeHighlightPath(normalizedKey.slice('browser-root:'.length));
+      if (!rootKey) {
+        return false;
+      }
+      return files.some(function (file) {
+        var relativePath = card._normalizeHighlightPath(file && (file.relative_path || file.filename) || '');
+        return relativePath === rootKey || relativePath.indexOf(rootKey + '/') === 0;
+      });
+    }
+    if (normalizedKey.indexOf('browser-file:') === 0) {
+      var fileKey = card._normalizeHighlightPath(normalizedKey.slice('browser-file:'.length));
+      if (!fileKey) {
+        return false;
+      }
+      return files.some(function (file) {
+        var relativePath = card._normalizeHighlightPath(file && (file.relative_path || file.filename) || '');
+        return relativePath === fileKey;
+      });
+    }
+    return false;
+  };
+
+  // Issue #1328: Build deterministic left<->right mapping for Organize highlights.
+  proto._buildModelSourceMapping = function (leftEntries, rightEntries) {
+    var mapping = {
+      leftToRight: {},
+      rightToLeft: {},
+      leftSourceKeys: {},
+      rightModelIndices: {},
+    };
+    if (!this._previewData || this._wizardStep !== 2) {
       return mapping;
     }
-    var leftPanel = panels[0];
-    var leftEntries = leftPanel.querySelectorAll('.entry-row');
-    var preview = this._previewData;
-    var plannedModels = preview.planned_models || [];
-    
-    // For each left entry, find which models it contributed to
-    leftEntries.forEach(function (leftRow, leftIndex) {
-      mapping[leftIndex] = [];
-      var entryName = leftRow.querySelector('.entry-name');
-      var leftTitle = entryName ? entryName.textContent.trim() : '';
-      var leftPath = leftRow.getAttribute('data-path') || '';
-      
-      // Match by checking model title containment and file associations
-      plannedModels.forEach(function (model, modelIndex) {
-        var modelTitle = model.title || '';
-        var files = model.files || [];
-        
-        // Check 1: Title match (folder name → model title)
-        var titleContains = modelTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(modelTitle) !== -1;
-        
-        // Check 2: File path match (files from selected entry appear in model)
-        var hasRelatedFiles = files.some(function (file) {
-          var filePath = file.relative_path || file.filename || '';
-          // Check if file path starts with or contains the left entry identifier
-          return leftPath && filePath.indexOf(leftPath) !== -1;
-        });
-        
-        // Include model if either title matches or has related files
-        if (titleContains || hasRelatedFiles) {
-          mapping[leftIndex].push(modelIndex);
-        }
-      });
+    var plannedModels = Array.isArray(this._previewData.planned_models) ? this._previewData.planned_models : [];
+    var modelIndexToRightIndices = {};
+    (rightEntries || []).forEach(function (rightRow, rightIndex) {
+      var modelIndexRaw = rightRow && rightRow.getAttribute ? rightRow.getAttribute('data-model-index') : null;
+      var modelIndex = Number(modelIndexRaw);
+      if (!Number.isFinite(modelIndex)) {
+        modelIndex = rightIndex;
+      }
+      mapping.rightModelIndices[rightIndex] = modelIndex;
+      mapping.rightToLeft[rightIndex] = [];
+      if (!modelIndexToRightIndices[modelIndex]) {
+        modelIndexToRightIndices[modelIndex] = [];
+      }
+      modelIndexToRightIndices[modelIndex].push(rightIndex);
     });
-    
+
+    (leftEntries || []).forEach(function (leftRow, leftIndex) {
+      var sourceKey = this._leftRowSourceKey(leftRow);
+      mapping.leftSourceKeys[leftIndex] = sourceKey;
+      mapping.leftToRight[leftIndex] = [];
+      if (!sourceKey) {
+        return;
+      }
+      plannedModels.forEach(function (model, modelIndex) {
+        if (!this._modelMatchesSourceKey(model, sourceKey)) {
+          return;
+        }
+        var matchedRightIndices = modelIndexToRightIndices[modelIndex] || [];
+        matchedRightIndices.forEach(function (rightIndex) {
+          if (mapping.leftToRight[leftIndex].indexOf(rightIndex) === -1) {
+            mapping.leftToRight[leftIndex].push(rightIndex);
+          }
+          if (mapping.rightToLeft[rightIndex].indexOf(leftIndex) === -1) {
+            mapping.rightToLeft[rightIndex].push(leftIndex);
+          }
+        });
+      }, this);
+    }, this);
     return mapping;
   };
 
@@ -2352,60 +2443,156 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var leftEntries = leftPanel.querySelectorAll('.entry-row');
     var rightEntries = rightPanel.querySelectorAll('.entry-row');
     
-    // Build the mapping once
-    var modelMapping = this._buildModelSourceMapping();
-    
-    // Restore highlighting if we have a previously selected entry
-    if (this._highlightedLeftIndex !== undefined && this._highlightedLeftIndex !== null) {
-      var leftRow = leftEntries[this._highlightedLeftIndex];
-      if (leftRow) {
-        leftRow.classList.add('highlighted');
-        var modelIndices = modelMapping[this._highlightedLeftIndex] || [];
-        rightEntries.forEach(function (rightRow, rightIndex) {
-          if (modelIndices.indexOf(rightIndex) !== -1) {
-            rightRow.classList.add('highlighted');
-          } else {
-            rightRow.classList.add('related');
-          }
+    // Build deterministic relationships once per render.
+    var modelMapping = this._buildModelSourceMapping(leftEntries, rightEntries);
+
+    function clearHighlights() {
+      leftEntries.forEach(function (row) {
+        row.classList.remove('highlighted', 'related');
+      });
+      rightEntries.forEach(function (row) {
+        row.classList.remove('highlighted', 'related');
+      });
+    }
+
+    function leftIndicesForRightMatches(rightMatches, excludeLeftIndex) {
+      var matchedLeftIndices = [];
+      if (!Array.isArray(rightMatches) || !rightMatches.length) {
+        return matchedLeftIndices;
+      }
+      leftEntries.forEach(function (_leftRow, candidateLeftIndex) {
+        if (candidateLeftIndex === excludeLeftIndex) {
+          return;
+        }
+        var candidateMatches = modelMapping.leftToRight[candidateLeftIndex] || [];
+        var overlaps = candidateMatches.some(function (candidateRightIndex) {
+          return rightMatches.indexOf(candidateRightIndex) !== -1;
         });
+        if (overlaps) {
+          matchedLeftIndices.push(candidateLeftIndex);
+        }
+      });
+      return matchedLeftIndices;
+    }
+
+    function applyLeftSelection(leftIndex) {
+      clearHighlights();
+      if (leftIndex == null || leftIndex < 0 || leftIndex >= leftEntries.length) {
+        return;
+      }
+      leftEntries[leftIndex].classList.add('highlighted');
+      var rightMatches = modelMapping.leftToRight[leftIndex] || [];
+      var siblingLeftMatches = leftIndicesForRightMatches(rightMatches, leftIndex);
+      siblingLeftMatches.forEach(function (siblingLeftIndex) {
+        leftEntries[siblingLeftIndex].classList.add('related');
+      });
+      if (!rightMatches.length) {
+        return;
+      }
+      rightEntries.forEach(function (rightRow, rightIndex) {
+        if (rightMatches.indexOf(rightIndex) !== -1) {
+          rightRow.classList.add('highlighted');
+        } else {
+          rightRow.classList.add('related');
+        }
+      });
+    }
+
+    function applyRightSelection(rightIndex) {
+      clearHighlights();
+      if (rightIndex == null || rightIndex < 0 || rightIndex >= rightEntries.length) {
+        return;
+      }
+      rightEntries[rightIndex].classList.add('highlighted');
+      var leftMatches = modelMapping.rightToLeft[rightIndex] || [];
+      if (!leftMatches.length) {
+        return;
+      }
+      leftEntries.forEach(function (leftRow, leftIndex) {
+        if (leftMatches.indexOf(leftIndex) !== -1) {
+          leftRow.classList.add('highlighted');
+        } else {
+          leftRow.classList.add('related');
+        }
+      });
+    }
+
+    function findLeftIndexBySourceKey(sourceKey) {
+      var normalized = String(sourceKey || '').trim();
+      if (!normalized) {
+        return -1;
+      }
+      for (var i = 0; i < leftEntries.length; i += 1) {
+        if (String(modelMapping.leftSourceKeys[i] || '') === normalized) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    // Restore highlight from previous render after regroup/split changes.
+    if (this._highlightSelection && this._highlightSelection.type === 'left') {
+      var restoredLeftIndex = findLeftIndexBySourceKey(this._highlightSelection.sourceKey);
+      if (restoredLeftIndex < 0 && Number.isFinite(this._highlightSelection.leftIndex)) {
+        restoredLeftIndex = this._highlightSelection.leftIndex;
+      }
+      if (restoredLeftIndex >= 0) {
+        applyLeftSelection(restoredLeftIndex);
+      }
+    } else if (this._highlightSelection && this._highlightSelection.type === 'right') {
+      var restoredRightIndex = -1;
+      for (var rightIdx = 0; rightIdx < rightEntries.length; rightIdx += 1) {
+        if (Number(modelMapping.rightModelIndices[rightIdx]) === Number(this._highlightSelection.modelIndex)) {
+          restoredRightIndex = rightIdx;
+          break;
+        }
+      }
+      if (restoredRightIndex >= 0) {
+        applyRightSelection(restoredRightIndex);
       }
     }
-    
+
     leftEntries.forEach(function (leftRow, leftIndex) {
-      var entryPath = leftRow.getAttribute('data-path') || '';
       leftRow.setAttribute('data-entry-index', leftIndex);
-      
+
       leftRow.addEventListener('click', function (event) {
-        // Only highlight if clicking on the row itself, not on buttons
-        var clickedButton = event.target.closest('[data-action]');
-        if (clickedButton) {
-          return; // Let button handlers take precedence
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        if (interactiveTarget) {
+          return;
         }
         event.stopPropagation();
-        // Toggle highlighting on click
-        var isCurrentlyHighlighted = leftRow.classList.contains('highlighted');
-        leftEntries.forEach(function (r) {
-          r.classList.remove('highlighted');
-        });
-        rightEntries.forEach(function (r) {
-          r.classList.remove('highlighted', 'related');
-        });
-        
+        var isCurrentlyHighlighted = leftRow.classList.contains('highlighted') && !leftRow.classList.contains('related');
         if (!isCurrentlyHighlighted) {
-          leftRow.classList.add('highlighted');
-          self._highlightedLeftIndex = leftIndex;
-          
-          // Use the mapping to highlight matching right-side models
-          var modelIndices = modelMapping[leftIndex] || [];
-          rightEntries.forEach(function (rightRow, rightIndex) {
-            if (modelIndices.indexOf(rightIndex) !== -1) {
-              rightRow.classList.add('highlighted');
-            } else {
-              rightRow.classList.add('related');
-            }
-          });
+          applyLeftSelection(leftIndex);
+          self._highlightSelection = {
+            type: 'left',
+            leftIndex: leftIndex,
+            sourceKey: modelMapping.leftSourceKeys[leftIndex] || '',
+          };
         } else {
-          self._highlightedLeftIndex = null;
+          clearHighlights();
+          self._highlightSelection = null;
+        }
+      }, false);
+    });
+
+    rightEntries.forEach(function (rightRow, rightIndex) {
+      rightRow.addEventListener('click', function (event) {
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        if (interactiveTarget) {
+          return;
+        }
+        event.stopPropagation();
+        var isCurrentlyHighlighted = rightRow.classList.contains('highlighted') && !rightRow.classList.contains('related');
+        if (!isCurrentlyHighlighted) {
+          applyRightSelection(rightIndex);
+          self._highlightSelection = {
+            type: 'right',
+            modelIndex: Number(modelMapping.rightModelIndices[rightIndex]),
+          };
+        } else {
+          clearHighlights();
+          self._highlightSelection = null;
         }
       }, false);
     });
@@ -3018,7 +3205,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._render = function () {
     // Clear highlighting when leaving step 2
     if (this._wizardStep !== 2) {
-      this._highlightedLeftIndex = null;
+      this._highlightSelection = null;
     }
     originalRender.call(this);
     // Attach highlight listeners after rendering completes
