@@ -2261,6 +2261,11 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .result-summary{background:var(--secondary-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.22));}'
       + '.wizard-dialog .state-row{color:var(--secondary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.28));}'
       + '.wizard-dialog .chip{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.3));color:var(--primary-text-color);}'
+        + '.wizard-dialog .chip.warn{background:rgba(180,83,9,0.22);border-color:rgba(245,158,11,0.45);color:#fcd34d;}'
+        + '.wizard-dialog .chip.ok{background:rgba(22,101,52,0.24);border-color:rgba(74,222,128,0.38);color:#dcfce7;}'
+        + '.wizard-dialog .chip.error{background:rgba(153,27,27,0.22);border-color:rgba(248,113,113,0.38);color:#fecaca;}'
+        + '.wizard-dialog .entry-row.included-in-selection .chip.warn{background:rgba(180,83,9,0.24);border-color:rgba(245,158,11,0.5);color:#fcd34d;font-weight:700;}'
+        + '.wizard-dialog .entry-row.included-in-selection .chip.ok{background:rgba(22,101,52,0.24);border-color:rgba(74,222,128,0.4);color:#dcfce7;font-weight:700;}'
       // Issue #1366: keep icon chrome and glyph positioning centered in both
       // axes across all wizard panes and icon-only controls.
       + '.wizard-dialog .entry-type-icon{display:inline-flex;align-items:center;justify-content:center;background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
