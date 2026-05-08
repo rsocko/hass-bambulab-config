@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Compact card mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --bg-card-elev: rgba(38, 44, 54, 0.96);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --queue-queued: #f59e0b;
+    --queue-printing: #1e88e5;
+    --queue-done: #2e7d32;
+    --status-failed: #c62828;
+    --provenance-custom: #818cf8;
+    --provenance-remix: #2dd4bf;
+    --provenance-derivative: #94a3b8;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1440px; margin: 0 auto 24px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 720px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; }
+  .toolbar a, .toolbar span { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .toolbar a.active { color: var(--text); border-color: var(--border-strong); background: var(--bg-card-elev); }
+
+  .filterbar { max-width: 1440px; margin: 0 auto 20px; display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .filterbar .pill { font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(94, 234, 212, 0.08); color: var(--accent); border: 1px solid rgba(94, 234, 212, 0.24); }
+  .filterbar select, .filterbar input { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+  .filterbar .grow { flex: 1; min-width: 180px; }
+
+  /* Grid */
+  .catalog-grid { max-width: 1440px; margin: 0 auto; display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 1279px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 879px) { .catalog-grid { grid-template-columns: 1fr; } }
+
+  /* Card */
+  .card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 14px 12px 18px;
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .card:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+
+  /* Queue ribbon */
+  .ribbon { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: transparent; }
+  .card[data-queue="queued"]    .ribbon { background: var(--queue-queued); }
+  .card[data-queue="printing"]  .ribbon { background: linear-gradient(180deg, var(--queue-printing), #4dabf5); animation: shimmer 2s linear infinite; }
+  .card[data-queue="done"]      .ribbon { background: var(--queue-done); }
+  @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  /* Thumb */
+  .thumb {
+    grid-row: 1 / span 6;
+    width: 120px;
+    height: 180px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, #1a2230 0%, #0f141c 100%);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .thumb svg { width: 100%; height: 100%; display: block; }
+  .thumb .photo-count {
+    position: absolute; top: 6px; right: 6px;
+    font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 999px;
+    background: rgba(0,0,0,0.55); color: #fff; backdrop-filter: blur(4px);
+  }
+  .thumb.no-photo { background: repeating-linear-gradient(45deg, #161b22 0 8px, #1a2128 8px 16px); }
+  .thumb.no-photo .glyph { font-size: 32px; color: var(--text-muted); }
+
+  /* Header line */
+  .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+  .name { font-size: 15px; font-weight: 700; line-height: 1.25; letter-spacing: -0.005em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .timestamp { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+  .designer { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .designer .author-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: linear-gradient(135deg, #475569, #94a3b8); vertical-align: middle; margin-right: 6px; }
+
+  /* Chip rows */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; line-height: 1.3; }
+  .chip .icon { font-size: 12px; line-height: 1; }
+  .chip.signal { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.08); }
+  .chip.recent { color: #a7f3d0; border-color: rgba(167,243,208,0.32); background: rgba(16,185,129,0.10); }
+  .chip.frequent { color: #fde68a; border-color: rgba(253,230,138,0.30); background: rgba(245,158,11,0.10); }
+  .chip.common { color: #c7d2fe; border-color: rgba(199,210,254,0.32); background: rgba(99,102,241,0.10); }
+
+  .provenance { font-weight: 600; }
+  .provenance.custom_unique { color: #c7d2fe; background: rgba(99,102,241,0.18); border-color: rgba(165,180,252,0.32); }
+  .provenance.remix { color: #99f6e4; background: rgba(20,184,166,0.18); border-color: rgba(94,234,212,0.32); }
+  .provenance.derivative { color: #cbd5e1; background: rgba(100,116,139,0.20); border-color: rgba(148,163,184,0.30); }
+
+  .destination { color: #fff; background: rgba(255,255,255,0.06); border-color: var(--border-strong); }
+  .destination.makerworld { color: #ffe4a1; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.30); }
+  .destination.printables { color: #ffc8a6; background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.32); }
+  .destination.manyfold { color: #c4d8ff; background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.32); }
+
+  .last-outcome.failed { color: #fecaca; background: rgba(198,40,40,0.18); border-color: rgba(248,113,113,0.32); font-weight: 600; }
+
+  /* Metric block */
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; }
+  .metric .label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .metric .value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 2px; }
+  .metric .value.dim { color: var(--text-muted); font-weight: 500; }
+
+  /* Filament + file kinds */
+  .swatchrow { display: flex; align-items: center; gap: 10px; }
+  .swatches { display: flex; gap: 4px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.32); cursor: default; }
+  .dot[title]:hover { transform: scale(1.15); }
+  .filekinds { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+  .filekind { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary); }
+  .tag.t-functional { color: #ddd6fe; background: rgba(139,92,246,0.18); border-color: rgba(196,181,253,0.32); }
+  .tag.t-art { color: #fbcfe8; background: rgba(236,72,153,0.16); border-color: rgba(244,114,182,0.32); }
+  .tag.t-toy { color: #fde68a; background: rgba(245,158,11,0.16); border-color: rgba(252,211,77,0.32); }
+  .tag.t-tool { color: #a5f3fc; background: rgba(8,145,178,0.18); border-color: rgba(103,232,249,0.32); }
+  .tag.t-warhammer { color: #fecaca; background: rgba(220,38,38,0.16); border-color: rgba(248,113,113,0.32); }
+  .tag.overflow { color: var(--text-muted); }
+
+  /* Action row */
+  .actions { display: flex; gap: 6px; margin-top: auto; padding-top: 6px; border-top: 1px dashed rgba(148,163,184,0.14); }
+  .btn { font-size: 11px; padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .btn:hover { background: rgba(255,255,255,0.08); border-color: var(--border-strong); }
+  .btn.primary { background: rgba(94,234,212,0.10); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .btn.queue-active { background: rgba(245,158,11,0.14); border-color: rgba(252,211,77,0.32); color: #fde68a; }
+  .btn.icon-only { padding: 5px 8px; }
+  .actions .spacer { flex: 1; }
+
+  /* Body grid layout for content column */
+  .content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+  /* Subtle "needs attention" border for last-failure cards */
+  .card.attention { border-color: rgba(248,113,113,0.32); }
+
+  /* Note line */
+  .note { font-size: 11px; color: var(--text-muted); font-style: italic; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Footer */
+  .footnote { max-width: 1440px; margin: 32px auto 0; font-size: 12px; color: var(--text-muted); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); }
+  .footnote code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Model Catalog · Compact card</h1>
+    <p>Hi-fidelity mockup. 3-column desktop grid, info-dense; thumb 120×180; queue ribbon left-edge; provenance + publish + signal chips; 3-cell metric block; filament swatches + file-kind chips; capped tags + overflow; primary/queue/overflow actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md</a>.</p>
+  </div>
+  <div class="toolbar">
+    <a class="active" href="compact.html">Compact</a>
+    <a href="list.html">List</a>
+    <a href="media.html">Media</a>
+  </div>
+</div>
+
+<div class="filterbar">
+  <span class="pill">9 models · sample data</span>
+  <select><option>All collections</option><option>Warhammer</option><option>Tools</option></select>
+  <select><option>All printers</option></select>
+  <select><option>Sort: Recent</option><option>Frequent</option><option>Most archived</option></select>
+  <input class="grow" placeholder="Search name, designer, tag…" />
+</div>
+
+<div class="catalog-grid">
+
+  <!-- Card 1: Custom unique · queued · MakerWorld + Manyfold · recent + frequent · success -->
+  <div class="card" data-queue="queued">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs>
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="155" rx="48" ry="6" fill="rgba(0,0,0,0.5)"/>
+        <polygon points="60,30 100,60 100,130 60,150 20,130 20,60" fill="url(#g1)" opacity="0.92"/>
+        <polygon points="60,30 100,60 60,80 20,60" fill="#a7f3d0" opacity="0.7"/>
+        <polygon points="60,80 100,60 100,130 60,150" fill="#0d9488" opacity="0.85"/>
+      </svg>
+      <div class="photo-count">1 / 7</div>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Articulated Dragon · Mk III scaled fit</div>
+          <div class="designer"><span class="author-dot"></span>Cinderwing3D</div>
+        </div>
+        <div class="timestamp">2d ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip destination makerworld">MakerWorld</span>
+        <span class="chip destination manyfold">Manyfold</span>
+        <span class="chip signal recent">● Recent</span>
+        <span class="chip signal frequent">⚡ Frequent</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">12</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">2d ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">92%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#0d9488" title="PLA Basic Jade Green · #0D9488"></div>
+          <div class="dot" style="background:#f59e0b" title="PLA Basic Pumpkin · #F59E0B"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Basic Black · #1E293B"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 4</span>
+          <span class="filekind">STL · 2</span>
+          <span class="filekind">IMG · 7</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-art">articulated</span>
+        <span class="tag t-toy">dragon</span>
+        <span class="tag t-functional">multi-color</span>
+        <span class="tag overflow">+4</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn queue-active">⏫ Queued</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Remix · printing · Printables · recent · success unknown -->
+  <div class="card" data-queue="printing">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#10151d"/>
+        <ellipse cx="60" cy="158" rx="44" ry="5" fill="rgba(0,0,0,0.45)"/>
+        <rect x="30" y="60" width="60" height="80" rx="4" fill="#fb923c"/>
+        <rect x="30" y="60" width="60" height="22" fill="#fdba74"/>
+        <circle cx="60" cy="100" r="14" fill="#7c2d12"/>
+        <rect x="56" y="40" width="8" height="22" fill="#fdba74"/>
+      </svg>
+      <div class="photo-count">1 / 3</div>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Filament Spool Hub · 1kg + 250g insert</div>
+          <div class="designer"><span class="author-dot"></span>Remix · @bambuOwner3D</div>
+        </div>
+        <div class="timestamp">printing</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip destination printables">Printables</span>
+        <span class="chip signal recent">● Recent</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">3</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">now</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">100%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#fb923c" title="PETG Orange · #FB923C"></div>
+          <div class="dot" style="background:#1e293b" title="PETG Black · #1E293B"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 2</span>
+          <span class="filekind">STL · 4</span>
+          <span class="filekind">STEP · 1</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-functional">storage</span>
+        <span class="tag t-tool">organizer</span>
+        <span class="tag t-functional">bambu-ams</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn queue-active">🖨 Printing</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3: Derivative · done queue · published Manyfold + Printables · common · failure last run -->
+  <div class="card attention" data-queue="done">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="158" rx="42" ry="5" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,38 92,72 92,140 60,156 28,140 28,72" fill="#94a3b8"/>
+        <polygon points="60,38 92,72 60,90 28,72" fill="#cbd5e1"/>
+        <polygon points="60,90 92,72 92,140 60,156" fill="#64748b"/>
+        <line x1="60" y1="90" x2="60" y2="156" stroke="#1e293b" stroke-width="0.6"/>
+      </svg>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Hex Tile Set — Warhammer Killteam Board</div>
+          <div class="designer"><span class="author-dot"></span>Derivative · ForgeWorks</div>
+        </div>
+        <div class="timestamp">3w ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance derivative"><span class="icon">↳</span>Derivative</span>
+        <span class="chip destination manyfold">Manyfold</span>
+        <span class="chip destination printables">Printables</span>
+        <span class="chip signal common">★ Common</span>
+        <span class="chip last-outcome failed">Last: Failed</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">38</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">3w ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">71%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#475569" title="PLA Stone Grey · #475569"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
+          <div class="dot" style="background:#84cc16" title="PLA Lime · #84CC16"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 12</span>
+          <span class="filekind">STL · 18</span>
+          <span class="filekind">IMG · 22</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-warhammer">warhammer</span>
+        <span class="tag t-art">terrain</span>
+        <span class="tag t-toy">tabletop</span>
+        <span class="tag overflow">+9</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn">＋ Re-queue</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 4: Custom · none queue · no destinations · recent only -->
+  <div class="card" data-queue="none">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0e131b"/>
+        <ellipse cx="60" cy="158" rx="40" ry="5" fill="rgba(0,0,0,0.45)"/>
+        <rect x="28" y="58" width="64" height="84" rx="6" fill="#a78bfa"/>
+        <rect x="36" y="66" width="48" height="6" rx="3" fill="#1e1b4b"/>
+        <rect x="36" y="78" width="36" height="4" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="86" width="40" height="4" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="94" width="30" height="4" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="118" width="48" height="14" rx="3" fill="#1e1b4b"/>
+      </svg>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Wall-mount tablet dock · 11" iPad fit</div>
+          <div class="designer"><span class="author-dot"></span>Self-designed</div>
+        </div>
+        <div class="timestamp">5d ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip signal recent">● Recent</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">2</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">5d ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value dim">—</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#a78bfa" title="PLA Lavender · #A78BFA"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 1</span>
+          <span class="filekind">IMG · 2</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-functional">home</span>
+        <span class="tag t-functional">mount</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn">＋ Queue</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 5: Remix · queued · MakerWorld · frequent + common -->
+  <div class="card" data-queue="queued">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="158" rx="42" ry="5" fill="rgba(0,0,0,0.45)"/>
+        <circle cx="60" cy="92" r="36" fill="#fbbf24"/>
+        <circle cx="60" cy="92" r="36" fill="none" stroke="#92400e" stroke-width="2"/>
+        <circle cx="48" cy="84" r="4" fill="#1e293b"/>
+        <circle cx="72" cy="84" r="4" fill="#1e293b"/>
+        <path d="M48 102 Q60 114 72 102" stroke="#1e293b" fill="none" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <div class="photo-count">1 / 12</div>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Smiley Keyring · Stamp-Friendly Variant</div>
+          <div class="designer"><span class="author-dot"></span>Remix · @keyringqueen</div>
+        </div>
+        <div class="timestamp">1d ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip destination makerworld">MakerWorld</span>
+        <span class="chip signal frequent">⚡ Frequent</span>
+        <span class="chip signal common">★ Common</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">47</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">1d ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">96%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#fbbf24" title="PLA Sunshine Yellow · #FBBF24"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
+          <div class="dot" style="background:#10b981" title="PLA Green · #10B981"></div>
+          <div class="dot" style="background:#3b82f6" title="PLA Blue · #3B82F6"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 6</span>
+          <span class="filekind">IMG · 12</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-toy">keyring</span>
+        <span class="tag t-art">smiley</span>
+        <span class="tag t-functional">small-print</span>
+        <span class="tag overflow">+2</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn queue-active">⏫ Queued · #2</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 6: Custom · none · no photo, no published, no signals (degraded) -->
+  <div class="card" data-queue="none">
+    <div class="ribbon"></div>
+    <div class="thumb no-photo">
+      <span class="glyph">📦</span>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Bracket sample (untested) — needs preview render</div>
+          <div class="designer"><span class="author-dot"></span>Self-designed</div>
+        </div>
+        <div class="timestamp">never</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip" style="color:var(--text-muted)">No publishes</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value dim">0</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value dim">—</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value dim">—</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches" style="opacity:0.4"><div class="dot" style="background:#475569" title="No filament metadata"></div></div>
+        <div class="filekinds"><span class="filekind">3MF · 1</span></div>
+      </div>
+      <div class="tags"><span class="tag overflow">no tags</span></div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn">＋ Queue</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 7: Derivative · printing · published Manyfold · frequent + common -->
+  <div class="card" data-queue="printing">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="158" rx="44" ry="5" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,28 92,80 60,132 28,80" fill="#34d399"/>
+        <polygon points="60,28 92,80 60,80" fill="#a7f3d0"/>
+        <polygon points="60,80 92,80 60,132" fill="#059669"/>
+        <polygon points="60,80 28,80 60,132" fill="#10b981"/>
+      </svg>
+      <div class="photo-count">2 / 5</div>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Calibration Cube Pro · MMU dialect fork</div>
+          <div class="designer"><span class="author-dot"></span>Derivative · @calibrator</div>
+        </div>
+        <div class="timestamp">now</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance derivative"><span class="icon">↳</span>Derivative</span>
+        <span class="chip destination manyfold">Manyfold</span>
+        <span class="chip signal frequent">⚡ Frequent</span>
+        <span class="chip signal common">★ Common</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">28</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">now</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">98%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#34d399" title="PLA Mint · #34D399"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
+          <div class="dot" style="background:#3b82f6" title="PLA Blue · #3B82F6"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 1</span>
+          <span class="filekind">GCODE · 4</span>
+          <span class="filekind">IMG · 5</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-tool">calibration</span>
+        <span class="tag t-functional">test-print</span>
+        <span class="tag t-functional">multi-material</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn queue-active">🖨 Printing</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 8: Custom · done · published Printables · common, recent · long name -->
+  <div class="card" data-queue="done">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="160" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <rect x="20" y="50" width="80" height="100" rx="8" fill="#0ea5e9"/>
+        <rect x="28" y="58" width="64" height="6" rx="3" fill="#082f49"/>
+        <rect x="28" y="72" width="40" height="6" rx="3" fill="#082f49"/>
+        <circle cx="60" cy="118" r="14" fill="#082f49"/>
+      </svg>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Light-switch face plate retrofit kit (US Decora) — 4-gang variant</div>
+          <div class="designer"><span class="author-dot"></span>Self-designed</div>
+        </div>
+        <div class="timestamp">6d ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip destination printables">Printables</span>
+        <span class="chip signal recent">● Recent</span>
+        <span class="chip signal common">★ Common</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">9</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">6d ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">100%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#0ea5e9" title="PLA Sky Blue · #0EA5E9"></div>
+          <div class="dot" style="background:#f8fafc" title="PLA White · #F8FAFC"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 4</span>
+          <span class="filekind">STEP · 1</span>
+          <span class="filekind">IMG · 6</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-functional">home-improvement</span>
+        <span class="tag t-functional">electrical</span>
+        <span class="tag t-functional">decora</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn">＋ Re-queue</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 9: Remix · none · all 3 destinations · large tag overflow -->
+  <div class="card" data-queue="none">
+    <div class="ribbon"></div>
+    <div class="thumb">
+      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="180" fill="#0f141c"/>
+        <ellipse cx="60" cy="160" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,30 100,90 60,150 20,90" fill="#f43f5e"/>
+        <polygon points="60,30 100,90 60,90" fill="#fda4af"/>
+        <polygon points="60,90 100,90 60,150" fill="#9f1239"/>
+        <polygon points="60,90 20,90 60,150" fill="#e11d48"/>
+      </svg>
+      <div class="photo-count">1 / 4</div>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div>
+          <div class="name">Crystal pendant lamp shroud (E14 / E12)</div>
+          <div class="designer"><span class="author-dot"></span>Remix · @lampcrafter</div>
+        </div>
+        <div class="timestamp">2w ago</div>
+      </div>
+      <div class="chips">
+        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip destination makerworld">MakerWorld</span>
+        <span class="chip destination printables">Printables</span>
+        <span class="chip destination manyfold">Manyfold</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="label">Archives</div><div class="value">5</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value">2w ago</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value">80%</div></div>
+      </div>
+      <div class="swatchrow">
+        <div class="swatches">
+          <div class="dot" style="background:#f43f5e" title="PLA Hot Pink · #F43F5E"></div>
+          <div class="dot" style="background:#f8fafc" title="PLA Translucent White · #F8FAFC"></div>
+        </div>
+        <div class="filekinds">
+          <span class="filekind">3MF · 2</span>
+          <span class="filekind">STL · 6</span>
+          <span class="filekind">IMG · 4</span>
+        </div>
+      </div>
+      <div class="tags">
+        <span class="tag t-art">lamp</span>
+        <span class="tag t-functional">lighting</span>
+        <span class="tag t-art">crystal</span>
+        <span class="tag overflow">+11</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Open</button>
+        <button class="btn">＋ Queue</button>
+        <div class="spacer"></div>
+        <button class="btn icon-only" title="Send to slicer">🖨</button>
+        <button class="btn icon-only" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footnote">
+  Sample data only. Field bindings (existing): <code>name</code>, <code>designer</code>, <code>primary_photo</code>, <code>origin_type</code>, <code>published_to[]</code>, <code>archives_count</code>, <code>last_printed_at</code>, <code>to_print_status</code>, <code>recent</code>/<code>frequent</code>/<code>common</code>, <code>tags[]</code>. ⚠️ Proposed: <code>success_rate_pct</code>, <code>last_outcome</code>, <code>primary_filament_palette[]</code>, <code>file_kinds</code>, <code>notes_excerpt</code>. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §2.2</a>.
+</div>
+
+</body>
+</html>

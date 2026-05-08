@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · List card mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-row: rgba(28, 33, 42, 0.85);
+    --bg-row-hover: rgba(38, 44, 54, 0.95);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --queue-queued: #f59e0b;
+    --queue-printing: #1e88e5;
+    --queue-done: #2e7d32;
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1640px; margin: 0 auto 20px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 720px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; }
+  .toolbar a { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: rgba(28,33,42,0.85); }
+  .toolbar a.active { color: var(--text); border-color: var(--border-strong); background: rgba(38,44,54,0.96); }
+
+  .container { max-width: 1640px; margin: 0 auto; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.32); }
+
+  .table { width: 100%; border-collapse: collapse; }
+  .table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: rgba(20, 25, 32, 0.96);
+    backdrop-filter: blur(8px);
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table thead th.num { text-align: right; }
+  .table tbody tr {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-row);
+    height: 60px;
+    transition: background 100ms ease;
+  }
+  .table tbody tr:hover { background: var(--bg-row-hover); }
+  .table tbody td { padding: 8px 12px; vertical-align: middle; font-size: 13px; }
+
+  .col-cb { width: 36px; padding-left: 14px !important; }
+  .col-ribbon { width: 6px; padding: 0 !important; position: relative; }
+  .ribbon { position: absolute; inset: 6px 0; width: 4px; border-radius: 2px; background: transparent; }
+  tr[data-queue="queued"] .ribbon { background: var(--queue-queued); }
+  tr[data-queue="printing"] .ribbon { background: linear-gradient(180deg, var(--queue-printing), #4dabf5); }
+  tr[data-queue="done"] .ribbon { background: var(--queue-done); }
+
+  .col-thumb { width: 56px; }
+  .thumb {
+    width: 48px; height: 48px; border-radius: 8px; border: 1px solid var(--border);
+    background: linear-gradient(135deg, #1a2230 0%, #0f141c 100%);
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .thumb svg { width: 100%; height: 100%; }
+  .thumb.no-photo { background: repeating-linear-gradient(45deg, #161b22 0 6px, #1a2128 6px 12px); color: var(--text-muted); font-size: 18px; }
+
+  .col-name { min-width: 280px; }
+  .name { font-size: 13.5px; font-weight: 600; line-height: 1.2; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+  .designer { font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+
+  .col-prov { width: 130px; }
+  .prov-pill { font-size: 11px; padding: 3px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); }
+  .prov-pill.custom_unique { color: #c7d2fe; background: rgba(99,102,241,0.18); border-color: rgba(165,180,252,0.32); }
+  .prov-pill.remix { color: #99f6e4; background: rgba(20,184,166,0.18); border-color: rgba(94,234,212,0.32); }
+  .prov-pill.derivative { color: #cbd5e1; background: rgba(100,116,139,0.20); border-color: rgba(148,163,184,0.30); }
+
+  .col-archives, .col-last, .col-success { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .num-big { font-size: 14px; font-weight: 700; }
+  .num-sub { font-size: 11px; color: var(--text-muted); }
+
+  .success-bar { display: inline-flex; align-items: center; gap: 6px; }
+  .bar { width: 56px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; position: relative; }
+  .bar > span { display: block; height: 100%; background: linear-gradient(90deg, #34d399, #10b981); border-radius: 3px; }
+  .bar.warn > span { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .bar.bad > span { background: linear-gradient(90deg, #f87171, #ef4444); }
+  .success-pct { font-size: 12px; font-weight: 700; min-width: 40px; text-align: right; }
+  .success-pct.dim { color: var(--text-muted); font-weight: 500; }
+
+  .col-published, .col-tags { white-space: nowrap; }
+  .chip { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary); display: inline-block; line-height: 1.4; }
+  .chip + .chip { margin-left: 4px; }
+  .chip.makerworld { color: #ffe4a1; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.30); }
+  .chip.printables { color: #ffc8a6; background: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.32); }
+  .chip.manyfold { color: #c4d8ff; background: rgba(59,130,246,0.16); border-color: rgba(59,130,246,0.32); }
+  .chip.overflow { color: var(--text-muted); }
+  .chip.t-art { color: #fbcfe8; background: rgba(236,72,153,0.16); border-color: rgba(244,114,182,0.32); }
+  .chip.t-functional { color: #ddd6fe; background: rgba(139,92,246,0.18); border-color: rgba(196,181,253,0.32); }
+  .chip.t-tool { color: #a5f3fc; background: rgba(8,145,178,0.18); border-color: rgba(103,232,249,0.32); }
+  .chip.t-warhammer { color: #fecaca; background: rgba(220,38,38,0.16); border-color: rgba(248,113,113,0.32); }
+
+  .col-actions { width: 200px; text-align: right; white-space: nowrap; }
+  .btn { font-size: 11px; padding: 4px 9px; border-radius: 7px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+  .btn:hover { background: rgba(255,255,255,0.10); border-color: var(--border-strong); }
+  .btn.primary { background: rgba(94,234,212,0.10); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .btn.queue-active { background: rgba(245,158,11,0.14); border-color: rgba(252,211,77,0.32); color: #fde68a; }
+  .btn.icon-only { padding: 4px 7px; }
+  .btn + .btn { margin-left: 4px; }
+
+  /* Bulk action bar */
+  .bulkbar { display: none; max-width: 1640px; margin: 0 auto 12px; padding: 10px 14px; background: rgba(94, 234, 212, 0.08); border: 1px solid rgba(94, 234, 212, 0.32); border-radius: 12px; color: var(--accent); font-size: 12px; align-items: center; gap: 12px; }
+  .bulkbar.shown { display: flex; }
+  .bulkbar .count { font-weight: 700; }
+  .bulkbar .right { margin-left: auto; display: flex; gap: 6px; }
+
+  /* Footer */
+  .footnote { max-width: 1640px; margin: 28px auto 0; font-size: 12px; color: var(--text-muted); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); }
+  .footnote code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  /* Failed-last marker */
+  .last-failed { color: #fecaca; font-weight: 600; }
+
+  /* Responsive: enable horizontal scroll under 880 */
+  @media (max-width: 879px) {
+    .container { overflow-x: auto; }
+    .table { min-width: 1280px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Model Catalog · List view</h1>
+    <p>Hi-fidelity mockup. Tabular row layout, 60 px row height, 11 columns. Same data fields as Compact, but optimised for vertical scanning down a single metric (Archives / Last printed / Success). Bulk-select via the leftmost checkbox; horizontal-scroll engages below 880 px to preserve column structure. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §5</a>.</p>
+  </div>
+  <div class="toolbar">
+    <a href="compact.html">Compact</a>
+    <a class="active" href="list.html">List</a>
+    <a href="media.html">Media</a>
+  </div>
+</div>
+
+<div class="bulkbar shown">
+  <span class="count">2 selected</span>
+  <button class="btn primary">＋ Queue selected</button>
+  <button class="btn">Add tag…</button>
+  <button class="btn">Move to collection…</button>
+  <div class="right">
+    <button class="btn icon-only" title="More">⋯</button>
+    <button class="btn">Clear</button>
+  </div>
+</div>
+
+<div class="container">
+  <table class="table">
+    <thead>
+      <tr>
+        <th class="col-cb"><input type="checkbox" /></th>
+        <th class="col-ribbon"></th>
+        <th class="col-thumb"></th>
+        <th class="col-name">Name · Designer</th>
+        <th class="col-prov">Origin</th>
+        <th class="col-archives num">Archives</th>
+        <th class="col-last num">Last printed</th>
+        <th class="col-success num">Success</th>
+        <th class="col-published">Published to</th>
+        <th class="col-tags">Tags</th>
+        <th class="col-actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Row 1: queued · custom · published 2 · 92% -->
+      <tr data-queue="queued">
+        <td class="col-cb"><input type="checkbox" checked /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><polygon points="24,8 40,18 40,38 24,44 8,38 8,18" fill="#0d9488"/><polygon points="24,8 40,18 24,24 8,18" fill="#5eead4"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Articulated Dragon · Mk III scaled fit</div>
+          <div class="designer">Cinderwing3D</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill custom_unique">◆ Custom</span></td>
+        <td class="col-archives"><div class="num-big">12</div></td>
+        <td class="col-last"><div class="num-big">2d</div><div class="num-sub">Mar 18</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar"><span style="width:92%"></span></div>
+            <div class="success-pct">92%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip makerworld">MakerWorld</span><span class="chip manyfold">Manyfold</span></td>
+        <td class="col-tags"><span class="chip t-art">articulated</span><span class="chip overflow">+6</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn queue-active">⏫ Queued</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 2: printing · remix · printables · 100% -->
+      <tr data-queue="printing">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#10151d"/><rect x="12" y="14" width="24" height="28" rx="2" fill="#fb923c"/><rect x="12" y="14" width="24" height="8" fill="#fdba74"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Filament Spool Hub · 1kg + 250g insert</div>
+          <div class="designer">Remix · @bambuOwner3D</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill remix">⎇ Remix</span></td>
+        <td class="col-archives"><div class="num-big">3</div></td>
+        <td class="col-last"><div class="num-big">now</div><div class="num-sub">printing</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar"><span style="width:100%"></span></div>
+            <div class="success-pct">100%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip printables">Printables</span></td>
+        <td class="col-tags"><span class="chip t-functional">storage</span><span class="chip overflow">+2</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn queue-active">🖨 Printing</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 3: done · derivative · 71% (warn) · last failed -->
+      <tr data-queue="done">
+        <td class="col-cb"><input type="checkbox" checked /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><polygon points="24,10 38,20 38,38 24,44 10,38 10,20" fill="#94a3b8"/><polygon points="24,10 38,20 24,26 10,20" fill="#cbd5e1"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Hex Tile Set — Warhammer Killteam Board</div>
+          <div class="designer">Derivative · ForgeWorks · <span class="last-failed">last: failed</span></div>
+        </td>
+        <td class="col-prov"><span class="prov-pill derivative">↳ Derivative</span></td>
+        <td class="col-archives"><div class="num-big">38</div></td>
+        <td class="col-last"><div class="num-big">3w</div><div class="num-sub">Mar 1</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar warn"><span style="width:71%"></span></div>
+            <div class="success-pct">71%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip manyfold">Manyfold</span><span class="chip printables">Printables</span></td>
+        <td class="col-tags"><span class="chip t-warhammer">warhammer</span><span class="chip overflow">+11</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn">＋ Re-queue</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 4: none · custom · no destinations · success unknown -->
+      <tr data-queue="none">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0e131b"/><rect x="10" y="14" width="28" height="28" rx="3" fill="#a78bfa"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Wall-mount tablet dock · 11" iPad fit</div>
+          <div class="designer">Self-designed</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill custom_unique">◆ Custom</span></td>
+        <td class="col-archives"><div class="num-big">2</div></td>
+        <td class="col-last"><div class="num-big">5d</div><div class="num-sub">Mar 15</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar" style="opacity:0.4"><span style="width:0%"></span></div>
+            <div class="success-pct dim">—</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip overflow">—</span></td>
+        <td class="col-tags"><span class="chip t-functional">home</span><span class="chip t-functional">mount</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn">＋ Queue</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 5: queued · remix · MakerWorld · 96% -->
+      <tr data-queue="queued">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><circle cx="24" cy="24" r="14" fill="#fbbf24"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Smiley Keyring · Stamp-Friendly Variant</div>
+          <div class="designer">Remix · @keyringqueen</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill remix">⎇ Remix</span></td>
+        <td class="col-archives"><div class="num-big">47</div></td>
+        <td class="col-last"><div class="num-big">1d</div><div class="num-sub">Mar 19</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar"><span style="width:96%"></span></div>
+            <div class="success-pct">96%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip makerworld">MakerWorld</span></td>
+        <td class="col-tags"><span class="chip t-art">smiley</span><span class="chip overflow">+4</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn queue-active">⏫ #2</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 6: none · custom · no photo, no metrics -->
+      <tr data-queue="none">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb"><div class="thumb no-photo">📦</div></td>
+        <td class="col-name">
+          <div class="name">Bracket sample (untested) — needs preview render</div>
+          <div class="designer">Self-designed</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill custom_unique">◆ Custom</span></td>
+        <td class="col-archives"><div class="num-big" style="color:var(--text-muted);font-weight:500">0</div></td>
+        <td class="col-last"><div class="num-big" style="color:var(--text-muted);font-weight:500">—</div></td>
+        <td class="col-success"><div class="success-pct dim">—</div></td>
+        <td class="col-published"><span class="chip overflow">—</span></td>
+        <td class="col-tags"><span class="chip overflow">no tags</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn">＋ Queue</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 7: printing · derivative · 98% -->
+      <tr data-queue="printing">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><polygon points="24,10 38,24 24,38 10,24" fill="#34d399"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Calibration Cube Pro · MMU dialect fork</div>
+          <div class="designer">Derivative · @calibrator</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill derivative">↳ Derivative</span></td>
+        <td class="col-archives"><div class="num-big">28</div></td>
+        <td class="col-last"><div class="num-big">now</div><div class="num-sub">printing</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar"><span style="width:98%"></span></div>
+            <div class="success-pct">98%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip manyfold">Manyfold</span></td>
+        <td class="col-tags"><span class="chip t-tool">calibration</span><span class="chip overflow">+2</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn queue-active">🖨 Printing</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 8: done · custom · 100% -->
+      <tr data-queue="done">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><rect x="8" y="12" width="32" height="26" rx="2" fill="#0ea5e9"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Light-switch face plate retrofit kit (US Decora) — 4-gang</div>
+          <div class="designer">Self-designed</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill custom_unique">◆ Custom</span></td>
+        <td class="col-archives"><div class="num-big">9</div></td>
+        <td class="col-last"><div class="num-big">6d</div><div class="num-sub">Mar 14</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar"><span style="width:100%"></span></div>
+            <div class="success-pct">100%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip printables">Printables</span></td>
+        <td class="col-tags"><span class="chip t-functional">home</span><span class="chip overflow">+2</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn">＋ Re-queue</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+      <!-- Row 9: none · remix · 3 destinations · 80% -->
+      <tr data-queue="none">
+        <td class="col-cb"><input type="checkbox" /></td>
+        <td class="col-ribbon"><span class="ribbon"></span></td>
+        <td class="col-thumb">
+          <div class="thumb">
+            <svg viewBox="0 0 48 48"><rect width="48" height="48" fill="#0f141c"/><polygon points="24,8 40,24 24,40 8,24" fill="#f43f5e"/></svg>
+          </div>
+        </td>
+        <td class="col-name">
+          <div class="name">Crystal pendant lamp shroud (E14 / E12)</div>
+          <div class="designer">Remix · @lampcrafter</div>
+        </td>
+        <td class="col-prov"><span class="prov-pill remix">⎇ Remix</span></td>
+        <td class="col-archives"><div class="num-big">5</div></td>
+        <td class="col-last"><div class="num-big">2w</div><div class="num-sub">Mar 6</div></td>
+        <td class="col-success">
+          <div class="success-bar">
+            <div class="bar warn"><span style="width:80%"></span></div>
+            <div class="success-pct">80%</div>
+          </div>
+        </td>
+        <td class="col-published"><span class="chip makerworld">MakerWorld</span><span class="chip printables">Printables</span><span class="chip overflow">+1</span></td>
+        <td class="col-tags"><span class="chip t-art">lamp</span><span class="chip overflow">+13</span></td>
+        <td class="col-actions">
+          <button class="btn primary">Open</button>
+          <button class="btn">＋ Queue</button>
+          <button class="btn icon-only">⋯</button>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+</div>
+
+<div class="footnote">
+  Sample data only. Sticky header, hover row tint, success rendered as horizontal bar so the column can be scanned at a glance. Bulk action bar appears whenever ≥1 row is selected.
+</div>
+
+</body>
+</html>

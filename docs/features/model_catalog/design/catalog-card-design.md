@@ -1,0 +1,269 @@
+# Model Catalog — Card Design (Compact / List / Media)
+
+> **Status:** Hi-fidelity design proposal.
+> **Scope:** Catalog Browser cards rendered by [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) for the three view modes the card already exposes (`compact`, `list`, `media`). This document supersedes the rough card sketches in [ux-concepts-and-mockups.md](../ux-concepts-and-mockups.md), which is retained as the low-fidelity index covering surrounding surfaces (Working Board, filter trays, etc.).
+> **Companion HTML mockups (Hi-Res, browser-viewable, fully self-contained):**
+> - [mockups/compact.html](mockups/compact.html) — primary focus
+> - [mockups/list.html](mockups/list.html)
+> - [mockups/media.html](mockups/media.html)
+> - [mockups/index.html](mockups/index.html) — landing page that cross-links them all
+
+---
+
+## 1. Design approach
+
+The Catalog has three jobs that the cards must each serve at the same density they're tuned for:
+
+1. **Recognise the model fast** — primary photo, name, badge of origin (custom unique vs remix vs derivative), publish destinations.
+2. **Decide whether to act on it now** — queue state, recent/frequent/common signals, filament-fit hints, archive count (have I printed this already, and how recently?).
+3. **Act without leaving the card** — Open detail, Queue/Dequeue, Send to slicer, Open in publish destination — all reachable from the card surface without a second click into a popup.
+
+The proposal layers those jobs across the three view modes so each card type has a single dominant job:
+
+| View | Dominant job | Density | Default desktop columns |
+| --- | --- | --- | --- |
+| **Compact** | Recognise + decide (high-volume browsing) | Information-dense | **3 columns ≥ 1280 px**, 2 columns 880–1279 px, 1 column < 880 px |
+| **Media** | Recognise (visual triage) | Photo-led | 2 columns ≥ 1100 px, 1 column < 1100 px |
+| **List** | Decide + scan against metric columns | Tabular density | Single column, full-width row |
+
+Print History is the closest reference inside the repo. The proposal **borrows its visual grammar** (rounded `ha-card` shells, dark translucent surfaces, pill-status chips, dot-style filament swatches with hover tooltips, action-row at the bottom of the content column) so a user moving between Print History and Model Catalog feels continuity. It **diverges** wherever a Print History pattern doesn't fit a model:
+
+- Print History keys off a single archive run; the catalog card keys off a "model with N archives", so the prominent metric block becomes **Archives count + last printed**, not duration/filament/cost from a single run.
+- Print History uses status pills (`Completed`, `Failed`, …) tied to the run outcome. The catalog uses **provenance pills** (`Custom unique`, `Remix`, `Derivative`) plus **publish destination chips** (`MakerWorld`, `Printables`, `Manyfold`).
+- Print History's left rail "role emblem" is repurposed as a **queue-state ribbon** on the catalog card so the queue is always visible at a glance.
+
+---
+
+## 2. Schema parity & proposed new fields
+
+### 2.1 Fields the cards consume today
+
+These come straight from the existing browser endpoint backing [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js). The cards use the same identifiers:
+
+- `model_ref` (stable identifier; queue + media-index keys hash off this)
+- `name`, `designer`
+- `primary_photo` / `thumbnail_path`, `photos[]` (drives the media gallery in `media` mode — the existing `_setModelMediaIndex` carousel still applies)
+- `collection`
+- `tags[]`
+- `origin_type` — one of `custom_unique`, `remix`, `derivative`
+- `published_to[]` — array of `{ destination_id, destination_label, url }` (e.g. `makerworld`, `printables`, `manyfold`)
+- `archives_count`
+- `to_print_status` — one of `none`, `queued`, `printing`, `done` (drives the queue chip and queue actions handled by the card's `queue-*` action dispatcher)
+- `recent`, `frequent`, `common` — boolean signals already exposed by the browser
+- `last_printed_at`
+- `working_state` — `draft`, `in_progress`, `ready_to_publish` (Working Board surface)
+
+### 2.2 Proposed additions ⚠️ *requires backend*
+
+Each new field below is **opt-in for the card**; the design degrades cleanly when a field is absent.
+
+| Field | Where it's used | Why | Backend touch point |
+| --- | --- | --- | --- |
+| `success_rate_pct` ⚠️ requires backend | Compact + List metric block; tooltip in Media | Closes the "have I been able to print this reliably?" question without opening detail. Print History already calculates per-archive outcomes; aggregate over `model_ref`. | Layer 2 projection (sidecar) joins archives by `model_ref`; do not push into Layer 1 (`sensor.print_history_archives`). |
+| `last_outcome` (`completed`/`failed`/`cancelled`) ⚠️ requires backend | Compact corner badge; List status column | Lets the user see if the most recent attempt failed before queueing again. | Same Layer 2 join. |
+| `total_filament_grams_used` ⚠️ requires backend | Compact metric block; List | Fits the "decide" job (have I burned a roll on this already?). | Sum across archives; cache. |
+| `primary_filament_palette[]` (hex array) ⚠️ requires backend | Compact + Media swatches | Catalog currently has no first-class color metadata; Print History derives from enrichment. Promoting the palette to the model gives the catalog card a visual swatch row that matches Print History. | Layer 2: most-recent or canonical-archive palette per model; do not embed in Layer 1. |
+| `file_kinds` (counts of `3mf` / `gcode.3mf` / `stl` / `step` / `image`) ⚠️ requires backend | Compact bottom strip; List | The catalog represents grouped files; surface "what's in here" without opening the file explorer. Mirrors Manyfold's per-format chip row. | Computed from existing working-files explorer payload. |
+| `dimensions_mm` (`{x,y,z}`) ⚠️ requires backend | Compact tooltip; List secondary | Quick fit-on-plate sanity. | Read from canonical 3MF metadata when present. |
+| `notes_excerpt` (first 140 chars of long notes) ⚠️ requires backend | Compact 1-line under tags; Media body | Surfaces hand-curated context (Manyfold uses notes prominently). | Truncate server-side to keep payload small. |
+| `is_favorite` (already exists in Print History world) — confirm parity | Star toggle on all three views | Print History uses a star tap target; catalog card should match. | Use existing favorites store keyed by `model_ref`. |
+
+### 2.3 Layering guardrail (repo policy)
+
+Per [the repo Copilot guidance](../../../../.github/copilot-instructions.md), all of the proposed Layer-2 additions **must not** balloon Layer 1 (`sensor.print_history_archives`). Filament palette promotion in particular is the kind of view-facing transformation the guardrail explicitly calls out — derive in Layer 2 from existing enrichment payloads.
+
+---
+
+## 3. Component anatomy
+
+All three view modes share the same building blocks, sized differently:
+
+```
+┌─ ha-card (radius 18, translucent, 1px hairline border) ───────────────────┐
+│  [QUEUE RIBBON]  [PRIMARY MEDIA]   [HEADER: NAME · DESIGNER · DATE]       │
+│                                    [PROVENANCE + PUBLISH CHIP ROW]        │
+│                                    [SIGNAL CHIPS: recent/frequent/common] │
+│                                    [METRIC BLOCK: archives · last · …]    │
+│                                    [FILAMENT SWATCHES]  [FILE-KIND CHIPS] │
+│                                    [TAGS]                                  │
+│                                    [ACTION ROW: Open · Queue · ⋯]         │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.1 Queue ribbon (left, 4 px wide)
+Color-coded edge band so the queue state is visible at the speed of skimming a page of cards. Maps:
+
+- `none` → transparent
+- `queued` → amber `#F59E0B`
+- `printing` → blue `#1E88E5` (animated 1-pixel shimmer)
+- `done` → green `#2E7D32`
+
+### 3.2 Provenance pill (always visible)
+- `custom_unique` → `MDI:diamond-stone` icon, indigo background `rgba(99,102,241,0.18)`, border `rgba(165,180,252,0.32)`
+- `remix` → `MDI:source-branch`, teal `rgba(20,184,166,0.18)`
+- `derivative` → `MDI:graph-outline`, slate `rgba(100,116,139,0.20)`
+
+### 3.3 Publish destinations chip row
+Each `published_to[]` entry renders as a clickable chip with the destination's brand initial (no logos shipped — keep it text-first to avoid asset drift). Hover shows the URL; click opens in a new tab.
+
+### 3.4 Metric block
+Three slots, all monospaced numerics on a 14 px baseline so they read as a single row even when one is missing:
+
+| Slot | Label | Source |
+| --- | --- | --- |
+| 1 | `Archives` | `archives_count` |
+| 2 | `Last printed` | `last_printed_at`, formatted `2d ago`, `3w ago`, … |
+| 3 | `Success` | `success_rate_pct` (proposed) — falls back to `—` |
+
+### 3.5 Filament swatches
+Reuses the Print History dot-row pattern from [print-history-color-filter-card.js](../../../../homeassistant/www/3d_printing/www/3d_printing/print_history/print-history-color-filter-card.js) — 14 px circles, inset 1 px white-alpha border, hover tooltip with the filament name and hex. Source field: `primary_filament_palette[]` (proposed) with fallback to "—".
+
+### 3.6 File-kind chips
+Tiny capsule chips: `3MF · 4`, `STL · 2`, `STEP · 1`, `IMG · 7`. Inspired by Manyfold's per-format chip row (Manyfold's "Organisation" feature lists scanned files with format counts — see [manyfold.app/features](https://manyfold.app/features)).
+
+### 3.7 Action row
+Three primary actions (Open detail, Queue/Dequeue, Send to slicer) plus an overflow `⋯` menu that mirrors what's already wired in [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) (`queue-priority-up`, `queue-priority-down`, `queue-mark-queued`, `queue-mark-done`, `queue-clear`).
+
+---
+
+## 4. Compact view — primary deliverable
+
+**Job:** information-dense browsing across a curated catalog page.
+**Layout:** 3 columns desktop, internal 2-column split (thumb 132 px / content 1fr).
+**Card height:** target 220 ± 10 px so 9 cards fit a 1080 px viewport without scroll.
+
+### 4.1 Why information-dense
+
+Per the user's design direction the compact card should land closer to a Manyfold/Printables grid card than to the existing 1-up Print History layout — the catalog is an inventory, not an event log. To honour that:
+
+- The thumb is sized 120×180 (portrait), not the Print History 132 px square. Models photographed on a print bed are mostly horizontal; a slightly portrait crop with `object-fit:contain` keeps fragile detail readable at this size.
+- The metric block sits **above** the tags so a user scrolling can scan archives counts without their eyes drifting to tag soup.
+- The action row collapses to two icons (Open, Queue) at this density, with all secondary actions in the `⋯` overflow.
+- Tags are limited to **3 visible + `+N` overflow** (existing Print History pattern in [print_history_archive_card_compact.yaml](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_compact.yaml) uses the same `tagLimit = 3`).
+
+### 4.2 Field map (top → bottom inside the content column)
+
+1. **Name** (16 px, weight 700) + **designer** (12 px, secondary) + **last-printed timestamp** (12 px, right-aligned)
+2. **Provenance pill** + **publish chip row** + **signal chips** (`Recent`, `Frequent`, `Common`) — all on one wrapping row
+3. **Metric block** (3 cells, 11 px label / 15 px value) — Archives · Last printed · Success
+4. **Filament swatches** (14 px dots) + **file-kind chips** (right-aligned)
+5. **Tags** (max 3 visible)
+6. **Action row** — `Open`, `Queue`/`Dequeue`, `⋯`
+
+### 4.3 States the mockup demonstrates
+
+The HTML compact mockup shows nine cards covering: queued + printing + done + none queue states, custom-unique + remix + derivative provenance, published-to-MakerWorld, published-to-Printables-and-Manyfold, no-photo fallback, recent + frequent + common signal combos, and a large `+N` tag overflow.
+
+---
+
+## 5. List view
+
+**Job:** scan dozens of models against shared metric columns; bulk select.
+**Layout:** single full-width row, 56 px tall, 5 metric columns + checkbox + thumbnail + name + actions.
+
+The list view is intentionally **not** a re-styled compact card. It's a tabular row with fixed column widths so the eye can run vertically down a single metric. Print History's compact card collapses to a single-column stack at narrow widths — list view is the "I have lots of these and need to compare" surface, so it preserves the column structure even at narrow widths and starts horizontally scrolling at < 880 px.
+
+Columns (left → right):
+1. **Checkbox** (bulk select)
+2. **Queue ribbon** (4 px)
+3. **Thumbnail** (48×48, rounded 8)
+4. **Name + designer** (truncates with ellipsis at 32 chars)
+5. **Provenance pill** (icon-only at narrow widths)
+6. **Archives** (right-aligned, monospace)
+7. **Last printed** (right-aligned, relative)
+8. **Success** (right-aligned, percentage; `—` when unknown)
+9. **Published-to** (chip row, max 2 visible + `+N`)
+10. **Tags** (1 visible + `+N`)
+11. **Actions** (Open · Queue · `⋯`)
+
+---
+
+## 6. Media view
+
+**Job:** visual-first triage; "which one looks right?"
+**Layout:** 2-column grid desktop; large 16:9 photo dominates the card; metadata sits beneath in a thin band.
+
+The media view is the closest analog to MakerWorld's and Printables's grid cards (see §7). The photo is **the** primary affordance; everything else is a thin caption strip with provenance pill, publish destination chips, and a single primary action (Open detail). The carousel arrows already wired up via `media-prev` / `media-next` in [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) sit overlaid at the bottom-center of the photo on hover.
+
+Caption strip rows:
+1. Name + designer (single line, truncates)
+2. Provenance pill + publish chips + queue chip (when `queued`/`printing`)
+3. Filament swatches (right-aligned)
+
+---
+
+## 7. Comparative analysis (deep)
+
+What follows is a per-tool reading of how comparable surfaces solve the same job, and what we're borrowing or rejecting.
+
+### 7.1 Manyfold
+
+- **Source:** [manyfold.app/features](https://manyfold.app/features), [github.com/manyfold3d/manyfold](https://github.com/manyfold3d/manyfold). Manyfold is a Rails + Bootstrap 5 + THREE.js self-hosted DAM for 3D models with first-class scanning, tagging, creators, collections, likes, and multi-user permissions. The feature page calls out **previews**, **organisation (tags / creators / lists / collections / folder structure)**, **problem detection (inefficient formats, missing metadata)**, **federation**, and a **REST API**. ([manyfold.app/features](https://manyfold.app/features))
+- **What we borrow:**
+  - **File-format chip row** (Manyfold surfaces format counts per model; we mirror this with the `file_kinds` proposed field).
+  - **Creator emphasis** — Manyfold treats the creator/designer as a navigable entity, not a metadata afterthought. We elevate `designer` to the second header line and make it tappable in a follow-up phase.
+  - **Problem-detection signal** — Manyfold marks models that fail format/metadata heuristics; we already have `recent`/`frequent`/`common` signal chips and can add a `Needs attention` chip later from the same channel.
+- **What we don't borrow:**
+  - Manyfold's likes/comments/federation row — out of scope for a single-user HA install.
+  - Bootstrap-style filled cards with heavy elevation; we keep the translucent dark surface that matches the rest of HA.
+
+### 7.2 Bambuddy File Manager (local repo)
+
+- **Source:** the [print-history-archive-actions-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js) main-tabs `Files & Media` panel, plus the [working-files explorer](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js).
+- **What we borrow:**
+  - The `[icon] [label] [count]` capsule pattern used to surface "Files & Media" counts on the action card; reused as our `file_kinds` chips.
+  - The compact `Open in Slicer` quick action — promoted in our card as the third primary action when a slicer-launchable artifact is present.
+- **What we don't borrow:**
+  - The full multi-tab action surface — that's a detail-popup pattern, not a card pattern. The card's `⋯` overflow menu is the link into the existing actions card.
+
+### 7.3 MakerWorld
+
+- **Source observation:** MakerWorld's grid card is a 16:9 hero photo with floating "auto-rotate to next photo" hover behavior, a like/download counter strip in the bottom-left of the photo, the model title beneath the photo (1–2 lines, truncates), and the creator avatar + name on the line below. (Live page returns `403` to fetchers; pattern observed from public browsing.)
+- **What we borrow:**
+  - **Hero-first media card** — drives our Media view layout.
+  - **Carousel-on-hover** — already wired in our browser via `media-prev`/`media-next`; we make the arrows visible only on hover/focus to keep the card calm at rest.
+  - **Counters baked into the photo** — we adapt this for the queue chip, which sits as an overlay in the photo's top-left when the model is `queued` or `printing`.
+- **What we don't borrow:**
+  - Like / download social counters — not part of a private HA install.
+  - MakerWorld's brand-coloured "Bambu Lab" attribution badge — replaced by our generic publish destination chip.
+
+### 7.4 Printables
+
+- **Source:** [printables.com/model](https://www.printables.com/model). The grid card pattern: hero photo with photo-count badge top-right, **per-file color swatches rendered as `█ █ █` blocks** at the bottom of the photo, title (medium weight, 2-line clamp) under the photo, then a single line with creator avatar + name + creator-tier badge, then a counter row (`likes` and `downloads`).
+- **What we borrow:**
+  - **Per-file color swatches as a row** — directly inspired our filament swatch row in Compact and Media. Printables proves swatches are scannable at this size.
+  - **Multi-photo badge** — the small `1/7` indicator overlaid on the photo carousel is a great affordance; we adopt it for the Media view.
+  - **2-line title clamp** — used in Compact so longer model names don't shrink the metric block.
+- **What we don't borrow:**
+  - The category-tag colour bar Printables uses to brand cards by category — too noisy for a personal catalog.
+  - Sidebar filter ribbons inside cards (Printables uses card-level "featured / contest / make" pills); we keep that information in the filter tray, not on the card.
+
+### 7.5 Thingiverse
+
+- **Source observation:** Thingiverse's grid card is the simplest of the four — square hero photo, title (1-line truncate), creator name, like + collect counters. Hover swaps the hero photo to a secondary photo if available. (The public `/explore/popular` page returns `404` to fetchers; pattern observed from public browsing.)
+- **What we borrow:**
+  - **Hover-photo-swap** — the second click-target pattern. We don't need this in Compact (too noisy at 3-up density) but we adopt it on Media when more than one photo is available.
+- **What we don't borrow:**
+  - Thingiverse's information sparseness — we have *more* signal to surface (queue, archives, success), so a Thingiverse-density card would underuse the space.
+
+### 7.6 Print History (sibling repo feature)
+
+- **Source:** [print-history-browser-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-browser-card.js) and the legacy YAML templates ([compact](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_compact.yaml), [media](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_media.yaml), [detail](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_detail.yaml)).
+- **What we borrow (whole-cloth):**
+  - Card shell tokens (`border-radius:18`, translucent surface, hairline border).
+  - Status pill style (rounded 999 px, 4×10 padding, 11 px / weight 700, icon + label).
+  - Tag pill style (small, coloured background, dark text, inset border).
+  - Filament dot pattern (14 px circle, inset white-alpha border, hover tooltip).
+  - Metric block 3-up grid (`auto-fit minmax(116px,1fr)`).
+- **What we diverge on:**
+  - Replace the run-status pill with the **provenance pill** (the model has provenance, runs have status).
+  - Replace the corner star (favorite) with a **queue ribbon** on the left edge — it's a more frequently-acted state for a catalog row.
+  - Replace duration/filament/cost metrics with **archives / last printed / success rate**.
+
+---
+
+## 8. Open questions
+
+1. `success_rate_pct` denominator: do we count cancelled prints against success, or only completed-vs-failed? Recommend the latter (mirror Print History's existing distinction).
+2. `published_to[]` ordering: should "owned" destinations (Manyfold, local catalog) sort before remote (MakerWorld, Printables)? Recommend yes.
+3. Should the queue ribbon respect a per-printer queue (multi-printer households) or stay global? Out of scope for this iteration; design accommodates a future per-printer chip in the action row.

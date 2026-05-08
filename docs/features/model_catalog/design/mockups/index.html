@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Card mockups index</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116; --bg-card: rgba(28,33,42,0.92);
+    --border: rgba(148,163,184,0.18); --border-strong: rgba(148,163,184,0.32);
+    --text: #e6edf3; --text-secondary: #9aa4b2; --accent: #5eead4;
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  body { padding: 48px clamp(16px, 4vw, 64px); max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.01em; }
+  .lead { color: var(--text-secondary); font-size: 14px; max-width: 740px; }
+  a { color: var(--accent); }
+  .grid { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  @media (max-width: 879px) { .grid { grid-template-columns: 1fr; } }
+  .tile { display: block; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; text-decoration: none; color: inherit; transition: transform 120ms ease, border-color 120ms ease; }
+  .tile:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+  .tile h2 { margin: 0 0 6px; font-size: 18px; font-weight: 700; }
+  .tile p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+  .tile .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); margin-bottom: 8px; }
+  .footer { margin-top: 36px; font-size: 12px; color: var(--text-secondary); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Model Catalog · Card design mockups</h1>
+<p class="lead">Three Hi-fidelity, self-contained HTML mockups exploring the Catalog Browser's <code>compact</code>, <code>list</code>, and <code>media</code> view modes. Each is browser-viewable as-is — no build step, no external assets. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>.</p>
+
+<div class="grid">
+  <a class="tile" href="compact.html">
+    <span class="badge">PRIMARY</span>
+    <h2>Compact</h2>
+    <p>Information-dense 3-column desktop grid. Thumb 120×180, queue ribbon, provenance + publish + signal chips, 3-cell metric block, filament dots, file-kind chips, capped tags.</p>
+  </a>
+  <a class="tile" href="list.html">
+    <h2>List</h2>
+    <p>Tabular row layout, 60 px rows, 11 columns. Sticky header, success rendered as a horizontal bar, bulk-select checkbox column, horizontal-scroll under 880 px.</p>
+  </a>
+  <a class="tile" href="media.html">
+    <h2>Media</h2>
+    <p>Hero-first 16:10, 2-column desktop. Queue overlay top-left, photo-count top-right, Printables-style swatch capsule bottom-right, hover-revealed carousel controls.</p>
+  </a>
+</div>
+
+<div class="footer">
+  These mockups are <strong>design proposals</strong>, not deployment artefacts. They live under <code>docs/features/model_catalog/design/</code> and are not loaded by Lovelace, so no <code>_resources.yaml</code> bump is required. The actual implementation target is <code>homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js</code>.
+</div>
+
+</body>
+</html>
