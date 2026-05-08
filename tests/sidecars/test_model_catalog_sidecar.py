@@ -7986,3 +7986,170 @@ def test_geometry_endpoint_too_complex_returns_422_with_headers(
     payload = response.json()
     assert payload["error"].startswith("3MF geometry is too complex")
     assert payload["max_server_side_triangles"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Issue #1380: streaming binary geometry response (MCG1).
+# ---------------------------------------------------------------------------
+
+
+def test_serialize_geometry_to_binary_round_trip() -> None:
+    """`serialize_geometry_to_binary` + `parse_geometry_binary` must round-trip
+    vertices, group descriptors, and trailing JSON metadata.
+    """
+    from sidecars.model_catalog.app.geometry_binary import (
+        parse_geometry_binary,
+        serialize_geometry_to_binary,
+    )
+
+    geometry = {
+        "format": "triangles",
+        "unit": "millimeter",
+        "coordinate_system": "printer_xyz",
+        "triangle_count": 2,
+        "vertices": [
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+            1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0,
+        ],
+        "groups": [
+            {
+                "key": "g1",
+                "triangle_count": 1,
+                "vertices": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                "object_ids": ["1"],
+                "color": "#FF8800",
+                "extruder": 1,
+            },
+            {
+                "key": "g2",
+                "triangle_count": 1,
+                "vertices": [1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0],
+                "object_ids": ["2"],
+            },
+        ],
+        "dimensions_mm": {"x": 1.0, "y": 1.0, "z": 1.0},
+        "plates": [],
+        "selected_plate_id": None,
+        "color_info": {"available": True, "mode": "single", "palette": ["#FF8800"]},
+        "lod": {
+            "requested": "auto",
+            "applied": "high",
+            "simplified": False,
+            "source_triangle_count": 2,
+            "rendered_triangle_count": 2,
+        },
+    }
+
+    blob = serialize_geometry_to_binary(geometry)
+    parsed = parse_geometry_binary(blob)
+
+    assert parsed["version"] == 1
+    assert parsed["group_count"] == 2
+    assert parsed["triangle_total"] == 2
+    assert parsed["vertex_total"] == 6
+    assert parsed["groups"][0]["color"] == "#FF8800"
+    assert parsed["groups"][0]["extruder"] == 1
+    assert parsed["groups"][0]["vertices"] == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    # Group 2 has neither extruder nor color.
+    assert "color" not in parsed["groups"][1]
+    assert "extruder" not in parsed["groups"][1]
+    assert parsed["metadata"]["format"] == "mcg1"
+    assert parsed["metadata"]["dimensions_mm"] == {"x": 1.0, "y": 1.0, "z": 1.0}
+    assert parsed["metadata"]["lod"]["applied"] == "high"
+    assert parsed["metadata"]["group_object_ids"] == [["1"], ["2"]]
+
+
+def test_geometry_endpoint_returns_binary_when_accept_octet_stream(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With `Accept: application/octet-stream` the endpoint must return MCG1
+    binary, set `X-Geometry-Response-Format: binary`, preserve the
+    introspection headers, and produce a payload that round-trips back to
+    the same triangle count.
+    """
+    from sidecars.model_catalog.app.geometry_binary import (
+        BINARY_MEDIA_TYPE,
+        parse_geometry_binary,
+    )
+
+    app, asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
+
+    with TestClient(app) as test_client:
+        response = test_client.get(
+            "/api/models/local-pf/geometry/asset-1",
+            headers={"Accept": BINARY_MEDIA_TYPE},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type", "").startswith(BINARY_MEDIA_TYPE)
+    assert response.headers.get("X-Geometry-Response-Format") == "binary"
+    assert response.headers.get("X-Geometry-Reason") == "ok"
+    assert int(response.headers["X-Geometry-Source-Bytes"]) == asset_path.stat().st_size
+    assert int(response.headers["X-Geometry-Plate-Count"]) == 2
+    assert int(response.headers["X-Geometry-Binary-Bytes"]) == len(response.content)
+
+    parsed = parse_geometry_binary(response.content)
+    assert parsed["triangle_total"] >= 1
+    assert parsed["group_count"] >= 1
+
+
+def test_geometry_endpoint_defaults_to_json_without_accept_header(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """JSON regression test (acceptance criterion): when the caller does NOT
+    advertise `application/octet-stream`, the response must remain JSON with
+    `X-Geometry-Response-Format: json` and an inline `geometry` block.
+    """
+    app, _asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
+
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/local-pf/geometry/asset-1")
+
+    assert response.status_code == 200
+    assert response.headers.get("content-type", "").startswith("application/json")
+    assert response.headers.get("X-Geometry-Response-Format") == "json"
+    body = response.json()
+    assert isinstance(body.get("geometry"), dict)
+    assert body["geometry"].get("triangle_count", 0) >= 1
+
+
+def test_geometry_endpoint_binary_reuses_cached_blob_on_second_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Perf guard: on a binary cache hit the wrapper must NOT re-serialize
+    from scratch — the lazily-populated `binary_payload` slot on the LOD
+    cache entry should be reused. We assert that by spying on
+    `serialize_geometry_to_binary`.
+    """
+    from sidecars.model_catalog.app.geometry_binary import BINARY_MEDIA_TYPE
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    app, _asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
+
+    with TestClient(app) as test_client:
+        first = test_client.get(
+            "/api/models/local-pf/geometry/asset-1",
+            headers={"Accept": BINARY_MEDIA_TYPE},
+        )
+    assert first.status_code == 200
+
+    serialize_calls = {"count": 0}
+    real_serialize = models_router.serialize_geometry_to_binary
+
+    def _spy_serialize(*args: Any, **kwargs: Any) -> Any:
+        serialize_calls["count"] += 1
+        return real_serialize(*args, **kwargs)
+
+    monkeypatch.setattr(models_router, "serialize_geometry_to_binary", _spy_serialize)
+
+    with TestClient(app) as test_client:
+        second = test_client.get(
+            "/api/models/local-pf/geometry/asset-1",
+            headers={"Accept": BINARY_MEDIA_TYPE},
+        )
+    assert second.status_code == 200
+    assert serialize_calls["count"] == 0, (
+        "Binary payload must be reused from cache on subsequent requests"
+    )
+    assert second.content == first.content
+

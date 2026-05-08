@@ -66,6 +66,11 @@ from ..geometry_3mf import (
     extract_3mf_geometry,
     extract_3mf_plates_metadata,
 )
+from ..geometry_binary import (
+    BINARY_FORMAT_NAME as GEOMETRY_BINARY_FORMAT_NAME,
+    BINARY_MEDIA_TYPE as GEOMETRY_BINARY_MEDIA_TYPE,
+    serialize_geometry_to_binary,
+)
 
 from ..local_models import (
     _UNSET,
@@ -380,6 +385,59 @@ def _reset_geometry_lod_cache() -> None:
     global _GEOMETRY_LOD_CACHE_TOTAL_BYTES
     _GEOMETRY_LOD_CACHE.clear()
     _GEOMETRY_LOD_CACHE_TOTAL_BYTES = 0
+
+
+def _client_accepts_geometry_binary(request: Request) -> bool:
+    """Return True if the caller's `Accept` header opts in to the MCG1 binary
+    geometry response (issue #1380).
+
+    Match is conservative — only an explicit ``application/octet-stream``
+    token (or the explicit alias ``application/x-mcg-binary``) opts in.
+    Wildcards (``*/*``, ``application/*``) intentionally do NOT match so the
+    JSON contract remains the default for unmodified clients.
+    """
+    raw = request.headers.get("accept") if request is not None else None
+    if not raw:
+        return False
+    for token in str(raw).split(","):
+        media = token.split(";", 1)[0].strip().lower()
+        if media in ("application/octet-stream", "application/x-mcg-binary"):
+            return True
+    return False
+
+
+def _geometry_binary_payload_for_cached_entry(
+    *,
+    cache_key: tuple[str, str, str],
+    geometry: dict[str, Any],
+) -> bytes:
+    """Return the MCG1 binary payload for a cached geometry entry, lazily
+    populating and memoizing the bytes on the cache entry itself.
+
+    Issue #1380 perf note: serialization of the cached Python lists into a
+    Float32 buffer costs ~1ms for a 100k-triangle plate. By stashing the
+    bytes on the existing cache entry we pay that cost at most once per
+    (file, plate, lod) tuple — every subsequent binary request is an O(1)
+    bytes reuse, just like a JSON cache hit. We do *not* introduce a
+    parallel cache that could drift from the canonical LOD cache.
+    """
+    global _GEOMETRY_LOD_CACHE_TOTAL_BYTES
+    entry = _GEOMETRY_LOD_CACHE.get(cache_key)
+    if entry is not None:
+        cached_blob = entry.get("binary_payload")
+        if isinstance(cached_blob, (bytes, bytearray)):
+            return bytes(cached_blob)
+        blob = serialize_geometry_to_binary(geometry)
+        entry["binary_payload"] = blob
+        # Account for the binary slot in the cache's byte budget so eviction
+        # remains accurate.
+        prior = int(entry.get("estimated_bytes", 0) or 0)
+        entry["estimated_bytes"] = prior + len(blob)
+        _GEOMETRY_LOD_CACHE_TOTAL_BYTES += len(blob)
+        return blob
+    # Defensive path — geometry not in cache (e.g. test stubs that bypass
+    # the cache). Just serialize without memoizing.
+    return serialize_geometry_to_binary(geometry)
 
 
 def _extract_and_lod_geometry_cached(
@@ -3141,6 +3199,9 @@ GEOMETRY_TELEMETRY_FIELDS: tuple[str, ...] = (
     "estimated_triangles",
     "estimated_vertices",
     "plate_count",
+    # Issue #1380: response wire format selected by Accept negotiation.
+    # Either "json" (default) or "binary" (MCG1 octet-stream).
+    "response_format",
 )
 
 
@@ -3165,6 +3226,12 @@ def _classify_geometry_outcome(status_code: int, error_text: str | None) -> str:
 # `_get_geometry_endpoint_impl` so the wrapper can attach introspection
 # headers and emit richer telemetry without changing return signatures.
 _GEOMETRY_PREFLIGHT_STATE_ATTR = "geometry_preflight"
+
+# Issue #1380: cache key for the most recent successful geometry extraction
+# stashed on `request.state` so the wrapper can fetch (and lazily populate)
+# the MCG1 binary payload from the LOD cache without re-running any parse
+# or hash work.
+_GEOMETRY_CACHE_KEY_STATE_ATTR = "geometry_cache_key"
 
 
 def _preflight_state_from_cached_geometry(
@@ -3236,6 +3303,8 @@ def get_geometry_endpoint(
     requested_lod = _normalize_geometry_lod(lod)
     started_at = time.monotonic()
     setattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, {})
+    setattr(request.state, _GEOMETRY_CACHE_KEY_STATE_ATTR, None)
+    accepts_binary = _client_accepts_geometry_binary(request)
     result = _get_geometry_endpoint_impl(
         request,
         model_ref=model_ref,
@@ -3284,12 +3353,44 @@ def get_geometry_endpoint(
     if reason == "ok" and isinstance(body, dict) and not body.get("geometry"):
         reason = "no_geometry"
 
+    # Issue #1380: only switch to the binary representation when the client
+    # explicitly opted in *and* we have a successful payload with mesh data.
+    # All error paths and `no_geometry` responses stay JSON so error contracts
+    # (`error`, `triangle_count`, `_debug`) are unchanged.
+    response_format = "json"
+    binary_blob: bytes | None = None
+    if (
+        accepts_binary
+        and reason == "ok"
+        and isinstance(geometry, dict)
+        and (geometry.get("vertices") or geometry.get("groups"))
+    ):
+        cache_key = getattr(request.state, _GEOMETRY_CACHE_KEY_STATE_ATTR, None)
+        try:
+            if isinstance(cache_key, tuple):
+                binary_blob = _geometry_binary_payload_for_cached_entry(
+                    cache_key=cache_key, geometry=geometry
+                )
+            else:
+                binary_blob = serialize_geometry_to_binary(geometry)
+            response_format = "binary"
+        except Exception as serialize_err:  # pragma: no cover - defensive
+            logger.warning(
+                "geometry_binary_serialize_failed model_ref=%s file_id=%s error=%s",
+                model_ref,
+                file_id,
+                serialize_err,
+            )
+            binary_blob = None
+            response_format = "json"
+
     logger.info(
         "geometry_request "
         "model_ref=%s file_id=%s lod_requested=%s lod_applied=%s simplified=%s "
         "source_triangles=%s rendered_triangles=%s package_size_bytes=%s "
         "cache_hit=%s processing_ms=%.1f status=%d outcome=%s "
-        "estimated_triangles=%s estimated_vertices=%s plate_count=%s",
+        "estimated_triangles=%s estimated_vertices=%s plate_count=%s "
+        "response_format=%s",
         model_ref,
         file_id,
         requested_lod,
@@ -3305,12 +3406,22 @@ def get_geometry_endpoint(
         estimated_triangles,
         estimated_vertices,
         plate_count,
+        response_format,
     )
 
     if include_debug and isinstance(result, dict) and isinstance(result.get("_debug"), dict):
         result["_debug"]["processing_ms"] = round(processing_ms, 1)
 
     headers = _build_geometry_introspection_headers(preflight, reason=reason)
+    headers["X-Geometry-Response-Format"] = response_format
+
+    if binary_blob is not None:
+        headers["X-Geometry-Binary-Bytes"] = str(len(binary_blob))
+        return Response(
+            content=binary_blob,
+            media_type=GEOMETRY_BINARY_MEDIA_TYPE,
+            headers=headers,
+        )
     if isinstance(result, JSONResponse):
         for header_key, header_value in headers.items():
             result.headers[header_key] = header_value
@@ -3424,6 +3535,18 @@ def _get_geometry_endpoint_impl(
                         requested_lod=requested_lod,
                     )
                     debug_info["geometry_cache_hit"] = cache_hit
+                    # Issue #1380: stash the cache key so the wrapper can
+                    # fetch the lazily-populated MCG1 binary payload without
+                    # re-hashing or re-parsing.
+                    setattr(
+                        request.state,
+                        _GEOMETRY_CACHE_KEY_STATE_ATTR,
+                        _geometry_lod_cache_key(
+                            source_sha256=_source_sha256,
+                            plate_id=plate_id,
+                            requested_lod=_normalize_geometry_lod(requested_lod),
+                        ),
+                    )
                     # Issue #1379 (revised): populate introspection headers
                     # from the actual geometry payload — free, since the data
                     # already exists. No separate estimator pass.
@@ -3542,6 +3665,16 @@ def _get_geometry_endpoint_impl(
                         requested_lod=requested_lod,
                     )
                     debug_info["geometry_cache_hit"] = cache_hit
+                    # Issue #1380: stash cache key for binary wrapper.
+                    setattr(
+                        request.state,
+                        _GEOMETRY_CACHE_KEY_STATE_ATTR,
+                        _geometry_lod_cache_key(
+                            source_sha256=_source_sha256,
+                            plate_id=plate_id,
+                            requested_lod=_normalize_geometry_lod(requested_lod),
+                        ),
+                    )
                     # Issue #1379 (revised): populate headers post-parse from
                     # the actual geometry payload — no separate estimator pass.
                     preflight_state.update(

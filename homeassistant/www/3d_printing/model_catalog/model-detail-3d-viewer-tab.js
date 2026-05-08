@@ -610,6 +610,31 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const geometryUrl = this._buildGeometryUrl(file);
     let geometryError = null;
 
+    // Issue #1380: try the MCG1 binary geometry path first when a direct
+    // sidecar URL is reachable. The binary path skips the multi-megabyte
+    // JSON.parse and produces Float32Array views that map straight onto
+    // BufferAttribute, eliminating ~150ms of main-thread work for large
+    // plates. We swallow errors silently here and fall through to the HA
+    // proxy / direct-JSON path so HA-only environments still work.
+    try {
+      const binaryParsed = await this._fetchGeometryDirectBinary(file);
+      if (binaryParsed) {
+        const parsed = this._normalizeParsedGeometryPayload(binaryParsed);
+        if (parsed) {
+          this._loadGeometry(parsed);
+          const plateLabel = this._selectedPlateLabel();
+          this._setRenderingStatus(
+            `Rendering ${filename}${plateLabel ? ` (${plateLabel})` : ''} (${parsed.triangleCount} triangles, binary)`
+          );
+          return;
+        }
+      }
+    } catch (binaryError) {
+      // Direct binary unavailable (HA-only env, CORS, sidecar offline,
+      // legacy server without #1380, etc.). Continue to the JSON fallbacks.
+      console.debug('3MF binary geometry path skipped; falling back to JSON', binaryError);
+    }
+
     try {
       this._setRenderingStatus(`Fetching ${filename} geometry via Home Assistant...`);
       const payload = await this._fetchGeometryViaHaService(file);
@@ -769,7 +794,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
   _normalizeParsedGeometryPayload(payload) {
     const geometry = payload && payload.geometry;
-    const vertices = geometry && Array.isArray(geometry.vertices) ? geometry.vertices : null;
+    // Accept either a plain JSON array (legacy JSON path) or a Float32Array
+    // view (issue #1380 binary path). `Array.isArray` returns false for
+    // TypedArrays, so probe both.
+    const _isVertexArray = (value) =>
+      Array.isArray(value) || (value && ArrayBuffer.isView(value) && !(value instanceof DataView));
+    const vertices = geometry && _isVertexArray(geometry.vertices) ? geometry.vertices : null;
     const rawGroups = geometry && Array.isArray(geometry.groups) ? geometry.groups : [];
     if (!geometry || geometry.format !== 'triangles' || ((!vertices || vertices.length < 9) && rawGroups.length === 0)) {
       return null;
@@ -801,7 +831,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
     const coordinateSystem = String(geometry.coordinate_system || '').trim().toLowerCase();
     const mappedGroups = rawGroups
       .map((group) => {
-        const groupVertices = Array.isArray(group && group.vertices) ? group.vertices : null;
+        const groupVertices = group && _isVertexArray(group.vertices) ? group.vertices : null;
         if (!groupVertices || groupVertices.length < 9) {
           return null;
         }
@@ -1324,6 +1354,140 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     const query = params.length > 0 ? `?${params.join('&')}` : '';
     return `${base}/api/models/${modelRef}/geometry/${fileId}${query}`;
+  }
+
+  /**
+   * Issue #1380: fetch geometry as MCG1 binary directly from the sidecar.
+   * Returns a payload object compatible with `_normalizeParsedGeometryPayload`
+   * (i.e. `{ geometry: { format: 'triangles', vertices, groups, ... } }`)
+   * with `vertices` exposed as `Float32Array` views into the response buffer
+   * so no element-by-element JSON parsing is needed.
+   *
+   * Throws on any error (network, non-200, wrong magic). Caller is expected
+   * to swallow and fall through to the JSON path so unmodified clients and
+   * HA-only environments still work.
+   */
+  async _fetchGeometryDirectBinary(file) {
+    let geometryUrl;
+    try {
+      geometryUrl = this._buildGeometryUrl(file);
+    } catch (error) {
+      throw new Error(`No direct sidecar URL available: ${error && error.message || error}`);
+    }
+
+    const fetchOptions = this._buildFetchOptions(geometryUrl);
+    const headers = new Headers(fetchOptions.headers || {});
+    headers.set('Accept', 'application/octet-stream');
+    fetchOptions.headers = headers;
+
+    const response = await fetch(geometryUrl, fetchOptions);
+    if (!response.ok) {
+      throw new Error(`Binary geometry request failed (${response.status})`);
+    }
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('application/octet-stream')) {
+      // Server didn't honor the Accept header (older sidecar without #1380).
+      throw new Error('Server did not return MCG1 binary');
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return this._decodeMcg1Binary(arrayBuffer);
+  }
+
+  /**
+   * Decode an MCG1 binary blob into a payload compatible with the JSON
+   * geometry contract. Layout is documented in
+   * `sidecars/model_catalog/app/geometry_binary.py` — keep the two in sync.
+   *
+   *   HEADER          32 bytes  magic("MCG1") + version + counts + metadata slice
+   *   GROUP_RECORDS   24 × N    per-group descriptors
+   *   VERTEX BLOCK    Float32   vertex_total × 3 floats
+   *   METADATA BLOCK  UTF-8 JSON
+   */
+  _decodeMcg1Binary(arrayBuffer) {
+    if (!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 32) {
+      throw new Error('MCG1 blob too short');
+    }
+    const dv = new DataView(arrayBuffer);
+    const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+    if (magic !== 'MCG1') {
+      throw new Error(`MCG1 magic mismatch: ${magic}`);
+    }
+    const version = dv.getUint32(4, true);
+    if (version !== 1) {
+      throw new Error(`MCG1 version unsupported: ${version}`);
+    }
+    const groupCount = dv.getUint32(8, true);
+    // const vertexTotal = dv.getUint32(12, true);  // (informational; not needed)
+    // const triangleTotal = dv.getUint32(16, true);
+    const metadataOffset = dv.getUint32(20, true);
+    const metadataLength = dv.getUint32(24, true);
+
+    const headerSize = 32;
+    const groupRecordSize = 24;
+    const vertexBlockOffset = headerSize + groupCount * groupRecordSize;
+
+    const metadataBytes = new Uint8Array(arrayBuffer, metadataOffset, metadataLength);
+    const metadataJson = new TextDecoder('utf-8').decode(metadataBytes);
+    const metadata = JSON.parse(metadataJson);
+
+    const groups = [];
+    for (let index = 0; index < groupCount; index += 1) {
+      const recordOffset = headerSize + index * groupRecordSize;
+      const vertexByteOffset = dv.getUint32(recordOffset, true);
+      const vertexCount = dv.getUint32(recordOffset + 4, true);
+      const triangleCount = dv.getUint32(recordOffset + 8, true);
+      const extruder = dv.getInt32(recordOffset + 12, true);
+      const colorRgb = dv.getUint32(recordOffset + 16, true);
+
+      // Float32Array view directly into the response buffer — zero-copy.
+      // 3 floats per vertex.
+      const verticesView = vertexCount > 0
+        ? new Float32Array(arrayBuffer, vertexBlockOffset + vertexByteOffset, vertexCount * 3)
+        : new Float32Array(0);
+      const objectIds = Array.isArray(metadata && metadata.group_object_ids)
+        ? metadata.group_object_ids[index] || []
+        : [];
+      const groupKey = Array.isArray(metadata && metadata.group_keys)
+        ? metadata.group_keys[index] || ''
+        : '';
+      const group = {
+        key: groupKey,
+        triangle_count: triangleCount,
+        vertices: verticesView,
+        object_ids: objectIds,
+      };
+      if (extruder !== -1) {
+        group.extruder = extruder;
+      }
+      if (colorRgb !== 0xFFFFFFFF) {
+        group.color = `#${colorRgb.toString(16).toUpperCase().padStart(6, '0')}`;
+      }
+      groups.push(group);
+    }
+
+    const vertexCountTotal = groups.reduce((sum, g) => sum + (g.vertices && g.vertices.length / 3 || 0), 0);
+    const triangleCountTotal = groups.reduce((sum, g) => sum + (g.triangle_count || 0), 0);
+
+    return {
+      geometry: {
+        format: 'triangles',
+        unit: metadata.unit || 'millimeter',
+        coordinate_system: metadata.coordinate_system || '',
+        vertex_count: vertexCountTotal,
+        triangle_count: metadata.triangle_count || triangleCountTotal,
+        // No top-level `vertices` — feed the renderer through `groups`,
+        // which is the canonical multi-color path. The normalizer falls
+        // back to flattening groups when the top-level array is absent.
+        groups,
+        dimensions_mm: metadata.dimensions_mm || null,
+        plates: metadata.plates || [],
+        selected_plate_id: metadata.selected_plate_id || null,
+        color_info: metadata.color_info || null,
+        lod: metadata.lod || null,
+        viewer_notice: metadata.viewer_notice || undefined,
+        warnings: metadata.warnings || undefined,
+      },
+    };
   }
 
   _updateLodInfoDisplay() {
