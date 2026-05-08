@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Advanced Actions popup mockup</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --bg-card-elev: rgba(38, 44, 54, 0.96);
+    --bg-strip: rgba(15, 19, 26, 0.55);
+    --bg-overlay: rgba(8, 11, 16, 0.78);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --accent-purple: #c084fc;
+    --primary-amber: #f5c242;
+    --warn: #fca5a5;
+    --danger: #ef4444;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+    --shadow-popup: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1280px; margin: 0 auto 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 800px; line-height: 1.55; }
+  .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav a { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .nav a.active { color: var(--text); border-color: var(--border-strong); background: var(--bg-card-elev); }
+
+  .stage { max-width: 1280px; margin: 0 auto; padding: 32px; background: var(--bg-overlay); border-radius: 16px; border: 1px dashed var(--border); position: relative; }
+  .stage::before { content: 'Browser-mod popup overlay (simulated)'; position: absolute; top: 8px; left: 14px; font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* Popup shell */
+  .popup {
+    max-width: 940px; margin: 0 auto;
+    background: var(--bg-card-elev); border: 1px solid var(--border-strong); border-radius: 18px; box-shadow: var(--shadow-popup);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .popup-titlebar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border); background: rgba(15,19,26,0.55);
+  }
+  .popup-titlebar .lbl { font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+  .popup-titlebar .crumbs { font-size: 13px; color: var(--text-secondary); }
+  .popup-titlebar .crumbs strong { color: var(--text); font-weight: 700; }
+  .titlebar-right { display: inline-flex; gap: 8px; align-items: center; }
+  .ph-pill { font-size: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .close-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+
+  /* Header strip */
+  .hdr {
+    display: grid; grid-template-columns: 76px 1fr auto; gap: 18px; align-items: center;
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+  }
+  .model-thumb {
+    width: 76px; height: 76px; border-radius: 14px; background: linear-gradient(135deg, rgba(94,234,212,0.18), rgba(96,165,250,0.18));
+    border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-size: 30px;
+  }
+  .title-stack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .title-row .title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+  .meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+  .meta-row .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-muted); }
+  .meta-row code { font-size: 11px; color: var(--text); background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; border: 1px solid var(--border); color: var(--text-secondary); background: rgba(255,255,255,0.03);
+  }
+  .chip.queue { color: var(--primary-amber); border-color: rgba(245,194,66,0.32); background: rgba(245,194,66,0.10); }
+  .chip.published { color: var(--accent); border-color: rgba(94,234,212,0.32); background: rgba(94,234,212,0.08); }
+  .chip.signal { color: var(--accent-blue); border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.08); }
+  .id-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; font-size: 11px; color: var(--text-muted); }
+  .id-stack code { font-size: 10px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; background: rgba(15,19,26,0.55); border-bottom: 1px solid var(--border); padding: 0 8px; overflow-x: auto; }
+  .tab {
+    flex: 1 1 0; min-width: 130px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 10px; font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer;
+    border: 0; background: transparent; border-bottom: 2px solid transparent; letter-spacing: 0.02em;
+  }
+  .tab .ico { font-size: 14px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab.danger.active { border-bottom-color: var(--danger); color: var(--warn); }
+  .tab .badge-count { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text-muted); font-weight: 700; }
+  .tab.active .badge-count { background: rgba(94,234,212,0.16); color: var(--accent); }
+
+  /* Body */
+  .body { display: grid; grid-template-columns: 1fr; }
+  .section { padding: 18px; border-bottom: 1px solid var(--border); }
+  .section:last-of-type { border-bottom: 0; }
+  .section h3 { margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+  .section h3 .count { color: var(--text-muted); font-weight: 600; }
+  .section h3 .ph-mirror { font-size: 9px; color: var(--accent); border: 1px solid rgba(94,234,212,0.32); padding: 1px 6px; border-radius: 999px; background: rgba(94,234,212,0.08); }
+  .section h3 .new-tag { font-size: 9px; color: var(--primary-amber); border: 1px solid rgba(245,194,66,0.32); padding: 1px 6px; border-radius: 999px; background: rgba(245,194,66,0.10); }
+
+  /* 2-column action grid (PH parity) */
+  .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 720px) { .actions-grid { grid-template-columns: 1fr; } }
+  .action-btn {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--text);
+    font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;
+  }
+  .action-btn:hover { background: rgba(255,255,255,0.07); border-color: var(--border-strong); }
+  .action-btn .ico { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.28); flex-shrink: 0; }
+  .action-btn .lbl-stack { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .action-btn .lbl-stack .sub { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+  .action-btn.warn { border-color: rgba(245,158,11,0.32); }
+  .action-btn.warn .ico { background: rgba(245,158,11,0.12); color: #fcd34d; border-color: rgba(245,158,11,0.32); }
+  .action-btn.danger { border-color: rgba(239,68,68,0.32); background: rgba(239,68,68,0.04); }
+  .action-btn.danger .ico { background: rgba(239,68,68,0.12); color: var(--warn); border-color: rgba(239,68,68,0.32); }
+  .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .action-btn .arrow { margin-left: auto; color: var(--text-muted); font-size: 16px; }
+
+  /* Photos strip */
+  .photos { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  @media (max-width: 720px) { .photos { grid-template-columns: repeat(3, 1fr); } }
+  .photo-cell {
+    position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(94,234,212,0.15), rgba(96,165,250,0.15));
+    display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer;
+  }
+  .photo-cell.primary { border-color: rgba(245,194,66,0.5); box-shadow: inset 0 0 0 2px rgba(245,194,66,0.5); }
+  .photo-cell .pri-tag { position: absolute; top: 4px; left: 4px; font-size: 9px; padding: 2px 6px; border-radius: 999px; background: rgba(245,194,66,0.92); color: #1a1610; font-weight: 800; letter-spacing: 0.04em; }
+  .photo-cell .row-x { position: absolute; bottom: 4px; right: 4px; display: inline-flex; gap: 3px; }
+  .photo-cell .mini-btn { font-size: 10px; padding: 2px 5px; border-radius: 5px; background: rgba(15,19,26,0.86); color: var(--text-secondary); border: 1px solid var(--border); cursor: pointer; }
+  .photo-cell .mini-btn:hover { color: var(--text); }
+  .photo-add {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--border-strong); border-radius: 10px; color: var(--text-secondary);
+    font-size: 22px; cursor: pointer; background: rgba(15,19,26,0.35);
+  }
+  .photo-add:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Source/file rows */
+  .row-list { display: flex; flex-direction: column; gap: 6px; }
+  .row {
+    display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center;
+    padding: 8px 10px; background: var(--bg-strip); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .row .ic { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+  .ic.mkw { background: rgba(192,132,252,0.14); color: var(--accent-purple); border: 1px solid rgba(192,132,252,0.34); }
+  .ic.prn { background: rgba(96,165,250,0.14); color: var(--accent-blue); border: 1px solid rgba(96,165,250,0.32); }
+  .ic.mfd { background: rgba(245,194,66,0.14); color: var(--primary-amber); border: 1px solid rgba(245,194,66,0.32); }
+  .ic.fld { background: rgba(94,234,212,0.12); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); }
+  .ic.ext-3mf { background: rgba(94,234,212,0.12); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); }
+  .row .nm-stack { display: flex; flex-direction: column; min-width: 0; }
+  .row .nm-stack .nm { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .nm-stack .sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .row-meta { font-size: 11px; color: var(--text-secondary); }
+  .row-actions { display: inline-flex; gap: 4px; }
+  .row-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 7px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-secondary);
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .row-btn:hover { color: var(--text); }
+  .row-btn.viewer { color: var(--accent-blue); border-color: rgba(96,165,250,0.32); background: rgba(96,165,250,0.10); }
+  .row-btn.warn { color: var(--warn); border-color: rgba(239,68,68,0.32); background: rgba(239,68,68,0.06); }
+
+  /* Confidence groups (Prints tab) */
+  .conf-group { margin-bottom: 10px; }
+  .conf-group h4 { margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .conf-group .cnt { color: var(--text-secondary); font-weight: 600; }
+  .conf-bar { width: 60px; height: 4px; border-radius: 2px; background: rgba(148,163,184,0.18); overflow: hidden; }
+  .conf-bar .fill { height: 100%; }
+  .fill.hi { background: var(--accent); width: 92%; }
+  .fill.md { background: var(--primary-amber); width: 64%; }
+  .fill.lo { background: var(--text-muted); width: 28%; }
+
+  /* Edit form */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .field input, .field textarea, .field select {
+    background: rgba(15,19,26,0.6); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-family: inherit; font-size: 13px; padding: 8px 10px; box-sizing: border-box;
+  }
+  .field textarea { min-height: 64px; resize: vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(94,234,212,0.18); }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; background: rgba(15,19,26,0.6); border: 1px solid var(--border); border-radius: 8px; min-height: 36px; align-items: center; }
+  .tag-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.28); font-size: 11px; font-weight: 600; }
+  .tag-chip .x { cursor: pointer; opacity: 0.7; }
+  .tag-input { flex: 1 1 100px; background: transparent; border: 0; color: var(--text); font-size: 12px; padding: 3px; min-width: 80px; outline: none; }
+
+  /* Danger callout */
+  .danger-callout {
+    padding: 14px; border: 1px solid rgba(239,68,68,0.42); border-radius: 12px; background: rgba(239,68,68,0.06);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .danger-callout .ico { font-size: 22px; color: var(--warn); }
+  .danger-callout h4 { margin: 0 0 4px; font-size: 13px; font-weight: 800; color: var(--warn); }
+  .danger-callout p { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.55; }
+  .cascade-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 11px; }
+  .cascade-table td { padding: 5px 8px; border-bottom: 1px solid rgba(239,68,68,0.18); color: var(--text-secondary); }
+  .cascade-table td:last-child { text-align: right; font-weight: 700; }
+  .cascade-table .del { color: var(--warn); }
+  .cascade-table .keep { color: var(--accent); }
+
+  /* Footer */
+  .popup-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px; background: rgba(15,19,26,0.55); border-top: 1px solid var(--border);
+  }
+  .footer-left, .footer-right { display: inline-flex; gap: 8px; align-items: center; }
+  .btn {
+    padding: 8px 14px; border-radius: 9px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .btn:hover { background: rgba(255,255,255,0.10); }
+  .btn.primary { background: linear-gradient(135deg, rgba(94,234,212,0.95), rgba(96,165,250,0.85)); color: #0b1117; border-color: transparent; }
+  .btn.danger { color: #fff; border-color: var(--danger); background: var(--danger); }
+  .btn.danger[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .status-pill.idle { color: var(--text-muted); border: 1px solid var(--border); }
+  .status-pill.busy { color: var(--accent); border: 1px solid rgba(94,234,212,0.32); background: rgba(94,234,212,0.08); }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* Side-panel: confirm-delete-2 */
+  .confirm-stage {
+    max-width: 940px; margin: 16px auto 0;
+    background: var(--bg-card-elev); border: 1px solid rgba(239,68,68,0.42); border-radius: 18px; box-shadow: var(--shadow-popup);
+    overflow: hidden;
+  }
+  .confirm-stage .popup-titlebar { background: rgba(239,68,68,0.10); border-bottom-color: rgba(239,68,68,0.32); }
+  .confirm-stage .popup-titlebar .lbl { color: var(--warn); }
+  .type-confirm-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .type-confirm-row input { flex: 1; background: rgba(15,19,26,0.6); border: 1px solid rgba(239,68,68,0.32); color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .type-confirm-row input::placeholder { color: var(--text-muted); }
+
+  /* Annotations */
+  .callout { max-width: 1280px; margin: 24px auto 0; padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+  .callout strong { color: var(--text); }
+  .callout.amber { border-left-color: var(--primary-amber); }
+  .legend-table { max-width: 1280px; margin: 16px auto 0; border-collapse: collapse; width: 100%; font-size: 12px; }
+  .legend-table th, .legend-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .legend-table th { color: var(--text-secondary); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 10px; }
+  .legend-table code { font-size: 11px; background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); }
+  .legend-table .new { color: var(--primary-amber); font-weight: 700; }
+  .legend-table .reuse { color: var(--accent); font-weight: 700; }
+  .footer-note { max-width: 1280px; margin: 24px auto 0; padding: 14px 18px; border: 1px dashed var(--border); border-radius: 10px; color: var(--text-secondary); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Model Catalog · Advanced Actions popup</h1>
+    <p>Mirror of the Print History <strong>Advanced Actions</strong> popup applied to <strong>catalog models</strong>. Same 5-tab nav, sub-mode drill-downs, status footer, two-stage delete, and search-modal patterns — only the <em>contents</em> are catalog-specific. Tracking <a href="https://github.com/rsocko/hass-bambulab-config/issues/1227" style="color:var(--accent)">issue #1227</a>. Read the rationale in <a href="../catalog-advanced-actions-design.md" style="color:var(--accent)">catalog-advanced-actions-design.md</a>.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">Index</a>
+    <a href="popup-model-detail.html">Model detail popup</a>
+    <a href="catalog-advanced-actions.html" class="active">Advanced Actions</a>
+  </div>
+</div>
+
+<div class="stage">
+
+  <div class="popup">
+
+    <!-- Title bar -->
+    <div class="popup-titlebar">
+      <div class="crumbs"><span class="lbl">Model Catalog · Advanced</span> &nbsp;›&nbsp; <strong>Gridfinity Holders v3</strong></div>
+      <div class="titlebar-right">
+        <span class="ph-pill">PH parity</span>
+        <button class="close-btn" title="Close (Esc)">✕</button>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="hdr">
+      <div class="model-thumb">🧊</div>
+      <div class="title-stack">
+        <div class="title-row">
+          <span class="title">Gridfinity Holders v3</span>
+          <span class="chip queue">★ QUEUED</span>
+          <span class="chip published">Local · Manyfold</span>
+          <span class="chip signal">Source 3MF</span>
+        </div>
+        <div class="meta-row">
+          <code>model_id · 4f9e_d12c</code>
+          <span class="dot"></span>
+          <span>Source · MakerWorld</span>
+          <span class="dot"></span>
+          <span>3 photos · 2 sources · 1 working group</span>
+          <span class="dot"></span>
+          <span>Printed · <strong style="color:var(--text)">7×</strong></span>
+        </div>
+      </div>
+      <div class="id-stack">
+        <span>Tags</span>
+        <code>gridfinity · pet-cf · holder</code>
+      </div>
+    </div>
+
+    <!-- Tabs (PH parity: 5 slots) -->
+    <div class="tabs">
+      <button class="tab active"><span class="ico">🖼️</span> Media <span class="badge-count">3</span></button>
+      <button class="tab"><span class="ico">🔗</span> Files & Sources <span class="badge-count">3</span></button>
+      <button class="tab"><span class="ico">🖨️</span> Prints <span class="badge-count">7</span></button>
+      <button class="tab"><span class="ico">🏷️</span> Metadata</button>
+      <button class="tab danger"><span class="ico">⚠</span> Danger</button>
+    </div>
+
+    <!-- BODY: Media tab (active) -->
+    <div class="body">
+
+      <div class="section">
+        <h3>Photos <span class="count">· 3</span> <span class="ph-mirror">PH parity</span></h3>
+        <div class="photos">
+          <div class="photo-cell primary" title="Primary thumbnail">
+            <span class="pri-tag">PRIMARY</span>
+            🖼️
+            <div class="row-x">
+              <button class="mini-btn" title="Set as preview">★</button>
+              <button class="mini-btn" title="Delete">✕</button>
+            </div>
+          </div>
+          <div class="photo-cell">
+            🖼️
+            <div class="row-x">
+              <button class="mini-btn" title="Set as preview">★</button>
+              <button class="mini-btn" title="Delete">✕</button>
+            </div>
+          </div>
+          <div class="photo-cell">
+            🖼️
+            <div class="row-x">
+              <button class="mini-btn" title="Set as preview">★</button>
+              <button class="mini-btn" title="Delete">✕</button>
+            </div>
+          </div>
+          <div class="photo-add" title="Upload photo">+</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Source files <span class="count">· 1 primary 3MF</span></h3>
+        <div class="row-list">
+          <div class="row">
+            <div class="ic ext-3mf">3MF</div>
+            <div class="nm-stack">
+              <span class="nm">gridfinity_holder_v3_final.3mf</span>
+              <span class="sub">Source 3MF · 12.4 MB · sha 4f9e…d12c</span>
+            </div>
+            <span class="row-meta">primary</span>
+            <div class="row-actions">
+              <button class="row-btn viewer">3D viewer</button>
+              <button class="row-btn">Download</button>
+              <button class="row-btn">Replace</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Actions <span class="ph-mirror">PH parity</span></h3>
+        <div class="actions-grid">
+          <button class="action-btn">
+            <span class="ico">🧊</span>
+            <span class="lbl-stack">
+              <span>Open in 3D viewer</span>
+              <span class="sub">Reuses <code>model-detail-3d-viewer-tab</code></span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+          <button class="action-btn">
+            <span class="ico">⬇</span>
+            <span class="lbl-stack">
+              <span>Download primary 3MF</span>
+              <span class="sub">Sidecar download URL</span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+          <button class="action-btn">
+            <span class="ico">🖼️</span>
+            <span class="lbl-stack">
+              <span>Replace primary thumbnail</span>
+              <span class="sub"><code>set_photo_preview</code></span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+          <button class="action-btn">
+            <span class="ico">🔃</span>
+            <span class="lbl-stack">
+              <span>Reorder photos</span>
+              <span class="sub">Drag-handle list (sub-mode)</span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+          <button class="action-btn">
+            <span class="ico">☁</span>
+            <span class="lbl-stack">
+              <span>Push to Manyfold</span>
+              <span class="sub">Hidden when not configured</span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+          <button class="action-btn">
+            <span class="ico">🔄</span>
+            <span class="lbl-stack">
+              <span>Refresh from Manyfold</span>
+              <span class="sub">Pulls latest detail/photos</span>
+            </span>
+            <span class="arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <div class="footer-left">
+        <span class="status-pill idle"><span class="dot"></span>Idle</span>
+      </div>
+      <div class="footer-right">
+        <button class="btn">Close</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ====== Confirm-delete-2 (state preview) ====== -->
+
+<div class="callout amber" style="margin-top:32px">
+  <strong>State preview · <code>_mode = 'confirm-delete-2'</code></strong> — what the operator sees after pressing <em>Continue to delete</em> on the first confirmation. Mirrors PH's two-stage destructive flow with one addition: <strong>type-to-confirm</strong> the model title before the final button enables.
+</div>
+
+<div class="confirm-stage">
+
+  <div class="popup-titlebar">
+    <div class="crumbs"><span class="lbl" style="color:var(--warn)">Danger</span> &nbsp;›&nbsp; <strong>Delete model · Final confirmation</strong></div>
+    <button class="close-btn" title="Cancel">✕</button>
+  </div>
+
+  <div class="section">
+    <div class="danger-callout">
+      <div class="ico">⚠</div>
+      <div style="flex:1">
+        <h4>This action cannot be undone</h4>
+        <p>The model record, its photos, and all link rows referencing it will be permanently removed from the catalog. <strong>Working files on disk, archive prints, and the upstream Manyfold record are preserved.</strong></p>
+        <table class="cascade-table">
+          <tr><td>Model row in <code>models</code></td><td class="del">DELETED</td></tr>
+          <tr><td>Photos &amp; metadata (<code>model_photos</code>)</td><td class="del">DELETED</td></tr>
+          <tr><td>Working-group links (<code>model_working_group_links</code>)</td><td class="del">DELETED · 1 row</td></tr>
+          <tr><td>Archive links (<code>model_archive_links</code>)</td><td class="del">DELETED · 7 rows</td></tr>
+          <tr><td>Working files on disk</td><td class="keep">PRESERVED</td></tr>
+          <tr><td>Linked archive prints in print history</td><td class="keep">PRESERVED</td></tr>
+          <tr><td>Manyfold upstream record</td><td class="keep">PRESERVED</td></tr>
+        </table>
+        <div class="type-confirm-row">
+          <input type="text" placeholder="Type the model title to confirm: Gridfinity Holders v3" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="popup-footer">
+    <div class="footer-left">
+      <span class="status-pill idle"><span class="dot"></span>Awaiting confirmation</span>
+    </div>
+    <div class="footer-right">
+      <button class="btn">Cancel</button>
+      <button class="btn danger" disabled>Delete model permanently</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ====== Annotations & legend ====== -->
+
+<div class="callout" style="margin-top:32px">
+  <strong>Tab parity with Print History.</strong> Slots, ordering, and visual treatment match <code>print-history-archive-actions-card.js</code>. Operators don't relearn navigation between archives and models.
+  <br/><br/>
+  <strong>Sub-modes inherited:</strong> <code>main</code> · <code>metadata</code> · <code>edit-fields</code> · <code>edit-tags</code> · <code>reclassify-preview</code> · <code>linked-archives</code> · <code>duplicate-models</code> · <code>compare-models</code> · <code>merge-pick-target</code> · <code>confirm-delete-1</code> · <code>confirm-delete-2</code>. Each renders inside the popup body with a back-nav crumb at the top of the section.
+</div>
+
+<table class="legend-table">
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>Tab</th>
+      <th>Backing call</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Photo upload (+)</td><td>Media</td><td><code>model_catalog_upload_photo</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Photo · ★ Set primary</td><td>Media</td><td><code>model_catalog_set_photo_preview</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Photo · ✕ Delete</td><td>Media</td><td><code>model_catalog_delete_photo</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Open in 3D viewer</td><td>Media</td><td>opens <code>model-detail-3d-viewer-tab</code> popup</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Download primary 3MF</td><td>Media</td><td>sidecar download URL</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Replace primary thumbnail</td><td>Media</td><td><code>model_catalog_set_photo_preview</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Reorder photos</td><td>Media</td><td><code>model_catalog_upload_photo</code> ordering</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Push to Manyfold</td><td>Media</td><td>existing Manyfold upload path</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Refresh from Manyfold</td><td>Media</td><td>existing Manyfold fetch path</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Add source URL</td><td>Files &amp; Sources</td><td><code>model_catalog_update_model</code> (sources field)</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Link working group</td><td>Files &amp; Sources</td><td><code>model_catalog_create_working_group_link</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Unlink working group</td><td>Files &amp; Sources</td><td><code>model_catalog_delete_working_group_link</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Spawn working group from model</td><td>Files &amp; Sources</td><td><code>model_catalog_create_working_group</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Linked archive prints</td><td>Prints</td><td><code>model_catalog_get_archive_links</code> (reverse-lookup)</td><td class="new">EXTEND</td></tr>
+    <tr><td>Find related models</td><td>Prints</td><td><code>model_catalog_get_related_models</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Find duplicate models</td><td>Prints</td><td><code>GET /api/models/{id}/duplicates</code></td><td class="new">NEW</td></tr>
+    <tr><td>Compare with another model</td><td>Prints</td><td>card-side compose of model GETs</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Refresh archive candidates</td><td>Prints</td><td><code>model_catalog_refresh_archive_candidates</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Edit basic fields</td><td>Metadata</td><td><code>model_catalog_update_model</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>Edit tags</td><td>Metadata</td><td><code>model_catalog_update_model</code></td><td class="reuse">REUSE</td></tr>
+    <tr><td>View Model Metadata (JSON)</td><td>Metadata</td><td>card-side render of model GET</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Re-run intake / classify</td><td>Metadata</td><td><code>model_catalog_validate_intake_item</code> (or sidecar reclassify)</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Regenerate thumbnails</td><td>Metadata</td><td><code>POST /api/models/{id}/regenerate-thumbnails</code></td><td class="new">NEW (optional)</td></tr>
+    <tr><td>Export single model JSON</td><td>Metadata</td><td><code>model_catalog_export_json</code> (single-id mode)</td><td class="reuse">REUSE</td></tr>
+    <tr><td>Archive model (soft)</td><td>Danger</td><td><code>POST /api/models/{id}/archive</code> · <code>model_catalog_set_archived</code></td><td class="new">NEW</td></tr>
+    <tr><td>Merge into another model</td><td>Danger</td><td><code>POST /api/models/{id}/merge</code> · <code>model_catalog_merge_models</code></td><td class="new">NEW</td></tr>
+    <tr><td>Delete model · Stage 1</td><td>Danger</td><td>switch <code>_mode = 'confirm-delete-1'</code></td><td class="new">NEW UI</td></tr>
+    <tr><td>Delete model · Stage 2 (type-to-confirm)</td><td>Danger</td><td><code>DELETE /api/models/{id}</code> · <code>model_catalog_delete_model</code></td><td class="new">NEW</td></tr>
+  </tbody>
+</table>
+
+<div class="footer-note">
+  Two-stage delete preserves the operator's chance to back out: stage 1 lists the cascade boundary, stage 2 requires typing the model title to enable the destructive button (additional safety beyond PH's single-button confirm — recommended given the wider blast radius). The card lives at <code>homeassistant/www/3d_printing/model_catalog/model-catalog-advanced-actions-card.js</code> and follows the same versioned <code>_resources.yaml</code> contract as other catalog JS resources per <code>.github/copilot-instructions.md</code>.
+</div>
+
+</body>
+</html>

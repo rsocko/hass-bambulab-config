@@ -30,7 +30,7 @@
 <body>
 
 <h1>Model Catalog · Design mockups</h1>
-<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, and <a href="../working-files-card-design.md">working-files-card-design.md</a>.</p>
+<p class="lead">High-fidelity, self-contained HTML mockups for both browser cards and the model-detail popup redesign, plus the new <strong>Working Files</strong> surface redesign and the new <strong>Catalog Advanced Actions</strong> popup. Each page is browser-viewable as-is. Read the design rationale in <a href="../catalog-card-design.md">catalog-card-design.md</a>, <a href="../catalog-popup-design.md">catalog-popup-design.md</a>, <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>, and <a href="../working-files-card-design.md">working-files-card-design.md</a>.</p>
 
 <p class="section-title">Catalog Browser</p>
 <div class="grid">
@@ -66,6 +66,11 @@
     <h2>Candidate Review Popup</h2>
     <p>Advanced Actions-style review surface for file-to-archive candidates with confidence scoring, signal transparency, side-by-side comparison context, and bulk confirm/reject flows.</p>
   </a>
+  <a class="tile" href="catalog-advanced-actions.html">
+    <span class="badge amber">ADVANCED ACTIONS · NEW (Issue #1227)</span>
+    <h2>Catalog Advanced Actions popup</h2>
+    <p>Mirror of the Print History Advanced Actions popup applied to catalog models — same 5-tab nav, sub-mode drill-downs, busy/status footer, and search modal patterns. Adds the missing <strong>DELETE</strong> flow with two-stage type-to-confirm, plus soft-archive, merge-into-model, edit-fields/tags, JSON viewer, linked archive prints, duplicate-model detection, and Manyfold push/refresh. Companion design doc: <a href="../catalog-advanced-actions-design.md">catalog-advanced-actions-design.md</a>.</p>
+  </a>
 </div>
 
 <p class="section-title">Working Files</p>
@@ -93,7 +98,7 @@
 </div>
 
 <div class="footer">
-  These mockups are <strong>design proposals</strong>, not deployment artefacts. They live under <code>docs/features/model_catalog/design/</code> and are not loaded by Lovelace, so no <code>_resources.yaml</code> bump is required. The actual implementation targets are <code>homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js</code> and <code>model-catalog-working-files-explorer-card.js</code>.
+  These mockups are <strong>design proposals</strong>, not deployment artefacts. They live under <code>docs/features/model_catalog/design/</code> and are not loaded by Lovelace, so no <code>_resources.yaml</code> bump is required. The actual implementation targets are <code>homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js</code>, <code>model-catalog-working-files-explorer-card.js</code>, and the new <code>model-catalog-advanced-actions-card.js</code>.
 </div>
 
 </body>
