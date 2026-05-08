@@ -640,10 +640,27 @@ def estimate_3mf_complexity(
         plate_vertices = 0
         plate_triangles = 0
 
+        # Periodic ``root.clear()`` cadence. ET retains every vertex/triangle
+        # Element on its parent ``<vertices>`` / ``<triangles>`` container even
+        # when ``elem.clear()`` is called on the leaf (clear empties attrs but
+        # does not detach from the parent). Without periodic root flushing,
+        # parsing a multi-million-triangle mesh keeps millions of empty Element
+        # objects live, blowing up RSS. Flushing every N leaf events bounds
+        # peak memory to roughly N Element objects.
+        _ROOT_CLEAR_EVERY = 50_000
+
         for info in model_infos:
             with package.open(info) as raw:
                 current_object_id: str | None = None
-                for event, elem in ET.iterparse(raw, events=("start", "end")):
+                context = ET.iterparse(raw, events=("start", "end"))
+                root: ET.Element | None = None
+                events_since_clear = 0
+                for event, elem in context:
+                    if root is None:
+                        # First event is the root start; capture and continue.
+                        root = elem
+                        if event == "start":
+                            continue
                     local = _local_name(elem.tag)
                     if event == "start":
                         if local == "object":
@@ -657,7 +674,7 @@ def estimate_3mf_complexity(
                             and current_object_id in plate_allowed_ids
                         ):
                             plate_vertices += 1
-                        elem.clear()
+                        events_since_clear += 1
                     elif local == "triangle":
                         total_triangles += 1
                         if plate_allowed_ids is None or (
@@ -672,10 +689,18 @@ def estimate_3mf_complexity(
                                 raise GeometryTooComplexError(
                                     plate_triangles, triangle_budget
                                 )
-                        elem.clear()
+                        events_since_clear += 1
                     elif local == "object":
                         current_object_id = None
-                        elem.clear()
+                    if events_since_clear >= _ROOT_CLEAR_EVERY and root is not None:
+                        # Drop all accumulated children (parsed vertex/triangle
+                        # Element nodes plus any container nodes that have
+                        # ended). Safe because we never dereference parsed
+                        # Element state — object id is captured on ``start``.
+                        root.clear()
+                        events_since_clear = 0
+                if root is not None:
+                    root.clear()
 
     if plate_allowed_ids is not None:
         estimated_vertices = plate_vertices

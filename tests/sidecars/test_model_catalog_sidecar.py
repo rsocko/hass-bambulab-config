@@ -8045,3 +8045,43 @@ def test_geometry_endpoint_pre_rejects_via_estimator_before_full_parse(
     assert full_parser_invoked["value"] is False, (
         "Pre-flight estimator must reject before invoking the full parser"
     )
+
+
+def test_geometry_endpoint_skips_estimator_on_lod_cache_hit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Perf regression guard: on LOD cache hit the wrapper must NOT re-invoke
+    the pre-flight estimator (which is an iterparse pass over the entire
+    `.model` XML — wasted work when the cached payload already reflects a
+    previously-validated package).
+    """
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    app, _asset_path = _setup_local_3mf_geometry_app(tmp_path, monkeypatch)
+
+    # Spy on the estimator AFTER first request primes the cache so we measure
+    # only second-request behavior.
+    with TestClient(app) as test_client:
+        first = test_client.get("/api/models/local-pf/geometry/asset-1")
+    assert first.status_code == 200
+
+    estimator_calls = {"count": 0}
+    real_estimate = models_router.estimate_3mf_complexity
+
+    def _spy_estimate(*args: Any, **kwargs: Any) -> Any:
+        estimator_calls["count"] += 1
+        return real_estimate(*args, **kwargs)
+
+    monkeypatch.setattr(models_router, "estimate_3mf_complexity", _spy_estimate)
+
+    with TestClient(app) as test_client:
+        second = test_client.get("/api/models/local-pf/geometry/asset-1")
+
+    assert second.status_code == 200
+    assert estimator_calls["count"] == 0, (
+        "Estimator must not run on LOD cache hit"
+    )
+    # Introspection headers must still be populated from the cached geometry.
+    assert second.headers.get("X-Geometry-Reason") == "ok"
+    assert int(second.headers["X-Geometry-Estimated-Triangles"]) >= 1
+    assert int(second.headers["X-Geometry-Plate-Count"]) >= 1
