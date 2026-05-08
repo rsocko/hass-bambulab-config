@@ -1392,6 +1392,38 @@ def test_extract_3mf_geometry_returns_multiple_color_groups_for_multi_part_model
     assert {group["extruder"] for group in payload["groups"]} == {1, 2}
 
 
+def test_dominant_extruder_from_paint_color_handles_simple_and_subdivided() -> None:
+    """Unit test for the per-triangle paint_color decoder. Bambu / Orca
+    encode a single-color whole triangle as a one-char hex value (= the
+    extruder index). Subdivided triangles use longer strings where each
+    character is a tree-walk node state; the *first non-zero* nibble is the
+    closest single-color preview proxy.
+    """
+    from sidecars.model_catalog.app.geometry_3mf import (
+        _dominant_extruder_from_paint_color,
+    )
+
+    # Empty / sentinel -> no override (caller falls back to object extruder).
+    assert _dominant_extruder_from_paint_color("") == 0
+    assert _dominant_extruder_from_paint_color(None) == 0
+    assert _dominant_extruder_from_paint_color("0") == 0
+
+    # Single-char whole-triangle paint -> exact extruder index.
+    assert _dominant_extruder_from_paint_color("1") == 1
+    assert _dominant_extruder_from_paint_color("4") == 4
+    assert _dominant_extruder_from_paint_color("C") == 12
+    assert _dominant_extruder_from_paint_color("0xC") == 12
+
+    # Multi-char (subdivided) -> first non-zero nibble wins. This is the
+    # critical fix vs. the older "most-frequent" heuristic, which would
+    # have returned 4 for "4C" (tie -> smallest) but 4 for "C4" too --
+    # losing the leading state. The new behaviour preserves leading-state.
+    assert _dominant_extruder_from_paint_color("4C") == 4
+    assert _dominant_extruder_from_paint_color("C4") == 12
+    assert _dominant_extruder_from_paint_color("0024") == 2
+    assert _dominant_extruder_from_paint_color("zzz") == 0
+
+
 def test_extract_3mf_geometry_splits_groups_by_per_triangle_paint_color() -> None:
     """Paint-painted Bambu/Orca 3MFs encode AMS color assignment as
     ``paint_color`` attributes on individual <triangle> elements inside a

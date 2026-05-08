@@ -4,6 +4,7 @@ import array
 from dataclasses import dataclass, field
 from io import BytesIO
 import json
+import os
 import posixpath
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -153,38 +154,85 @@ def _color_for_extruder(extruder: int | None, palette: list[str]) -> str | None:
     return None
 
 
+# Diagnostic ring buffer of recently decoded paint_color values. Populated
+# only when the MODEL_CATALOG_PAINT_DEBUG env var is truthy. Useful when a
+# user reports "colors look wrong" — inspect via the geometry endpoint /
+# logs to confirm encoding assumptions against a real 3MF.
+_PAINT_COLOR_DEBUG_LIMIT = 32
+_PAINT_COLOR_DEBUG_SAMPLES: list[tuple[str, int]] = []
+
+
+def _paint_color_debug_enabled() -> bool:
+    return str(os.environ.get("MODEL_CATALOG_PAINT_DEBUG") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _dominant_extruder_from_paint_color(value: Any) -> int:
     """Decode a Bambu Studio / OrcaSlicer ``paint_color`` (or legacy
-    ``mmu_segmentation``) attribute into a single dominant extruder index.
+    ``mmu_segmentation``) attribute into a single representative extruder
+    index for preview rendering.
 
-    The attribute is a hex-like string where each character is a 4-bit nibble
-    encoding the AMS / MMU painter state for the triangle. The full encoding
-    is a binary tree of triangle subdivisions, but for preview rendering we
-    only need the dominant filament — pick the most-frequent non-zero nibble.
-    Nibble ``0`` is the "background / unpainted" sentinel and means "fall
-    back to the object's extruder", so we return ``0`` in that case.
+    The attribute is a hex string. For a *whole-triangle* paint (most
+    common case), the value is a single hex digit equal to the AMS
+    extruder/slot index (1-15). For a *subdivided* triangle (different
+    sub-regions painted different colors), the value is longer and encodes
+    a triangle-subdivision tree where each character is a 4-bit node state
+    in depth-first order, with `0` meaning "unpainted / inherit".
+
+    Strategy:
+      * Single-char value -> use it directly (this matches Bambu Studio's
+        per-triangle solid-paint encoding and is exact, not heuristic).
+      * Multi-char value  -> use the FIRST non-zero nibble. This is the
+        root-or-first-leaf state in the depth-first tree walk and is a
+        reasonable preview proxy. It is dramatically more accurate than
+        "most-frequent nibble" for subdivided triangles, where structural
+        bits of the tree encoding can dominate the histogram and produce
+        plausible-but-wrong colors.
 
     Returns the resolved 1-based extruder index, or ``0`` if no paint info
-    is present (caller should then fall back to inherited extruder).
+    is present (caller should then fall back to the inherited object
+    extruder).
     """
     text = str(value or "").strip()
     if not text:
         return 0
     if text.lower().startswith("0x"):
         text = text[2:]
-    counts: dict[int, int] = {}
-    for ch in text:
-        try:
-            nibble = int(ch, 16)
-        except ValueError:
-            continue
-        if nibble == 0:
-            continue
-        counts[nibble] = counts.get(nibble, 0) + 1
-    if not counts:
+    if not text:
         return 0
-    # Most frequent wins; ties broken by smallest index for determinism.
-    return max(counts.items(), key=lambda kv: (kv[1], -kv[0]))[0]
+
+    resolved = 0
+    if len(text) == 1:
+        try:
+            resolved = int(text, 16)
+        except ValueError:
+            resolved = 0
+    else:
+        for ch in text:
+            try:
+                nibble = int(ch, 16)
+            except ValueError:
+                continue
+            if nibble != 0:
+                resolved = nibble
+                break
+
+    if _paint_color_debug_enabled() and len(_PAINT_COLOR_DEBUG_SAMPLES) < _PAINT_COLOR_DEBUG_LIMIT:
+        _PAINT_COLOR_DEBUG_SAMPLES.append((text, resolved))
+        try:
+            import logging
+
+            logging.getLogger("model_catalog.geometry_3mf").info(
+                "paint_color sample raw=%r decoded_extruder=%d", text, resolved
+            )
+        except Exception:
+            pass
+
+    return resolved
 
 
 def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
