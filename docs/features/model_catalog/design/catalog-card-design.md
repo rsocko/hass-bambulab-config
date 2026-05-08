@@ -23,7 +23,7 @@ The proposal layers those jobs across the three view modes so each card type has
 | View | Dominant job | Density | Default desktop columns |
 | --- | --- | --- | --- |
 | **Compact** | Recognise + decide (high-volume browsing) | Information-dense | **3 columns ≥ 1280 px**, 2 columns 880–1279 px, 1 column < 880 px |
-| **Media** | Recognise (visual triage) | Photo-led | 2 columns ≥ 1100 px, 1 column < 1100 px |
+| **Media** | Recognise (visual triage) | Photo-led | **3 columns ≥ ~1000 px**, 2 columns ~660–999 px, 1 column < 660 px (auto-fit `minmax(320px, 1fr)`, parity with Print History media) |
 | **List** | Decide + scan against metric columns | Tabular density | Single column, full-width row |
 
 Print History is the closest reference inside the repo. The proposal **borrows its visual grammar** (rounded `ha-card` shells, dark translucent surfaces, pill-status chips, dot-style filament swatches with hover tooltips, action-row at the bottom of the content column) so a user moving between Print History and Model Catalog feels continuity. It **diverges** wherever a Print History pattern doesn't fit a model:
@@ -212,7 +212,9 @@ Columns (left → right):
 ## 6. Media view
 
 **Job:** visual-first triage; "which one looks right?"
-**Layout:** 2-column grid desktop; large 16:9 photo dominates the card; metadata sits beneath in a thin band.
+**Layout:** auto-fit grid (3 columns ≥ ~1000 px desktop, 2 columns ~660–999 px, 1 column < 660 px) using `repeat(auto-fit, minmax(320px, 1fr))` for parity with the print-history media grid. A **4:3** hero photo dominates the card; metadata sits beneath in a thin caption strip.
+
+**Why 4:3, not 16:10/16:9.** The source material driving this card is overwhelmingly square-ish: MakerWorld and Printables cover renders are 1:1, Manyfold renders trend square, and Bambu plate stills are 4:3. A wider 16:9/16:10 frame either letterboxes those or top/bottom-crops the model — exactly the part of the image needed for triage. 4:3 lets `object-fit: cover` honor the source without truncating the model. The narrower hero also shrinks the natural card width enough to fit three across at typical dashboard widths, matching the print-history media density the design borrows its grammar from (see §1).
 
 The media view is the closest analog to MakerWorld's and Printables's grid cards (see §7). The photo is **the** primary affordance; everything else is a thin caption strip with provenance pill, publish destination chips, and a single primary action (Open detail). The carousel arrows already wired up via `media-prev` / `media-next` in [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) sit overlaid at the bottom-center of the photo on hover.
 
