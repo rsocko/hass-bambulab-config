@@ -105,9 +105,18 @@ This makes fidelity changes explicit to end users.
 - Complexity guardrail remains in place after LOD transformation.
 - If payload still cannot be rendered interactively, endpoint returns 422 with clear error payload.
 
-## Next Steps (Phase C/D)
+## Phase C — Implemented (Issue #1219)
 
-1. Add server-side cache for LOD outputs keyed by model/file/plate/lod/source hash.
-2. Add optional offline derivative generation for simplified meshes.
-3. Evaluate worker-based binary rendering path to reduce JSON transport costs further.
-4. Add user control for requested detail tier (Auto/High/Medium/Low) in viewer UI.
+- In-process LRU cache for extracted+LOD-applied geometry payloads in `sidecars/model_catalog/app/routers/models.py`.
+- Cache key: `(sha256(package_bytes), normalized_plate_id, normalized_requested_lod)` — invalidates automatically when the underlying 3MF bytes change.
+- Bounds: up to `GEOMETRY_LOD_CACHE_MAX_ENTRIES = 64` entries and `GEOMETRY_LOD_CACHE_MAX_BYTES ≈ 256 MB` (vertex-count estimate); LRU eviction via `OrderedDict.move_to_end`.
+- Applies to both the local model and Manyfold geometry paths in `get_geometry_endpoint`.
+- Hit/miss is reported back in the response under `_debug.geometry_cache_hit` for telemetry and frontend diagnostics.
+- No on-disk persistence — cache is rebuilt on sidecar restart by design (keeps the deploy/restart contract simple and avoids stale-derivative risk).
+
+## Next Steps (Phase D and beyond)
+
+1. Add optional offline derivative generation for simplified meshes (persistent cache / pre-bake).
+2. Evaluate worker-based binary rendering path to reduce JSON transport costs further.
+3. Add user control for requested detail tier (Auto/High/Medium/Low) in viewer UI (issue #1220).
+4. Validation/telemetry pass: structured logging of `requested_lod`/`applied_lod`/cache hit + benchmarks (issue #1221).

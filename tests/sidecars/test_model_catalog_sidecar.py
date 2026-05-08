@@ -8,6 +8,7 @@ from io import BytesIO
 import json
 from pathlib import Path
 import sqlite3
+from typing import Any
 import zipfile
 
 import httpx
@@ -21,6 +22,16 @@ from sidecars.model_catalog.app.main import create_app
 from sidecars.model_catalog.app.manyfold import MANYFOLD_API_ACCEPT, ManyfoldClient, normalize_model_summary, read_cached_manyfold_summaries, refresh_manyfold_cache
 from sidecars.model_catalog.app.models import ManyfoldModelSummary
 from sidecars.model_catalog.app.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def _reset_geometry_lod_cache_between_tests() -> None:
+    """Avoid cross-test pollution of the in-process geometry LOD cache."""
+    from sidecars.model_catalog.app.routers import models as _models_router
+
+    _models_router._reset_geometry_lod_cache()
+    yield
+    _models_router._reset_geometry_lod_cache()
 
 
 def _build_settings(tmp_path: Path) -> Settings:
@@ -584,6 +595,233 @@ def test_apply_geometry_lod_auto_simplifies_triangle_payload(monkeypatch: pytest
     assert output_geometry["lod"]["simplified"] is True
     assert output_geometry["lod"]["source_triangle_count"] == 12
     assert output_geometry["lod"]["rendered_triangle_count"] == 3
+
+
+def test_extract_and_lod_geometry_cached_returns_cache_hit_for_same_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    models_router._reset_geometry_lod_cache()
+
+    call_count = {"value": 0}
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, object]:
+        call_count["value"] += 1
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": 1,
+            "vertices": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 1.0, "y": 1.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": plate_id,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    package_bytes = b"deterministic-3mf-bytes"
+
+    geom1, _req1, applied1, simplified1, hit1, hash1 = models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes,
+        plate_id=None,
+        requested_lod="auto",
+    )
+    assert hit1 is False
+    assert simplified1 is False
+    assert applied1 == "full"
+    assert call_count["value"] == 1
+
+    geom2, _req2, applied2, simplified2, hit2, hash2 = models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes,
+        plate_id=None,
+        requested_lod="auto",
+    )
+    assert hit2 is True
+    assert simplified2 is False
+    assert applied2 == "full"
+    assert hash2 == hash1
+    # Cache hit must skip extract entirely.
+    assert call_count["value"] == 1
+    assert geom2 is geom1
+
+
+def test_geometry_lod_cache_keys_distinguish_plate_and_lod(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    models_router._reset_geometry_lod_cache()
+
+    call_count = {"value": 0}
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, object]:
+        call_count["value"] += 1
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": 1,
+            "vertices": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 1.0, "y": 1.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": plate_id,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    package_bytes = b"deterministic-3mf-bytes"
+
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes, plate_id=None, requested_lod="auto"
+    )
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes, plate_id="plate-2", requested_lod="auto"
+    )
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes, plate_id=None, requested_lod="full"
+    )
+
+    # Three distinct cache keys → three extracts.
+    assert call_count["value"] == 3
+
+    # Repeating any of them should hit cache.
+    _g, _r, _a, _s, hit, _h = models_router._extract_and_lod_geometry_cached(
+        package_bytes=package_bytes, plate_id="plate-2", requested_lod="auto"
+    )
+    assert hit is True
+    assert call_count["value"] == 3
+
+
+def test_geometry_lod_cache_evicts_when_max_entries_exceeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    models_router._reset_geometry_lod_cache()
+    monkeypatch.setattr(models_router, "GEOMETRY_LOD_CACHE_MAX_ENTRIES", 2)
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, object]:
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": 1,
+            "vertices": [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 1.0, "y": 1.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": plate_id,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=b"file-a", plate_id=None, requested_lod="auto"
+    )
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=b"file-b", plate_id=None, requested_lod="auto"
+    )
+    models_router._extract_and_lod_geometry_cached(
+        package_bytes=b"file-c", plate_id=None, requested_lod="auto"
+    )
+
+    # file-a should have been evicted (LRU); requesting it again is a miss.
+    _g, _r, _a, _s, hit, _h = models_router._extract_and_lod_geometry_cached(
+        package_bytes=b"file-a", plate_id=None, requested_lod="auto"
+    )
+    assert hit is False
+    # file-c should still be cached.
+    _g, _r, _a, _s, hit_c, _h = models_router._extract_and_lod_geometry_cached(
+        package_bytes=b"file-c", plate_id=None, requested_lod="auto"
+    )
+    assert hit_c is True
+
+
+def test_geometry_endpoint_reports_cache_hit_in_debug(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(
+        settings, public_id="abc123", model_url="http://manyfold.test/models/abc123"
+    )
+    package_bytes = _build_simple_3mf()
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    models_router._reset_geometry_lod_cache()
+
+    def _fake_extract_3mf_geometry(
+        _package_bytes: bytes, plate_id: str | None = None
+    ) -> dict[str, object]:
+        return {
+            "format": "triangles",
+            "unit": "millimeter",
+            "coordinate_system": "printer_xyz",
+            "triangle_count": 1,
+            "vertices": [0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 20.0, 0.0],
+            "groups": [],
+            "dimensions_mm": {"x": 10.0, "y": 20.0, "z": 0.0},
+            "plates": [],
+            "selected_plate_id": None,
+            "color_info": {"available": False, "mode": "unavailable", "palette": []},
+        }
+
+    monkeypatch.setattr(models_router, "extract_3mf_geometry", _fake_extract_3mf_geometry)
+
+    class _GeometryClient:
+        base_url = "http://manyfold.test"
+
+        def list_model_files(self, _model_ref: str) -> list[dict[str, Any]]:
+            return [
+                {
+                    "id": "file123",
+                    "filename": "demo.3mf",
+                    "file_type": "model/3mf",
+                    "contentUrl": "http://manyfold.test/files/file123",
+                }
+            ]
+
+        def get_model_file_detail(self, _file_id: str, model_ref: str) -> dict[str, Any]:
+            return {"contentUrl": "http://manyfold.test/files/file123"}
+
+        def fetch_binary(self, _url: str) -> Any:
+            class _Response:
+                content = package_bytes
+
+            return _Response()
+
+        def close(self) -> None:
+            return None
+
+    app = create_app(settings=settings, manyfold_client=_GeometryClient())
+    with TestClient(app) as test_client:
+        first = test_client.get(
+            "/api/models/abc123/geometry/file123?include_debug=true"
+        )
+        assert first.status_code == 200
+        first_payload = first.json()
+        assert first_payload["_debug"]["geometry_cache_hit"] is False
+
+        second = test_client.get(
+            "/api/models/abc123/geometry/file123?include_debug=true"
+        )
+        assert second.status_code == 200
+        second_payload = second.json()
+        assert second_payload["_debug"]["geometry_cache_hit"] is True
 
 
 def test_geometry_endpoint_rejects_overly_complex_3mf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

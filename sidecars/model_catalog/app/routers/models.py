@@ -31,6 +31,7 @@ import shutil
 import sqlite3
 import time
 import uuid
+from collections import OrderedDict
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -58,7 +59,7 @@ from ..db import (
     upsert_model_ranking,
 )
 
-from ..geometry_3mf import extract_3mf_geometry
+from ..geometry_3mf import _compute_dimensions_mm, extract_3mf_geometry
 
 from ..local_models import (
     _UNSET,
@@ -137,6 +138,15 @@ GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
     "medium": 400_000,
 }
 GEOMETRY_LOD_VALUES = {"auto", "full", "medium", "low"}
+# Bounded in-process cache for LOD-applied geometry payloads. Keyed by a tuple
+# of (source_sha256, plate_id, requested_lod) so repeated viewer requests for
+# the same file/plate/lod skip 3MF extraction and decimation entirely.
+GEOMETRY_LOD_CACHE_MAX_ENTRIES = 64
+# Rough byte budget for cached geometry payloads (estimated from vertex array
+# length). Tuned to keep cache footprint near ~256 MB worst-case.
+GEOMETRY_LOD_CACHE_MAX_BYTES = 256 * 1024 * 1024
+_GEOMETRY_LOD_CACHE: "OrderedDict[tuple[str, str, str], dict[str, Any]]" = OrderedDict()
+_GEOMETRY_LOD_CACHE_TOTAL_BYTES: int = 0
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
 ALLOWED_UPLOAD_PHOTO_TYPES: dict[str, str] = {
     "image/jpeg": ".jpg",
@@ -280,6 +290,128 @@ def _apply_geometry_lod(geometry: dict[str, Any], lod: str | None) -> tuple[dict
         "rendered_triangle_count": rendered_triangle_count,
     }
     return output_geometry, requested_lod, applied_lod, rendered_triangle_count < source_triangle_count
+
+
+def _estimate_geometry_payload_bytes(geometry: dict[str, Any]) -> int:
+    """Rough byte estimate for cache accounting.
+
+    Vertices dominate payload size; each float is ~8 bytes when serialized as
+    JSON. Group vertex arrays are accounted separately because they are
+    duplicated alongside the flat vertex list.
+    """
+    total = 0
+    vertices = geometry.get("vertices")
+    if isinstance(vertices, list):
+        total += len(vertices) * 8
+    groups = geometry.get("groups")
+    if isinstance(groups, list):
+        for group in groups:
+            group_vertices = group.get("vertices") if isinstance(group, dict) else None
+            if isinstance(group_vertices, list):
+                total += len(group_vertices) * 8
+    return max(total, 1024)
+
+
+def _geometry_lod_cache_key(
+    *, source_sha256: str, plate_id: str | None, requested_lod: str
+) -> tuple[str, str, str]:
+    plate_key = str(plate_id or "").strip()
+    return (source_sha256, plate_key, requested_lod)
+
+
+def _geometry_lod_cache_get(
+    key: tuple[str, str, str],
+) -> dict[str, Any] | None:
+    entry = _GEOMETRY_LOD_CACHE.get(key)
+    if entry is None:
+        return None
+    _GEOMETRY_LOD_CACHE.move_to_end(key)
+    return entry
+
+
+def _geometry_lod_cache_put(
+    key: tuple[str, str, str],
+    *,
+    geometry: dict[str, Any],
+    applied_lod: str,
+    simplified: bool,
+) -> None:
+    global _GEOMETRY_LOD_CACHE_TOTAL_BYTES
+    if key in _GEOMETRY_LOD_CACHE:
+        previous = _GEOMETRY_LOD_CACHE.pop(key)
+        _GEOMETRY_LOD_CACHE_TOTAL_BYTES -= int(previous.get("estimated_bytes", 0) or 0)
+
+    estimated_bytes = _estimate_geometry_payload_bytes(geometry)
+    entry = {
+        "geometry": geometry,
+        "applied_lod": applied_lod,
+        "simplified": simplified,
+        "estimated_bytes": estimated_bytes,
+    }
+    _GEOMETRY_LOD_CACHE[key] = entry
+    _GEOMETRY_LOD_CACHE_TOTAL_BYTES += estimated_bytes
+
+    while _GEOMETRY_LOD_CACHE and (
+        len(_GEOMETRY_LOD_CACHE) > GEOMETRY_LOD_CACHE_MAX_ENTRIES
+        or _GEOMETRY_LOD_CACHE_TOTAL_BYTES > GEOMETRY_LOD_CACHE_MAX_BYTES
+    ):
+        _evicted_key, evicted = _GEOMETRY_LOD_CACHE.popitem(last=False)
+        _GEOMETRY_LOD_CACHE_TOTAL_BYTES -= int(evicted.get("estimated_bytes", 0) or 0)
+        if _GEOMETRY_LOD_CACHE_TOTAL_BYTES < 0:
+            _GEOMETRY_LOD_CACHE_TOTAL_BYTES = 0
+
+
+def _reset_geometry_lod_cache() -> None:
+    """Clear the LOD response cache. Test-only helper."""
+    global _GEOMETRY_LOD_CACHE_TOTAL_BYTES
+    _GEOMETRY_LOD_CACHE.clear()
+    _GEOMETRY_LOD_CACHE_TOTAL_BYTES = 0
+
+
+def _extract_and_lod_geometry_cached(
+    *, package_bytes: bytes, plate_id: str | None, requested_lod: str | None
+) -> tuple[dict[str, Any], str, str, bool, bool, str]:
+    """Extract 3MF geometry and apply LOD with response caching.
+
+    Returns: (geometry_payload, requested_lod, applied_lod, simplified, cache_hit, source_sha256)
+    """
+    requested_lod_norm = _normalize_geometry_lod(requested_lod)
+    source_sha256 = hashlib.sha256(package_bytes).hexdigest()
+    cache_key = _geometry_lod_cache_key(
+        source_sha256=source_sha256,
+        plate_id=plate_id,
+        requested_lod=requested_lod_norm,
+    )
+    cached = _geometry_lod_cache_get(cache_key)
+    if cached is not None:
+        return (
+            cached["geometry"],
+            requested_lod_norm,
+            str(cached.get("applied_lod") or requested_lod_norm),
+            bool(cached.get("simplified")),
+            True,
+            source_sha256,
+        )
+
+    raw_geometry = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+    geometry_payload, requested_lod_out, applied_lod, simplified = _apply_geometry_lod(
+        raw_geometry,
+        requested_lod_norm,
+    )
+    _geometry_lod_cache_put(
+        cache_key,
+        geometry=geometry_payload,
+        applied_lod=applied_lod,
+        simplified=simplified,
+    )
+    return (
+        geometry_payload,
+        requested_lod_out,
+        applied_lod,
+        simplified,
+        False,
+        source_sha256,
+    )
 
 
 def _local_summary_preview_url(*, entry: LocalModelEntry, db_path: Path | None = None) -> str | None:
@@ -3058,11 +3190,19 @@ def get_geometry_endpoint(
                         payload["_debug"] = debug_info
                     return JSONResponse(status_code=422, content=payload)
                 try:
-                    geometry_payload = extract_3mf_geometry(package_bytes, plate_id=plate_id)
-                    geometry_payload, _requested_lod, _applied_lod, simplified = _apply_geometry_lod(
+                    (
                         geometry_payload,
-                        requested_lod,
+                        _requested_lod,
+                        _applied_lod,
+                        simplified,
+                        cache_hit,
+                        _source_sha256,
+                    ) = _extract_and_lod_geometry_cached(
+                        package_bytes=package_bytes,
+                        plate_id=plate_id,
+                        requested_lod=requested_lod,
                     )
+                    debug_info["geometry_cache_hit"] = cache_hit
                     if simplified:
                         response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
                     complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
@@ -3135,11 +3275,19 @@ def get_geometry_endpoint(
             if is_3mf and source_url:
                 try:
                     binary_response = client.fetch_binary(source_url)
-                    geometry_payload = extract_3mf_geometry(binary_response.content, plate_id=plate_id)
-                    geometry_payload, _requested_lod, _applied_lod, simplified = _apply_geometry_lod(
+                    (
                         geometry_payload,
-                        requested_lod,
+                        _requested_lod,
+                        _applied_lod,
+                        simplified,
+                        cache_hit,
+                        _source_sha256,
+                    ) = _extract_and_lod_geometry_cached(
+                        package_bytes=binary_response.content,
+                        plate_id=plate_id,
+                        requested_lod=requested_lod,
                     )
+                    debug_info["geometry_cache_hit"] = cache_hit
                     if simplified:
                         response_payload["viewer_notice"] = "Simplified preview applied for interactive performance"
                     complexity_payload = _build_geometry_complexity_error_payload(geometry_payload)
