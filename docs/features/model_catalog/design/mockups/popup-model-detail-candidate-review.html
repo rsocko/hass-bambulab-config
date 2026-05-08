@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog Popup Mockup - Candidate Review</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0d131b;
+    --shell: rgba(14, 20, 31, 0.96);
+    --pane: rgba(255, 255, 255, 0.03);
+    --pane-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(148, 166, 189, 0.22);
+    --line-strong: rgba(148, 166, 189, 0.38);
+    --text: #edf4ff;
+    --sub: #9db1cc;
+    --muted: #7186a3;
+    --mint: #66dbc9;
+    --blue: #8baeff;
+    --amber: #f8c05b;
+    --red: #ef7e7e;
+    --ok: #7fe0aa;
+    --shadow: 0 28px 58px rgba(0, 0, 0, 0.54);
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 14% 12%, rgba(102, 219, 201, 0.16), transparent 40%),
+      radial-gradient(circle at 84% 10%, rgba(139, 174, 255, 0.18), transparent 38%),
+      radial-gradient(circle at 50% 100%, rgba(248, 192, 91, 0.12), transparent 34%),
+      var(--bg);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+  }
+
+  body {
+    padding: clamp(16px, 3vw, 36px);
+  }
+
+  .head {
+    max-width: 1460px;
+    margin: 0 auto 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .head h1 {
+    margin: 0;
+    font-size: clamp(20px, 2.2vw, 30px);
+  }
+
+  .head p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--sub);
+    max-width: 920px;
+  }
+
+  .links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .links a {
+    text-decoration: none;
+    color: var(--sub);
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 11px;
+    background: var(--pane);
+  }
+
+  .links a.active {
+    color: var(--text);
+    border-color: var(--line-strong);
+    background: var(--pane-strong);
+  }
+
+  .shell {
+    max-width: 1460px;
+    margin: 0 auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 24px;
+    background: var(--shell);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .title strong {
+    display: block;
+    font-size: 14px;
+  }
+
+  .title span {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--sub);
+  }
+
+  .actions {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .actions button,
+  .bulk button,
+  .candidate-actions button,
+  .review-actions button {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--sub);
+    font-size: 11px;
+    padding: 6px 11px;
+  }
+
+  .actions button.primary,
+  .bulk button.primary,
+  .candidate-actions button.primary,
+  .review-actions button.primary {
+    color: #cbfff5;
+    border-color: rgba(102, 219, 201, 0.52);
+    background: rgba(102, 219, 201, 0.15);
+  }
+
+  .actions button.warn,
+  .bulk button.warn,
+  .candidate-actions button.warn {
+    color: #ffe6bd;
+    border-color: rgba(248, 192, 91, 0.52);
+    background: rgba(248, 192, 91, 0.16);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(380px, 0.9fr);
+    min-height: 720px;
+  }
+
+  .left {
+    border-right: 1px solid var(--line);
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .summary {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .summary strong {
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+
+  .summary p {
+    margin: 5px 0 0;
+    font-size: 12px;
+    color: var(--sub);
+    line-height: 1.5;
+    max-width: 760px;
+  }
+
+  .bulk {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: rgba(248, 192, 91, 0.07);
+  }
+
+  .bulk .stats {
+    font-size: 11px;
+    color: var(--sub);
+  }
+
+  .bulk .stats strong {
+    color: #ffe5b6;
+  }
+
+  .candidate-list {
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+
+  .candidate {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    overflow: hidden;
+  }
+
+  .candidate.selected {
+    border-color: rgba(102, 219, 201, 0.52);
+    box-shadow: 0 0 0 1px rgba(102, 219, 201, 0.22);
+  }
+
+  .candidate-head {
+    display: grid;
+    grid-template-columns: auto 64px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(148, 166, 189, 0.14);
+  }
+
+  .candidate-head input {
+    accent-color: var(--mint);
+  }
+
+  .candidate-head img {
+    width: 64px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+
+  .candidate-name {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .candidate-sub {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--sub);
+  }
+
+  .confidence {
+    display: grid;
+    justify-items: end;
+    gap: 4px;
+  }
+
+  .confidence .score {
+    font-size: 12px;
+    font-weight: 800;
+    color: #d4e1ff;
+  }
+
+  .confidence .band {
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 7px;
+    border: 1px solid rgba(139, 174, 255, 0.5);
+    background: rgba(139, 174, 255, 0.14);
+    color: #d8e5ff;
+  }
+
+  .candidate-body {
+    padding: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.78fr);
+    gap: 10px;
+  }
+
+  .signals,
+  .comparison {
+    border: 1px solid rgba(148, 166, 189, 0.16);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 9px;
+  }
+
+  .signals strong,
+  .comparison strong {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  .reason-list,
+  .compare-list {
+    display: grid;
+    gap: 6px;
+  }
+
+  .reason,
+  .compare-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+  }
+
+  .reason span,
+  .compare-row span {
+    color: var(--sub);
+  }
+
+  .reason b,
+  .compare-row b {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .status-good {
+    color: var(--ok);
+  }
+
+  .status-warn {
+    color: #ffd89e;
+  }
+
+  .status-bad {
+    color: #ffb2b2;
+  }
+
+  .candidate-actions {
+    padding: 0 10px 10px;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .right {
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .panel .h {
+    padding: 10px 11px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .focus {
+    padding: 10px 11px;
+    display: grid;
+    gap: 9px;
+  }
+
+  .focus .model {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .focus .meta {
+    font-size: 11px;
+    color: var(--sub);
+    line-height: 1.45;
+  }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chips span {
+    font-size: 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--sub);
+  }
+
+  .preview {
+    padding: 10px 11px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .preview-card {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 9px;
+    border: 1px solid rgba(148, 166, 189, 0.16);
+    border-radius: 10px;
+    padding: 7px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .preview-card img {
+    width: 100%;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+
+  .preview-card .name {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .preview-card .meta {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--sub);
+    line-height: 1.35;
+  }
+
+  .review-actions {
+    padding: 10px 11px;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .footnote {
+    max-width: 1460px;
+    margin: 12px auto 0;
+    font-size: 12px;
+    color: var(--sub);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  @media (max-width: 1140px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .left {
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .candidate-head {
+      grid-template-columns: auto 54px minmax(0, 1fr);
+      grid-template-areas:
+        "check thumb name"
+        "score score score";
+    }
+
+    .candidate-head input { grid-area: check; }
+    .candidate-head img { grid-area: thumb; width: 54px; height: 50px; }
+    .candidate-main { grid-area: name; }
+    .confidence {
+      grid-area: score;
+      justify-items: start;
+      grid-auto-flow: column;
+      align-items: center;
+    }
+
+    .candidate-body {
+      grid-template-columns: 1fr;
+    }
+
+    .bulk {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>Candidate Review Mockup</h1>
+    <p>Advanced Actions-style review surface for model-file to archive candidates. Confirmed matches stay in the main popup; this screen handles confidence-scored candidates, reasoning transparency, and bulk confirm/reject workflows.</p>
+  </div>
+  <div class="links">
+    <a href="index.html">Cards Index</a>
+    <a href="popup-model-detail.html">Popup Recommended</a>
+    <a href="popup-model-detail-alt.html">Popup Alternative</a>
+    <a class="active" href="popup-model-detail-candidate-review.html">Candidate Review</a>
+  </div>
+</div>
+
+<section class="shell">
+  <div class="topbar">
+    <div class="title">
+      <strong>Advanced Review · Archive Match Candidates</strong>
+      <span>Launched from Model Files / Print Profiles when the operator selects Review candidates.</span>
+    </div>
+    <div class="actions">
+      <button>Back To Popup</button>
+      <button class="warn">Defer All</button>
+      <button class="primary">Confirm Reviewed</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="left">
+      <div class="summary">
+        <strong>Review intent</strong>
+        <p>Use this surface only for uncertain archive links. Each row explains why a candidate exists, how strong the match is, and where the metadata diverges. The main popup should only show concise candidate summaries, not the full adjudication workflow.</p>
+      </div>
+
+      <div class="bulk">
+        <div class="stats"><strong>2 high-signal candidates</strong> selected from 5 total review items. Bulk actions should only affect explicit selections.</div>
+        <div class="actions">
+          <button class="primary">Confirm Selected</button>
+          <button class="warn">Reject Selected</button>
+          <button>Mark Unsure</button>
+        </div>
+      </div>
+
+      <div class="candidate-list">
+        <article class="candidate selected">
+          <div class="candidate-head">
+            <input type="checkbox" checked aria-label="select candidate" />
+            <img alt="candidate 1" src="https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=240&q=80" />
+            <div class="candidate-main">
+              <div class="candidate-name">magnet_bin_beta.3mf -> Archive #861</div>
+              <div class="candidate-sub">Filename similarity + near-identical print duration + matching printer family</div>
+            </div>
+            <div class="confidence">
+              <div class="score">72%</div>
+              <div class="band">Medium confidence</div>
+            </div>
+          </div>
+          <div class="candidate-body">
+            <div class="signals">
+              <strong>Match Signals</strong>
+              <div class="reason-list">
+                <div class="reason"><span>Filename token overlap</span><b class="status-good">Strong</b></div>
+                <div class="reason"><span>Estimated print duration</span><b class="status-good">3h 08m vs 3h 09m</b></div>
+                <div class="reason"><span>Plate count</span><b class="status-warn">2 vs unknown</b></div>
+                <div class="reason"><span>Color mode</span><b class="status-good">Single-color</b></div>
+                <div class="reason"><span>Manual history</span><b class="status-bad">No prior confirmation</b></div>
+              </div>
+            </div>
+            <div class="comparison">
+              <strong>Comparison</strong>
+              <div class="compare-list">
+                <div class="compare-row"><span>File profile</span><b>0.24 mm / Tree support</b></div>
+                <div class="compare-row"><span>Archive notes</span><b>Beta fit test on P1S</b></div>
+                <div class="compare-row"><span>Printer</span><b>P1S</b></div>
+                <div class="compare-row"><span>Last outcome</span><b class="status-bad">Failed</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="candidate-actions">
+            <button class="primary">Confirm Match</button>
+            <button class="warn">Reject</button>
+            <button>Open Archive</button>
+            <button>Need More Evidence</button>
+          </div>
+        </article>
+
+        <article class="candidate">
+          <div class="candidate-head">
+            <input type="checkbox" aria-label="select candidate" />
+            <img alt="candidate 2" src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=240&q=80" />
+            <div class="candidate-main">
+              <div class="candidate-name">hex_tile_fast.3mf -> Archive #871</div>
+              <div class="candidate-sub">Duration proximity is strong, but plate topology differs and archive naming is generic</div>
+            </div>
+            <div class="confidence">
+              <div class="score">68%</div>
+              <div class="band">Medium confidence</div>
+            </div>
+          </div>
+          <div class="candidate-body">
+            <div class="signals">
+              <strong>Match Signals</strong>
+              <div class="reason-list">
+                <div class="reason"><span>Filename token overlap</span><b class="status-warn">Partial</b></div>
+                <div class="reason"><span>Estimated print duration</span><b class="status-good">2h 52m vs 2h 59m</b></div>
+                <div class="reason"><span>Plate count</span><b class="status-bad">2 vs 4</b></div>
+                <div class="reason"><span>Color mode</span><b class="status-good">Single-color</b></div>
+                <div class="reason"><span>Archive fingerprint</span><b class="status-warn">Weak hash similarity</b></div>
+              </div>
+            </div>
+            <div class="comparison">
+              <strong>Comparison</strong>
+              <div class="compare-list">
+                <div class="compare-row"><span>File profile</span><b>0.24 mm / Fast profile</b></div>
+                <div class="compare-row"><span>Archive notes</span><b>Quick prototype</b></div>
+                <div class="compare-row"><span>Printer</span><b>P1S</b></div>
+                <div class="compare-row"><span>Last outcome</span><b class="status-good">Success</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="candidate-actions">
+            <button class="primary">Confirm Match</button>
+            <button class="warn">Reject</button>
+            <button>Open Archive</button>
+            <button>Compare More</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <aside class="right">
+      <section class="panel">
+        <div class="h">Focused File</div>
+        <div class="focus">
+          <div class="model">magnet_bin_beta.3mf</div>
+          <div class="meta">Plates: 2 | Est: 3h 08m | Colors: 1 | Single-color | Support: Tree | Last manually linked: never</div>
+          <div class="chips">
+            <span>3MF</span>
+            <span>P1S</span>
+            <span>Candidate review required</span>
+            <span>Collection: Gridfinity</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="h">Comparison Preview</div>
+        <div class="preview">
+          <div class="preview-card">
+            <img alt="file preview" src="https://images.unsplash.com/photo-1594552072238-b8a33785b261?auto=format&fit=crop&w=240&q=80" />
+            <div>
+              <div class="name">File Thumbnail</div>
+              <div class="meta">Derived 3MF preview, plate overview, and embedded slicer metadata.</div>
+            </div>
+          </div>
+          <div class="preview-card">
+            <img alt="archive preview" src="https://images.unsplash.com/photo-1517420879524-86d64ac2f339?auto=format&fit=crop&w=240&q=80" />
+            <div>
+              <div class="name">Archive Thumbnail</div>
+              <div class="meta">Archive photo + metadata summary to support quick visual verification before confirming.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="h">Review Rules</div>
+        <div class="focus">
+          <div class="meta">Confirmed matches should return to the main popup immediately. Rejected candidates should disappear from inline summaries and remain accessible only in diagnostics/history if needed.</div>
+          <div class="meta">Low-confidence or high-volume candidates should never overwhelm the main popup. This review surface absorbs that operational complexity.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="h">Final Actions</div>
+        <div class="review-actions">
+          <button class="primary">Save Decisions</button>
+          <button>Keep Reviewing</button>
+          <button class="warn">Close Without Applying</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<div class="footnote">
+  Hi-fidelity mockup only. This page represents the Advanced Actions review surface that sits behind the main model popup when candidate archive matches need human confirmation.
+</div>
+
+</body>
+</html>

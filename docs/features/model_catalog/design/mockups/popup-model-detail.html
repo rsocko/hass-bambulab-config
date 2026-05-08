@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog Popup Mockup - Recommended</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0b1220;
+    --bg-overlay: rgba(4, 8, 16, 0.76);
+    --bg-shell: linear-gradient(140deg, rgba(19, 29, 44, 0.96), rgba(18, 24, 34, 0.94));
+    --bg-card: rgba(255, 255, 255, 0.03);
+    --bg-card-strong: rgba(255, 255, 255, 0.06);
+    --border: rgba(155, 173, 196, 0.20);
+    --border-strong: rgba(155, 173, 196, 0.36);
+    --text: #ecf3ff;
+    --text-secondary: #9fb3cf;
+    --text-muted: #6f819b;
+    --accent: #56d5c5;
+    --accent-2: #7ea2ff;
+    --warn: #f9bd4b;
+    --ok: #58c378;
+    --danger: #f07474;
+    --shadow: 0 24px 64px rgba(0, 0, 0, 0.52);
+  }
+
+  html, body {
+    margin: 0;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 12% 20%, rgba(62, 123, 255, 0.20), transparent 38%),
+      radial-gradient(circle at 88% 12%, rgba(86, 213, 197, 0.16), transparent 42%),
+      radial-gradient(circle at 60% 95%, rgba(249, 189, 75, 0.12), transparent 34%),
+      var(--bg-page);
+    font-family: "Segoe UI", "Inter", "Avenir Next", system-ui, sans-serif;
+    min-height: 100%;
+  }
+
+  body {
+    padding: clamp(16px, 3.2vw, 42px);
+  }
+
+  .page-header {
+    max-width: 1400px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .page-header h1 {
+    margin: 0;
+    font-size: clamp(20px, 2.2vw, 30px);
+    letter-spacing: 0.01em;
+  }
+
+  .page-header p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    max-width: 860px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 7px 11px;
+    font-size: 12px;
+  }
+
+  .toolbar a.active {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--bg-card-strong);
+  }
+
+  .modal-stage {
+    max-width: 1400px;
+    margin: 0 auto;
+    border-radius: 26px;
+    padding: clamp(10px, 2vw, 20px);
+    background: var(--bg-overlay);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .popup {
+    border-radius: 22px;
+    background: var(--bg-shell);
+    border: 1px solid var(--border-strong);
+    overflow: hidden;
+  }
+
+  .popup-header {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .preview {
+    width: 132px;
+    height: 110px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #1d2f4a, #121a28);
+  }
+
+  .preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .preview .source-pill {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid rgba(126, 162, 255, 0.55);
+    background: rgba(26, 36, 58, 0.82);
+    color: #bbceff;
+    border-radius: 999px;
+    padding: 3px 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .meta h2 {
+    margin: 0;
+    font-size: clamp(17px, 1.8vw, 24px);
+    line-height: 1.2;
+  }
+
+  .meta .sub {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .chips {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+  }
+
+  .chip.queue { color: #ffe5ad; border-color: rgba(249, 189, 75, 0.42); background: rgba(249, 189, 75, 0.14); }
+  .chip.dest { color: #bfecff; border-color: rgba(126, 162, 255, 0.42); background: rgba(126, 162, 255, 0.16); }
+  .chip.prov { color: #aef3e6; border-color: rgba(86, 213, 197, 0.42); background: rgba(86, 213, 197, 0.14); }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .icon.viewer { border-color: rgba(86, 213, 197, 0.42); color: #a9fff2; background: rgba(86, 213, 197, 0.16); }
+  .icon.favorite { border-color: rgba(249, 189, 75, 0.42); color: #ffd777; background: rgba(249, 189, 75, 0.16); }
+  .icon.full { border-color: rgba(126, 162, 255, 0.42); color: #cbdaff; background: rgba(126, 162, 255, 0.14); }
+
+  .popup-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr);
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .panel .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .panel .title strong {
+    font-size: 13px;
+    letter-spacing: 0.03em;
+  }
+
+  .panel .title span {
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  .media-main {
+    position: relative;
+    padding: 12px;
+  }
+
+  .media-stage {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 320px;
+    background: linear-gradient(130deg, #1a253a, #0f1624);
+    position: relative;
+  }
+
+  .media-stage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .media-stage .badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 11px;
+    border: 1px solid rgba(126, 162, 255, 0.56);
+    background: rgba(17, 24, 37, 0.82);
+    color: #ccdcff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 700;
+  }
+
+  .media-stage .btn {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    border: 1px solid rgba(86, 213, 197, 0.6);
+    background: rgba(10, 20, 30, 0.84);
+    color: #a6fff2;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 5px 10px;
+  }
+
+  .filters {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filters .f {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .filters .f.active {
+    color: #d9f8f2;
+    border-color: rgba(86, 213, 197, 0.48);
+    background: rgba(86, 213, 197, 0.14);
+  }
+
+  .thumb-strip {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .thumb {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    position: relative;
+    background: #101a2a;
+  }
+
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb.active { border-color: rgba(86, 213, 197, 0.6); box-shadow: 0 0 0 1px rgba(86, 213, 197, 0.28); }
+
+  .thumb .tiny {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    font-size: 9px;
+    border-radius: 999px;
+    padding: 2px 5px;
+    background: rgba(5, 10, 18, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #c4d4eb;
+  }
+
+  .archives {
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .archive-tools {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+
+  .archive-tools span {
+    font-size: 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 4px 9px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .archive-tools span.active {
+    color: #ffe8b8;
+    border-color: rgba(249, 189, 75, 0.48);
+    background: rgba(249, 189, 75, 0.15);
+  }
+
+  .archive-card {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr) auto;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 7px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .archive-card img {
+    width: 100%;
+    height: 58px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .archive-card .name {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .archive-card .meta {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+
+  .archive-card .actions {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+  }
+
+  .archive-card .actions button {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 10px;
+    padding: 4px 7px;
+    white-space: nowrap;
+  }
+
+  .model-files {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .files-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .files-head strong {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .files-head span {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .file-toolbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 9px;
+    border-bottom: 1px solid rgba(155, 173, 196, 0.16);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .file-toolbar button,
+  .candidate-banner button {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 4px 9px;
+  }
+
+  .file-toolbar button.primary,
+  .candidate-banner button.primary {
+    color: #d9f8f2;
+    border-color: rgba(86, 213, 197, 0.48);
+    background: rgba(86, 213, 197, 0.14);
+  }
+
+  .candidate-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 9px;
+    border-bottom: 1px solid rgba(155, 173, 196, 0.16);
+    background: rgba(249, 189, 75, 0.08);
+  }
+
+  .candidate-banner strong {
+    font-size: 10px;
+    color: #ffe5ad;
+    letter-spacing: 0.03em;
+  }
+
+  .candidate-banner span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .file-item {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 7px;
+    border-top: 1px solid rgba(155, 173, 196, 0.16);
+  }
+
+  .file-item:first-of-type {
+    border-top: none;
+  }
+
+  .file-item.confirmed {
+    background: linear-gradient(90deg, rgba(88, 195, 120, 0.08), rgba(255, 255, 255, 0.02));
+  }
+
+  .file-item.candidate {
+    background: linear-gradient(90deg, rgba(249, 189, 75, 0.08), rgba(255, 255, 255, 0.02));
+  }
+
+  .file-item img {
+    width: 100%;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+
+  .file-main .row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .file-main .name {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .type-chip {
+    font-size: 9px;
+    border-radius: 999px;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .type-chip.mf3 {
+    color: #bfecff;
+    border-color: rgba(126, 162, 255, 0.46);
+    background: rgba(126, 162, 255, 0.16);
+  }
+
+  .type-chip.stl {
+    color: #d6ffd4;
+    border-color: rgba(88, 195, 120, 0.42);
+    background: rgba(88, 195, 120, 0.16);
+  }
+
+  .file-meta {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+
+  .file-extra {
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .match {
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    min-width: 118px;
+  }
+
+  .match .state {
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    text-align: center;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .match .state.yes {
+    color: #c9ffe0;
+    border-color: rgba(88, 195, 120, 0.46);
+    background: rgba(88, 195, 120, 0.16);
+  }
+
+  .match .state.partial {
+    color: #ffe3b2;
+    border-color: rgba(249, 189, 75, 0.5);
+    background: rgba(249, 189, 75, 0.16);
+  }
+
+  .confidence {
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid rgba(126, 162, 255, 0.46);
+    color: #c9dcff;
+    background: rgba(126, 162, 255, 0.14);
+    padding: 2px 6px;
+    text-align: center;
+  }
+
+  .compact-mobile-note {
+    display: none;
+    padding: 7px 9px;
+    border-top: 1px dashed rgba(155, 173, 196, 0.18);
+    color: var(--text-muted);
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .match button {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+
+  .details-grid {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .kv {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 7px 8px;
+  }
+
+  .kv .k {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .kv .v {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .footer-note {
+    max-width: 1400px;
+    margin: 12px auto 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  @media (max-width: 1080px) {
+    .popup-header {
+      grid-template-columns: 110px minmax(0, 1fr);
+      grid-template-areas:
+        "preview meta"
+        "actions actions";
+    }
+
+    .preview { grid-area: preview; width: 110px; height: 94px; }
+    .meta { grid-area: meta; }
+    .header-actions { grid-area: actions; justify-content: flex-end; }
+
+    .popup-body {
+      grid-template-columns: 1fr;
+    }
+
+    .thumb-strip {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .thumb-strip {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .details-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .archive-card {
+      grid-template-columns: 60px minmax(0, 1fr);
+      grid-template-areas:
+        "img text"
+        "actions actions";
+    }
+
+    .archive-card img { grid-area: img; height: 52px; }
+    .archive-card .text { grid-area: text; }
+    .archive-card .actions { grid-area: actions; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .file-item {
+      grid-template-columns: 50px minmax(0, 1fr);
+      grid-template-areas:
+        "thumb main"
+        "match match";
+    }
+
+    .file-item img { grid-area: thumb; height: 48px; }
+    .file-main { grid-area: main; }
+    .match {
+      grid-area: match;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      min-width: 0;
+    }
+
+    .file-extra {
+      display: none;
+    }
+
+    .candidate-banner {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .compact-mobile-note {
+      display: block;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Model Catalog Popup Mockup</h1>
+    <p>Recommended hybrid layout for issue #1376: Print History visual grammar with model-catalog-specific metadata. Includes top-right compact actions, media source filters (uploaded vs derived 3MF), thumbnail rail under main image, full-size viewer affordance, and related archives workspace.</p>
+  </div>
+  <div class="toolbar">
+    <a href="index.html">Cards Index</a>
+    <a class="active" href="popup-model-detail.html">Popup Recommended</a>
+    <a href="popup-model-detail-alt.html">Popup Alternative</a>
+    <a href="popup-model-detail-candidate-review.html">Candidate Review</a>
+  </div>
+</div>
+
+<div class="modal-stage">
+  <div class="popup">
+
+    <div class="popup-header">
+      <div class="preview">
+        <img alt="model preview" src="https://images.unsplash.com/photo-1594552072238-b8a33785b261?auto=format&fit=crop&w=640&q=80" />
+        <span class="source-pill">DERIVED 3MF</span>
+      </div>
+
+      <div class="meta">
+        <h2>Gridfinity Screw + Magnet Bin</h2>
+        <div class="sub">by Robert S. | Collection: Storage / Gridfinity</div>
+        <div class="chips">
+          <span class="chip prov">Custom Unique</span>
+          <span class="chip queue">Queued (P1S)</span>
+          <span class="chip dest">MakerWorld</span>
+          <span class="chip dest">Manyfold</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="icon viewer" title="Open 3D viewer">3D</button>
+        <button class="icon favorite" title="Favorite">*</button>
+        <button class="icon" title="Advanced actions">...</button>
+        <button class="icon full" title="Open full-size image">[]</button>
+        <button class="icon" title="Close">x</button>
+      </div>
+    </div>
+
+    <div class="popup-body">
+
+      <section class="panel">
+        <div class="title">
+          <strong>Media Workspace</strong>
+          <span>9 items | source-aware</span>
+        </div>
+        <div class="media-main">
+          <div class="media-stage">
+            <img alt="selected image" src="https://images.unsplash.com/photo-1605600659873-d808a13e4d45?auto=format&fit=crop&w=1200&q=80" />
+            <span class="badge">Uploaded Photo</span>
+            <button class="btn">Open Full Size</button>
+          </div>
+
+          <div class="filters">
+            <span class="f active">All</span>
+            <span class="f">Uploaded</span>
+            <span class="f">Derived 3MF</span>
+            <span class="f">Asset Images</span>
+          </div>
+
+          <div class="thumb-strip">
+            <div class="thumb active"><img alt="t1" src="https://images.unsplash.com/photo-1605600659908-0ef719419d41?auto=format&fit=crop&w=300&q=80" /><span class="tiny">UP</span></div>
+            <div class="thumb"><img alt="t2" src="https://images.unsplash.com/photo-1594552072238-b8a33785b261?auto=format&fit=crop&w=300&q=80" /><span class="tiny">3MF</span></div>
+            <div class="thumb"><img alt="t3" src="https://images.unsplash.com/photo-1581092335878-1d9ff4d6b9f7?auto=format&fit=crop&w=300&q=80" /><span class="tiny">UP</span></div>
+            <div class="thumb"><img alt="t4" src="https://images.unsplash.com/photo-1604079628049-94301bb21b91?auto=format&fit=crop&w=300&q=80" /><span class="tiny">ASSET</span></div>
+            <div class="thumb"><img alt="t5" src="https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=300&q=80" /><span class="tiny">UP</span></div>
+            <div class="thumb"><img alt="t6" src="https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=300&q=80" /><span class="tiny">3MF</span></div>
+            <div class="thumb"><img alt="t7" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80" /><span class="tiny">UP</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="title">
+          <strong>Related Archives</strong>
+          <span>7 linked</span>
+        </div>
+        <div class="archives">
+          <div class="archive-tools">
+            <span class="active">All</span>
+            <span>Success</span>
+            <span>Failed</span>
+            <span>Sort: Newest</span>
+          </div>
+
+          <article class="archive-card">
+            <img alt="archive" src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=200&q=80" />
+            <div class="text">
+              <div class="name">Archive #884 | Screw Bin V3</div>
+              <div class="meta">2026-05-02 | PLA Matte Black | 4h 12m | Success</div>
+            </div>
+            <div class="actions">
+              <button>View</button>
+              <button>Print Again</button>
+            </div>
+          </article>
+
+          <article class="archive-card">
+            <img alt="archive" src="https://images.unsplash.com/photo-1517420879524-86d64ac2f339?auto=format&fit=crop&w=200&q=80" />
+            <div class="text">
+              <div class="name">Archive #861 | Magnet Bin Beta</div>
+              <div class="meta">2026-04-25 | PETG Blue | 3h 08m | Failed</div>
+            </div>
+            <div class="actions">
+              <button>View</button>
+              <button>Analyze</button>
+            </div>
+          </article>
+
+          <div class="model-files">
+            <div class="files-head">
+              <strong>Model Files / Print Profiles</strong>
+              <span>Confirmed inline, candidates summarized + reviewable</span>
+            </div>
+
+            <div class="file-toolbar">
+              <button class="primary">Review 2 candidates</button>
+              <button>Confirm selected</button>
+              <button>Reject selected</button>
+            </div>
+
+            <div class="candidate-banner">
+              <div>
+                <strong>Candidate matches are review-first</strong>
+                <span>Main popup shows summary only; detailed adjudication opens from Advanced Actions.</span>
+              </div>
+              <button class="primary">Open Candidate Review</button>
+            </div>
+
+            <div class="file-item confirmed">
+              <img alt="file thumb" src="https://images.unsplash.com/photo-1594552072238-b8a33785b261?auto=format&fit=crop&w=200&q=80" />
+              <div class="file-main">
+                <div class="row">
+                  <span class="name">screw-bin_v3.3mf</span>
+                  <span class="type-chip mf3">3MF</span>
+                </div>
+                <div class="file-meta">Plates: 3 | Est: 4h 12m | Colors: 2 | Multi-color | 0.20 mm</div>
+                <div class="file-extra">Match reason: filename + plate fingerprint + confirmed operator link</div>
+              </div>
+              <div class="match">
+                <span class="state yes">Confirmed: #884</span>
+                <span class="confidence">98% confidence</span>
+                <button>Open Match</button>
+              </div>
+            </div>
+
+            <div class="file-item candidate">
+              <img alt="file thumb" src="https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&w=200&q=80" />
+              <div class="file-main">
+                <div class="row">
+                  <span class="name">magnet_bin_beta.3mf</span>
+                  <span class="type-chip mf3">3MF</span>
+                </div>
+                <div class="file-meta">Plates: 2 | Est: 3h 08m | Colors: 1 | Single color | Support: Tree</div>
+                <div class="file-extra">Candidate reason: filename similarity + near-identical estimated time</div>
+              </div>
+              <div class="match">
+                <span class="state partial">Candidate: #861</span>
+                <span class="confidence">72% confidence</span>
+                <button>Review</button>
+              </div>
+            </div>
+
+            <div class="file-item">
+              <img alt="file thumb" src="https://images.unsplash.com/photo-1518779578993-ec3579fee39f?auto=format&fit=crop&w=200&q=80" />
+              <div class="file-main">
+                <div class="row">
+                  <span class="name">screw_bin_lid.stl</span>
+                  <span class="type-chip stl">STL</span>
+                </div>
+                <div class="file-meta">Plates: n/a | Est: n/a | Colors: n/a | Geometry-only source</div>
+                <div class="file-extra">No slicer metadata available; manual archive linking only.</div>
+              </div>
+              <div class="match">
+                <span class="state">No direct match</span>
+                <button>Link Archive</button>
+              </div>
+            </div>
+
+            <div class="compact-mobile-note">Mobile behavior: rows collapse to filename, type, state, and confidence first. Detail hints and bulk actions move behind the review surface.</div>
+          </div>
+
+          <div class="details-grid">
+            <div class="kv"><div class="k">Files</div><div class="v">11 (3MF 4, STL 5, IMG 2)</div></div>
+            <div class="kv"><div class="k">Success Rate</div><div class="v">71%</div></div>
+            <div class="kv"><div class="k">Last Outcome</div><div class="v" style="color: var(--danger);">Failed (spaghetti)</div></div>
+            <div class="kv"><div class="k">Filament Used</div><div class="v">478 g</div></div>
+            <div class="kv"><div class="k">Related Models</div><div class="v">5 candidates</div></div>
+            <div class="kv"><div class="k">Advanced</div><div class="v">Link Mgmt, Queue, Publish</div></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-note">
+  Hi-fidelity mockup only. Intended to inform implementation in model-detail-popup-card.js and related service payloads, not shipped as Lovelace runtime code.
+</div>
+
+</body>
+</html>
