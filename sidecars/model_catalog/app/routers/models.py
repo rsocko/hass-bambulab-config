@@ -63,6 +63,7 @@ from ..db import (
 from ..geometry_3mf import (
     GeometryTooComplexError,
     _compute_dimensions_mm,
+    estimate_3mf_complexity,
     extract_3mf_geometry,
     extract_3mf_plates_metadata,
 )
@@ -3136,6 +3137,11 @@ GEOMETRY_TELEMETRY_FIELDS: tuple[str, ...] = (
     "processing_ms",
     "status",
     "outcome",
+    # Issue #1379: pre-flight introspection telemetry.
+    "estimated_triangles",
+    "estimated_vertices",
+    "uncompressed_model_bytes",
+    "plate_count",
 )
 
 
@@ -3156,6 +3162,38 @@ def _classify_geometry_outcome(status_code: int, error_text: str | None) -> str:
     return "other"
 
 
+# Issue #1379: pre-flight + post-parse fields stashed on `request.state` by
+# `_get_geometry_endpoint_impl` so the wrapper can attach introspection
+# headers and emit richer telemetry without changing return signatures.
+_GEOMETRY_PREFLIGHT_STATE_ATTR = "geometry_preflight"
+
+
+def _build_geometry_introspection_headers(
+    preflight: dict[str, Any] | None, *, reason: str
+) -> dict[str, str]:
+    """Build X-Geometry-* response headers from preflight state (issue #1379).
+
+    Always emits ``X-Geometry-Reason``; other headers are emitted when the
+    corresponding field was populated (success or 422 paths populate them;
+    unrelated errors like 404/500 will only have the reason header).
+    """
+    headers: dict[str, str] = {"X-Geometry-Reason": reason or "ok"}
+    state = preflight or {}
+    if "source_bytes" in state:
+        headers["X-Geometry-Source-Bytes"] = str(int(state["source_bytes"]))
+    if "uncompressed_model_bytes" in state:
+        headers["X-Geometry-Uncompressed-Model-Bytes"] = str(
+            int(state["uncompressed_model_bytes"])
+        )
+    if "estimated_triangles" in state:
+        headers["X-Geometry-Estimated-Triangles"] = str(int(state["estimated_triangles"]))
+    if "estimated_vertices" in state:
+        headers["X-Geometry-Estimated-Vertices"] = str(int(state["estimated_vertices"]))
+    if "plate_count" in state:
+        headers["X-Geometry-Plate-Count"] = str(int(state["plate_count"]))
+    return headers
+
+
 def get_geometry_endpoint(
     request: Request,
     model_ref: str,
@@ -3174,6 +3212,7 @@ def get_geometry_endpoint(
     """
     requested_lod = _normalize_geometry_lod(lod)
     started_at = time.monotonic()
+    setattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, {})
     result = _get_geometry_endpoint_impl(
         request,
         model_ref=model_ref,
@@ -3209,11 +3248,27 @@ def get_geometry_endpoint(
 
     outcome = _classify_geometry_outcome(status_code, str(error_text) if error_text else None)
 
+    # Issue #1379: pull pre-flight introspection state (if the impl populated it).
+    preflight: dict[str, Any] = getattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, None) or {}
+    estimated_triangles = preflight.get("estimated_triangles")
+    estimated_vertices = preflight.get("estimated_vertices")
+    uncompressed_model_bytes = preflight.get("uncompressed_model_bytes")
+    plate_count = preflight.get("plate_count")
+
+    # Reason header semantics: ok | too_large | too_complex | no_geometry | <other outcomes>.
+    # `no_geometry` distinguishes a successful response that returned no mesh
+    # data (e.g. STL passthrough or unparseable 3MF) from a normal `ok`.
+    reason = outcome
+    if reason == "ok" and isinstance(body, dict) and not body.get("geometry"):
+        reason = "no_geometry"
+
     logger.info(
         "geometry_request "
         "model_ref=%s file_id=%s lod_requested=%s lod_applied=%s simplified=%s "
         "source_triangles=%s rendered_triangles=%s package_size_bytes=%s "
-        "cache_hit=%s processing_ms=%.1f status=%d outcome=%s",
+        "cache_hit=%s processing_ms=%.1f status=%d outcome=%s "
+        "estimated_triangles=%s estimated_vertices=%s "
+        "uncompressed_model_bytes=%s plate_count=%s",
         model_ref,
         file_id,
         requested_lod,
@@ -3226,11 +3281,22 @@ def get_geometry_endpoint(
         processing_ms,
         status_code,
         outcome,
+        estimated_triangles,
+        estimated_vertices,
+        uncompressed_model_bytes,
+        plate_count,
     )
 
     if include_debug and isinstance(result, dict) and isinstance(result.get("_debug"), dict):
         result["_debug"]["processing_ms"] = round(processing_ms, 1)
 
+    headers = _build_geometry_introspection_headers(preflight, reason=reason)
+    if isinstance(result, JSONResponse):
+        for header_key, header_value in headers.items():
+            result.headers[header_key] = header_value
+        return result
+    if isinstance(result, dict):
+        return JSONResponse(status_code=200, content=result, headers=headers)
     return result
 
 
@@ -3312,6 +3378,8 @@ def _get_geometry_endpoint_impl(
             is_3mf = file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()
             if is_3mf:
                 package_bytes = storage_path.read_bytes()
+                preflight_state: dict[str, Any] = {"source_bytes": len(package_bytes)}
+                setattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, preflight_state)
                 if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
                     payload: dict[str, Any] = {
                         "error": "3MF package too large for server-side geometry extraction",
@@ -3320,6 +3388,37 @@ def _get_geometry_endpoint_impl(
                     }
                     if include_debug:
                         debug_info["local_storage_path"] = str(storage_path)
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
+
+                # Issue #1379: cheap pre-flight scan before full parse. Rejects
+                # pathological packages (e.g. ~80 MB zip with 50 M triangles)
+                # without paying full mesh-materialization cost. Also populates
+                # introspection state for response headers + telemetry.
+                try:
+                    estimate = estimate_3mf_complexity(
+                        package_bytes,
+                        plate_id=plate_id,
+                        triangle_budget=MAX_SERVER_SIDE_3MF_TRIANGLES,
+                    )
+                    preflight_state.update(
+                        estimated_triangles=estimate["estimated_triangles"],
+                        estimated_vertices=estimate["estimated_vertices"],
+                        uncompressed_model_bytes=estimate["uncompressed_model_bytes"],
+                        plate_count=estimate["plate_count"],
+                    )
+                except GeometryTooComplexError as too_complex:
+                    preflight_state.update(
+                        estimated_triangles=too_complex.triangle_count,
+                    )
+                    payload = {
+                        "error": "3MF geometry is too complex for interactive viewer rendering",
+                        "triangle_count": too_complex.triangle_count,
+                        "max_server_side_triangles": too_complex.budget,
+                    }
+                    if include_debug:
+                        debug_info["local_storage_path"] = str(storage_path)
+                        debug_info["preflight_rejected"] = True
                         payload["_debug"] = debug_info
                     return JSONResponse(status_code=422, content=payload)
                 try:
@@ -3418,6 +3517,49 @@ def _get_geometry_endpoint_impl(
             if is_3mf and source_url:
                 try:
                     binary_response = client.fetch_binary(source_url)
+                    package_bytes = binary_response.content
+                    preflight_state: dict[str, Any] = {"source_bytes": len(package_bytes)}
+                    setattr(request.state, _GEOMETRY_PREFLIGHT_STATE_ATTR, preflight_state)
+
+                    # Issue #1379: pre-flight scan rejects oversize/pathological
+                    # payloads before invoking the full parser, and populates
+                    # introspection state for response headers + telemetry.
+                    if len(package_bytes) > MAX_SERVER_SIDE_3MF_BYTES:
+                        payload = {
+                            "error": "3MF package too large for server-side geometry extraction",
+                            "package_size_bytes": len(package_bytes),
+                            "max_server_side_bytes": MAX_SERVER_SIDE_3MF_BYTES,
+                        }
+                        if include_debug:
+                            payload["_debug"] = debug_info
+                        return JSONResponse(status_code=422, content=payload)
+
+                    try:
+                        estimate = estimate_3mf_complexity(
+                            package_bytes,
+                            plate_id=plate_id,
+                            triangle_budget=MAX_SERVER_SIDE_3MF_TRIANGLES,
+                        )
+                        preflight_state.update(
+                            estimated_triangles=estimate["estimated_triangles"],
+                            estimated_vertices=estimate["estimated_vertices"],
+                            uncompressed_model_bytes=estimate["uncompressed_model_bytes"],
+                            plate_count=estimate["plate_count"],
+                        )
+                    except GeometryTooComplexError as preflight_too_complex:
+                        preflight_state.update(
+                            estimated_triangles=preflight_too_complex.triangle_count,
+                        )
+                        payload = {
+                            "error": "3MF geometry is too complex for interactive viewer rendering",
+                            "triangle_count": preflight_too_complex.triangle_count,
+                            "max_server_side_triangles": preflight_too_complex.budget,
+                        }
+                        if include_debug:
+                            debug_info["preflight_rejected"] = True
+                            payload["_debug"] = debug_info
+                        return JSONResponse(status_code=422, content=payload)
+
                     (
                         geometry_payload,
                         _requested_lod,
@@ -3426,7 +3568,7 @@ def _get_geometry_endpoint_impl(
                         cache_hit,
                         _source_sha256,
                     ) = _extract_and_lod_geometry_cached(
-                        package_bytes=binary_response.content,
+                        package_bytes=package_bytes,
                         plate_id=plate_id,
                         requested_lod=requested_lod,
                     )

@@ -553,6 +553,147 @@ def _load_object_graph(
     return object_map
 
 
+def estimate_3mf_complexity(
+    package_bytes: bytes,
+    *,
+    plate_id: str | None = None,
+    triangle_budget: int | None = None,
+) -> dict[str, Any]:
+    """Cheap pre-flight scan of a 3MF package (issue #1379).
+
+    Reads the zip central directory for uncompressed sizes of `.model` parts
+    and runs a shallow `iterparse` pass that counts ``<vertex>`` / ``<triangle>``
+    element opens **without storing any geometry and without reading their
+    attributes**. Per-object membership is tracked via ``<object id="...">``
+    so that a plate filter can project just the requested plate's totals.
+
+    Parameters
+    ----------
+    package_bytes:
+        The full zip bytes of the 3MF package.
+    plate_id:
+        Optional plate id; when provided, projection counts only triangles
+        whose containing ``<object id>`` is in that plate's ``object_ids``.
+        Without a plate filter (or when the file has no plate metadata) the
+        projection equals the total across all parts.
+    triangle_budget:
+        Optional ceiling. When the running plate-projected triangle count
+        exceeds the budget the scan raises :class:`GeometryTooComplexError`
+        mid-iteration so callers can short-circuit before invoking the full
+        geometry parser.
+
+    Returns
+    -------
+    dict with keys ``estimated_vertices``, ``estimated_triangles`` (the
+    plate-projected counts when a plate is selected), ``total_vertices``,
+    ``total_triangles`` (across all parts), ``uncompressed_model_bytes``,
+    ``plate_count``.
+
+    Notes
+    -----
+    Component-graph expansion is **not** performed by the estimator. An
+    allowed object whose ``<components>`` reference objects in a different
+    ``.model`` part will undercount that part. The full parser's in-parse
+    triangle budget (issue #1378) catches any undercount.
+    """
+    if not package_bytes:
+        raise ValueError("3MF package is empty")
+
+    with zipfile.ZipFile(BytesIO(package_bytes)) as package:
+        infos = package.infolist()
+        part_name_map = {_normalize_part_path(info.filename): info.filename for info in infos}
+
+        model_settings_text = _read_package_text(
+            package, part_name_map, "Metadata/model_settings.config"
+        )
+        plates, _object_extruders = _parse_model_settings_metadata(model_settings_text)
+        plate_count = len(plates)
+
+        requested_plate_id = str(plate_id or "").strip()
+        selected_plate: dict[str, Any] | None = None
+        if plates and requested_plate_id:
+            selected_plate = next(
+                (plate for plate in plates if str(plate.get("id")) == requested_plate_id),
+                None,
+            )
+            if selected_plate is None:
+                # Unknown plate id: fall back to first plate so the projection
+                # is well-defined rather than silently scanning everything.
+                selected_plate = plates[0]
+
+        plate_allowed_ids: set[str] | None = None
+        if selected_plate is not None:
+            ids = {str(object_id) for object_id in selected_plate.get("object_ids") or []}
+            if ids:
+                plate_allowed_ids = ids
+
+        uncompressed_model_bytes = 0
+        model_infos: list[zipfile.ZipInfo] = []
+        for info in infos:
+            normalized = _normalize_part_path(info.filename)
+            if normalized.endswith(".model"):
+                model_infos.append(info)
+                uncompressed_model_bytes += int(info.file_size or 0)
+
+        total_vertices = 0
+        total_triangles = 0
+        plate_vertices = 0
+        plate_triangles = 0
+
+        for info in model_infos:
+            with package.open(info) as raw:
+                current_object_id: str | None = None
+                for event, elem in ET.iterparse(raw, events=("start", "end")):
+                    local = _local_name(elem.tag)
+                    if event == "start":
+                        if local == "object":
+                            current_object_id = elem.get("id")
+                        continue
+                    # event == "end"
+                    if local == "vertex":
+                        total_vertices += 1
+                        if plate_allowed_ids is None or (
+                            current_object_id is not None
+                            and current_object_id in plate_allowed_ids
+                        ):
+                            plate_vertices += 1
+                        elem.clear()
+                    elif local == "triangle":
+                        total_triangles += 1
+                        if plate_allowed_ids is None or (
+                            current_object_id is not None
+                            and current_object_id in plate_allowed_ids
+                        ):
+                            plate_triangles += 1
+                            if (
+                                triangle_budget is not None
+                                and plate_triangles > triangle_budget
+                            ):
+                                raise GeometryTooComplexError(
+                                    plate_triangles, triangle_budget
+                                )
+                        elem.clear()
+                    elif local == "object":
+                        current_object_id = None
+                        elem.clear()
+
+    if plate_allowed_ids is not None:
+        estimated_vertices = plate_vertices
+        estimated_triangles = plate_triangles
+    else:
+        estimated_vertices = total_vertices
+        estimated_triangles = total_triangles
+
+    return {
+        "estimated_vertices": estimated_vertices,
+        "estimated_triangles": estimated_triangles,
+        "total_vertices": total_vertices,
+        "total_triangles": total_triangles,
+        "uncompressed_model_bytes": uncompressed_model_bytes,
+        "plate_count": plate_count,
+    }
+
+
 def extract_3mf_plates_metadata(package_bytes: bytes) -> dict[str, Any]:
     """Cheap metadata-only inspection: returns plates + palette without parsing
     any mesh data. Used by the raw-3MF fallback path for plate selection when
