@@ -1,12 +1,28 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import array
+from dataclasses import dataclass, field
 from io import BytesIO
 import json
 import posixpath
 from typing import Any
 from xml.etree import ElementTree as ET
 import zipfile
+
+
+_PRODUCTION_NS = "http://schemas.microsoft.com/3dmanufacturing/production/2015/06"
+_PRODUCTION_PATH_KEY = f"{{{_PRODUCTION_NS}}}path"
+
+
+class GeometryTooComplexError(ValueError):
+    """Raised when triangle count exceeds the configured budget during parse."""
+
+    def __init__(self, triangle_count: int, budget: int) -> None:
+        self.triangle_count = triangle_count
+        self.budget = budget
+        super().__init__(
+            f"3MF triangle count exceeded budget ({triangle_count} > {budget})"
+        )
 
 
 _UNIT_TO_MM: dict[str, float] = {
@@ -277,10 +293,26 @@ def _first_child(node: ET.Element, child_name: str) -> ET.Element | None:
     return None
 
 
-@dataclass(frozen=True)
+@dataclass
 class _Mesh:
-    vertices: list[tuple[float, float, float]]
-    triangles: list[tuple[int, int, int]]
+    # Flat storage: 'f' (float32) for vertex coordinates (3 per vertex);
+    # 'I' (uint32) for triangle indices (3 per triangle). Using array.array
+    # is ~10x more memory-efficient than list[tuple[float, float, float]] for
+    # large meshes (no per-element Python object overhead).
+    vertices: array.array
+    triangles: array.array
+
+    @property
+    def vertex_count(self) -> int:
+        return len(self.vertices) // 3
+
+    @property
+    def triangle_count(self) -> int:
+        return len(self.triangles) // 3
+
+    def vertex_at(self, index: int) -> tuple[float, float, float]:
+        base = index * 3
+        return (self.vertices[base], self.vertices[base + 1], self.vertices[base + 2])
 
 
 @dataclass(frozen=True)
@@ -293,7 +325,7 @@ class _ComponentRef:
 @dataclass(frozen=True)
 class _ObjectDef:
     mesh: _Mesh | None
-    components: list[_ComponentRef]
+    components: list[_ComponentRef] = field(default_factory=list)
 
 
 def _resolve_component_part_path(current_part_path: str, target_path: Any) -> str:
@@ -308,20 +340,235 @@ def _resolve_component_part_path(current_part_path: str, target_path: Any) -> st
     return _normalize_part_path(posixpath.join(current_dir, normalized_target))
 
 
-def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -> dict[str, Any]:
+def _parse_model_part_lazy(
+    raw_bytes: bytes,
+    *,
+    current_part_path: str,
+    object_id_filter: set[str] | None = None,
+) -> tuple[dict[str, _ObjectDef], list[str]]:
+    """Stream-parse a single .model part using ``ET.iterparse``.
+
+    Only objects whose id is in ``object_id_filter`` (or all if filter is None)
+    have their mesh data materialized. Other objects are skipped and their XML
+    elements cleared as we go, keeping memory bounded by the materialized set
+    rather than the whole part.
+
+    Returns ``(objects, build_object_ids)`` where ``build_object_ids`` is the
+    ordered list of objectid references encountered in the ``<build>`` block
+    (only meaningful for the root model part).
+    """
+    objects: dict[str, _ObjectDef] = {}
+    build_object_ids: list[str] = []
+    unit_scale = 1.0
+
+    # Stack tracks open <object> elements (typically depth 1).
+    object_stack: list[dict[str, Any]] = []
+    in_build = False
+    root_seen = False
+
+    source = BytesIO(raw_bytes)
+    for event, elem in ET.iterparse(source, events=("start", "end")):
+        tag = _local_name(elem.tag)
+
+        if event == "start":
+            if not root_seen:
+                root_seen = True
+                unit = str(elem.attrib.get("unit") or "millimeter").strip().lower()
+                unit_scale = _UNIT_TO_MM.get(unit, 1.0)
+                continue
+
+            if tag == "build":
+                in_build = True
+            elif tag == "object":
+                object_id = str(elem.attrib.get("id") or "").strip()
+                allowed = object_id_filter is None or object_id in object_id_filter
+                object_stack.append(
+                    {
+                        "id": object_id,
+                        "allowed": allowed,
+                        "vertices": array.array("f") if allowed else None,
+                        "triangles": array.array("I") if allowed else None,
+                        "components": [],
+                    }
+                )
+            continue
+
+        # event == "end"
+        if tag == "vertex":
+            if object_stack and object_stack[-1]["allowed"]:
+                top = object_stack[-1]
+                try:
+                    top["vertices"].append(float(elem.attrib.get("x", 0.0)) * unit_scale)
+                    top["vertices"].append(float(elem.attrib.get("y", 0.0)) * unit_scale)
+                    top["vertices"].append(float(elem.attrib.get("z", 0.0)) * unit_scale)
+                except (TypeError, ValueError):
+                    pass
+            elem.clear()
+        elif tag == "triangle":
+            if object_stack and object_stack[-1]["allowed"]:
+                top = object_stack[-1]
+                try:
+                    top["triangles"].append(int(elem.attrib.get("v1", 0)))
+                    top["triangles"].append(int(elem.attrib.get("v2", 0)))
+                    top["triangles"].append(int(elem.attrib.get("v3", 0)))
+                except (TypeError, ValueError):
+                    pass
+            elem.clear()
+        elif tag == "component":
+            if object_stack and object_stack[-1]["allowed"]:
+                component_object_id = str(elem.attrib.get("objectid") or "").strip()
+                if component_object_id:
+                    path_attr = elem.attrib.get("path") or elem.attrib.get(_PRODUCTION_PATH_KEY)
+                    component_path = _resolve_component_part_path(current_part_path, path_attr)
+                    object_stack[-1]["components"].append(
+                        _ComponentRef(
+                            part_path=component_path,
+                            object_id=component_object_id,
+                            transform=_parse_transform(elem.attrib.get("transform")),
+                        )
+                    )
+            elem.clear()
+        elif tag in ("vertices", "triangles", "mesh", "components"):
+            elem.clear()
+        elif tag == "object":
+            if object_stack:
+                top = object_stack.pop()
+                if top["allowed"]:
+                    mesh: _Mesh | None = None
+                    if top["vertices"] and top["triangles"]:
+                        mesh = _Mesh(vertices=top["vertices"], triangles=top["triangles"])
+                    objects[top["id"]] = _ObjectDef(mesh=mesh, components=list(top["components"]))
+            elem.clear()
+        elif tag == "item":
+            if in_build:
+                obj_id = str(elem.attrib.get("objectid") or "").strip()
+                if obj_id:
+                    transform_attr = elem.attrib.get("transform")
+                    build_object_ids.append(obj_id)
+                    # Stash transform back as attribute on a sentinel for later read.
+                    objects.setdefault("__build_transforms__", _ObjectDef(mesh=None, components=[]))
+                    # Use a separate side channel below.
+            elem.clear()
+        elif tag == "build":
+            in_build = False
+            elem.clear()
+
+    objects.pop("__build_transforms__", None)
+    return objects, build_object_ids
+
+
+def _parse_root_build_items(
+    raw_bytes: bytes,
+    *,
+    root_part_path: str,
+) -> list[tuple[str, str, list[list[float]]]]:
+    """Light-weight extraction of ``<build><item .../></build>`` entries from
+    the root .model part. Streamed so we do not allocate object meshes here.
+    """
+    items: list[tuple[str, str, list[list[float]]]] = []
+    in_build = False
+    root_seen = False
+    source = BytesIO(raw_bytes)
+    for event, elem in ET.iterparse(source, events=("start", "end")):
+        tag = _local_name(elem.tag)
+        if event == "start":
+            if not root_seen:
+                root_seen = True
+                continue
+            if tag == "build":
+                in_build = True
+            continue
+        if tag == "item" and in_build:
+            obj_id = str(elem.attrib.get("objectid") or "").strip()
+            if obj_id:
+                items.append(
+                    (root_part_path, obj_id, _parse_transform(elem.attrib.get("transform")))
+                )
+            elem.clear()
+        elif tag == "build":
+            in_build = False
+            elem.clear()
+        elif tag in ("vertex", "triangle", "vertices", "triangles", "mesh", "object"):
+            # Aggressively drop mesh data we are not interested in here.
+            elem.clear()
+    return items
+
+
+def _load_object_graph(
+    package: zipfile.ZipFile,
+    part_name_map: dict[str, str],
+    *,
+    root_part_path: str,
+    root_allowed_ids: set[str] | None,
+) -> dict[tuple[str, str], _ObjectDef]:
+    """Lazily load only the (part_path, object_id) subgraph reachable from the
+    root build items of the selected plate.
+
+    The root .model part is parsed with ``object_id_filter=root_allowed_ids``
+    so that meshes for objects belonging to non-selected plates are skipped
+    entirely. Component-referenced child .model parts are loaded fully because
+    they are typically small (one object per file in Bambu Studio output) and
+    each transitive component target is required.
+    """
+    object_map: dict[tuple[str, str], _ObjectDef] = {}
+    loaded_parts: set[str] = set()
+
+    def _load_part(part_path: str, filter_ids: set[str] | None) -> dict[str, _ObjectDef]:
+        if part_path in loaded_parts:
+            return {key[1]: obj for key, obj in object_map.items() if key[0] == part_path}
+        loaded_parts.add(part_path)
+        original = part_name_map.get(part_path)
+        if not original:
+            return {}
+        raw_bytes = package.read(original)
+        objects, _ = _parse_model_part_lazy(
+            raw_bytes,
+            current_part_path=part_path,
+            object_id_filter=filter_ids,
+        )
+        for object_id, obj_def in objects.items():
+            object_map[(part_path, object_id)] = obj_def
+        return objects
+
+    initial = _load_part(root_part_path, root_allowed_ids)
+    worklist: list[tuple[str, str]] = [(root_part_path, oid) for oid in initial.keys()]
+    while worklist:
+        part_path, object_id = worklist.pop()
+        obj_def = object_map.get((part_path, object_id))
+        if obj_def is None:
+            continue
+        for component in obj_def.components:
+            comp_part = component.part_path
+            if comp_part not in loaded_parts:
+                new_objects = _load_part(comp_part, None)
+                for new_id in new_objects:
+                    worklist.append((comp_part, new_id))
+            elif (comp_part, component.object_id) not in object_map:
+                # Part loaded but target object was filtered out; reload unfiltered.
+                loaded_parts.discard(comp_part)
+                new_objects = _load_part(comp_part, None)
+                for new_id in new_objects:
+                    worklist.append((comp_part, new_id))
+
+    return object_map
+
+
+def extract_3mf_plates_metadata(package_bytes: bytes) -> dict[str, Any]:
+    """Cheap metadata-only inspection: returns plates + palette without parsing
+    any mesh data. Used by the raw-3MF fallback path for plate selection when
+    the file is too large for full server-side geometry extraction.
+    """
     if not package_bytes:
         raise ValueError("3MF package is empty")
 
     with zipfile.ZipFile(BytesIO(package_bytes)) as package:
-        model_part_path = _resolve_model_part_path(package)
         part_name_map = {_normalize_part_path(name): name for name in package.namelist()}
-        model_parts = {
-            normalized: ET.fromstring(package.read(original))
-            for normalized, original in part_name_map.items()
-            if normalized.lower().endswith(".model")
-        }
-        model_settings_text = _read_package_text(package, part_name_map, "Metadata/model_settings.config")
-        project_settings = _read_package_json(package, part_name_map, "Metadata/project_settings.config")
+        model_settings_text = _read_package_text(
+            package, part_name_map, "Metadata/model_settings.config"
+        )
+        project_settings = _read_package_json(
+            package, part_name_map, "Metadata/project_settings.config"
+        )
 
         palette: list[str] = []
         if isinstance(project_settings, dict):
@@ -332,7 +579,11 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
                 or []
             )
             if isinstance(color_candidates, list):
-                palette = [normalized for normalized in (_normalize_color(value) for value in color_candidates) if normalized]
+                palette = [
+                    normalized
+                    for normalized in (_normalize_color(value) for value in color_candidates)
+                    if normalized
+                ]
 
         plates, object_extruders = _parse_model_settings_metadata(model_settings_text)
         plates = _merge_plate_metadata(
@@ -343,114 +594,113 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
             object_extruders=object_extruders,
         )
 
-    root = model_parts.get(_normalize_part_path(model_part_path))
-    if root is None:
-        raise ValueError("3MF package did not include the root model part")
+    return {
+        "plates": plates,
+        "palette": palette,
+    }
 
-    object_map: dict[tuple[str, str], _ObjectDef] = {}
-    for part_path, part_root in model_parts.items():
-        scale = _UNIT_TO_MM.get(str(part_root.attrib.get("unit") or "millimeter").strip().lower(), 1.0)
-        resources_node = _first_child(part_root, "resources")
-        if resources_node is None:
-            continue
 
-        for object_node in list(resources_node):
-            if _local_name(object_node.tag) != "object":
-                continue
-            object_id = str(object_node.attrib.get("id") or "").strip()
-            if not object_id:
-                continue
+def extract_3mf_geometry(
+    package_bytes: bytes,
+    *,
+    plate_id: str | None = None,
+    triangle_budget: int | None = None,
+) -> dict[str, Any]:
+    if not package_bytes:
+        raise ValueError("3MF package is empty")
 
-            mesh_node = _first_child(object_node, "mesh")
-            components_node = _first_child(object_node, "components")
-            mesh: _Mesh | None = None
-            components: list[_ComponentRef] = []
+    with zipfile.ZipFile(BytesIO(package_bytes)) as package:
+        model_part_original = _resolve_model_part_path(package)
+        part_name_map = {_normalize_part_path(name): name for name in package.namelist()}
+        root_part_path = _normalize_part_path(model_part_original)
 
-            if mesh_node is not None:
-                vertices_node = _first_child(mesh_node, "vertices")
-                triangles_node = _first_child(mesh_node, "triangles")
-                parsed_vertices: list[tuple[float, float, float]] = []
-                parsed_triangles: list[tuple[int, int, int]] = []
+        model_settings_text = _read_package_text(
+            package, part_name_map, "Metadata/model_settings.config"
+        )
+        project_settings = _read_package_json(
+            package, part_name_map, "Metadata/project_settings.config"
+        )
 
-                if vertices_node is not None:
-                    for vertex_node in list(vertices_node):
-                        if _local_name(vertex_node.tag) != "vertex":
-                            continue
-                        parsed_vertices.append(
-                            (
-                                float(vertex_node.attrib.get("x", 0.0)) * scale,
-                                float(vertex_node.attrib.get("y", 0.0)) * scale,
-                                float(vertex_node.attrib.get("z", 0.0)) * scale,
-                            )
-                        )
+        palette: list[str] = []
+        if isinstance(project_settings, dict):
+            color_candidates = (
+                project_settings.get("filament_colour")
+                or project_settings.get("filament_color")
+                or project_settings.get("default_filament_colour")
+                or []
+            )
+            if isinstance(color_candidates, list):
+                palette = [
+                    normalized
+                    for normalized in (_normalize_color(value) for value in color_candidates)
+                    if normalized
+                ]
 
-                if triangles_node is not None:
-                    for triangle_node in list(triangles_node):
-                        if _local_name(triangle_node.tag) != "triangle":
-                            continue
-                        parsed_triangles.append(
-                            (
-                                int(triangle_node.attrib.get("v1", 0)),
-                                int(triangle_node.attrib.get("v2", 0)),
-                                int(triangle_node.attrib.get("v3", 0)),
-                            )
-                        )
+        plates, object_extruders = _parse_model_settings_metadata(model_settings_text)
+        plates = _merge_plate_metadata(
+            package=package,
+            part_name_map=part_name_map,
+            plates=plates,
+            palette=palette,
+            object_extruders=object_extruders,
+        )
 
-                if parsed_vertices and parsed_triangles:
-                    mesh = _Mesh(vertices=parsed_vertices, triangles=parsed_triangles)
+        # Resolve selected plate FIRST so we can plate-filter the root parse
+        # and skip parsing meshes for objects belonging to other plates.
+        requested_plate_id = str(plate_id or "").strip()
+        selected_plate: dict[str, Any] | None = None
+        if plates:
+            if requested_plate_id:
+                selected_plate = next(
+                    (plate for plate in plates if str(plate.get("id")) == requested_plate_id),
+                    None,
+                )
+            if selected_plate is None:
+                selected_plate = plates[0]
 
-            if components_node is not None:
-                for component_node in list(components_node):
-                    if _local_name(component_node.tag) != "component":
-                        continue
-                    component_object_id = str(component_node.attrib.get("objectid") or "").strip()
-                    if not component_object_id:
-                        continue
-                    component_path = _resolve_component_part_path(
-                        part_path,
-                        component_node.attrib.get("path") or component_node.attrib.get("{http://schemas.microsoft.com/3dmanufacturing/production/2015/06}path"),
-                    )
-                    components.append(
-                        _ComponentRef(
-                            part_path=component_path,
-                            object_id=component_object_id,
-                            transform=_parse_transform(component_node.attrib.get("transform")),
-                        )
-                    )
+        plate_allowed_ids: set[str] | None = None
+        if selected_plate is not None:
+            ids = {str(object_id) for object_id in selected_plate.get("object_ids") or []}
+            if ids:
+                plate_allowed_ids = ids
 
-            object_map[(part_path, object_id)] = _ObjectDef(mesh=mesh, components=components)
+        root_original = part_name_map.get(root_part_path)
+        if not root_original:
+            raise ValueError("3MF package did not include the root model part")
+        root_bytes = package.read(root_original)
+        build_items = _parse_root_build_items(root_bytes, root_part_path=root_part_path)
 
-    build_node = _first_child(root, "build")
-    build_items: list[tuple[str, str, list[list[float]]]] = []
-    if build_node is not None:
-        root_part_path = _normalize_part_path(model_part_path)
-        for item_node in list(build_node):
-            if _local_name(item_node.tag) != "item":
-                continue
-            object_id = str(item_node.attrib.get("objectid") or "").strip()
-            if not object_id:
-                continue
-            build_items.append((root_part_path, object_id, _parse_transform(item_node.attrib.get("transform"))))
+        # Determine root-allowed object ids: union of plate-allowed ids (if any)
+        # and any objects directly referenced from <build> (single-plate files).
+        root_allowed_ids: set[str] | None
+        if plate_allowed_ids is not None:
+            root_allowed_ids = set(plate_allowed_ids)
+            # Always include any build-referenced objects that are also in the
+            # plate (filtered below); but for non-plate component containers
+            # we additionally allow build items so unsliced flows still work.
+        else:
+            root_allowed_ids = None
+
+        object_map = _load_object_graph(
+            package,
+            part_name_map,
+            root_part_path=root_part_path,
+            root_allowed_ids=root_allowed_ids,
+        )
 
     if not build_items:
         build_items = [
             (part_path, object_id, _identity_matrix())
             for (part_path, object_id), entry in object_map.items()
-            if entry.mesh is not None
+            if entry.mesh is not None or entry.components
         ]
 
-    requested_plate_id = str(plate_id or "").strip()
-    selected_plate = None
-    if plates:
-        if requested_plate_id:
-            selected_plate = next((plate for plate in plates if str(plate.get("id")) == requested_plate_id), None)
-        if selected_plate is None:
-            selected_plate = plates[0]
-        allowed_object_ids = {str(object_id) for object_id in selected_plate.get("object_ids") or []}
-        if allowed_object_ids:
-            filtered_build_items = [item for item in build_items if str(item[1]) in allowed_object_ids]
-            if filtered_build_items:
-                build_items = filtered_build_items
+    if plate_allowed_ids is not None:
+        filtered_build_items = [
+            item for item in build_items if str(item[1]) in plate_allowed_ids
+        ]
+        if filtered_build_items:
+            build_items = filtered_build_items
 
     flattened_vertices: list[float] = []
     grouped_vertices: dict[str, dict[str, Any]] = {}
@@ -473,7 +723,9 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
 
         current_extruder = object_extruders.get(str(object_id), inherited_extruder)
         current_color = _color_for_extruder(current_extruder, palette)
-        group_key = current_color or (f"extruder:{current_extruder}" if current_extruder is not None else "default")
+        group_key = current_color or (
+            f"extruder:{current_extruder}" if current_extruder is not None else "default"
+        )
         if group_key not in grouped_vertices:
             grouped_vertices[group_key] = {
                 "key": group_key,
@@ -486,17 +738,29 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
         group_entry = grouped_vertices[group_key]
         group_entry["object_ids"].add(str(object_id))
 
-        if object_def.mesh is not None:
-            mesh_vertices = object_def.mesh.vertices
-            for triangle in object_def.mesh.triangles:
-                for vertex_index in triangle:
-                    if vertex_index < 0 or vertex_index >= len(mesh_vertices):
-                        raise ValueError("3MF triangle referenced an out-of-range vertex")
-                    transformed = _apply_transform(transform, mesh_vertices[vertex_index])
+        mesh = object_def.mesh
+        if mesh is not None:
+            mesh_vertex_count = mesh.vertex_count
+            mesh_triangles = mesh.triangles
+            for tri_index in range(mesh.triangle_count):
+                tri_base = tri_index * 3
+                for i in range(3):
+                    vertex_index = mesh_triangles[tri_base + i]
+                    if vertex_index < 0 or vertex_index >= mesh_vertex_count:
+                        raise ValueError(
+                            "3MF triangle referenced an out-of-range vertex"
+                        )
+                    transformed = _apply_transform(
+                        transform, mesh.vertex_at(vertex_index)
+                    )
                     flattened_vertices.extend(transformed)
                     group_entry["vertices"].extend(transformed)
                 triangle_count += 1
                 group_entry["triangle_count"] += 1
+                if triangle_budget is not None and triangle_count > triangle_budget:
+                    raise GeometryTooComplexError(
+                        triangle_count=triangle_count, budget=triangle_budget
+                    )
 
         for component in object_def.components:
             append_object(
@@ -508,7 +772,13 @@ def extract_3mf_geometry(package_bytes: bytes, *, plate_id: str | None = None) -
             )
 
     for part_path, object_id, transform in build_items:
-        append_object(part_path, object_id, transform, (), object_extruders.get(str(object_id)))
+        append_object(
+            part_path,
+            object_id,
+            transform,
+            (),
+            object_extruders.get(str(object_id)),
+        )
 
     if not flattened_vertices or triangle_count <= 0:
         raise ValueError("3MF package contained no renderable mesh geometry")

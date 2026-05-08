@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 from ..services.model_media_service import (
     delete_uploaded_model_photo_service,
     download_model_file_service,
+    get_3mf_plates_service,
     get_geometry_service,
     get_model_file_thumbnail_service,
     get_uploaded_model_photo_service,
@@ -62,6 +63,18 @@ def get_geometry_endpoint(
 @router.get("/api/models/{model_ref:path}/files/{file_id}/download")
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str):
     return download_model_file_service(request, model_ref=model_ref, file_id=file_id)
+
+
+@router.get("/api/models/{model_ref:path}/files/{file_id}/plates", response_model=None)
+def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
+    """Return plate metadata only for a 3MF file (cheap, no mesh parse).
+
+    Used by the raw-3MF browser fallback path (issue #1378 Track 2): when the
+    geometry endpoint returns 422 because the package exceeds the server-side
+    parse cap, the client fetches plate metadata via this route and the raw
+    3MF bytes via ``/files/{file_id}/download``.
+    """
+    return get_3mf_plates_service(request, model_ref=model_ref, file_id=file_id)
 
 
 @router.get("/api/models/{model_ref:path}/files/{file_id}/thumbnail")

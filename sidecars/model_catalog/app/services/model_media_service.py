@@ -62,6 +62,12 @@ def download_model_file_service(request: Request, model_ref: str, file_id: str) 
     return models_router.download_model_file_endpoint(request, model_ref=model_ref, file_id=file_id)
 
 
+def get_3mf_plates_service(request: Request, model_ref: str, file_id: str):
+    from ..routers import models as models_router
+
+    return models_router.get_3mf_plates_endpoint(request, model_ref=model_ref, file_id=file_id)
+
+
 def get_model_file_thumbnail_service(request: Request, model_ref: str, file_id: str) -> Response:
     from ..routers import models as models_router
 

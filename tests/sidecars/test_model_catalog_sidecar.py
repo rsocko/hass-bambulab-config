@@ -607,7 +607,7 @@ def test_extract_and_lod_geometry_cached_returns_cache_hit_for_same_inputs(
     call_count = {"value": 0}
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, object]:
         call_count["value"] += 1
         return {
@@ -661,7 +661,7 @@ def test_geometry_lod_cache_keys_distinguish_plate_and_lod(
     call_count = {"value": 0}
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, object]:
         call_count["value"] += 1
         return {
@@ -711,7 +711,7 @@ def test_geometry_lod_cache_evicts_when_max_entries_exceeded(
     monkeypatch.setattr(models_router, "GEOMETRY_LOD_CACHE_MAX_ENTRIES", 2)
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, object]:
         return {
             "format": "triangles",
@@ -765,7 +765,7 @@ def test_geometry_endpoint_reports_cache_hit_in_debug(
     models_router._reset_geometry_lod_cache()
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, object]:
         return {
             "format": "triangles",
@@ -832,7 +832,7 @@ def test_geometry_endpoint_rejects_overly_complex_3mf(tmp_path: Path, monkeypatc
 
     from sidecars.model_catalog.app.routers import models as models_router
 
-    def _fake_extract_3mf_geometry(_package_bytes: bytes, plate_id: str | None = None) -> dict[str, object]:
+    def _fake_extract_3mf_geometry(_package_bytes: bytes, plate_id: str | None = None, **_kwargs: object) -> dict[str, object]:
         return {
             "format": "triangles",
             "unit": "millimeter",
@@ -1074,7 +1074,7 @@ def test_get_geometry_endpoint_emits_telemetry_log(
     from sidecars.model_catalog.app.routers import models as models_router
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, Any]:
         return {
             "format": "triangles",
@@ -1166,7 +1166,7 @@ def test_get_geometry_endpoint_telemetry_classifies_too_complex(
     from sidecars.model_catalog.app.routers import models as models_router
 
     def _fake_extract_3mf_geometry(
-        _package_bytes: bytes, plate_id: str | None = None
+        _package_bytes: bytes, plate_id: str | None = None, **_kwargs: object
     ) -> dict[str, Any]:
         return {
             "format": "triangles",
@@ -1331,6 +1331,98 @@ def test_extract_3mf_geometry_returns_multiple_color_groups_for_multi_part_model
     assert len(payload["groups"]) == 2
     assert {group["color"] for group in payload["groups"]} == {"#FF0000", "#00FF00"}
     assert {group["extruder"] for group in payload["groups"]} == {1, 2}
+
+
+def test_extract_3mf_geometry_skips_non_selected_plate_meshes_lazily() -> None:
+    """Issue #1378 Track 1: when a plate is selected, mesh data for objects
+    belonging to other plates must not be materialized in the output. This
+    indirectly verifies the lazy iterparse path (objects outside the plate
+    filter never enter ``object_map``).
+    """
+    payload = extract_3mf_geometry(_build_two_plate_3mf(), plate_id="2")
+
+    # Only plate-2's object (id=2) should be in the output.
+    assert payload["selected_plate_id"] == "2"
+    assert payload["triangle_count"] == 1
+    assert payload["vertices"] == [100.0, 100.0, 0.0, 110.0, 100.0, 0.0, 100.0, 120.0, 0.0]
+    # Object id "1" (plate 1) must not appear in any group.
+    all_object_ids: set[str] = set()
+    for group in payload["groups"]:
+        all_object_ids.update(group.get("object_ids") or [])
+    assert all_object_ids == {"2"}
+
+
+def test_extract_3mf_geometry_enforces_triangle_budget_short_circuit() -> None:
+    """Issue #1378 Track 1: triangle_budget must raise GeometryTooComplexError
+    early during materialization rather than waiting for the full payload.
+    """
+    from sidecars.model_catalog.app.geometry_3mf import GeometryTooComplexError
+
+    with pytest.raises(GeometryTooComplexError) as excinfo:
+        extract_3mf_geometry(_build_simple_3mf(), triangle_budget=0)
+    assert excinfo.value.budget == 0
+    assert excinfo.value.triangle_count >= 1
+
+
+def test_extract_3mf_plates_metadata_returns_plates_without_mesh_parse() -> None:
+    """Issue #1378 Track 2: cheap metadata-only inspection used by the raw-3MF
+    browser fallback path. Returns plate metadata + palette without parsing
+    any vertices/triangles.
+    """
+    from sidecars.model_catalog.app.geometry_3mf import extract_3mf_plates_metadata
+
+    metadata = extract_3mf_plates_metadata(_build_two_plate_3mf())
+    plates = metadata["plates"]
+    assert len(plates) == 2
+    assert plates[0]["id"] == "1"
+    assert plates[0]["name"] == "Plate One"
+    assert plates[0]["bbox_xy"] == [0.0, 0.0, 10.0, 20.0]
+    assert plates[1]["id"] == "2"
+    assert plates[1]["bbox_xy"] == [100.0, 100.0, 110.0, 120.0]
+    assert metadata["palette"] == ["#FF0000", "#00FF00"]
+
+
+def test_get_3mf_plates_endpoint_returns_metadata_for_local_3mf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Issue #1378 Track 2: the /api/models/{ref}/files/{id}/plates endpoint
+    returns plate metadata for the raw-3MF fallback path.
+    """
+    settings = _build_settings(tmp_path)
+    bootstrap_database(settings.db_path)
+    _insert_cached_summary(settings, public_id="local-tp", model_url="local://local-tp")
+
+    asset_path = tmp_path / "two_plate.3mf"
+    asset_path.write_bytes(_build_two_plate_3mf())
+
+    from sidecars.model_catalog.app.routers import models as models_router
+
+    class _FakeAsset:
+        asset_filename = "two_plate.3mf"
+        asset_type = "model/3mf"
+
+    monkeypatch.setattr(
+        models_router,
+        "read_model_asset",
+        lambda *, db_path, local_model_id, asset_id: _FakeAsset(),
+    )
+    monkeypatch.setattr(
+        models_router,
+        "_resolve_local_asset_storage_path",
+        lambda *, settings, asset: asset_path,
+    )
+
+    app = create_app(settings=settings, manyfold_client=None)
+    with TestClient(app) as test_client:
+        response = test_client.get("/api/models/local-tp/files/asset-1/plates")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["file_id"] == "asset-1"
+    assert len(payload["plates"]) == 2
+    assert payload["plates"][0]["id"] == "1"
+    assert payload["plates"][1]["id"] == "2"
 
 
 def test_preview_proxy_endpoint_falls_back_to_alternate_derivative(tmp_path: Path) -> None:

@@ -60,7 +60,12 @@ from ..db import (
     upsert_model_ranking,
 )
 
-from ..geometry_3mf import _compute_dimensions_mm, extract_3mf_geometry
+from ..geometry_3mf import (
+    GeometryTooComplexError,
+    _compute_dimensions_mm,
+    extract_3mf_geometry,
+    extract_3mf_plates_metadata,
+)
 
 from ..local_models import (
     _UNSET,
@@ -399,7 +404,11 @@ def _extract_and_lod_geometry_cached(
             source_sha256,
         )
 
-    raw_geometry = extract_3mf_geometry(package_bytes, plate_id=plate_id)
+    raw_geometry = extract_3mf_geometry(
+        package_bytes,
+        plate_id=plate_id,
+        triangle_budget=MAX_SERVER_SIDE_3MF_TRIANGLES,
+    )
     geometry_payload, requested_lod_out, applied_lod, simplified = _apply_geometry_lod(
         raw_geometry,
         requested_lod_norm,
@@ -3333,6 +3342,16 @@ def _get_geometry_endpoint_impl(
                             complexity_payload["_debug"] = debug_info
                         return JSONResponse(status_code=422, content=complexity_payload)
                     response_payload["geometry"] = geometry_payload
+                except GeometryTooComplexError as too_complex:
+                    payload: dict[str, Any] = {
+                        "error": "3MF geometry is too complex for interactive viewer rendering",
+                        "triangle_count": too_complex.triangle_count,
+                        "max_server_side_triangles": too_complex.budget,
+                    }
+                    if include_debug:
+                        debug_info["local_storage_path"] = str(storage_path)
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
 
@@ -3417,6 +3436,15 @@ def _get_geometry_endpoint_impl(
                             complexity_payload["_debug"] = debug_info
                         return JSONResponse(status_code=422, content=complexity_payload)
                     response_payload["geometry"] = geometry_payload
+                except GeometryTooComplexError as too_complex:
+                    payload = {
+                        "error": "3MF geometry is too complex for interactive viewer rendering",
+                        "triangle_count": too_complex.triangle_count,
+                        "max_server_side_triangles": too_complex.budget,
+                    }
+                    if include_debug:
+                        payload["_debug"] = debug_info
+                    return JSONResponse(status_code=422, content=payload)
                 except Exception as geom_err:
                     debug_info["geometry_extraction_error"] = {"error_type": type(geom_err).__name__, "error": str(geom_err)}
 
@@ -3436,6 +3464,107 @@ def _get_geometry_endpoint_impl(
         if include_debug:
             payload["_debug"] = {"error_type": type(e).__name__, "error": str(e)}
         return JSONResponse(status_code=500, content=payload)
+
+
+def get_3mf_plates_endpoint(request: Request, model_ref: str, file_id: str):
+    """Return only plate metadata (no mesh) for a 3MF file.
+
+    Designed for the raw-3MF fallback path (issue #1378 Track 2): when a 3MF
+    package exceeds the server-side parse cap and the browser falls back to
+    ``ThreeMFLoader``, the client still needs plate metadata to populate the
+    plate selector. This endpoint reads only ``Metadata/model_settings.config``
+    and ``Metadata/plate_*.json`` -- it never materializes mesh data.
+    """
+    state: AppState = request.app.state.model_catalog
+    client: ManyfoldClient = request.app.state.manyfold_client
+
+    summary = _resolve_model_summary(_summary_map(state.settings.db_path), model_ref)
+    if summary is None:
+        return JSONResponse(status_code=404, content={"error": "Model not found"})
+
+    package_bytes: bytes | None = None
+    if str(summary.model_url or "").startswith("local://"):
+        local_model_id = str(summary.public_id or model_ref).strip()
+        try:
+            asset = read_model_asset(
+                db_path=state.settings.db_path,
+                local_model_id=local_model_id,
+                asset_id=file_id,
+            )
+        except Exception as exc:
+            return JSONResponse(status_code=500, content={"error": f"Failed to read asset: {exc}"})
+        if asset is None:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+        storage_path = _resolve_local_asset_storage_path(settings=state.settings, asset=asset)
+        if storage_path is None or not storage_path.exists() or not storage_path.is_file():
+            return JSONResponse(status_code=404, content={"error": "Local model file source not found"})
+        file_name = str(asset.asset_filename or storage_path.name)
+        if not (file_name.lower().endswith(".3mf") or "3mf" in str(asset.asset_type or "").lower()):
+            return JSONResponse(status_code=400, content={"error": "Plate metadata is only available for 3MF files"})
+        package_bytes = storage_path.read_bytes()
+    else:
+        resolved_ref = str(summary.public_id or summary.model_id or summary.model_url)
+
+        def _normalize_candidate_url(value: Any) -> str | None:
+            text = str(value or "").strip()
+            if not text:
+                return None
+            return canonicalize_model_url(client.base_url, text)
+
+        try:
+            files = _map_manyfold_model_files(client.list_model_files(resolved_ref))
+        except Exception as exc:
+            return JSONResponse(status_code=502, content={"error": f"Failed to list files: {exc}"})
+
+        file_obj = next((f for f in files if str(f.get("id")) == file_id), None)
+        if not file_obj:
+            return JSONResponse(status_code=404, content={"error": "File not found"})
+
+        file_name = str(file_obj.get("filename") or "")
+        file_type = str(file_obj.get("file_type") or "")
+        if not (file_name.lower().endswith(".3mf") or "3mf" in file_type.lower()):
+            return JSONResponse(status_code=400, content={"error": "Plate metadata is only available for 3MF files"})
+
+        source_url: str | None = None
+        try:
+            detail_payload = client.get_model_file_detail(file_id, model_ref=resolved_ref)
+            source_url = (
+                _normalize_candidate_url(detail_payload.get("contentUrl"))
+                or _normalize_candidate_url(detail_payload.get("download_url"))
+                or _normalize_candidate_url(detail_payload.get("url"))
+                or _normalize_candidate_url(detail_payload.get("@id"))
+            )
+        except Exception:
+            source_url = None
+        if not source_url:
+            source_url = (
+                _normalize_candidate_url(file_obj.get("contentUrl"))
+                or _normalize_candidate_url(file_obj.get("download_url"))
+                or _normalize_candidate_url(file_obj.get("url"))
+            )
+        if not source_url:
+            return JSONResponse(status_code=404, content={"error": "Model file source not found"})
+
+        try:
+            binary_response = client.fetch_binary(source_url)
+        except Exception as exc:
+            return JSONResponse(status_code=502, content={"error": f"Failed to fetch model file: {exc}"})
+        package_bytes = binary_response.content
+
+    if not package_bytes:
+        return JSONResponse(status_code=404, content={"error": "Empty 3MF package"})
+
+    try:
+        metadata = extract_3mf_plates_metadata(package_bytes)
+    except Exception as exc:
+        return JSONResponse(status_code=422, content={"error": f"Failed to parse plate metadata: {exc}"})
+
+    return {
+        "success": True,
+        "file_id": file_id,
+        "plates": metadata.get("plates") or [],
+        "palette": metadata.get("palette") or [],
+    }
 
 
 def download_model_file_endpoint(request: Request, model_ref: str, file_id: str) -> Response:
