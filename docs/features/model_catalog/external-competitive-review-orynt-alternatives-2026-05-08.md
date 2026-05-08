@@ -54,7 +54,7 @@ Model-catalog relevance
 
 ---
 
-### 2) Papa’s Best STL Thumbnails
+### 2) Papa’s Best STL Thumbnails**Links:** [Official site](https://papasbesttools.com/) | [Windows Registry Documentation](https://papasbesttools.com/docs/)
 Summary
 - Windows shell extension for fast STL thumbnails in Explorer.
 
@@ -80,6 +80,8 @@ Model-catalog relevance
 ---
 
 ### 3) Maker Management Platform (MMP)
+**Links:** [GitHub Repository](https://github.com/mkwarbuton/MakerManagementPlatform) | [Project Docs](https://github.com/mkwarbuton/MakerManagementPlatform/tree/main/docs)
+
 Summary
 - Self-hosted project/asset manager with printer/slicer adjacency and basic 3D preview flow.
 
@@ -104,6 +106,8 @@ Model-catalog relevance
 ---
 
 ### 4) Manyfold
+**Links:** [GitHub Repository](https://github.com/manyfold3d/manyfold) | [Official Site](https://manyfold.app/) | [Documentation](https://docs.manyfold.app/) | [Supported Formats](https://docs.manyfold.app/guide/formats)
+
 Summary
 - Open-source self-hosted DAM for 3D print files with broad format support, multi-user, access control, federation, and active roadmap.
 
@@ -134,6 +138,8 @@ Model-catalog relevance
 ---
 
 ### 5) Printventory
+**Links:** [GitHub Repository](https://github.com/Jnesselr/Printventory) | [Releases](https://github.com/Jnesselr/Printventory/releases)
+
 Summary
 - Electron desktop app with local/server mode, STL+3MF support, duplicate detection, AI tagging, and Docker-backed server mode.
 
@@ -163,6 +169,8 @@ Model-catalog relevance
 ---
 
 ### 6) STL Organizer
+**Links:** [GitHub Repository](https://github.com/Tansien/STLorganizer) | [Roadmap](https://github.com/Tansien/STLorganizer/projects)
+
 Summary
 - Electron/TypeScript project with ambitious roadmap centered on normalization/archiving pipelines.
 
@@ -188,6 +196,8 @@ Model-catalog relevance
 ---
 
 ### 7) STLVault
+**Links:** [GitHub Repository](https://github.com/STLVault/STLVault) | [itch.io Page](https://stlvault.itch.io/stlvault)
+
 Summary
 - Unity-based open-source organizer/viewer with preview releases; historic roadmap includes tags/search/collections and broader format ambitions.
 
@@ -213,6 +223,8 @@ Model-catalog relevance
 ---
 
 ### 8) Bonzai STL Browser
+**Links:** [Official Site](https://bonzaistl.com/) | [Feature Overview](https://bonzaistl.com/features) | [Patreon](https://www.patreon.com/BonzaiSTL)
+
 Summary
 - Cross-platform STL-focused browser/editor with realtime viewer, filtering, multi-tab split browsing, and editing tools.
 
@@ -238,6 +250,8 @@ Model-catalog relevance
 ---
 
 ### 9) 3D MOM
+**Links:** [Official Site](https://3dmom.io/) | [Creator Tools](https://3dmom.io/creator) | [Beta Signup](https://3dmom.io/beta)
+
 Summary
 - Free beta toolset emphasizing tags + rendered/360 browsing and creator-distribution workflows.
 
@@ -300,9 +314,153 @@ Scale:
 
 ---
 
+## 10) Bambuddy
+
+**Links:** [GitHub Repository](https://github.com/maziggy/bambuddy) | [Docker Hub](https://hub.docker.com/r/maziggy/bambuddy)
+
+Summary
+- Self-hosted print archive and file manager for Bambu Lab printers with folder browsing, file upload/organization, and archive linkage.
+
+Evidence highlights
+- README and code show mature archive-of-record authority for Bambu-specific workflows.
+- File manager section allows upload and folder organization with archive attachment.
+- Supports archive-scoped file attachment and external-folder indexing.
+- Project grouping and multi-printer support.
+
+Strengths
+- Archive-first design aligns with print-history authority.
+- External-folder indexing means non-destructive library integration.
+- Materially simpler operational footprint than Manyfold for team with existing Bambu integration.
+- Printer-adjacent architecture means tighter print-file semantics and easier printer API binding.
+
+Weaknesses
+- Library behavior is file-manager and archive centric rather than model-knowledge centric.
+- Source attachments are archive-scoped copies, not shared library identity.
+- Metadata depth is lighter than Manyfold for long-lived model curation.
+- Less suitable if rich source-model taxonomy and inheritance are priority.
+
+What to copy
+- Archive-to-file-manager linkage pattern and external-folder indexing safety model.
+- File upload queue state machine and multipart form submission patterns.
+- Folder traversal and allowlist-based permission model.
+- Bambu-specific metadata enrichment (print config, filament type tagging).
+
+Model-catalog relevance
+- Medium-High as fallback/complement if avoiding another major service.
+- Low-High depending on whether archive-side or source-side richness is priority.
+
+---
+
+## 11-14) Online Services: Makerworld, Printables, Thangs, Thingiverse, Cults3D
+
+**General Links:** [Makerworld](https://makerworld.bambulab.com/) | [Printables](https://www.printables.com/) | [Thangs](https://www.thangs.com/) | [Thingiverse](https://www.thingiverse.com/) | [Cults3D](https://cults3d.com/)
+
+### Summary
+
+Online 3D model repositories/marketplaces present a different problem: they are not self-hosted local tools, but rather cloud-hosted platforms where users browse, download, and share models. They are not direct technical competitors to a personal/team model-catalog system, but they are important for understanding creator workflows, search/discovery patterns, and where models originate.
+
+### Comparative Overview
+
+| Service | Primary Model | Community | Quality Control | API/Embedding | Search Experience | Creator Tools | Relevant for Catalog UX |
+|---|---|---|---|---|---|---|---|
+| Printables | Prusa-backed, free + paid tiers | Large, active | Moderate (flags/moderation) | REST API available | Strong (tags, collections, facets) | Good (uploads, statistics) | High (search patterns, curation model) |
+| Makerworld | Bambu Lab brand channel | Growing official + community | Brand-focused | Proprietary API | Focused (official collections) | Brand/account system | Medium (brand narrative only) |
+| Thangs | Community-driven, no paywall | Moderate, growing | Light | Unknown/limited | Emerging (2D/3D search) | Basic | Medium (emerging 3D search tech) |
+| Thingiverse | Legacy Makerbot-era platform | Large legacy | Minimal active moderation | Rate-limited API | Basic (keyword only) | Lightweight | Low (aging platform UX) |
+| Cults3D | Community with quality focus | Moderate, design-oriented | Design-centric curation | Limited | Focused (artist/project) | Medium | Low-Medium (niche design aesthetic) |
+
+### What Online Services Do Well
+
+1. **Discovery and Search UX**
+   - Printables uses rich faceted search (tags, collections, creator, category, difficulty, print time estimate).
+   - Search results rank by relevance, trending, and recommendation algorithms.
+   - Saved searches and personalized queues.
+   - **Idea to copy**: Faceted discovery with time-to-print, success-rate, and difficulty heuristics in local catalog search.
+
+2. **Creator Profile and Attribution**
+   - Online services provide creator pages, portfolios, and community signals (follows, ratings, verified status).
+   - Creator bundles and themed collections appear prominently.
+   - Monetization paths via paid models and Creator Programs.
+   - **Idea to copy**: Creator/team attribution in taxonomy, curated collections with provenance metadata.
+
+3. **Social and Engagement Signals**
+   - Downloads, makes, prints, ratings, and review comments feed ranking and recommendations.
+   - Follower/fan systems create subscription-like relationships.
+   - **Idea to copy**: Archive-linked success rate and popularity signals for ranking and related-model suggestions.
+
+4. **Model Variants and Remixes**
+   - Printables and Thingiverse support explicit remix/fork relationships.
+   - Chain of custody and attribution are visible.
+   - Supersedes/version relationships are tracked.
+   - **Idea to copy**: Explicit model-relationship primitives (variant, remix, multipart, supersedes) in sidecar data model.
+
+5. **Import Profiles and Metadata Bundling**
+   - Printables and some creators package metadata (tags, notes, file descriptions) with models.
+   - Creator-provided presets and print profiles can be imported alongside the model file.
+   - **Idea to copy**: Bundle import profiles; allow source-import rules to inherit creator-provided metadata.
+
+### What Online Services Do Poorly (For Local Workflows)
+
+1. **Privacy and Control**
+   - Upload means content leaves local network (for public services).
+   - No easy private team/family library path without friction.
+
+2. **Offline and Local Autonomy**
+   - Requires internet; search and discovery are cloud-hosted.
+   - No local search during downtime or offline operation.
+
+3. **Model Enrichment Ownership**
+   - Metadata added on the platform (notes, tags, ratings) stays on the platform.
+   - No two-way sync of local enrichment back to the model file.
+   - **Implication for local tool**: Design so team-added metadata is portable and versioned.
+
+### Key Design Ideas Extracted For This Repo
+
+| Idea | Source | Relevance | Suggested Implementation |
+|---|---|---|---|
+| Faceted search with time/complexity/success signals | Printables, Thangs | High | Add to Phase 6 query model and ranking signals |
+| Creator/source attribution with team/family profiles | All platforms | High | Extend taxonomy system to include team/creator provenance |
+| Explicit model relationships (variant, remix, multipart, supersedes) | Printables, Thingiverse | High | Add relationship primitives to sidecar model schema |
+| Import metadata bundles from online sources | Printables, online creators | Medium | Add creator-profile import step in Phase 5 intake |
+| Saved searches and queues | Printables | Medium | Already in Phase 6 query design; prioritize early |
+| Success-rate and engagement-derived ranking | Printables, Thangs | Medium-High | Use archive-linked print counts and success rates |
+| Related/recommended model discovery | All platforms | Medium-High | Phase 6 related-items logic already planned |
+| Model versioning and supersedes chains | Printables, Thingiverse | Medium | Incorporate into relationship model; not first-cut priority |
+
+### Model-Catalog Relevance For This Repo
+
+- **Direct technical relevance**: Low. Online services are not self-hosted alternatives to a local catalog.
+- **Pattern and UX relevance**: High. The discovery, search, and relationship patterns are worth emulating.
+- **Creator workflow relevance**: High. Understanding where creators come from and what metadata they bring informs intake design.
+- **Data model relevance**: Medium-High. Relationship primitives, attribution, and provenance models are worth standardizing.
+
+---
+
+## Integration Of Cross-Platform Insights
+
+### From Local Alternatives (Manyfold, Printventory, Bambuddy)
+
+1. **Filesystem integration safety**: do not share write authority; use allowlist and external-folder read-only patterns.
+2. **Archive-to-library linkage**: explicit join layer is safer than forcing archive semantics to contain library semantics.
+3. **Source-rule inheritance and explainability**: Orynt showed this is major UX multiplier.
+4. **Worker-based parsing**: Printventory shows this avoids UI blocking.
+
+### From Online Services (Printables, Makerworld, Thangs)
+
+1. **Faceted search and ranking signals**: archive-derived popularity and success rates should influence browse/search.
+2. **Creator attribution and team profiles**: source provenance and team identity matter for long-lived libraries.
+3. **Model relationships and remix chains**: explicit variant/remix/multipart links enable better discoverability.
+4. **Metadata bundling and import profiles**: creator-provided metadata should flow into local catalog intake.
+5. **Saved searches and subscriptions**: user-defined queries and alerts are high-value discovery patterns.
+
+---
+
 ## Final Guidance
-1. Treat Manyfold as the strongest architecture benchmark.
-2. Treat Printventory as a practical local-first UX benchmark.
-3. Treat Orynt patterns as workflow design inspiration (source rules + search ergonomics).
-4. Keep current server-side 3MF pipeline as authority; continue hardening it rather than replacing it.
-5. Prioritize source-rule explainability and query/search power before adding more viewer complexity.
+1. Treat Manyfold as the strongest pure model-library architecture benchmark.
+2. Treat Bambuddy as a credible low-complexity fallback if avoiding another major service.
+3. Treat Printventory as a practical local-first UX and worker-parsing benchmark.
+4. Treat online services (Printables, Makerworld, Thangs) as design inspiration for discovery, search patterns, and relationship primitives—not as technical competitors.
+5. Extract relationship primitives (variant, remix, multipart, supersedes) and faceted ranking signals from online platforms.
+6. Keep current server-side 3MF pipeline as authority; continue hardening it rather than replacing it.
+7. Prioritize source-rule explainability, query/search power, and archive-derived ranking before adding more viewer complexity.
+8. Design intake to accept creator-bundled metadata and import profiles to reduce manual enrichment burden.

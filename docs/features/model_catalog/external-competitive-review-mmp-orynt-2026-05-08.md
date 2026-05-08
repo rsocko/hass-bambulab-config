@@ -51,6 +51,8 @@ Date: 2026-05-08
 
 ## Findings: MMP (Functionality + Code)
 
+**Links:** [GitHub Organization](https://github.com/mkwarbuton) | [Agent Repository](https://github.com/mkwarbuton/MakerManagementPlatform) | [UI Repository](https://github.com/mkwarbuton/mmp-ui) | [Docs Repository](https://github.com/mkwarbuton/MakerManagementPlatform-docs)
+
 ### What MMP does well
 1. End-to-end asset lifecycle orchestration
 - Discovery -> classification -> enrichment -> render/extract -> persistence pipeline is simple and understandable.
@@ -103,6 +105,8 @@ Conclusion: no reason to regress toward MMP parsing approach.
 ---
 
 ## Findings: Orynt3D (Feature/Workflow Review)
+
+**Links:** [Official Site](https://www.orynt3d.com/) | [Documentation](https://docs.orynt3d.com/) | [Features](https://www.orynt3d.com/features) | [User Guide](https://www.orynt3d.com/guide) | [Download](https://www.orynt3d.com/download)
 
 ### Strong differentiators worth borrowing
 1. Source-first ingestion model
