@@ -372,6 +372,65 @@ def _build_multi_color_3mf_without_plates() -> bytes:
         return buffer.getvalue()
 
 
+def _build_paint_color_3mf() -> bytes:
+        """Single-object 3MF where AMS color assignment is encoded as
+        Bambu Studio / OrcaSlicer ``paint_color`` attributes on individual
+        triangles. The whole object's ``extruder`` metadata is 1 (red), but
+        triangles 2 and 3 are painted to extruders 2 (green) and 3 (blue).
+        """
+        # Six vertices = two coplanar quads worth of triangles (4 triangles).
+        model_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<model xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\" unit=\"millimeter\">
+    <resources>
+        <object id=\"1\" type=\"model\">
+            <mesh>
+                <vertices>
+                    <vertex x=\"0\" y=\"0\" z=\"0\" />
+                    <vertex x=\"10\" y=\"0\" z=\"0\" />
+                    <vertex x=\"0\" y=\"10\" z=\"0\" />
+                    <vertex x=\"10\" y=\"10\" z=\"0\" />
+                    <vertex x=\"20\" y=\"0\" z=\"0\" />
+                    <vertex x=\"20\" y=\"10\" z=\"0\" />
+                </vertices>
+                <triangles>
+                    <triangle v1=\"0\" v2=\"1\" v3=\"2\" />
+                    <triangle v1=\"1\" v2=\"3\" v3=\"2\" paint_color=\"2\" />
+                    <triangle v1=\"1\" v2=\"4\" v3=\"3\" paint_color=\"3\" />
+                    <triangle v1=\"4\" v2=\"5\" v3=\"3\" paint_color=\"0\" />
+                </triangles>
+            </mesh>
+        </object>
+    </resources>
+    <build>
+        <item objectid=\"1\" transform=\"1 0 0 0 1 0 0 0 1 0 0 0\" />
+    </build>
+</model>
+"""
+
+        model_settings_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<config>
+    <object id=\"1\"><metadata key=\"extruder\" value=\"1\" /></object>
+</config>
+"""
+
+        project_settings_json = (
+            b'{"filament_colour": ["#FF0000", "#00FF00", "#0000FF"]}'
+        )
+        rels_xml = b"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
+    <Relationship Target=\"/3D/3dmodel.model\" Id=\"rel0\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />
+</Relationships>
+"""
+
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("_rels/.rels", rels_xml)
+                archive.writestr("3D/3dmodel.model", model_xml)
+                archive.writestr("Metadata/model_settings.config", model_settings_xml)
+                archive.writestr("Metadata/project_settings.config", project_settings_json)
+        return buffer.getvalue()
+
+
 def test_manyfold_client_fetch_binary_uses_oauth_for_image_routes() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/oauth/token":
@@ -1331,6 +1390,40 @@ def test_extract_3mf_geometry_returns_multiple_color_groups_for_multi_part_model
     assert len(payload["groups"]) == 2
     assert {group["color"] for group in payload["groups"]} == {"#FF0000", "#00FF00"}
     assert {group["extruder"] for group in payload["groups"]} == {1, 2}
+
+
+def test_extract_3mf_geometry_splits_groups_by_per_triangle_paint_color() -> None:
+    """Paint-painted Bambu/Orca 3MFs encode AMS color assignment as
+    ``paint_color`` attributes on individual <triangle> elements inside a
+    single <object>. extract_3mf_geometry must split the resulting groups by
+    the resolved per-triangle extruder so the viewer can render each AMS
+    slot in its own color.
+
+    Fixture: 4 triangles inside object id=1 (object extruder = 1 / red).
+        - triangle 0: no paint           -> inherits extruder 1 (red)
+        - triangle 1: paint_color="2"    -> extruder 2 (green)
+        - triangle 2: paint_color="3"    -> extruder 3 (blue)
+        - triangle 3: paint_color="0"    -> sentinel -> inherits extruder 1
+    """
+    payload = extract_3mf_geometry(_build_paint_color_3mf())
+
+    assert payload["triangle_count"] == 4
+    groups_by_color = {
+        str(group.get("color")): group for group in payload["groups"]
+    }
+    assert set(groups_by_color.keys()) == {"#FF0000", "#00FF00", "#0000FF"}
+    # Painted-to-extruder triangles each contribute exactly one triangle;
+    # the unpainted + sentinel-0 triangles fall back to the object extruder.
+    assert groups_by_color["#FF0000"]["triangle_count"] == 2
+    assert groups_by_color["#00FF00"]["triangle_count"] == 1
+    assert groups_by_color["#0000FF"]["triangle_count"] == 1
+    color_info = payload["color_info"]
+    assert color_info["mode"] == "multi"
+    assert set(color_info["palette"]) >= {"#FF0000", "#00FF00", "#0000FF"}
+    # Every group must report the originating object id so downstream
+    # plate-filtering logic still works.
+    for group in payload["groups"]:
+        assert "1" in group.get("object_ids", [])
 
 
 def test_extract_3mf_geometry_skips_non_selected_plate_meshes_lazily() -> None:

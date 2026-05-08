@@ -538,6 +538,13 @@ class ModelDetail3DViewerTab extends HTMLElement {
           this._setRenderingStatus('Multi-color metadata is available, but grouped geometry was not returned.');
           return;
         }
+        if (this._currentColorInfo.mode === 'multi' && Array.isArray(this._currentGeometryGroups) && this._currentGeometryGroups.length === 1) {
+          // Per-face paint_color decoding lives in the sidecar; if we ever
+          // see this it usually means the 3MF only painted a single AMS
+          // slot's worth of triangles or the sidecar is older than the
+          // paint_color decode change. Render anyway, just warn.
+          this._setRenderingStatus('Multi-color metadata detected but only one rendered color group is present.');
+        }
         this._usePackageColors = !this._usePackageColors;
         this._applyCurrentMaterialColor();
         this._setRenderingStatus(this._usePackageColors ? 'Using package color metadata.' : 'Using default viewer color.');

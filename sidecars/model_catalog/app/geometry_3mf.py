@@ -153,6 +153,40 @@ def _color_for_extruder(extruder: int | None, palette: list[str]) -> str | None:
     return None
 
 
+def _dominant_extruder_from_paint_color(value: Any) -> int:
+    """Decode a Bambu Studio / OrcaSlicer ``paint_color`` (or legacy
+    ``mmu_segmentation``) attribute into a single dominant extruder index.
+
+    The attribute is a hex-like string where each character is a 4-bit nibble
+    encoding the AMS / MMU painter state for the triangle. The full encoding
+    is a binary tree of triangle subdivisions, but for preview rendering we
+    only need the dominant filament — pick the most-frequent non-zero nibble.
+    Nibble ``0`` is the "background / unpainted" sentinel and means "fall
+    back to the object's extruder", so we return ``0`` in that case.
+
+    Returns the resolved 1-based extruder index, or ``0`` if no paint info
+    is present (caller should then fall back to inherited extruder).
+    """
+    text = str(value or "").strip()
+    if not text:
+        return 0
+    if text.lower().startswith("0x"):
+        text = text[2:]
+    counts: dict[int, int] = {}
+    for ch in text:
+        try:
+            nibble = int(ch, 16)
+        except ValueError:
+            continue
+        if nibble == 0:
+            continue
+        counts[nibble] = counts.get(nibble, 0) + 1
+    if not counts:
+        return 0
+    # Most frequent wins; ties broken by smallest index for determinism.
+    return max(counts.items(), key=lambda kv: (kv[1], -kv[0]))[0]
+
+
 def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
     if not text:
         return [], {}
@@ -301,6 +335,13 @@ class _Mesh:
     # large meshes (no per-element Python object overhead).
     vertices: array.array
     triangles: array.array
+    # Per-triangle paint extruder index decoded from Bambu Studio /
+    # OrcaSlicer `paint_color` (a.k.a. `mmu_segmentation`) attributes on
+    # <triangle> elements. Stored as signed 16-bit ints, one entry per
+    # triangle. Value <= 0 means "no paint override; inherit the object's
+    # extruder". Allocating ~2 bytes/triangle is negligible vs. the existing
+    # vertex/index buffers.
+    triangle_extruders: array.array | None = None
 
     @property
     def vertex_count(self) -> int:
@@ -313,6 +354,11 @@ class _Mesh:
     def vertex_at(self, index: int) -> tuple[float, float, float]:
         base = index * 3
         return (self.vertices[base], self.vertices[base + 1], self.vertices[base + 2])
+
+    def triangle_extruder_at(self, index: int) -> int:
+        if self.triangle_extruders is None or index >= len(self.triangle_extruders):
+            return 0
+        return int(self.triangle_extruders[index])
 
 
 @dataclass(frozen=True)
@@ -393,6 +439,7 @@ def _parse_model_part_lazy(
                         "allowed": allowed,
                         "vertices": array.array("f") if allowed else None,
                         "triangles": array.array("I") if allowed else None,
+                        "triangle_extruders": array.array("h") if allowed else None,
                         "components": [],
                     }
                 )
@@ -418,6 +465,32 @@ def _parse_model_part_lazy(
                     top["triangles"].append(int(elem.attrib.get("v3", 0)))
                 except (TypeError, ValueError):
                     pass
+                # Per-triangle paint extruder. Order of preference:
+                #   1. explicit `extruder` attribute (some slicers emit this)
+                #   2. Bambu Studio / OrcaSlicer `paint_color`
+                #   3. legacy `mmu_segmentation`
+                # Fall back to 0 ("inherit object extruder") when missing or
+                # unparseable. Stored even when 0 so the buffer stays index-
+                # aligned with the triangle index buffer.
+                extruder_value = 0
+                explicit_extruder = elem.attrib.get("extruder")
+                if explicit_extruder is not None:
+                    try:
+                        extruder_value = int(str(explicit_extruder).strip())
+                    except (TypeError, ValueError):
+                        extruder_value = 0
+                if extruder_value <= 0:
+                    paint_attr = (
+                        elem.attrib.get("paint_color")
+                        or elem.attrib.get("mmu_segmentation")
+                    )
+                    if paint_attr is not None:
+                        extruder_value = _dominant_extruder_from_paint_color(paint_attr)
+                # Clamp to signed 16-bit range; AMS systems have ≤16 slots
+                # in practice so this only guards against bogus inputs.
+                if extruder_value < -32768 or extruder_value > 32767:
+                    extruder_value = 0
+                top["triangle_extruders"].append(extruder_value)
             elem.clear()
         elif tag == "component":
             if object_stack and object_stack[-1]["allowed"]:
@@ -441,7 +514,18 @@ def _parse_model_part_lazy(
                 if top["allowed"]:
                     mesh: _Mesh | None = None
                     if top["vertices"] and top["triangles"]:
-                        mesh = _Mesh(vertices=top["vertices"], triangles=top["triangles"])
+                        triangle_extruders = top.get("triangle_extruders")
+                        # Only attach the buffer if any triangle actually
+                        # carried a paint override. This keeps memory at
+                        # zero for the common single-color case and gives
+                        # downstream code a fast `is None` check.
+                        if not triangle_extruders or not any(triangle_extruders):
+                            triangle_extruders = None
+                        mesh = _Mesh(
+                            vertices=top["vertices"],
+                            triangles=top["triangles"],
+                            triangle_extruders=triangle_extruders,
+                        )
                     objects[top["id"]] = _ObjectDef(mesh=mesh, components=list(top["components"]))
             elem.clear()
         elif tag == "item":
@@ -771,28 +855,49 @@ def extract_3mf_geometry(
         if object_def is None:
             raise ValueError(f"3MF object '{object_id}' was not found in '{part_path}'")
 
-        current_extruder = object_extruders.get(str(object_id), inherited_extruder)
-        current_color = _color_for_extruder(current_extruder, palette)
-        group_key = current_color or (
-            f"extruder:{current_extruder}" if current_extruder is not None else "default"
-        )
-        if group_key not in grouped_vertices:
-            grouped_vertices[group_key] = {
-                "key": group_key,
-                "color": current_color,
-                "extruder": current_extruder,
-                "triangle_count": 0,
-                "vertices": [],
-                "object_ids": set(),
-            }
-        group_entry = grouped_vertices[group_key]
-        group_entry["object_ids"].add(str(object_id))
+        object_extruder = object_extruders.get(str(object_id), inherited_extruder)
+
+        def _ensure_group(extruder: int | None) -> dict[str, Any]:
+            color_value = _color_for_extruder(extruder, palette)
+            group_key = color_value or (
+                f"extruder:{extruder}" if extruder is not None else "default"
+            )
+            entry = grouped_vertices.get(group_key)
+            if entry is None:
+                entry = {
+                    "key": group_key,
+                    "color": color_value,
+                    "extruder": extruder,
+                    "triangle_count": 0,
+                    "vertices": [],
+                    "object_ids": set(),
+                }
+                grouped_vertices[group_key] = entry
+            entry["object_ids"].add(str(object_id))
+            return entry
 
         mesh = object_def.mesh
         if mesh is not None:
             mesh_vertex_count = mesh.vertex_count
             mesh_triangles = mesh.triangles
+            triangle_extruders = mesh.triangle_extruders
             for tri_index in range(mesh.triangle_count):
+                # Resolve per-triangle extruder: paint override (if any)
+                # takes precedence over the inherited object extruder. A
+                # value <= 0 in the paint buffer means "inherit".
+                paint_extruder = (
+                    int(triangle_extruders[tri_index])
+                    if triangle_extruders is not None and tri_index < len(triangle_extruders)
+                    else 0
+                )
+                resolved_extruder: int | None
+                if paint_extruder > 0:
+                    resolved_extruder = paint_extruder
+                else:
+                    resolved_extruder = object_extruder
+
+                group_entry = _ensure_group(resolved_extruder)
+
                 tri_base = tri_index * 3
                 for i in range(3):
                     vertex_index = mesh_triangles[tri_base + i]
@@ -818,7 +923,7 @@ def extract_3mf_geometry(
                 component.object_id,
                 _multiply_matrices(component.transform, transform),
                 lineage + (object_key,),
-                current_extruder,
+                object_extruder,
             )
 
     for part_path, object_id, transform in build_items:
@@ -849,6 +954,17 @@ def extract_3mf_geometry(
         active_colors = list(selected_plate.get("filament_colors") or [])
     elif palette:
         active_colors = list(palette)
+
+    # Augment plate-derived colors with the colors that the rendered groups
+    # actually carry. When a 3MF uses per-face `paint_color` painting (rather
+    # than per-object extruder metadata), the plate's `filament_colors` may
+    # under-report the true color count, which would leave `color_info.mode`
+    # stuck at "single" even though the viewer is about to draw multiple
+    # color groups. Merging the group colors in fixes that.
+    for group_entry in grouped_vertices.values():
+        group_color = group_entry.get("color")
+        if isinstance(group_color, str) and group_color and group_color not in active_colors:
+            active_colors.append(group_color)
 
     unique_colors: list[str] = []
     for color in active_colors:
