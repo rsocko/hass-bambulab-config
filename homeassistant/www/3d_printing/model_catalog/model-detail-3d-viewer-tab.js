@@ -46,6 +46,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     this._usePackageColors = true;
     this._geometryLod = 'auto';
     this._currentLodInfo = null;
+    this._progressLabel = '';
+    this._progressPercent = null;
   }
 
   set hass(hass) {
@@ -315,6 +317,71 @@ class ModelDetail3DViewerTab extends HTMLElement {
           border-radius: 4px;
           background: #1a1a1a;
           position: relative;
+          overflow: hidden;
+        }
+
+        .viewer-progress-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3;
+          pointer-events: none;
+          padding: 16px;
+          transition: opacity 0.18s ease;
+        }
+
+        .viewer-progress-overlay.hidden {
+          opacity: 0;
+          visibility: hidden;
+        }
+
+        .viewer-progress-card {
+          width: min(420px, calc(100% - 16px));
+          background: rgba(0, 0, 0, 0.68);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 10px;
+          padding: 12px 14px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(2px);
+          color: #f2f5f8;
+        }
+
+        .viewer-progress-label {
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.4;
+          margin-bottom: 8px;
+        }
+
+        .viewer-progress-track {
+          width: 100%;
+          height: 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.16);
+          overflow: hidden;
+        }
+
+        .viewer-progress-fill {
+          width: 0%;
+          height: 100%;
+          background: linear-gradient(90deg, #4fa3d1, #7bd0ff);
+          transition: width 0.18s ease;
+        }
+
+        .viewer-progress-track.indeterminate .viewer-progress-fill {
+          width: 40%;
+          animation: viewerProgressIndeterminate 1.2s linear infinite;
+          background: linear-gradient(90deg, rgba(79, 163, 209, 0.2), #7bd0ff, rgba(79, 163, 209, 0.2));
+        }
+
+        .viewer-progress-value {
+          margin-top: 6px;
+          font-size: 11px;
+          color: rgba(242, 245, 248, 0.86);
+          text-align: right;
+          min-height: 14px;
         }
 
         .viewer-info {
@@ -361,6 +428,15 @@ class ModelDetail3DViewerTab extends HTMLElement {
           height: 100%;
           display: block;
         }
+
+        @keyframes viewerProgressIndeterminate {
+          0% {
+            transform: translateX(-130%);
+          }
+          100% {
+            transform: translateX(260%);
+          }
+        }
       </style>
 
       <div class="viewer-container">
@@ -385,7 +461,17 @@ class ModelDetail3DViewerTab extends HTMLElement {
           </div>
         </div>
 
-        <div id="canvas-container"></div>
+        <div id="canvas-container">
+          <div id="viewer-progress-overlay" class="viewer-progress-overlay hidden" aria-live="polite" aria-hidden="true">
+            <div class="viewer-progress-card">
+              <div id="viewer-progress-label" class="viewer-progress-label">Preparing 3D viewer...</div>
+              <div id="viewer-progress-track" class="viewer-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="viewer-progress-fill" class="viewer-progress-fill"></div>
+              </div>
+              <div id="viewer-progress-value" class="viewer-progress-value"></div>
+            </div>
+          </div>
+        </div>
 
         <div class="viewer-info">
           <div class="info-item">
@@ -555,6 +641,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
     };
     animate();
 
+    this._setProgressState({
+      visible: true,
+      label: 'Three.js loaded. Fetching model geometry...',
+      percent: null,
+    });
     this._setRenderingStatus('Three.js loaded. Fetching model geometry...');
     this._loadSelectedGeometry().catch((error) => {
       this._setError(`Failed to load model geometry: ${String(error && error.message ? error.message : error)}`);
@@ -579,6 +670,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
     
     if (isStl) {
+      this._setProgressState({
+        visible: true,
+        label: `Downloading ${file.filename || 'geometry file'}...`,
+        percent: null,
+      });
       this._currentLodInfo = {
         requested: 'full',
         applied: 'full',
@@ -617,6 +713,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
     // plates. We swallow errors silently here and fall through to the HA
     // proxy / direct-JSON path so HA-only environments still work.
     try {
+      this._setProgressState({
+        visible: true,
+        label: `Fetching ${filename} geometry...`,
+        percent: null,
+      });
       const binaryParsed = await this._fetchGeometryDirectBinary(file);
       if (binaryParsed) {
         const parsed = this._normalizeParsedGeometryPayload(binaryParsed);
@@ -637,6 +738,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     try {
       this._setRenderingStatus(`Fetching ${filename} geometry via Home Assistant...`);
+      this._setProgressState({
+        visible: true,
+        label: `Fetching ${filename} geometry via Home Assistant...`,
+        percent: null,
+      });
       const payload = await this._fetchGeometryViaHaService(file);
       const parsed = this._normalizeParsedGeometryPayload(payload);
       if (parsed) {
@@ -653,6 +759,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     try {
       this._setRenderingStatus(`Fetching ${filename} geometry...`);
+      this._setProgressState({
+        visible: true,
+        label: `Fetching ${filename} geometry...`,
+        percent: null,
+      });
       const response = await fetch(geometryUrl, this._buildFetchOptions(geometryUrl));
       if (!response.ok) {
         let serverDetail = '';
@@ -748,6 +859,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     try {
       this._setRenderingStatus(`Large 3MF — downloading ${filename} for local rendering...`);
+      this._setProgressState({
+        visible: true,
+        label: `Large 3MF — downloading ${filename} for local rendering...`,
+        percent: null,
+      });
       const response = await fetch(sourceUrl, this._buildFetchOptions(sourceUrl));
       if (!response.ok) {
         throw new Error(`Download failed (${response.status})`);
@@ -774,6 +890,11 @@ class ModelDetail3DViewerTab extends HTMLElement {
           const total = progress && progress.total ? progress.total : 0;
           const loaded = progress && progress.loaded ? progress.loaded : 0;
           const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+          this._setProgressState({
+            visible: true,
+            label: `Large file — loading 3MF ${pct}%...`,
+            percent: pct,
+          });
           this._setRenderingStatus(`Large file — loading 3MF ${pct}%...`);
         },
         (error) => {
@@ -1000,6 +1121,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._setError('3MF loader returned empty geometry.');
       return;
     }
+
+    this._setProgressState({ visible: false });
 
     if (object.scene && object.scene.isObject3D) {
       this._load3mfObject(object.scene, filename, opts);
@@ -1554,7 +1677,57 @@ class ModelDetail3DViewerTab extends HTMLElement {
     }
   }
 
+  _setProgressState(options) {
+    const overlay = this.querySelector('#viewer-progress-overlay');
+    const labelNode = this.querySelector('#viewer-progress-label');
+    const trackNode = this.querySelector('#viewer-progress-track');
+    const fillNode = this.querySelector('#viewer-progress-fill');
+    const valueNode = this.querySelector('#viewer-progress-value');
+
+    if (!overlay || !labelNode || !trackNode || !fillNode || !valueNode) {
+      return;
+    }
+
+    const opts = options || {};
+    const visible = !!opts.visible;
+    const label = String(opts.label || '').trim();
+    const percentRaw = opts.percent;
+    const hasPercent = Number.isFinite(percentRaw);
+    const percent = hasPercent ? Math.max(0, Math.min(100, Math.round(Number(percentRaw)))) : null;
+
+    this._progressLabel = label;
+    this._progressPercent = percent;
+
+    if (!visible) {
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+      trackNode.classList.remove('indeterminate');
+      trackNode.removeAttribute('aria-valuenow');
+      fillNode.style.width = '0%';
+      valueNode.textContent = '';
+      return;
+    }
+
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+    labelNode.textContent = label || 'Loading model geometry...';
+
+    if (percent == null) {
+      trackNode.classList.add('indeterminate');
+      trackNode.removeAttribute('aria-valuenow');
+      fillNode.style.width = '40%';
+      valueNode.textContent = 'Working...';
+      return;
+    }
+
+    trackNode.classList.remove('indeterminate');
+    trackNode.setAttribute('aria-valuenow', String(percent));
+    fillNode.style.width = `${percent}%`;
+    valueNode.textContent = `${percent}%`;
+  }
+
   _setError(message) {
+    this._setProgressState({ visible: false });
     this._setRenderingStatus(`Error: ${message}`);
   }
 
@@ -1562,6 +1735,8 @@ class ModelDetail3DViewerTab extends HTMLElement {
     if (!window.THREE || !this._scene) {
       return;
     }
+
+    this._setProgressState({ visible: false });
 
     if (this._activeObject3D) {
       this._disposeObject3D(this._activeObject3D);
