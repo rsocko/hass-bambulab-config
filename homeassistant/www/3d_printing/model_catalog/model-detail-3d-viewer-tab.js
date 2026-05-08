@@ -568,7 +568,12 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._renderLoopId = null;
     }
 
-    container.innerHTML = '';
+    const existingCanvases = Array.from(container.querySelectorAll('canvas'));
+    existingCanvases.forEach((canvas) => {
+      if (canvas && canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
+    });
 
     const width = Math.max(1, container.clientWidth || 1);
     const height = Math.max(1, container.clientHeight || 1);
