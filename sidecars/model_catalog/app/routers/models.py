@@ -132,7 +132,11 @@ MODEL_PREVIEW_PHOTO_FIELD = "preview_photo_id"
 MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
 # Keep this above common Bambu Studio 3MF sizes so viewer rendering prefers
 # server-side parsed geometry over fragile browser-side 3MF parsing.
-MAX_SERVER_SIDE_3MF_BYTES = 50 * 1024 * 1024
+# Multi-plate Bambu projects (e.g. 20+ plate batch prints) can easily exceed
+# 100 MB compressed; the secondary triangle-count guard
+# (MAX_SERVER_SIDE_3MF_TRIANGLES) and the LOD decimation pipeline keep payload
+# sizes bounded even for these larger packages.
+MAX_SERVER_SIDE_3MF_BYTES = 256 * 1024 * 1024
 # Guard against returning extremely large JSON geometry payloads that can fail
 # in HA service proxying or browser parsing.
 MAX_SERVER_SIDE_3MF_TRIANGLES = 1_000_000
