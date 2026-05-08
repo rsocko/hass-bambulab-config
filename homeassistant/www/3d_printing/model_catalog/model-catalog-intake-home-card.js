@@ -1258,6 +1258,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      // Issue #1323: release the host page scroll lock that _openWizard set.
+      // Without this, the dashboard remains unscrollable after a successful
+      // queue/publish until the browser is hard-refreshed.
+      if (typeof this._restoreBackgroundScroll === 'function') {
+        this._restoreBackgroundScroll();
+      }
       this._clearBusyState();
       await this._refreshAll();
     } catch (error) {

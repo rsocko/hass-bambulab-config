@@ -2940,6 +2940,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      // Issue #1323: release the host page scroll lock that _openWizard set.
+      // Without this, navigating away after a successful publish leaves
+      // body.style.overflow = 'hidden' until the user hard-refreshes.
+      if (typeof this._restoreBackgroundScroll === 'function') {
+        this._restoreBackgroundScroll();
+      }
       if (typeof this._clearBusyState === 'function') {
         this._clearBusyState();
       }
