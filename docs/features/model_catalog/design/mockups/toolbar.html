@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Model Catalog · Toolbar / header redesign mockup (issue #1216)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg-page: #0e1116;
+    --bg-card: rgba(28, 33, 42, 0.92);
+    --bg-card-elev: rgba(38, 44, 54, 0.96);
+    --bg-toolbar: rgba(20, 26, 35, 0.85);
+    --border: rgba(148, 163, 184, 0.18);
+    --border-strong: rgba(148, 163, 184, 0.32);
+    --text: #e6edf3;
+    --text-secondary: #9aa4b2;
+    --text-muted: #6b7480;
+    --accent: #5eead4;
+    --accent-blue: #60a5fa;
+    --shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+  }
+  html, body { background: var(--bg-page); color: var(--text); margin: 0; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 32px clamp(16px, 4vw, 48px); }
+
+  .page-header { max-width: 1440px; margin: 0 auto 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+  .page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; max-width: 760px; line-height: 1.5; }
+  .page-header .nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .page-header .nav a, .page-header .nav span.sep { font-size: 12px; color: var(--text-secondary); text-decoration: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); }
+  .page-header .nav span.sep { border: none; background: transparent; padding: 0 4px; color: var(--text-muted); }
+  .page-header .nav a.active { color: var(--text); border-color: var(--border-strong); background: var(--bg-card-elev); }
+
+  .section { max-width: 1440px; margin: 0 auto 28px; }
+  .section h2 { margin: 24px 0 6px; font-size: 16px; font-weight: 700; letter-spacing: -0.005em; }
+  .section h2 .badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(94,234,212,0.10); color: var(--accent); border: 1px solid rgba(94,234,212,0.32); margin-left: 8px; vertical-align: middle; }
+  .section h2 .badge.alt { background: rgba(96,165,250,0.10); color: var(--accent-blue); border-color: rgba(96,165,250,0.30); }
+  .section .desc { color: var(--text-secondary); font-size: 13px; margin: 0 0 14px; line-height: 1.55; }
+
+  /* Title row — sort lives inline with title (issue #1216 "move sorting to top") */
+  .title-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: var(--shadow);
+    border-bottom: none;
+  }
+  .title-row .title-cluster { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .title-row .title-cluster h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.005em; }
+  .title-row .title-cluster .subtitle { font-size: 12px; color: var(--text-muted); }
+  .title-row .title-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .title-row .inline-sort { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(94,234,212,0.06); border: 1px solid rgba(94,234,212,0.22); }
+  .title-row .inline-sort label { font-size: 11px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .title-row .inline-sort select { background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+
+  /* Filter bar (existing pattern) */
+  .filterbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 12px 18px; background: var(--bg-card); border: 1px solid var(--border); border-top: 1px dashed var(--border);
+  }
+  .filterbar .grow { flex: 1 1 200px; min-width: 180px; }
+  .filterbar select, .filterbar input {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 7px 10px; font-size: 12px; min-height: 34px;
+  }
+  .filterbar .filter-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+    padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
+  }
+  .filterbar .filter-chip.active { background: rgba(245,194,66,0.14); border-color: rgba(245,194,66,0.32); color: #f5c242; }
+  .filterbar .filter-chip.other-files.active { background: rgba(212,200,168,0.14); border-color: rgba(212,200,168,0.32); color: #d4c8a8; }
+
+  /* CENTERED page-control strip — issue #1216 "above grid / below filters / centered" */
+  .page-strip {
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 18px; background: var(--bg-toolbar); border: 1px solid var(--border); border-top: 1px dashed var(--border); border-radius: 0 0 14px 14px;
+  }
+  .page-strip.bottom-mirror { border-radius: 14px; border-top: 1px solid var(--border); margin-top: 14px; }
+  .page-strip .group { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); }
+  .page-strip .group.tight { padding: 2px 6px; }
+  .page-strip .group .label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .page-strip .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 14px; padding: 0;
+    transition: background .15s ease, color .15s ease, transform .15s ease;
+  }
+  .page-strip .icon-btn:hover:not(:disabled), .page-strip .icon-btn:focus-visible:not(:disabled) { background: rgba(255,255,255,0.10); color: var(--text); transform: translateY(-1px); }
+  .page-strip .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .page-strip .icon-btn.toggle.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+  .page-strip .icon-btn.refresh.spinning ha-icon, .page-strip .icon-btn.refresh.spinning svg { animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+  .page-strip .pageinfo { display: inline-flex; align-items: baseline; gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .page-strip .pageinfo .current { font-weight: 700; color: var(--text); font-size: 13px; }
+  .page-strip .pageinfo .of, .page-strip .pageinfo .total { color: var(--text-muted); }
+  .page-strip .pageinfo .count { color: var(--accent); font-weight: 700; }
+  .page-strip select {
+    background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 4px 8px; font-size: 12px; min-height: 30px;
+  }
+
+  /* Grid placeholder */
+  .grid-placeholder {
+    display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 14px;
+  }
+  @media (max-width: 1199px) { .grid-placeholder { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 779px) { .grid-placeholder { grid-template-columns: 1fr; } }
+  .skeleton-card {
+    height: 184px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(28,33,42,0.7), rgba(38,44,54,0.5));
+    border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 12px;
+  }
+
+  /* SVG icon symbols */
+  svg.iconsheet { display: none; }
+
+  /* Notes/option callouts */
+  .notes {
+    margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+    background: rgba(94,234,212,0.04); border: 1px solid rgba(94,234,212,0.18);
+    font-size: 12px; color: var(--text-secondary); line-height: 1.55;
+  }
+  .notes h4 { margin: 0 0 6px; font-size: 12px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
+  .notes ul { margin: 4px 0 0 18px; padding: 0; }
+  .notes ul li { margin: 2px 0; }
+  .notes code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  .footnote { max-width: 1440px; margin: 32px auto 0; font-size: 12px; color: var(--text-muted); padding: 14px 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); line-height: 1.55; }
+  .footnote code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  /* Compact alt — option B (legacy, unused) */
+  .alt-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; background: var(--bg-toolbar); border: 1px solid var(--border); border-radius: 14px;
+  }
+  .alt-bar .left, .alt-bar .center, .alt-bar .right { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .alt-bar .center { flex: 1 1 auto; justify-content: center; }
+
+  /* Option B — combined header (title + sort + page nav + density + toggles in one row) */
+  .combined-header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px 14px 0 0; box-shadow: var(--shadow);
+  }
+  .combined-header .ch-title { display: inline-flex; align-items: baseline; gap: 8px; flex: 0 0 auto; min-width: 0; }
+  .combined-header .ch-title strong { font-size: 16px; font-weight: 800; letter-spacing: -0.005em; }
+  .combined-header .ch-subtle { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .combined-header .ch-paging { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); }
+  .combined-header .ch-paging .pageinfo { font-size: 12px; padding: 0 4px; }
+  .combined-header .ch-trailing { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .combined-header select {
+    background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 5px 8px; font-size: 12px; min-height: 30px;
+  }
+  .combined-header .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .combined-header .icon-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); color: var(--text); }
+  .combined-header .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .combined-header .icon-btn.toggle.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+
+  /* Option C — single-row bar with filters in popover */
+  .single-row-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+    padding: 8px 14px; background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow);
+  }
+  .single-row-bar .srb-title { display: inline-flex; align-items: baseline; gap: 6px; flex: 0 0 auto; }
+  .single-row-bar .srb-title strong { font-size: 15px; font-weight: 800; }
+  .single-row-bar .srb-search {
+    flex: 1 1 220px; min-width: 140px; max-width: 360px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; min-height: 30px;
+  }
+  .single-row-bar .srb-search:focus { outline: none; border-color: rgba(94,234,212,0.40); background: rgba(94,234,212,0.04); }
+  .single-row-bar .srb-filters {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 10px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text);
+    font-size: 12px; cursor: pointer;
+  }
+  .single-row-bar .srb-filters:hover { background: rgba(255,255,255,0.08); }
+  .single-row-bar .srb-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    background: var(--accent); color: #022c22; font-size: 11px; font-weight: 700;
+  }
+  .single-row-bar .srb-paging { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); }
+  .single-row-bar .srb-paging .pageinfo { font-size: 12px; padding: 0 4px; }
+  .single-row-bar .srb-trailing { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+  .single-row-bar select {
+    background: rgba(15,23,42,0.18); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 5px 8px; font-size: 12px; min-height: 30px;
+  }
+  .single-row-bar .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--text-secondary);
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .single-row-bar .icon-btn:hover:not(:disabled) { background: rgba(255,255,255,0.10); color: var(--text); }
+  .single-row-bar .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .single-row-bar .icon-btn.toggle.active { background: rgba(94,234,212,0.14); border-color: rgba(94,234,212,0.32); color: var(--accent); }
+
+  /* Popover preview (rendered inline so the mockup shows what opens from the Filters button) */
+  .popover-preview { position: relative; margin: 8px 0 0 14%; max-width: 520px; }
+  .popover-arrow {
+    position: absolute; top: -7px; left: 28px;
+    width: 14px; height: 14px; transform: rotate(45deg);
+    background: var(--bg-card-elev); border-left: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong);
+  }
+  .popover-card {
+    background: var(--bg-card-elev); border: 1px solid var(--border-strong); border-radius: 12px;
+    padding: 12px 14px; box-shadow: var(--shadow);
+  }
+  .popover-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .popover-head strong { font-size: 13px; }
+  .popover-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px 12px;
+    padding-bottom: 10px; border-bottom: 1px dashed var(--border);
+  }
+  .popover-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .popover-grid select {
+    background: rgba(15,23,42,0.32); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 5px 8px; font-size: 12px; text-transform: none; letter-spacing: 0;
+  }
+  .popover-foot { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 10px; }
+</style>
+</head>
+<body>
+
+<svg class="iconsheet" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-first" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></symbol>
+  <symbol id="i-prev"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-next"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+  <symbol id="i-last"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1 1 18 6.36L23 10"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.61 19.61 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a19.5 19.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></symbol>
+</svg>
+
+<div class="page-header">
+  <div>
+    <h1>Model Catalog · Toolbar / header redesign</h1>
+    <p>Implements the toolbar/header changes called out in <a href="https://github.com/rsocko/hass-bambulab-config/issues/1216" style="color:var(--accent)">#1216</a>: sort moves into the title row; page controls move <em>between</em> the filter bar and the grid and are centered; prev/next become icon buttons; <code>Models / Page</code>, total count, view variant, <em>Show / Hide media</em>, refresh, favorite, and <em>Other Files</em> all live on the strip. Two layout options are presented below; this mockup is the toolbar shell only — card grid is sketched as skeleton placeholders.</p>
+  </div>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <span class="sep">|</span>
+    <a class="active" href="toolbar.html">Toolbar</a>
+    <a href="compact.html">Compact</a>
+    <a href="list.html">List</a>
+    <a href="media.html">Media</a>
+    <span class="sep">|</span>
+    <a href="../catalog-card-design.md">Design doc</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION A — Recommended: title row + filter bar + centered strip -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2>Option A — Recommended <span class="badge">PRIMARY</span></h2>
+  <p class="desc">
+    Three stacked rows with progressive visual weight: title (with inline sort) → filter bar (text/select filters + favorites/other-files quick chips) → centered page-control strip. The strip groups <em>navigation</em> (prev/next icons + page indicator + count) on the left, <em>density</em> (Models/Page, View variant) in the middle, and <em>display toggles</em> (Show media, Refresh) on the right; whole strip is centered as a unit. Mirror strip below the grid uses the same DOM but hides the toggle group on small viewports.
+  </p>
+
+  <!-- TITLE ROW -->
+  <div class="title-row">
+    <div class="title-cluster">
+      <h3>Catalog Browser</h3>
+      <span class="subtitle">Shared browser shell · curated scope</span>
+    </div>
+    <div class="title-actions">
+      <span class="inline-sort">
+        <label for="opt-a-sort">Sort</label>
+        <select id="opt-a-sort">
+          <option>Recent</option>
+          <option>Frequent</option>
+          <option>Common</option>
+          <option>Best Match</option>
+          <option>Queue Priority</option>
+          <option>Name (A–Z)</option>
+          <option>Most archived</option>
+        </select>
+      </span>
+      <button class="icon-btn" title="Settings" onclick="event.preventDefault()" style="width:30px;height:30px;">⚙</button>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filterbar">
+    <input class="grow" placeholder="Search name, designer, tag…" />
+    <select><option>All collections</option><option>Warhammer</option><option>Tools</option></select>
+    <select><option>All creators</option></select>
+    <select><option>All tags</option></select>
+    <select><option>Queue: any</option><option>Queued</option><option>Done</option><option>None</option></select>
+    <button class="filter-chip active" title="Toggle favorites only">
+      <svg width="11" height="11" style="color:#f5c242"><use href="#i-star"/></svg> Favorites only
+    </button>
+    <button class="filter-chip other-files" title="Only models with non-3D files (PDFs, BOMs, images, …)">
+      <svg width="11" height="11"><use href="#i-doc"/></svg> Has other files
+    </button>
+  </div>
+
+  <!-- CENTERED PAGE-CONTROL STRIP -->
+  <div class="page-strip" role="toolbar" aria-label="Catalog page controls">
+    <!-- Pagination cluster -->
+    <span class="group">
+      <button class="icon-btn" disabled title="First page" aria-label="First page"><svg width="14" height="14"><use href="#i-first"/></svg></button>
+      <button class="icon-btn" disabled title="Previous page" aria-label="Previous page"><svg width="14" height="14"><use href="#i-prev"/></svg></button>
+      <span class="pageinfo">
+        <span class="current">1</span><span class="of">/</span><span class="total">5</span>
+        <span style="color:var(--text-muted);">·</span>
+        <span class="count">47</span><span style="color:var(--text-muted);">models</span>
+      </span>
+      <button class="icon-btn" title="Next page" aria-label="Next page"><svg width="14" height="14"><use href="#i-next"/></svg></button>
+      <button class="icon-btn" title="Last page" aria-label="Last page"><svg width="14" height="14"><use href="#i-last"/></svg></button>
+    </span>
+
+    <!-- Density cluster -->
+    <span class="group">
+      <span class="label">Models / page</span>
+      <select aria-label="Models per page"><option>12</option><option selected>24</option><option>48</option><option>96</option></select>
+      <span class="label" style="margin-left:6px;">View</span>
+      <select aria-label="Card variant"><option selected>Compact</option><option>Media</option><option>List</option></select>
+    </span>
+
+    <!-- Display-toggle cluster -->
+    <span class="group tight">
+      <button class="icon-btn toggle active" title="Hide thumbnails / media" aria-pressed="true" aria-label="Show or hide media">
+        <svg width="14" height="14"><use href="#i-eye"/></svg>
+      </button>
+      <button class="icon-btn refresh" title="Refresh catalog data" aria-label="Refresh catalog">
+        <svg width="14" height="14"><use href="#i-refresh"/></svg>
+      </button>
+    </span>
+  </div>
+
+  <!-- GRID placeholder -->
+  <div class="grid-placeholder">
+    <div class="skeleton-card">card · 1</div>
+    <div class="skeleton-card">card · 2</div>
+    <div class="skeleton-card">card · 3</div>
+    <div class="skeleton-card">card · 4</div>
+    <div class="skeleton-card">card · 5</div>
+    <div class="skeleton-card">card · 6</div>
+  </div>
+
+  <!-- BOTTOM MIRROR STRIP -->
+  <div class="page-strip bottom-mirror">
+    <span class="group">
+      <button class="icon-btn" disabled title="First page"><svg width="14" height="14"><use href="#i-first"/></svg></button>
+      <button class="icon-btn" disabled title="Previous page"><svg width="14" height="14"><use href="#i-prev"/></svg></button>
+      <span class="pageinfo">
+        <span class="current">1</span><span class="of">/</span><span class="total">5</span>
+        <span style="color:var(--text-muted);">·</span>
+        <span class="count">47</span><span style="color:var(--text-muted);">models</span>
+      </span>
+      <button class="icon-btn" title="Next page"><svg width="14" height="14"><use href="#i-next"/></svg></button>
+      <button class="icon-btn" title="Last page"><svg width="14" height="14"><use href="#i-last"/></svg></button>
+    </span>
+    <span class="group" style="opacity:.7;">
+      <span class="label">Models / page</span>
+      <select><option>12</option><option selected>24</option><option>48</option><option>96</option></select>
+    </span>
+  </div>
+
+  <div class="notes">
+    <h4>Option A · notes</h4>
+    <ul>
+      <li><strong>Sort lives in the title row</strong> as an accented inline pill (matching the print-history sort placement). Keeping it out of the page strip keeps the strip purely about <em>navigation + density + display</em>.</li>
+      <li><strong>Page strip is a single centered row</strong> on desktop. On small viewports each <code>.group</code> wraps to its own line but stays centered (uses <code>flex-wrap</code>, no JS).</li>
+      <li><strong>Prev/next icons</strong> use chevrons (<code>i-prev</code>/<code>i-next</code>) and double-chevrons for first/last, mirroring the print-history toolbar grammar (<code>mdi:page-first</code>, <code>mdi:chevron-left</code>, etc.).</li>
+      <li><strong>Total count</strong> is part of the page indicator (<code>1 / 5 · 47 models</code>) so it doesn't compete with the title-row metadata. Accent color draws the eye to the live count.</li>
+      <li><strong>Models / page</strong> is a select rather than a slider; the print-history slider works because it's runtime-tunable, but the catalog is closer to the AppDaemon list-view ergonomics where discrete steps (12/24/48/96) read better.</li>
+      <li><strong>View variant</strong> (Compact / Media / List) becomes a <em>dropdown</em> per #1216 ("Drop down for Card"), replacing the current 3 toggle buttons. Saves ~80 px of horizontal real estate and keeps focus on the high-frequency controls (page nav).</li>
+      <li><strong>Show / Hide media</strong> is a single <code>aria-pressed</code> eye toggle. When pressed, the card grid renders the no-media variant of each card (text-only), matching <code>input_boolean.print_history_show_images</code>.</li>
+      <li><strong>Refresh</strong> spins on press and clears when the underlying refresh resolves; keeps consistency with the print-history toolbar refresh affordance.</li>
+      <li><strong>Favorite filter</strong> is the always-visible amber pill on the filter bar (top-level <em>favorites only</em>), and a per-card star action lives on each card surface (already in the compact mockup). The two are deliberately separate concerns.</li>
+      <li><strong>Other Files</strong> appears as a top-level filter chip ("Has other files") <em>and</em> as per-card chips (PDF/IMG/Docs counts already in the compact mockup). The chip filter scopes the grid; the per-card chips advertise what's inside.</li>
+      <li><strong>Bottom mirror</strong> repeats only navigation + page-size, not the toggle group, because that group sets persistent display state and only needs one entry point.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION B — Genuinely 2-row: header absorbs page controls -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2>Option B — Two-row header <span class="badge alt">ALT · ~30% less vertical chrome</span></h2>
+  <p class="desc">
+    Collapses Option A's <strong>title row</strong> + <strong>page-control strip</strong> into a single full-width header bar, leaving just <strong>two</strong> rows above the grid: <em>(1) header (title + sort + page nav + density + display toggles)</em> and <em>(2) filter bar (search + selects + favorites/other-files chips)</em>. Saves roughly one row (~52 px at default density) compared to Option A.
+  </p>
+
+  <p class="desc" style="font-size:11.5px; color:var(--text-muted);">
+    <strong>Vertical comparison</strong> &mdash;
+    Option A: title (54&nbsp;px) + filter (50&nbsp;px) + page strip (54&nbsp;px) = <strong>~158&nbsp;px</strong> above grid.
+    Option B: header (52&nbsp;px) + filter (50&nbsp;px) = <strong>~102&nbsp;px</strong> above grid.
+    Option C: combined (66&nbsp;px) = <strong>~66&nbsp;px</strong> above grid.
+  </p>
+
+  <!-- ROW 1: combined header (title + sort + page nav + density + toggles) -->
+  <div class="combined-header">
+    <span class="ch-title">
+      <strong>Catalog Browser</strong>
+      <span class="ch-subtle">47 models</span>
+    </span>
+
+    <span class="ch-paging">
+      <button class="icon-btn" disabled aria-label="First page"><svg width="14" height="14"><use href="#i-first"/></svg></button>
+      <button class="icon-btn" disabled aria-label="Previous page"><svg width="14" height="14"><use href="#i-prev"/></svg></button>
+      <span class="pageinfo"><span class="current">1</span><span class="of">/</span><span class="total">5</span></span>
+      <button class="icon-btn" aria-label="Next page"><svg width="14" height="14"><use href="#i-next"/></svg></button>
+      <button class="icon-btn" aria-label="Last page"><svg width="14" height="14"><use href="#i-last"/></svg></button>
+    </span>
+
+    <span class="ch-trailing">
+      <select aria-label="Sort"><option>Sort: Recent</option><option>Sort: Frequent</option><option>Sort: Name</option><option>Sort: Most archived</option></select>
+      <select aria-label="View variant"><option selected>View: Compact</option><option>View: Media</option><option>View: List</option></select>
+      <select aria-label="Per page"><option>12 / page</option><option selected>24 / page</option><option>48 / page</option><option>96 / page</option></select>
+      <button class="icon-btn toggle active" title="Show / hide media" aria-pressed="true"><svg width="14" height="14"><use href="#i-eye"/></svg></button>
+      <button class="icon-btn refresh" title="Refresh"><svg width="14" height="14"><use href="#i-refresh"/></svg></button>
+    </span>
+  </div>
+
+  <!-- ROW 2: filter bar -->
+  <div class="filterbar" style="border-radius:0 0 14px 14px; border-top:1px dashed var(--border);">
+    <input class="grow" placeholder="Search name, designer, tag…" />
+    <select><option>All collections</option></select>
+    <select><option>All creators</option></select>
+    <select><option>All tags</option></select>
+    <select><option>Queue: any</option></select>
+    <button class="filter-chip active"><svg width="11" height="11" style="color:#f5c242"><use href="#i-star"/></svg> Favorites</button>
+    <button class="filter-chip other-files"><svg width="11" height="11"><use href="#i-doc"/></svg> Has other files</button>
+  </div>
+
+  <div class="grid-placeholder">
+    <div class="skeleton-card">card · 1</div>
+    <div class="skeleton-card">card · 2</div>
+    <div class="skeleton-card">card · 3</div>
+  </div>
+
+  <div class="notes">
+    <h4>Option B · trade-offs</h4>
+    <ul>
+      <li><strong>+</strong> <strong>Genuinely</strong> ~52 px shorter than Option A &mdash; one entire row is removed by merging title/sort with page nav and density.</li>
+      <li><strong>+</strong> The header reads left-to-right as <em>identity → location in result set → controls</em>, so navigation feels primary.</li>
+      <li><strong>+</strong> Sort, View, and Per-page all become <em>labelled selects</em> ("Sort: Recent", "View: Compact", "24 / page") so the row is self-describing without inline labels eating space.</li>
+      <li><strong>−</strong> Page nav is no longer centered; it's pinned to the left of the trailing controls. If the issue specifically wants the nav <em>visually centered</em>, Option A is the better fit.</li>
+      <li><strong>−</strong> Header wraps to two lines below ~960 px viewport (filter bar then becomes row 3), so on narrow tablets the savings vanish.</li>
+      <li>Recommended if vertical density matters more than centered-nav symmetry with print-history.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OPTION C — Aggressive 1-row: filters in popover -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2>Option C — Single-row, filters in popover <span class="badge alt">EXPERIMENTAL · ~60% less chrome</span></h2>
+  <p class="desc">
+    Most aggressive variant. <strong>One row</strong> above the grid: title + page nav + every control. Search becomes an inline input that expands on focus; the rest of the filter selects (collection / creator / tag / queue) collapse behind a single <em>Filters</em> button that opens a popover. Active filter count appears as a badge on the button so users can see at a glance how scoped the result set is.
+  </p>
+
+  <div class="single-row-bar">
+    <span class="srb-title">
+      <strong>Catalog</strong>
+      <span class="ch-subtle">47</span>
+    </span>
+
+    <input class="srb-search" type="search" placeholder="Search…" />
+
+    <button class="srb-filters">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      Filters
+      <span class="srb-badge">3</span>
+    </button>
+
+    <span class="srb-paging">
+      <button class="icon-btn" disabled><svg width="13" height="13"><use href="#i-prev"/></svg></button>
+      <span class="pageinfo"><span class="current">1</span><span class="of">/</span><span class="total">5</span></span>
+      <button class="icon-btn"><svg width="13" height="13"><use href="#i-next"/></svg></button>
+    </span>
+
+    <span class="srb-trailing">
+      <select aria-label="Sort"><option>Recent</option><option>Frequent</option><option>Name</option></select>
+      <select aria-label="View"><option selected>Compact</option><option>Media</option><option>List</option></select>
+      <button class="icon-btn toggle active" title="Show / hide media" aria-pressed="true"><svg width="13" height="13"><use href="#i-eye"/></svg></button>
+      <button class="icon-btn refresh" title="Refresh"><svg width="13" height="13"><use href="#i-refresh"/></svg></button>
+    </span>
+  </div>
+
+  <!-- Popover preview (rendered open for the mockup) -->
+  <div class="popover-preview">
+    <div class="popover-arrow"></div>
+    <div class="popover-card">
+      <div class="popover-head">
+        <strong>Filters</strong>
+        <span style="color:var(--text-muted); font-size:11px;">3 active · <a href="#" style="color:var(--accent);">Clear all</a></span>
+      </div>
+      <div class="popover-grid">
+        <label>Collection<select><option>Warhammer</option></select></label>
+        <label>Creator<select><option>All</option></select></label>
+        <label>Tag<select><option>functional</option></select></label>
+        <label>Queue<select><option>Queued</option></select></label>
+        <label>Per page<select><option selected>24</option><option>48</option></select></label>
+      </div>
+      <div class="popover-foot">
+        <button class="filter-chip active"><svg width="11" height="11" style="color:#f5c242"><use href="#i-star"/></svg> Favorites only</button>
+        <button class="filter-chip other-files"><svg width="11" height="11"><use href="#i-doc"/></svg> Has other files</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-placeholder">
+    <div class="skeleton-card">card · 1</div>
+    <div class="skeleton-card">card · 2</div>
+    <div class="skeleton-card">card · 3</div>
+  </div>
+
+  <div class="notes">
+    <h4>Option C · trade-offs</h4>
+    <ul>
+      <li><strong>+</strong> ~66 px above the grid &mdash; less than half of Option A. Best vertical real estate for the card grid itself.</li>
+      <li><strong>+</strong> Active-filter badge (<code>3</code>) gives immediate feedback that the result set is scoped, which Options A/B don't visually convey.</li>
+      <li><strong>+</strong> Reads cleanly on tablets; scales down to ~720 px before the <em>Filters</em> button needs to absorb sort/view/per-page too.</li>
+      <li><strong>−</strong> Filters are <em>hidden</em> until you click. Lower discoverability for users who don't expect a popover; a regression for power-users who want all filters visible at once.</li>
+      <li><strong>−</strong> Diverges further from print-history's pattern; less code/style sharing between the two browsers.</li>
+      <li><strong>−</strong> Popover positioning + focus-trap behavior is non-trivial; needs a keyboard-accessible close affordance and ESC handling.</li>
+      <li>Recommended if the dashboard is mounted on a small wall display or if the card grid is the dominant scan surface.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ANATOMY ANNOTATIONS -->
+<!-- ============================================================ -->
+<div class="section">
+  <h2>Anatomy & control mapping</h2>
+  <p class="desc">Each control on the page-strip maps to an issue #1216 bullet. Implementation hints reference the existing <a href="../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js" style="color:var(--accent)">model-catalog-browser-card.js</a> render path.</p>
+
+  <table style="width:100%; border-collapse:collapse; font-size:12.5px; line-height:1.55;">
+    <thead>
+      <tr style="text-align:left; color:var(--text-secondary);">
+        <th style="border-bottom:1px solid var(--border); padding:8px 10px;">Issue #1216 bullet</th>
+        <th style="border-bottom:1px solid var(--border); padding:8px 10px;">Mockup placement</th>
+        <th style="border-bottom:1px solid var(--border); padding:8px 10px;">Implementation hint</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move page controls above grid / below filters</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Centered page-strip row</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move <code>_renderTopToolbar</code> output to render after the <code>filter-panel</code> div in <code>_render()</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Center page controls</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Strip <code>justify-content: center</code></td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Replace <code>.browser-toolbar</code> <code>justify-content: space-between</code> with <code>center</code> + <code>flex-wrap</code>; keep mirror at bottom.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Move sorting to top (in line with title)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Title-row inline-sort pill</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Lift <code>#mc-sort</code> out of <code>.controls</code> grid; render in <code>.title-row-main</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Prev / Next icons</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Chevron <code>icon-btn</code>s</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Replace text in <code>_renderPagingControls</code> with <code>&lt;ha-icon icon="mdi:chevron-left"&gt;</code> etc; preserve <code>data-action</code> values.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Models / Page</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Density-cluster select</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">New <code>&lt;select id="mc-per-page"&gt;</code>; bind to <code>this._pagination.per_page</code>; on change, <code>_requestLoad(1, false)</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Count</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Page indicator <code>· N models</code></td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Append <code>this._pagination.total</code> to <code>_pageStatusText()</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Drop down for Card</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">View select (Compact / Media / List)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Replace <code>_renderViewToggle</code> trio with one <code>&lt;select&gt;</code> dispatching <code>data-action="set-view"</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Show / hide media</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Eye toggle (<code>aria-pressed</code>)</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Mirror <code>input_boolean.print_history_show_images</code>; new helper <code>input_boolean.model_catalog_show_images</code>; card respects it in all 3 variants.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Refresh</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Spinning refresh button</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);"><code>data-action="refresh"</code> → <code>_requestLoad(this._currentPage(), true)</code>; spinner class while <code>this._loading</code>.</td></tr>
+      <tr><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Favorite button</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Filter-bar pill <em>and</em> per-card star</td><td style="padding:8px 10px; border-bottom:1px solid var(--border);">Top-level: new filter <code>favorites_only</code> in search payload. Per-card: amber star icon-action already drafted in compact mockup.</td></tr>
+      <tr><td style="padding:8px 10px;">Other Files indicator (PDF, etc.)</td><td style="padding:8px 10px;">Filter-bar pill <em>and</em> per-card file chips</td><td style="padding:8px 10px;">Top-level: new filter <code>has_other_files</code> (any non-3D file present). Per-card: existing <code>file_kinds</code> chip group (Model Files / Images / Docs).</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footnote">
+  This mockup is a <strong>design proposal</strong>, not a deployment artefact. It lives under <code>docs/features/model_catalog/design/mockups/</code> and is not loaded by Lovelace, so no <code>homeassistant/packages/3d_printing/common/dashboards/_resources.yaml</code> bump is required. The actual implementation target is <code>homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js</code>; when that file changes, the resource URL <em>does</em> need to be bumped.
+</div>
+
+</body>
+</html>

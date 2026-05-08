@@ -223,11 +223,86 @@ Caption strip rows:
 
 ---
 
-## 7. Comparative analysis (deep)
+## 7. Toolbar & header redesign (issue #1216)
+
+**Job:** give the catalog browser a header that mirrors the print-history toolbar grammar without copying it wholesale, so users can move between the two surfaces without re-learning controls. See the dedicated mockup at [mockups/toolbar.html](mockups/toolbar.html) for three side-by-side layout options:
+
+- **Option A (recommended)** — three rows above the grid (title with inline sort → filter bar → centered page-control strip). ~158 px of header chrome. Highest discoverability and tightest parity with print-history.
+- **Option B (denser, two rows)** — collapses Option A's title row and page-control strip into one combined header, leaving header + filter bar above the grid. ~102 px of chrome (~52 px less than A). Page nav is no longer centered.
+- **Option C (single row, filters in popover)** — title + search + Filters-button + page nav + sort/view/per-page/toggles all on one row; collection/creator/tag/queue/favorites/other-files filters move into a popover behind a single button with an active-filter count badge. ~66 px of chrome (~58 % less than A). Lowest filter discoverability.
+
+### 7.1 Layout (three rows above the grid)
+
+The header decomposes into three stacked, full-width rows that sit above the card grid:
+
+1. **Title row** — `Catalog Browser` + an inline `Sort` pill on the right. Per #1216, sort moves *out* of the filter panel and *into* the title row so it's always visible without scrolling.
+2. **Filter bar** — search input + the existing select filters (collection, creator, tag, queue) + two new filter chips (`Favorites only`, `Has other files`).
+3. **Page-control strip** — centered between the filter bar and the grid; never above the filter bar. The strip groups *navigation* + *density* + *display toggles*. A simplified mirror strip repeats below the grid.
+
+This ordering matches print-history's structure (filter pills → centered control strip → grid → mirror strip) so muscle memory transfers between the two browsers.
+
+### 7.2 Page-control cluster (navigation)
+
+- **First / Prev / Next / Last** are icon-only buttons using chevron + double-chevron glyphs (parity with print-history's `mdi:page-first` / `mdi:chevron-left` / `mdi:chevron-right` / `mdi:page-last`). Replaces today's text labels.
+- **Page indicator** reads `1 / 5 · 47 models` — page X of Y plus the **total count** (#1216 "Count"). Total is rendered in accent color so the live number is the eye-catch.
+- Disabled states (first page → first/prev grey out; last page → next/last grey out) are required.
+
+### 7.3 Density cluster (Models / Page + View variant)
+
+- **Models / Page** is a `<select>` with steps `12 · 24 · 48 · 96`. Persisted via the same helper pattern used by print-history (or a new `input_number.model_catalog_per_page` if a slider is preferred — the mockup defaults to a select for discrete values).
+- **View variant** becomes a single `<select>` (Compact · Media · List) per #1216 "Drop down for Card". Replaces the three toggle buttons currently rendered by `_renderViewToggle` in [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js). Rationale: saves ~80 px of horizontal real estate on the strip and keeps the high-frequency controls (page nav) visually dominant. *Alternative considered* — keep three toggle buttons but icon-only; rejected because the dropdown matches the user's stated print-history preference ("matches print-history sort pattern").
+
+### 7.4 Display-toggle cluster (Show media + Refresh)
+
+- **Show / hide media** is an eye toggle (`aria-pressed`), mirroring `input_boolean.print_history_show_images`. Add a sibling helper `input_boolean.model_catalog_show_images`; all three card variants (compact / media / list) read it and render a no-thumbnail variant when off.
+- **Refresh** is a single icon button. Spins (CSS keyframe) while the load is in flight; clears when the response resolves. Wires to `_requestLoad(this._currentPage(), true)` with a forced-bypass flag.
+
+### 7.5 Favorite controls (per-card star + top-level filter)
+
+Split across two surfaces, by design:
+
+- **Per-card quick-toggle** — amber star icon-action already drafted in §3.7 / [mockups/compact.html](mockups/compact.html). Toggles `is_favorite` on the model, optimistic update.
+- **Top-level Favorites-only filter** — amber pill on the filter bar, scopes the grid to favorited models. New search-payload field `favorites_only: bool`.
+
+Both share the same color treatment (amber, matching print-history's `.favorite.active`) so users associate the visual with the favorite concept regardless of where they encounter it.
+
+### 7.6 Other Files filter + per-card chips
+
+#1216 calls for an "Other Files (PDF, etc.)" indicator. Implemented in two places:
+
+- **Top-level filter chip** (`Has other files`) on the filter bar — scopes the grid to models that include any non-3D file (PDF assembly instructions, BOMs, READMEs, etc.). New search-payload field `has_other_files: bool`.
+- **Per-card chip group** — already partially in place (`file_kinds` proposed field, §2.2). The compact card surfaces three chips: Model Files / Images / Docs. The Docs chip is the per-card "other files" affordance; clicking it scrolls the detail popup to the file-list section.
+
+**Layering guardrail (re-affirmed):** the *labels* ("Model Files", "Docs", "Has other files") and the *category buckets* are presentation concerns and live in the card / toolbar code, not in the Layer 1 archive sensor. Layer 2 derives `file_kinds` from the existing enrichment payload (mime type / extension grouping); Layer 3 (the card) chooses chip wording, color, and which kinds are aggregated under "Docs".
+
+### 7.7 Backend touch points
+
+| Control | Layer | New surface needed |
+| --- | --- | --- |
+| Sort dropdown (now in title row) | Layer 3 | none — already wired |
+| Models / Page select | Layer 3 + helper | `input_number.model_catalog_per_page` *or* persist client-side |
+| View variant dropdown | Layer 3 | none — repackages existing `_renderViewToggle` actions |
+| Show / hide media toggle | Layer 3 + helper | `input_boolean.model_catalog_show_images` (mirrors print-history) |
+| Refresh button | Layer 3 | none — `_requestLoad(page, force=true)` already exists |
+| Favorites-only filter | Layer 2 + Layer 3 | extend search payload with `favorites_only`; backend filter on `is_favorite` projection |
+| Has-other-files filter | Layer 2 + Layer 3 | extend search payload with `has_other_files`; backend filter on `file_kinds` projection |
+| Per-card star (favorite) | Layer 1/2 + Layer 3 | `is_favorite` field already proposed in §2.2; toggle action wires through existing model-update API |
+| Per-card file-kind chips | Layer 2 + Layer 3 | `file_kinds` projection (§2.2); chip labels stay in Layer 3 |
+
+Layer 1 (`sensor.print_history_archives` and the equivalent model-catalog projection) **must not** absorb chip labels, color tokens, or filter-pill wording — those are presentation concerns owned by the dashboard and the custom card.
+
+### 7.8 Mockup deliverables
+
+- [mockups/toolbar.html](mockups/toolbar.html) — Option A (recommended) and Option B (compact alternative) side-by-side, with inline anatomy notes and a per-bullet mapping table.
+- [mockups/compact.html](mockups/compact.html), [mockups/list.html](mockups/list.html), [mockups/media.html](mockups/media.html) — header banner points at toolbar.html; the existing in-mockup filter bar is retained as a placeholder so each variant continues to read standalone.
+
+---
+
+## 8. Comparative analysis (deep)
 
 What follows is a per-tool reading of how comparable surfaces solve the same job, and what we're borrowing or rejecting.
 
-### 7.1 Manyfold
+### 8.1 Manyfold
 
 - **Source:** [manyfold.app/features](https://manyfold.app/features), [github.com/manyfold3d/manyfold](https://github.com/manyfold3d/manyfold). Manyfold is a Rails + Bootstrap 5 + THREE.js self-hosted DAM for 3D models with first-class scanning, tagging, creators, collections, likes, and multi-user permissions. The feature page calls out **previews**, **organisation (tags / creators / lists / collections / folder structure)**, **problem detection (inefficient formats, missing metadata)**, **federation**, and a **REST API**. ([manyfold.app/features](https://manyfold.app/features))
 - **What we borrow:**
@@ -238,7 +313,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
   - Manyfold's likes/comments/federation row — out of scope for a single-user HA install.
   - Bootstrap-style filled cards with heavy elevation; we keep the translucent dark surface that matches the rest of HA.
 
-### 7.2 Bambuddy File Manager (local repo)
+### 8.2 Bambuddy File Manager (local repo)
 
 - **Source:** the [print-history-archive-actions-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-archive-actions-card.js) main-tabs `Files & Media` panel, plus the [working-files explorer](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js).
 - **What we borrow:**
@@ -247,7 +322,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
 - **What we don't borrow:**
   - The full multi-tab action surface — that's a detail-popup pattern, not a card pattern. The card's `⋯` overflow menu is the link into the existing actions card.
 
-### 7.3 MakerWorld
+### 8.3 MakerWorld
 
 - **Source observation:** MakerWorld's grid card is a 16:9 hero photo with floating "auto-rotate to next photo" hover behavior, a like/download counter strip in the bottom-left of the photo, the model title beneath the photo (1–2 lines, truncates), and the creator avatar + name on the line below. (Live page returns `403` to fetchers; pattern observed from public browsing.)
 - **What we borrow:**
@@ -258,7 +333,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
   - Like / download social counters — not part of a private HA install.
   - MakerWorld's brand-coloured "Bambu Lab" attribution badge — replaced by our generic publish destination chip.
 
-### 7.4 Printables
+### 8.4 Printables
 
 - **Source:** [printables.com/model](https://www.printables.com/model). The grid card pattern: hero photo with photo-count badge top-right, **per-file color swatches rendered as `█ █ █` blocks** at the bottom of the photo, title (medium weight, 2-line clamp) under the photo, then a single line with creator avatar + name + creator-tier badge, then a counter row (`likes` and `downloads`).
 - **What we borrow:**
@@ -269,7 +344,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
   - The category-tag colour bar Printables uses to brand cards by category — too noisy for a personal catalog.
   - Sidebar filter ribbons inside cards (Printables uses card-level "featured / contest / make" pills); we keep that information in the filter tray, not on the card.
 
-### 7.5 Thingiverse
+### 8.5 Thingiverse
 
 - **Source observation:** Thingiverse's grid card is the simplest of the four — square hero photo, title (1-line truncate), creator name, like + collect counters. Hover swaps the hero photo to a secondary photo if available. (The public `/explore/popular` page returns `404` to fetchers; pattern observed from public browsing.)
 - **What we borrow:**
@@ -277,7 +352,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
 - **What we don't borrow:**
   - Thingiverse's information sparseness — we have *more* signal to surface (queue, archives, success), so a Thingiverse-density card would underuse the space.
 
-### 7.6 Print History (sibling repo feature)
+### 8.6 Print History (sibling repo feature)
 
 - **Source:** [print-history-browser-card.js](../../../../homeassistant/www/3d_printing/print_history/print-history-browser-card.js) and the legacy YAML templates ([compact](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_compact.yaml), [media](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_media.yaml), [detail](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_detail.yaml)).
 - **What we borrow (whole-cloth):**
@@ -293,7 +368,7 @@ What follows is a per-tool reading of how comparable surfaces solve the same job
 
 ---
 
-## 8. Open questions
+## 9. Open questions
 
 1. `success_rate_pct` denominator: do we count cancelled prints against success, or only completed-vs-failed? Recommend the latter (mirror Print History's existing distinction).
 2. `published_to[]` ordering: should "owned" destinations (Manyfold, local catalog) sort before remote (MakerWorld, Printables)? Recommend yes.
