@@ -655,7 +655,22 @@ class ModelDetail3DViewerTab extends HTMLElement {
       this._setRenderingStatus(`Fetching ${filename} geometry...`);
       const response = await fetch(geometryUrl, this._buildFetchOptions(geometryUrl));
       if (!response.ok) {
-        throw new Error(`Geometry request failed (${response.status})`);
+        let serverDetail = '';
+        try {
+          const errBody = await response.json();
+          if (errBody && typeof errBody === 'object') {
+            const parts = [];
+            if (errBody.error) parts.push(String(errBody.error));
+            if (errBody.triangle_count != null) parts.push(`triangle_count=${errBody.triangle_count}`);
+            if (errBody.max_server_side_triangles != null) parts.push(`max=${errBody.max_server_side_triangles}`);
+            if (errBody.package_size_bytes != null) parts.push(`package_size_bytes=${errBody.package_size_bytes}`);
+            if (errBody.max_server_side_bytes != null) parts.push(`max_bytes=${errBody.max_server_side_bytes}`);
+            if (parts.length) serverDetail = `: ${parts.join(', ')}`;
+          }
+        } catch (_parseErr) {
+          // Non-JSON body; fall through with status only.
+        }
+        throw new Error(`Geometry request failed (${response.status})${serverDetail}`);
       }
 
       const payload = await response.json();
@@ -680,6 +695,26 @@ class ModelDetail3DViewerTab extends HTMLElement {
 
     if (!this._has3mfLoader()) {
       throw geometryError || new Error('3MF geometry unavailable.');
+    }
+
+    // Skip the browser fallback when the server has clearly indicated the
+    // model cannot be rendered interactively. Both `too_complex` (>1M
+    // triangles) and `too_large` (>256MB) cases would force the browser to
+    // download multi-MB bytes and parse hundreds of thousands of triangles,
+    // pegging memory (~1GB observed) before the bare ThreeMFLoader fails on
+    // multi-plate / multi-filament Bambu 3MF structures anyway.
+    const geometryErrorText = (geometryError && geometryError.message ? String(geometryError.message) : '').toLowerCase();
+    if (
+      geometryErrorText.includes('too complex for interactive viewer rendering')
+      || geometryErrorText.includes('too large for server-side geometry extraction')
+    ) {
+      const userMessage = this._build3mfFailureMessage({
+        filename,
+        geometryError,
+        downloadError: new Error('browser fallback skipped to avoid OOM on oversized/over-complex 3MF'),
+      });
+      this._setError(userMessage);
+      return;
     }
 
     // Issue #1378 Track 2: when server-side parse failed (size cap or
@@ -1147,7 +1182,7 @@ class ModelDetail3DViewerTab extends HTMLElement {
         throw new Error(normalized.message || normalized.error || 'Request failed.');
       }
       if (normalized && typeof normalized.status === 'number' && normalized.status >= 400) {
-        throw new Error(normalized.message || `Request failed (HTTP ${normalized.status}).`);
+        throw new Error(normalized.error || normalized.message || `Request failed (HTTP ${normalized.status}).`);
       }
       // Extract detailed error info from debug payload if present
       if (normalized && normalized.error) {
