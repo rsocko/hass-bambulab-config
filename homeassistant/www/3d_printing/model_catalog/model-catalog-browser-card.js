@@ -1169,6 +1169,9 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '.list-thumb{min-height:96px;height:96px;}'
       + '.media-preview{width:100%;aspect-ratio:16/9;min-height:220px;}'
       + '.thumb img,.media-preview img{width:100%;height:100%;object-fit:cover;display:block;}'
+      // Suppress alt-text "flash" on lazy-loaded thumbnails: hide alt text and show a subtle placeholder gradient until src is set (issue #1383)
+      + '.thumb img[data-thumbnail-lazy-url]:not([src]),.media-preview img[data-thumbnail-lazy-url]:not([src]){font-size:0;color:transparent;background:linear-gradient(120deg,rgba(148,163,184,0.18),rgba(148,163,184,0.06));}'
+      + '.thumb img[data-thumbnail-lazy-url]:not([src])::before,.media-preview img[data-thumbnail-lazy-url]:not([src])::before{content:"";display:block;width:100%;height:100%;}'
       + '.thumb-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:.72;}'
       + '.thumb-empty ha-icon{--mdc-icon-size:28px;}'
       + '.thumb-empty-text{font-size:10px;margin-top:4px;}'

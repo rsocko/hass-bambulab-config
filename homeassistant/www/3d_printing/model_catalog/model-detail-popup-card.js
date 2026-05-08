@@ -586,6 +586,13 @@ class ModelDetailPopupCard extends HTMLElement {
           height: 100%;
           object-fit: cover;
         }
+
+        /* Suppress alt-text "flash" on lazy-loaded thumbnails (issue #1383) */
+        .header-thumbnail img[data-thumbnail-lazy-url]:not([src]) {
+          font-size: 0;
+          color: transparent;
+          background: linear-gradient(120deg, rgba(148,163,184,0.22), rgba(148,163,184,0.08));
+        }
         
         .header-content {
           flex: 1;
