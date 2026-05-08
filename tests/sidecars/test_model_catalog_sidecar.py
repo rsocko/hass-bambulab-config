@@ -1424,6 +1424,57 @@ def test_dominant_extruder_from_paint_color_handles_simple_and_subdivided() -> N
     assert _dominant_extruder_from_paint_color("zzz") == 0
 
 
+def test_parse_model_settings_metadata_reads_per_part_extruder() -> None:
+    """Bambu composed models (multiple .stp/.stl glued into one printed
+    object) declare each sub-mesh as a ``<part id="M">`` *inside* the
+    parent ``<object id="N">`` element. The 3dmodel.model
+    ``<component objectid="M"/>`` reference uses the part id, not the
+    object id, so the decoder must register a per-part extruder mapping
+    -- inheriting the parent object's extruder when the part itself does
+    not override it. Without this fix, composed multi-color models such
+    as ``harbaugh-sweatshirt-arms--cd982dce`` render with the wrong
+    colors because the lookup ``object_extruders[part_id]`` always
+    misses and falls back to a default slot.
+    """
+    from sidecars.model_catalog.app.geometry_3mf import (
+        _parse_model_settings_metadata,
+    )
+
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <object id="21">
+    <metadata key="extruder" value="4"/>
+    <part id="9" subtype="normal_part">
+      <metadata key="name" value="Sweatshirt_part"/>
+    </part>
+    <part id="18" subtype="normal_part">
+      <metadata key="name" value="Logo_M"/>
+      <metadata key="extruder" value="2"/>
+    </part>
+  </object>
+  <object id="6">
+    <metadata key="extruder" value="1"/>
+    <part id="5" subtype="normal_part">
+      <metadata key="name" value="Hand"/>
+    </part>
+  </object>
+</config>
+"""
+
+    plates, object_extruders = _parse_model_settings_metadata(xml)
+
+    # Object-level extruders preserved.
+    assert object_extruders["21"] == 4
+    assert object_extruders["6"] == 1
+    # Part without its own override inherits the parent object's extruder.
+    assert object_extruders["9"] == 4
+    assert object_extruders["5"] == 1
+    # Part-level override beats object-level extruder.
+    assert object_extruders["18"] == 2
+    # No plate elements in this fixture.
+    assert plates == []
+
+
 def test_extract_3mf_geometry_splits_groups_by_per_triangle_paint_color() -> None:
     """Paint-painted Bambu/Orca 3MFs encode AMS color assignment as
     ``paint_color`` attributes on individual <triangle> elements inside a

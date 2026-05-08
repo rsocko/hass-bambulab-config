@@ -252,15 +252,42 @@ def _parse_model_settings_metadata(text: str | None) -> tuple[list[dict[str, Any
             object_id = str(child.attrib.get("id") or "").strip()
             if not object_id:
                 continue
+            object_default_extruder: int | None = None
+            part_nodes: list[ET.Element] = []
             for metadata_node in list(child):
-                if _local_name(metadata_node.tag) != "metadata":
+                tag_name = _local_name(metadata_node.tag)
+                if tag_name == "metadata":
+                    if str(metadata_node.attrib.get("key") or "").strip() != "extruder":
+                        continue
+                    try:
+                        value_int = int(str(metadata_node.attrib.get("value") or "0"))
+                    except ValueError:
+                        continue
+                    object_extruders[object_id] = value_int
+                    object_default_extruder = value_int
+                elif tag_name == "part":
+                    part_nodes.append(metadata_node)
+            # Bambu composed models declare each sub-mesh as a <part id="M"> inside
+            # the parent <object id="N">. The 3dmodel.model <component objectid="M"/>
+            # references the part id, not the object id, so we must register a
+            # per-part extruder mapping (inheriting the object-level extruder when
+            # the part itself does not override it). See bbs_3mf.cpp PART_TAG.
+            for part in part_nodes:
+                part_id = str(part.attrib.get("id") or "").strip()
+                if not part_id:
                     continue
-                if str(metadata_node.attrib.get("key") or "").strip() != "extruder":
-                    continue
-                try:
-                    object_extruders[object_id] = int(str(metadata_node.attrib.get("value") or "0"))
-                except ValueError:
-                    pass
+                part_extruder: int | None = object_default_extruder
+                for part_meta in list(part):
+                    if _local_name(part_meta.tag) != "metadata":
+                        continue
+                    if str(part_meta.attrib.get("key") or "").strip() != "extruder":
+                        continue
+                    try:
+                        part_extruder = int(str(part_meta.attrib.get("value") or "0"))
+                    except ValueError:
+                        pass
+                if part_extruder is not None:
+                    object_extruders[part_id] = part_extruder
             continue
 
         if child_name != "plate":
