@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import gc
 import hashlib
 import json
 import logging
@@ -150,8 +151,12 @@ MAX_UPLOAD_PHOTO_BYTES = 10 * 1024 * 1024
 # fall back to the raw-3MF browser path (Track 2).
 MAX_SERVER_SIDE_3MF_BYTES = 256 * 1024 * 1024
 # Guard against returning extremely large JSON geometry payloads that can fail
-# in HA service proxying or browser parsing.
-MAX_SERVER_SIDE_3MF_TRIANGLES = 1_000_000
+# in HA service proxying or browser parsing. Raised slightly from the original
+# 1,000,000 cap (2026-05-07) after measurements showed real Bambu multi-color
+# 3MF prints (e.g. Boba Fett 5-color v3 at 1,000,001 triangles) routinely sit
+# just above 1M while still fitting comfortably in the post-parse memory
+# budget once the array.array buffers are freed and decimation/LOD applies.
+MAX_SERVER_SIDE_3MF_TRIANGLES = 1_500_000
 GEOMETRY_LOD_TRIANGLE_LIMITS: dict[str, int] = {
     "low": 150_000,
     "medium": 400_000,
@@ -3414,6 +3419,17 @@ def get_geometry_endpoint(
 
     headers = _build_geometry_introspection_headers(preflight, reason=reason)
     headers["X-Geometry-Response-Format"] = response_format
+
+    # Drop large transient references (we deserialized the response body for
+    # telemetry extraction; that copy is no longer needed) and run a targeted
+    # GC pass before returning. For million-triangle 3MF responses this
+    # promptly releases ~hundreds of MB of Python list[float] vertex data and
+    # keeps sidecar RSS from sitting on a peak between requests.
+    body = None
+    geometry = None
+    lod_block = None
+    debug_block = None
+    gc.collect()
 
     if binary_blob is not None:
         headers["X-Geometry-Binary-Bytes"] = str(len(binary_blob))

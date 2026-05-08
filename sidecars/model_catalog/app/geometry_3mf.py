@@ -341,7 +341,7 @@ def _resolve_component_part_path(current_part_path: str, target_path: Any) -> st
 
 
 def _parse_model_part_lazy(
-    raw_bytes: bytes,
+    source: bytes | Any,
     *,
     current_part_path: str,
     object_id_filter: set[str] | None = None,
@@ -352,6 +352,11 @@ def _parse_model_part_lazy(
     have their mesh data materialized. Other objects are skipped and their XML
     elements cleared as we go, keeping memory bounded by the materialized set
     rather than the whole part.
+
+    ``source`` may be either ``bytes`` (legacy) or any binary file-like object
+    that ``ET.iterparse`` accepts. Passing a streaming ``ZipExtFile`` avoids
+    holding the entire decompressed .model XML in memory at once, which is a
+    measurable peak-memory win for multi-million-triangle 3MF packages.
 
     Returns ``(objects, build_object_ids)`` where ``build_object_ids`` is the
     ordered list of objectid references encountered in the ``<build>`` block
@@ -366,8 +371,8 @@ def _parse_model_part_lazy(
     in_build = False
     root_seen = False
 
-    source = BytesIO(raw_bytes)
-    for event, elem in ET.iterparse(source, events=("start", "end")):
+    stream = BytesIO(source) if isinstance(source, (bytes, bytearray)) else source
+    for event, elem in ET.iterparse(stream, events=("start", "end")):
         tag = _local_name(elem.tag)
 
         if event == "start":
@@ -458,18 +463,20 @@ def _parse_model_part_lazy(
 
 
 def _parse_root_build_items(
-    raw_bytes: bytes,
+    source: bytes | Any,
     *,
     root_part_path: str,
 ) -> list[tuple[str, str, list[list[float]]]]:
     """Light-weight extraction of ``<build><item .../></build>`` entries from
     the root .model part. Streamed so we do not allocate object meshes here.
+
+    ``source`` may be either ``bytes`` (legacy) or a binary file-like object.
     """
     items: list[tuple[str, str, list[list[float]]]] = []
     in_build = False
     root_seen = False
-    source = BytesIO(raw_bytes)
-    for event, elem in ET.iterparse(source, events=("start", "end")):
+    stream = BytesIO(source) if isinstance(source, (bytes, bytearray)) else source
+    for event, elem in ET.iterparse(stream, events=("start", "end")):
         tag = _local_name(elem.tag)
         if event == "start":
             if not root_seen:
@@ -520,12 +527,16 @@ def _load_object_graph(
         original = part_name_map.get(part_path)
         if not original:
             return {}
-        raw_bytes = package.read(original)
-        objects, _ = _parse_model_part_lazy(
-            raw_bytes,
-            current_part_path=part_path,
-            object_id_filter=filter_ids,
-        )
+        # Stream the .model XML directly from the zip rather than materializing
+        # the full decompressed bytes in RAM. For multi-MB .model parts this
+        # avoids a large transient allocation that previously dominated peak
+        # sidecar memory during 3MF parse.
+        with package.open(original) as part_stream:
+            objects, _ = _parse_model_part_lazy(
+                part_stream,
+                current_part_path=part_path,
+                object_id_filter=filter_ids,
+            )
         for object_id, obj_def in objects.items():
             object_map[(part_path, object_id)] = obj_def
         return objects
@@ -667,8 +678,10 @@ def extract_3mf_geometry(
         root_original = part_name_map.get(root_part_path)
         if not root_original:
             raise ValueError("3MF package did not include the root model part")
-        root_bytes = package.read(root_original)
-        build_items = _parse_root_build_items(root_bytes, root_part_path=root_part_path)
+        with package.open(root_original) as root_stream:
+            build_items = _parse_root_build_items(
+                root_stream, root_part_path=root_part_path
+            )
 
         # Determine root-allowed object ids: union of plate-allowed ids (if any)
         # and any objects directly referenced from <build> (single-plate files).
@@ -816,6 +829,15 @@ def extract_3mf_geometry(
             (),
             object_extruders.get(str(object_id)),
         )
+
+    # Drop the parsed mesh graph as soon as flattening is done. ``object_map``
+    # holds the array.array vertex/index buffers for every materialized
+    # object; after ``append_object`` projects them into ``flattened_vertices``
+    # and ``grouped_vertices`` we no longer need the original buffers. Freeing
+    # them here meaningfully shrinks resident memory before the (potentially
+    # expensive) downstream LOD/decimation and JSON serialization steps.
+    object_map.clear()
+    build_items.clear()
 
     if not flattened_vertices or triangle_count <= 0:
         raise ValueError("3MF package contained no renderable mesh geometry")
