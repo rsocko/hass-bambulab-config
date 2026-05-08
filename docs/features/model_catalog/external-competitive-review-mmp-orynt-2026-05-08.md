@@ -51,7 +51,7 @@ Date: 2026-05-08
 
 ## Findings: MMP (Functionality + Code)
 
-**Links:** [GitHub Organization](https://github.com/mkwarbuton) | [Agent Repository](https://github.com/mkwarbuton/MakerManagementPlatform) | [UI Repository](https://github.com/mkwarbuton/mmp-ui) | [Docs Repository](https://github.com/mkwarbuton/MakerManagementPlatform-docs)
+**Links:** [GitHub Organization](https://github.com/Maker-Management-Platform) | [Agent Repository](https://github.com/Maker-Management-Platform/agent) | [UI Repository](https://github.com/Maker-Management-Platform/mmp-ui) | [Docs Repository](https://github.com/Maker-Management-Platform/docs)
 
 ### What MMP does well
 1. End-to-end asset lifecycle orchestration
