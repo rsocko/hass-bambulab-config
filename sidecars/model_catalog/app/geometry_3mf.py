@@ -702,6 +702,43 @@ def extract_3mf_geometry(
         if filtered_build_items:
             build_items = filtered_build_items
 
+    # Pre-flight triangle count over the build graph so we can fail before
+    # the (Python-list-based) flattening loop allocates ~28 bytes per float
+    # for millions of vertices, which previously spiked sidecar RSS to
+    # several hundred MB even when the budget was clearly exceeded.
+    if triangle_budget is not None:
+        def _estimated_triangles_from(
+            part_path: str,
+            object_id: str,
+            lineage: tuple[tuple[str, str], ...],
+        ) -> int:
+            object_key = (part_path, object_id)
+            if object_key in lineage:
+                return 0
+            object_def = object_map.get(object_key)
+            if object_def is None:
+                return 0
+            count = 0
+            if object_def.mesh is not None:
+                count += object_def.mesh.triangle_count
+            for component in object_def.components:
+                count += _estimated_triangles_from(
+                    component.part_path,
+                    component.object_id,
+                    lineage + (object_key,),
+                )
+                if count > triangle_budget:
+                    return count
+            return count
+
+        estimated_total = 0
+        for part_path, object_id, _transform in build_items:
+            estimated_total += _estimated_triangles_from(part_path, object_id, ())
+            if estimated_total > triangle_budget:
+                raise GeometryTooComplexError(
+                    triangle_count=estimated_total, budget=triangle_budget
+                )
+
     flattened_vertices: list[float] = []
     grouped_vertices: dict[str, dict[str, Any]] = {}
     triangle_count = 0
