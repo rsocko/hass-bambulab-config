@@ -79,14 +79,15 @@ Per [the repo Copilot guidance](../../../../.github/copilot-instructions.md), al
 All three view modes share the same building blocks, sized differently:
 
 ```
-┌─ ha-card (radius 18, translucent, 1px hairline border) ───────────────────┐
-│  [QUEUE RIBBON]  [PRIMARY MEDIA]   [HEADER: NAME · DESIGNER · DATE]       │
+┌─ ha-card (cursor:pointer — click opens model detail popup) ───────────────┐
+│  [QUEUE RIBBON]  [PRIMARY MEDIA]   [CIRCLE BUTTONS: Viewer · ★ · ⋯]      │
+│                                    [HEADER: NAME · DESIGNER · DATE]       │
 │                                    [PROVENANCE + PUBLISH CHIP ROW]        │
 │                                    [SIGNAL CHIPS: recent/frequent/common] │
 │                                    [METRIC BLOCK: archives · last · …]    │
 │                                    [FILAMENT SWATCHES]  [FILE-KIND CHIPS] │
 │                                    [TAGS]                                  │
-│                                    [ACTION ROW: Open · Queue · ⋯]         │
+│                                    [ACTION ROW: Open · Queue · Slicer]    │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -118,11 +119,39 @@ Three slots, all monospaced numerics on a 14 px baseline so they read as a singl
 ### 3.5 Filament swatches
 Reuses the Print History dot-row pattern from [print-history-color-filter-card.js](../../../../homeassistant/www/3d_printing/www/3d_printing/print_history/print-history-color-filter-card.js) — 14 px circles, inset 1 px white-alpha border, hover tooltip with the filament name and hex. Source field: `primary_filament_palette[]` (proposed) with fallback to "—".
 
-### 3.6 File-kind chips
-Tiny capsule chips: `3MF · 4`, `STL · 2`, `STEP · 1`, `IMG · 7`. Inspired by Manyfold's per-format chip row (Manyfold's "Organisation" feature lists scanned files with format counts — see [manyfold.app/features](https://manyfold.app/features)).
+### 3.6 File-kind chips (updated)
+Up to **three semantic chips** group the model's files, replacing the old per-format text chips (`3MF · 4`, `STL · 2`, etc.):
 
-### 3.7 Action row
-Three primary actions (Open detail, Queue/Dequeue, Send to slicer) plus an overflow `⋯` menu that mirrors what's already wired in [model-catalog-browser-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-browser-card.js) (`queue-priority-up`, `queue-priority-down`, `queue-mark-queued`, `queue-mark-done`, `queue-clear`).
+| Chip | Icon | Contents | Colour |
+| --- | --- | --- | --- |
+| **Model Files** | 🧊 cube SVG | 3MF + STL + GCODE count combined | Teal accent |
+| **Images** | 🖼 image SVG | JPG / PNG / render count | Blue |
+| **Docs / Other** | 📄 file SVG | STEP + PDF + misc count | Warm tan |
+
+Chips are only rendered when the count > 0 (cards with only model files show one chip; a card with model files + images shows two). Inspired by Manyfold's per-format chip row but collapsed to semantic groups to avoid visual clutter at compact density.
+
+Source field: `file_kinds` (proposed) — individual counts folded in Layer 2.
+
+### 3.7 Circle icon action buttons (new)
+Three 28 px circle buttons sit **top-right of the content column** (above the name, right-aligned via `display:flex; justify-content:flex-end`). They stop click propagation so the card-level click-to-open is not triggered:
+
+| Button | Class | Icon | Colour |
+| --- | --- | --- | --- |
+| 3D Viewer | `.icon-action.viewer` | Cube/layer SVG | Teal — `rgba(0,137,123,0.14)` bg, `#7dd3c8` fg |
+| Favourite | `.icon-action.favorite` / `.favorite.active` | ★ (★ filled when active) | Default: muted; Active: amber `#f5c242`, `rgba(245,194,66,0.20)` bg |
+| More | `.icon-action` (generic) | ⋯ | Default subtle |
+
+Visual grammar matches the `print-history-browser-card.js` `.icon-action` / `.action-buttons` pattern exactly (same border-radius, hover lift, box-shadow ring, transition spec). The `⋯` More overflow menu replaces the old `<button class="btn icon-only">` in the action row; the slicer button remains in the action row.
+
+### 3.8 Clickable card
+The whole card surface (`cursor: pointer`, `tabindex="0"`) opens the model detail popup on click. Hover adds a subtle `translateY(-1px)` lift and stronger border. Circle buttons (§3.7) call `event.stopPropagation()` so their own click targets are independent.
+
+### 3.9 Action row (revised)
+Two primary actions (Open detail, Queue/Dequeue) + slicer button on the right. The `⋯` More overflow has moved to the circle button set (§3.7) — the action row no longer carries it.
+
+```
+[Open]  [Queue / Dequeue]              [slicer 🖨]
+```
 
 ---
 
@@ -132,23 +161,25 @@ Three primary actions (Open detail, Queue/Dequeue, Send to slicer) plus an overf
 **Layout:** 3 columns desktop, internal 2-column split (thumb 132 px / content 1fr).
 **Card height:** target 220 ± 10 px so 9 cards fit a 1080 px viewport without scroll.
 
-### 4.1 Why information-dense
+### 4.1 Why information-dense (thumb updated)
 
 Per the user's design direction the compact card should land closer to a Manyfold/Printables grid card than to the existing 1-up Print History layout — the catalog is an inventory, not an event log. To honour that:
 
-- The thumb is sized 120×180 (portrait), not the Print History 132 px square. Models photographed on a print bed are mostly horizontal; a slightly portrait crop with `object-fit:contain` keeps fragile detail readable at this size.
+- The thumb is sized **120×134 (landscape)**, matching the Print History card proportions (`width:100%; height:132px` in a `minmax(150px,188px)` column). This prevents tall portrait crops from dominating a dense grid and keeps visual weight balanced with the wider content column. Models are most often photographed on a flat print bed, so a landscape crop is more natural.
+- The thumb carries a **photo counter badge** (`"1 / 7"`) in the top-right corner — the same semi-transparent pill used in Print History — which tells the user how many photos are attached without opening the detail view. The number advances when the user clicks a photo carousel control.
 - The metric block sits **above** the tags so a user scrolling can scan archives counts without their eyes drifting to tag soup.
 - The action row collapses to two icons (Open, Queue) at this density, with all secondary actions in the `⋯` overflow.
 - Tags are limited to **3 visible + `+N` overflow** (existing Print History pattern in [print_history_archive_card_compact.yaml](../../../../archive/print_history/legacy-dashboard-card-templates/print_history_archive_card_compact.yaml) uses the same `tagLimit = 3`).
 
 ### 4.2 Field map (top → bottom inside the content column)
 
-1. **Name** (16 px, weight 700) + **designer** (12 px, secondary) + **last-printed timestamp** (12 px, right-aligned)
-2. **Provenance pill** + **publish chip row** + **signal chips** (`Recent`, `Frequent`, `Common`) — all on one wrapping row
-3. **Metric block** (3 cells, 11 px label / 15 px value) — Archives · Last printed · Success
-4. **Filament swatches** (14 px dots) + **file-kind chips** (right-aligned)
-5. **Tags** (max 3 visible)
-6. **Action row** — `Open`, `Queue`/`Dequeue`, `⋯`
+1. **Circle buttons row** — `.card-top-actions`: 3D Viewer · Favourite ★ · More ⋯ (right-aligned, stop propagation)
+2. **Name** (15 px, weight 700) + **designer** (12 px, secondary) + **last-printed timestamp** (11 px, right-aligned)
+3. **Provenance pill** + **publish chip row** + **signal chips** (`Recent`, `Frequent`, `Common`) — all on one wrapping row
+4. **Metric block** (3 cells, 11 px label / 14 px value) — Archives · Last printed · Success
+5. **Filament swatches** (14 px dots) + **file-kind semantic chips** (right-aligned, up to 3 — Model Files · Images · Docs)
+6. **Tags** (max 3 visible + `+N` overflow)
+7. **Action row** — `Open`, `Queue`/`Dequeue`, `⋯`(slicer)
 
 ### 4.3 States the mockup demonstrates
 

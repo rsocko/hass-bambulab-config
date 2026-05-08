@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -44,7 +44,7 @@
   @media (max-width: 1279px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 879px) { .catalog-grid { grid-template-columns: 1fr; } }
 
-  /* Card */
+  /* Card - clicking opens model detail popup */
   .card {
     position: relative;
     background: var(--bg-card);
@@ -56,9 +56,12 @@
     gap: 14px;
     box-shadow: var(--shadow);
     overflow: hidden;
-    transition: transform 120ms ease, border-color 120ms ease;
+    cursor: pointer;
+    align-items: start;
+    transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
   }
-  .card:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+  .card:hover { transform: translateY(-1px); border-color: var(--border-strong); box-shadow: 0 8px 26px rgba(0,0,0,0.38); }
+  .card:active { transform: translateY(0); box-shadow: var(--shadow); }
 
   /* Queue ribbon */
   .ribbon { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: transparent; }
@@ -67,26 +70,55 @@
   .card[data-queue="done"]      .ribbon { background: var(--queue-done); }
   @keyframes shimmer { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
-  /* Thumb */
+  /* Thumb - landscape-oriented (120x134), matches print-history card proportions */
   .thumb {
-    grid-row: 1 / span 6;
     width: 120px;
-    height: 180px;
+    height: 134px;
     border-radius: 12px;
     border: 1px solid var(--border);
     background: linear-gradient(135deg, #1a2230 0%, #0f141c 100%);
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
     position: relative;
+    flex-shrink: 0;
   }
   .thumb svg { width: 100%; height: 100%; display: block; }
+  /* Photo counter badge - shows current image index / total model images e.g. "1 / 7" = 1st of 7 photos */
   .thumb .photo-count {
     position: absolute; top: 6px; right: 6px;
     font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 999px;
     background: rgba(0,0,0,0.55); color: #fff; backdrop-filter: blur(4px);
+    pointer-events: none;
   }
   .thumb.no-photo { background: repeating-linear-gradient(45deg, #161b22 0 8px, #1a2128 8px 16px); }
   .thumb.no-photo .glyph { font-size: 32px; color: var(--text-muted); }
+
+  /* Circle icon action buttons (top-right of content column) */
+  /* Matches print-history card .icon-action / .action-buttons visual grammar */
+  .card-top-actions {
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    margin-bottom: 2px; flex-shrink: 0;
+  }
+  .icon-action {
+    width: 28px; height: 28px; border-radius: 999px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(148,163,184,0.18);
+    color: var(--text-secondary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+    flex: 0 0 auto; padding: 0; outline: none; font-size: 14px; line-height: 1;
+  }
+  .icon-action:hover, .icon-action:focus-visible {
+    background: rgba(148,163,184,0.18); color: var(--text);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.10); transform: translateY(-1px);
+  }
+  .icon-action:active { transform: translateY(0); }
+  /* 3D Viewer - teal accent, matches print-history .icon-action.viewer */
+  .icon-action.viewer { background: rgba(0,137,123,0.14); color: #7dd3c8; border-color: rgba(125,211,200,0.22); }
+  .icon-action.viewer:hover, .icon-action.viewer:focus-visible { background: rgba(0,137,123,0.28); color: #b6fff3; box-shadow: 0 0 0 1px rgba(125,211,200,0.26); }
+  /* Favorite - amber star, matches print-history .favorite.active */
+  .icon-action.favorite { color: var(--text-muted); }
+  .icon-action.favorite.active { background: rgba(245,194,66,0.20); color: #f5c242; border-color: rgba(245,194,66,0.22); box-shadow: 0 0 0 1px rgba(245,194,66,0.14); }
+  .icon-action.favorite.active:hover, .icon-action.favorite.active:focus-visible { background: rgba(245,194,66,0.30); color: #ffd55f; box-shadow: 0 0 0 1px rgba(245,194,66,0.28); }
 
   /* Header line */
   .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
@@ -122,13 +154,26 @@
   .metric .value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: 2px; }
   .metric .value.dim { color: var(--text-muted); font-weight: 500; }
 
-  /* Filament + file kinds */
+  /* Filament swatches + file-type chip cards */
   .swatchrow { display: flex; align-items: center; gap: 10px; }
   .swatches { display: flex; gap: 4px; }
   .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.32); cursor: default; }
   .dot[title]:hover { transform: scale(1.15); }
-  .filekinds { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
-  .filekind { font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* File-type chip cards - up to 3: Model Files / Images / Docs+Other */
+  .file-chips { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  .file-chip {
+    font-size: 11px; padding: 3px 8px; border-radius: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    color: var(--text-secondary);
+    display: inline-flex; align-items: center; gap: 5px;
+    font-variant-numeric: tabular-nums; line-height: 1.3;
+    white-space: nowrap;
+  }
+  .file-chip.model-files { color: var(--accent); border-color: rgba(94,234,212,0.22); background: rgba(94,234,212,0.05); }
+  .file-chip.images { color: #93c5fd; border-color: rgba(147,197,253,0.22); background: rgba(59,130,246,0.05); }
+  .file-chip.docs { color: #d4c8a8; border-color: rgba(212,200,168,0.22); background: rgba(212,200,168,0.05); }
+  .file-chip svg { flex-shrink: 0; display: block; }
 
   /* Tags */
   .tags { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -140,7 +185,7 @@
   .tag.t-warhammer { color: #fecaca; background: rgba(220,38,38,0.16); border-color: rgba(248,113,113,0.32); }
   .tag.overflow { color: var(--text-muted); }
 
-  /* Action row */
+  /* Bottom action row */
   .actions { display: flex; gap: 6px; margin-top: auto; padding-top: 6px; border-top: 1px dashed rgba(148,163,184,0.14); }
   .btn { font-size: 11px; padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
   .btn:hover { background: rgba(255,255,255,0.08); border-color: var(--border-strong); }
@@ -149,7 +194,7 @@
   .btn.icon-only { padding: 5px 8px; }
   .actions .spacer { flex: 1; }
 
-  /* Body grid layout for content column */
+  /* Content column */
   .content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 
   /* Subtle "needs attention" border for last-failure cards */
@@ -167,8 +212,8 @@
 
 <div class="page-header">
   <div>
-    <h1>Model Catalog · Compact card</h1>
-    <p>Hi-fidelity mockup. 3-column desktop grid, info-dense; thumb 120×180; queue ribbon left-edge; provenance + publish + signal chips; 3-cell metric block; filament swatches + file-kind chips; capped tags + overflow; primary/queue/overflow actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md</a>.</p>
+    <h1>Model Catalog &middot; Compact card</h1>
+    <p>Hi-fidelity mockup. 3-column desktop grid, info-dense. Thumb 120&times;134 (landscape, matches print-history proportions). Clicking the card opens the model detail popup. Top-right circle buttons: 3D Viewer (teal), Favorite star (amber when active), More (&ctdot;). File-type chips group files into Model Files / Images / Docs. Photo counter badge (e.g. &ldquo;1&thinsp;/&thinsp;7&rdquo;) = current photo index of total model images. Queue ribbon left-edge; provenance + publish + signal chips; 3-cell metric block; filament swatches; capped tags + overflow; primary/queue actions. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md</a>.</p>
   </div>
   <div class="toolbar">
     <a class="active" href="compact.html">Compact</a>
@@ -178,43 +223,72 @@
 </div>
 
 <div class="filterbar">
-  <span class="pill">9 models · sample data</span>
+  <span class="pill">9 models &middot; sample data</span>
   <select><option>All collections</option><option>Warhammer</option><option>Tools</option></select>
   <select><option>All printers</option></select>
   <select><option>Sort: Recent</option><option>Frequent</option><option>Most archived</option></select>
-  <input class="grow" placeholder="Search name, designer, tag…" />
+  <input class="grow" placeholder="Search name, designer, tag&hellip;" />
 </div>
+
+<!-- Shared SVG icon definitions -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 3D cube / model viewer -->
+  <symbol id="ico-cube" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 1.5L12 4.5v5L7 12.5 2 9.5v-5Z"/>
+    <path d="M7 1.5v11M2 4.5l5 3 5-3"/>
+  </symbol>
+  <!-- photo / image -->
+  <symbol id="ico-image" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="1.5" y="3" width="11" height="8.5" rx="1.5"/>
+    <path d="M1.5 8.5l3-3 2.5 2.5 2-2.5 3.5 3.5"/>
+    <circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/>
+  </symbol>
+  <!-- document / file -->
+  <symbol id="ico-file" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 1.5h4.5l3 3V12.5H2.5V1.5Z"/>
+    <path d="M8.5 1.5V4.5H11.5"/>
+    <line x1="4.5" y1="7.5" x2="9.5" y2="7.5"/>
+    <line x1="4.5" y1="9.5" x2="8" y2="9.5"/>
+  </symbol>
+</svg>
 
 <div class="catalog-grid">
 
-  <!-- Card 1: Custom unique · queued · MakerWorld + Manyfold · recent + frequent · success -->
-  <div class="card" data-queue="queued">
+  <!-- Card 1: Custom unique · queued · MakerWorld + Manyfold · recent + frequent · starred -->
+  <div class="card" data-queue="queued" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
         <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs>
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="155" rx="48" ry="6" fill="rgba(0,0,0,0.5)"/>
-        <polygon points="60,30 100,60 100,130 60,150 20,130 20,60" fill="url(#g1)" opacity="0.92"/>
-        <polygon points="60,30 100,60 60,80 20,60" fill="#a7f3d0" opacity="0.7"/>
-        <polygon points="60,80 100,60 100,130 60,150" fill="#0d9488" opacity="0.85"/>
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="115" rx="48" ry="5" fill="rgba(0,0,0,0.5)"/>
+        <polygon points="60,22 100,45 100,97 60,112 20,97 20,45" fill="url(#g1)" opacity="0.92"/>
+        <polygon points="60,22 100,45 60,60 20,45" fill="#a7f3d0" opacity="0.7"/>
+        <polygon points="60,60 100,45 100,97 60,112" fill="#0d9488" opacity="0.85"/>
       </svg>
       <div class="photo-count">1 / 7</div>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite active" title="Remove from favorites" onclick="event.stopPropagation()">&#9733;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Articulated Dragon · Mk III scaled fit</div>
+          <div class="name">Articulated Dragon &middot; Mk III scaled fit</div>
           <div class="designer"><span class="author-dot"></span>Cinderwing3D</div>
         </div>
         <div class="timestamp">2d ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination manyfold">Manyfold</span>
-        <span class="chip signal recent">● Recent</span>
-        <span class="chip signal frequent">⚡ Frequent</span>
+        <span class="chip signal recent">&#9679; Recent</span>
+        <span class="chip signal frequent">&#9889; Frequent</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">12</div></div>
@@ -223,14 +297,17 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#0d9488" title="PLA Basic Jade Green · #0D9488"></div>
-          <div class="dot" style="background:#f59e0b" title="PLA Basic Pumpkin · #F59E0B"></div>
-          <div class="dot" style="background:#1e293b" title="PLA Basic Black · #1E293B"></div>
+          <div class="dot" style="background:#0d9488" title="PLA Basic Jade Green"></div>
+          <div class="dot" style="background:#f59e0b" title="PLA Basic Pumpkin"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Basic Black"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 4</span>
-          <span class="filekind">STL · 2</span>
-          <span class="filekind">IMG · 7</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (4), STL (2)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 6
+          </span>
+          <span class="file-chip images" title="Images (7)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 7
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -241,40 +318,46 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn queue-active">⏫ Queued</button>
+        <button class="btn queue-active">&#11205; Queued</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
-  <!-- Card 2: Remix · printing · Printables · recent · success unknown -->
-  <div class="card" data-queue="printing">
+  <!-- Card 2: Remix · printing · Printables · recent -->
+  <div class="card" data-queue="printing" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#10151d"/>
-        <ellipse cx="60" cy="158" rx="44" ry="5" fill="rgba(0,0,0,0.45)"/>
-        <rect x="30" y="60" width="60" height="80" rx="4" fill="#fb923c"/>
-        <rect x="30" y="60" width="60" height="22" fill="#fdba74"/>
-        <circle cx="60" cy="100" r="14" fill="#7c2d12"/>
-        <rect x="56" y="40" width="8" height="22" fill="#fdba74"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#10151d"/>
+        <ellipse cx="60" cy="118" rx="44" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <rect x="30" y="45" width="60" height="60" rx="4" fill="#fb923c"/>
+        <rect x="30" y="45" width="60" height="17" fill="#fdba74"/>
+        <circle cx="60" cy="74" r="14" fill="#7c2d12"/>
+        <rect x="56" y="30" width="8" height="17" fill="#fdba74"/>
       </svg>
       <div class="photo-count">1 / 3</div>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Filament Spool Hub · 1kg + 250g insert</div>
-          <div class="designer"><span class="author-dot"></span>Remix · @bambuOwner3D</div>
+          <div class="name">Filament Spool Hub &middot; 1kg + 250g insert</div>
+          <div class="designer"><span class="author-dot"></span>Remix &middot; @bambuOwner3D</div>
         </div>
         <div class="timestamp">printing</div>
       </div>
       <div class="chips">
-        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
         <span class="chip destination printables">Printables</span>
-        <span class="chip signal recent">● Recent</span>
+        <span class="chip signal recent">&#9679; Recent</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">3</div></div>
@@ -283,13 +366,13 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#fb923c" title="PETG Orange · #FB923C"></div>
-          <div class="dot" style="background:#1e293b" title="PETG Black · #1E293B"></div>
+          <div class="dot" style="background:#fb923c" title="PETG Orange"></div>
+          <div class="dot" style="background:#1e293b" title="PETG Black"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 2</span>
-          <span class="filekind">STL · 4</span>
-          <span class="filekind">STEP · 1</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (2), STL (4), STEP (1)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 7
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -299,40 +382,46 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn queue-active">🖨 Printing</button>
+        <button class="btn queue-active">&#128424; Printing</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
-  <!-- Card 3: Derivative · done queue · published Manyfold + Printables · common · failure last run -->
-  <div class="card attention" data-queue="done">
+  <!-- Card 3: Derivative · done · Manyfold + Printables · common · last failed -->
+  <div class="card attention" data-queue="done" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="158" rx="42" ry="5" fill="rgba(0,0,0,0.45)"/>
-        <polygon points="60,38 92,72 92,140 60,156 28,140 28,72" fill="#94a3b8"/>
-        <polygon points="60,38 92,72 60,90 28,72" fill="#cbd5e1"/>
-        <polygon points="60,90 92,72 92,140 60,156" fill="#64748b"/>
-        <line x1="60" y1="90" x2="60" y2="156" stroke="#1e293b" stroke-width="0.6"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="118" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,28 92,54 92,104 60,116 28,104 28,54" fill="#94a3b8"/>
+        <polygon points="60,28 92,54 60,67 28,54" fill="#cbd5e1"/>
+        <polygon points="60,67 92,54 92,104 60,116" fill="#64748b"/>
+        <line x1="60" y1="67" x2="60" y2="116" stroke="#1e293b" stroke-width="0.6"/>
       </svg>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Hex Tile Set — Warhammer Killteam Board</div>
-          <div class="designer"><span class="author-dot"></span>Derivative · ForgeWorks</div>
+          <div class="name">Hex Tile Set &mdash; Warhammer Killteam Board</div>
+          <div class="designer"><span class="author-dot"></span>Derivative &middot; ForgeWorks</div>
         </div>
         <div class="timestamp">3w ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance derivative"><span class="icon">↳</span>Derivative</span>
+        <span class="chip provenance derivative"><span class="icon">&#8627;</span>Derivative</span>
         <span class="chip destination manyfold">Manyfold</span>
         <span class="chip destination printables">Printables</span>
-        <span class="chip signal common">★ Common</span>
+        <span class="chip signal common">&#9733; Common</span>
         <span class="chip last-outcome failed">Last: Failed</span>
       </div>
       <div class="metrics">
@@ -342,15 +431,18 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#475569" title="PLA Stone Grey · #475569"></div>
-          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
-          <div class="dot" style="background:#84cc16" title="PLA Lime · #84CC16"></div>
-          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
+          <div class="dot" style="background:#475569" title="PLA Stone Grey"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black"></div>
+          <div class="dot" style="background:#84cc16" title="PLA Lime"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 12</span>
-          <span class="filekind">STL · 18</span>
-          <span class="filekind">IMG · 22</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (12), STL (18)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 30
+          </span>
+          <span class="file-chip images" title="Images (22)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 22
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -361,53 +453,63 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn">＋ Re-queue</button>
+        <button class="btn">&#65291; Re-queue</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
   <!-- Card 4: Custom · none queue · no destinations · recent only -->
-  <div class="card" data-queue="none">
+  <div class="card" data-queue="none" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0e131b"/>
-        <ellipse cx="60" cy="158" rx="40" ry="5" fill="rgba(0,0,0,0.45)"/>
-        <rect x="28" y="58" width="64" height="84" rx="6" fill="#a78bfa"/>
-        <rect x="36" y="66" width="48" height="6" rx="3" fill="#1e1b4b"/>
-        <rect x="36" y="78" width="36" height="4" rx="2" fill="#1e1b4b"/>
-        <rect x="36" y="86" width="40" height="4" rx="2" fill="#1e1b4b"/>
-        <rect x="36" y="94" width="30" height="4" rx="2" fill="#1e1b4b"/>
-        <rect x="36" y="118" width="48" height="14" rx="3" fill="#1e1b4b"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0e131b"/>
+        <ellipse cx="60" cy="118" rx="40" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <rect x="28" y="43" width="64" height="63" rx="6" fill="#a78bfa"/>
+        <rect x="36" y="49" width="48" height="5" rx="3" fill="#1e1b4b"/>
+        <rect x="36" y="58" width="36" height="3" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="64" width="40" height="3" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="70" width="30" height="3" rx="2" fill="#1e1b4b"/>
+        <rect x="36" y="88" width="48" height="11" rx="3" fill="#1e1b4b"/>
       </svg>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Wall-mount tablet dock · 11" iPad fit</div>
+          <div class="name">Wall-mount tablet dock &middot; 11&rdquo; iPad fit</div>
           <div class="designer"><span class="author-dot"></span>Self-designed</div>
         </div>
         <div class="timestamp">5d ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
-        <span class="chip signal recent">● Recent</span>
+        <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
+        <span class="chip signal recent">&#9679; Recent</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">2</div></div>
         <div class="metric"><div class="label">Last printed</div><div class="value">5d ago</div></div>
-        <div class="metric"><div class="label">Success</div><div class="value dim">—</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value dim">&mdash;</div></div>
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#a78bfa" title="PLA Lavender · #A78BFA"></div>
+          <div class="dot" style="background:#a78bfa" title="PLA Lavender"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 1</span>
-          <span class="filekind">IMG · 2</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (1)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 1
+          </span>
+          <span class="file-chip images" title="Images (2)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 2
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -416,42 +518,48 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn">＋ Queue</button>
+        <button class="btn">&#65291; Queue</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
   <!-- Card 5: Remix · queued · MakerWorld · frequent + common -->
-  <div class="card" data-queue="queued">
+  <div class="card" data-queue="queued" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="158" rx="42" ry="5" fill="rgba(0,0,0,0.45)"/>
-        <circle cx="60" cy="92" r="36" fill="#fbbf24"/>
-        <circle cx="60" cy="92" r="36" fill="none" stroke="#92400e" stroke-width="2"/>
-        <circle cx="48" cy="84" r="4" fill="#1e293b"/>
-        <circle cx="72" cy="84" r="4" fill="#1e293b"/>
-        <path d="M48 102 Q60 114 72 102" stroke="#1e293b" fill="none" stroke-width="2.4" stroke-linecap="round"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="118" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <circle cx="60" cy="68" r="36" fill="#fbbf24"/>
+        <circle cx="60" cy="68" r="36" fill="none" stroke="#92400e" stroke-width="2"/>
+        <circle cx="48" cy="62" r="4" fill="#1e293b"/>
+        <circle cx="72" cy="62" r="4" fill="#1e293b"/>
+        <path d="M48 76 Q60 85 72 76" stroke="#1e293b" fill="none" stroke-width="2.4" stroke-linecap="round"/>
       </svg>
       <div class="photo-count">1 / 12</div>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Smiley Keyring · Stamp-Friendly Variant</div>
-          <div class="designer"><span class="author-dot"></span>Remix · @keyringqueen</div>
+          <div class="name">Smiley Keyring &middot; Stamp-Friendly Variant</div>
+          <div class="designer"><span class="author-dot"></span>Remix &middot; @keyringqueen</div>
         </div>
         <div class="timestamp">1d ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
         <span class="chip destination makerworld">MakerWorld</span>
-        <span class="chip signal frequent">⚡ Frequent</span>
-        <span class="chip signal common">★ Common</span>
+        <span class="chip signal frequent">&#9889; Frequent</span>
+        <span class="chip signal common">&#9733; Common</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">47</div></div>
@@ -460,15 +568,19 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#fbbf24" title="PLA Sunshine Yellow · #FBBF24"></div>
-          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
-          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
-          <div class="dot" style="background:#10b981" title="PLA Green · #10B981"></div>
-          <div class="dot" style="background:#3b82f6" title="PLA Blue · #3B82F6"></div>
+          <div class="dot" style="background:#fbbf24" title="PLA Sunshine Yellow"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red"></div>
+          <div class="dot" style="background:#10b981" title="PLA Green"></div>
+          <div class="dot" style="background:#3b82f6" title="PLA Blue"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 6</span>
-          <span class="filekind">IMG · 12</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (6)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 6
+          </span>
+          <span class="file-chip images" title="Images (12)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 12
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -479,79 +591,95 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn queue-active">⏫ Queued · #2</button>
+        <button class="btn queue-active">&#11205; Queued &middot; #2</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
   <!-- Card 6: Custom · none · no photo, no published, no signals (degraded) -->
-  <div class="card" data-queue="none">
+  <div class="card" data-queue="none" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb no-photo">
-      <span class="glyph">📦</span>
+      <span class="glyph">&#128230;</span>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Bracket sample (untested) — needs preview render</div>
+          <div class="name">Bracket sample (untested) &mdash; needs preview render</div>
           <div class="designer"><span class="author-dot"></span>Self-designed</div>
         </div>
         <div class="timestamp">never</div>
       </div>
       <div class="chips">
-        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
         <span class="chip" style="color:var(--text-muted)">No publishes</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value dim">0</div></div>
-        <div class="metric"><div class="label">Last printed</div><div class="value dim">—</div></div>
-        <div class="metric"><div class="label">Success</div><div class="value dim">—</div></div>
+        <div class="metric"><div class="label">Last printed</div><div class="value dim">&mdash;</div></div>
+        <div class="metric"><div class="label">Success</div><div class="value dim">&mdash;</div></div>
       </div>
       <div class="swatchrow">
         <div class="swatches" style="opacity:0.4"><div class="dot" style="background:#475569" title="No filament metadata"></div></div>
-        <div class="filekinds"><span class="filekind">3MF · 1</span></div>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (1)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 1
+          </span>
+        </div>
       </div>
       <div class="tags"><span class="tag overflow">no tags</span></div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn">＋ Queue</button>
+        <button class="btn">&#65291; Queue</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
-  <!-- Card 7: Derivative · printing · published Manyfold · frequent + common -->
-  <div class="card" data-queue="printing">
+  <!-- Card 7: Derivative · printing · Manyfold · frequent + common -->
+  <div class="card" data-queue="printing" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="158" rx="44" ry="5" fill="rgba(0,0,0,0.45)"/>
-        <polygon points="60,28 92,80 60,132 28,80" fill="#34d399"/>
-        <polygon points="60,28 92,80 60,80" fill="#a7f3d0"/>
-        <polygon points="60,80 92,80 60,132" fill="#059669"/>
-        <polygon points="60,80 28,80 60,132" fill="#10b981"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="118" rx="44" ry="4" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,21 92,60 60,98 28,60" fill="#34d399"/>
+        <polygon points="60,21 92,60 60,60" fill="#a7f3d0"/>
+        <polygon points="60,60 92,60 60,98" fill="#059669"/>
+        <polygon points="60,60 28,60 60,98" fill="#10b981"/>
       </svg>
       <div class="photo-count">2 / 5</div>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Calibration Cube Pro · MMU dialect fork</div>
-          <div class="designer"><span class="author-dot"></span>Derivative · @calibrator</div>
+          <div class="name">Calibration Cube Pro &middot; MMU dialect fork</div>
+          <div class="designer"><span class="author-dot"></span>Derivative &middot; @calibrator</div>
         </div>
         <div class="timestamp">now</div>
       </div>
       <div class="chips">
-        <span class="chip provenance derivative"><span class="icon">↳</span>Derivative</span>
+        <span class="chip provenance derivative"><span class="icon">&#8627;</span>Derivative</span>
         <span class="chip destination manyfold">Manyfold</span>
-        <span class="chip signal frequent">⚡ Frequent</span>
-        <span class="chip signal common">★ Common</span>
+        <span class="chip signal frequent">&#9889; Frequent</span>
+        <span class="chip signal common">&#9733; Common</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">28</div></div>
@@ -560,15 +688,18 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#34d399" title="PLA Mint · #34D399"></div>
-          <div class="dot" style="background:#1e293b" title="PLA Black · #1E293B"></div>
-          <div class="dot" style="background:#dc2626" title="PLA Red · #DC2626"></div>
-          <div class="dot" style="background:#3b82f6" title="PLA Blue · #3B82F6"></div>
+          <div class="dot" style="background:#34d399" title="PLA Mint"></div>
+          <div class="dot" style="background:#1e293b" title="PLA Black"></div>
+          <div class="dot" style="background:#dc2626" title="PLA Red"></div>
+          <div class="dot" style="background:#3b82f6" title="PLA Blue"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 1</span>
-          <span class="filekind">GCODE · 4</span>
-          <span class="filekind">IMG · 5</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (1), GCODE (4)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 5
+          </span>
+          <span class="file-chip images" title="Images (5)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 5
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -578,40 +709,46 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn queue-active">🖨 Printing</button>
+        <button class="btn queue-active">&#128424; Printing</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
-  <!-- Card 8: Custom · done · published Printables · common, recent · long name -->
-  <div class="card" data-queue="done">
+  <!-- Card 8: Custom · done · Printables · common, recent · long name -->
+  <div class="card" data-queue="done" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="160" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
-        <rect x="20" y="50" width="80" height="100" rx="8" fill="#0ea5e9"/>
-        <rect x="28" y="58" width="64" height="6" rx="3" fill="#082f49"/>
-        <rect x="28" y="72" width="40" height="6" rx="3" fill="#082f49"/>
-        <circle cx="60" cy="118" r="14" fill="#082f49"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="119" rx="42" ry="3" fill="rgba(0,0,0,0.45)"/>
+        <rect x="20" y="37" width="80" height="75" rx="8" fill="#0ea5e9"/>
+        <rect x="28" y="43" width="64" height="5" rx="3" fill="#082f49"/>
+        <rect x="28" y="54" width="40" height="5" rx="3" fill="#082f49"/>
+        <circle cx="60" cy="88" r="14" fill="#082f49"/>
       </svg>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
-          <div class="name">Light-switch face plate retrofit kit (US Decora) — 4-gang variant</div>
+          <div class="name">Light-switch face plate retrofit kit (US Decora) &mdash; 4-gang variant</div>
           <div class="designer"><span class="author-dot"></span>Self-designed</div>
         </div>
         <div class="timestamp">6d ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance custom_unique"><span class="icon">◆</span>Custom unique</span>
+        <span class="chip provenance custom_unique"><span class="icon">&#9670;</span>Custom unique</span>
         <span class="chip destination printables">Printables</span>
-        <span class="chip signal recent">● Recent</span>
-        <span class="chip signal common">★ Common</span>
+        <span class="chip signal recent">&#9679; Recent</span>
+        <span class="chip signal common">&#9733; Common</span>
       </div>
       <div class="metrics">
         <div class="metric"><div class="label">Archives</div><div class="value">9</div></div>
@@ -620,13 +757,16 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#0ea5e9" title="PLA Sky Blue · #0EA5E9"></div>
-          <div class="dot" style="background:#f8fafc" title="PLA White · #F8FAFC"></div>
+          <div class="dot" style="background:#0ea5e9" title="PLA Sky Blue"></div>
+          <div class="dot" style="background:#f8fafc" title="PLA White"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 4</span>
-          <span class="filekind">STEP · 1</span>
-          <span class="filekind">IMG · 6</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (4), STEP (1)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 5
+          </span>
+          <span class="file-chip images" title="Images (6)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 6
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -636,38 +776,44 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn">＋ Re-queue</button>
+        <button class="btn">&#65291; Re-queue</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
 
   <!-- Card 9: Remix · none · all 3 destinations · large tag overflow -->
-  <div class="card" data-queue="none">
+  <div class="card" data-queue="none" tabindex="0">
     <div class="ribbon"></div>
     <div class="thumb">
-      <svg viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
-        <rect width="120" height="180" fill="#0f141c"/>
-        <ellipse cx="60" cy="160" rx="42" ry="4" fill="rgba(0,0,0,0.45)"/>
-        <polygon points="60,30 100,90 60,150 20,90" fill="#f43f5e"/>
-        <polygon points="60,30 100,90 60,90" fill="#fda4af"/>
-        <polygon points="60,90 100,90 60,150" fill="#9f1239"/>
-        <polygon points="60,90 20,90 60,150" fill="#e11d48"/>
+      <svg viewBox="0 0 120 134" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="134" fill="#0f141c"/>
+        <ellipse cx="60" cy="119" rx="42" ry="3" fill="rgba(0,0,0,0.45)"/>
+        <polygon points="60,22 100,67 60,112 20,67" fill="#f43f5e"/>
+        <polygon points="60,22 100,67 60,67" fill="#fda4af"/>
+        <polygon points="60,67 100,67 60,112" fill="#9f1239"/>
+        <polygon points="60,67 20,67 60,112" fill="#e11d48"/>
       </svg>
       <div class="photo-count">1 / 4</div>
     </div>
     <div class="content">
+      <div class="card-top-actions">
+        <button class="icon-action viewer" title="Open 3D viewer" onclick="event.stopPropagation()">
+          <svg width="14" height="14"><use href="#ico-cube"/></svg>
+        </button>
+        <button class="icon-action favorite" title="Add to favorites" onclick="event.stopPropagation()">&#9734;</button>
+        <button class="icon-action more" title="More actions" onclick="event.stopPropagation()">&ctdot;</button>
+      </div>
       <div class="header">
         <div>
           <div class="name">Crystal pendant lamp shroud (E14 / E12)</div>
-          <div class="designer"><span class="author-dot"></span>Remix · @lampcrafter</div>
+          <div class="designer"><span class="author-dot"></span>Remix &middot; @lampcrafter</div>
         </div>
         <div class="timestamp">2w ago</div>
       </div>
       <div class="chips">
-        <span class="chip provenance remix"><span class="icon">⎇</span>Remix</span>
+        <span class="chip provenance remix"><span class="icon">&#8983;</span>Remix</span>
         <span class="chip destination makerworld">MakerWorld</span>
         <span class="chip destination printables">Printables</span>
         <span class="chip destination manyfold">Manyfold</span>
@@ -679,13 +825,16 @@
       </div>
       <div class="swatchrow">
         <div class="swatches">
-          <div class="dot" style="background:#f43f5e" title="PLA Hot Pink · #F43F5E"></div>
-          <div class="dot" style="background:#f8fafc" title="PLA Translucent White · #F8FAFC"></div>
+          <div class="dot" style="background:#f43f5e" title="PLA Hot Pink"></div>
+          <div class="dot" style="background:#f8fafc" title="PLA Translucent White"></div>
         </div>
-        <div class="filekinds">
-          <span class="filekind">3MF · 2</span>
-          <span class="filekind">STL · 6</span>
-          <span class="filekind">IMG · 4</span>
+        <div class="file-chips">
+          <span class="file-chip model-files" title="Model files: 3MF (2), STL (6)">
+            <svg width="13" height="13"><use href="#ico-cube"/></svg> 8
+          </span>
+          <span class="file-chip images" title="Images (4)">
+            <svg width="13" height="13"><use href="#ico-image"/></svg> 4
+          </span>
         </div>
       </div>
       <div class="tags">
@@ -696,10 +845,9 @@
       </div>
       <div class="actions">
         <button class="btn primary">Open</button>
-        <button class="btn">＋ Queue</button>
+        <button class="btn">&#65291; Queue</button>
         <div class="spacer"></div>
-        <button class="btn icon-only" title="Send to slicer">🖨</button>
-        <button class="btn icon-only" title="More">⋯</button>
+        <button class="btn icon-only" title="Send to slicer">&#128424;</button>
       </div>
     </div>
   </div>
@@ -707,7 +855,7 @@
 </div>
 
 <div class="footnote">
-  Sample data only. Field bindings (existing): <code>name</code>, <code>designer</code>, <code>primary_photo</code>, <code>origin_type</code>, <code>published_to[]</code>, <code>archives_count</code>, <code>last_printed_at</code>, <code>to_print_status</code>, <code>recent</code>/<code>frequent</code>/<code>common</code>, <code>tags[]</code>. ⚠️ Proposed: <code>success_rate_pct</code>, <code>last_outcome</code>, <code>primary_filament_palette[]</code>, <code>file_kinds</code>, <code>notes_excerpt</code>. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md §2.2</a>.
+  Sample data only. Field bindings (existing): <code>name</code>, <code>designer</code>, <code>primary_photo</code>, <code>origin_type</code>, <code>published_to[]</code>, <code>archives_count</code>, <code>last_printed_at</code>, <code>to_print_status</code>, <code>recent</code>/<code>frequent</code>/<code>common</code>, <code>tags[]</code>, <code>is_favorite</code>. &swarr; Proposed: <code>success_rate_pct</code>, <code>last_outcome</code>, <code>primary_filament_palette[]</code>, <code>file_kinds</code> (grouped as model_files&thinsp;/&thinsp;images&thinsp;/&thinsp;docs counts), <code>notes_excerpt</code>. See <a href="../catalog-card-design.md" style="color:var(--accent)">catalog-card-design.md &sect;2.2</a>.
 </div>
 
 </body>
