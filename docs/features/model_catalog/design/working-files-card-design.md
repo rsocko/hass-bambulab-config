@@ -7,6 +7,7 @@
 > - [mockups/working-files-groups.html](mockups/working-files-groups.html) — primary focus
 > - [mockups/working-files-files.html](mockups/working-files-files.html) — All Files / Ungrouped
 > - [mockups/working-files-toolbar.html](mockups/working-files-toolbar.html) — header / view tabs / filter bar
+> - [mockups/working-files-group-popup.html](mockups/working-files-group-popup.html) — group details / edit popup
 > - [mockups/index.html](mockups/index.html) — landing page
 
 ---
@@ -202,6 +203,51 @@ Identical pattern to catalog list view: when ≥1 row is selected, a sticky bar 
 
 Reuse the dashed `state-row` from the existing card (visually consistent); add a "Run reindex" button to the empty state so the operator has a one-click recovery if the inventory is stale.
 
+### 4.4 Popups & 3D viewer integration
+
+The inline file strip + Files-view table cover the *read-and-act* loop without a popup. Two scenarios still need a modal surface, and one of them already has fully working infrastructure to reuse.
+
+#### 4.4.1 Per-file 3D viewer — *reuse existing catalog viewer*
+
+The catalog browser already renders a working Three.js viewer in a `browser_mod.popup` ([model-detail-3d-viewer-tab.js](../../../../homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js), with the STL/3MF loaders under [loaders/](../../../../homeassistant/www/3d_printing/model_catalog/loaders)). Working Files **must reuse this same component** — no new viewer is in scope.
+
+- **Trigger surfaces:**
+  - Groups view: clicking a filename in the inline Model Files strip, or the per-row `mdi:cube-scan` icon when the extension is renderable.
+  - Files view: clicking the Name cell, or the per-row 3D viewer action in the `⋯` overflow.
+- **Payload shape:** the existing viewer takes a `model-ref` (path or hash). The working-files endpoint already returns `id`, `source_path_canonical`, `sha256_hash`, and `file_extension` per file — sufficient to drive the viewer the same way the catalog does.
+- **Eligibility:** STL and 3MF render directly. STEP / OBJ / unknown extensions disable the viewer affordance with the same disabled-state visual used for the Slicer button on STEP files.
+- **Browser security boundary:** the viewer fetches via the sidecar proxy URL, never `file:///` — consistent with the [working files local-launch design](../working-files-local-launch-and-slicer-integration-design.md) and the existing `file:///` browser-security memo. No new security surface is introduced.
+- **Implementation cost:** an action handler + tile/icon binding in the working-files card. No viewer code, no new sidecar endpoint.
+
+#### 4.4.2 Per-group detail / edit popup — *replaces the current `window.prompt` flows*
+
+The current explorer card uses `window.prompt(...)` for "New working group title" and "Enter destination group id" ([model-catalog-working-files-explorer-card.js](../../../../homeassistant/www/3d_printing/model_catalog/model-catalog-working-files-explorer-card.js#L418-L463)). That is an explicit design debt called out in §8 of this document and in [working-files-workflow-redesign-issue-1169.md](../working-files-workflow-redesign-issue-1169.md). The redesign replaces both with a single proper **Group details popup** opened on group-title click.
+
+Mockup: [mockups/working-files-group-popup.html](mockups/working-files-group-popup.html).
+
+Fields and bindings:
+
+| Section | Field | Editable | Backing |
+| --- | --- | --- | --- |
+| Header | Title (rename) | yes | `working_groups.title` (slug auto-rederived via `_slugify_title` / `_unique_slug` in [working.py](../../../../sidecars/model_catalog/app/routers/working.py)) |
+| Header | Stage | yes (segmented) | `working_groups.stage` |
+| Header | Folder hint | read-only | `working_groups.folder_hint` |
+| Header | Last modified · last indexed | read-only | `last_file_mtime` (proposed) · `last_indexed_at` |
+| Notes | Multiline notes | yes | `working_groups.notes` |
+| Files | Reorderable list of group members | manage | `group_memberships` (add / remove / set primary) |
+| Files | Set primary radio | yes | `working_groups.primary_file_path` |
+| Files | Per-file row: open in 3D viewer · open in slicer · copy launch · remove | yes | reuses §3.5 affordances |
+| Linked | "Used in N prints" stub list | read-only | `linked_archive_count` (proposed) — placeholder list when zero |
+| Footer | Save · Cancel · Delete group (destructive, confirmed) | — | calls `update_working_group_service` / existing delete service |
+
+Reuses the existing `update_working_group_service` already imported in [working.py](../../../../sidecars/model_catalog/app/routers/working.py); no new endpoint required for title/stage/notes/primary edits.
+
+#### 4.4.3 Per-file metadata popup — *not in scope*
+
+A dedicated per-file editing popup (custom name, description, tags) is **explicitly out of scope** for this redesign. Working Files are filesystem artefacts whose identity is the path + hash; the inline file strip already exposes everything that is read-only useful (filename, size, mtime, primary, validation, group memberships). Per-file notes / tags / aliases would require new schema and risk drift from the on-disk source of truth.
+
+If a future iteration warrants a per-file popup (e.g. cross-group provenance, archive linkage drill-down), it should be additive and read-only by default. It is **not** part of this redesign's acceptance criteria.
+
 ---
 
 ## 5. Toolbar / header redesign
@@ -248,6 +294,8 @@ Inline with the title (matching catalog #1216 pattern):
 | Bulk-action bar | catalog list view bulk bar | identical visual grammar |
 | Sort dropdown in title row | catalog #1216 | different sort options |
 | `Slicer` action button | working-files local-launch design | uses tokenized download URL (Option B) |
+| 3D viewer popup | catalog [model-detail-3d-viewer-tab.js](../../../../homeassistant/www/3d_printing/model_catalog/model-detail-3d-viewer-tab.js) | reused as-is; new entry points only |
+| Group details / edit popup | *(new — replaces `window.prompt`)* | uses `browser_mod.popup` shell + existing `update_working_group_service` |
 
 ---
 
@@ -269,7 +317,9 @@ Inline with the title (matching catalog #1216 pattern):
 2. **Per-file linked-archive count cost** — the join against archives could be expensive on large libraries; gate behind a `with_archive_counts=true` query param if performance is a concern.
 3. **Drag-and-drop** between groups — explicitly out of scope for this iteration. The bulk-action bar covers the same workflow without the accessibility cost. Re-evaluate after the first round of operator feedback.
 4. **Group thumbnail aspect** — square (folder metaphor) vs landscape (parity with print-history)? Recommended: square 64×64 to visually distinguish "folder of files" from "individual archive".
-5. **`window.prompt` removal** — the current "Add to group" / "Create group" flows use `window.prompt`; the redesign assumes a small popover. Implementation effort is non-trivial; flag as a separate follow-up if it slips this iteration.
+5. **`window.prompt` removal** — the current "Add to group" / "Create group" flows use `window.prompt`; the redesign assumes a small popover. Implementation effort is non-trivial; flag as a separate follow-up if it slips this iteration. The Group details popup in §4.4.2 is the canonical replacement for the rename and destination-group prompts.
+6. **Tags on working groups?** — the catalog supports tags; `working_groups` does not. The Group details popup in §4.4.2 deliberately does **not** include a Tags field pending a product decision. Adding tags would require either a `working_group_tags` join table or a JSON column on `working_groups` (Layer 2 schema add). Recommend deferring until there is operator demand; group-level `notes` covers the freeform-text use case in the meantime.
+7. **3D viewer for non-`.3mf`/`.stl` files** — STEP / OBJ extensions today lack a Three.js loader in the catalog viewer. Decision: disable the viewer affordance for those extensions in this iteration; revisit if a STEP-capable loader is added to the catalog (it would be picked up automatically since Working Files reuses the same viewer).
 
 ---
 
