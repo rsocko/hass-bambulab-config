@@ -235,7 +235,7 @@ docker exec model-catalog python -m sidecars.model_catalog cleanup reset-all --e
 Commands auto-detect these if set:
 
 - `MODEL_CATALOG_DB_PATH` — Path to SQLite DB (default: `/data/model_catalog.db`)
-- `MODEL_CATALOG_CURATED_ASSETS_ROOT` — Curated catalog zone root (default: `/assets/Model Catalog`)
+- `MODEL_CATALOG_CURATED_ASSETS_ROOT` — Catalog zone root (default: `/assets/Model Catalog`)
 - `MODEL_CATALOG_WORKING_FILES_ROOT` — Working files zone root (default: `/assets/Model Working Files`)
 - `MODEL_CATALOG_INTAKE_ROOTS` — Intake inbox zone roots (default: `/assets/Model Inbox`)
 

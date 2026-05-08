@@ -20,7 +20,7 @@ See [Post-Manyfold Transition Plan (2026-04)](post-manyfold-transition-plan-2026
 
 Provide a cohesive operator surface for managing personal 3D model assets across three distinct jobs:
 
-- **Curated catalog**: stable, reusable source models with long-lived metadata and previews
+- **Catalog**: stable, reusable source models with long-lived metadata and previews
 - **Working files**: actively edited or in-flight files that need filesystem freedom and lightweight organization
 - **Archive intelligence**: completed print outcomes, runtime facts, filament usage, and print-history context
 
@@ -38,7 +38,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - **No GraphQL dependency**: the active Phase 6 design does not depend on GraphQL or Manyfold-native runtime paths
 - **No native promote/demote assumption**: the design keeps explicit publish and relink semantics rather than assuming in-place storage-mode conversion
 - **Working stays sidecar-owned by default**: the Working experience is a sidecar/HA veneer, not an upstream catalog-owned tree
-- **Curated catalog is sidecar-owned**: stable model metadata and asset identity live in the local sidecar authority
+- **Catalog is sidecar-owned**: stable model metadata and asset identity live in the local sidecar authority
 - **Filesystem organization still matters for intake**: folder shape remains useful as intake and provenance context, but it is not the authoritative curated identity
 - **Same-stack sidecar is the preferred integration shape**: deploy the sidecar alongside Manyfold if operationally convenient, but avoid direct Manyfold DB writes as the product contract
 
@@ -56,8 +56,8 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 - [Phase 6 Search, Ranking, and Discovery Design](phase-6-search-ranking-and-discovery-design.md) — Authoritative Phase 6 contract for unified query model, ranking signals, archive-initiated picker/search, related items, and HA search surfaces
 - [Phase 6 Bulk Metadata Enrichment Design](phase-6-bulk-metadata-enrichment-design.md) — Authoritative Phase 6 contract for bulk analyze, review-first enrichment, confidence handling, and audited batch apply
 - Current implementation status: Phase 2 archive popup linkage is live; the current Phase 6 source of truth for candidate broadening, curated search/picker, ranking, related items, and bulk enrichment is the two Phase 6 design docs above
-- [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, curated cataloging, revisions, provenance capture, and recovery
-- [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, curated catalog, and archives
+- [Workflow And Ingestion Guide](workflow-and-ingestion-guide.md) — Realistic lifecycle flows for Working, cataloging, revisions, provenance capture, and recovery
+- [Operator Workflow](operator-workflow.md) — Short operator-facing guidance for where files should live and how to move between Working, catalog, and archives
 
 ### Historical/Compatibility Context
 
@@ -88,7 +88,7 @@ External sources such as Printables and Makerworld are in scope for discovery, p
 
 ### Home Assistant And UX
 
-- [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA responsibilities, service boundaries, and how curated catalog + Working veneer should surface in HA
+- [integration/HA Model Library Integration](integration/ha-model-library-integration.md) — HA responsibilities, service boundaries, and how catalog + Working veneer should surface in HA
 - [integration/Archive Model Link HA Service And Popup Contract](integration/archive-model-link-ha-service-and-popup-contract.md) — Archive popup service contract and linked-model interaction surface
 - [UX Concepts And Mockups](ux-concepts-and-mockups.md) — Embedded low-fi wireframes plus guidance for future mid-fi mockups of the key operator surfaces
 - [Phase 5 Wave 4 HA UI Design](phase-5-wave-4-ha-ui-design.md) — Implementation-facing Intake, Working Board, link management, batch-action, and queue UI design for issues #1077, #1082, and #1145

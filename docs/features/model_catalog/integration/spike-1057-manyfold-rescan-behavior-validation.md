@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Manyfold supports library rescanning through native UI controls and likely via internal API calls, but **rescan is NOT exposed as a documented REST endpoint**. This is the most significant constraint for Phase 1-2 curated catalog operations.
+Manyfold supports library rescanning through native UI controls and likely via internal API calls, but **rescan is NOT exposed as a documented REST endpoint**. This is the most significant constraint for Phase 1-2 catalog operations.
 
 **Validated findings**:
 - Rescan exists in Rails controllers but not in generated OpenAPI spec
@@ -190,7 +190,7 @@ Bulk Import Job
     ↓
 5. Sidecar presents models in intake review queue
     ↓
-6. Operator approves models to move to curated catalog
+6. Operator approves models to move to catalog
 ```
 
 **Notes**:
@@ -358,13 +358,13 @@ end
 **Risk**: Models appear in HA with 1-24 hour lag
 **Benefit**: Simple, no external dependencies
 
-**Suitable for**: Mostly static curated catalogs where add/delete is infrequent
+**Suitable for**: Mostly static catalogs where add/delete is infrequent
 
 ---
 
 ## Conclusion
 
-Manyfold's rescan behavior is **underdocumented in REST API** but **predictable and reliable** in native UI. For Phase 1.5-2 curated catalog operations:
+Manyfold's rescan behavior is **underdocumented in REST API** but **predictable and reliable** in native UI. For Phase 1.5-2 catalog operations:
 
 1. **Manual rescan is acceptable** for intake workflows
 2. **Periodic cache refresh is recommended** for Phase 2 background updates

@@ -80,8 +80,8 @@ Recommended `match_method` values:
 These should not be treated as candidate discovery at all. They are explicit operator tools.
 
 - manual URL paste
-- archive popup search/picker against the curated catalog
-- curated catalog browse view with filters and ranking
+- archive popup search/picker against the catalog
+- catalog browse view with filters and ranking
 - model-to-archive review flow for backfill and reconciliation
 
 ## Proposed Phase Mapping
@@ -111,7 +111,7 @@ Recommended additions:
 - add normalized filename overlap when archive-side source file names are available
 - store candidate rationale in `review_note` or structured annotations so the popup can show why a row appeared
 - add later preview thumbnail support when the compact review layout can accommodate it safely
-- archive popup action to search/browse the curated catalog
+- archive popup action to search/browse the catalog
 - sidecar endpoint for searchable model-library queries with pagination and filter support
 - result ranking that can incorporate recent uploads, recent prints, and accepted-link history
 - picker flow to create a reviewed manual link from a selected result

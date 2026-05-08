@@ -60,7 +60,7 @@ The intake wizard must use one consistent split-pane design regardless of source
 - The right pane may collapse or group long file lists, but it must still let the operator inspect the underlying files/folders that produced each result.
 - After the Source step, reuse shared wizard components where practical rather than building separate Browser-only and Server-only layouts for Organize, Validate, and Commit.
 
-### Long-Running Operation Contract (#1290)
+### Long-Running Operation Contract (#1265)
 
 The wizard must expose explicit busy and progress affordances for operations that take noticeable time. This applies both to browser upload transport and to backend execution after the upload has already been accepted.
 
@@ -73,7 +73,7 @@ Rules:
 - show `Cancel` only while the operation is still safely abortable
 - when execution has crossed into irreversible backend mutation, switch from `Cancel` to read-only busy state plus `View In Job History` when available
 
-This is the canonical design response for issue #1290.
+This is the canonical design response for issue #1265.
 
 ### Progress Phase Model
 
@@ -82,7 +82,7 @@ The wizard should map backend lifecycle to operator-facing phases:
 1. `Uploading files`
 2. `Preparing intake job`
 3. `Validating plan`
-4. `Publishing to Working Files` or `Publishing to Curated Catalog`
+4. `Publishing to Working Files` or `Publishing to Catalog`
 5. `Verifying imported files`
 6. `Cleaning up source files`
 7. `Done`
@@ -137,17 +137,17 @@ Progress/busy affordances for Step 1:
 
 This rule applies specifically to Server browse mode.
 
-- The wizard may allow selecting a parent folder and also one of its child folders or explicit files.
-- Those overlapping selections must be interpreted as one union of unique resolved files.
+- The current intake contract is topmost-selection only.
+- If the operator selects a parent folder and then selects one of its child folders or explicit files, the child selection is absorbed into the parent selection.
+- This applies regardless of the parent's recursive setting. Parent/child overlap is not treated as a separately-supported mixed-selection workflow in the current wizard.
 - The same file must not be imported twice just because it is covered by multiple selected server entries.
-- Recursive parent coverage should be treated as making deeper child selections redundant unless the parent is non-recursive.
-- Non-recursive parent selection does not cover deeper descendants. In that case, explicitly selecting a child folder or file is a valid and expected workflow.
+- If the operator wants to work with a child subtree independently, they must deselect the parent and select the child directly instead.
 
 The UX contract for overlap handling is:
 
-- harmless redundant overlap should warn, not hard-fail
-- conflicting overlap with different grouping/title/preservation intent should surface as an explicit review problem
-- review summaries should distinguish raw selected entries from the final unique resolved-file outcome
+- overlapping child selections are normalized away instead of being preserved for later conflict resolution
+- review surfaces should show only the canonical topmost entries that remain after normalization
+- summaries should communicate the resolved logical outcome, not encourage raw overlapping-entry semantics
 
 This keeps legitimate mixed root selection available while removing ambiguity about whether overlap means duplicate import.
 
@@ -193,8 +193,8 @@ For each logical model or source batch, the operator sets:
 - destination strategy:
   - Working Files -> Create New Group
   - Working Files -> Attach Existing Group
-  - Curated Catalog -> Create New Model
-  - Curated Catalog -> Attach To Existing Model
+  - Catalog -> Create New Model
+  - Catalog -> Attach To Existing Model
 
 Step 2 also follows the shared split-pane rule:
 
@@ -228,7 +228,7 @@ Operator decisions in this step:
   - Queue For Review
   - Execute Now
 - publish target when `Execute Now` is selected:
-  - Curated Catalog
+  - Catalog
   - Working Files
 - cleanup policy using friendly labels rather than raw enum values:
   - Keep Originals In Place -> `keep`

@@ -31,14 +31,15 @@ UI note:
 - Browser upload and server browse remain two supported source types, but a single intake batch should use one or the other rather than a hybrid browser+server submission.
 - Cleanup policy belongs to wizard planning and is validated before commit.
 - Mixed file+folder selections are allowed in one batch, but the wizard review step must show expansion preview so the operator understands what will be imported.
-- For Server browse mode, overlapping parent/child/file selections must collapse to a union of unique resolved files, with review-time warnings for redundant or conflicting overlap.
-- The Organize, Validate, and Commit steps must keep showing the resolved logical-model outputs, not revert to raw source-entry lists.
+- For Server browse mode, overlapping parent/child/file selections collapse immediately to the canonical topmost source entries.
+- The Organize, Validate, and Commit steps must keep showing the resolved logical-model outputs, not revert to raw overlapping source-entry lists.
 
 Overlap note:
 
-- A recursive parent folder plus a selected child folder/file is a supported workflow, but child entries are redundant if they are already fully covered by the parent.
-- A non-recursive parent folder plus a selected child folder/file is also supported and should not be treated as redundant.
-- The operator-facing result summary should communicate both selected-entry count and final unique-file outcome when overlap exists.
+- A selected parent folder absorbs selected child folders and explicit child files.
+- This is a normalization rule, not a warning-only workflow branch.
+- If the operator needs the child subtree to stand on its own, they must remove the parent selection and select the child directly.
+- The operator-facing result summary should communicate the resolved canonical selection and resulting file/model outcome.
 
 ## High-Level Flow: Wizard to Execution
 
@@ -172,7 +173,7 @@ Job History contains intake items in terminal states:
 
 - `grouped_new` — created new working group
 - `grouped_existing` — attached to existing working group
-- `published_to_catalog` — published directly to curated catalog
+- `published_to_catalog` — published directly to catalog
 - `rejected` — rejected as noise/invalid
 
 Operators interact with Job History to:
@@ -195,7 +196,7 @@ From the operator's perspective:
 
 - Grouped items appear in the Job History with a link to the resulting working group.
 - Further work happens in Working flow, not Intake flow.
-- Publishing to curated catalog is a later decision in Working or Curated flow.
+- Publishing to catalog is a later decision in Working or Curated flow.
 
 ## Operator Cheat Sheet
 
@@ -207,7 +208,7 @@ From the operator's perspective:
 | `deferred` | Parked item (if used) | Optional backend/admin path | Not required in primary UX |
 | `grouped_new` | Item in Job History, created new working group | View Details, Delete Log Row, Admin Reopen | Workflow complete; new group created |
 | `grouped_existing` | Item in Job History, attached to existing group | View Details, Delete Log Row, Admin Reopen | Workflow complete; files added to group |
-| `published_to_catalog` | Item in Job History, published to curated catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
+| `published_to_catalog` | Item in Job History, published to catalog | View Details, Delete Log Row, Admin Reopen | Workflow complete; direct publish done |
 | `rejected` | Item in Job History, rejected as noise/invalid | View Details, Delete Log Row, Admin Reopen | Workflow complete; intentionally excluded |
 
 ### Quick Decision Rules (Wizard First)

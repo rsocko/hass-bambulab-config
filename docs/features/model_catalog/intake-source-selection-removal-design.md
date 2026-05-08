@@ -44,8 +44,10 @@ All selections are consolidated to their **topmost parent**. If a user selects a
 **Server Mode** (folder browse):
 - User selects `/models/` → stored as `{type: "folder", path: "/models/", recursive: true}`
 - If user then selects `/models/variants/` → **absorbed into parent**
+- If user selects `/models/variants/tall.3mf` while `/models/` is selected → **absorbed into parent**
 - Right pane shows only `/models/` as selected, not both entries
 - Recursive choice applies to topmost entry only
+- To work with `/models/variants/` independently, the operator must remove `/models/` and select `/models/variants/` directly
 
 **Result Stored in Queue**:
 ```python

@@ -2,7 +2,7 @@
 
 > **Status**: Canonical low-fi intake wizard reference
 > **Created**: 2026-05-03
-> **Scope**: Shared Browser Upload and Server Inbox wizard UX for issues #1282, #1288, and #1292
+> **Scope**: Shared Browser Upload and Server Inbox wizard UX for issues #1265, #1282, #1288, and #1292
 
 ## Purpose
 
@@ -344,7 +344,7 @@ Low-fi contract for this step:
 
 - left pane:
   - Queue For Review / Execute Now toggle
-  - Curated Catalog / Working Files destination picker when Execute Now is selected
+  - Catalog / Working Files destination picker when Execute Now is selected
   - friendly cleanup labels:
     - Keep Originals In Place
     - Delete Originals After Success

@@ -445,7 +445,7 @@ Lay groundwork for Phase 6 publish workflow. Document operations and deployment.
 - **Phase 5 INPUT**: Sidecar running, archive endpoints working, HA integration points available
 - **Phase 5 OUTPUT**: Working groups exist; intake workflow functional; ready for publish workflow (Phase 6)
 - **Phase 6 INPUT**: Working groups from Phase 5; ready to build publish-to-curated flow
-- **Phase 6 OUTPUT**: Publish workflow; curated catalog enrichment; ranking
+- **Phase 6 OUTPUT**: Publish workflow; catalog enrichment; ranking
 
 ---
 

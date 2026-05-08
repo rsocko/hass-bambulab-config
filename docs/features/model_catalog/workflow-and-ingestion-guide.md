@@ -14,7 +14,7 @@ Use three distinct zones:
 
 The approved design no longer treats “promote/demote” as a native Manyfold capability. Instead, use clearer lifecycle terms:
 
-- **publish to curated catalog**
+- **publish to catalog**
 - **publish new canonical revision**
 - **recreate/relink after path change**
 
@@ -57,11 +57,11 @@ Use it for:
 - lightweight validation and duplicate checks
 - holding items in an "Inbox" queue while metadata is reviewed
 
-The Intake Inbox is sidecar-owned staging state. It is not the curated catalog.
+The Intake Inbox is sidecar-owned staging state. It is not the catalog.
 
-### Curated Catalog
+### Catalog
 
-Curated catalog entries live in Manyfold.
+Catalog entries live in Manyfold.
 
 Recommended default:
 
@@ -146,7 +146,7 @@ For quick local intake:
 - add notes, stage, and lightweight queue markers in the sidecar if useful
 - print from the working copy as needed; Bambuddy archives the results as normal
 
-### 4. Publish To Curated Catalog
+### 4. Publish To Catalog
 
 When a Working group is stable enough for long-term reuse:
 
@@ -206,7 +206,7 @@ When a curated model needs changes:
 1. create or reopen a Working group for the revision
 2. branch or copy the curated source into `Working/` if needed
 3. make edits in `Working/`
-4. when ready, publish a new canonical revision back to the curated catalog
+4. when ready, publish a new canonical revision back to the catalog
 5. record supersession lineage in the sidecar when appropriate
 
 Do **not** assume this is a native Manyfold storage-mode conversion.

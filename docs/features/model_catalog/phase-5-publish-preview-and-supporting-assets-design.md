@@ -3,7 +3,7 @@
 > **Status**: Proposed Phase 5 design handoff
 > **Created**: 2026-04-30
 > **Primary issues**: #1163, #1137
-> **Scope**: Publish-time use of already-analyzed 3MF-derived previews and supporting assets when a Working group is promoted into the curated catalog.
+> **Scope**: Publish-time use of already-analyzed 3MF-derived previews and supporting assets when a Working group is promoted into the catalog.
 
 ---
 

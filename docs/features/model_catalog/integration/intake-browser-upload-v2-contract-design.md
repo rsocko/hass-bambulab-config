@@ -160,7 +160,7 @@ Add structured telemetry fields:
 
 ## Progress And Busy-State Contract
 
-Issue #1290 should be implemented against the upload transport and queue lifecycle documented here, not as a separate ad hoc spinner layer.
+Issue #1265 is implemented against the upload transport and queue lifecycle documented here, not as a separate ad hoc spinner layer.
 
 ### Principle: Honest Progress Only
 
@@ -183,7 +183,7 @@ Issue #1290 should be implemented against the upload transport and queue lifecyc
     - `Uploading files`
     - `Preparing intake job`
     - `Validating plan`
-    - `Publishing to Working Files` or `Publishing to Curated Catalog`
+    - `Publishing to Working Files` or `Publishing to Catalog`
     - `Verifying imported files`
     - `Cleaning up source files`
     - `Done`
@@ -214,7 +214,7 @@ Suggested phase-code mapping:
 - `failed` -> terminal failure
 - `cancelled` -> operator-aborted before irreversible commit
 
-Existing queue lifecycle values remain authoritative for backend execution state. `current_phase` is the UI-facing refinement that lets #1290 present clearer copy without inventing separate frontend-only state.
+Existing queue lifecycle values remain authoritative for backend execution state. `current_phase` is the UI-facing refinement that lets #1265 present clearer copy without inventing separate frontend-only state.
 
 ### Cancellation Contract
 
@@ -247,7 +247,7 @@ No guaranteed meaningful latency win for very small files.
 
 1. Implement Profile A multipart route and idempotency table.
 2. Add integration tests paralleling existing browser upload tests.
-3. Update browser card with feature flag/capability fallback to v1 and the progress/busy-state affordances needed by #1290.
+3. Update browser card with feature flag/capability fallback to v1 and the progress/busy-state affordances needed by #1265.
 4. Roll out to StreamDeck uploader using v2 first.
 5. Evaluate telemetry; decide whether Profile B resumable is needed.
 
@@ -258,6 +258,17 @@ No guaranteed meaningful latency win for very small files.
 3. Mixed browser files + server selections.
 4. Idempotency replay behavior.
 5. Idempotency conflict behavior.
+
+## Implemented UX Notes (Issue #1265)
+
+The current intake browser wizard behavior is:
+
+- Multipart upload path uses upload-progress events and shows determinate byte progress when available.
+- Fallback v1/base64 path uses the same busy shell and reports file-level preparation progress where byte-level upload progress is unavailable.
+- Validation and publish phases show a named spinner/busy state (`Preparing intake job`, `Validating plan`, `Publishing ...`) rather than fake percentages.
+- During active upload/validation/publish operations, plan-mutating controls are disabled in the wizard to prevent accidental state drift.
+
+This keeps progress honest while still guaranteeing visible feedback for long-running operations, including server-side file moves during publish.
 6. Oversize and unsupported extension handling.
 7. Staging cleanup on partial failures.
 8. Publish-to-local compatibility unchanged from v1.

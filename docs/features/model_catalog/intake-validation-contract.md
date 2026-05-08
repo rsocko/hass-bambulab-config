@@ -24,6 +24,25 @@ The shipped validation step currently performs these checks in order:
 
 These checks operate on the resolved file list produced from the queued source entries. The endpoint does not just validate raw selections; it validates the exact prepared upload snapshot that Commit will reuse.
 
+## Validation Rule Matrix
+
+This table is the canonical, append-friendly inventory of validation rules for the wizard Validate step and shared queue validation endpoint.
+
+| Rule key | What it checks | Outcome type | Can show warning | Blocks commit when not passing | Requires operator resolution | Backend warning codes used | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `source_access` | Selected sources still exist and are readable at validate time. | pass/fail | yes | yes | yes | `missing_source`, `source_unreadable` | Fails if one or more selected paths cannot be read or no longer exist. |
+| `supported_types` | Resolved files are allowed intake types (model, image, or documentation/supporting). | pass/fail | yes | yes | yes | `unsupported_type` | Unsupported files are excluded from resolved set and surfaced as warnings. |
+| `duplicate_scan` | Resolved file hashes do not collide with existing Working inventory. | pass/fail | yes | yes | yes (current wizard behavior) | `working_group_hash_match` | Current wizard requires `ready` to continue, so duplicate candidates block commit in wizard path. |
+| `commit_ready` | Resolved plan contains at least one file to commit. | pass/fail | yes | yes | yes | `needs_manual_grouping` | Prevents empty commits after filtering or missing/unreadable files. |
+| `excluded_items_summary` | Informational count of excluded files/folders carried from Source step. | informational | yes (informational) | no | no | none (informational check) | Always `passed: true`; intended to provide visibility, not block commit. |
+
+### Matrix Maintenance Rules
+
+- Add one row for every new backend check key returned in `validation.checks`.
+- If a check's runtime behavior changes, update its existing row rather than adding a duplicate row.
+- Keep the `Backend warning codes used` column synchronized with the warning code list below.
+- If warning-override behavior is added later, update `Blocks commit when not passing` and `Requires operator resolution` for the affected rows.
+
 ## Warning Codes
 
 The backend currently emits these warning codes from validation:
@@ -35,6 +54,32 @@ The backend currently emits these warning codes from validation:
 | `unsupported_type` | A selected file resolved to an unsupported extension. |
 | `working_group_hash_match` | A resolved file hash already exists in Working inventory. |
 | `needs_manual_grouping` | Validation resolved zero files, so Commit cannot proceed. |
+
+## File Type Policy
+
+Current intake policy accepts model, image, and document/supporting files.
+
+Supported categories:
+
+- model files: `.3mf`, `.stl`, `.obj`, `.step`, `.stp`, `.zip`
+- image files: `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.svg`
+- document/supporting files: `.pdf`, `.md`, `.txt`, `.csv`, `.json`, `.yaml`, `.yml`, `.rtf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`
+
+### Explicit Exclusion Guidance
+
+The default posture is broad allow for manufacturing-relevant artifacts, but safety and operator trust still require explicit excludes.
+
+Recommended explicit excludes:
+
+- executable and installer binaries (`.exe`, `.msi`, `.bat`, `.cmd`, `.com`, `.scr`, `.ps1`, `.sh`)
+- dynamic code artifacts that are not needed as intake documentation (`.js`, `.vbs`, `.jar`, `.py`, `.dll`, `.so`, `.dylib`)
+- system/temporary artifacts (`Thumbs.db`, `.DS_Store`, editor swap/temp files)
+
+Rationale:
+
+- prevent accidental ingestion of files that can execute code
+- reduce noise from non-project artifacts in large source folders
+- keep intake focused on printable assets and operator-reference docs
 
 ## Validation State Mapping
 

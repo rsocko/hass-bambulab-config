@@ -7,6 +7,7 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
 var groupingStrategyLabel = intakeShared.groupingStrategyLabel;
 var groupingOptionsHtml = intakeShared.groupingOptionsHtml;
+var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 
 var PRINTABLE_EXTENSIONS = {
   '.3mf': true,
@@ -234,55 +235,148 @@ function buildBrowserPlanPreview(card) {
   if (!files.length) {
     return null;
   }
-  var strategy = card._browserGroupingStrategy();
-  var groups = [];
-  if (strategy === 'by-folder') {
-    var folderMap = {};
-    files.forEach(function (entry) {
-      var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var folderKey = parts.length > 1 ? parts.slice(0, -1).join('/') : '__loose__';
-      if (!folderMap[folderKey]) {
-        folderMap[folderKey] = { title: titleForStrategy(card, strategy, folderKey), strategy: 'by-folder', files: [] };
+  function mergeNoneStrategyGroups(groups) {
+    var merged = [];
+    var noneIndex = -1;
+    (groups || []).forEach(function (group) {
+      var strategy = String(group && group.strategy || 'none').trim().toLowerCase();
+      if (strategy !== 'none') {
+        merged.push(group);
+        return;
       }
-      folderMap[folderKey].files.push(entry);
-    });
-    groups = Object.keys(folderMap).sort().map(function (key) { return folderMap[key]; });
-  } else if (strategy === 'by-root') {
-    var rootMap = {};
-    files.forEach(function (entry) {
-      var relativePath = normalizePath(entry.relative_path || entry.name || '');
-      var parts = relativePath.split('/').filter(Boolean);
-      var rootKey = parts.length > 1 ? parts[0] : '__loose__';
-      if (!rootMap[rootKey]) {
-        rootMap[rootKey] = { title: titleForStrategy(card, strategy, rootKey), strategy: 'by-root', files: [] };
+      if (noneIndex < 0) {
+        noneIndex = merged.length;
+        merged.push(Object.assign({}, group, {
+          files: (group && group.files ? group.files.slice() : []),
+        }));
+        return;
       }
-      rootMap[rootKey].files.push(entry);
+      var existing = merged[noneIndex];
+      existing.files = (existing.files || []).concat((group && group.files) || []);
+      var incomingExplicitTitle = String(group && group.group_title || '').trim();
+      var existingExplicitTitle = String(existing.group_title || '').trim();
+      if (!existingExplicitTitle && incomingExplicitTitle) {
+        existing.group_title = incomingExplicitTitle;
+        existing.title = incomingExplicitTitle;
+      }
     });
-    groups = Object.keys(rootMap).sort().map(function (key) { return rootMap[key]; });
-  } else if (strategy === 'flat') {
-    var printable = files.filter(function (entry) { return fileKind(entry.relative_path || entry.name || '') === 'model'; });
-    if (printable.length) {
-      groups = printable.map(function (entry) {
-        var stem = basename(entry.relative_path || entry.name || '').replace(/\.[^.]+$/, '');
-        var customTitle = String(entry.group_title || '').trim();
-        return { title: customTitle || stem || 'Model', strategy: 'flat', files: [entry] };
-      });
-      files.forEach(function (entry) {
-        if (fileKind(entry.relative_path || entry.name || '') === 'model') {
-          return;
-        }
-        groups[0].files.push(entry);
-      });
-    } else {
-      groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
-      strategy = 'none';
-    }
-  } else {
-    groups = [{ title: card._browserBatchResolvedTitle(), strategy: 'none', files: files.slice() }];
-    strategy = 'none';
+    return merged;
   }
-  var preview = summarizeGroups(groups, strategy);
+
+  function groupsForSection(sectionFiles, requestedStrategy, sectionTitle, sectionGroupTitle, options) {
+    var settings = options || {};
+    var sectionStrategy = normalizeGroupingStrategy(requestedStrategy, {
+      allowFolderStrategies: settings.allowFolderStrategies !== false,
+    });
+    var explicitGroupTitle = String(sectionGroupTitle || '').trim();
+    var sectionGroups = [];
+    if (!sectionFiles.length) {
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'by-folder') {
+      var folderMap = {};
+      sectionFiles.forEach(function (entry) {
+        var relativePath = normalizePath(entry.relative_path || entry.name || '');
+        var parts = relativePath.split('/').filter(Boolean);
+        var folderKey = parts.length > 1 ? parts.slice(0, -1).join('/') : '__loose__';
+        if (!folderMap[folderKey]) {
+          folderMap[folderKey] = {
+            title: titleForStrategy(card, sectionStrategy, folderKey),
+            strategy: 'by-folder',
+            files: [],
+          };
+        }
+        folderMap[folderKey].files.push(entry);
+      });
+      Object.keys(folderMap).sort().forEach(function (key) {
+        sectionGroups.push(folderMap[key]);
+      });
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'by-root') {
+      sectionGroups.push({
+        title: sectionTitle || titleForStrategy(card, 'by-root', '__loose__'),
+        strategy: 'by-root',
+        group_title: explicitGroupTitle,
+        files: sectionFiles.slice(),
+      });
+      return sectionGroups;
+    }
+    if (sectionStrategy === 'flat') {
+      var printable = sectionFiles.filter(function (entry) {
+        return fileKind(entry.relative_path || entry.name || '') === 'model';
+      });
+      if (printable.length) {
+        sectionGroups = printable.map(function (entry) {
+          var stem = basename(entry.relative_path || entry.name || '').replace(/\.[^.]+$/, '');
+          var customTitle = String(entry.group_title || '').trim();
+          return {
+            title: customTitle || stem || 'Model',
+            strategy: 'flat',
+            group_title: customTitle,
+            files: [entry],
+          };
+        });
+        sectionFiles.forEach(function (entry) {
+          if (fileKind(entry.relative_path || entry.name || '') === 'model') {
+            return;
+          }
+          sectionGroups[0].files.push(entry);
+        });
+        return sectionGroups;
+      }
+      sectionStrategy = 'none';
+    }
+    sectionGroups.push({
+      title: sectionTitle || card._browserBatchResolvedTitle(),
+      strategy: sectionStrategy,
+      group_title: explicitGroupTitle,
+      files: sectionFiles.slice(),
+    });
+    return sectionGroups;
+  }
+
+  var groups = [];
+  var rootBuckets = card._browserRootBuckets ? card._browserRootBuckets() : {};
+  var rootKeys = Object.keys(rootBuckets).sort();
+  rootKeys.forEach(function (rootKey) {
+    var bucketFiles = rootBuckets[rootKey] || [];
+    if (!bucketFiles.length) {
+      return;
+    }
+    var representative = bucketFiles[0] || {};
+    groups = groups.concat(groupsForSection(
+      bucketFiles,
+      representative.grouping_strategy,
+      card._browserRootResolvedTitle ? card._browserRootResolvedTitle(rootKey, representative) : rootKey,
+      representative.group_title,
+      { allowFolderStrategies: true }
+    ));
+  });
+
+  var looseFiles = card._browserLooseFiles ? card._browserLooseFiles() : [];
+  if (looseFiles.length) {
+    looseFiles.forEach(function (entry) {
+      var relativePath = String(entry.relative_path || entry.name || '');
+      var looseTitle = basename(relativePath).replace(/\.[^.]+$/, '') || 'Working Group';
+      groups = groups.concat(groupsForSection(
+        [entry],
+        entry.grouping_strategy,
+        looseTitle,
+        entry.group_title,
+        { allowFolderStrategies: false }
+      ));
+    });
+  }
+
+  groups = mergeNoneStrategyGroups(groups);
+
+  var strategies = {};
+  groups.forEach(function (group) {
+    strategies[String(group && group.strategy || 'none')] = true;
+  });
+  var strategyKeys = Object.keys(strategies);
+  var preview = summarizeGroups(groups, strategyKeys.length === 1 ? strategyKeys[0] : 'mixed');
   preview.contract = 'intake-plan.v1alpha1';
   preview.success = true;
   return preview;
@@ -292,10 +386,20 @@ function renderPlanSummary(card, options) {
   var settings = options || {};
   var preview = card._previewData;
   var isLoading = card._loading || card._previewLoading || false;
+  var uploadProgress = card._uploadProgress || null;
+  var uploadProgressText = '';
+  if (uploadProgress && uploadProgress.mode === 'determinate' && uploadProgress.percent != null) {
+    uploadProgressText = String(Math.max(0, Math.min(100, Number(uploadProgress.percent || 0)))) + '%';
+    if (uploadProgress.bytes_total) {
+      uploadProgressText += ' (' + String(uploadProgress.bytes_done || 0) + ' / ' + String(uploadProgress.bytes_total || 0) + ' bytes)';
+    }
+  } else if (uploadProgress && uploadProgress.detail) {
+    uploadProgressText = String(uploadProgress.detail || '');
+  }
   var skipSummary = settings.skipSummary || false;
   if (!preview || !preview.planned_models || !preview.planned_models.length) {
     if (isLoading) {
-      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...</div>';
+      return '<div class="state-row recalculating"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 20px; width: 20px; height: 20px;"></ha-icon> Recalculating output...' + (uploadProgressText ? '<div class="muted" style="margin-top:6px;">' + escapeHtml(uploadProgressText) + '</div>' : '') + '</div>';
     }
     return '<div class="state-row">No planned output yet. Advance to Organize after selecting sources to resolve the model plan.</div>';
   }
@@ -305,15 +409,18 @@ function renderPlanSummary(card, options) {
   var summaryHtml = '';
   if (!skipSummary) {
     summaryHtml = ''
-      + '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
+      + '<div class="result-summary">'
       + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
       + '  <div class="result-line"><span>Planned models</span><strong>' + String(preview.summary.planned_model_count || preview.planned_models.length) + '</strong></div>';
     if (isLoading) {
       summaryHtml += '  <div class="result-line muted"><ha-icon icon="mdi:loading" style="animation: spin 1s linear infinite; --mdc-icon-size: 16px; width: 16px; height: 16px; display: inline-block; margin-right: 6px;"></ha-icon>Recalculating...</div>';
+      if (uploadProgressText) {
+        summaryHtml += '  <div class="result-line muted">' + escapeHtml(uploadProgressText) + '</div>';
+      }
     }
     summaryHtml += '</div>';
   }
-  var entriesHtml = '<div class="entries' + (isLoading ? ' recalculating-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
+  var entriesHtml = '<div class="entries' + (isLoading ? ' loading-entries' : '') + '">' + preview.planned_models.map(function (model, index) {
     var destinationPlan = destinationPlans[index] || null;
     var totalFiles = (model.files || []).length;
     var visibleFiles = (model.files || []).slice(0, 4);
@@ -325,14 +432,14 @@ function renderPlanSummary(card, options) {
       files += '<div class="entry-path muted">... and ' + String(totalFiles - visibleFiles.length) + ' more files</div>';
     }
     if (destinationPlan) {
-      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var destinationLabel = String(destinationPlan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchLabel = String(destinationPlan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       destinationMarkup = ''
         + '<div class="button-row"><span class="chip">' + escapeHtml(destinationLabel) + '</span><span class="chip">' + escapeHtml(matchLabel) + '</span></div>'
         + '<div class="entry-path muted">' + escapeHtml(card._destinationSelectionSummary(destinationPlan)) + '</div>';
     }
     return ''
-      + '<article class="entry-row' + (isLoading ? ' loading-item' : '') + '">'
+      + '<article class="entry-row' + (isLoading ? ' loading-item' : '') + '" data-model-index="' + String(index) + '">' 
       + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || 'Model') + '</div><div class="entry-path">' + escapeHtml(card._groupingStrategyLabel ? card._groupingStrategyLabel(model.strategy || 'none') : (model.strategy || 'none')) + '</div></div><div class="button-row"><span class="chip">' + String(model.file_count || 0) + ' files</span></div></div>'
       + destinationMarkup
       + files
@@ -716,6 +823,37 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return basename(String(files[0].relative_path || files[0].name || '')).replace(/\.[^.]+$/, '') || 'Working Group';
   };
 
+  proto._renderBrowserLooseFileCard = function (entry) {
+    var relativePath = String(entry && (entry.relative_path || entry.name) || '');
+    var displayName = basename(relativePath) || relativePath || 'upload.bin';
+    var defaultTitle = displayName.replace(/\.[^.]+$/, '') || 'Working Group';
+    var groupingValue = normalizeGroupingStrategy(entry && entry.grouping_strategy || 'none', { allowFolderStrategies: false });
+    var titleSource = String(entry && entry.group_title_source || '').trim().toLowerCase() === 'custom' ? 'custom' : 'first-file';
+    var resolvedTitle = String(entry && entry.group_title || '').trim() || defaultTitle;
+    var previewUrl = String(entry && entry.preview_url || '');
+    var previewMarkup = previewUrl
+      ? '<div class="entry-thumb"><img class="entry-thumb-image" src="' + escapeHtml(previewUrl) + '" alt="Image preview for ' + escapeHtml(displayName) + '" loading="lazy" decoding="async"></div>'
+      : '<div class="entry-thumb placeholder">No preview</div>';
+    return ''
+      + '<article class="entry-row" data-source-key="browser-file:' + escapeHtml(relativePath) + '">'
+      + '  <div class="entry-top">'
+      + previewMarkup
+      + '    <div class="entry-main">'
+      + '      <div class="entry-name">' + escapeHtml(displayName) + '</div>'
+      + '      <div class="entry-path">Loose browser file</div>'
+      + '    </div>'
+      + '    ' + entryTypeIconMarkup(relativePath, false)
+      + '  </div>'
+      + '  <div class="item-grid">'
+      + '    <div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-loose-file-grouping" data-relative-path="' + escapeHtml(relativePath) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
+      + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-loose-file-title-source" data-relative-path="' + escapeHtml(relativePath) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
+      + (titleSource === 'custom'
+        ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-loose-file-group-title" data-relative-path="' + escapeHtml(relativePath) + '" placeholder="Working Group"></div>'
+        : '')
+      + '  </div>'
+      + '</article>';
+  };
+
   proto._updateBrowserEntriesWhere = function (predicate, updates) {
     this._browserFiles = this._browserFiles.map(function (entry) {
       if (!predicate(entry)) {
@@ -742,8 +880,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (!fileEntries.length) {
       return 'none';
     }
-    var normalized = String(fileEntries[0].grouping_strategy || 'none').trim().toLowerCase();
-    return normalized === 'flat' ? 'flat' : 'none';
+    return normalizeGroupingStrategy(fileEntries[0].grouping_strategy || 'none', { allowFolderStrategies: false });
   };
 
   proto._renderSharedPerFileNameRows = function (entries, options) {
@@ -775,15 +912,16 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var groupTitleAction = String(settings.groupTitleAction || '');
     var perFileTitleAction = String(settings.perFileTitleAction || '');
     var description = String(settings.description || 'Applies to selected files in this intake batch.');
+    var sourceKey = String(settings.sourceKey || '');
     var showBatchTitleField = !(groupingValue === 'flat');
     return ''
-      + '<article class="entry-row">'
+      + '<article class="entry-row"' + (sourceKey ? ' data-source-key="' + escapeHtml(sourceKey) + '"' : '') + '>'
       + '<div class="entry-top"><div><div class="entry-name">Selected Files Batch</div><div class="entry-path">' + escapeHtml(description) + '</div></div><div class="button-row"><span class="chip">' + String(entries.length) + ' files</span></div></div>'
       + '<div class="item-grid">'
-      + '<div class="field"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
+      + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="' + escapeHtml(groupingAction) + '">' + groupingOptionsHtml(groupingValue, 'file') + '</select></div>'
       + '<div class="field"><label>Title Basis</label><select class="select" data-action="' + escapeHtml(titleSourceAction) + '"><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
       + (showBatchTitleField
-        ? '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
+        ? '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="' + escapeHtml(groupTitleAction) + '" placeholder="Working Group"></div>'
         : '')
       + '</div>'
       + (groupingValue === 'flat' && titleSource === 'custom'
@@ -821,35 +959,32 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var looseFiles = this._browserLooseFiles();
     var sections = [];
     if (looseFiles.length) {
-      sections.push(this._renderSharedFileBatchCard({
-        entries: looseFiles,
-        groupingValue: String(looseFiles[0].grouping_strategy || 'none').trim().toLowerCase(),
-        titleSource: this._browserLooseTitleSource(),
-        resolvedTitle: this._browserLooseResolvedTitle(),
-        groupingAction: 'browser-loose-grouping',
-        titleSourceAction: 'browser-loose-title-source',
-        groupTitleAction: 'browser-loose-group-title',
-        perFileTitleAction: 'browser-flat-model-title',
-        perFilePathAttribute: 'data-relative-path',
-        description: 'Applies to individually selected browser files in this intake batch.',
-      }));
+      looseFiles.slice().sort(function (left, right) {
+        var leftPath = String(left.relative_path || left.name || '');
+        var rightPath = String(right.relative_path || right.name || '');
+        return leftPath.localeCompare(rightPath);
+      }).forEach(function (entry) {
+        sections.push(this._renderBrowserLooseFileCard(entry));
+      }, this);
     }
     rootKeys.forEach(function (rootKey) {
       var files = rootBuckets[rootKey];
       var representative = files[0] || {};
-      var groupingStrategy = String(representative.grouping_strategy || 'none').trim().toLowerCase();
+      var groupingStrategy = normalizeGroupingStrategy(representative.grouping_strategy || 'none', { allowFolderStrategies: true });
       var titleSource = this._browserRootTitleSource(representative);
       var resolvedTitle = this._browserRootResolvedTitle(rootKey, representative);
       sections.push(''
-        + '<article class="entry-row">'
+        + '<article class="entry-row" data-source-key="browser-root:' + escapeHtml(rootKey) + '">'
         + '<div class="entry-top">' + folderPreviewMarkup() + '<div class="entry-main"><div class="entry-name">' + escapeHtml(rootKey) + '</div><div class="entry-path">Folder upload</div></div><div class="button-row"><span class="chip">Folder</span><span class="chip">' + String(files.length) + ' files</span></div></div>'
         + '<div class="item-grid">'
+        + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
         + '<div class="field"><label>Folder Scope</label><select class="select" data-action="browser-root-recurse" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.recurse !== false ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (representative.recurse === false ? ' selected' : '') + '>Just this folder</option></select></div>'
-        + '<div class="field"><label>Group / Split</label><select class="select" data-action="browser-root-grouping" data-root="' + escapeHtml(rootKey) + '">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
-        + (representative.recurse !== false ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>' : '')
+        + (representative.recurse !== false
+          ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="browser-root-preserve-structure" data-root="' + escapeHtml(rootKey) + '"><option value="true"' + (representative.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (representative.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
+          : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
         + '<div class="field"><label>Title Basis</label><select class="select" data-action="browser-root-title-source" data-root="' + escapeHtml(rootKey) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-        + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
-        + '<div class="muted">These options apply only to the folder ' + escapeHtml(rootKey) + '.</div>'
+        + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-root-group-title" data-root="' + escapeHtml(rootKey) + '" placeholder="Working Group"></div>'
+        + '<div class="muted" style="grid-column:1 / -1;">These options apply only to the folder ' + escapeHtml(rootKey) + '.</div>'
         + '</div>'
         + '</article>');
     }, this);
@@ -894,29 +1029,28 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
       + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedFileCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedFileCount) + ' Excluded</span>'
+      + (excludedFileCount > 0 ? '  <span class="chip warn">⚠ ' + String(excludedFileCount) + ' Excluded</span>' : '')
       + '</div>';
     return ''
       + (showControls
         ? '<div class="result-summary">'
           + '  <div class="result-line"><span>Selected files/folders</span><strong>' + String(fileCount) + ' files, ' + String(folderCount) + ' folders' + (excludedFileCount > 0 ? ', ' + String(excludedFileCount) + ' excluded' : '') + '</strong></div>'
           + (groupingStrategy !== 'flat'
-            ? '  <div class="result-line"><span>Working Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
+            ? '  <div class="result-line"><span>Model/Group Title</span><strong>' + escapeHtml(resolvedTitle || 'Working Group') + '</strong></div>'
             : '')
           + '</div>'
         : chipMarkup)
       + (showControls
         ? '<div class="item-grid">'
           + (folderCount
-            ? '    <div class="field"><label>Selected Folder</label><div class="muted">' + escapeHtml(folderCount === 1 ? folderNames[0] : String(folderCount) + ' folders selected') + '</div></div><div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
+            ? '    <div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="browser-grouping">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div><div class="field"><label>Folder Scope</label><select class="select" data-action="browser-recurse"><option value="true"' + (recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
             : '')
-          + '    <div class="field"><label>Group / Split</label><select class="select" data-action="browser-grouping">' + groupingOptionsHtml(groupingStrategy, 'folder') + '</select></div>'
           + (folderCount && recurse
             ? '    <div class="field"><label>Folder Structure</label><select class="select" data-action="browser-preserve-structure"><option value="true"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (this._browserFiles[0] && this._browserFiles[0].preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
-            : '')
+            : (folderCount ? '    <div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>' : ''))
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source">' + titleSourceOptions + '</select></div>'
           + (groupingStrategy !== 'flat'
-            ? '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
+            ? '    <div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
             : '')
           + '  </div>'
           + ((groupingStrategy === 'flat' && titleSource === 'custom')
@@ -955,7 +1089,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '<div class="button-row intake-summary-chips">'
       + '  <span class="chip">📁 ' + String(folderCount) + ' Folders</span>'
       + '  <span class="chip">📄 ' + String(fileCount) + ' Files</span>'
-      + '  <span class="chip' + (excludedCount > 0 ? ' warn' : '') + '">⚠ ' + String(excludedCount) + ' Excluded</span>'
+      + (excludedCount > 0 ? '  <span class="chip warn">⚠ ' + String(excludedCount) + ' Excluded</span>' : '')
       + '</div>';
   };
 
@@ -1105,7 +1239,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (matchMode !== 'existing') {
       return destination === 'working'
         ? 'Create a new Working Files group.'
-        : 'Create a new Curated Catalog model.';
+        : 'Create a new Catalog model.';
     }
     if (selected) {
       return String(selected.primary || '')
@@ -1114,7 +1248,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return destination === 'working'
       ? 'Select an existing Working Files group. Existing group title is preserved.'
-      : 'Select an existing Curated Catalog model. Existing model name is preserved.';
+      : 'Select an existing Catalog model. Existing model name is preserved.';
   };
 
   proto._curatedLookupResultMeta = function (result) {
@@ -1248,7 +1382,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       var resultRows = '';
       if (matchMode === 'existing') {
         if (plan.lookup_loading) {
-          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Curated Catalog models') + '...</div>';
+          resultRows = '<div class="muted">Searching existing ' + escapeHtml(isWorking ? 'Working Files groups' : 'Catalog models') + '...</div>';
         } else if (plan.lookup_error) {
           resultRows = '<div class="muted">' + escapeHtml(plan.lookup_error) + '</div>';
         } else if (Array.isArray(plan.lookup_results) && plan.lookup_results.length) {
@@ -1270,7 +1404,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '<article class="entry-row">'
         + '  <div class="entry-top"><div><div class="entry-name">' + escapeHtml(model.title || ('Group ' + String(index + 1))) + '</div><div class="entry-path">' + String(model.file_count || 0) + ' files - ' + String(model.model_file_count || 0) + ' model, ' + String(model.media_file_count || 0) + ' media, ' + String(model.supporting_file_count || 0) + ' supporting</div></div><div class="button-row"><span class="chip">' + escapeHtml(model.strategy || 'none') + '</span></div></div>'
         + '  <div class="item-grid">'
-        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
+        + '    <div class="field"><label>Destination</label><select class="select" data-action="group-destination" data-group-index="' + String(index) + '"><option value="curated"' + (destination === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (destination === 'working' ? ' selected' : '') + '>Working Files</option></select></div>'
         + '    <div class="field"><label>Mode</label><select class="select" data-action="group-match-mode" data-group-index="' + String(index) + '"><option value="new"' + (matchMode === 'new' ? ' selected' : '') + '>New</option><option value="existing"' + (matchMode === 'existing' ? ' selected' : '') + '>Add To Existing</option></select></div>'
         + '    <div class="field"><label>Selection</label><div class="muted">' + escapeHtml(this._destinationSelectionSummary(plan)) + '</div></div>'
         + '  </div>'
@@ -1280,7 +1414,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             + '    <div class="field"><label>&nbsp;</label><button class="button" data-action="run-destination-search" data-group-index="' + String(index) + '"' + (plan.lookup_loading ? ' disabled' : '') + '>Search</button></div>'
             + '  </div>'
             + resultRows
-          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Curated Catalog model.') + '</div>')
+          : '<div class="muted">This group will create a new ' + escapeHtml(isWorking ? 'Working Files group.' : 'Catalog model.') + '</div>')
         + '</article>';
     }, this).join('') + '</div>';
   };
@@ -1295,7 +1429,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     }
     return '<div class="entries">' + plannedModels.map(function (model, index) {
       var plan = plans[index] || {};
-      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Curated Catalog';
+      var destination = String(plan.destination || 'curated') === 'working' ? 'Working Files' : 'Catalog';
       var matchMode = String(plan.match_mode || 'new') === 'existing' ? 'Add To Existing' : 'New';
       return ''
         + '<article class="entry-row">'
@@ -1318,8 +1452,93 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var response;
     if (browserFiles.length) {
       var sidecarBaseUrl = this._resolveSidecarUrl();
-      response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, payloadSelections, cleanupPolicy);
+      var totalBrowserBytes = browserFiles.reduce(function (sum, entry) {
+        var size = entry && entry.file ? Number(entry.file.size || 0) : 0;
+        return sum + (Number.isFinite(size) ? size : 0);
+      }, 0);
+      this._uploadProgress = {
+        phase: 'Uploading files',
+        detail: 'Preparing browser upload payload',
+        mode: 'indeterminate',
+        percent: null,
+        bytes_done: null,
+        bytes_total: totalBrowserBytes,
+      };
+      if (typeof this._setBusyPhase === 'function') {
+        this._setBusyPhase('Uploading files', 'Preparing browser upload payload');
+      }
+      response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, payloadSelections, cleanupPolicy, {
+        onPhase: function (phaseCode) {
+          if (phaseCode === 'encoding_files') {
+            this._uploadProgress = {
+              phase: 'Uploading files',
+              detail: 'Encoding files for fallback upload mode',
+              mode: 'indeterminate',
+              percent: null,
+              bytes_done: null,
+              bytes_total: totalBrowserBytes,
+            };
+            if (typeof this._setBusyPhase === 'function') {
+              this._setBusyPhase('Uploading files', 'Encoding files for fallback upload mode');
+            }
+            this._render();
+            return;
+          }
+          if (phaseCode === 'submitting_request') {
+            this._uploadProgress = {
+              phase: 'Preparing intake job',
+              detail: 'Submitting upload request',
+              mode: 'indeterminate',
+              percent: null,
+              bytes_done: null,
+              bytes_total: totalBrowserBytes,
+            };
+            if (typeof this._setBusyPhase === 'function') {
+              this._setBusyPhase('Preparing intake job', 'Submitting upload request');
+            }
+            this._render();
+          }
+        }.bind(this),
+        onUploadProgress: function (progressPayload) {
+          var loaded = Number(progressPayload && progressPayload.loaded || 0);
+          var total = Number(progressPayload && progressPayload.total || 0);
+          var lengthComputable = !!(progressPayload && progressPayload.lengthComputable && total > 0);
+          if (lengthComputable) {
+            var percent = Math.max(0, Math.min(100, Math.round((loaded / total) * 100)));
+            this._uploadProgress = {
+              phase: 'Uploading files',
+              detail: 'Transferring browser files',
+              mode: 'determinate',
+              percent: percent,
+              bytes_done: loaded,
+              bytes_total: total,
+            };
+            if (typeof this._updateUploadProgress === 'function') {
+              this._updateUploadProgress(progressPayload, {
+                files_total: browserFiles.length,
+                bytes_total: totalBrowserBytes,
+              });
+            } else {
+              this._render();
+            }
+            return;
+          }
+          this._uploadProgress = {
+            phase: 'Uploading files',
+            detail: 'Preparing files for upload',
+            mode: 'indeterminate',
+            percent: null,
+            bytes_done: null,
+            bytes_total: totalBrowserBytes,
+          };
+          this._render();
+        }.bind(this),
+      });
     } else {
+      this._uploadProgress = null;
+      if (typeof this._setBusyPhase === 'function') {
+        this._setBusyPhase('Preparing intake job', 'Resolving server selections and staging queue item');
+      }
       response = await callServiceWithResponse(this._hass, 'rest_command', 'model_catalog_select_source_filesystem_entries', {
         selections: payloadSelections,
         cleanup_policy: cleanupPolicy,
@@ -1336,6 +1555,9 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._loading = true;
     this._error = '';
     this._status = '';
+    if (typeof this._setBusyPhase === 'function') {
+      this._setBusyPhase('Validating plan', 'Preparing and validating resolved output');
+    }
     this._render();
     try {
       var uploadResponse = await this._prepareWizardUpload(forceNewUpload === true);
@@ -1358,6 +1580,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._error = error && error.message ? String(error.message) : 'Could not validate the intake batch.';
       return null;
     } finally {
+      this._uploadProgress = null;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       this._loading = false;
       this._render();
     }
@@ -1472,16 +1698,12 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._closeWizard = function (options) {
     var force = !!(options && options.force);
     if (!force && typeof this._isWizardDirty === 'function' && this._isWizardDirty()) {
-      var ok = false;
-      try {
-        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
-      } catch (err) {
-        ok = true;
-      }
-      if (!ok) {
+      if (typeof this._openWizardCloseConfirm === 'function') {
+        this._openWizardCloseConfirm();
         return;
       }
     }
+    this._wizardCloseConfirmOpen = false;
     this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
     this._wizardOpen = false;
     this._wizardMode = '';
@@ -1494,7 +1716,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._selected = {};
     this._excludedItems = []; // Issue #1324
     this._excludedBrowserKeys = {}; // Issue #1324: clear browser exclusions on close
-    this._highlightedLeftIndex = null;
+    this._highlightSelection = null;
     this._browserSourcePath = '';
     this._clearBrowserFiles();
     // Issue #1323: release the background scroll lock when the modal closes.
@@ -2039,6 +2261,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
             groupingValue: fileBatchGrouping,
             titleSource: fileBatchTitleSource,
             resolvedTitle: fileBatchResolvedTitle,
+            sourceKey: 'server-file-batch',
             groupingAction: 'selection-grouping-files',
             titleSourceAction: 'selection-title-source-files',
             groupTitleAction: 'selection-group-title-files',
@@ -2061,19 +2284,20 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         var exclusionChip = excludedUnder > 0
           ? '<span class="chip warn" title="Items excluded from this folder\'s intake">⚠ ' + String(excludedUnder) + ' excluded</span>'
           : '';
+        var displayPath = formatBrowsePathForDisplay(entry.path);
         return ''
           + '<article class="entry-row" data-path="' + escapeHtml(entry.path) + '">'
-          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(entry.path) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
+          + '  <div class="entry-top">' + previewMarkup + '<div><div class="entry-name">' + escapeHtml(entryName) + '</div><div class="entry-path">' + escapeHtml(displayPath) + '</div></div><div class="button-row"><span class="chip">' + escapeHtml(entry.type) + '</span>' + exclusionChip + (this._wizardStep === 2 ? '' : '<button class="button warn" data-action="remove-selection" data-path="' + escapeHtml(entry.path) + '">Remove</button>') + '</div></div>'
           + (entry.type === 'folder'
             ? '<div class="item-grid">'
+              + '<div class="field" style="grid-column:1 / -1;"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'
               + '<div class="field"><label>Folder Scope</label><select class="select" data-action="selection-recurse" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.recurse ? ' selected' : '') + '>Include subfolders (recursive)</option><option value="false"' + (!entry.recurse ? ' selected' : '') + '>Just this folder</option></select></div>'
-              + '<div class="field"><label>Group / Split</label><select class="select" data-action="selection-grouping" data-path="' + escapeHtml(entry.path) + '">' + groupingOptionsHtml(entry.grouping_strategy, 'folder') + '</select></div>'
               + (entry.recurse
                 ? '<div class="field"><label>Folder Structure</label><select class="select" data-action="selection-preserve-structure" data-path="' + escapeHtml(entry.path) + '"><option value="true"' + (entry.preserve_folder_structure !== false ? ' selected' : '') + '>Preserve</option><option value="false"' + (entry.preserve_folder_structure === false ? ' selected' : '') + '>Flatten</option></select></div>'
-                : '')
+                : '<div class="field" style="visibility:hidden;" aria-hidden="true"><label>Folder Structure</label><select class="select" disabled><option>Hidden</option></select></div>')
               + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
-              + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-              + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated Catalog.' : '') + '</div>'
+              + '<div class="field"><label>Model/Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
+              + '<div class="muted" style="grid-column:1 / -1;">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
               + '</div>'
             : '<div class="button-row"><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span><span class="chip">' + escapeHtml(fileBatchGrouping === 'flat' ? 'separate model' : 'same model batch') + '</span></div>')
           + '</article>';
@@ -2138,18 +2362,26 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       + '.wizard-dialog .result-summary{background:var(--secondary-background-color,rgba(15,23,42,0.16));border-color:var(--divider-color,rgba(148,163,184,0.22));}'
       + '.wizard-dialog .state-row{color:var(--secondary-text-color);border-color:var(--divider-color,rgba(148,163,184,0.28));}'
       + '.wizard-dialog .chip{background:rgba(96,165,250,0.18);border-color:var(--primary-color,rgba(96,165,250,0.3));color:var(--primary-text-color);}'
-      + '.wizard-dialog .entry-type-icon{background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
+        + '.wizard-dialog .chip.warn{background:rgba(180,83,9,0.22);border-color:rgba(245,158,11,0.45);color:#fcd34d;}'
+        + '.wizard-dialog .chip.ok{background:rgba(22,101,52,0.24);border-color:rgba(74,222,128,0.38);color:#dcfce7;}'
+        + '.wizard-dialog .chip.error{background:rgba(153,27,27,0.22);border-color:rgba(248,113,113,0.38);color:#fecaca;}'
+        + '.wizard-dialog .entry-row.included-in-selection .chip.warn{background:rgba(180,83,9,0.24);border-color:rgba(245,158,11,0.5);color:#fcd34d;font-weight:700;}'
+        + '.wizard-dialog .entry-row.included-in-selection .chip.ok{background:rgba(22,101,52,0.24);border-color:rgba(74,222,128,0.4);color:#dcfce7;font-weight:700;}'
+      // Issue #1366: keep icon chrome and glyph positioning centered in both
+      // axes across all wizard panes and icon-only controls.
+      + '.wizard-dialog .entry-type-icon{display:inline-flex;align-items:center;justify-content:center;background:var(--card-background-color,rgba(15,23,42,0.18));border-color:var(--divider-color,rgba(148,163,184,0.18));color:var(--primary-text-color);}'
+      + '.wizard-dialog .entry-type-icon ha-icon{display:block;margin:0;}'
+      + '.wizard-dialog .button.icon-only{display:inline-flex;align-items:center;justify-content:center;}'
+      + '.wizard-dialog .button.icon-only ha-icon{display:block;margin:0;}'
       // Folder preview thumbnail styling (mdi:folder + small "folder" label).
       + '.wizard-dialog .entry-thumb.folder-thumb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--primary-text-color);}'
       + '.wizard-dialog .entry-thumb.folder-thumb ha-icon{--mdc-icon-size:28px;width:28px;height:28px;color:var(--primary-color,#60a5fa);}'
       + '.wizard-dialog .entry-thumb.folder-thumb .folder-thumb-label{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:lowercase;color:var(--secondary-text-color);}'
       // Browser file row: keep file-type icon at the top-right corner.
       + '.wizard-dialog .entry-row .entry-actions{justify-content:flex-end;}'
-      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:10;border-radius:18px;pointer-events:none;}'
+      + '.wizard-panel.recalculating-panel::after{content:"";position:absolute;inset:0;background:rgba(15,23,42,0.45);z-index:10;border-radius:18px;pointer-events:none;}'
       + '.wizard-panel.recalculating-panel{position:relative;}'
-      + '.result-summary.recalculating{filter:blur(2px);opacity:0.5;}'
-      + '.entries.recalculating-entries{filter:blur(3px);opacity:0.4;}'
-      + '.result-summary.recalculating::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border:3px solid rgba(96,165,250,0.2);border-top-color:rgba(96,165,250,0.8);border-radius:50%;animation:spin 1s linear infinite;z-index:5;}'
+      + '.entries.loading-entries{opacity:0.5;pointer-events:none;}'
       + '@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}'
       // Issue #1307: fixed (non-scrolling) panels for the Validate-step results
       // and Commit-step summary so the operator-facing chrome stays put while
@@ -2168,51 +2400,140 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     return overrideStyles + baseHtml;
   };
 
-  // Issue #1328: Build a mapping of left-side entries to right-side models
-  // Uses actual data relationships instead of name matching
-  proto._buildModelSourceMapping = function () {
-    if (!this.shadowRoot || this._wizardStep !== 2 || !this._previewData) {
-      return {};
+  proto._normalizeHighlightPath = function (value) {
+    return String(value || '')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '')
+      .toLowerCase();
+  };
+
+  proto._leftRowSourceKey = function (leftRow) {
+    if (!leftRow) {
+      return '';
     }
-    var mapping = {}; // left-entry-index -> [right-model-indices]
-    var panels = this.shadowRoot.querySelectorAll('.wizard-panel');
-    if (panels.length < 2) {
+    var explicitKey = String(leftRow.getAttribute('data-source-key') || '').trim();
+    if (explicitKey) {
+      return explicitKey;
+    }
+    var pathAttr = String(leftRow.getAttribute('data-path') || '').trim();
+    if (pathAttr) {
+      return 'server:' + pathAttr;
+    }
+    var rootSelect = leftRow.querySelector('[data-root]');
+    if (rootSelect) {
+      var rootValue = String(rootSelect.getAttribute('data-root') || '').trim();
+      if (rootValue) {
+        return 'browser-root:' + rootValue;
+      }
+    }
+    var relativePathTarget = leftRow.querySelector('[data-relative-path]');
+    if (relativePathTarget) {
+      var relativePath = String(relativePathTarget.getAttribute('data-relative-path') || '').trim();
+      if (relativePath) {
+        return 'browser-file:' + relativePath;
+      }
+    }
+    if (leftRow.querySelector('[data-action="selection-grouping-files"]')) {
+      return 'server-file-batch';
+    }
+    return '';
+  };
+
+  proto._modelMatchesSourceKey = function (model, sourceKey) {
+    var normalizedKey = String(sourceKey || '').trim();
+    if (!normalizedKey) {
+      return false;
+    }
+    var files = Array.isArray(model && model.files) ? model.files : [];
+    var card = this;
+    if (normalizedKey === 'server-file-batch') {
+      return files.some(function (file) {
+        return String(file && file.source_entry_type || '').trim().toLowerCase() === 'file';
+      });
+    }
+    if (normalizedKey.indexOf('server:') === 0) {
+      var sourcePath = card._normalizeHighlightPath(normalizedKey.slice('server:'.length));
+      if (!sourcePath) {
+        return false;
+      }
+      return files.some(function (file) {
+        var sourceEntryPath = card._normalizeHighlightPath(file && file.source_entry_path || '');
+        return sourceEntryPath === sourcePath || sourceEntryPath.indexOf(sourcePath + '/') === 0;
+      });
+    }
+    if (normalizedKey.indexOf('browser-root:') === 0) {
+      var rootKey = card._normalizeHighlightPath(normalizedKey.slice('browser-root:'.length));
+      if (!rootKey) {
+        return false;
+      }
+      return files.some(function (file) {
+        var relativePath = card._normalizeHighlightPath(file && (file.relative_path || file.filename) || '');
+        return relativePath === rootKey || relativePath.indexOf(rootKey + '/') === 0;
+      });
+    }
+    if (normalizedKey.indexOf('browser-file:') === 0) {
+      var fileKey = card._normalizeHighlightPath(normalizedKey.slice('browser-file:'.length));
+      if (!fileKey) {
+        return false;
+      }
+      return files.some(function (file) {
+        var relativePath = card._normalizeHighlightPath(file && (file.relative_path || file.filename) || '');
+        return relativePath === fileKey;
+      });
+    }
+    return false;
+  };
+
+  // Issue #1328: Build deterministic left<->right mapping for Organize highlights.
+  proto._buildModelSourceMapping = function (leftEntries, rightEntries) {
+    var mapping = {
+      leftToRight: {},
+      rightToLeft: {},
+      leftSourceKeys: {},
+      rightModelIndices: {},
+    };
+    if (!this._previewData || this._wizardStep !== 2) {
       return mapping;
     }
-    var leftPanel = panels[0];
-    var leftEntries = leftPanel.querySelectorAll('.entry-row');
-    var preview = this._previewData;
-    var plannedModels = preview.planned_models || [];
-    
-    // For each left entry, find which models it contributed to
-    leftEntries.forEach(function (leftRow, leftIndex) {
-      mapping[leftIndex] = [];
-      var entryName = leftRow.querySelector('.entry-name');
-      var leftTitle = entryName ? entryName.textContent.trim() : '';
-      var leftPath = leftRow.getAttribute('data-path') || '';
-      
-      // Match by checking model title containment and file associations
-      plannedModels.forEach(function (model, modelIndex) {
-        var modelTitle = model.title || '';
-        var files = model.files || [];
-        
-        // Check 1: Title match (folder name → model title)
-        var titleContains = modelTitle.indexOf(leftTitle) !== -1 || leftTitle.indexOf(modelTitle) !== -1;
-        
-        // Check 2: File path match (files from selected entry appear in model)
-        var hasRelatedFiles = files.some(function (file) {
-          var filePath = file.relative_path || file.filename || '';
-          // Check if file path starts with or contains the left entry identifier
-          return leftPath && filePath.indexOf(leftPath) !== -1;
-        });
-        
-        // Include model if either title matches or has related files
-        if (titleContains || hasRelatedFiles) {
-          mapping[leftIndex].push(modelIndex);
-        }
-      });
+    var plannedModels = Array.isArray(this._previewData.planned_models) ? this._previewData.planned_models : [];
+    var modelIndexToRightIndices = {};
+    (rightEntries || []).forEach(function (rightRow, rightIndex) {
+      var modelIndexRaw = rightRow && rightRow.getAttribute ? rightRow.getAttribute('data-model-index') : null;
+      var modelIndex = Number(modelIndexRaw);
+      if (!Number.isFinite(modelIndex)) {
+        modelIndex = rightIndex;
+      }
+      mapping.rightModelIndices[rightIndex] = modelIndex;
+      mapping.rightToLeft[rightIndex] = [];
+      if (!modelIndexToRightIndices[modelIndex]) {
+        modelIndexToRightIndices[modelIndex] = [];
+      }
+      modelIndexToRightIndices[modelIndex].push(rightIndex);
     });
-    
+
+    (leftEntries || []).forEach(function (leftRow, leftIndex) {
+      var sourceKey = this._leftRowSourceKey(leftRow);
+      mapping.leftSourceKeys[leftIndex] = sourceKey;
+      mapping.leftToRight[leftIndex] = [];
+      if (!sourceKey) {
+        return;
+      }
+      plannedModels.forEach(function (model, modelIndex) {
+        if (!this._modelMatchesSourceKey(model, sourceKey)) {
+          return;
+        }
+        var matchedRightIndices = modelIndexToRightIndices[modelIndex] || [];
+        matchedRightIndices.forEach(function (rightIndex) {
+          if (mapping.leftToRight[leftIndex].indexOf(rightIndex) === -1) {
+            mapping.leftToRight[leftIndex].push(rightIndex);
+          }
+          if (mapping.rightToLeft[rightIndex].indexOf(leftIndex) === -1) {
+            mapping.rightToLeft[rightIndex].push(leftIndex);
+          }
+        });
+      }, this);
+    }, this);
     return mapping;
   };
 
@@ -2231,60 +2552,156 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     var leftEntries = leftPanel.querySelectorAll('.entry-row');
     var rightEntries = rightPanel.querySelectorAll('.entry-row');
     
-    // Build the mapping once
-    var modelMapping = this._buildModelSourceMapping();
-    
-    // Restore highlighting if we have a previously selected entry
-    if (this._highlightedLeftIndex !== undefined && this._highlightedLeftIndex !== null) {
-      var leftRow = leftEntries[this._highlightedLeftIndex];
-      if (leftRow) {
-        leftRow.classList.add('highlighted');
-        var modelIndices = modelMapping[this._highlightedLeftIndex] || [];
-        rightEntries.forEach(function (rightRow, rightIndex) {
-          if (modelIndices.indexOf(rightIndex) !== -1) {
-            rightRow.classList.add('highlighted');
-          } else {
-            rightRow.classList.add('related');
-          }
+    // Build deterministic relationships once per render.
+    var modelMapping = this._buildModelSourceMapping(leftEntries, rightEntries);
+
+    function clearHighlights() {
+      leftEntries.forEach(function (row) {
+        row.classList.remove('highlighted', 'related');
+      });
+      rightEntries.forEach(function (row) {
+        row.classList.remove('highlighted', 'related');
+      });
+    }
+
+    function leftIndicesForRightMatches(rightMatches, excludeLeftIndex) {
+      var matchedLeftIndices = [];
+      if (!Array.isArray(rightMatches) || !rightMatches.length) {
+        return matchedLeftIndices;
+      }
+      leftEntries.forEach(function (_leftRow, candidateLeftIndex) {
+        if (candidateLeftIndex === excludeLeftIndex) {
+          return;
+        }
+        var candidateMatches = modelMapping.leftToRight[candidateLeftIndex] || [];
+        var overlaps = candidateMatches.some(function (candidateRightIndex) {
+          return rightMatches.indexOf(candidateRightIndex) !== -1;
         });
+        if (overlaps) {
+          matchedLeftIndices.push(candidateLeftIndex);
+        }
+      });
+      return matchedLeftIndices;
+    }
+
+    function applyLeftSelection(leftIndex) {
+      clearHighlights();
+      if (leftIndex == null || leftIndex < 0 || leftIndex >= leftEntries.length) {
+        return;
+      }
+      leftEntries[leftIndex].classList.add('highlighted');
+      var rightMatches = modelMapping.leftToRight[leftIndex] || [];
+      var siblingLeftMatches = leftIndicesForRightMatches(rightMatches, leftIndex);
+      siblingLeftMatches.forEach(function (siblingLeftIndex) {
+        leftEntries[siblingLeftIndex].classList.add('related');
+      });
+      if (!rightMatches.length) {
+        return;
+      }
+      rightEntries.forEach(function (rightRow, rightIndex) {
+        if (rightMatches.indexOf(rightIndex) !== -1) {
+          rightRow.classList.add('highlighted');
+        } else {
+          rightRow.classList.add('related');
+        }
+      });
+    }
+
+    function applyRightSelection(rightIndex) {
+      clearHighlights();
+      if (rightIndex == null || rightIndex < 0 || rightIndex >= rightEntries.length) {
+        return;
+      }
+      rightEntries[rightIndex].classList.add('highlighted');
+      var leftMatches = modelMapping.rightToLeft[rightIndex] || [];
+      if (!leftMatches.length) {
+        return;
+      }
+      leftEntries.forEach(function (leftRow, leftIndex) {
+        if (leftMatches.indexOf(leftIndex) !== -1) {
+          leftRow.classList.add('highlighted');
+        } else {
+          leftRow.classList.add('related');
+        }
+      });
+    }
+
+    function findLeftIndexBySourceKey(sourceKey) {
+      var normalized = String(sourceKey || '').trim();
+      if (!normalized) {
+        return -1;
+      }
+      for (var i = 0; i < leftEntries.length; i += 1) {
+        if (String(modelMapping.leftSourceKeys[i] || '') === normalized) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    // Restore highlight from previous render after regroup/split changes.
+    if (this._highlightSelection && this._highlightSelection.type === 'left') {
+      var restoredLeftIndex = findLeftIndexBySourceKey(this._highlightSelection.sourceKey);
+      if (restoredLeftIndex < 0 && Number.isFinite(this._highlightSelection.leftIndex)) {
+        restoredLeftIndex = this._highlightSelection.leftIndex;
+      }
+      if (restoredLeftIndex >= 0) {
+        applyLeftSelection(restoredLeftIndex);
+      }
+    } else if (this._highlightSelection && this._highlightSelection.type === 'right') {
+      var restoredRightIndex = -1;
+      for (var rightIdx = 0; rightIdx < rightEntries.length; rightIdx += 1) {
+        if (Number(modelMapping.rightModelIndices[rightIdx]) === Number(this._highlightSelection.modelIndex)) {
+          restoredRightIndex = rightIdx;
+          break;
+        }
+      }
+      if (restoredRightIndex >= 0) {
+        applyRightSelection(restoredRightIndex);
       }
     }
-    
+
     leftEntries.forEach(function (leftRow, leftIndex) {
-      var entryPath = leftRow.getAttribute('data-path') || '';
       leftRow.setAttribute('data-entry-index', leftIndex);
-      
+
       leftRow.addEventListener('click', function (event) {
-        // Only highlight if clicking on the row itself, not on buttons
-        var clickedButton = event.target.closest('[data-action]');
-        if (clickedButton) {
-          return; // Let button handlers take precedence
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        if (interactiveTarget) {
+          return;
         }
         event.stopPropagation();
-        // Toggle highlighting on click
-        var isCurrentlyHighlighted = leftRow.classList.contains('highlighted');
-        leftEntries.forEach(function (r) {
-          r.classList.remove('highlighted');
-        });
-        rightEntries.forEach(function (r) {
-          r.classList.remove('highlighted', 'related');
-        });
-        
+        var isCurrentlyHighlighted = leftRow.classList.contains('highlighted') && !leftRow.classList.contains('related');
         if (!isCurrentlyHighlighted) {
-          leftRow.classList.add('highlighted');
-          self._highlightedLeftIndex = leftIndex;
-          
-          // Use the mapping to highlight matching right-side models
-          var modelIndices = modelMapping[leftIndex] || [];
-          rightEntries.forEach(function (rightRow, rightIndex) {
-            if (modelIndices.indexOf(rightIndex) !== -1) {
-              rightRow.classList.add('highlighted');
-            } else {
-              rightRow.classList.add('related');
-            }
-          });
+          applyLeftSelection(leftIndex);
+          self._highlightSelection = {
+            type: 'left',
+            leftIndex: leftIndex,
+            sourceKey: modelMapping.leftSourceKeys[leftIndex] || '',
+          };
         } else {
-          self._highlightedLeftIndex = null;
+          clearHighlights();
+          self._highlightSelection = null;
+        }
+      }, false);
+    });
+
+    rightEntries.forEach(function (rightRow, rightIndex) {
+      rightRow.addEventListener('click', function (event) {
+        var interactiveTarget = event.target.closest('button,select,input,textarea,[data-action]');
+        if (interactiveTarget) {
+          return;
+        }
+        event.stopPropagation();
+        var isCurrentlyHighlighted = rightRow.classList.contains('highlighted') && !rightRow.classList.contains('related');
+        if (!isCurrentlyHighlighted) {
+          applyRightSelection(rightIndex);
+          self._highlightSelection = {
+            type: 'right',
+            modelIndex: Number(modelMapping.rightModelIndices[rightIndex]),
+          };
+        } else {
+          clearHighlights();
+          self._highlightSelection = null;
         }
       }, false);
     });
@@ -2344,6 +2761,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     if (this._wizardStep === 2) {
       var preview = this._previewData;
       var isLoading = this._loading || this._previewLoading || false;
+      var recalculatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>';
       var planSummaryMarkup = preview && preview.planned_models && preview.planned_models.length 
         ? '<div class="result-summary' + (isLoading ? ' recalculating' : '') + '">'
           + '  <div class="result-line"><span>Files in batch</span><strong>' + String(preview.summary.file_count || 0) + '</strong></div>'
@@ -2359,13 +2777,13 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
         + '  <div class="title-row"><div><div class="title">Review</div><div class="subtitle">Review how the models and groups will be organized</div></div></div>'
         + planSummaryMarkup
         + '  <div class="wizard-panel-scroll" style="flex:1 1 auto;min-height:0;overflow:auto;">' + renderPlanSummary(this, { includeDestinations: false, skipSummary: true }) + '</div>'
-        + (isLoading ? '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Recalculating...</div>' : '')
+        + (isLoading ? recalculatingBadge : '')
         + '</div>';
     }
     if (this._wizardStep === 3) {
       return ''
         + '<div class="wizard-panel">'
-        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Curated Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
+        + '  <div class="title-row"><div><div class="title">Pick Destination</div><div class="subtitle">Choose Catalog or Working Files for each planned group. Organize stays fixed here.</div></div></div>'
         + '  <div class="wizard-panel-scroll"><div class="wizard-selection-scroll">' + this._renderDestinationAssignments() + '</div></div>'
         + '</div>'
         + '<div class="wizard-panel">'
@@ -2377,10 +2795,14 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       // Issue #1307: the validation results section on the left is now fixed
       // (no inner scroll) and shows ONLY the validation summary — Destination
       // Plan was removed from this pane.
+      // Issue #1364: show blur overlay + spinner on the left pane while validation is running.
+      var isValidating = !!this._loading;
+      var validatingBadge = '<div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(30,41,59,0.85);padding:8px 12px;border-radius:8px;z-index:11;font-size:12px;"><ha-icon icon="mdi:loading" style="animation:spin 1s linear infinite;--mdc-icon-size:16px;width:16px;height:16px;"></ha-icon>Running validation...</div>';
       return ''
-        + '<div class="wizard-panel">'
+        + '<div class="wizard-panel' + (isValidating ? ' recalculating-panel' : '') + '" style="display:flex;flex-direction:column;position:relative;">'
         + '  <div class="title-row"><div><div class="title">Validate</div><div class="subtitle">Create one prepared upload snapshot and verify it before the final commit.</div></div></div>'
         + '  <div class="wizard-validate-fixed">' + renderValidationSummary(this) + '</div>'
+        + (isValidating ? validatingBadge : '')
         + '</div>'
         + '<div class="wizard-panel">'
         + '  <div class="title-row"><div><div class="title">Resolved Output</div><div class="subtitle">Validation checks the exact planned output shown here.</div></div></div>'
@@ -2448,6 +2870,10 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
     this._error = '';
     this._status = '';
     this._result = null;
+    this._uploadProgress = null;
+    if (typeof this._setBusyPhase === 'function') {
+      this._setBusyPhase('Publishing destinations', 'Publishing validated batch to selected destinations');
+    }
     this._render();
     try {
       var validationData = this._validationData || await this._runWizardValidation(false);
@@ -2514,10 +2940,17 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       await this._refreshAll();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : 'Could not commit the intake batch.';
       this._loading = false;
+      this._uploadProgress = null;
+      if (typeof this._clearBusyState === 'function') {
+        this._clearBusyState();
+      }
       this._render();
     }
   };
@@ -2713,6 +3146,42 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       this._refreshWizardPreview();
       return;
     }
+    if (action === 'browser-loose-file-grouping') {
+      var groupingPath = String(target.getAttribute('data-relative-path') || '');
+      if (!groupingPath) {
+        return;
+      }
+      var nextGrouping = String(target.value || 'none').trim().toLowerCase();
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === groupingPath;
+      }, {
+        grouping_strategy: nextGrouping,
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      this._render();
+      return;
+    }
+    if (action === 'browser-loose-file-title-source') {
+      var titlePath = String(target.getAttribute('data-relative-path') || '');
+      if (!titlePath) {
+        return;
+      }
+      var nextTitleSource = String(target.value || 'first-file').trim().toLowerCase();
+      var existingEntry = (this._browserFiles || []).find(function (entry) {
+        return String(entry.relative_path || entry.name || '') === titlePath;
+      }) || {};
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === titlePath;
+      }, {
+        group_title_source: nextTitleSource,
+        group_title: nextTitleSource === 'custom' ? String(existingEntry.group_title || '') : '',
+      });
+      this._invalidateWizardArtifacts({ deletePrepared: true, clearPreview: true });
+      this._refreshWizardPreview();
+      this._render();
+      return;
+    }
     if (action === 'browser-root-recurse' || action === 'browser-root-grouping' || action === 'browser-root-preserve-structure' || action === 'browser-root-title-source') {
       var rootKey = String(target.getAttribute('data-root') || '');
       if (!rootKey) {
@@ -2803,6 +3272,19 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
       });
       return;
     }
+    if (action === 'browser-loose-file-group-title') {
+      var looseRelativePath = String(target.getAttribute('data-relative-path') || '');
+      if (!looseRelativePath) {
+        return;
+      }
+      this._updateBrowserEntriesWhere(function (entry) {
+        return String(entry.relative_path || entry.name || '') === looseRelativePath;
+      }, {
+        group_title_source: 'custom',
+        group_title: String(target.value || '').trim(),
+      });
+      return;
+    }
     if (action === 'browser-flat-model-title') {
       var relativePath = String(target.getAttribute('data-relative-path') || '');
       if (!relativePath) {
@@ -2847,7 +3329,7 @@ function getExcludedItemsUnderPath(parentPath, excludedItems) {
   proto._render = function () {
     // Clear highlighting when leaving step 2
     if (this._wizardStep !== 2) {
-      this._highlightedLeftIndex = null;
+      this._highlightSelection = null;
     }
     originalRender.call(this);
     // Attach highlight listeners after rendering completes

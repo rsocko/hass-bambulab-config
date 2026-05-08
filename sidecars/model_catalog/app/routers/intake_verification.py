@@ -23,6 +23,8 @@ from fastapi.responses import JSONResponse
 
 from ..state import AppState
 from .._helpers import (
+    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_utc_now_iso,
     _coerce_bool,
     _collect_intake_source_files_in_folder,
@@ -31,6 +33,7 @@ from .._helpers import (
 )
 from ..services import get_all_indexed_file_hashes
 from ..services.shared_helpers import _serialize_working_group, _sha256_file, _slugify_title
+from ..services.intake_consolidation import _consolidate_overlapping_selections
 from ..services.intake_eligibility_service import ActionEligibility
 from ..services.intake_grouping import _prefilter_excluded_items
 
@@ -41,11 +44,16 @@ from .intake_queue import (
     _derive_terminal_display_action,
     _normalize_terminal_actor,
     _normalize_terminal_result,
-    SUPPORTED_WORKING_FILE_EXTENSIONS,
-    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    SUPPORTED_INTAKE_FILE_EXTENSIONS,
 )
 
 router = APIRouter(tags=["intake"])
+
+
+def _canonical_source_entries(source_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return _consolidate_overlapping_selections(
+        [entry for entry in source_entries if isinstance(entry, dict)]
+    )
 
 
 # ==================== HELPER FUNCTIONS ====================
@@ -131,7 +139,7 @@ def plan_intake_groups(request: Request, payload: dict[str, Any] | None = None) 
             },
         )
 
-    normalized_entries = [entry for entry in source_entries if isinstance(entry, dict)]
+    normalized_entries = _canonical_source_entries(source_entries)
     expanded_files, warnings = _expand_intake_source_entries(source_entries=normalized_entries)
     
     # Extract excluded_items from source entries and filter out excluded files
@@ -217,7 +225,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
                 continue
-            if file_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+            if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
                     {
                         "code": "unsupported_type",
@@ -439,6 +447,8 @@ def _default_group_title(source_entries: list[dict[str, Any]], expanded_files: l
 def _normalize_grouping_strategy(value: object | None) -> str:
     """Normalize grouping strategy value."""
     normalized = str(value or "").strip().lower()
+    if normalized == "by-file":
+        normalized = "flat"
     if normalized in {"by-folder", "by-root", "flat", "none"}:
         return normalized
     return "none"
@@ -1107,7 +1117,7 @@ def intake_submit(request: Request, payload: dict[str, Any]) -> Any:
                 continue
 
             suffix = source_path.suffix.lower()
-            if suffix not in SUPPORTED_WORKING_FILE_EXTENSIONS:
+            if suffix not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 created_items.append(
                     {
                         "item_id": None,
@@ -1315,11 +1325,12 @@ def preview_intake_batch(request: Request, payload: dict[str, Any] | None = None
             },
         )
 
+    canonical_entries = _canonical_source_entries(source_entries)
     state: AppState = request.app.state.model_catalog
     
     # Expand files from source entries (same logic as validate)
     expanded_files, expansion_warnings = _expand_intake_source_entries(
-        source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+        source_entries=canonical_entries
     )
 
     # Check for duplicates in existing working groups
@@ -1342,8 +1353,8 @@ def preview_intake_batch(request: Request, payload: dict[str, Any] | None = None
             unique_hashes.append(file_hash)
 
     # Analyze grouping impact
-    source_entry_count = len([e for e in source_entries if isinstance(e, dict)])
-    folder_entries = sum(1 for e in source_entries if isinstance(e, dict) and e.get("type") == "folder")
+    source_entry_count = len(canonical_entries)
+    folder_entries = sum(1 for e in canonical_entries if e.get("type") == "folder")
     file_entries = source_entry_count - folder_entries
 
     return {
@@ -1484,12 +1495,12 @@ def validate_intake_item(request: Request, item_id: str) -> Any:
             },
         )
 
-    source_entries = json.loads(str(row["source_entries_json"] or "[]"))
+    source_entries = _canonical_source_entries(json.loads(str(row["source_entries_json"] or "[]")))
     warnings: list[dict[str, Any]] = []
     validation_state = "ready"
 
     expanded_files, expansion_warnings = _expand_intake_source_entries(
-        source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+        source_entries=source_entries
     )
     warnings.extend(expansion_warnings)
     warning_codes = {str(warning.get("code") or "").strip().lower() for warning in expansion_warnings if isinstance(warning, dict)}
@@ -1784,9 +1795,9 @@ def group_intake_item(request: Request, item_id: str, payload: dict[str, Any] | 
     response_payload: dict[str, Any] | None = None
     event_payload: dict[str, Any] | None = None
     try:
-        source_entries = json.loads(str(item_row.get("source_entries_json") or "[]"))
+        source_entries = _canonical_source_entries(json.loads(str(item_row.get("source_entries_json") or "[]")))
         expanded_files, expansion_warnings = _expand_intake_source_entries(
-            source_entries=[entry for entry in source_entries if isinstance(entry, dict)]
+            source_entries=source_entries
         )
         if not expanded_files:
             return JSONResponse(

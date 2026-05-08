@@ -405,7 +405,7 @@ Archive-local source attachments remain useful, but they should stay selective a
 
 If the goal is only to inspect, browse, or reprint without changing the source, opening from Manyfold is fine.
 
-If the goal is to save changes, branch or copy the model into `Working` first, then intentionally publish the revised model back into the curated catalog if it deserves to become part of the long-lived reusable set.
+If the goal is to save changes, branch or copy the model into `Working` first, then intentionally publish the revised model back into the catalog if it deserves to become part of the long-lived reusable set.
 
 That keeps archive history, curated source identity, and in-progress working copies from collapsing into one ambiguous path contract.
 

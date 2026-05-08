@@ -364,6 +364,73 @@ def test_select_folder_recurse_includes_nested_levels(tmp_path: Path) -> None:
     assert payload["expanded_file_count"] == 3
 
 
+def test_select_unsupported_file_returns_no_supported_sources_with_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    bad_file = root / "installer.exe"
+    bad_file.write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "file", "path": str(bad_file)}]},
+        )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["error"] == "no_supported_sources"
+    assert isinstance(payload.get("warnings"), list)
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload["warnings"])
+
+
+def test_select_mixed_supported_and_unsupported_includes_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    good_file = root / "part.3mf"
+    good_file.write_bytes(b"3mf")
+    bad_file = root / "tool.exe"
+    bad_file.write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {"type": "file", "path": str(good_file)},
+                    {"type": "file", "path": str(bad_file)},
+                ]
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["selection_count"] == 1
+    assert payload["expanded_file_count"] == 1
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload.get("warnings", []))
+
+
+def test_select_folder_with_unsupported_files_surfaces_warning(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    (root / "ok.3mf").write_bytes(b"ok")
+    (root / "readme.md").write_text("allowed doc", encoding="utf-8")
+    (root / "script.exe").write_bytes(b"MZ")
+
+    app = _make_app(tmp_path, [root])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/source-filesystems/select",
+            json={"selections": [{"type": "folder", "path": str(root), "recurse": True}]},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["expanded_file_count"] == 2
+    assert any(warning.get("code") == "unsupported_file_type" for warning in payload.get("warnings", []))
+
+
 def test_select_mixed_batch(tmp_path: Path) -> None:
     root = tmp_path / "models"
     root.mkdir()
@@ -568,6 +635,85 @@ def test_select_preserves_group_title_metadata_in_queue(tmp_path: Path) -> None:
     entries = _json.loads(row[0])
     assert entries[0]["group_title_source"] == "custom"
     assert entries[0]["group_title"] == "Router Mount Family"
+
+
+def test_select_overlapping_entries_store_topmost_source_only(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    variants = root / "variants"
+    variants.mkdir()
+    child_file = variants / "tall.3mf"
+    child_file.write_bytes(b"content")
+
+    settings = _build_settings(tmp_path, [tmp_path])
+    bootstrap_database(settings.db_path)
+    app = create_app(settings=settings)
+    with TestClient(app) as client:
+        select_resp = client.post(
+            "/api/source-filesystems/select",
+            json={
+                "selections": [
+                    {"type": "file", "path": str(child_file)},
+                    {"type": "folder", "path": str(root), "recurse": True},
+                ]
+            },
+        )
+        payload = select_resp.json()
+        upload_id = payload["upload_id"]
+
+    assert payload["selection_count"] == 1
+    assert payload["expanded_file_count"] == 1
+
+    from sqlite3 import connect as _connect
+    conn = _connect(settings.db_path)
+    try:
+        row = conn.execute(
+            "SELECT source_entries_json FROM intake_queue_uploads WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None
+    entries = json.loads(row[0])
+    assert entries == [{
+        "type": "folder",
+        "path": str(root),
+        "recurse": True,
+        "source_mtime": entries[0]["source_mtime"],
+        "source_ctime": entries[0]["source_ctime"],
+        "source_birthtime": entries[0].get("source_birthtime"),
+        "contained_file_count": 1,
+        "excluded_items": [],
+    }]
+
+
+def test_plan_canonicalizes_overlapping_source_entries(tmp_path: Path) -> None:
+    root = tmp_path / "models"
+    root.mkdir()
+    variants = root / "variants"
+    variants.mkdir()
+    child_file = variants / "tall.3mf"
+    child_file.write_bytes(b"content")
+
+    app = _make_app(tmp_path, [tmp_path])
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/intake/plan",
+            json={
+                "source_entries": [
+                    {"type": "file", "path": str(child_file)},
+                    {"type": "folder", "path": str(root), "recurse": True},
+                ]
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["summary"]["source_entry_count"] == 1
+    assert payload["summary"]["file_count"] == 1
+    assert len(payload["planned_models"]) == 1
 
 
 def test_select_publish_to_local_uses_same_curated_sink(tmp_path: Path) -> None:

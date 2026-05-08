@@ -175,7 +175,7 @@ Additional Organize rules now required by the canonical wizard design:
 │ [Working Group Title: _________________ ]        │
 │                                                  │
 │ Preserve folder structure is supported in       │
-│ Curated catalog.                                 │
+│ Catalog.                                 │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -196,7 +196,7 @@ Additional Organize rules now required by the canonical wizard design:
 │ [Title Basis:       Folder name ▼]               │
 │ [Working Group Title: _________________ ]        │
 │                                                  │
-│ Folder structure is preserved in Curated catalog.
+│ Folder structure is preserved in Catalog.
 └──────────────────────────────────────────────────┘
 ```
 
@@ -371,9 +371,9 @@ wg3: "lithophanes"
   └── photo.3mf
 ```
 
-## Intake → Curated Catalog Publishing
+## Intake → Catalog Publishing
 
-When publishing a working group to the curated catalog, folder structure is **also preserved**:
+When publishing a working group to the catalog, folder structure is **also preserved**:
 
 ```python
 # Similar logic in publish-to-curated endpoint
@@ -383,7 +383,7 @@ moved_to_curated = _move_files_to_curated(
 )
 ```
 
-Curated catalog models reflect the same folder hierarchy as working files.
+Catalog models reflect the same folder hierarchy as working files.
 
 ## Database Storage
 
@@ -466,7 +466,7 @@ No structural changes. `source_metadata_json` already captures:
 - [x] All 4 strategies work with `preserve` and `flatten` options
 - [x] Default behavior: `by-folder` + `Preserve` (user's expectation)
 - [x] Backward compatible: old single-group flow still works
-- [x] Ready for curated catalog publishing with same logic
+- [x] Ready for catalog publishing with same logic
 
 ## Future Enhancements
 

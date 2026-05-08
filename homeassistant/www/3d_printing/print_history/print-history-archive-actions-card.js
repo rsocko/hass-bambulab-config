@@ -58,6 +58,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     this._modelSearchHasSearched = false;
     this._modelSearchBusy = false;
     this._modelSearchError = "";
+    // 3MF Browser Upload Preview (Phase 1)
+    this._sourceUploadPreview = null;           // Blob URL of extracted thumbnail
+    this._sourceUploadPreviewFilename = "";    // Filename for display
+    this._sourceUploadPreviewError = "";       // Error message if extraction fails
   }
 
   setConfig(config) {
@@ -703,7 +707,7 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
     }
   }
 
-  _handleSourceUploadChange(event) {
+  async _handleSourceUploadChange(event) {
     var input = event && event.target ? event.target : null;
     if (!input) {
       return;
@@ -717,10 +721,248 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       if (input.id === "timelapse-upload-input") {
         this._uploadTimelapse(file);
       } else {
+        // Phase 1: Extract 3MF thumbnail for preview (async, no blocking)
+        this._extract3MFThumbnailPreview(file);
         this._uploadSource3mf(file);
       }
     }
     input.value = "";
+  }
+
+  // ─── Phase 1: 3MF Browser Preview Extraction ──────────────────────────────
+
+  /**
+   * Extract thumbnail for preview from 3MF or image file.
+   * Supports both: 3MF embedded thumbnails and direct image file previews.
+   * Runs async without blocking UI. Gracefully fails if extraction not possible.
+   * @param {File} file - The 3MF or image file from file input
+   */
+  async _extract3MFThumbnailPreview(file) {
+    if (!file || !file.name) {
+      return;
+    }
+
+    try {
+      // Direct image file preview (PNG, JPEG, GIF, WebP, etc.)
+      if (file.type.startsWith("image/")) {
+        const validImageTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+        if (validImageTypes.includes(file.type)) {
+          // Validate image file size
+          const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB for direct images
+          if (file.size <= MAX_IMAGE_SIZE) {
+            if (this._sourceUploadPreview) {
+              URL.revokeObjectURL(this._sourceUploadPreview);
+            }
+            this._sourceUploadPreview = URL.createObjectURL(file);
+            this._sourceUploadPreviewFilename = file.name;
+            this._sourceUploadPreviewError = "";
+            this._render();
+            return;
+          }
+        }
+        return;
+      }
+
+      // 3MF ZIP extraction for embedded thumbnail
+      if (!file.name.toLowerCase().endsWith(".3mf")) {
+        return;
+      }
+
+      // Load JSZip if not already available.
+      const jsZipReady = await this._ensureJsZipLoaded();
+      if (!jsZipReady || typeof JSZip === "undefined") {
+        console.warn("JSZip library not loaded, skipping 3MF preview extraction");
+        return;
+      }
+
+      // Read file as ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        return;
+      }
+
+      // Load ZIP
+      const zip = new JSZip();
+      await zip.loadAsync(arrayBuffer);
+
+      // Build case-insensitive lookup to handle exporters that vary path casing.
+      const zipEntries = Object.keys(zip.files || {});
+      const entryLookup = {};
+      for (const entryName of zipEntries) {
+        entryLookup[String(entryName).toLowerCase()] = entryName;
+      }
+
+      // Try known thumbnail paths in priority order.
+      const thumbnailPaths = [
+        "metadata/thumbnail.png",
+        "metadata/thumbnail.jpg",
+        "metadata/thumbnail.jpeg",
+        "thumbnails/thumbnail.png",
+        "thumbnails/thumbnail.jpg",
+        "thumbnails/thumbnail.jpeg",
+        "3d/thumbnail.png",
+        "3d/thumbnail.jpg",
+        "3d/thumbnail.jpeg",
+        "metadata/plate_1.png",
+        "metadata/plate_1.jpg",
+        "auxiliaries/model pictures/thumbnail.png",
+        "auxiliaries/model pictures/thumbnail.jpg",
+      ];
+
+      for (const path of thumbnailPaths) {
+        const matchedEntryName = entryLookup[path];
+        const member = matchedEntryName ? zip.file(matchedEntryName) : null;
+        if (!member) {
+          continue;
+        }
+        try {
+          const blob = await member.async("blob");
+
+          if (!this._isSafe3MFThumbnail(blob, matchedEntryName)) {
+            continue;
+          }
+
+          const inferredType = this._inferImageMimeTypeFromPath(matchedEntryName);
+          const previewBlob = inferredType && blob.type !== inferredType
+            ? new Blob([blob], { type: inferredType })
+            : blob;
+
+          if (this._sourceUploadPreview) {
+            URL.revokeObjectURL(this._sourceUploadPreview);
+          }
+          this._sourceUploadPreview = URL.createObjectURL(previewBlob);
+          this._sourceUploadPreviewFilename = file.name;
+          this._sourceUploadPreviewError = "";
+          this._render();
+          return;
+        } catch (_error) {
+          // Continue to next path candidate.
+        }
+      }
+
+      // Prefix fallback: find any image under common thumbnail folders.
+      const fallbackPrefixes = [
+        "metadata/",
+        "thumbnails/",
+        "3d/",
+        "auxiliaries/model pictures/",
+      ];
+      const fallbackEntries = zipEntries
+        .filter((name) => {
+          const lower = String(name || "").toLowerCase();
+          const imageExt = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+          if (!imageExt) {
+            return false;
+          }
+          return fallbackPrefixes.some((prefix) => lower.startsWith(prefix));
+        })
+        .sort();
+
+      for (const matchedEntryName of fallbackEntries) {
+        const member = zip.file(matchedEntryName);
+        if (!member) {
+          continue;
+        }
+        try {
+          const blob = await member.async("blob");
+          if (!this._isSafe3MFThumbnail(blob, matchedEntryName)) {
+            continue;
+          }
+
+          const inferredType = this._inferImageMimeTypeFromPath(matchedEntryName);
+          const previewBlob = inferredType && blob.type !== inferredType
+            ? new Blob([blob], { type: inferredType })
+            : blob;
+
+          if (this._sourceUploadPreview) {
+            URL.revokeObjectURL(this._sourceUploadPreview);
+          }
+          this._sourceUploadPreview = URL.createObjectURL(previewBlob);
+          this._sourceUploadPreviewFilename = file.name;
+          this._sourceUploadPreviewError = "";
+          this._render();
+          return;
+        } catch (_error) {
+          // Continue scanning candidates.
+        }
+      }
+    } catch (error) {
+      // Silently fail - allow upload to proceed without preview
+      console.debug("3MF preview extraction failed (proceeding without preview):", error);
+    }
+  }
+
+  /**
+   * Validate 3MF thumbnail for safety (ZIP bomb detection, file size, MIME type)
+   * @param {Blob} blob - The extracted image blob
+   * @param {string} path - The path in the ZIP
+   * @returns {boolean} - True if safe to use
+   */
+  _isSafe3MFThumbnail(blob, path) {
+    const THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+    const ALLOWED_TYPES = ["image/png", "image/jpeg"];
+
+    // Check file size
+    if (blob.size > THUMBNAIL_MAX_BYTES) {
+      return false;
+    }
+
+    // Check file extension
+    const ext = String(path || "").toLowerCase();
+    if (!ext.endsWith(".png") && !ext.endsWith(".jpg") && !ext.endsWith(".jpeg")) {
+      return false;
+    }
+
+    // ZIP-extracted blobs often have an empty MIME type; infer by extension when absent.
+    if (blob.type && !ALLOWED_TYPES.includes(blob.type)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  _inferImageMimeTypeFromPath(path) {
+    var normalized = String(path || "").toLowerCase();
+    if (normalized.endsWith(".png")) {
+      return "image/png";
+    }
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    return "";
+  }
+
+  async _ensureJsZipLoaded() {
+    if (typeof JSZip !== "undefined") {
+      return true;
+    }
+
+    const existing = document.querySelector('script[data-print-history-jszip="1"]');
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
+        return typeof JSZip !== "undefined";
+      }
+      await new Promise((resolve) => {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", resolve, { once: true });
+      });
+      return typeof JSZip !== "undefined";
+    }
+
+    await new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      script.async = true;
+      script.dataset.printHistoryJszip = "1";
+      script.addEventListener("load", () => {
+        script.dataset.loaded = "1";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", resolve, { once: true });
+      document.head.appendChild(script);
+    });
+
+    return typeof JSZip !== "undefined";
   }
 
   _getBaseUrl() {
@@ -3257,6 +3499,10 @@ class PrintHistoryArchiveActionsCard extends HTMLElement {
       this._renderActionButton("download-model", "Download Gcode file", "mdi:download", { disabled: !hasGcodeFile || this._busy }) +
       (hasSource ? this._renderActionButton("download-source-3mf", "Download 3MF", "mdi:file-download-outline", { disabled: this._busy }) : "") +
       this._renderActionButton("upload-source-3mf", hasSource ? "Replace Source 3MF" : "Upload Source 3MF", "mdi:upload", { disabled: this._busy }) +
+      (this._sourceUploadPreview ? ('<div style="grid-column: 1 / -1; margin-top: 8px; padding: 12px; border-radius: 4px; background: var(--card-background-color);">' +
+        '<div style="font-size: 0.85rem; color: var(--secondary-text-color); margin-bottom: 8px;">3MF Browser Preview: ' + this._escapeHtml(this._sourceUploadPreviewFilename) + '</div>' +
+        '<img src="' + this._sourceUploadPreview + '" style="max-width: 100%; max-height: 200px; border-radius: 4px; display: block;" />' +
+        '</div>') : '') +
       '</div>';
     var linkActions = this._renderActionSection(
       "Links",

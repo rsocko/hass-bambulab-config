@@ -89,5 +89,5 @@ This is why the architecture avoids promising storage-mode conversion or path-he
 Because of these constraints:
 
 - Working stays outside Manyfold by default
-- curated cataloging should prefer Manyfold-managed organization when the operator does not want path-management overhead
+- cataloging should prefer Manyfold-managed organization when the operator does not want path-management overhead
 - publish/recreate/relink terminology is more accurate than promote/demote terminology

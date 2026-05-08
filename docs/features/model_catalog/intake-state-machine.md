@@ -47,7 +47,7 @@ Items in Job History are **complete workflows** where a terminal action has been
 
 - `grouped_new` — item created a new working group (terminal for intake)
 - `grouped_existing` — item attached to existing working group (terminal for intake)
-- `published_to_catalog` — item published directly to local curated catalog (terminal, bypass working)
+- `published_to_catalog` — item published directly to local catalog (terminal, bypass working)
 - `rejected` — operator rejected as noise/invalid (terminal, discarded)
 
 After an item reaches a terminal state, the intake workflow is **complete for that item**. Terminal records should be visible in Job History regardless of whether the execution was direct from wizard or processed through queued/background path.
@@ -103,7 +103,7 @@ After an item reaches a terminal state, the intake workflow is **complete for th
 
 `published_to_catalog`
 
-- item published directly to local curated catalog (skips working group stage)
+- item published directly to local catalog (skips working group stage)
 - immutable linkage to resulting `local_model_id`
 - workflow **complete** for this intake item
 - further intake actions blocked; operator may view details or reopen via admin override

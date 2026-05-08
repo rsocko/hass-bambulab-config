@@ -42,7 +42,7 @@ Use this document as the baseline implementation plan. Use [phase-delivery-and-v
 ## Implementation Principles
 
 - favor Manyfold's documented REST API over direct DB integration
-- treat Working and curated catalog as separate operating zones
+- treat Working and catalog as separate operating zones
 - avoid assuming native storage-mode conversion or automatic relink of moved external paths
 - use sidecar-owned metadata for anything that does not naturally belong in Manyfold
 - prefer same-stack sidecar deployment without direct Manyfold DB writes
@@ -223,7 +223,7 @@ Status:
 
 Outcome:
 
-- curated catalog becomes useful for day-to-day rediscovery and quick reprint
+- catalog becomes useful for day-to-day rediscovery and quick reprint
 
 Work items:
 
@@ -237,7 +237,7 @@ Work items:
   - `taxonomy_change_axes` for `color`, `model`, and `other`
   - `colors_used` as a hex-first model-level taxonomy field in the Phase 3 baseline
 - derive archive-backed ranking fields such as recent/common/frequent views
-- add HA browse card for curated catalog with:
+- add HA browse card for catalog with:
   - preview
   - tags
   - collection
@@ -255,7 +255,7 @@ Work items:
 
 Deliverables:
 
-- curated catalog card optimized for quick rediscovery
+- catalog card optimized for quick rediscovery
 - simple backlog/queue view in HA
 - first taxonomy-aware curated browse slice exists without requiring Spoolman identity linkage yet
 
@@ -339,12 +339,12 @@ Status:
 
 Outcome:
 
-- the boundary between Working and curated catalog becomes explicit and operator-safe
+- the boundary between Working and catalog becomes explicit and operator-safe
 - duplicate or repeat-acquired source files can be reconciled against existing curated records intentionally
 
 Work items:
 
-- implement publish flow from Working group to curated catalog
+- implement publish flow from Working group to catalog
 - define lineage semantics:
   - canonical revision
   - supersedes / superseded_by
@@ -508,7 +508,7 @@ Deliverables:
 
 Before implementation begins in earnest, validate the riskiest assumptions:
 
-1. Manyfold REST upload and add-file flows for curated catalog operations
+1. Manyfold REST upload and add-file flows for catalog operations
 2. Manyfold file/model PATCH behavior for safe write-back fields
 3. Rescan behavior for curated external library changes
 4. Recovery after restoring a missing external file or folder to the same path
@@ -532,7 +532,7 @@ Required comparison dimensions:
 - access to internal capabilities
 - data-authority clarity
 - suitability for Working veneer
-- suitability for curated catalog enhancements
+- suitability for catalog enhancements
 - long-term maintainability
 
 Current baseline recommendation:

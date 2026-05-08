@@ -119,6 +119,65 @@ def test_consolidate_with_file_entries():
         assert len(result) == 2
 
 
+def test_consolidate_parent_absorbs_descendant_file():
+    """Test that an explicit child file is absorbed by a selected parent folder."""
+    from sidecars.model_catalog.app.services.intake_consolidation import _consolidate_overlapping_selections
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        parent = base / "models"
+        parent.mkdir()
+        child = parent / "variants"
+        child.mkdir()
+        child_file = child / "tall.3mf"
+        child_file.touch()
+
+        entries = [
+            {"type": "file", "path": str(child_file), "excluded_items": [str(child / "skip-me.3mf")]},
+            {"type": "folder", "path": str(parent), "recurse": True, "excluded_items": [str(parent / "ignore.3mf")]},
+        ]
+
+        result = _consolidate_overlapping_selections(entries)
+
+        assert len(result) == 1
+        assert result[0]["type"] == "folder"
+        assert result[0]["path"] == str(parent)
+        assert sorted(result[0]["excluded_items"]) == sorted([
+            str(child / "skip-me.3mf"),
+            str(parent / "ignore.3mf"),
+        ])
+
+
+def test_consolidate_exclusions_stay_with_owning_root():
+    """Test that exclusions only merge into the topmost root that owns them."""
+    from sidecars.model_catalog.app.services.intake_consolidation import _consolidate_overlapping_selections
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        models = base / "models"
+        models.mkdir()
+        variants = models / "variants"
+        variants.mkdir()
+        benchmarks = base / "benchmarks"
+        benchmarks.mkdir()
+
+        entries = [
+            {"type": "folder", "path": str(models), "recurse": True, "excluded_items": [str(models / "ignore.3mf")]},
+            {"type": "folder", "path": str(variants), "recurse": True, "excluded_items": [str(variants / "nested.3mf")]},
+            {"type": "folder", "path": str(benchmarks), "recurse": True, "excluded_items": [str(benchmarks / "benchy.3mf")]},
+        ]
+
+        result = _consolidate_overlapping_selections(entries)
+
+        assert len(result) == 2
+        by_path = {entry["path"]: entry for entry in result}
+        assert sorted(by_path[str(models)]["excluded_items"]) == sorted([
+            str(models / "ignore.3mf"),
+            str(variants / "nested.3mf"),
+        ])
+        assert by_path[str(benchmarks)]["excluded_items"] == [str(benchmarks / "benchy.3mf")]
+
+
 def test_compute_exclusion_impact_no_change():
     """Test that no exclusions are added when recursive setting doesn't change."""
     from sidecars.model_catalog.app.services.intake_consolidation import _compute_exclusion_impact

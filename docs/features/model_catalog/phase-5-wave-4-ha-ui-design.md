@@ -61,7 +61,7 @@ Treat the current core curated browser as a **retrofit target**, not as a preser
 Phase 5 should refactor the current `view_model_catalog.yaml` stack into:
 
 - a visible `Model Catalog Home` parent view with navigation cards
-- a dedicated hidden `Curated Catalog Browser` child view
+- a dedicated hidden `Catalog Browser` child view
 - dedicated hidden `Intake Home`, `Inbox / Queue Review`, and `Working Board` child views
 - intake-owned bulk discovery/import tools launched from `Intake Home` and `Inbox / Queue Review`, not appended below curated browsing
 
@@ -111,7 +111,7 @@ Recommended contract:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ Curated Catalog Browser                                                     │
+│ Catalog Browser                                                     │
 │ [First] [Prev]  Page 2 of 8  [Next] [Last]   [Compact] [Media] [List]      │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Query [....................] Collection [........] Creator [........]       │
@@ -164,7 +164,7 @@ Model Catalog Home
 [Curated] [Working] [Intake] [Inbox]
 
 Hidden children:
-- Curated Catalog Browser
+- Catalog Browser
 - Working Board
 - Intake Home
 - Inbox / Queue Review
@@ -264,7 +264,7 @@ The operator should experience Phase 5 Wave 4 as one coherent Working workflow w
 
 ```text
 Model Catalog Home
-├─ Curated Catalog Browser
+├─ Catalog Browser
 │  ├─ Compact View
 │  ├─ Media View
 │  ├─ List View
@@ -288,14 +288,14 @@ Model Catalog Home
 
 ### Navigation Placement
 
-For Wave 4, **Intake Home should be treated as a hidden Model Catalog child view/page**, not as a popup and not as a tab embedded inside the curated catalog browser.
+For Wave 4, **Intake Home should be treated as a hidden Model Catalog child view/page**, not as a popup and not as a tab embedded inside the catalog browser.
 
 Recommended Home Assistant placement:
 
 - the overall `Model Catalog` area exposes one visible parent view plus hidden child views
 - `Intake Home` is a hidden child view focused on submission, queue health, and inbox entry
 - `Working Board` is a hidden child view focused on sidecar-owned Working groups
-- `Curated Catalog Browser` remains a hidden child view for stable catalog browsing
+- `Catalog Browser` remains a hidden child view for stable catalog browsing
 
 Recommended navigation model:
 
@@ -309,7 +309,7 @@ This keeps the intake workflow visible and durable enough for queue and inbox mo
 
 | Surface | Intended Container |
 |---|---|
-| Curated Catalog Browser | Hidden Model Catalog child view/page |
+| Catalog Browser | Hidden Model Catalog child view/page |
 | Intake Home | Hidden Model Catalog child view/page |
 | Intake Submission | Popup launched from Intake Home |
 | Server Browse Picker | Popup launched from Intake Submission |
@@ -400,7 +400,7 @@ Provide the top-level landing surface for new submissions, current queue visibil
 
 This surface is intended to be a **hidden child view within the overall Model Catalog UI**.
 
-It should function as the intake-focused sibling of the Curated Catalog Browser and the Working Board. In other words:
+It should function as the intake-focused sibling of the Catalog Browser and the Working Board. In other words:
 
 - the operator enters `Model Catalog`
 - they land on `Model Catalog Home`
@@ -724,7 +724,7 @@ This mirrors the successful print-history popup pattern while adapting content f
 
 ### Purpose
 
-Manage the veneer relationship between a Working group and curated catalog records.
+Manage the veneer relationship between a Working group and catalog records.
 
 ### Mid-Fidelity Mockup
 
@@ -732,7 +732,7 @@ Manage the veneer relationship between a Working group and curated catalog recor
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Curated Links For Bit Holder Remix                               [Close]    │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Search curated catalog [ bit holder ____________________________ ]           │
+│ Search catalog [ bit holder ____________________________ ]           │
 │                                                                              │
 │ Existing Links                                                               │
 │ ┌──────────────────────────────────────────────────────────────────────────┐ │

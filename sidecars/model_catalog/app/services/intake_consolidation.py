@@ -26,104 +26,98 @@ def _consolidate_overlapping_selections(
     source_entries: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """
-    Deduplicate overlapping folder selections.
-    
-    Keeps topmost parents, removes children. Merges exclusions from all entries.
-    
+    Deduplicate overlapping selections into their topmost roots.
+
+    Keeps topmost parents, removes descendant folders/files, and only merges
+    exclusions into the owning topmost entry.
+
     Example:
-        Input: [/models/, /models/variants/]
-        Output: [/models/] with exclusions merged
-    
+        Input: [/models/, /models/variants/, /models/variants/tall.3mf]
+        Output: [/models/] with descendant exclusions merged into /models/
+
     Args:
         source_entries: List of source entry dicts with type, path, excluded_items
-        
+
     Returns:
-        Deduplicated source_entries list with consolidated exclusions
+        Deduplicated source_entries list with per-root consolidated exclusions
     """
     if not source_entries:
         return []
-    
-    # Normalize all paths once
+
     normalized_entries = []
-    for entry in source_entries:
+    for original_index, entry in enumerate(source_entries):
         if not isinstance(entry, dict):
             continue
         entry_type = str(entry.get("type", "")).strip().lower()
         entry_path = str(entry.get("path", "")).strip()
-        
+
         if not entry_path or entry_type not in {"file", "folder"}:
             continue
-        
+
         try:
-            normalized_path = _normalize_path(entry_path)
-            normalized_entries.append({
-                "original": entry,
-                "normalized_path": normalized_path,
-                "entry_type": entry_type,
-            })
+            normalized_entries.append(
+                {
+                    "original": entry,
+                    "original_index": original_index,
+                    "normalized_path": _normalize_path(entry_path),
+                    "entry_type": entry_type,
+                }
+            )
         except (ValueError, OSError):
-            # Skip entries that can't be normalized
             continue
-    
-    # Find non-overlapping (topmost) entries
-    consolidated = []
-    excluded_items_merged: set[str] = set()
-    
-    # First pass: collect all exclusions from all entries (will be merged into consolidated)
-    for entry in normalized_entries:
-        if isinstance(entry["original"].get("excluded_items"), list):
-            excluded_items_merged.update(entry["original"]["excluded_items"])
-    
-    # Second pass: find topmost entries
-    for i, current in enumerate(normalized_entries):
-        is_child = False
-        current_path = current["normalized_path"]
-        current_type = current["entry_type"]
-        
-        # Skip files (only folders can be parents)
-        if current_type != "folder":
-            consolidated.append(current["original"])
-            continue
-        
-        # Check if this entry is a child of any other entry
-        for j, other in enumerate(normalized_entries):
-            if i == j:
+
+    if not normalized_entries:
+        return []
+
+    sorted_entries = sorted(
+        normalized_entries,
+        key=lambda entry: (len(entry["normalized_path"].parts), entry["original_index"]),
+    )
+
+    kept_entries: list[dict[str, Any]] = []
+
+    for candidate in sorted_entries:
+        candidate_path = candidate["normalized_path"]
+        absorbed_by = None
+
+        for kept in kept_entries:
+            kept_path = kept["normalized_path"]
+            if candidate_path == kept_path:
+                absorbed_by = kept
+                break
+            if kept["entry_type"] != "folder":
                 continue
-            
-            other_path = other["normalized_path"]
-            other_type = other["entry_type"]
-            
-            # Only folders can be parents
-            if other_type != "folder":
-                continue
-            
-            # Check if current_path is a child of other_path
             try:
-                current_path.relative_to(other_path)
-                # current_path IS a child of other_path
-                is_child = True
+                candidate_path.relative_to(kept_path)
+                absorbed_by = kept
                 break
             except ValueError:
-                # Not a child
-                pass
-        
-        if not is_child:
-            # This is a topmost entry, keep it
-            consolidated.append(current["original"])
-    
-    # Merge all collected exclusions into each consolidated entry
+                continue
+
+        if absorbed_by is None:
+            kept_entries.append(
+                {
+                    "original": candidate["original"],
+                    "original_index": candidate["original_index"],
+                    "normalized_path": candidate_path,
+                    "entry_type": candidate["entry_type"],
+                    "excluded_items": set(candidate["original"].get("excluded_items") or []),
+                }
+            )
+            continue
+
+        excluded_items = candidate["original"].get("excluded_items") or []
+        if isinstance(excluded_items, list):
+            absorbed_by["excluded_items"].update(
+                str(path).strip() for path in excluded_items if str(path or "").strip()
+            )
+
     result = []
-    for entry in consolidated:
-        entry_copy = entry.copy()
-        # Update excluded_items to include all merged exclusions
-        current_excluded = entry_copy.get("excluded_items") or []
-        all_excluded = list(set(current_excluded) | excluded_items_merged)
-        if all_excluded:
-            entry_copy["excluded_items"] = all_excluded
-        else:
-            entry_copy["excluded_items"] = []
+    for kept in sorted(kept_entries, key=lambda entry: entry["original_index"]):
+        entry_copy = kept["original"].copy()
+        entry_copy["excluded_items"] = sorted(kept["excluded_items"])
         result.append(entry_copy)
-    
+
     return result
 
 

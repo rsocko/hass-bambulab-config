@@ -149,7 +149,7 @@ cards:
                   name: Curated
                   icon: mdi:bookshelf
                   show_label: true
-                  label: Browse the curated catalog without leaving the main dashboard view.
+                  label: Browse the catalog without leaving the main dashboard view.
                   tap_action:
                     action: call-service
                     service: input_select.select_option
@@ -257,11 +257,11 @@ cards:
           cards:
             - type: markdown
               content: |
-                ## Curated Catalog
+                ## Catalog
 
                 Browse the curated authority without leaving the main dashboard shell.
             - type: custom:model-catalog-browser-card
-              title: Curated Catalog Browser
+              title: Catalog Browser
               per_page: 12
       - type: conditional
         conditions:

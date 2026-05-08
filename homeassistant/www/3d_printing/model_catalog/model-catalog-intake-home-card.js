@@ -15,6 +15,7 @@ var postJsonWithAuth = intakeShared.postJsonWithAuth;
 var setHelperValue = intakeShared.setHelperValue;
 var sharedStyles = intakeShared.sharedStyles;
 var uploadBrowserFilesWithFallback = intakeShared.uploadBrowserFilesWithFallback;
+var normalizeGroupingStrategy = intakeShared.normalizeGroupingStrategy;
 
 var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".png": true,
@@ -26,6 +27,12 @@ var BROWSER_PREVIEW_IMAGE_EXTENSIONS = {
   ".svg": true,
   ".avif": true,
 };
+
+var BROWSER_PREVIEW_3MF_EXTENSIONS = {
+  ".3mf": true,
+};
+
+var BROWSER_3MF_THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
 
 function pathStem(path) {
   var name = basename(path || '');
@@ -50,6 +57,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._result = null;
+    this._busyState = null;
     this._roots = [];
     this._browse = { path: "/", entries: [], parent_path: null, is_root: true };
     this._selected = {};
@@ -64,6 +72,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._intakeItems = [];
     this._queueUploads = [];
     this._wizardOpen = false;
+    this._wizardCloseConfirmOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
     this._cleanupPolicyValue = null;
@@ -184,15 +193,197 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return !!BROWSER_PREVIEW_IMAGE_EXTENSIONS[extension];
   }
 
-  _createBrowserPreviewUrl(file) {
-    if (!this._isBrowserImageFile(file) || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+  _isBrowser3mfFile(file) {
+    if (!file) {
+      return false;
+    }
+    var fileName = String(file.name || "");
+    var extension = fileName.lastIndexOf(".") >= 0 ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase() : "";
+    return !!BROWSER_PREVIEW_3MF_EXTENSIONS[extension];
+  }
+
+  _inferImageMimeTypeFromPath(path) {
+    var normalized = String(path || "").toLowerCase();
+    if (normalized.endsWith(".png")) {
+      return "image/png";
+    }
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    return "";
+  }
+
+  async _ensureJsZipLoaded() {
+    if (typeof JSZip !== "undefined") {
+      return true;
+    }
+
+    var existing = document.querySelector('script[data-model-catalog-jszip="1"]');
+    if (existing) {
+      if (existing.dataset.loaded === "1") {
+        return typeof JSZip !== "undefined";
+      }
+      await new Promise(function (resolve) {
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", resolve, { once: true });
+      });
+      return typeof JSZip !== "undefined";
+    }
+
+    await new Promise(function (resolve) {
+      var script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      script.async = true;
+      script.dataset.modelCatalogJszip = "1";
+      script.addEventListener("load", function () {
+        script.dataset.loaded = "1";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", resolve, { once: true });
+      document.head.appendChild(script);
+    });
+
+    return typeof JSZip !== "undefined";
+  }
+
+  _isSafeBrowser3mfThumbnail(blob, entryPath) {
+    if (!blob || typeof blob.size !== "number") {
+      return false;
+    }
+    if (blob.size > BROWSER_3MF_THUMBNAIL_MAX_BYTES) {
+      return false;
+    }
+    var lowerPath = String(entryPath || "").toLowerCase();
+    if (!lowerPath.endsWith(".png") && !lowerPath.endsWith(".jpg") && !lowerPath.endsWith(".jpeg")) {
+      return false;
+    }
+    var allowedTypes = { "image/png": true, "image/jpeg": true };
+    if (blob.type && !allowedTypes[blob.type]) {
+      return false;
+    }
+    return true;
+  }
+
+  async _extractBrowser3mfThumbnailUrl(file) {
+    if (!this._isBrowser3mfFile(file)) {
       return "";
     }
-    try {
-      return URL.createObjectURL(file);
-    } catch (_error) {
+    var jsZipReady = await this._ensureJsZipLoaded();
+    if (!jsZipReady || typeof JSZip === "undefined") {
       return "";
     }
+
+    var buffer = await file.arrayBuffer();
+    if (!buffer || !buffer.byteLength) {
+      return "";
+    }
+
+    var zip = new JSZip();
+    await zip.loadAsync(buffer);
+
+    var zipEntries = Object.keys(zip.files || {});
+    var entryLookup = {};
+    zipEntries.forEach(function (name) {
+      entryLookup[String(name).toLowerCase()] = name;
+    });
+
+    var knownPaths = [
+      "metadata/thumbnail.png",
+      "metadata/thumbnail.jpg",
+      "metadata/thumbnail.jpeg",
+      "thumbnails/thumbnail.png",
+      "thumbnails/thumbnail.jpg",
+      "thumbnails/thumbnail.jpeg",
+      "3d/thumbnail.png",
+      "3d/thumbnail.jpg",
+      "3d/thumbnail.jpeg",
+      "metadata/plate_1.png",
+      "metadata/plate_1.jpg",
+      "auxiliaries/model pictures/thumbnail.png",
+      "auxiliaries/model pictures/thumbnail.jpg",
+    ];
+
+    var card = this;
+    var toPreviewUrl = async function (entryName) {
+      var member = zip.file(entryName);
+      if (!member) {
+        return "";
+      }
+      var blob = await member.async("blob");
+      if (!card._isSafeBrowser3mfThumbnail(blob, entryName)) {
+        return "";
+      }
+      var inferred = card._inferImageMimeTypeFromPath(entryName);
+      var previewBlob = inferred && blob.type !== inferred
+        ? new Blob([blob], { type: inferred })
+        : blob;
+      try {
+        return URL.createObjectURL(previewBlob);
+      } catch (_error) {
+        return "";
+      }
+    };
+
+    for (var i = 0; i < knownPaths.length; i += 1) {
+      var matched = entryLookup[knownPaths[i]];
+      if (!matched) {
+        continue;
+      }
+      try {
+        var knownPreviewUrl = await toPreviewUrl(matched);
+        if (knownPreviewUrl) {
+          return knownPreviewUrl;
+        }
+      } catch (_knownError) {
+        // Try next candidate.
+      }
+    }
+
+    var fallbackPrefixes = ["metadata/", "thumbnails/", "3d/", "auxiliaries/model pictures/"];
+    var fallbackEntries = zipEntries.filter(function (name) {
+      var lower = String(name || "").toLowerCase();
+      var imageExt = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+      if (!imageExt) {
+        return false;
+      }
+      return fallbackPrefixes.some(function (prefix) {
+        return lower.indexOf(prefix) === 0;
+      });
+    }).sort();
+
+    for (var j = 0; j < fallbackEntries.length; j += 1) {
+      try {
+        var fallbackPreviewUrl = await toPreviewUrl(fallbackEntries[j]);
+        if (fallbackPreviewUrl) {
+          return fallbackPreviewUrl;
+        }
+      } catch (_fallbackError) {
+        // Continue.
+      }
+    }
+
+    return "";
+  }
+
+  async _createBrowserPreviewUrl(file) {
+    if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      return "";
+    }
+    if (this._isBrowserImageFile(file)) {
+      try {
+        return URL.createObjectURL(file);
+      } catch (_error) {
+        return "";
+      }
+    }
+    if (this._isBrowser3mfFile(file)) {
+      try {
+        return await this._extractBrowser3mfThumbnailUrl(file);
+      } catch (_extractError) {
+        return "";
+      }
+    }
+    return "";
   }
 
   _revokeBrowserPreviewUrl(previewUrl) {
@@ -217,6 +408,69 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._browserFiles = [];
     // Issue #1324: clearing the staging set also clears any pending exclusions.
     this._excludedBrowserKeys = {};
+  }
+
+  _setBusyState(nextState) {
+    this._busyState = Object.assign({
+      phase: "",
+      detail: "",
+      mode: "indeterminate",
+      percent: null,
+      files_done: null,
+      files_total: null,
+      bytes_done: null,
+      bytes_total: null,
+    }, nextState || {});
+    this._render();
+  }
+
+  _setBusyPhase(phase, detail) {
+    this._setBusyState({
+      phase: String(phase || "Working"),
+      detail: String(detail || ""),
+      mode: "indeterminate",
+      percent: null,
+    });
+  }
+
+  _updateUploadProgress(progress, context) {
+    var details = context || {};
+    var filesTotal = Number(details.files_total || 0);
+    var bytesTotal = Number(details.bytes_total || 0);
+    var loaded = Number(progress && progress.loaded || 0);
+    var total = Number(progress && progress.total || 0);
+    var filesProcessed = Number(progress && progress.files_processed || 0);
+    var lengthComputable = !!(progress && progress.lengthComputable && total > 0);
+
+    if (!lengthComputable) {
+      this._setBusyState({
+        phase: "Uploading files",
+        detail: filesTotal > 0
+          ? ("Preparing file " + String(Math.min(Math.max(filesProcessed, 0), filesTotal)) + " of " + String(filesTotal))
+          : "Preparing browser upload payload",
+        mode: "indeterminate",
+        files_done: filesProcessed > 0 ? filesProcessed : null,
+        files_total: filesTotal > 0 ? filesTotal : null,
+      });
+      return;
+    }
+
+    var safeTotal = total > 0 ? total : (bytesTotal > 0 ? bytesTotal : 0);
+    var percent = safeTotal > 0 ? Math.max(0, Math.min(100, Math.round((loaded / safeTotal) * 100))) : null;
+    this._setBusyState({
+      phase: "Uploading files",
+      detail: "Transferring browser files to intake staging",
+      mode: "determinate",
+      percent: percent,
+      files_done: filesTotal > 0 ? Math.min(filesTotal, filesProcessed || filesTotal) : null,
+      files_total: filesTotal > 0 ? filesTotal : null,
+      bytes_done: loaded,
+      bytes_total: safeTotal,
+    });
+  }
+
+  _clearBusyState() {
+    this._busyState = null;
   }
 
   // Issue #1324: returns true when the given browser entry key has been marked
@@ -398,11 +652,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!this._browserFiles.length) {
       return 'none';
     }
-    var normalized = String(this._browserFiles[0] && this._browserFiles[0].grouping_strategy || '').trim().toLowerCase();
-    if (normalized === 'by-folder' || normalized === 'by-root' || normalized === 'flat') {
-      return normalized;
-    }
-    return 'none';
+    return normalizeGroupingStrategy(this._browserFiles[0] && this._browserFiles[0].grouping_strategy, {
+      allowFolderStrategies: true,
+    });
   }
 
   _browserBatchTitleSource() {
@@ -594,6 +846,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
   async _openWizard(mode) {
     var nextMode = mode === "server" ? "server" : "browser";
     this._wizardOpen = true;
+    this._wizardCloseConfirmOpen = false;
     this._wizardMode = nextMode;
     this._wizardStep = 1;
     this._cleanupPolicyValue = this._defaultCleanupPolicy(nextMode);
@@ -627,19 +880,44 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     return false;
   }
 
+  _openWizardCloseConfirm() {
+    this._wizardCloseConfirmOpen = true;
+    this._render();
+  }
+
+  _dismissWizardCloseConfirm() {
+    if (!this._wizardCloseConfirmOpen) {
+      return;
+    }
+    this._wizardCloseConfirmOpen = false;
+    this._render();
+  }
+
+  _renderWizardCloseConfirm() {
+    if (!this._wizardCloseConfirmOpen) {
+      return '';
+    }
+    return ''
+      + '<div class="wizard-close-confirm" role="dialog" aria-modal="true" aria-label="Discard intake selections">'
+      + '  <div class="wizard-close-confirm-backdrop" data-action="dismiss-close-confirm"></div>'
+      + '  <div class="wizard-close-confirm-dialog">'
+      + '    <div class="title">Discard Intake Selections?</div>'
+      + '    <div class="muted">Your in-progress selections and wizard setup will be lost.</div>'
+      + '    <div class="button-row wizard-close-confirm-actions">'
+      + '      <button class="button" data-action="dismiss-close-confirm">Keep Editing</button>'
+      + '      <button class="button danger" data-action="confirm-close-wizard">Discard And Close</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+  }
+
   _closeWizard(options) {
     var force = !!(options && options.force);
     if (!force && this._isWizardDirty()) {
-      var ok = false;
-      try {
-        ok = window.confirm('Discard your in-progress intake selections and close the wizard?');
-      } catch (err) {
-        ok = true;
-      }
-      if (!ok) {
-        return;
-      }
+      this._openWizardCloseConfirm();
+      return;
     }
+    this._wizardCloseConfirmOpen = false;
     this._wizardOpen = false;
     this._wizardMode = "";
     this._wizardStep = 1;
@@ -716,24 +994,27 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._render();
   }
 
-  _appendBrowserFiles(fileList) {
+  async _appendBrowserFiles(fileList) {
     var currentBrowserTitleSource = this._browserBatchTitleSource();
     var currentBrowserTitle = this._browserBatchResolvedTitle();
     var nextByKey = {};
     this._browserFiles.forEach(function (entry) {
       nextByKey[this._browserFileKey(entry)] = entry;
     }, this);
-    Array.prototype.slice.call(fileList || []).forEach(function (file) {
+    var incomingFiles = Array.prototype.slice.call(fileList || []);
+    for (var index = 0; index < incomingFiles.length; index += 1) {
+      var file = incomingFiles[index];
       if (!file || typeof file.arrayBuffer !== "function") {
-        return;
+        continue;
       }
       var relativePath = String(file.webkitRelativePath || file.name || "").trim() || String(file.name || "").trim();
+      var previewUrl = await this._createBrowserPreviewUrl(file);
       var nextEntry = {
         file: file,
         name: String(file.name || relativePath || "upload.bin"),
         relative_path: relativePath,
         size_bytes: Number(file.size || 0),
-        preview_url: this._createBrowserPreviewUrl(file),
+        preview_url: previewUrl,
         grouping_strategy: this._browserHasFolderUpload() ? this._browserGroupingStrategy() : 'none',
         recurse: this._browserRecurse(),
         preserve_folder_structure: true,
@@ -752,7 +1033,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._isBrowserKeyExcluded(nextKey)) {
         this._setBrowserKeyExcluded(nextKey, false);
       }
-    }, this);
+    }
     this._browserFiles = Object.keys(nextByKey).map(function (key) { return nextByKey[key]; }).sort(function (left, right) {
       return String(left.relative_path || left.name).localeCompare(String(right.relative_path || right.name));
     });
@@ -846,7 +1127,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     this._error = "";
     this._status = "";
     this._result = null;
-    this._render();
+    this._setBusyPhase("Preparing intake job", "Collecting and normalizing selected files");
     try {
       var expandedSelections = [];
       var plainSelections = [];
@@ -884,13 +1165,40 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var response;
       if (browserFiles.length) {
         var sidecarBaseUrl = this._resolveSidecarUrl();
-        response = await uploadBrowserFilesWithFallback(this._hass, sidecarBaseUrl, browserFiles, finalSelections, cleanupPolicy);
+        var totalBrowserBytes = browserFiles.reduce(function (sum, entry) {
+          var size = entry && entry.file ? Number(entry.file.size || 0) : 0;
+          return sum + (Number.isFinite(size) ? size : 0);
+        }, 0);
+        response = await uploadBrowserFilesWithFallback(
+          this._hass,
+          sidecarBaseUrl,
+          browserFiles,
+          finalSelections,
+          cleanupPolicy,
+          {
+            onPhase: function (phaseCode) {
+              if (phaseCode === "encoding_files") {
+                this._setBusyPhase("Uploading files", "Encoding files for fallback upload mode");
+              } else if (phaseCode === "submitting_request") {
+                this._setBusyPhase("Uploading files", "Submitting intake upload request");
+              }
+            }.bind(this),
+            onUploadProgress: function (progressPayload) {
+              this._updateUploadProgress(progressPayload, {
+                files_total: browserFiles.length,
+                bytes_total: totalBrowserBytes,
+              });
+            }.bind(this),
+          }
+        );
       } else {
+        this._setBusyPhase("Preparing intake job", "Resolving server selections and staging queue item");
         response = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_select_source_filesystem_entries", {
           selections: finalSelections,
           cleanup_policy: cleanupPolicy,
         });
       }
+      this._setBusyPhase("Validating plan", "Running pre-commit intake validation");
       var validation = await callServiceWithResponse(this._hass, "rest_command", "model_catalog_validate_intake_item", {
         item_id: response.upload_id,
       });
@@ -900,6 +1208,10 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       if (this._commitMode === 'execute_now' && validationState === 'ready') {
         publishDestination = this._destinationChoice || 'curated';
         var publishService = publishDestination === 'working' ? 'model_catalog_publish_to_working' : 'model_catalog_publish_to_local';
+        this._setBusyPhase(
+          publishDestination === 'working' ? 'Publishing to Working Files' : 'Publishing to Catalog',
+          'Committing validated intake plan to destination'
+        );
         publishResponse = await callServiceWithResponse(this._hass, 'rest_command', publishService, {
           upload_id: response.upload_id,
         });
@@ -918,7 +1230,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       };
       if (this._commitMode === 'execute_now') {
         if (publishResponse) {
-          var destinationText = publishDestination === 'working' ? 'working files' : 'the curated catalog';
+          var destinationText = publishDestination === 'working' ? 'working files' : 'the catalog';
           this._status = browserFiles.length
             ? "Browser batch validated and published to " + destinationText + "."
             : "Server selection validated and published to " + destinationText + "." + (expandedSelections.length ? " (" + String(expandedSelections.length) + " files expanded from grouped folder selections.)" : "");
@@ -946,10 +1258,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       this._commitMode = 'queue';
       this._destinationChoice = 'curated';
       this._loading = false;
+      this._clearBusyState();
       await this._refreshAll();
     } catch (error) {
       this._error = error && error.message ? String(error.message) : "Could not queue intake selection.";
       this._loading = false;
+      this._clearBusyState();
       this._render();
     }
   }
@@ -1048,7 +1362,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
             : '')
           + '    <div class="field"><label>Title Basis</label><select class="select" data-action="browser-title-source"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
           + '    <div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="browser-group-title" placeholder="Working Group"></div>'
-          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Curated catalog.' : '') + '</div>'
+          + '  </div><div class="muted">This title is carried into Inbox for browser-uploaded files and folders. Image previews shown in this wizard are local browser previews before upload and are not persisted.' + (folderCount ? ' Folder uploads now expose the same recurse and grouping controls as the server picker.' : '') + ((folderCount && recurse) ? ' Preserve folder structure is supported in Catalog.' : '') + '</div>'
         : '')
       + '</div>';
   }
@@ -1125,7 +1439,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
               : '')
             + '<div class="field"><label>Title Basis</label><select class="select" data-action="selection-title-source" data-path="' + escapeHtml(entry.path) + '"><option value="folder"' + (titleSource === 'folder' ? ' selected' : '') + '>Folder name</option><option value="first-file"' + (titleSource === 'first-file' ? ' selected' : '') + '>First file</option><option value="custom"' + (titleSource === 'custom' ? ' selected' : '') + '>Custom</option></select></div>'
             + '<div class="field"><label>Working Group Title</label><input class="input" type="text" value="' + escapeHtml(resolvedTitle) + '" data-action="selection-group-title" data-path="' + escapeHtml(entry.path) + '" placeholder="Working Group"></div>'
-            + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Curated catalog.' : '') + '</div>'
+            + '<div class="muted">This title is preserved into the intake queue and becomes the default when this batch is sent to Working Files.' + (entry.recurse ? ' Folder structure is preserved in Catalog.' : '') + '</div>'
             + '</div>'
           : (entry.type === 'folder'
             ? '<div class="button-row"><span class="chip">scope ' + escapeHtml(entry.recurse ? 'recursive' : 'just this folder') + '</span><span class="chip">' + escapeHtml(entry.grouping_strategy || 'none') + '</span><span class="chip">title ' + escapeHtml(resolvedTitle) + '</span></div>'
@@ -1210,7 +1524,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
         + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
         + (this._commitMode === 'execute_now'
-          ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+          ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
           : '')
         + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
         + '</div>';
@@ -1230,7 +1544,7 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="queue"' + (this._commitMode === 'queue' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Queue for Review</strong> - Safe path for careful validation</label></div>'
       + '  <div class="field"><label><input type="radio" name="commit-mode" value="execute_now"' + (this._commitMode === 'execute_now' ? ' checked' : '') + ' data-action="set-commit-mode"> <strong>Execute Now</strong> - Validate and publish directly (power users)</label></div>'
       + (this._commitMode === 'execute_now'
-        ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Curated Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Curated Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
+        ? '  <div class="field"><label for="destination-select">Publication Destination</label><select id="destination-select" class="select" data-action="set-destination"><option value="curated"' + (this._destinationChoice === 'curated' ? ' selected' : '') + '>Catalog</option><option value="working"' + (this._destinationChoice === 'working' ? ' selected' : '') + '>Working Files</option></select><div class="muted">Choose where to publish: Catalog is the authoritative library, Working Files are for drafts and projects.</div></div>'
         : '')
       + '  <div class="muted">Queue mode: Items go to Active Queue for verification and grouping review. Execute Now: Skips queue, goes straight to publication if validation passes.</div>'
       + this._renderBrowserSelectionSummary()
@@ -1245,14 +1559,45 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       var destination = this._destinationChoice === 'working' ? 'Working Files' : 'Catalog';
       commitButtonLabel = "Validate & Publish to " + destination;
     }
+    if (this._loading) {
+      commitButtonLabel = "Working...";
+    }
     return ''
       + '<div class="wizard-footer">'
-      + '  <div class="button-row"><button class="button" data-action="close-wizard">Cancel</button></div>'
+      + '  <div class="button-row"><button class="button" data-action="close-wizard"' + (this._loading ? ' disabled' : '') + '>Cancel</button></div>'
       + '  <div class="button-row">'
-      + (!atFirstStep ? '<button class="button" data-action="wizard-back">Back</button>' : '')
+      + (!atFirstStep ? '<button class="button" data-action="wizard-back"' + (this._loading ? ' disabled' : '') + '>Back</button>' : '')
       + (!atLastStep
-        ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() ? ' disabled' : '') + '>Next</button>'
+        ? '<button class="button primary" data-action="wizard-next"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>Next</button>'
         : '<button class="button primary" data-action="commit-wizard"' + (!this._canAdvanceWizard() || this._loading ? ' disabled' : '') + '>' + commitButtonLabel + '</button>')
+      + '  </div>'
+      + '</div>';
+  }
+
+  _renderBusyState() {
+    if (!this._loading || !this._busyState) {
+      return '';
+    }
+    var busy = this._busyState;
+    var progressMarkup = '';
+    if (busy.mode === 'determinate' && busy.percent != null) {
+      progressMarkup = ''
+        + '<div class="busy-progress">'
+        + '  <div class="busy-progress-track"><div class="busy-progress-fill" style="width:' + String(Math.max(0, Math.min(100, Number(busy.percent || 0)))) + '%"></div></div>'
+        + '  <div class="busy-progress-meta">'
+        + '    <strong>' + String(Math.max(0, Math.min(100, Number(busy.percent || 0)))) + '%</strong>'
+        + (busy.bytes_total ? '<span>' + escapeHtml(formatBytes(busy.bytes_done || 0)) + ' / ' + escapeHtml(formatBytes(busy.bytes_total || 0)) + '</span>' : '')
+        + (busy.files_total ? '<span>Files ' + String(busy.files_done || 0) + ' / ' + String(busy.files_total || 0) + '</span>' : '')
+        + '  </div>'
+        + '</div>';
+    }
+    return ''
+      + '<div class="wizard-busy-shell" aria-live="polite">'
+      + '  <div class="wizard-busy-spinner" aria-hidden="true"></div>'
+      + '  <div class="wizard-busy-content">'
+      + '    <div class="wizard-busy-phase">' + escapeHtml(String(busy.phase || 'Working')) + '</div>'
+      + (busy.detail ? '<div class="wizard-busy-detail">' + escapeHtml(String(busy.detail)) + '</div>' : '')
+      + progressMarkup
       + '  </div>'
       + '</div>';
   }
@@ -1266,10 +1611,12 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + this._renderWizardProgress()
       + (this._error ? '<div class="status error">' + escapeHtml(this._error) + '</div>' : '')
       + (this._status ? '<div class="status">' + escapeHtml(this._status) + '</div>' : '')
+      + this._renderBusyState()
       + '    <div class="wizard-body">' + this._renderWizardBody() + '</div>'
       + this._renderWizardFooter()
       + '    <input id="browser-file-input" class="hidden-upload-input" type="file" multiple data-action="browser-files">'
       + '    <input id="browser-folder-input" class="hidden-upload-input" type="file" multiple webkitdirectory directory data-action="browser-folder">'
+        + this._renderWizardCloseConfirm()
       + '  </div>'
       + '</div>';
   }
@@ -1290,6 +1637,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       return;
     }
     event.preventDefault();
+    if (this._loading) {
+      return;
+    }
     if (action === 'refresh-intake') {
       this._refreshAll();
       return;
@@ -1304,6 +1654,14 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
     if (action === 'close-wizard') {
       this._closeWizard();
+      return;
+    }
+    if (action === 'dismiss-close-confirm') {
+      this._dismissWizardCloseConfirm();
+      return;
+    }
+    if (action === 'confirm-close-wizard') {
+      this._closeWizard({ force: true });
       return;
     }
     if (action === 'wizard-next') {
@@ -1361,14 +1719,17 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     }
   }
 
-  _handleChange(event) {
+  async _handleChange(event) {
     var target = event.target instanceof Element ? event.target : null;
     if (!target) {
       return;
     }
+    if (this._loading) {
+      return;
+    }
     var action = String(target.getAttribute('data-action') || '');
     if (action === 'browser-files' || action === 'browser-folder') {
-      this._appendBrowserFiles(target.files);
+      await this._appendBrowserFiles(target.files);
       target.value = '';
       return;
     }
@@ -1491,6 +1852,9 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
     if (!target) {
       return;
     }
+    if (this._loading) {
+      return;
+    }
     var action = String(target.getAttribute('data-action') || '');
     if (action === 'browser-group-title') {
       this._updateBrowserBatchMeta({
@@ -1555,6 +1919,21 @@ class ModelCatalogIntakeHomeCard extends HTMLElement {
       + '.wizard-selection-scroll{min-height:0;max-height:460px;overflow:auto;padding-right:4px;}'
       + '.wizard-review-scroll{min-height:0;max-height:420px;overflow:auto;padding-right:4px;}'
       + '.wizard-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:4px;}'
+      + '.wizard-close-confirm{position:absolute;inset:0;display:grid;place-items:center;z-index:30;padding:18px;box-sizing:border-box;}'
+      + '.wizard-close-confirm-backdrop{position:absolute;inset:0;background:rgba(2,6,23,0.58);}'
+      + '.wizard-close-confirm-dialog{position:relative;display:grid;gap:10px;width:min(460px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;padding:18px;border-radius:16px;border:1px solid rgba(148,163,184,0.28);background:var(--card-background-color,rgba(15,23,42,0.98));box-shadow:0 20px 56px rgba(2,6,23,0.45);}'
+      + '.wizard-close-confirm-dialog .title{font-size:18px;line-height:1.25;}'
+      + '.wizard-close-confirm-actions{justify-content:flex-end;}'
+      + '.wizard-busy-shell{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(96,165,250,0.35);background:rgba(30,64,175,0.15);}'
+      + '.wizard-busy-spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(148,163,184,0.45);border-top-color:rgba(96,165,250,0.95);animation:intakeSpin .9s linear infinite;flex:0 0 18px;margin-top:2px;}'
+      + '.wizard-busy-content{display:grid;gap:6px;min-width:0;}'
+      + '.wizard-busy-phase{font-size:13px;font-weight:800;line-height:1.25;}'
+      + '.wizard-busy-detail{font-size:12px;color:var(--secondary-text-color);overflow-wrap:anywhere;}'
+      + '.busy-progress{display:grid;gap:6px;}'
+      + '.busy-progress-track{height:8px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,0.24);}'
+      + '.busy-progress-fill{height:100%;background:linear-gradient(90deg,rgba(59,130,246,0.95),rgba(56,189,248,0.9));}'
+      + '.busy-progress-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--secondary-text-color);}'
+      + '@keyframes intakeSpin{to{transform:rotate(360deg);}}'
       // Issue #1322 tweaks: hover affordances, right-aligned action buttons, larger summary font, file-type icon, intake path row
       + '.button{transition:background-color .12s ease,border-color .12s ease,filter .12s ease,transform .12s ease;}'
       + '.button:hover:not(:disabled){filter:brightness(1.18);transform:translateY(-1px);background:rgba(148,163,184,0.22);}'

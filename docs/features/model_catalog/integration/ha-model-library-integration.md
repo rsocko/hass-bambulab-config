@@ -17,7 +17,7 @@ That means:
 
 - HA should expose the most useful browse, link, queue, and quick-action flows
 - HA should not try to reproduce every deep Manyfold admin/editor workflow
-- HA should bridge Working groups, curated catalog entries, and Bambuddy archives coherently
+- HA should bridge Working groups, catalog entries, and Bambuddy archives coherently
 
 ## Integration Boundary
 
@@ -53,7 +53,7 @@ Responsibilities:
 - show queue/backlog hints from sidecar fields
 - open linked model in Manyfold or a curated HA panel
 
-### 2. Curated Catalog Browser
+### 2. Catalog Browser
 
 Responsibilities:
 
@@ -133,7 +133,7 @@ Core service groups:
 - reject candidate
 - deactivate link
 
-### Curated Catalog Services
+### Catalog Services
 
 - get model summary
 - update sidecar-owned fields
@@ -147,7 +147,7 @@ Core service groups:
 - create/update group
 - attach/detach files
 - set stage/status
-- publish to curated catalog
+- publish to catalog
 
 ## Packaging Direction
 

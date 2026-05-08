@@ -38,7 +38,10 @@ from ..state import AppState
 
 
 from .._helpers import (
+    SUPPORTED_INTAKE_FILE_EXTENSIONS,
     SUPPORTED_WORKING_FILE_EXTENSIONS,
+    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    LOCAL_IMPORT_DOCUMENT_EXTENSIONS,
     _bulk_timestamp_iso,
     _bulk_utc_now_iso,
     _coerce_bool,
@@ -53,10 +56,6 @@ router = APIRouter(tags=["intake"])
 # ==================== CONSTANTS ====================
 
 BROWSER_INTAKE_UPLOAD_STORAGE_DIR = "intake_browser_uploads"
-
-LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
-LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcode"}
-LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
 
 # Valid state transitions for intake queue uploads
 VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -577,7 +576,7 @@ def _validate_intake_source_entries(source_entries: list[dict[str, Any]]) -> lis
                 error="source_is_not_folder",
                 message=f"source_entry marked as 'folder' but path is not a directory: {entry_path}",
             )
-        if entry_type == "file" and resolved_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+        if entry_type == "file" and resolved_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
             raise IntakeSourceValidationError(
                 error="unsupported_file_type",
                 message=f"Unsupported file type for intake: {resolved_path.name}",
@@ -1112,7 +1111,7 @@ async def intake_queue_post_browser_upload_v2(request: Request) -> Any:
                 str((file_meta or {}).get("relative_path") or upload.filename or filename),
                 filename,
             )
-            if relative_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+            if relative_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
                     {
                         "code": "unsupported_file_type",
@@ -1358,7 +1357,7 @@ async def intake_queue_post_browser_upload(request: Request) -> Any:
             str(upload.get("relative_path") or ""),
             filename,
         )
-        if relative_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+        if relative_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
             warnings.append(
                 {
                     "code": "unsupported_file_type",

@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Define the definitive migration plan from Manyfold-backed curated catalog authority to a custom sidecar-owned model catalog while preserving in-flight implementation work and minimizing disruption.
+Define the definitive migration plan from Manyfold-backed catalog authority to a custom sidecar-owned model catalog while preserving in-flight implementation work and minimizing disruption.
 
 ## Final Decisions
 

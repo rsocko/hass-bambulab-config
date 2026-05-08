@@ -2008,7 +2008,7 @@ def search_models(
     per_page: int = 10,
     debug_collection_lookup: bool = False,
 ) -> dict[str, Any]:
-    """Search curated catalog with pagination and filtering support."""
+    """Search catalog with pagination and filtering support."""
     state: AppState = request.app.state.model_catalog
     client: ManyfoldClient = request.app.state.manyfold_client
     

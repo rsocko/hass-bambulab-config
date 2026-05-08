@@ -9,7 +9,7 @@ Define the Working-file model that sits outside Manyfold and gives the operator 
 
 ## Why A Working Veneer Exists
 
-Active work has different needs than a curated catalog:
+Active work has different needs than a catalog:
 
 - files change often
 - filenames and folders may churn
@@ -75,7 +75,7 @@ This allows:
 - `ready_to_publish`
 - `archived`
 
-These stages are sidecar-owned and intentionally separate from curated catalog state.
+These stages are sidecar-owned and intentionally separate from catalog state.
 
 ## Typical Flows
 
@@ -85,7 +85,7 @@ These stages are sidecar-owned and intentionally separate from curated catalog s
 2. create or infer a Working group
 3. mark primary file
 4. work and print iteratively
-5. publish to curated catalog when stable
+5. publish to catalog when stable
 
 ### Curated Revision
 

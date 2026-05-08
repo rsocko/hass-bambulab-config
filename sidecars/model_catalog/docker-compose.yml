@@ -39,7 +39,7 @@ services:
       MODEL_CATALOG_CURATED_ASSETS_ROOT: ${MODEL_CATALOG_CURATED_ASSETS_ROOT:-/assets/Model Catalog}
 
       # Intake browse/select roots. Keep this limited to staging areas rather than the
-      # full /assets tree so curated catalog storage is not offered as an intake source.
+      # full /assets tree so catalog storage is not offered as an intake source.
       MODEL_CATALOG_INTAKE_ROOTS: ${MODEL_CATALOG_INTAKE_ROOTS:-/assets/Model Inbox}
 
       # Working Files explorer/reindex root.

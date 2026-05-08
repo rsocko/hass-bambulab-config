@@ -1,6 +1,6 @@
 model_catalog_publish_queue_to_local:
   alias: Publish Queue Upload To Local Catalog
-  description: Publish a reviewed intake upload into the sidecar-owned local curated catalog.
+  description: Publish a reviewed intake upload into the sidecar-owned local catalog.
   mode: single
   fields:
     upload_id:

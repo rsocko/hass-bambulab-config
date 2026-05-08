@@ -47,7 +47,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
 
   setConfig(config) {
     this._config = {
-      title: config && config.title ? String(config.title) : "Curated Catalog Browser",
+      title: config && config.title ? String(config.title) : "Catalog Browser",
       per_page: config && Number.isFinite(Number(config.per_page))
         ? Math.max(1, Math.min(50, Number(config.per_page)))
         : 12,
@@ -1221,7 +1221,7 @@ class ModelCatalogBrowserCard extends HTMLElement {
       + '      <div class="title-row-main">'
       + '        <div>'
       + '          <div class="card-title">' + this._escapeHtml(this._config.title) + '</div>'
-      + '          <div class="card-subtitle">Shared browser shell for curated catalog browsing.</div>'
+      + '          <div class="card-subtitle">Shared browser shell for catalog browsing.</div>'
       + '        </div>'
       + '      </div>'
       + this._renderTopToolbar()

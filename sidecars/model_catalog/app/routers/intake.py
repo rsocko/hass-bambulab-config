@@ -28,6 +28,10 @@ from fastapi.responses import JSONResponse
 from ..settings import Settings
 from ..state import AppState
 from .._helpers import (
+    LOCAL_IMPORT_DOCUMENT_EXTENSIONS,
+    LOCAL_IMPORT_IMAGE_EXTENSIONS,
+    SUPPORTED_INTAKE_FILE_EXTENSIONS,
+    SUPPORTED_WORKING_FILE_EXTENSIONS,
     _bulk_utc_now_iso,
     _coerce_bool,
     _model_photo_storage_root,
@@ -125,13 +129,10 @@ def _ensure_unique_local_model_id(*, db_path: Path, preferred: str) -> str:
 
 
 def _normalize_local_asset_type(path: Path) -> str:
-    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
-    LOCAL_IMPORT_MODEL_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".stp", ".gcode"}
-    LOCAL_IMPORT_DOCUMENT_EXTENSIONS = {".pdf", ".md", ".txt", ".csv", ".json", ".yaml", ".yml"}
     suffix = path.suffix.lower()
     if suffix in LOCAL_IMPORT_IMAGE_EXTENSIONS:
         return "image"
-    if suffix in LOCAL_IMPORT_MODEL_EXTENSIONS:
+    if suffix in SUPPORTED_WORKING_FILE_EXTENSIONS:
         return suffix.lstrip(".")
     if suffix in LOCAL_IMPORT_DOCUMENT_EXTENSIONS:
         return suffix.lstrip(".") or "document"
@@ -143,9 +144,12 @@ def _normalize_local_asset_role(*, asset_type: str, has_preview: bool, has_prima
         return "preview"
     if asset_type == "image":
         return "supporting" if has_preview else "preview"
-    if asset_type in {"3mf", "stl", "obj", "step", "gcode"}:
+    if asset_type in {"3mf", "stl", "obj", "step", "stp", "gcode", "zip"}:
         return "supporting" if has_primary else "primary"
-    if asset_type in {"pdf", "md", "txt", "csv", "json", "yaml", "yml", "document"}:
+    if asset_type in {
+        "pdf", "md", "txt", "csv", "json", "yaml", "yml", "rtf",
+        "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp", "document"
+    }:
         return "documentation"
     return "supporting"
 
@@ -292,9 +296,6 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
     warnings: list[dict[str, Any]] = []
     seen_paths: set[str] = set()
 
-    SUPPORTED_WORKING_FILE_EXTENSIONS = {".3mf", ".stl", ".obj", ".step", ".gcode"}
-    LOCAL_IMPORT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"}
-
     for entry in source_entries:
         entry_type = str(entry.get("type") or "").strip().lower()
         source_path_raw = str(entry.get("path") or "").strip()
@@ -313,7 +314,7 @@ def _expand_intake_source_entries(*, source_entries: list[dict[str, Any]]) -> tu
             normalized_path = str(file_path.resolve())
             if normalized_path in seen_paths:
                 continue
-            if file_path.suffix.lower() not in (SUPPORTED_WORKING_FILE_EXTENSIONS | LOCAL_IMPORT_IMAGE_EXTENSIONS):
+            if file_path.suffix.lower() not in SUPPORTED_INTAKE_FILE_EXTENSIONS:
                 warnings.append(
                     {
                         "code": "unsupported_type",
@@ -1056,7 +1057,7 @@ def intake_upload_publish_by_destination(request: Request, upload_id: str, paylo
 @router.post("/api/intake/uploads/{upload_id}/publish-to-local")
 def intake_upload_publish_to_local(request: Request, upload_id: str, payload: dict[str, Any] | None = None) -> Any:
     """
-    Publish a queued or reviewed intake upload into the local-authority curated catalog.
+    Publish a queued or reviewed intake upload into the local-authority catalog.
     
     Transitions from validated_ready → published_to_catalog (terminal state).
     This is the authoritative post-Manyfold sink for reviewed queue/source inputs.

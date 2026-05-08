@@ -260,7 +260,7 @@ def test_intake_group_duplicate_hash_is_handled_without_500(tmp_path: Path) -> N
         client.__exit__(None, None, None)
 
 
-def test_folder_selection_ignores_unsupported_files_during_validate_and_group(tmp_path: Path) -> None:
+def test_folder_selection_includes_document_files_during_validate_and_group(tmp_path: Path) -> None:
     source_root = tmp_path / "inbox"
     source_root.mkdir(parents=True, exist_ok=True)
     folder = source_root / "Model Working Files"
@@ -275,7 +275,7 @@ def test_folder_selection_ignores_unsupported_files_during_validate_and_group(tm
             json={"selections": [{"type": "folder", "path": str(folder), "recurse": True}]},
         )
         assert select_response.status_code == 200
-        assert select_response.json()["expanded_file_count"] == 1
+        assert select_response.json()["expanded_file_count"] == 2
         item_id = select_response.json()["upload_id"]
 
         validate_response = client.post(f"/api/intake/items/{item_id}/validate")
@@ -289,7 +289,7 @@ def test_folder_selection_ignores_unsupported_files_during_validate_and_group(tm
         )
         assert group_response.status_code == 200
         group_payload = group_response.json()
-        assert group_payload["added_items"] == 1
+        assert group_payload["added_items"] == 2
         assert group_payload["duplicate_items"] == 0
         assert group_payload["warnings"] == []
     finally:
@@ -465,6 +465,42 @@ def test_intake_plan_keeps_file_batch_and_folder_plan_separate(tmp_path: Path) -
         file_batch_model = next(model for model in payload["planned_models"] if model["title"] == "Router Mount Batch")
         assert file_batch_model["file_count"] == 2
         assert file_batch_model["model_file_count"] == 2
+    finally:
+        client.__exit__(None, None, None)
+
+
+def test_intake_plan_file_batch_by_file_alias_splits_models(tmp_path: Path) -> None:
+    source_root = tmp_path / "inbox"
+    source_root.mkdir(parents=True, exist_ok=True)
+    loose_a = source_root / "router_mount_plate.3mf"
+    loose_b = source_root / "router_mount_brace.stl"
+    loose_a.write_bytes(b"plate-bytes")
+    loose_b.write_bytes(b"brace-bytes")
+
+    client = _create_client(tmp_path, source_root)
+    try:
+        response = client.post(
+            "/api/intake/plan",
+            json={
+                "source_entries": [
+                    {
+                        "type": "file",
+                        "path": str(loose_a),
+                        "grouping_strategy": "by-file",
+                    },
+                    {
+                        "type": "file",
+                        "path": str(loose_b),
+                        "grouping_strategy": "by-file",
+                    },
+                ]
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["summary"]["planned_model_count"] == 2
+        assert payload["summary"]["grouping_strategy"] == "flat"
+        assert sorted(model["file_count"] for model in payload["planned_models"]) == [1, 1]
     finally:
         client.__exit__(None, None, None)
 

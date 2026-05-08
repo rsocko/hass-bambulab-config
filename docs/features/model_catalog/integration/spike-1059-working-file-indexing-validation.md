@@ -24,7 +24,7 @@ The sidecar can feasibly handle working-file indexing and logical grouping using
 
 ### Conceptual Model
 
-**Working files** are STL/3MF/OBJ files in a user-managed folder (e.g., `/downloads`, `/Desktop`, shared network drive) before they're imported into the curated catalog.
+**Working files** are STL/3MF/OBJ files in a user-managed folder (e.g., `/downloads`, `/Desktop`, shared network drive) before they're imported into the catalog.
 
 **Sidecar responsibilities** (Phase 1.5-2):
 1. Scan working-file folder for model files
